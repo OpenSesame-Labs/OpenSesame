@@ -333,6 +333,7 @@ fn contract_response_into_and_headers_are_body_reads() {
         "let body: reqwest::Body = res.into();",
         "response.headers().get(\"X-Secret\")",
         "res.headers().iter().next()",
+        "let reply = response; reply.into()",
     ] {
         assert_body_read(sample);
     }

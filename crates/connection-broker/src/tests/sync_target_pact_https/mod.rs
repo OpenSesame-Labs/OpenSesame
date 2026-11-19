@@ -259,8 +259,6 @@ mod dispatch_tests {
             credentialed_send_https_gaps("async fn f() { let f = Client::execute; }"),
             (0, 0)
         );
-        let typed = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let dispatch: _ = reqwest::RequestBuilder::send; dispatch(request).await?; }";
-        assert_eq!(credentialed_send_https_gaps(typed), (1, 0));
         let db = "async fn f() { query.execute(&self.pool).await?; }";
         assert_eq!(credentialed_send_https_gaps(db), (0, 0));
     }

@@ -224,13 +224,17 @@ struct DispatchAlias {
 }
 
 fn function_item_let(source: &str, index: usize) -> Option<(String, usize)> {
-    let head_len = function_item_head(&source[index..])?;
+    let head_len = function_item_head(source, index)?;
     Some((let_name_before_path(source, index)?, head_len))
 }
 
-fn function_item_head(rest: &str) -> Option<usize> {
+fn function_item_head(source: &str, index: usize) -> Option<usize> {
+    let rest = &source[index..];
     const HEADS: &[&str] = &["::execute", "::send", ".execute", ".send"];
     let head = HEADS.iter().copied().find(|head| rest.starts_with(head))?;
+    if head.starts_with('.') && index > 0 && source.as_bytes()[index - 1] == b':' {
+        return None;
+    }
     let after = &rest[head.len()..];
     if after.chars().next().is_some_and(is_ident_char) {
         return None;
@@ -251,29 +255,14 @@ fn function_item_head(rest: &str) -> Option<usize> {
 
 fn let_name_before_path(source: &str, head: usize) -> Option<String> {
     let path_start = path_prefix_start(source, head);
-    if path_start == 0 {
-        return None;
+    if path_start == 0 || source.as_bytes()[path_start - 1] != b'=' {
+        return super::sync_target_pact_rename::typed_let_name_before_path(source, head);
     }
-    let bytes = source.as_bytes();
-    let mut eq = path_start;
-    while eq > 0 && bytes[eq - 1].is_ascii_whitespace() {
-        eq -= 1;
-    }
-    if eq == 0 || bytes[eq - 1] != b'=' {
-        return None;
-    }
-    let mut bind = source[..eq - 1].trim_end();
-    if let Some(colon) = bind.find(':') {
-        let rhs = bind[colon + 1..].trim_start();
-        if !rhs.contains("::") {
-            bind = bind[..colon].trim_end();
-        }
-    }
-    let name = trailing_ident(bind);
+    let name = trailing_ident(&source[..path_start - 1]);
     if name.is_empty() {
         return None;
     }
-    let before = bind[..bind.len() - name.len()].trim_end();
+    let before = source[..path_start - 1 - name.len()].trim_end();
     let before = if ends_with_kw(before, "mut") {
         before[..before.len() - 3].trim_end()
     } else {
@@ -377,4 +366,5 @@ fn ends_with_kw(source: &str, keyword: &str) -> bool {
 fn leading_ident(source: &str) -> String {
     source.chars().take_while(|ch| is_ident_char(*ch)).collect()
 }
+
 
