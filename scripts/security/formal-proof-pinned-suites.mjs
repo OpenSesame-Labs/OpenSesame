@@ -85,4 +85,42 @@ export const PINNED_FORMAL_SUITES = [
     ],
     command: ["npm", "run", "verify:interaction-clock-formal"],
   },
+  {
+    id: "authority",
+    implementation: [
+      "crates/domain/src/grant.rs",
+      "crates/domain/src/grant_attenuation.rs",
+      "crates/domain/src/grant_budgets.rs",
+      "crates/domain/src/grant_lineage.rs",
+      "crates/domain/src/ids.rs",
+    ],
+    proofs: [
+      "spec/formal/authority/Authority.lean",
+      "spec/formal/authority/required-theorems.lean",
+      "spec/formal/authority/conformance.rs",
+      "spec/formal/authority/Cargo.toml",
+      "spec/formal/authority/Cargo.lock",
+      "spec/formal/required-theorem-command.lean",
+      "spec/formal/check-axioms.sh",
+      "spec/formal/check-axioms.test.mjs",
+    ],
+    command: ["npm", "run", "verify:authority-formal"],
+  },
+  {
+    id: "dpop",
+    implementation: [
+      "crates/proof/src/replay.rs",
+      "crates/proof/src/validator.rs",
+      "crates/proof/src/jwk.rs",
+    ],
+    proofs: [
+      "spec/formal/dpop/ReplayPolicy.lean",
+      "spec/formal/dpop/required-theorems.lean",
+      "spec/formal/dpop/replay_conformance.rs",
+      "spec/formal/required-theorem-command.lean",
+      "spec/formal/check-axioms.sh",
+      "spec/formal/check-axioms.test.mjs",
+    ],
+    command: ["npm", "run", "verify:dpop-formal"],
+  },
 ];
