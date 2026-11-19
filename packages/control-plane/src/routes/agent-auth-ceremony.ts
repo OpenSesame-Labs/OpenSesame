@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import {
   type BoundaryValue,
+  type ProvisionalSession,
   digestAgentClaimAttemptToken,
   isString,
   overlapCast,
@@ -9,6 +10,7 @@ import type { Context, Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { AppContext } from "../context.js";
 import type { Variables } from "../middleware/context.js";
+import { saveProvisional } from "../repos/session-storage.js";
 import {
   AGENT_AUTH_CLAIM_CSP,
   AGENT_AUTH_OAUTH_CLIENT_ID,
@@ -58,7 +60,7 @@ async function establishProvisionalSession(
 ): Promise<void> {
   const now = ctx.clock();
   const sessionId = `ps_${randomBytes(16).toString("hex")}`;
-  ctx.stores.provisionalSessions.set(sessionId, {
+  const session: ProvisionalSession = {
     id: sessionId,
     principalId: accountId,
     quotaProfile: "anonymous",
@@ -69,9 +71,9 @@ async function establishProvisionalSession(
     ],
     createdAt: now,
     expiresAt: new Date(now.getTime() + ctx.config.provisionalTtlMs),
-  });
+  };
   const pst = `pst_${randomBytes(24).toString("base64url")}`;
-  ctx.stores.provisionalTokens.set(pst, sessionId);
+  await saveProvisional(ctx.stores, session, pst);
   setCookie(c, ctx.config.provisionalCookieName, pst, {
     httpOnly: true,
     sameSite: "Lax",
