@@ -42,6 +42,53 @@ test("shellAssetRelative strips query from absolute same-origin URLs", () => {
   );
 });
 
+test("dynamicImportRefsFromJs keeps Vite assets/*.js literals dist-relative", () => {
+  const source = 'const m={"assets/app-root.js":1};\n';
+  assert.deepEqual(dynamicImportRefsFromJs(source), ["assets/app-root.js"]);
+});
+
+test("listStagedShellAssetPaths includes Vite dependency-table assets under Pages base", () => {
+  const { root, dist } = stageDist();
+  try {
+    writeFileSync(join(dist, "assets", "app-root.js"), "export const x = 1;\n");
+    writeFileSync(
+      join(dist, "assets", "main.js"),
+      'const __vite__mapDeps=()=>["assets/app-root.js"];\n',
+    );
+    writeFileSync(
+      join(dist, "index.html"),
+      '<script type="module" src="/OpenSesame/assets/main.js"></script>',
+    );
+    assert.deepEqual(listStagedShellAssetPaths(dist, pagesBase), [
+      join(dist, "assets/main.js"),
+      join(dist, "assets/app-root.js"),
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("listStagedShellAssetPaths follows static import from in the entry chunk", () => {
+  const { root, dist } = stageDist();
+  try {
+    writeFileSync(join(dist, "assets", "child.js"), "export const c = 1;\n");
+    writeFileSync(
+      join(dist, "assets", "main.js"),
+      'import { c } from "./child.js";\nexport const m = c;\n',
+    );
+    writeFileSync(
+      join(dist, "index.html"),
+      '<script type="module" src="/OpenSesame/assets/main.js"></script>',
+    );
+    assert.deepEqual(listStagedShellAssetPaths(dist, pagesBase), [
+      join(dist, "assets/main.js"),
+      join(dist, "assets/child.js"),
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("listStagedShellAssetPaths follows dynamic import() from the entry chunk", () => {
   const { root, dist } = stageDist();
   try {

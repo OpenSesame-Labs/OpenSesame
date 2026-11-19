@@ -3,6 +3,10 @@ import { dirname, join } from "node:path";
 
 const DYNAMIC_IMPORT = /import\s*\(\s*["']([^"']+)["']\s*\)/giu;
 const VITE_DEP_ASSET = /["'](assets\/[^"']+\.m?js)["']/giu;
+/** Emitted `import … from "./chunk.js"` in Vite bundles (incl. minified). */
+const STATIC_MODULE_FROM =
+  /(?:^|[;,])import(?:\s+type\s+)?[\s\w*{},$]*?from\s*["'](\.[^"']+\.m?js)["']/giu;
+const STATIC_EXPORT_FROM = /export\s+[^"']*from\s*["'](\.[^"']+\.m?js)["']/giu;
 
 function normalizeDistRelative(pathPart, ref) {
   const parts = [];
@@ -29,7 +33,13 @@ export function dynamicImportRefsFromJs(source) {
     refs.add(match[1]);
   }
   for (const match of source.matchAll(VITE_DEP_ASSET)) {
-    refs.add(`/${match[1]}`);
+    refs.add(match[1]);
+  }
+  for (const match of source.matchAll(STATIC_MODULE_FROM)) {
+    refs.add(match[1]);
+  }
+  for (const match of source.matchAll(STATIC_EXPORT_FROM)) {
+    refs.add(match[1]);
   }
   return [...refs];
 }
