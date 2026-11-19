@@ -79,10 +79,7 @@ test("npm workspaces replace the legacy lockfile", () => {
   const lock = JSON.parse(read("package-lock.json"));
   assert.equal(manifest.packageManager, "npm@11.19.1");
   assert.equal(Object.hasOwn(manifest, legacy), false);
-  assert.equal(
-    manifest.engines.node,
-    ">=24.15.0 <25.0.0 || >=26.0.0",
-  );
+  assert.equal(manifest.engines.node, ">=24.15.0 <25.0.0 || >=26.0.0");
   assert.match(manifest.devDependencies.turbo, /\S/);
   assert.ok(lock.lockfileVersion >= 3);
   assert.equal(lock.packages[""].name, "opensesame");
