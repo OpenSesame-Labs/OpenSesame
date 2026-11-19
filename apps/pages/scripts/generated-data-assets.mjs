@@ -245,7 +245,7 @@ const generatedModules = Object.freeze([
   {
     kind: "literal-array",
     path: `${root}/packages/app-core/src/tutorial/registry/vault-catalog.ts`,
-    hash: "482d7a2e35caf2c819fcb004108ce38f826a7cd9813c9545c2a6986acf065319",
+    hash: "bdc89f82c19737d2f27ed40b77846d960e67a5befafdff24eacfcf05851397ab",
     exportName: "VAULT_TARGETS",
     assetName: "generated-data/tutorial-vault-targets.json",
   },
