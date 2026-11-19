@@ -72,6 +72,7 @@ pub struct SyncCursor {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct SyncBlob {
     pub id: String,
     pub epoch: u64,
@@ -80,6 +81,7 @@ pub struct SyncBlob {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PersistedStore {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     version: Option<u32>,
