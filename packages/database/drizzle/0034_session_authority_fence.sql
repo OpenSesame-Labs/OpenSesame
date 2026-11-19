@@ -1,0 +1,1 @@
+ALTER TABLE "principals" ADD COLUMN "session_authority_version" integer DEFAULT 0 NOT NULL;

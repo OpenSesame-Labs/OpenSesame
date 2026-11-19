@@ -10,6 +10,7 @@ import type { Context, Hono } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import type { AppContext } from "../context.js";
 import type { Variables } from "../middleware/context.js";
+import { principalSessionEpoch } from "../repos/principal-session-boundary.js";
 import { saveProvisional } from "../repos/session-storage.js";
 import {
   AGENT_AUTH_CLAIM_CSP,
@@ -57,6 +58,7 @@ async function establishProvisionalSession(
   c: Context,
   ctx: AppContext,
   accountId: string,
+  expectedEpoch: number,
 ): Promise<void> {
   const now = ctx.clock();
   const sessionId = `ps_${randomBytes(16).toString("hex")}`;
@@ -73,7 +75,7 @@ async function establishProvisionalSession(
     expiresAt: new Date(now.getTime() + ctx.config.provisionalTtlMs),
   };
   const pst = `pst_${randomBytes(24).toString("base64url")}`;
-  await saveProvisional(ctx.stores, session, pst);
+  await saveProvisional(ctx.stores, session, pst, expectedEpoch);
   setCookie(c, ctx.config.provisionalCookieName, pst, {
     httpOnly: true,
     sameSite: "Lax",
@@ -119,13 +121,14 @@ async function handleClaimResume(c: Context): Promise<Response> {
   const token = await provider.AccessToken.find(accessToken);
   const accountId = token?.accountId;
   if (!accountId) return login();
+  const expectedEpoch = await principalSessionEpoch(ctx.stores, accountId);
   // The token exchange already refused a suspended account at the upstream
   // provider, but suspension can land between issuance and this callback. A
   // fresh `pst_` session must never be minted for a principal that is no
   // longer active.
   const principal = await ctx.repos.principals.getById(accountId);
   if (!principal || principal.state !== "active") return login();
-  await establishProvisionalSession(c, ctx, accountId);
+  await establishProvisionalSession(c, ctx, accountId, expectedEpoch);
   return c.redirect(returnTo, 303);
 }
 
