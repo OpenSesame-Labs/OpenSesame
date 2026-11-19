@@ -123,9 +123,10 @@ function patternCovers(pattern, glob) {
 
 /**
  * Last matching filter wins. A positive filter covers only when it is the
- * package glob or a broader parent. A `!` filter clears coverage when that
- * same relation holds, so a later positive can restore it. A narrower `!`
- * child does not uncover the package.
+ * package glob or a broader parent. A `!` filter clears coverage when it is
+ * the package glob, a broader parent, or a narrower child within the package
+ * (a partial exclusion must not count as whole-package coverage). A later
+ * positive filter can restore coverage.
  *
  * @param {string[]} filters
  * @param {string} glob package dir glob such as `packages/foo/**`
@@ -134,7 +135,10 @@ export function pathCovers(filters, glob) {
   let covered = false;
   for (const filter of filters) {
     if (filter.startsWith("!")) {
-      if (patternCovers(filter.slice(1), glob)) covered = false;
+      const neg = filter.slice(1);
+      if (patternCovers(neg, glob) || patternCovers(glob, neg)) {
+        covered = false;
+      }
       continue;
     }
     if (patternCovers(filter, glob)) covered = true;

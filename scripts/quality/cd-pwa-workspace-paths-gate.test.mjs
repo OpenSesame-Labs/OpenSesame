@@ -49,7 +49,16 @@ test("pathCovers honors ordered negative exclusions", () => {
   );
   assert.equal(
     pathCovers(["packages/**", "!packages/foo/src/**"], "packages/foo/**"),
+    false,
+    "narrower negative within the package invalidates whole-package coverage",
+  );
+  assert.equal(
+    pathCovers(
+      ["packages/**", "!packages/foo/src/**", "packages/foo/**"],
+      "packages/foo/**",
+    ),
     true,
+    "later positive restores coverage after narrower exclusion",
   );
   assert.equal(
     pathCovers(
