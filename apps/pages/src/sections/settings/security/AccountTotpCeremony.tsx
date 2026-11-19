@@ -124,6 +124,7 @@ function TotpScanCard({
   busy: boolean;
   onScanned: () => void;
 }) {
+  const copySecret = useCopySecret();
   const [copied, setCopied] = useState(false);
   const copySecret = useCopySecret();
   const secret = uri ? secretOf(uri) : "";
