@@ -19,7 +19,7 @@ import {
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  "../..",
+  "../../..",
 );
 const panelRel =
   "apps/pages/src/sections/connections/connect/UserTokenPanel.tsx";
