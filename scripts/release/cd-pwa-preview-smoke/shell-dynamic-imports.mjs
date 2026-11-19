@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 const DYNAMIC_IMPORT = /import\s*\(\s*["']([^"']+)["']\s*\)/giu;
-const VITE_DEP_ASSET = /["'](assets\/[^"']+\.m?js)["']/giu;
+const VITE_DEP_ASSET = /["'](assets\/[^"']+\.(?:m?js|css))["']/giu;
 /** Emitted `import … from "./chunk.js"` in Vite bundles (incl. minified). */
 const STATIC_MODULE_FROM =
   /(?:^|[;,])import(?:\s+type\s+)?[\s\w*{},$]*?from\s*["'](\.[^"']+\.m?js)["']/giu;
