@@ -9,22 +9,14 @@ import {
   removeDirectoryMembership,
 } from "./directory-removal.js";
 import { serializeMembershipMutation } from "./organizations.js";
+import { finishLegacyOrphan } from "./scim-legacy-orphan.js";
 
-/**
- * Where a Groups PATCH records the derived role, on the SCIM row itself.
- * Stripped from every representation this route renders.
- */
 export const SCIM_ROLE_ATTRIBUTE = "urn:opensesame:params:scim:2.0:role";
 
 /** Prior userName/externalId values, so a rename still deprovisions. */
 export const SCIM_SUBJECTS_ATTRIBUTE =
   "urn:opensesame:params:scim:2.0:subjects";
 
-/**
- * Principals already identified for deprovisioning. Written before the
- * multi-row revocation starts so a retry after a partial failure still knows
- * whose sessions to end, without guessing from a now-removed membership.
- */
 const SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE =
   "urn:opensesame:params:scim:2.0:deprovision-principals";
 export const SCIM_DEPROVISION_JOURNAL_ATTRIBUTE =
@@ -134,10 +126,6 @@ export function withRememberedSubjects(
   };
 }
 
-/**
- * The role a directory-provisioned subject should join at, or `undefined`
- * when no mapped Groups push has said otherwise.
- */
 export async function provisionedRoleForSubject(
   ctx: AppContext,
   organizationId: string,
@@ -277,41 +265,16 @@ export async function deprovision(
   for (const target of journal.targets) {
     if (target.completed) continue;
     if (target.legacyOrphan) {
-      const { revokeOrganizationMembership } = await import(
-        "./organization-revocation.js"
-      );
-      await revokeOrganizationMembership(ctx, {
-        organizationId: organization.id,
-        principalId: target.principalId,
-        correlationId,
-        reason: "scim_deactivated",
-        revokeSessionsWithoutMembership: true,
-      });
-      const { hostApiEndpoint } = await import("../services/host-endpoint.js");
-      const url = hostApiEndpoint(
-        ctx.config.hostApiUrl,
-        "api/v1/sessions/revoke",
-      );
-      if (!url) throw new Error("Host session revocation is unavailable");
-      const response = await fetch(url, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-opensesame-operator": ctx.config.operatorToken,
+      await finishLegacyOrphan(
+        ctx,
+        organization.id,
+        {
+          principalId: target.principalId,
+          incarnation: target.incarnation,
+          ...target.legacyOrphan,
         },
-        body: JSON.stringify({
-          organization_id: organization.id,
-          principal_id: target.principalId,
-          membership_incarnation: target.incarnation,
-          authority_revision: target.legacyOrphan.authorityRevision,
-          withdrawal_id: target.legacyOrphan.withdrawalId,
-        }),
-        redirect: "error",
-        signal: AbortSignal.timeout(5_000),
-      });
-      await response.body?.cancel();
-      if (!response.ok)
-        throw new Error("Host session revocation is unavailable");
+        correlationId,
+      );
     } else {
       await removeDirectoryMembership(ctx, {
         organizationId: organization.id,
