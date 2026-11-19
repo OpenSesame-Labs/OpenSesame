@@ -72,11 +72,17 @@ fn eval_guard(expr: &str, negated: bool, leaf: &mut dyn FnMut(&str) -> bool) -> 
 }
 
 fn scheme_covers(expr: &str, before: &str, dest: &str) -> bool {
-    match scheme_subject(expr).as_deref() {
-        Some(subject) if subject == dest => true,
-        Some(subject) => parsed_from(before, subject) == Some(dest),
-        None => false,
+    let Some(subject) = scheme_subject(expr) else {
+        return false;
+    };
+    if subject == dest {
+        return true;
     }
+    let Some((rhs, end)) = last_rhs(before, &subject) else {
+        return false;
+    };
+    // `url = evil` between `Url::parse(url)` and this guard checks a stale copy.
+    url_parse_arg(rhs) == Some(dest) && !super::bind::shadows(&before[end..], dest)
 }
 
 fn scheme_subject(expr: &str) -> Option<String> {
@@ -121,11 +127,7 @@ fn whole_scheme_neq(expr: &str) -> bool {
     scheme_at(expr).is_some()
 }
 
-fn parsed_from<'a>(before: &'a str, subject: &str) -> Option<&'a str> {
-    url_parse_arg(last_rhs(before, subject)?)
-}
-
-fn last_rhs<'a>(source: &'a str, name: &str) -> Option<&'a str> {
+fn last_rhs<'a>(source: &'a str, name: &str) -> Option<(&'a str, usize)> {
     let bytes = source.as_bytes();
     let mut index = 0usize;
     let mut found = None;
@@ -138,7 +140,7 @@ fn last_rhs<'a>(source: &'a str, name: &str) -> Option<&'a str> {
             let eq = index + name.len();
             if super::bind::is_single_eq(bytes, eq) {
                 let end = super::bind::stmt_end(bytes, eq + 1);
-                found = Some(&source[eq + 1..end]);
+                found = Some((&source[eq + 1..end], end));
                 index = end;
                 continue;
             }
