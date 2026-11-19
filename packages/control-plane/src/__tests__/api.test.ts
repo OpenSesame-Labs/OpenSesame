@@ -1310,7 +1310,7 @@ describe("control-plane API", () => {
     expect((await request("{")).status).toBe(400);
   });
 
-  it("serializes membership rollback so it cannot resurrect a removed owner", async () => {
+  it("keeps a failed withdrawal fenced from a competing owner removal", async () => {
     const { app } = createControlPlane({
       config: {
         port: 0,
@@ -1357,12 +1357,9 @@ describe("control-plane API", () => {
         markFirstStarted();
         return firstResponse;
       })
-      .mockImplementation(async () => {
+      .mockImplementation(async (_input, init) => {
         markSecondStarted();
-        return new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        });
+        return hostRevocationResponseFor(JSON.parse(String(init?.body)));
       });
     try {
       const failedDemotion = app.request(
@@ -1389,7 +1386,7 @@ describe("control-plane API", () => {
 
       releaseFirst(new Response("down", { status: 503 }));
       expect((await failedDemotion).status).toBe(502);
-      expect((await removal).status).toBe(204);
+      expect((await removal).status).toBe(409);
       await secondStarted;
 
       const members = overlapCast(
@@ -1399,7 +1396,7 @@ describe("control-plane API", () => {
           })
         ).json(),
       );
-      expect(members.members).not.toContainEqual(
+      expect(members.members).toContainEqual(
         expect.objectContaining({ principalId: target.principalId }),
       );
     } finally {
@@ -1471,13 +1468,10 @@ describe("control-plane API", () => {
           markApprovalStarted();
           return approvalResponse;
         })
-        .mockImplementation(async (input) => {
+        .mockImplementation(async (input, init) => {
           hostUrls.push(String(input));
           markMutationReachedHost();
-          return new Response(JSON.stringify({ ok: true }), {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          });
+          return hostRevocationResponseFor(JSON.parse(String(init?.body)));
         });
       try {
         const approval = app.request("/v1/device/approve", {
