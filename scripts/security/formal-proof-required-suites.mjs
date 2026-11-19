@@ -27,10 +27,18 @@ function sameMembers(actual, expected) {
 }
 
 export function sameProofContract(actual, expected) {
+  const a = actual.lockProjection;
+  const b = expected.lockProjection;
   return (
     sameMembers(actual.proofs, expected.proofs) &&
     actual.command.length === expected.command.length &&
-    expected.command.every((item, index) => actual.command[index] === item)
+    expected.command.every((item, index) => actual.command[index] === item) &&
+    ((!a && !b) ||
+      (!!a &&
+        !!b &&
+        a.path === b.path &&
+        a.root === b.root &&
+        a.dependency === b.dependency))
   );
 }
 

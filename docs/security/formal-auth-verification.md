@@ -59,7 +59,10 @@ its source blobs must be present locally. Fetch the reviewed history if they
 are missing. The hashes detect drift. They do not prove the review or the model
 is correct.
 The pre-push hook selects registered suites when their mapped implementation
-files occur in the commits being pushed, including changes later reverted. It
+files occur in the commits being pushed, including changes later reverted. For
+a suite with a registered Cargo.lock projection, it also selects changes to the
+reviewed dependency graph; lockfile-only graph selection conservatively includes
+inactive optional, development, and target-specific packages. It
 reads historical policy as data and checks each registry or requirements change
 against the requirements in that commit. Earlier registry history from before
 the requirements file existed is included in selection. If a changed path had
@@ -149,6 +152,7 @@ before the latest main integration; broker-mode regressions passed again on the
 updated base. No formal theorem proves the property.
 The restriction cannot recall previously disclosed requests or cancel effects
 already started. Restoring relay requires a separate holder-side authority fence.
+| SPIFFE identity and trust withdrawal. [ADR 0132](../adr/0132-optional-mtls-and-workload-identity.md), [ADR 0227](../adr/0227-spiffe-withdrawal-under-ambiguous-snapshots.md). | [`source.rs`](../../crates/spiffe-source/src/source.rs), [`source_policy.rs`](../../crates/spiffe-source/src/source_policy.rs), and [`outage.rs`](../../crates/spiffe-source/src/outage.rs). | The [withdrawal model](../../spec/formal/spiffe/README.md) covers selected denial, trust-reduction, and outage-deadline decisions. It does not prove SDK behavior for arbitrary responses, implementation refinement, certificate verification, or hard real-time sink withdrawal. |
 
 The session model abstracts token-prefix matching to a Boolean and does not
 prove the security of token generation or storage. The model also omits

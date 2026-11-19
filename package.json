@@ -55,6 +55,7 @@
     "verify:authority-formal": "bash spec/formal/authority/check.sh",
     "verify:dpop-formal": "bash spec/formal/dpop/verify.sh",
     "verify:oauth-formal": "bash spec/formal/oauth/verify.sh",
+    "verify:spiffe-formal": "bash spec/formal/spiffe/verify.sh",
     "verify:webauthn-formal": "bash spec/formal/webauthn/verify.sh",
     "verify:interaction-clock-formal": "bash spec/formal/interaction-clock/verify.sh",
     "test:redteam": "npm run redteam -w @opensesame/redteam",
