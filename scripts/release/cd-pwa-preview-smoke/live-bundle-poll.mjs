@@ -1,7 +1,4 @@
-/**
- * Prove the Vite shell chunks linked from staged index.html are on the live
- * Pages CDN before Playwright runs.
- */
+// Poll staged shell chunks on the live Pages CDN before Playwright runs.
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
@@ -9,7 +6,11 @@ import { setTimeout as delay } from "node:timers/promises";
 import { readString } from "../../lib/json-boundary.mjs";
 import { pollUntilDeadline } from "../cd-preview-smoke-registry.mjs";
 import { normalizePagesBase } from "./prepare-vars.mjs";
-import { cdnPollBudget, sharedCdnDeadlineEndMs } from "./retry-budget.mjs";
+import {
+  cdnPollBudget,
+  fetchAbortTimeoutMs,
+  sharedCdnDeadlineEndMs,
+} from "./retry-budget.mjs";
 import { expandDynamicShellImports } from "./shell-dynamic-imports.mjs";
 import { shellAssetRefs } from "./shell-html-refs.mjs";
 
@@ -284,7 +285,9 @@ async function assertLiveAsset(
     response = await fetcher(url, {
       cache: "no-store",
       redirect: "error",
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: AbortSignal.timeout(
+        fetchAbortTimeoutMs(timeoutMs, bodyDeadlineAt, now),
+      ),
     });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "request failed";
