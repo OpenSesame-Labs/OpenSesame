@@ -122,11 +122,19 @@ async function persistGuestOrdinal(): Promise<void> {
  * without Web Locks fall back to the sync mint — memory-only storage is
  * single-copy anyway.
  */
-export async function mintGuestSessionPersonLocked(): Promise<GuestSessionPerson> {
+export async function mintGuestSessionPersonLocked(
+  validate?: () => void,
+): Promise<GuestSessionPerson> {
   const locks = lockManager();
-  if (!locks) return mintGuestSessionPerson();
+  if (!locks) {
+    validate?.();
+    return mintGuestSessionPerson();
+  }
   return locks.request("opensesame-guest-ordinal", async () => {
     await kvRefresh(GUEST_ORDINAL_KEY, 64);
+    // The lock acquisition yields. Revalidate at the actual person-mint
+    // boundary so a sign-in that landed while waiting wins instead.
+    validate?.();
     const person = mintGuestSessionPerson();
     await persistGuestOrdinal();
     return person;

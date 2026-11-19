@@ -21,7 +21,12 @@
  */
 
 import { clearAuthOutcome } from "@opensesame/app-core/lib/auth-outcome.js";
-import { continueAsGuest } from "@opensesame/app-core/lib/guest-auth.js";
+import {
+  FRESH_GUEST_SIGN_OUT_MESSAGE,
+  FRESH_GUEST_STATUS_UNKNOWN_MESSAGE,
+  continueAsGuest,
+} from "@opensesame/app-core/lib/guest-auth.js";
+import { signOut } from "@opensesame/app-core/lib/session-exit.js";
 import { useEffect, useRef, useState } from "react";
 import { FailureNotice } from "../components/FailureNotice.js";
 import { GateTools } from "../components/GateTools.js";
@@ -135,6 +140,23 @@ export function FrontDoor({ onOpenSetup, onOpenJoin }: FrontDoorProps) {
         />
 
         {guestFailed ? <StatusMark tone="err" label={guestFailed} /> : null}
+        {guestFailed === FRESH_GUEST_SIGN_OUT_MESSAGE ? (
+          <button
+            type="button"
+            className="unlock__switch"
+            onClick={() => {
+              signOut();
+              setGuestFailed(null);
+            }}
+          >
+            Sign out
+          </button>
+        ) : null}
+        {guestFailed === FRESH_GUEST_STATUS_UNKNOWN_MESSAGE ? (
+          <button type="button" className="unlock__switch" onClick={startGuest}>
+            Retry Identity connection
+          </button>
+        ) : null}
         <FailureNotice
           id="front-door:guest"
           title="Guest"

@@ -114,6 +114,25 @@ function provisionalMintPerClient(
 
 principalRoutes.post(
   "/provisional",
+  async (c, next) => {
+    // A fresh-guest choice is not an account switch. Authentication was
+    // resolved from this request's cookie before the route runs, so this is
+    // the authority-side linearization point against another tab signing in.
+    if (
+      c.req.header("x-opensesame-fresh-guest") === "1" &&
+      c.get("principalId")
+    ) {
+      return c.json(
+        {
+          error: "fresh_guest_requires_sign_out",
+          message:
+            "Sign out of the current account first, then continue as a fresh guest.",
+        },
+        409,
+      );
+    }
+    await next();
+  },
   idempotencyMiddleware("principals.provisional"),
   async (c) => {
     const ctx = c.get("ctx");

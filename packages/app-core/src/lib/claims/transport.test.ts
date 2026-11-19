@@ -41,6 +41,7 @@ function transportAnswering(...answers: Array<Response | Error>) {
     fetch,
     principal: () => "prn_1",
     provisional: async () => "prn_guest",
+    freshProvisional: async () => "prn_guest",
   };
   return { transport, fetch };
 }

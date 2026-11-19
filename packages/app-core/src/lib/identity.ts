@@ -63,9 +63,11 @@ let pendingRevoke: Promise<void> | null = null;
 let orphanCookie = false;
 /** Bumped whenever the session is ended, to fence slow session creators. */
 let sessionEpoch = 0;
+let sessionRevision = 0;
 const listeners = new Set<() => void>();
 
 function emit(): void {
+  sessionRevision += 1;
   for (const listener of listeners) listener();
 }
 
@@ -335,10 +337,37 @@ async function connectProvisionalDefault(): Promise<IdentitySession> {
   // Let any revoke finish first: its response clears the cookie by name, which
   // would otherwise land after the new one is set and take it with it.
   await settleRevokes();
+  return mintProvisionalSession(false, sessionRevision);
+}
+
+async function connectFreshProvisionalDefault(): Promise<IdentitySession> {
+  const inspected = await inspectRemoteIdentitySessionDefault();
+  if (inspected.kind === "unknown") {
+    throw new IdentityError(
+      "Reconnect to Identity and sign out before continuing as a fresh guest.",
+      503,
+    );
+  }
+  if (inspected.kind === "present") {
+    throw new IdentityError(
+      "Sign out of the current account first, then continue as a fresh guest.",
+      409,
+    );
+  }
+  return mintProvisionalSession(true, sessionRevision);
+}
+
+async function mintProvisionalSession(
+  requireFreshGuest: boolean,
+  expectedRevision: number,
+): Promise<IdentitySession> {
   const epoch = sessionEpoch;
   const res = await identityPlaneRequest("/v1/principals/provisional", {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: {
+      "content-type": "application/json",
+      ...(requireFreshGuest ? { "x-opensesame-fresh-guest": "1" } : undefined),
+    },
     credentials: "include",
     body: "{}",
     timeoutMs: IDENTITY_FETCH_MS,
@@ -368,6 +397,16 @@ async function connectProvisionalDefault(): Promise<IdentitySession> {
       409,
     );
   }
+  if (requireFreshGuest && sessionRevision !== expectedRevision) {
+    pendingRevoke = (pendingRevoke ?? Promise.resolve())
+      .then(() => revokeRequest(accessToken))
+      .then(() => undefined)
+      .catch(() => undefined);
+    throw new IdentityError(
+      "Sign out of the current account first, then continue as a fresh guest.",
+      409,
+    );
+  }
   const nextSession: IdentitySession = {
     principalId: body.principalId,
     accessToken,
@@ -380,17 +419,28 @@ async function connectProvisionalDefault(): Promise<IdentitySession> {
 }
 
 async function resumeCookieSession(): Promise<IdentitySession | null> {
-  if (session) return session;
+  const inspected = await inspectRemoteIdentitySessionDefault();
+  return inspected.kind === "present" ? inspected.session : null;
+}
+
+export type RemoteIdentitySessionInspection =
+  | { kind: "present"; session: IdentitySession }
+  | { kind: "absent" }
+  | { kind: "unknown" };
+
+async function inspectRemoteIdentitySessionDefault(): Promise<RemoteIdentitySessionInspection> {
+  if (session) return { kind: "present", session };
   // Device-native identity has no HttpOnly cookie plane.
-  if (isDeviceIdentityMode()) return null;
+  if (isDeviceIdentityMode()) return { kind: "absent" };
   try {
     const res = await identityPlaneRequest("/v1/principals/me", {
       credentials: "include",
       timeoutMs: PROBE_MS,
     });
-    if (!res.ok) return null;
+    if (res.status === 401) return { kind: "absent" };
+    if (!res.ok) return { kind: "unknown" };
     const body = overlapCast(await res.json());
-    if (!isString(body.id) || !body.id) return null;
+    if (!isString(body.id) || !body.id) return { kind: "unknown" };
     const nextSession: IdentitySession = {
       principalId: body.id,
       // An opaque local identity for Host-session deduplication only. It is
@@ -402,9 +452,9 @@ async function resumeCookieSession(): Promise<IdentitySession | null> {
     session = nextSession;
     setOrphan(false);
     emit();
-    return nextSession;
+    return { kind: "present", session: nextSession };
   } catch {
-    return null;
+    return { kind: "unknown" };
   }
 }
 
@@ -544,7 +594,9 @@ export const identitySeams = {
   noteUnauthorized: noteUnauthorizedDefault,
   identityJson: identityJsonDefault,
   connectProvisional: connectProvisionalDefault,
+  connectFreshProvisional: connectFreshProvisionalDefault,
   resumeSession: resumeCookieSession,
+  inspectRemoteSession: inspectRemoteIdentitySessionDefault,
   adoptToken: adoptTokenDefault,
   rebindSession: (accessToken: string, expectedEpoch?: number) =>
     adoptTokenDefault(accessToken, true, expectedEpoch),
@@ -617,6 +669,13 @@ export async function rebindSession(
 }
 export async function probeIdentity(): Promise<HealthState> {
   return identitySeams.probeIdentity();
+}
+export async function connectFreshProvisional(): Promise<IdentitySession> {
+  return identitySeams.connectFreshProvisional();
+}
+
+export async function inspectRemoteIdentitySession(): Promise<RemoteIdentitySessionInspection> {
+  return identitySeams.inspectRemoteSession();
 }
 export async function fetchPrincipal(): Promise<Principal> {
   return identitySeams.fetchPrincipal();

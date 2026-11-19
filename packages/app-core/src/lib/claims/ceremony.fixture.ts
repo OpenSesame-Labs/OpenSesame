@@ -32,7 +32,9 @@ export function json(body: BoundaryValue, status = 200): Response {
 
 type Route = (...args: string[]) => Promise<Response>;
 
-export function claimHarness() {
+export function claimHarness(options?: {
+  freshProvisional?: () => Promise<string>;
+}) {
   const store = new Map<string, string>();
   const storage: StashStorage = {
     getItem: (k) => store.get(k) ?? null,
@@ -68,6 +70,12 @@ export function claimHarness() {
     principal: () => principal,
     async provisional() {
       principal = await routes.provisional();
+      return principal;
+    },
+    async freshProvisional() {
+      principal = options?.freshProvisional
+        ? await options.freshProvisional()
+        : await routes.provisional();
       return principal;
     },
   };

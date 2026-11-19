@@ -1,13 +1,14 @@
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { ConnectorStatus } from "@opensesame/app-core/lib/connectors.js";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   IdentityCeremony,
   expiryPhrase,
   identityCeremonyDependencies,
 } from "./IdentityCeremony.js";
+import { expectInTray } from "./tray.test-support.js";
 
 const original = { ...identityCeremonyDependencies };
 const NOW = Date.parse("2026-01-01T00:00:00Z");
@@ -43,6 +44,7 @@ beforeEach(() => {
       accountKind: "a seeded test account",
     }),
     claimGuestAuth: vi.fn().mockResolvedValue(undefined),
+    connectFreshProvisional: vi.fn().mockResolvedValue(undefined),
     clearSession: vi.fn(),
     identityBase: () => "http://127.0.0.1:18788",
   });
@@ -110,6 +112,22 @@ describe("IdentityCeremony", () => {
         name: "Sign in with a seeded test account",
       }),
     ).toBeTruthy();
+  });
+
+  it("does not reuse a surviving remote session as this device", async () => {
+    const connect = vi.fn().mockResolvedValue(undefined);
+    Object.assign(identityCeremonyDependencies, {
+      useConnect: () => ({ connect, connecting: false, error: null }),
+      connectFreshProvisional: vi
+        .fn()
+        .mockRejectedValue(new Error("Sign out of the current account first.")),
+    });
+    render(<IdentityCeremony connector={connector()} onClose={() => {}} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Use this device" }));
+
+    await expectInTray("Sign out of the current account first.");
+    expect(connect).not.toHaveBeenCalled();
   });
 
   it("clears the credential before refreshing, or the refresh is a no-op", () => {

@@ -1,29 +1,31 @@
-import { briefOrigin } from "@opensesame/os-domain";
-import { useState } from "react";
-import { useGuestsAllowed } from "../bindings/guest-access.js";
-
 import type { ConnectorStatus } from "@opensesame/app-core/lib/connectors.js";
-import { defaultUpstream } from "@opensesame/app-core/lib/federation.js";
-import { beginSignIn } from "@opensesame/app-core/lib/federation.js";
+import {
+  beginSignIn,
+  defaultUpstream,
+} from "@opensesame/app-core/lib/federation.js";
 import { claimGuestAuth } from "@opensesame/app-core/lib/guest-auth.js";
 import {
   adoptToken,
   clearSession,
+  connectFreshProvisional,
   identityBase,
 } from "@opensesame/app-core/lib/identity.js";
+import { briefOrigin } from "@opensesame/os-domain";
+import { useState } from "react";
+import { useGuestsAllowed } from "../bindings/guest-access.js";
+import { useConnect, useIdentitySession } from "../bindings/identity.js";
 import { type CeremonyAlt, CeremonyShell } from "./CeremonyShell.js";
 import { FieldShell } from "./FieldShell.js";
+import { FormCommit } from "./FormCommit.js";
 import { IconLogin, IconRefresh, IconTerminal, IconUser } from "./Icons.js";
 import { StatusNote } from "./StatusNote.js";
-
-import { useConnect, useIdentitySession } from "../bindings/identity.js";
-import { FormCommit } from "./FormCommit.js";
 export const identityCeremonyDependencies = {
   useConnect,
   useIdentitySession,
   beginSignIn,
   defaultUpstream,
   claimGuestAuth,
+  connectFreshProvisional,
   adoptToken,
   clearSession,
   identityBase,
@@ -108,7 +110,7 @@ export function IdentityCeremony({
     setFlash(null);
     void (async () => {
       try {
-        await connect();
+        await identityCeremonyDependencies.connectFreshProvisional();
         await identityCeremonyDependencies.claimGuestAuth();
         onClose();
       } catch (caught) {

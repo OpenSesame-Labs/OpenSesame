@@ -28,10 +28,12 @@ import {
 import {
   IdentityError,
   connectProvisional,
+  connectFreshProvisional,
   currentSession,
   identityJson,
   identitySeams,
   identitySessionEpoch,
+  inspectRemoteIdentitySession,
   isRemoteIdentityConfigured,
   rebindSession,
 } from "./identity.js";
@@ -54,19 +56,27 @@ const FEDERATED_NOTICE_BODY =
 const COLLISION_MESSAGE =
   "That account is already attached to a different OpenSesame identity.";
 
+export const FRESH_GUEST_SIGN_OUT_MESSAGE =
+  "Sign out of the current account first, then continue as a fresh guest.";
+export const FRESH_GUEST_STATUS_UNKNOWN_MESSAGE =
+  "Reconnect to Identity and sign out before continuing as a fresh guest.";
+
 // Stryker disable all: mutable test seam; behavior is exercised through the exported operations
 export const guestAuthDependencies = {
   rebindSession,
   sessionEpoch: identitySessionEpoch,
   connectProvisional,
+  connectFreshProvisional,
   resumeSession: () => identitySeams.resumeSession(),
   currentSession,
+  inspectRemoteSession: inspectRemoteIdentitySession,
   isRemoteIdentityConfigured,
   identityJson,
   createGuest: (options?: { resume?: boolean }) =>
     vaultStore.createGuest(options),
   vaultStatus: () => vaultStore.getSnapshot().status,
   loadFederationSession,
+  mintGuestPerson: mintGuestSessionPersonLocked,
   /** Identity installs the directory seed; a minimal vault leaves it undone. */
   ensureDefaultAccess: async (_tomb: string): Promise<void> => {},
 };
@@ -127,25 +137,74 @@ async function seedGuestAccess(): Promise<void> {
   }
 }
 
-async function openGuestVault(mode: "fresh" | "resume"): Promise<void> {
+function assertNoKnownRemoteSession(expectedPrincipalId?: string): void {
+  const active = guestAuthDependencies.currentSession();
+  if (
+    (active && active.principalId !== expectedPrincipalId) ||
+    guestAuthDependencies.loadFederationSession()
+  ) {
+    throw new Error(FRESH_GUEST_SIGN_OUT_MESSAGE);
+  }
+}
+
+async function openGuestVault(
+  mode: "fresh" | "resume",
+  freshAdmission = false,
+  expectedPrincipalId?: string,
+): Promise<void> {
   // Both guest roads end here, so the operator's switch is enforced here too.
   assertGuestsAllowed();
   // Fresh mints a new principal (`guest-N`); resume only when none survived.
-  if (mode === "fresh" || !readGuestSessionPerson())
-    await mintGuestSessionPersonLocked();
+  if (mode === "fresh" || !readGuestSessionPerson()) {
+    await guestAuthDependencies.mintGuestPerson(
+      freshAdmission
+        ? () => assertNoKnownRemoteSession(expectedPrincipalId)
+        : undefined,
+    );
+  }
   await guestAuthDependencies.createGuest({ resume: mode === "resume" });
   await seedGuestAccess();
 }
 
 async function continueAsGuestDefault(): Promise<void> {
-  await openGuestVault("fresh");
+  // A fresh guest is a new principal, never an account switch. Check both
+  // sessions already known to this tab and an HttpOnly Identity cookie that
+  // survived a reload before minting local state. Resume/post-sign-in roads
+  // intentionally bypass this guard because they keep the established person.
+  const principalId = await establishFreshGuestIdentity();
+  await openGuestVault("fresh", true, principalId);
   await claimGuestAuthDefault();
 }
 
 /** Unlock on the guest road after lock/reload — same principal, keep claims. */
 async function resumeGuestSessionDefault(): Promise<void> {
-  await openGuestVault("resume");
+  const fresh = !readGuestSessionPerson();
+  const principalId = fresh ? await establishFreshGuestIdentity() : undefined;
+  await openGuestVault("resume", fresh, principalId);
   await claimGuestAuthDefault();
+}
+
+/** Prove that a guest-labelled road cannot reuse an existing remote person. */
+export async function assertFreshGuestIdentity(): Promise<void> {
+  assertNoKnownRemoteSession();
+  if (!hasIdentityService()) return;
+
+  const inspected = await guestAuthDependencies.inspectRemoteSession();
+  if (inspected.kind === "unknown") {
+    throw new Error(FRESH_GUEST_STATUS_UNKNOWN_MESSAGE);
+  }
+  if (inspected.kind === "present") {
+    throw new Error(FRESH_GUEST_SIGN_OUT_MESSAGE);
+  }
+  assertNoKnownRemoteSession();
+}
+
+async function establishFreshGuestIdentity(): Promise<string | undefined> {
+  assertNoKnownRemoteSession();
+  if (!hasIdentityService()) return undefined;
+  const session = await guestAuthDependencies.connectFreshProvisional();
+  assertNoKnownRemoteSession(session.principalId);
+  return session.principalId;
 }
 
 export type LinkGuestAccountOutcome = { mintedPrincipal: boolean };

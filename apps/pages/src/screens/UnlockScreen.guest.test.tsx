@@ -1,4 +1,6 @@
 /** @vitest-environment jsdom */
+
+import { FRESH_GUEST_SIGN_OUT_MESSAGE } from "@opensesame/app-core/lib/guest-auth.js";
 import { guestVaultLabel } from "@opensesame/app-core/lib/local-guest.js";
 import { settingsSeams } from "@opensesame/app-core/lib/settings.js";
 import {
@@ -26,6 +28,23 @@ afterEach(() => {
 });
 
 describe("UnlockScreen — guest unlock", () => {
+  it("shows the sign-out requirement on the locked-vault guest switch", async () => {
+    v.state.status = "locked";
+    continueAsGuest.mockRejectedValueOnce(
+      new Error(FRESH_GUEST_SIGN_OUT_MESSAGE),
+    );
+    render(<UnlockScreen />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Skip to the guest vault" }),
+    );
+
+    await waitFor(() =>
+      expect(screen.getByText(FRESH_GUEST_SIGN_OUT_MESSAGE)).toBeTruthy(),
+    );
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
+  });
+
   it("guest Unlock is one commit on a keyless guest tomb, with no key fields", async () => {
     v.state.status = "empty";
     v.state.tomb = "guest";
