@@ -74,13 +74,17 @@ describe("cli app integration session store", () => {
     );
     expect(isCliAppApprovalBlocked()).toBe(!gate.approvalAvailable);
     const store = new CliAppIntegrationStore(() => 1_000);
-    const approved = Reflect.get(store, "approved");
-    expect(approved).toBeInstanceOf(Map);
-    if (!(approved instanceof Map)) throw new Error("missing approved store");
-    approved.set("term", {
-      terminalSessionId: "term",
-      approvedAtMs: 1_000,
-      lastActivityMs: 1_000,
+    Object.defineProperty(store, "approved", {
+      value: new Map([
+        [
+          "term",
+          {
+            terminalSessionId: "term",
+            approvedAtMs: 1_000,
+            lastActivityMs: 1_000,
+          },
+        ],
+      ]),
     });
     for (const verb of [
       "run",

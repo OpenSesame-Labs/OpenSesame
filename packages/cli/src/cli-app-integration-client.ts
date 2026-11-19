@@ -25,6 +25,14 @@ export interface CliAppIntegrationPort {
   }): Promise<CliAppIntegrationDecision>;
 }
 
+export interface CliAppIntegrationDependencies {
+  verifyLocalDaemon(base: string): Promise<boolean>;
+}
+
+const defaultCliAppIntegrationDependencies: CliAppIntegrationDependencies = {
+  verifyLocalDaemon: verifyLocalDaemonForCliAppIntegration,
+};
+
 function daemonBase(): string | undefined {
   const raw =
     process.env.OPENSESAME_DAEMON_API ??
@@ -79,14 +87,16 @@ async function pollEnsure(
   return "timedOut";
 }
 
-export function createCliAppIntegrationPort(): CliAppIntegrationPort {
+export function createCliAppIntegrationPort(
+  dependencies: CliAppIntegrationDependencies = defaultCliAppIntegrationDependencies,
+): CliAppIntegrationPort {
   return {
     async ensureReveal(input) {
       if (isCliAppApprovalBlocked()) return "blockedApproval";
       const base = daemonBase();
       if (!base) return "unavailable";
       try {
-        if (!(await verifyLocalDaemonForCliAppIntegration(base))) {
+        if (!(await dependencies.verifyLocalDaemon(base))) {
           return "unavailable";
         }
         return await pollEnsure(

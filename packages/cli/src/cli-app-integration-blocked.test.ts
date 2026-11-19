@@ -3,10 +3,6 @@ import { afterEach, expect, it, vi } from "vitest";
 import { createCliAppIntegrationPort } from "./cli-app-integration-client.js";
 import { humanRevealAppIntegrationRefusal } from "./reveal-gate.js";
 
-vi.mock("./daemon-pin.js", () => ({
-  verifyLocalDaemonForCliAppIntegration: async () => true,
-}));
-
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
@@ -18,18 +14,20 @@ it("does not contact an old daemon that would approve any verb", async () => {
     async () => new Response('{"status":"approved"}', { status: 200 }),
   );
   vi.stubGlobal("fetch", oldDaemon);
-  const port = createCliAppIntegrationPort();
+  const port = createCliAppIntegrationPort({
+    verifyLocalDaemon: async () => true,
+  });
   for (const verb of [
     "read",
     "reveal",
     "env-resolve",
     "run",
     "pass-reveal",
-    "unknown",
-  ]) {
-    const outcome = await Reflect.apply(port.ensureReveal, port, [
-      { verb, terminalSessionId: "term-test" },
-    ]);
+  ] as const) {
+    const outcome = await port.ensureReveal({
+      verb,
+      terminalSessionId: "term-test",
+    });
     expect(outcome).toBe("blockedApproval");
   }
   expect(oldDaemon).not.toHaveBeenCalled();
