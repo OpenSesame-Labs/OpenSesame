@@ -10,16 +10,32 @@ trap 'git worktree remove -f "$SCRATCH" 2>/dev/null || rm -rf "$SCRATCH"' EXIT
 git worktree add -f -B formal-squash-sim "$SCRATCH" "$MAIN" >/dev/null
 for rel in \
   scripts/security/formal_coverage_drift.py \
+  scripts/security/cargo-lock-projection.py \
   spec/formal/authority \
   spec/formal/dpop; do
   rm -rf "$SCRATCH/$rel"
   cp -a "$ROOT/$rel" "$SCRATCH/$rel"
 done
+python3 - "$ROOT" "$SCRATCH" <<'PY'
+import json, shutil, sys
+from pathlib import Path
+
+root, scratch = map(Path, sys.argv[1:3])
+for manifest in (
+    scratch / "spec/formal/authority/coverage.json",
+    scratch / "spec/formal/dpop/coverage.json",
+):
+    for item in json.loads(manifest.read_text()).get("sources", []):
+        rel = item["path"]
+        dest = scratch / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(root / rel, dest)
+PY
 (
   cd "$SCRATCH"
   git config user.name "formal-squash-verify"
   git config user.email "formal-squash-verify@example.invalid"
-  git add scripts/security/formal_coverage_drift.py spec/formal/authority spec/formal/dpop
+  git add -A
   git commit -qm "squash-sim: auth formal stack on origin/main"
 )
 python3 "$SCRATCH/spec/formal/authority/check-drift.py"
