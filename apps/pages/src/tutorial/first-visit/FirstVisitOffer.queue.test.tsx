@@ -162,6 +162,13 @@ describe("declining a first-visit offer", () => {
     ]);
   });
 
+  it("pause-all does not supersede a tour this row never asked for", () => {
+    const { support, stops } = stubSupportController("/settings/danger");
+    mount(support);
+    setSessionTutorialsPaused(true);
+    expect(stops.count).toBe(0);
+  });
+
   it("says nothing while this session is paused or guidance is off", () => {
     setSessionTutorialsPaused(true);
     setGuidanceMode("auto");
