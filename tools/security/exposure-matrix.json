@@ -2,6 +2,52 @@
   "version": 1,
   "surfaces": [
     {
+      "id": "magic-link-return",
+      "kind": "artifact",
+      "area": "account-totp",
+      "flow": "magic-link-return",
+      "observer": "public",
+      "artifacts": ["authority-api"],
+      "verification": "server",
+      "controls": [
+        "mandatory-proof",
+        "recipient-bound",
+        "cryptographic-random",
+        "trusted-budget-source"
+      ],
+      "guarantees": ["single-use", "expiry"],
+      "enforcement": "authoritative",
+      "entropyBits": 256,
+      "minSecretBytes": 32,
+      "budget": null,
+      "implementation": [
+        "packages/control-plane/src/routes/auth-upstream.ts",
+        "packages/control-plane/src/routes/interactions-email.ts",
+        "packages/control-plane/src/routes/authentication-service.ts",
+        "packages/control-plane/src/services/better-auth-bridge.ts",
+        "packages/control-plane/src/services/magic-link-budget.ts",
+        "packages/control-plane/src/services/magic-link-confirmation.ts",
+        "packages/control-plane/src/services/magic-link-exchange.ts",
+        "packages/control-plane/src/services/magic-link-return.ts",
+        "packages/control-plane/src/repos/durable-map.ts",
+        "packages/control-plane/src/repos/security-maps.ts",
+        "packages/control-plane/src/state.ts",
+        "packages/app-core/src/lib/magic-link-client.ts",
+        "packages/app-core/src/lib/providers.ts",
+        "packages/app-core/src/lib/federation.ts",
+        "packages/app-core/src/lib/federation-response.ts"
+      ],
+      "regressions": [
+        "packages/control-plane/src/__tests__/auth-upstream.test.ts",
+        "packages/control-plane/src/__tests__/magic-link-exchange.test.ts",
+        "packages/control-plane/src/__tests__/magic-link-first-party.test.ts",
+        "packages/app-core/src/lib/federation-response.test.ts",
+        "packages/app-core/src/lib/magic-link-client.test.ts",
+        "packages/app-core/src/lib/providers.test.ts"
+      ],
+      "review": "The emailed proof remains a high-entropy bearer for the mailbox holder, but GET is inert. First-party completion additionally requires the initiating tab's verifier and state; hosted completion requires explicit confirmation plus the initiating interaction cookie. Durable server stores enforce expiry and atomic single use. Send budgets protect availability, not proof secrecy. This classification does not claim protection from a compromised mailbox/browser or a scanner that submits forms."
+    },
+    {
       "id": "hosted-secret-drop",
       "kind": "online",
       "area": "hosted-drop",
@@ -1171,6 +1217,186 @@
     }
   ],
   "sources": {
+    "packages/app-core/src/lib/federation-response.test.ts": [
+      "f1006f92",
+      "535814e7",
+      "1470070f",
+      "13b7b745",
+      "346c16e6",
+      "93ac9ac8",
+      "2b4f9bee",
+      "73d2be2e"
+    ],
+    "packages/app-core/src/lib/federation-response.ts": [
+      "6c7bd970",
+      "18dd120f",
+      "d99f7019",
+      "26d06a4d",
+      "e7461234",
+      "26b7877c",
+      "e9cc6f92",
+      "ffba675c"
+    ],
+    "packages/app-core/src/lib/federation.ts": [
+      "bfc01889",
+      "3d52a69b",
+      "8f555ff9",
+      "a222eb60",
+      "947a477f",
+      "43306c95",
+      "a58fa11c",
+      "ab5b5ea9"
+    ],
+    "packages/app-core/src/lib/magic-link-client.test.ts": [
+      "9cb2ff45",
+      "81554519",
+      "702e7a0c",
+      "7472a6dd",
+      "83d15771",
+      "ee823b12",
+      "1b3c7637",
+      "7c5f1762"
+    ],
+    "packages/app-core/src/lib/magic-link-client.ts": [
+      "49e27e20",
+      "e386890e",
+      "ea4f2d0e",
+      "03a6cb17",
+      "0ebf5ff4",
+      "80cf854a",
+      "c4b8b756",
+      "48ab3279"
+    ],
+    "packages/app-core/src/lib/providers.test.ts": [
+      "798df6d4",
+      "4dc02471",
+      "08676434",
+      "9d55be99",
+      "5ac136e3",
+      "37808943",
+      "02181d97",
+      "ee016cde"
+    ],
+    "packages/app-core/src/lib/providers.ts": [
+      "5ff4f94e",
+      "cf2d1485",
+      "6c35276c",
+      "6799facf",
+      "5ef0b4c5",
+      "a1d8a576",
+      "66709562",
+      "c5b6b4f8"
+    ],
+    "packages/control-plane/src/__tests__/auth-upstream.test.ts": [
+      "46692147",
+      "938af94a",
+      "06328376",
+      "7a796a65",
+      "161e0ade",
+      "fe00ca8c",
+      "a075598a",
+      "96f5f928"
+    ],
+    "packages/control-plane/src/__tests__/magic-link-exchange.test.ts": [
+      "9094edba",
+      "9e392bec",
+      "717121f5",
+      "0ae039b6",
+      "1d5af79c",
+      "bdaeb0be",
+      "c6fc09a7",
+      "b163ad6b"
+    ],
+    "packages/control-plane/src/__tests__/magic-link-first-party.test.ts": [
+      "159709ab",
+      "e3a90462",
+      "780297c3",
+      "cb0f95a6",
+      "e9229812",
+      "acc344d4",
+      "9a4d5ce0",
+      "578f5f4d"
+    ],
+    "packages/control-plane/src/routes/auth-upstream.ts": [
+      "062d609b",
+      "3122fe49",
+      "07735682",
+      "4ab97c77",
+      "2d9eb4e7",
+      "ffd11f2a",
+      "17b04687",
+      "e54862fb"
+    ],
+    "packages/control-plane/src/routes/authentication-service.ts": [
+      "910d896d",
+      "a474272d",
+      "7ccf9c1f",
+      "a1964fef",
+      "71f7d2f1",
+      "e9442245",
+      "27dcd921",
+      "449e2fed"
+    ],
+    "packages/control-plane/src/routes/interactions-email.ts": [
+      "c6c93a22",
+      "479ba712",
+      "2975e7a9",
+      "0ad24fbc",
+      "55b54dbb",
+      "b10ecb65",
+      "76eef11e",
+      "3b343a45"
+    ],
+    "packages/control-plane/src/services/better-auth-bridge.ts": [
+      "92336117",
+      "974670d4",
+      "3faef39c",
+      "cddbb702",
+      "c7df33ca",
+      "93f4b795",
+      "a462e0f0",
+      "a4b58cc5"
+    ],
+    "packages/control-plane/src/services/magic-link-budget.ts": [
+      "f707c17e",
+      "0f3a3ac3",
+      "422ccb90",
+      "34db3a92",
+      "a344b4a7",
+      "aff4f256",
+      "64fcba8f",
+      "5b717699"
+    ],
+    "packages/control-plane/src/services/magic-link-confirmation.ts": [
+      "40c049c5",
+      "2700ebd1",
+      "39ce878d",
+      "bbde0010",
+      "3f0e2cf3",
+      "0c0adee1",
+      "9066a4bb",
+      "105f9f13"
+    ],
+    "packages/control-plane/src/services/magic-link-exchange.ts": [
+      "3069627c",
+      "431161b8",
+      "e8216e07",
+      "6013cdb8",
+      "963aed91",
+      "356412ea",
+      "b7443cf6",
+      "84e47426"
+    ],
+    "packages/control-plane/src/services/magic-link-return.ts": [
+      "d28ca825",
+      "86584bbd",
+      "29890bff",
+      "b0a96485",
+      "e9a290d1",
+      "650b5f55",
+      "3fec9434",
+      "5183e4f3"
+    ],
     "crates/bitwarden-server/src/budget_subject.rs": [
       "b67c8d64",
       "7d189880",

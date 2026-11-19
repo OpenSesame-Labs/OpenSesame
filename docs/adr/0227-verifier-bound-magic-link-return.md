@@ -27,11 +27,12 @@ tab removes the callback parameters from history and sends the code and its
 verifier in a POST. Identity consumes the code atomically and returns the
 session in the POST response. Durable deployments store the encrypted exchange
 record in the shared security store, so different replicas cannot redeem it
-twice. A failed verifier burns the code. Hosted OAuth interaction email links
-continue through their existing interaction-bound path. Both entry points share
-durable, atomic recipient and global send windows; stored recipient keys are
-HMAC-derived rather than cleartext. The global window avoids treating an
-untrusted forwarding header or a shared reverse-proxy address as a user identity.
+twice. A failed verifier burns the code. Hosted OAuth interaction links also
+wait for an explicit POST before consuming their proof, and retain their
+interaction-cookie binding. Both public entry points share durable, atomic
+recipient, canonical TCP-source and global send windows; stored keys are
+HMAC-derived rather than cleartext. Authenticated application mail uses a
+separate application/recipient budget so it cannot consume public capacity.
 
 ## Consequences
 

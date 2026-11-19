@@ -27,6 +27,10 @@ import {
   verifyMagicLinkToken,
 } from "../services/better-auth-bridge.js";
 import { chargeMagicLinkBudget } from "../services/magic-link-budget.js";
+import {
+  hostedMagicLinkConfirmationHtml,
+  magicLinkConfirmationCsp,
+} from "../services/magic-link-confirmation.js";
 import { renderLoginPage } from "../ui/interaction-pages.js";
 
 export { resetMagicLinkBudgetForTest as resetEmailLinkBudget } from "../services/magic-link-budget.js";
@@ -84,6 +88,7 @@ const EXPIRED_LINK_MESSAGE =
   "That sign-in link has expired or was already used. Request a new one.";
 const THROTTLED_MESSAGE =
   "Too many sign-in links were requested for that address. Wait a few minutes and try again.";
+const SILENT_BUDGET_REFUSALS = new Set(["global", "source"]);
 
 function providerInteractions(
   provider: OpenSesameProviderBundle["provider"],
@@ -172,8 +177,12 @@ export function createEmailInteractionRoutes(
 
     // The shared global fence bounds address rotation; the recipient fence
     // prevents flooding one inbox across replicas and entry points.
-    const budget = await chargeMagicLinkBudget(ctx, email);
-    if (budget === "global") {
+    const budget = await chargeMagicLinkBudget(
+      ctx,
+      email,
+      c.env?.incoming?.socket?.remoteAddress,
+    );
+    if (SILENT_BUDGET_REFUSALS.has(budget)) {
       return rerender({ emailSent: true });
     }
     // Over the per-address fence, say so rather than pretending a mail went
@@ -212,12 +221,15 @@ export function createEmailInteractionRoutes(
     return rerender({ emailSent: true });
   });
 
-  /**
-   * Where the emailed link lands. A top-level GET, so the interaction cookie is
-   * present; no CSRF token, because the single-use token in the query IS the
-   * credential and consuming it is what proves control of the inbox.
-   */
-  routes.get("/:uid/federated/email/verify", async (c) => {
+  /** Opening the link is inert; only an explicit confirmation spends it. */
+  routes.get("/:uid/federated/email/verify", (c) => {
+    c.header("cache-control", "no-store");
+    c.header("referrer-policy", "no-referrer");
+    c.header("content-security-policy", magicLinkConfirmationCsp(c.get("ctx")));
+    return c.html(hostedMagicLinkConfirmationHtml);
+  });
+
+  routes.post("/:uid/federated/email/verify", async (c) => {
     const ctx = c.get("ctx");
     const provider = providerInteractions(ctx.oauth.provider);
     const loaded = await loadDetails(c, provider);

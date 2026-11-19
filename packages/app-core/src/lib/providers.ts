@@ -27,7 +27,6 @@ import {
   isString,
   overlapCast,
 } from "@opensesame/os-domain";
-import { pageOrigin } from "../ports.js";
 import { TRUSTED_UPSTREAMS, type TrustedUpstream } from "./federation.js";
 import {
   identityBase,
@@ -35,6 +34,7 @@ import {
   remoteIdentityApi,
 } from "./identity.js";
 import { localNetworkFetch } from "./local-network-fetch.js";
+import { beginMagicLink } from "./magic-link-client.js";
 
 const PROVIDERS_FETCH_MS = 6000;
 
@@ -201,11 +201,9 @@ async function requestEmailMagicLinkDefault(email: string): Promise<void> {
   if (!base) {
     throw new Error("No sign-in service is connected.");
   }
+  const request = await beginMagicLink(email);
   const res = await localNetworkFetch(`${base}/v1/auth/sign-in/magic-link`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    credentials: "omit",
-    body: JSON.stringify({ email, callbackURL: pageOrigin() }),
+    ...request,
     timeoutMs: PROVIDERS_FETCH_MS,
   });
   if (!res.ok) {

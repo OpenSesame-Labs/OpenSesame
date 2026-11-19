@@ -1072,7 +1072,8 @@ broker, so the registry owns social), and Better Auth's own `/magic-link/verify`
 | Route | Behaviour |
 | --- | --- |
 | `POST /interaction/:uid/federated/email` | Hosted login page, CSRF-protected. Requests a link and re-renders "check your email" — the same answer for a known and an unknown address. The shared send budget allows five links per address per ten minutes and also caps global volume. |
-| `GET /interaction/:uid/federated/email/verify?token=…` | Where a link started from the hosted page lands. A top-level same-site GET, so it carries the interaction cookie. |
+| `GET /interaction/:uid/federated/email/verify?token=…` | Inert confirmation page for a hosted link. A scanner's GET does not consume the proof. |
+| `POST /interaction/:uid/federated/email/verify?token=…` | Consumes the hosted proof only after explicit confirmation and requires the initiating interaction cookie. |
 | `POST /v1/auth/sign-in/magic-link` | First-party client entry. The request supplies an allowed callback, random state and an S256 verifier challenge; the verifier stays in the initiating tab. |
 | `GET /v1/auth/magic-link/complete` | The link carries its one-use proof in the fragment, not the request URL. The confirmation page removes the fragment from history and requires a person to continue, so a mail scanner's GET cannot consume the link. |
 | `POST /v1/auth/magic-link/complete` | Consumes the email proof and redirects to the signed callback with a short-lived code bound to the original state, origin and verifier challenge. It never puts a session bearer in the redirect. |

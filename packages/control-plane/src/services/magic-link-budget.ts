@@ -8,6 +8,8 @@ const PREFIX = "magic-link:";
 const WINDOW_MS = 10 * 60_000;
 const GLOBAL_LIMIT = 200;
 const RECIPIENT_LIMIT = 5;
+const SOURCE_LIMIT = 20;
+const BACKEND_APPLICATION_LIMIT = 100;
 
 function fingerprint(ctx: AppContext, label: string, value: string): string {
   return createHmac("sha256", ctx.config.claimPepper)
@@ -37,7 +39,8 @@ async function chargeWindow(
 export async function chargeMagicLinkBudget(
   ctx: AppContext,
   email: string,
-): Promise<"ok" | "global" | "recipient"> {
+  source?: string,
+): Promise<"ok" | "global" | "recipient" | "source"> {
   const now = ctx.clock().getTime();
   const store = ctx.stores.mfaCodeSends;
   if (store instanceof Map) {
@@ -45,8 +48,6 @@ export async function chargeMagicLinkBudget(
       if (key.startsWith(PREFIX) && value.expiresAt <= now) store.delete(key);
     }
   }
-  if (!(await chargeWindow(ctx, `${PREFIX}global`, GLOBAL_LIMIT, now)))
-    return "global";
   const recipient = fingerprint(ctx, "recipient", normalizeEmail(email));
   if (
     !(await chargeWindow(
@@ -57,7 +58,48 @@ export async function chargeMagicLinkBudget(
     ))
   )
     return "recipient";
+  const sourceKey = fingerprint(ctx, "source", source ?? "unknown");
+  if (
+    !(await chargeWindow(
+      ctx,
+      `${PREFIX}source:${sourceKey}`,
+      SOURCE_LIMIT,
+      now,
+    ))
+  )
+    return "source";
+  if (!(await chargeWindow(ctx, `${PREFIX}global`, GLOBAL_LIMIT, now)))
+    return "global";
   return "ok";
+}
+
+/** Authenticated backend senders have a separate application/recipient budget. */
+export async function chargeAuthenticationMagicLinkBudget(
+  ctx: AppContext,
+  applicationId: string,
+  email: string,
+): Promise<boolean> {
+  const now = ctx.clock().getTime();
+  const recipient = fingerprint(
+    ctx,
+    `backend-recipient/${applicationId}`,
+    normalizeEmail(email),
+  );
+  if (
+    !(await chargeWindow(
+      ctx,
+      `${PREFIX}backend-recipient:${recipient}`,
+      RECIPIENT_LIMIT,
+      now,
+    ))
+  )
+    return false;
+  return chargeWindow(
+    ctx,
+    `${PREFIX}backend-application:${fingerprint(ctx, "backend-application", applicationId)}`,
+    BACKEND_APPLICATION_LIMIT,
+    now,
+  );
 }
 
 /** Test-only reset for an isolated memory store. */

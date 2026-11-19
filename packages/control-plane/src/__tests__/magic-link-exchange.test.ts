@@ -6,7 +6,10 @@ import { drizzle } from "drizzle-orm/pglite";
 import { beforeAll, expect, it, vi } from "vitest";
 import type { AppContext } from "../context.js";
 import { DurableMap, type SecurityMap } from "../repos/durable-map.js";
-import { chargeMagicLinkBudget } from "../services/magic-link-budget.js";
+import {
+  chargeAuthenticationMagicLinkBudget,
+  chargeMagicLinkBudget,
+} from "../services/magic-link-budget.js";
 import {
   type MagicLinkExchange,
   consumeMagicLinkExchange,
@@ -192,4 +195,73 @@ it("does not reset the send budget if the clock moves backward", async () => {
   );
   now += 11 * 60_000;
   expect(await chargeMagicLinkBudget(ctx, "clock@example.test")).toBe("ok");
+});
+
+it("limits rotating recipients by source without draining global on refusal", async () => {
+  const ctx = overlapCast<unknown, AppContext>({
+    stores: { mfaCodeSends: new Map() },
+    config: { claimPepper: "source-budget-fixture" },
+    clock: () => new Date(),
+  });
+  for (let attempt = 0; attempt < 20; attempt++)
+    expect(
+      await chargeMagicLinkBudget(
+        ctx,
+        `rotated-${attempt}@example.test`,
+        "192.0.2.20",
+      ),
+    ).toBe("ok");
+  expect(
+    await chargeMagicLinkBudget(ctx, "next@example.test", "192.0.2.20"),
+  ).toBe("source");
+  expect(
+    await chargeMagicLinkBudget(ctx, "limited@example.test", "192.0.2.21"),
+  ).toBe("ok");
+  for (let attempt = 0; attempt < 4; attempt++)
+    await chargeMagicLinkBudget(
+      ctx,
+      "limited@example.test",
+      `192.0.2.${attempt + 30}`,
+    );
+  for (let attempt = 0; attempt < 25; attempt++)
+    expect(
+      await chargeMagicLinkBudget(
+        ctx,
+        "limited@example.test",
+        `192.0.2.${attempt + 60}`,
+      ),
+    ).toBe("recipient");
+  expect(
+    await chargeMagicLinkBudget(ctx, "fresh@example.test", "192.0.2.22"),
+  ).toBe("ok");
+});
+
+it("bounds authenticated backend mail per application and recipient", async () => {
+  const ctx = overlapCast<unknown, AppContext>({
+    stores: { mfaCodeSends: new Map() },
+    config: { claimPepper: "backend-budget-fixture" },
+    clock: () => new Date(),
+  });
+  for (let attempt = 0; attempt < 5; attempt++)
+    expect(
+      await chargeAuthenticationMagicLinkBudget(
+        ctx,
+        "app_one",
+        "recipient@example.test",
+      ),
+    ).toBe(true);
+  expect(
+    await chargeAuthenticationMagicLinkBudget(
+      ctx,
+      "app_one",
+      "recipient@example.test",
+    ),
+  ).toBe(false);
+  expect(
+    await chargeAuthenticationMagicLinkBudget(
+      ctx,
+      "app_two",
+      "recipient@example.test",
+    ),
+  ).toBe(true);
 });

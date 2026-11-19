@@ -1,6 +1,9 @@
 import type { BoundaryValue } from "@opensesame/os-domain";
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { configureHost } from "../host.js";
+import { createMemoryStorage } from "../memory-storage.js";
+import { createTestHost } from "../test-host.js";
 import { deviceIdentitySeams } from "./device-identity.js";
 import { identitySeams } from "./identity.js";
 import {
@@ -31,6 +34,12 @@ function jsonOnce(body: BoundaryValue, status = 200): ReturnType<typeof vi.fn> {
 }
 
 beforeEach(() => {
+  configureHost(
+    createTestHost({
+      page: window,
+      storage: { session: createMemoryStorage() },
+    }),
+  );
   identitySeams.identityBase = () => BASE;
   deviceIdentitySeams.remoteIdentityApi = () => BASE;
 });
@@ -185,10 +194,14 @@ describe("requestEmailMagicLink", () => {
     await requestEmailMagicLink("ada@example.com");
     const [url, init] = fetchMock.mock.calls[0] ?? [];
     expect(url).toBe(`${BASE}/v1/auth/sign-in/magic-link`);
-    expect(JSON.parse(String(init?.body))).toMatchObject({
+    const body = JSON.parse(String(init?.body));
+    expect(body).toMatchObject({
       email: "ada@example.com",
+      callbackURL: "http://localhost:3000/",
     });
-    // The token IS the credential on the way back; no cookie rides along.
+    expect(body.codeChallenge).toMatch(/^[A-Za-z0-9_-]{43}$/u);
+    expect(body.state).toMatch(/^[A-Za-z0-9_-]{32}$/u);
+    // The verifier stays in this tab; no cookie rides with the request.
     expect(init?.credentials).toBe("omit");
   });
 

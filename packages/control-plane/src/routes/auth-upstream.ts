@@ -107,7 +107,13 @@ function installMagicLinkRequest(routes: AuthRouter, ctx: AppContext): void {
       !MAGIC_STATE.test(state)
     )
       return c.json({ error: "invalid_request" }, 400);
-    if ((await chargeMagicLinkBudget(ctx, email)) !== "ok")
+    if (
+      (await chargeMagicLinkBudget(
+        ctx,
+        email,
+        c.env?.incoming?.socket?.remoteAddress,
+      )) !== "ok"
+    )
       return c.json({ error: "rate_limited" }, 429);
     const metadata = {
       [MAGIC_CALLBACK]: callback.toString(),

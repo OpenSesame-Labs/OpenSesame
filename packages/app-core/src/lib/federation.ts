@@ -16,20 +16,24 @@ import type {
   OidcDiscovery,
   TrustedUpstream,
 } from "./federation-contract.js";
+
 export type {
   BeginSignInOptions,
   CompletedSignIn,
   OidcDiscovery,
   TrustedUpstream,
 } from "./federation-contract.js";
+
 import {
   consumeBrokeredPublication,
   runOwnedFederationExchange,
 } from "./federation-publication.js";
+
 export {
   federationExchangeSeams,
   saveSession,
 } from "./federation-publication.js";
+
 import { FederationError } from "./federation-error.js";
 import {
   type FederationSessionGeneration,
@@ -55,32 +59,20 @@ import {
   restoreSession,
 } from "./identity.js";
 import { localNetworkFetch } from "./local-network-fetch.js";
+import { completeMagicLinkIfPresent } from "./magic-link-client.js";
 import { signInMethods } from "./settings.js";
-export {
-  operatorUpstream,
-  isOperatorIdpIssuer,
-} from "./federation-operator.js";
 
 export { FederationError } from "./federation-error.js";
+export {
+  isOperatorIdpIssuer,
+  operatorUpstream,
+} from "./federation-operator.js";
 export {
   originCallbackUri,
   originClientId,
   redirectUri,
 } from "./federation-origin.js";
 
-/**
- * Federated sign-in against a trusted upstream broker (ADR 0033).
- *
- * This app is a static deployment: it has no server, so it holds no client
- * secret and mints nothing. It is a public OAuth client whose `client_id` is
- * derived from its own origin, and the identity it ends up with was signed by
- * the upstream, not here. The wire contract is
- * docs/architecture/federated-signin.md §1.
- */
-/**
- * Trust is configuration, not discovery: an issuer absent from this list is
- * refused even if it completes a flow correctly (ADR 0033 §2).
- */
 export const TRUSTED_UPSTREAMS: readonly TrustedUpstream[] = [
   {
     id: "shoo",
@@ -94,8 +86,6 @@ export const TRUSTED_UPSTREAMS: readonly TrustedUpstream[] = [
     sessionCheckEndpoint: "https://shoo.dev/session/check",
   },
   {
-    // Hermetic tests name this upstream explicitly. It is never the product
-    // default — first run signs in through Shoo, which is a real OIDC broker.
     id: "mock",
     displayName: "Local mock IdP",
     issuer: "http://127.0.0.1:9090",
@@ -264,6 +254,8 @@ function captureFederationAction() {
         "error",
         "error_description",
         "scope",
+        "magic_code",
+        "magic_state",
       ])
         url.searchParams.delete(key);
       expectedHref = url.toString();
@@ -484,6 +476,14 @@ function loadSessionDefault(): UpstreamIdentity | null {
 
 async function completeSignInWired(): Promise<CompletedSignIn | null> {
   const captured = captureFederationAction();
+  if (
+    await completeMagicLinkIfPresent(
+      captured.search,
+      captured.scrub,
+      captured.assertCurrent,
+    )
+  )
+    return null;
   const ambient = await ambientAuthSeams.completeIfPresent(captured.search);
   if (ambient) {
     clearAuthResponseFromUrl();
