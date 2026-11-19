@@ -18,6 +18,7 @@ use crate::{age_fmt, gpg, Entry, StoreError, StoreRoot};
 
 #[path = "store_entry_operations.rs"]
 mod entry_operations;
+pub use entry_operations::list_names;
 #[path = "store_legacy.rs"]
 mod legacy_migration;
 #[path = "store_recovery.rs"]
@@ -28,6 +29,8 @@ const REVISION_FILE: &str = ".opensesame-revisions.json";
 
 #[path = "store_revision.rs"]
 mod revision_state;
+#[path = "store_foreign_fallback.rs"]
+mod foreign_fallback;
 pub(crate) use revision_state::{
     normalize_revisions, revision_for, revision_identity, set_revision,
 };
@@ -362,27 +365,13 @@ impl StoreRoot {
             }
             FormatHint::Gpg => {
                 if let Some(key) = key {
-                    if let Ok(witness) = self.entry_witness(name, key) {
-                        if witness.deleted {
-                            return Err(StoreError::NotFound(name.into()));
-                        }
-                        return Err(StoreError::Crypto(format!(
-                            "witnessed native entry {name} has no .osseal; restore it instead of using foreign-format fallback"
-                        )));
-                    }
+                    self.allow_foreign_format_fallback(name, key)?;
                 }
                 gpg::decrypt_gpg(&confined_read(&self.path, rel)?)?
             }
             FormatHint::Age => {
                 if let Some(key) = key {
-                    if let Ok(witness) = self.entry_witness(name, key) {
-                        if witness.deleted {
-                            return Err(StoreError::NotFound(name.into()));
-                        }
-                        return Err(StoreError::Crypto(format!(
-                            "witnessed native entry {name} has no .osseal; restore it instead of using foreign-format fallback"
-                        )));
-                    }
+                    self.allow_foreign_format_fallback(name, key)?;
                 }
                 let id = age_identity.ok_or_else(|| {
                     StoreError::Age("OPENSESAME_AGE_IDENTITY required for .age entries".into())
@@ -395,16 +384,6 @@ impl StoreRoot {
         let entry = Entry::parse(&text);
         Ok(entry)
     }
-}
-
-/// List entries for connector-host without unlocking (names only).
-///
-/// # Errors
-///
-/// Returns an error when validation or the underlying operation fails.
-pub fn list_names(store_dir: &Path, prefix: &str) -> Result<Vec<String>, StoreError> {
-    let root = StoreRoot::open(store_dir)?;
-    root.ls(prefix)
 }
 
 #[cfg(test)]
