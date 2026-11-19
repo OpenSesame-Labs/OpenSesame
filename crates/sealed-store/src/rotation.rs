@@ -34,6 +34,8 @@
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
+#[cfg(test)]
+use std::sync::atomic::{AtomicBool, Ordering};
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use opensesame_human_vault::root_protection::{
@@ -58,6 +60,9 @@ use crate::{StoreError, StoreRoot};
 pub const ROTATION_STAGING_DIR: &str = ".opensesame-rotation";
 
 const COMMIT_ROTATE: &str = "seal: rotate vault root key";
+
+#[cfg(test)]
+pub(crate) static ATTACHMENT_REBIND_BEFORE_KEY_COMMIT: AtomicBool = AtomicBool::new(false);
 
 #[path = "rotation_observer.rs"]
 mod observer;
@@ -184,9 +189,8 @@ pub(crate) fn rotate_store_root_with_callbacks(
     // lock and staging guard still exclude ordinary store operations.
     outcome.delivery_error = committed(&outcome).err();
 
-    // Slot one and its marker already authenticate the committed key. Bind
-    // resealed manifests, then restore redundancy. This I/O stays after
-    // delivery so it cannot hold one-time keys back.
+    // Attachment commitments were refreshed inside `commit()` before the key
+    // file swap. Restore the redundant slot after delivery.
     if let Some(witness) = plan.witness.as_ref() {
         let _ = store.finish_rekeyed_witness(witness, &new_key);
     }
@@ -325,6 +329,8 @@ fn commit(
             .as_mut()
             .ok_or_else(|| StoreError::Crypto("rotation witness plan missing".into()))?;
         store.rebind_rotated_attachments_prepared(witness, new_key, false)?;
+        #[cfg(test)]
+        ATTACHMENT_REBIND_BEFORE_KEY_COMMIT.store(true, Ordering::Relaxed);
         witness_rekey_started = true;
         store.write_rekeyed_witness(witness, new_key)?;
         // Revoke the old marker before committing the new key file. A crash

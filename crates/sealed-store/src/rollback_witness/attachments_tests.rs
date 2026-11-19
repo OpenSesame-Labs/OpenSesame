@@ -195,6 +195,24 @@ fn same_revision_forked_manifest_fails_witness_check() {
 }
 
 #[test]
+fn rotation_rebinds_attachment_commitments_before_key_commit() {
+    crate::rotation::ATTACHMENT_REBIND_BEFORE_KEY_COMMIT.store(false, std::sync::atomic::Ordering::Relaxed);
+    let dir = tempfile::tempdir().unwrap();
+    let root = init_store(dir.path(), &[]).unwrap();
+    let password = b"correct horse";
+    let key = init_store_key(dir.path(), password).unwrap();
+    add(&root, &key, b"payload", false);
+    let before = root.attachment_witness("Docs/file", &key).unwrap();
+    crate::rotate_store_root(dir.path(), password, crate::RotationEdit::default()).unwrap();
+  assert!(crate::rotation::ATTACHMENT_REBIND_BEFORE_KEY_COMMIT.load(
+        std::sync::atomic::Ordering::Relaxed,
+    ));
+    let new_key = crate::unlock_store_key(dir.path(), password).unwrap();
+    let after = root.attachment_witness("Docs/file", &new_key).unwrap();
+    assert_ne!(after.commitment, before.commitment);
+}
+
+#[test]
 fn trusted_recovery_rebinds_owner_verified_fork() {
     let dir = tempfile::tempdir().unwrap();
     let root = init_store(dir.path(), &[]).unwrap();
