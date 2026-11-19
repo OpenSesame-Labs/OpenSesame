@@ -40,7 +40,13 @@ export function useCoachLayout(
   const size = useMeasured(card, `${stepKey}:${tour.message}:${phone}`);
   const box = rect === null ? null : padded(rect);
   const relativeBox =
-    box === null ? null : { ...box, top: box.top - viewport.offsetTop };
+    box === null
+      ? null
+      : {
+          ...box,
+          left: box.left - viewport.offsetLeft,
+          top: box.top - viewport.offsetTop,
+        };
   const relativePlacement =
     size === null
       ? null
@@ -56,6 +62,7 @@ export function useCoachLayout(
     relativePlacement && relativePlacement.kind !== "dock"
       ? {
           ...relativePlacement,
+          left: relativePlacement.left + viewport.offsetLeft,
           top: relativePlacement.top + viewport.offsetTop,
         }
       : relativePlacement;
@@ -66,7 +73,11 @@ export function useCoachLayout(
   const hole =
     relativeHole === null
       ? null
-      : { ...relativeHole, top: relativeHole.top + viewport.offsetTop };
+      : {
+          ...relativeHole,
+          left: relativeHole.left + viewport.offsetLeft,
+          top: relativeHole.top + viewport.offsetTop,
+        };
   return {
     stepKey,
     viewport,

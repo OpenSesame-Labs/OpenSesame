@@ -128,15 +128,29 @@ function canReturn(guide: GuideRuntimeSnapshot, tour: GuideTourView): boolean {
 
 function viewportDockStyle(
   placement: ReturnType<typeof placeCoach> | null,
-  viewport: { offsetTop: number; bottomOffset: number },
+  viewport: {
+    width: number;
+    offsetLeft: number;
+    rightOffset: number;
+    offsetTop: number;
+    bottomOffset: number;
+  },
 ): CSSProperties {
-  if (placement?.kind !== "dock") return {};
+  if (placement?.kind !== "dock") {
+    return { maxWidth: `calc(${viewport.width}px - 1.5rem)` };
+  }
+  const horizontal = {
+    left: `calc(0.5rem + ${viewport.offsetLeft}px)`,
+    right: `calc(0.5rem + ${viewport.rightOffset}px)`,
+  };
   if (placement.edge === "top") {
     return {
+      ...horizontal,
       top: `calc(0.5rem + env(safe-area-inset-top, 0px) + ${viewport.offsetTop}px)`,
     };
   }
   return {
+    ...horizontal,
     bottom: `calc(0.5rem + env(safe-area-inset-bottom, 0px) + ${viewport.bottomOffset}px)`,
   };
 }

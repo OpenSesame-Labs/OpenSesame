@@ -3,18 +3,27 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { useLiveRect, useViewport } from "./use-geometry.js";
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 
 it("tracks the visual viewport when a mobile keyboard opens or shifts it", () => {
   const viewport = Object.assign(new EventTarget(), {
+    width: 390,
     height: 844,
+    offsetLeft: 0,
     offsetTop: 0,
   });
   vi.stubGlobal("visualViewport", viewport);
   vi.stubGlobal("innerHeight", 844);
+  vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(390);
   const { result } = renderHook(() => useViewport());
   expect(result.current).toMatchObject({
     height: 844,
+    width: 390,
+    offsetLeft: 0,
+    rightOffset: 0,
     offsetTop: 0,
     bottomOffset: 0,
   });
@@ -33,6 +42,21 @@ it("tracks the visual viewport when a mobile keyboard opens or shifts it", () =>
     viewport.dispatchEvent(new Event("scroll"));
   });
   expect(result.current).toMatchObject({ offsetTop: 40, bottomOffset: 404 });
+  act(() => {
+    viewport.width = 195;
+    viewport.offsetLeft = 50;
+    viewport.dispatchEvent(new Event("resize"));
+  });
+  expect(result.current).toMatchObject({
+    width: 195,
+    offsetLeft: 50,
+    rightOffset: 145,
+  });
+  act(() => {
+    viewport.offsetLeft = 75;
+    viewport.dispatchEvent(new Event("scroll"));
+  });
+  expect(result.current).toMatchObject({ offsetLeft: 75, rightOffset: 120 });
 });
 
 it("scrolls a returning target into view once without following later scrolling", () => {

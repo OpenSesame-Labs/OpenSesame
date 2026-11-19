@@ -115,3 +115,118 @@ export async function moveAdvancesTheTour(page, { check, base }) {
     `${id}: the list the move opened can be dismissed`,
   );
 }
+
+/** Zoom and pan the phone, then use the highlighted setup control by touch. */
+export async function checkZoomViewport(page, check) {
+  const session = await page.context().newCDPSession(page);
+  try {
+    await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 });
+    await checkZoomPosition(page, check, "zoomed");
+    const { width, y } = await page.evaluate(() => ({
+      width: visualViewport.width,
+      y: Math.min(
+        visualViewport.height - 2,
+        document
+          .querySelector('[data-guide-targets~="unlock.setup"]')
+          .getBoundingClientRect().top -
+          visualViewport.offsetTop -
+          2,
+      ),
+    }));
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: width * 0.8, y }],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: width * 0.2, y }],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+    await page.waitForFunction(() => visualViewport.offsetLeft > 0);
+    await checkZoomPosition(page, check, "zoomed and panned");
+    const point = await page.evaluate(() => {
+      const v = visualViewport;
+      const target = document
+        .querySelector('[data-guide-targets~="unlock.setup"]')
+        .getBoundingClientRect();
+      return {
+        x:
+          (Math.max(target.left, v.offsetLeft) +
+            Math.min(target.right, v.offsetLeft + v.width)) /
+            2 -
+          v.offsetLeft,
+        y:
+          (Math.max(target.top, v.offsetTop) +
+            Math.min(target.bottom, v.offsetTop + v.height)) /
+            2 -
+          v.offsetTop,
+      };
+    });
+    await page.touchscreen.tap(point.x, point.y);
+    await page.locator('.coach[data-coach-target="setup.default"]').waitFor();
+    check(true, "first vault: the setup control works by touch while zoomed");
+  } finally {
+    await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
+    await session.detach();
+  }
+}
+
+async function checkZoomPosition(page, check, label) {
+  await page.waitForFunction(() => {
+    const card = document
+      .querySelector(".coach__card")
+      ?.getBoundingClientRect();
+    const v = visualViewport;
+    return (
+      card &&
+      Math.abs(card.left - v.offsetLeft - 8) < 1 &&
+      card.right <= v.offsetLeft + v.width - 7
+    );
+  });
+  const result = await page.evaluate(() => {
+    const v = visualViewport;
+    const card = document.querySelector(".coach__card");
+    const text = card.querySelector(".coach__text");
+    const exit = card.querySelector('[aria-label="Exit tutorial"]');
+    const target = document.querySelector(
+      '[data-guide-targets~="unlock.setup"]',
+    );
+    const box = (element) => element.getBoundingClientRect();
+    const a = box(card),
+      b = box(target),
+      c = box(exit);
+    text.scrollTop = text.scrollHeight;
+    return {
+      inside:
+        a.left >= v.offsetLeft &&
+        a.right <= v.offsetLeft + v.width &&
+        a.top >= v.offsetTop &&
+        a.bottom <= v.offsetTop + v.height,
+      clear:
+        a.bottom <= b.top ||
+        a.top >= b.bottom ||
+        a.right <= b.left ||
+        a.left >= b.right,
+      readable:
+        text.clientHeight > 0 &&
+        text.scrollTop + text.clientHeight >= text.scrollHeight - 1,
+      exit:
+        c.width >= 44 &&
+        c.height >= 44 &&
+        c.left >= a.left &&
+        c.right <= a.right &&
+        c.top >= a.top &&
+        c.bottom <= a.bottom,
+    };
+  });
+  check(
+    result.inside,
+    `first vault: the ${label} card fits the visible viewport`,
+  );
+  check(result.clear, `first vault: the ${label} card leaves setup clear`);
+  check(result.readable, `first vault: the ${label} instruction can be read`);
+  check(result.exit, `first vault: the ${label} exit remains in reach`);
+}

@@ -154,21 +154,28 @@ export function useLiveRect(
 }
 
 type VisualSize = Size & {
+  readonly offsetLeft: number;
+  readonly rightOffset: number;
   readonly offsetTop: number;
   readonly bottomOffset: number;
 };
 
-const readViewport = (): VisualSize => ({
-  width: document.documentElement.clientWidth,
-  height: window.visualViewport?.height ?? window.innerHeight,
-  offsetTop: window.visualViewport?.offsetTop ?? 0,
-  bottomOffset: Math.max(
-    0,
-    window.innerHeight -
-      (window.visualViewport?.offsetTop ?? 0) -
-      (window.visualViewport?.height ?? window.innerHeight),
-  ),
-});
+const readViewport = (): VisualSize => {
+  const visual = window.visualViewport;
+  const layoutWidth = document.documentElement.clientWidth;
+  const width = visual?.width ?? layoutWidth;
+  const height = visual?.height ?? window.innerHeight;
+  const offsetLeft = visual?.offsetLeft ?? 0;
+  const offsetTop = visual?.offsetTop ?? 0;
+  return {
+    width,
+    height,
+    offsetLeft,
+    offsetTop,
+    rightOffset: Math.max(0, layoutWidth - offsetLeft - width),
+    bottomOffset: Math.max(0, window.innerHeight - offsetTop - height),
+  };
+};
 
 /** The visual viewport's size, following rotation and the on-screen keyboard. */
 export function useViewport(): VisualSize {
@@ -179,6 +186,8 @@ export function useViewport(): VisualSize {
         const next = readViewport();
         return held.width === next.width &&
           held.height === next.height &&
+          held.offsetLeft === next.offsetLeft &&
+          held.rightOffset === next.rightOffset &&
           held.offsetTop === next.offsetTop &&
           held.bottomOffset === next.bottomOffset
           ? held

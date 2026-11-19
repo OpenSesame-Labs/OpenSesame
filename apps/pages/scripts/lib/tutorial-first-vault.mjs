@@ -1,5 +1,6 @@
 /** Walk the first-vault tutorial by doing what it asks, including the copy. */
 import { PIN } from "./pages-journey.mjs";
+import { checkZoomViewport } from "./tutorial-interact.mjs";
 import { checkKeyboardViewport } from "./tutorial-keyboard-viewport.mjs";
 import { stepChecks } from "./tutorial-measure.mjs";
 import { preparePepperStep, revisitPepper } from "./tutorial-pepper.mjs";
@@ -30,8 +31,6 @@ async function firstVaultPass({
   width,
   keepShots,
 }) {
-  // Test the same automatic first-run behavior a person sees, rather than
-  // the opt-in offer used by WebDriver-controlled browsers.
   await context.addInitScript(() =>
     Object.defineProperty(navigator, "webdriver", { get: () => false }),
   );
@@ -89,7 +88,9 @@ async function enterVault(page, step, check, phone) {
       1,
     "first vault: Next cannot skip a required action",
   );
-  await page.getByRole("button", { name: "Set up your own" }).click();
+  if (phone && page.viewportSize().width <= 390)
+    await checkZoomViewport(page, check);
+  else await page.getByRole("button", { name: "Set up your own" }).click();
   await step("setup.default", 2);
   await page.getByRole("button", { name: "Default", exact: true }).click();
   await step("unlock.local-only", 3);
@@ -190,7 +191,6 @@ async function openNewAccount(page, step, check, first, label, phone) {
 }
 
 async function configurePassword(page, step, check, first, label, phone) {
-  // A person may open the next panel before advancing from the name step.
   if (process.env.TUTORIALS_RECOVERY === "1") {
     await page
       .getByRole("button", { name: "Password options" })
