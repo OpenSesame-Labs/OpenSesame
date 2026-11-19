@@ -4,14 +4,14 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use opensesame_time::{Duration, Utc};
+use opensesame_time::{DateTime, Duration, Utc};
 use serde::Deserialize;
 use serde_json::json;
 
 use opensesame_claims::{hash_eq, hash_low_entropy, hash_secret};
 
 use crate::app_state::{AppState, ApprovedDevice};
-use crate::middleware::auth::{require_demo_bootstrap, require_operator, same_principal_subject};
+use crate::middleware::auth::{require_demo_bootstrap, require_operator};
 
 /// Failed `user_code` guesses tolerated across the whole instance per window.
 ///
@@ -21,18 +21,16 @@ use crate::middleware::auth::{require_demo_bootstrap, require_operator, same_pri
 /// caller cancel every pending login).
 const MAX_APPROVE_FAILURES: usize = 10;
 const APPROVE_FAILURE_WINDOW_SECS: i64 = 60;
+#[cfg(test)]
 const MAX_PENDING_DEVICE_CODES: usize = 512;
 const DEVICE_SCOPE: &str = "opensesame.session";
-
 fn admitted_client(client_id: &str) -> bool {
     matches!(client_id, "opensesame-cli" | "opensesame-pages")
 }
 
 /// Drops failures older than the window and reports how many remain.
-fn prune_failures(
-    failures: &mut Vec<opensesame_time::DateTime<Utc>>,
-    now: opensesame_time::DateTime<Utc>,
-) -> usize {
+#[cfg(test)]
+fn prune_failures(failures: &mut Vec<DateTime<Utc>>, now: DateTime<Utc>) -> usize {
     let cutoff = now - Duration::seconds(APPROVE_FAILURE_WINDOW_SECS);
     failures.retain(|at| *at > cutoff);
     failures.len()
@@ -63,44 +61,62 @@ pub async fn authorize(
         )
             .into_response();
     }
-    let now = Utc::now();
-    {
-        let mut map = st.device_codes.lock().unwrap();
-        map.retain(|_, p| p.expires_at > now);
-        if map.len() >= MAX_PENDING_DEVICE_CODES {
-            return (
-                StatusCode::TOO_MANY_REQUESTS,
-                Json(json!({"error":"device_code_capacity"})),
-            )
-                .into_response();
-        }
+    let Some(mut verification_uri) = st.client_app_url.clone() else {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "error": "device_approval_unavailable",
+                "message": "Device approval is unavailable. Ask your administrator to configure the OpenSesame app URL."
+            })),
+        )
+            .into_response();
+    };
+    verification_uri
+        .path_segments_mut()
+        .expect("validated client app URL")
+        .pop_if_empty()
+        .push("device");
+    for _ in 0..8 {
         let device_code = format!("dc_{}", uuid::Uuid::new_v4());
         let user_code = opensesame_claims::generate_user_code();
-        let expires_at = now + Duration::minutes(15);
         let device_digest = hash_secret(&device_code);
-        map.insert(
-            device_digest.clone(),
-            crate::app_state::DevicePending {
-                user_code_hash: user_code_digest(&st.claim_pepper, &device_digest, &user_code),
-                client_id: req.client_id.clone(),
-                scope: scope.clone(),
-                expires_at,
-                approved: None,
-            },
-        );
-        drop(map);
-        Json(json!({
-            "device_code": device_code,
-            "user_code": user_code,
-            "verification_uri": format!("{}/device", st.resource),
-            "verification_uri_complete": format!("{}/device?user_code={}", st.resource, user_code),
-            "expires_in": 900,
-            "interval": 5,
-            "client_id": req.client_id,
-            "scope": scope
-        }))
-        .into_response()
+        let pending = crate::app_state::DevicePending {
+            user_code_hash: user_code_digest(&st.claim_pepper, &device_digest, &user_code),
+            client_id: req.client_id.clone(),
+            scope: scope.clone(),
+            expires_at: Utc::now() + Duration::minutes(15),
+            approved: None,
+        };
+        use crate::native_device::Create;
+        match crate::native_device::create(&st, &device_digest, &pending, &user_code).await {
+            Ok(Create::Inserted) => {
+                let mut complete = verification_uri.clone();
+                complete
+                    .query_pairs_mut()
+                    .append_pair("user_code", &user_code);
+                return Json(json!({
+                    "device_code": device_code, "user_code": user_code,
+                    "verification_uri": verification_uri.as_str(),
+                    "verification_uri_complete": complete.as_str(),
+                    "expires_in": 900, "interval": 5, "client_id": req.client_id, "scope": scope
+                }))
+                .into_response();
+            }
+            Ok(Create::Collision) => continue,
+            Ok(Create::Capacity) => {
+                return (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    Json(json!({"error":"device_code_capacity"})),
+                )
+                    .into_response()
+            }
+            Err(error) => {
+                tracing::warn!(%error, "device authorization store unavailable");
+                return StatusCode::SERVICE_UNAVAILABLE.into_response();
+            }
+        }
     }
+    StatusCode::SERVICE_UNAVAILABLE.into_response()
 }
 
 #[derive(Deserialize)]
@@ -110,9 +126,60 @@ pub struct DeviceTokenRequest {
     grant_type: String,
 }
 
-#[path = "device_token.rs"]
-mod token_route;
-pub use token_route::token;
+pub async fn token(State(st): State<AppState>, Json(req): Json<DeviceTokenRequest>) -> Response {
+    if req.grant_type != "urn:ietf:params:oauth:grant-type:device_code" {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":"unsupported_grant_type"})),
+        )
+            .into_response();
+    }
+    let result =
+        crate::native_device::exchange(&st, &hash_secret(&req.device_code), &req.client_id).await;
+    use crate::native_device::Exchange;
+    match result {
+        Ok(Exchange::Granted { session_id, claims }) => {
+            let meta = claims.public_view();
+            st.sessions
+                .lock()
+                .unwrap()
+                .insert(hash_secret(&session_id), claims);
+            (
+                StatusCode::OK,
+                [("cache-control", "no-store")],
+                Json(json!({
+                    "token_type":"Bearer", "expires_in":300, "session":meta,
+                    "access_token":format!("opaque-session:{session_id}")
+                })),
+            )
+                .into_response()
+        }
+        Ok(Exchange::Invalid) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":"invalid_grant"})),
+        )
+            .into_response(),
+        Ok(Exchange::Expired) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":"expired_token"})),
+        )
+            .into_response(),
+        Ok(Exchange::Pending) => (
+            StatusCode::BAD_REQUEST,
+            Json(json!({"error":"authorization_pending"})),
+        )
+            .into_response(),
+        Ok(Exchange::Capacity) => (
+            StatusCode::TOO_MANY_REQUESTS,
+            Json(json!({"error":"session_capacity"})),
+        )
+            .into_response(),
+        Err(error) => {
+            tracing::warn!(%error, "device token store unavailable");
+            StatusCode::SERVICE_UNAVAILABLE.into_response()
+        }
+    }
+}
 
 #[derive(Deserialize)]
 pub struct DeviceApproveRequest {
@@ -122,27 +189,6 @@ pub struct DeviceApproveRequest {
     organization_role: Option<opensesame_domain::OrganizationRole>,
     membership_incarnation: Option<String>,
     authority_revision: Option<String>,
-}
-
-fn membership_revision(
-    req: &DeviceApproveRequest,
-) -> Result<Option<crate::session_claims::MembershipRevision>, ()> {
-    let local = req.organization_id.is_none() && req.organization_role.is_none();
-    match (&req.membership_incarnation, &req.authority_revision, local) {
-        (None, None, true) => Ok(None),
-        (Some(incarnation), Some(revision), false)
-            if [incarnation, revision].iter().all(|value| {
-                uuid::Uuid::parse_str(value)
-                    .is_ok_and(|id| !id.is_nil() && id.to_string() == value.as_str())
-            }) =>
-        {
-            Ok(Some(crate::session_claims::MembershipRevision {
-                incarnation: incarnation.clone(),
-                revision: revision.clone(),
-            }))
-        }
-        _ => Err(()),
-    }
 }
 
 fn approved_organization(
@@ -171,13 +217,15 @@ fn approved_organization(
 fn user_code_digest(pepper: &str, device_digest: &str, user_code: &str) -> String {
     hash_low_entropy(pepper, device_digest, user_code)
 }
-
 pub async fn approve(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
     Json(req): Json<DeviceApproveRequest>,
 ) -> Response {
-    let revision = match membership_revision(&req) {
+    if let Err(resp) = require_operator(&st, &headers) {
+        return resp;
+    }
+    let revision = match approval::membership_revision(&req) {
         Ok(revision) => revision,
         Err(()) => {
             return (
@@ -187,149 +235,24 @@ pub async fn approve(
                 .into_response()
         }
     };
-    let principal = req
-        .principal
-        .as_deref()
-        .and_then(crate::session_claims::parse_principal);
-    let organization = approved_organization(
-        req.organization_id.as_deref(),
-        req.organization_role,
-        st.bootstrap.lock().unwrap().as_ref().map(|boot| boot.org),
-    )
-    .ok();
-    if let (Some(principal), Some((org, _)), Some(revision)) =
-        (principal.as_ref(), organization.as_ref(), revision.as_ref())
-    {
-        match st
-            .db
-            .host_membership_live(
-                &org.to_string(),
-                &principal.to_string(),
-                &revision.incarnation,
-                &revision.revision,
-            )
-            .await
-        {
-            Ok(true) => {}
-            Ok(false) => {
-                return (
-                    StatusCode::CONFLICT,
-                    Json(json!({"error":"membership_withdrawn"})),
-                )
-                    .into_response()
-            }
-            Err(_) => return StatusCode::SERVICE_UNAVAILABLE.into_response(),
-        }
-    }
-    let response = approve_native(&st, &headers, &req, revision);
-    if response.status().is_success() {
-        if let (Some(principal), Some((org, role))) = (principal, organization) {
-            if opensesame_connection_broker::config_access::provision_native_role(
-                st.db.pool(),
-                &org,
-                &principal,
-                role,
-            )
-            .await
-            .is_err()
-            {
-                return StatusCode::SERVICE_UNAVAILABLE.into_response();
-            }
-        }
-    }
-    response
+    approval::approve_native(&st, &headers, &req, revision).await
 }
 
-fn approve_native(
-    st: &AppState,
-    headers: &axum::http::HeaderMap,
-    req: &DeviceApproveRequest,
-    revision: Option<crate::session_claims::MembershipRevision>,
-) -> Response {
-    if let Err(resp) = require_operator(st, headers) {
-        return resp;
-    }
-    let now = Utc::now();
-    // Hold the failure fence across the guess so concurrent misses cannot all
-    // observe count < MAX and then all push.
-    let mut failures = st.device_approve_failures.lock().unwrap();
-    if prune_failures(&mut failures, now) >= MAX_APPROVE_FAILURES {
-        return (
-            StatusCode::TOO_MANY_REQUESTS,
-            Json(json!({
-                "error": "too_many_attempts",
-                "retry_after_seconds": APPROVE_FAILURE_WINDOW_SECS,
-            })),
-        )
-            .into_response();
-    }
-
-    let mut map = st.device_codes.lock().unwrap();
-    map.retain(|_, p| p.expires_at > now);
-    // The digest is bound per device code, so the attempt is recomputed for each
-    // candidate rather than compared against one global hash.
-    for (device_digest, pending) in map.iter_mut() {
-        let attempt_hash = user_code_digest(&st.claim_pepper, device_digest, &req.user_code);
-        if hash_eq(&attempt_hash, &pending.user_code_hash) {
-            drop(failures);
-            let operator_default =
-                if req.organization_id.is_none() && req.organization_role.is_none() {
-                    match require_demo_bootstrap(st) {
-                        Ok(boot) => Some(boot.org),
-                        Err(resp) => return resp,
-                    }
-                } else {
-                    None
-                };
-            let organization = match approved_organization(
-                req.organization_id.as_deref(),
-                req.organization_role,
-                operator_default,
-            ) {
-                Ok(organization) => organization,
-                Err(error) => {
-                    return (StatusCode::BAD_REQUEST, Json(json!({"error":error}))).into_response();
-                }
-            };
-            let Some(principal) = req
-                .principal
-                .as_deref()
-                .and_then(crate::session_claims::parse_principal)
-            else {
-                return (
-                    StatusCode::BAD_REQUEST,
-                    Json(json!({"error":"principal_required"})),
-                )
-                    .into_response();
-            };
-            pending.approved = Some(ApprovedDevice {
-                principal: principal.to_string(),
-                organization_id: organization.0,
-                organization_role: organization.1,
-                membership_revision: revision,
-            });
-            return (
-                StatusCode::OK,
-                Json(json!({
-                    "status":"approved",
-                    "client_id": pending.client_id,
-                    "scope": pending.scope,
-                })),
-            )
-                .into_response();
-        }
-    }
-    // A miss costs the guesser budget, not the pending authorizations.
-    // Push while still holding `failures` — a second lock here deadlocks
-    // `std::sync::Mutex` and lets concurrent misses all observe count < MAX.
-    failures.push(now);
-    (
-        StatusCode::NOT_FOUND,
-        Json(json!({"error":"unknown_user_code"})),
-    )
-        .into_response()
-}
+#[path = "device_approval.rs"]
+mod approval;
 
 #[cfg(test)]
 #[path = "device_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "device_membership_tests.rs"]
+mod membership_tests;
+
+#[cfg(test)]
+#[path = "device_verification_tests.rs"]
+mod verification_tests;
+
+#[cfg(test)]
+#[path = "device_replica_tests.rs"]
+mod replica_tests;

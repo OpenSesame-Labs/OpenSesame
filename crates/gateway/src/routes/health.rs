@@ -46,6 +46,9 @@ pub async fn ready(State(st): State<AppState>) -> impl IntoResponse {
             Json(json!({
                 "status": "ready",
                 "distributed_task_authority": st.distributed_task_authority,
+                // Operators probe every backend directly during the one-time
+                // membership-withdrawal rollout. Legacy replicas omit this.
+                "membership_withdrawal_fence": 1,
             })),
         ),
         Ok(false) => (
@@ -61,6 +64,22 @@ pub async fn ready(State(st): State<AppState>) -> impl IntoResponse {
                 Json(json!({"status":"not_ready","reason":"authority_unavailable"})),
             )
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use axum::body::to_bytes;
+
+    #[tokio::test]
+    async fn readiness_advertises_the_membership_withdrawal_fence_generation() {
+        let state = crate::app_state::test_demo_state().await;
+        let response = ready(State(state)).await.into_response();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = to_bytes(response.into_body(), usize::MAX).await.unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["membership_withdrawal_fence"], 1);
     }
 }
 

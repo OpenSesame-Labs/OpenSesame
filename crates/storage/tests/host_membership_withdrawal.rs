@@ -1,4 +1,6 @@
-use opensesame_storage::{host_membership::MembershipWithdrawal, sqlite_file_url, Db};
+use opensesame_storage::{
+    agent_capabilities::AgentLaunch, host_membership::MembershipWithdrawal, sqlite_file_url, Db,
+};
 
 fn withdrawal<'a>(id: &'a str, revision: &'a str) -> MembershipWithdrawal<'a> {
     MembershipWithdrawal {
@@ -7,6 +9,19 @@ fn withdrawal<'a>(id: &'a str, revision: &'a str) -> MembershipWithdrawal<'a> {
         principal_id: "principal",
         membership_incarnation: "incarnation",
         authority_revision: revision,
+    }
+}
+
+fn agent_launch(handle: &str, now: i64) -> AgentLaunch<'_> {
+    AgentLaunch {
+        handle_digest: handle,
+        principal_id: "principal",
+        organization_id: "org",
+        client_id: "client",
+        audience: "audience",
+        resource: "resource",
+        capabilities_json: "[]",
+        now,
     }
 }
 
@@ -67,4 +82,46 @@ async fn membership_revision_cannot_attest_an_unstored_withdrawal_id() {
     .await
     .unwrap();
     assert_eq!(stored, 0);
+}
+
+#[tokio::test]
+async fn stale_withdrawal_does_not_revoke_a_rejoined_members_agent_launch() {
+    let db = Db::connect_memory().await.unwrap();
+    db.activate_host_membership("org", "principal", "incarnation", "first")
+        .await
+        .unwrap();
+    assert!(db
+        .create_agent_launch(&agent_launch("old", 1))
+        .await
+        .unwrap());
+    assert!(db
+        .withdraw_host_membership(&withdrawal("withdrawal", "first"))
+        .await
+        .unwrap());
+
+    db.activate_host_membership("org", "principal", "incarnation", "second")
+        .await
+        .unwrap();
+    assert!(db
+        .create_agent_launch(&agent_launch("new", 2))
+        .await
+        .unwrap());
+    assert!(!db
+        .withdraw_host_membership(&withdrawal("withdrawal", "first"))
+        .await
+        .unwrap());
+
+    let rows: Vec<(String, i64, Option<String>)> = sqlx::query_as(
+        "SELECT handle_digest,revoked,authority_revision FROM agent_launches ORDER BY handle_digest",
+    )
+    .fetch_all(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(
+        rows,
+        vec![
+            ("new".into(), 0, Some("second".into())),
+            ("old".into(), 1, Some("first".into())),
+        ]
+    );
 }
