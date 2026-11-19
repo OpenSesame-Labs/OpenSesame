@@ -65,7 +65,11 @@ export const principals = pgTable(
   ],
 );
 
-/** External identities are tuple-unique; email deliberately is not unique. */
+/**
+ * External identities.
+ * Unique on (kind, issuer, tenant, subject) — tenant coalesced to '' for uniqueness.
+ * NO unique constraint on email.
+ */
 export const externalIdentities = pgTable(
   "external_identities",
   {
