@@ -142,6 +142,10 @@ async function cssReadiness(output) {
   );
   assert.equal(links.length, 1);
   assert.equal(links[0].rel, "stylesheet");
+  assert.equal(
+    links[0].href,
+    "https://example.test/OpenSesame/assets/lazy.css",
+  );
   links[0].listeners.get("load")({ type: "load" });
   assert.equal(await load, 8);
   assert.equal(imported, 1);
