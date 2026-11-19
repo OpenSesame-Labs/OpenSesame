@@ -10,7 +10,6 @@ const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 const STACK_COVERAGE = [
   "spec/formal/authority/coverage.json",
   "spec/formal/dpop/coverage.json",
-  "spec/formal/spiffe/coverage.json",
 ];
 
 function assertOnMain(revision) {

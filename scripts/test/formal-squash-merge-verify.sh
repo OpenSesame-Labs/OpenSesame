@@ -11,6 +11,8 @@ git worktree add -f --detach "$SCRATCH" "$MAIN" >/dev/null
 for rel in \
   scripts/security/formal_coverage_drift.py \
   scripts/security/cargo-lock-projection.py \
+  spec/formal/check-axioms.sh \
+  spec/formal/required-theorem-command.lean \
   spec/formal/authority \
   spec/formal/dpop \
   spec/formal/spiffe; do
@@ -39,20 +41,21 @@ for manifest in manifests:
         dest = scratch / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(root / rel, dest)
-<<<<<<< HEAD
+shutil.copy2(root / "Cargo.lock", scratch / "Cargo.lock")
 scratch_pkg = scratch / "package.json"
 root_pkg = root / "package.json"
 if scratch_pkg.exists() and root_pkg.exists():
     scratch_data = json.loads(scratch_pkg.read_text())
     root_scripts = json.loads(root_pkg.read_text()).get("scripts", {})
     scripts = scratch_data.setdefault("scripts", {})
-    for key in ("verify:authority-formal", "verify:dpop-formal"):
+    for key in (
+        "verify:authority-formal",
+        "verify:dpop-formal",
+        "verify:spiffe-formal",
+    ):
         if key in root_scripts:
             scripts[key] = root_scripts[key]
     scratch_pkg.write_text(json.dumps(scratch_data, indent=2) + "\n")
-=======
-shutil.copy2(root / "Cargo.lock", scratch / "Cargo.lock")
->>>>>>> f148ad005 (feat(spiffe): fail closed on ambiguous snapshots with squash-safe formal pins)
 PY
 (
   cd "$SCRATCH"
@@ -62,7 +65,7 @@ PY
   git commit -qm "squash-sim: formal stack on origin/main"
 )
 python3 "$SCRATCH/spec/formal/authority/check-drift.py"
-python3 "$SCRATCH/spec/formal/dpop/check_drift.py"
+python3 "$SCRATCH/spec/formal/dpop/check-drift.py"
 python3 "$SCRATCH/spec/formal/spiffe/check-drift.py"
 if [[ "${OPENSESAME_FORMAL_SQUASH_SKIP_LEAN:-}" != "1" ]]; then
   (cd "$SCRATCH" && npm run verify:authority-formal && npm run verify:dpop-formal && npm run verify:spiffe-formal)
