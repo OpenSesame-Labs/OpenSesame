@@ -2,7 +2,7 @@ use super::*;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use crate::envelope::open_osseal_in;
+use crate::envelope::{open_osseal_in, seal_osseal_in};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub(super) struct StoreIdentity {
@@ -71,7 +71,10 @@ impl StoreRoot {
         Ok(Some(id))
     }
 
-    fn witness_directory(&self, store_id: &str) -> Result<(PathBuf, PathBuf), StoreError> {
+    pub(super) fn witness_directory(
+        &self,
+        store_id: &str,
+    ) -> Result<(PathBuf, PathBuf), StoreError> {
         let root = self.witness_root()?;
         #[cfg(not(windows))]
         Self::ensure_private_witness_root(&root)?;
@@ -207,7 +210,7 @@ impl StoreRoot {
         self.write_outside_identity_slot(key, store_id, IDENTITY_TWO)
     }
 
-    fn read_witness_slot(
+    pub(super) fn read_witness_slot(
         &self,
         root: &Path,
         relative: &Path,
@@ -226,7 +229,7 @@ impl StoreRoot {
         )?;
         let witness: Witness = serde_json::from_slice(&opened.plaintext)
             .map_err(|error| StoreError::Crypto(format!("invalid rollback witness: {error}")))?;
-        if witness.version != 1
+        if !matches!(witness.version, 1 | 2)
             || witness.epoch != opened.revision
             || witness.entries.values().any(|entry| entry.revision == 0)
         {
@@ -245,38 +248,23 @@ impl StoreRoot {
         let (root, directory) = self.witness_directory(store_id)?;
         let one = self.read_witness_slot(&root, &directory.join(SLOT_ONE), store_id, key);
         let two = self.read_witness_slot(&root, &directory.join(SLOT_TWO), store_id, key);
-        match (one, two) {
-            (Ok(None), Ok(None)) => Ok(None),
-            (Ok(Some(witness)), Ok(None)) | (Ok(None), Ok(Some(witness))) => Ok(Some(witness)),
-            (Ok(Some(one)), Ok(Some(two))) => {
-                Ok(Some(if one.epoch > two.epoch { one } else { two }))
+        let Some(marker) = self.read_commit_marker(store_id, key)? else {
+            if matches!((&one, &two), (Ok(None), Ok(None))) {
+                return Ok(None);
             }
-            // Root rotation intentionally rekeys the two redundant slots one
-            // at a time. A crash between them leaves one authentic slot for
-            // each key; either key path must be able to recover its copy.
-            (Ok(Some(witness)), Err(_)) | (Err(_), Ok(Some(witness))) => Ok(Some(witness)),
-            (Err(one), Err(two)) => Err(StoreError::Crypto(format!(
-                "rollback witness slots cannot be authenticated: {one}; {two}"
-            ))),
-            (Err(error), Ok(None)) | (Ok(None), Err(error)) => Err(error),
-        }
-    }
-
-    pub(super) fn write_witness(
-        &self,
-        store_id: &str,
-        key: &ItemDataKey,
-        witness: &Witness,
-    ) -> Result<(), StoreError> {
-        let plaintext = serde_json::to_vec(witness)
-            .map_err(|error| StoreError::Crypto(format!("rollback witness: {error}")))?;
-        let sealed = seal_osseal_in(COLLECTION, &plaintext, key, store_id, witness.epoch)?;
-        let slot = if witness.epoch.is_multiple_of(2) {
-            SLOT_TWO
-        } else {
-            SLOT_ONE
+            return Err(StoreError::Crypto(
+                "rollback commit marker is missing; restore it or explicitly migrate a verified legacy checkpoint".into(),
+            ));
         };
-        self.write_witness_slot(store_id, slot, &sealed)
+        marker.require_active()?;
+        for witness in [one, two].into_iter().filter_map(Result::ok).flatten() {
+            if witness.version == 2 && marker.matches(&witness)? {
+                return Ok(Some(witness));
+            }
+        }
+        Err(StoreError::Crypto(
+            "the committed rollback witness is missing or cannot be authenticated".into(),
+        ))
     }
 
     pub(super) fn write_witness_slot(

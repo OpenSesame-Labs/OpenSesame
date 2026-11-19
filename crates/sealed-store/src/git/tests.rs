@@ -34,6 +34,74 @@ fn tracked_files(dir: &Path) -> String {
     String::from_utf8_lossy(&tree.stdout).into_owned()
 }
 
+fn git_output(dir: &Path, args: &[&str]) -> String {
+    let output = Command::new(crate::git_exec::git_program_for_tests())
+        .args(args)
+        .current_dir(dir)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    String::from_utf8(output.stdout).unwrap()
+}
+
+#[test]
+fn auto_commit_preserves_unrelated_staged_plaintext_and_skips_noop() {
+    let dir = tempfile::tempdir().unwrap();
+    git_init(dir.path());
+    let root = init_store(dir.path(), &[]).unwrap();
+    std::fs::write(dir.path().join("private.txt"), b"fixture").unwrap();
+    assert!(Command::new(crate::git_exec::git_program_for_tests())
+        .args(["add", "private.txt"])
+        .current_dir(dir.path())
+        .status()
+        .unwrap()
+        .success());
+    let key = ItemDataKey::generate();
+    root.insert("Dev/[literal]", &Entry::parse("secret"), &key)
+        .unwrap();
+    let tracked = tracked_files(dir.path());
+    assert!(tracked.contains("Dev/[literal].osseal"), "{tracked}");
+    assert!(!tracked.contains("private.txt"), "{tracked}");
+    assert!(git_output(dir.path(), &["diff", "--cached", "--name-only"]).contains("private.txt"));
+
+    let before = git_output(dir.path(), &["rev-parse", "HEAD"]);
+    auto_commit(dir.path(), "no selected changes").unwrap();
+    assert_eq!(git_output(dir.path(), &["rev-parse", "HEAD"]), before);
+    assert!(git_output(dir.path(), &["diff", "--cached", "--name-only"]).contains("private.txt"));
+}
+
+#[test]
+fn auto_commit_limits_large_path_sets_and_handles_tracked_deletions() {
+    let dir = tempfile::tempdir().unwrap();
+    git_init(dir.path());
+    std::fs::create_dir(dir.path().join("bulk")).unwrap();
+    std::fs::write(dir.path().join("private.txt"), b"fixture").unwrap();
+    assert!(Command::new(crate::git_exec::git_program_for_tests())
+        .args(["add", "private.txt"])
+        .current_dir(dir.path())
+        .status()
+        .unwrap()
+        .success());
+    for index in 0..220 {
+        std::fs::write(
+            dir.path().join(format!("bulk/item-{index:03}.osseal")),
+            b"sealed",
+        )
+        .unwrap();
+    }
+    auto_commit(dir.path(), "sealed fixture").unwrap();
+    assert!(!tracked_files(dir.path()).contains("private.txt"));
+    for index in 0..110 {
+        std::fs::remove_file(dir.path().join(format!("bulk/item-{index:03}.osseal"))).unwrap();
+    }
+    auto_commit(dir.path(), "remove sealed fixture").unwrap();
+    let tracked = tracked_files(dir.path());
+    assert!(!tracked.contains("bulk/item-000.osseal"));
+    assert!(tracked.contains("bulk/item-219.osseal"));
+    assert!(!tracked.contains("private.txt"));
+    assert!(git_output(dir.path(), &["diff", "--cached", "--name-only"]).contains("private.txt"));
+}
+
 #[test]
 fn auto_commit_records_insert() {
     let dir = tempfile::tempdir().unwrap();
