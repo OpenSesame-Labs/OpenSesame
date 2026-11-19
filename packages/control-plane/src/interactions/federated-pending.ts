@@ -279,11 +279,21 @@ function signatureMatches(supplied: Buffer, expected: string): boolean {
   return supplied.length === bytes.length && timingSafeEqual(supplied, bytes);
 }
 
+/** When false (default), the wire JSON keeps a plaintext verifier for mixed-version rollouts. */
+export type FederatedPendingEncodeOptions = {
+  sealVerifierOnWire?: boolean;
+};
+
 export function encodePending(
   pending: PendingFederatedAuth,
   secret?: string,
+  options?: FederatedPendingEncodeOptions,
 ): string {
-  const body = secret ? wirePendingBody(pending, secret) : pending;
+  const sealVerifierOnWire = options?.sealVerifierOnWire === true;
+  const body =
+    secret && sealVerifierOnWire
+      ? wirePendingBody(pending, secret)
+      : pending;
   const payload = Buffer.from(JSON.stringify(body), "utf8").toString(
     "base64url",
   );

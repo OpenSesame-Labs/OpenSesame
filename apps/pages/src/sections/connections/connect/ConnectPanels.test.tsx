@@ -337,7 +337,7 @@ describe("a person's token", () => {
       screen.getByRole("button", { name: "Test user token" }),
     );
     await waitFor(() =>
-      expect(screen.getByText("sha256:0123456789ab…")).toBeTruthy(),
+      expect(screen.getByText("scrypt:0123456789ab…")).toBeTruthy(),
     );
     expect(screen.getByText("wedding.example")).toBeTruthy();
     expect(screen.getByRole("img", { name: "Token accepted" })).toBeTruthy();
@@ -389,6 +389,6 @@ describe("a person's token", () => {
       />,
     );
     expect(screen.queryByText("alice@resend")).toBeNull();
-    expect(screen.queryByText("sha256:0123456789ab…")).toBeNull();
+    expect(screen.queryByText("scrypt:0123456789ab…")).toBeNull();
   });
 });
