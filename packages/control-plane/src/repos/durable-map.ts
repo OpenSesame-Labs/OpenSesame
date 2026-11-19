@@ -39,6 +39,23 @@ export class DurableMap<T> {
       throw new Error("Invalid security store capacity");
   }
 
+  /** Bind this protected namespace to a caller-owned database transaction. */
+  onDatabase(db: Database): DurableMap<T> {
+    return new DurableMap(
+      db,
+      this.model,
+      this.secretKeys,
+      this.ttlMs,
+      this.capacity,
+      this.sealer,
+    );
+  }
+
+  /** Run work in one transaction on the database that owns this namespace. */
+  transaction<TValue>(run: (db: Database) => Promise<TValue>): Promise<TValue> {
+    return this.db.transaction((tx) => run(overlapCast(tx)));
+  }
+
   private legacyId(key: string) {
     return this.secretKeys
       ? createHash("sha256").update(key).digest("hex")

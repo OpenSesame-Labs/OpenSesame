@@ -24,6 +24,7 @@ import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
 import { organizationIssuerAdmission } from "../proofs/organization-issuer-admission.js";
+import { withPrincipalSessionBoundary } from "../repos/principal-session-boundary.js";
 import { serializeKeyed } from "../serialize.js";
 import {
   removeOrganizationMembership,
@@ -298,32 +299,39 @@ export async function revokeOrganizationMembership(
   ctx: AppContext,
   input: OrganizationRevocationInput,
 ): Promise<OrganizationRevocationResult> {
-  const membershipRemoved = await serializeMembershipMutation(
-    ctx,
-    input.organizationId,
-    async () =>
-      ctx.stores.organizationMemberships.remove(
-        input.organizationId,
-        input.principalId,
-      ),
-  );
+  const { membershipRemoved, sessionsRevoked } =
+    await withPrincipalSessionBoundary(
+      ctx.stores,
+      input.principalId,
+      "revoke",
+      async (stores) => {
+        const membershipRemoved = await serializeMembershipMutation(
+          { ...ctx, stores },
+          input.organizationId,
+          async () =>
+            stores.organizationMemberships.remove(
+              input.organizationId,
+              input.principalId,
+            ),
+        );
 
-  // A membership that was already gone normally authorized nothing here, and
-  // the holder's sessions are not this tenant's to end (a repeated sync pass,
-  // or a subject some other tenant's directory happens to name). A SCIM retry
-  // is the exception: it named the principal through this tenant's own
-  // identity tuple, so finishing an interrupted revocation is still in scope.
-  let sessionsRevoked = 0;
-  const sessions =
-    membershipRemoved || input.revokeSessionsWithoutMembership
-      ? await ctx.stores.provisionalSessions.entries()
-      : [];
-  for (const [, session] of sessions) {
-    if (session.principalId !== input.principalId) continue;
-    await ctx.stores.provisionalSessions.delete(session.id);
-    sessionsRevoked += 1;
-  }
-  await removeOrphanTokens(ctx.stores);
+        // A membership that was already gone normally authorized nothing here,
+        // and the holder's sessions are not this tenant's to end. A SCIM retry
+        // is the exception: it named the principal through this tenant's tuple.
+        let sessionsRevoked = 0;
+        const sessions =
+          membershipRemoved || input.revokeSessionsWithoutMembership
+            ? await stores.provisionalSessions.entries()
+            : [];
+        for (const [, session] of sessions) {
+          if (session.principalId !== input.principalId) continue;
+          await stores.provisionalSessions.delete(session.id);
+          sessionsRevoked += 1;
+        }
+        await removeOrphanTokens(stores);
+        return { membershipRemoved, sessionsRevoked };
+      },
+    );
 
   await appendAuditEvent(ctx.repos.auditEvents, {
     eventType: "organization.member_revoked",
