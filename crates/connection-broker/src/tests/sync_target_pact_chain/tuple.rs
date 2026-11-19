@@ -2,17 +2,7 @@
 pub(super) fn tuple_binding_name(source: &str, head: usize) -> Option<String> {
     let path_start = super::alias::path_prefix_start(source, head);
     let (open, element) = tuple_open_and_index(source, path_start)?;
-    if open == 0 || source.as_bytes().get(open - 1) != Some(&b'=') {
-        return None;
-    }
-    let eq = open - 1;
-    if matches!(
-        eq.checked_sub(1)
-            .and_then(|prev| source.as_bytes().get(prev)),
-        Some(b'=' | b'!' | b'<' | b'>')
-    ) {
-        return None;
-    }
+    let eq = super::peel::eq_before(source.as_bytes(), open)?;
     let tail = super::alias::statement_tail(&source[..eq]);
     let paren = tail.find('(')?;
     if !let_introduces_pattern(&tail[..paren]) {
@@ -26,10 +16,12 @@ pub(super) fn tuple_binding_name(source: &str, head: usize) -> Option<String> {
 
 fn tuple_open_and_index(source: &str, path_start: usize) -> Option<(usize, usize)> {
     let bytes = source.as_bytes();
-    if path_start == 0 {
+    // `((Path::send),)` — the inner paren is grouping. Peel it so the comma
+    // walk starts inside the tuple paren that `=` introduces.
+    let mut index = super::peel::peel_expr_prefix(bytes, path_start, true)?;
+    if index == 0 {
         return None;
     }
-    let mut index = path_start;
     let mut depth = 0i32;
     let mut commas = 0usize;
     while index > 0 {

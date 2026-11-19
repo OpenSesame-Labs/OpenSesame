@@ -186,6 +186,55 @@ fn reassigned_and_block_dispatch_aliases_are_credentialed_sends() {
     assert_eq!(credentialed_send_https_gaps(block_guarded), (1, 0));
 }
 
+/// Parens, braces, `&` / `*`, block tails, nested tuples, and `name = Path::send`.
+#[test]
+fn wrapped_rhs_dispatch_aliases_are_credentialed_sends() {
+    let forms = [
+        "let dispatch = (reqwest::RequestBuilder::send); dispatch(request).await?",
+        "let dispatch = { reqwest::RequestBuilder::send }; dispatch(request).await?",
+        "let dispatch = &reqwest::RequestBuilder::send; dispatch(request).await?",
+        "let dispatch = *&reqwest::RequestBuilder::send; dispatch(request).await?",
+        "let dispatch = reqwest::RequestBuilder::send; let call = { let _ = 1; dispatch }; call(request).await?",
+        "let (dispatch,) = ((reqwest::RequestBuilder::send),); dispatch(request).await?",
+        "let dispatch = { { reqwest::RequestBuilder::send } }; dispatch(request).await?",
+        "let dispatch = reqwest::RequestBuilder::send; let call = &dispatch; call(request).await?",
+        "let mut dispatch = other_fn; dispatch = reqwest::RequestBuilder::send; dispatch(request).await?",
+    ];
+    for form in forms {
+        let bare = format!("async fn f() {{ {form} }}");
+        assert_eq!(credentialed_send_https_gaps(&bare), (1, 1), "{form}");
+        let guarded = format!(
+            "async fn f() {{ if parsed.scheme() != \"https\" {{ return Err(\"x\".into()); }} {form} }}"
+        );
+        assert_eq!(credentialed_send_https_gaps(&guarded), (1, 0), "{form}");
+    }
+    let not_a_binding = [
+        "let dispatch = foo(reqwest::RequestBuilder::send); dispatch(request).await?",
+        "let dispatch = (reqwest::RequestBuilder::send,); dispatch(request).await?",
+        "let dispatch = { reqwest::RequestBuilder::send; }; dispatch(request).await?",
+    ];
+    for form in not_a_binding {
+        let source = format!("async fn f() {{ {form} }}");
+        assert_eq!(credentialed_send_https_gaps(&source), (0, 0), "{form}");
+    }
+}
+
+#[test]
+fn question_mark_and_ufcs_stream_map_are_body_reads() {
+    for sample in [
+        "response.map(|b| b).collect()",
+        "response.map(|b| b)?.collect()",
+        "response.map(|b| b).await?.collect()",
+        "StreamExt::map(response, |b| b).collect()",
+        "futures::StreamExt::map(&mut response, |b| b).collect()",
+        "rows.into_iter().map(SyncTargetView::from).collect()",
+    ] {
+        let reads = response_body_reads(sample);
+        let body = sample.starts_with("response") || sample.contains("StreamExt::map");
+        assert_eq!(!reads.is_empty(), body, "{sample} -> {reads:?}");
+    }
+}
+
 #[test]
 fn destructured_request_binding_ignores_unrelated_scheme_guard() {
     let decoy = r#"async fn f() { let parsed = Url::parse(safe).unwrap(); if parsed.scheme() != "https" { return Err("x".into()); } let (request,) = (client.get(evil),); request.send().await?; }"#;
