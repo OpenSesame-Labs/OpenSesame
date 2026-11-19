@@ -14,9 +14,10 @@ impl StoreRoot {
         path: &Path,
         key: &ItemDataKey,
         minimum: u64,
+        plaintext: Option<&[u8]>,
     ) -> Result<u64, StoreError> {
         if self.read_store_id()?.is_some() || self.read_outside_identity(key)?.is_some() {
-            return self.next_entry_revision_after(name, path, key, minimum);
+            return self.next_entry_revision_after(name, path, key, minimum, plaintext, true);
         }
         let next = self
             .revision(name)?

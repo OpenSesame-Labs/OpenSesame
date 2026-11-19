@@ -20,16 +20,20 @@ const SLOT_TWO: &str = "two.witness";
 const IDENTITY_ONE: &str = "one.identity";
 const IDENTITY_TWO: &str = "two.identity";
 
-fn commitment_unbound(commitment: &[u8; 32]) -> bool {
+pub(super) fn commitment_unbound(commitment: &[u8; 32]) -> bool {
     *commitment == [0; 32]
+}
+
+pub(super) fn entry_plaintext_commitment(plaintext: &[u8]) -> [u8; 32] {
+    *blake3::hash(plaintext).as_bytes()
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub(crate) struct EntryWitness {
     pub revision: u64,
     pub deleted: bool,
-    /// BLAKE3 of the exact attachment-manifest plaintext. Unbound for entries,
-    /// tombstones, and the attachment namespace marker.
+    /// BLAKE3 of bound plaintext (entry body or attachment manifest).
+    /// `[0; 32]` for legacy entries, tombstones, and the attachment namespace marker.
     #[serde(default, skip_serializing_if = "commitment_unbound")]
     pub commitment: [u8; 32],
 }
@@ -82,6 +86,12 @@ mod rotation_marker_tests;
 mod slot_selection;
 #[path = "rollback_witness/trusted_recovery.rs"]
 mod trusted_recovery;
+#[path = "rollback_witness/entry_commitment.rs"]
+mod entry_commitment;
+
+#[cfg(test)]
+#[path = "rollback_witness/entry_commitment_tests.rs"]
+mod entry_commitment_tests;
 
 impl StoreRoot {
     fn migration_entry_witness(
@@ -116,7 +126,7 @@ impl StoreRoot {
         Ok(EntryWitness {
             revision,
             deleted: false,
-            commitment: [0; 32],
+            commitment: entry_plaintext_commitment(&opened.plaintext),
         })
     }
 
@@ -256,7 +266,8 @@ impl StoreRoot {
         name: &str,
         key: &ItemDataKey,
     ) -> Result<EntryWitness, StoreError> {
-        self.current_witness(key)?
+        let state = self
+            .current_witness(key)?
             .1
             .entries
             .get(&crate::store::revision_identity(name)?)
@@ -265,7 +276,17 @@ impl StoreRoot {
                 StoreError::Crypto(format!(
                     "missing anti-rollback state for {name}; refusing ciphertext bootstrap"
                 ))
-            })
+            })?;
+        if !state.deleted {
+            if let Err(StoreError::Crypto(ref message)) =
+                self.verify_entry_plaintext(name, key, &state)
+            {
+                if message.contains("does not match its rollback witness") {
+                    return Err(StoreError::Crypto(message.clone()));
+                }
+            }
+        }
+        Ok(state)
     }
 
     pub(crate) fn next_entry_revision(
@@ -274,47 +295,7 @@ impl StoreRoot {
         path: &Path,
         key: &ItemDataKey,
     ) -> Result<u64, StoreError> {
-        self.next_entry_revision_after(name, path, key, 0)
-    }
-
-    pub(crate) fn next_entry_revision_after(
-        &self,
-        name: &str,
-        path: &Path,
-        key: &ItemDataKey,
-        minimum: u64,
-    ) -> Result<u64, StoreError> {
-        let (store_id, mut witness) = self.current_witness(key)?;
-        let identity = crate::store::revision_identity(name)?;
-        if path.exists() && !witness.entries.contains_key(&identity) {
-            return Err(StoreError::Crypto(format!(
-                "missing anti-rollback state for {name}; refusing ciphertext bootstrap"
-            )));
-        }
-        let current = witness
-            .entries
-            .get(&identity)
-            .map_or(0, |entry| entry.revision)
-            .max(self.revision(name)?.unwrap_or(0))
-            .max(minimum);
-        let next = current
-            .checked_add(1)
-            .ok_or_else(|| StoreError::Crypto("entry revision exhausted".into()))?;
-        witness.entries.insert(
-            identity,
-            EntryWitness {
-                revision: next,
-                deleted: false,
-                commitment: [0; 32],
-            },
-        );
-        witness.epoch = witness
-            .epoch
-            .checked_add(1)
-            .ok_or_else(|| StoreError::Crypto("rollback witness epoch exhausted".into()))?;
-        self.write_witness(&store_id, key, &witness)?;
-        self.record_revision(name, next)?;
-        Ok(next)
+        self.next_entry_revision_after(name, path, key, 0, None, false)
     }
 
     pub(crate) fn tombstone_entry(&self, name: &str, key: &ItemDataKey) -> Result<(), StoreError> {
