@@ -159,8 +159,8 @@ fn last_rhs<'a>(source: &'a str, name: &str) -> Option<(&'a str, usize)> {
             continue;
         }
         if is_keyword_at(bytes, index, name.as_bytes()) {
-            let eq = index + name.len();
-            if super::bind::is_single_eq(bytes, eq) {
+            // `let parsed: Url = Url::parse(&url)` — `=` is not the next byte.
+            if let Some(eq) = super::bind::eq_after_name(bytes, index + name.len()) {
                 let end = super::bind::stmt_end(bytes, eq + 1);
                 found = Some((&source[eq + 1..end], end));
                 index = end;
@@ -321,4 +321,31 @@ fn strip_ref(arg: &str) -> &str {
 
 fn plain_ident(expr: &str) -> Option<&str> {
     super::bind::plain_ident(expr)
+}
+
+#[cfg(test)]
+mod probes {
+    use super::super::credentialed_send_https_gaps;
+
+    #[test]
+    fn p5_typed_parsed_url_guard_covers_send() {
+        let sample = r#"async fn f() { let parsed: Url = Url::parse(&url); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+        let qualified = r#"async fn f() { let parsed: url::Url = Url::parse(&url); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#;
+        assert_eq!(
+            credentialed_send_https_gaps(qualified),
+            (1, 0),
+            "{qualified}"
+        );
+    }
+
+    #[test]
+    fn p5_query_client_execute_is_a_send() {
+        let http = "async fn f() { let query = client; query.execute(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(http), (1, 1), "{http}");
+        let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let query = client; query.execute(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
+        let db = "async fn f() { query.execute(&self.pool).await?; }";
+        assert_eq!(credentialed_send_https_gaps(db), (0, 0), "{db}");
+    }
 }

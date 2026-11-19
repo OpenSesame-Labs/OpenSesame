@@ -70,9 +70,13 @@ fn credentialed_dispatch_site(source: &str, index: usize) -> bool {
     if !rest.starts_with(".execute") {
         return true;
     }
-    // sqlx `query.execute(&self.pool)` is not an HTTP send. Every other
-    // receiver counts, including `self.http.clone()`, `(&client)`, and `http_client`.
-    let name: String = source[..index]
+    // sqlx `query.execute(&self.pool)` is not an HTTP send. A client stored in
+    // `query` still is, when the argument is `request`.
+    receiver_name(&source[..index]) != "query" || query_execute_is_http(rest)
+}
+
+fn receiver_name(prefix: &str) -> String {
+    prefix
         .trim_end()
         .chars()
         .rev()
@@ -80,8 +84,21 @@ fn credentialed_dispatch_site(source: &str, index: usize) -> bool {
         .collect::<String>()
         .chars()
         .rev()
-        .collect();
-    name != "query"
+        .collect()
+}
+
+fn query_execute_is_http(rest: &str) -> bool {
+    let after = strip_turbofish(&rest[".execute".len()..]).unwrap_or(&rest[".execute".len()..]);
+    let Some(args) = bind::call_inside(after) else {
+        return false;
+    };
+    let arg = bind::strip_ref(bind::split_arg(args, true).trim()).trim();
+    if bind::plain_ident(arg) == Some("request") {
+        return true;
+    }
+    arg.rsplit('.')
+        .next()
+        .is_some_and(|tail| tail.trim() == "request")
 }
 
 fn dispatch_site(source: &str, alias_calls: &[(usize, usize)], index: usize) -> Option<usize> {
