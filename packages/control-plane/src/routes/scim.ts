@@ -90,7 +90,6 @@ const MAX_SCIM_USERS_PER_ORG = 10_000;
 // Protocol parsing is shared with the other SCIM routes; this module retains
 // the tenant authorization, audit, and durable provisioning decisions.
 // Storage admission remains atomic below this HTTP boundary.
-
 function scimTokenHash(token: string): string {
   return createHash("sha256").update(token).digest("hex");
 }
@@ -392,14 +391,12 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
     let totalResults: number;
     let startIndex = 1;
     if (filter === undefined || filter.trim() === "") {
-      const rawStart = c.req.query("startIndex");
-      const rawCount = c.req.query("count");
-      const page = scimPage(rawStart, rawCount);
-      if (!page) {
+      const page = scimPage(c.req.query("startIndex"), c.req.query("count"));
+      if (page === undefined) {
         return scimError(
           c,
           400,
-          "startIndex must be positive and count must be non-negative.",
+          "startIndex must be positive; count must be a non-negative integer.",
           "invalidValue",
         );
       }
@@ -409,7 +406,7 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
       );
       resources = await ctx.stores.scim.users.listByOrganization(
         organization.id,
-        page,
+        { offset: page.offset, limit: page.limit },
       );
     } else {
       const userName = scimUserNameFilter(filter);
