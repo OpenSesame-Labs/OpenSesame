@@ -36,6 +36,29 @@ fn canary() -> SecretString {
     SecretString::from(CANARY)
 }
 
+#[test]
+fn response_debug_never_formats_upstream_data() {
+    let response = InvokeResponse {
+        status: 200,
+        headers: vec![("etag".into(), "1-ssecca-ecar".into())],
+        body: Bytes::from_static(b"1-ssecca-ecar"),
+        receipt: ReceiptMeta {
+            provider_id: "github".into(),
+            scheme: "https".into(),
+            host: "api.github.com".into(),
+            path: "/".into(),
+            status: 200,
+            latency_ms: 0,
+            subject: None,
+            actor: None,
+            credential_reflected: false,
+        },
+    };
+    let debug = format!("{response:?}");
+    assert!(debug.contains("200"));
+    assert!(!debug.contains("1-ssecca-ecar"));
+}
+
 #[tokio::test]
 async fn egress_denial_happens_before_any_connection() {
     let (base, recorded) = spawn_stub(|_| (200, vec![], "ok")).await;
