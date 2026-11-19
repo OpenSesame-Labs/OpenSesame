@@ -110,7 +110,7 @@ impl WasmSyncStore {
     /// # Errors
     ///
     /// Returns an error when validation or the underlying operation fails.
-    pub fn to_persisted_json(&self, key: &WasmDeviceKey) -> Result<String, JsValue> {
+    pub fn to_persisted_json(&mut self, key: &WasmDeviceKey) -> Result<String, JsValue> {
         self.inner
             .to_persisted_json(&key.inner)
             .map_err(|e| JsValue::from_str(&e.to_string()))

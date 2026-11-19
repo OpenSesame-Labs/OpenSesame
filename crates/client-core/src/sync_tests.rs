@@ -146,7 +146,7 @@ fn equal_epoch_conflicting_ciphertext_is_rejected() {
 fn empty_persisted_store_rejects_foreign_key_on_put() {
     let key = DeviceKey::generate();
     let foreign = DeviceKey::generate();
-    let store = SyncStore::new("empty-dev");
+    let mut store = SyncStore::new("empty-dev");
     let json = store.to_persisted_json(&key).unwrap();
     let mut loaded = SyncStore::from_persisted_json(&key, &json).unwrap();
     assert!(loaded.put_local(&foreign, "x", b"no").is_err());
@@ -218,6 +218,32 @@ fn snapshot_import_authenticates_epochs_and_does_not_partially_apply() {
 }
 
 #[test]
+fn empty_persisted_store_binds_the_serialization_key() {
+    let key = DeviceKey::generate();
+    let foreign = DeviceKey::generate();
+    let mut store = SyncStore::new("bind-dev");
+    let json = store.to_persisted_json(&key).unwrap();
+    assert!(SyncStore::from_persisted_json(&foreign, &json).is_err());
+    assert!(store.put_local(&foreign, "n", b"x").is_err());
+    assert!(store.put_local(&key, "n", b"x").is_ok());
+}
+
+#[test]
+fn legacy_migration_rejects_ciphertext_that_would_exceed_v2_admission() {
+    let key = DeviceKey::generate();
+    let id = "edge";
+    let pt_len = sync_auth::LEGACY_MIGRATION_CIPHERTEXT_MAX - 40 + 1;
+    let plaintext = vec![0u8; pt_len];
+    let legacy_cipher = seal(&key, &plaintext, id.as_bytes()).unwrap();
+    assert!(legacy_cipher.len() > sync_auth::LEGACY_MIGRATION_CIPHERTEXT_MAX);
+    let legacy = serde_json::json!({
+        "cursor": {"device_id": "legacy-device", "epoch": 1},
+        "blobs": [{"id": id, "epoch": 1, "ciphertext": legacy_cipher}]
+    });
+    assert!(SyncStore::migrate_trusted_legacy_json(&key, &legacy.to_string()).is_err());
+}
+
+#[test]
 fn legacy_migration_is_explicit_and_assigns_new_authenticated_epochs() {
     let key = DeviceKey::generate();
     let foreign = DeviceKey::generate();
@@ -229,7 +255,7 @@ fn legacy_migration_is_explicit_and_assigns_new_authenticated_epochs() {
     .to_string();
     assert!(SyncStore::from_persisted_json(&key, &legacy).is_err());
     assert!(SyncStore::migrate_trusted_legacy_json(&foreign, &legacy).is_err());
-    let migrated = SyncStore::migrate_trusted_legacy_json(&key, &legacy).unwrap();
+    let mut migrated = SyncStore::migrate_trusted_legacy_json(&key, &legacy).unwrap();
     let blobs = migrated.opaque_blobs();
     assert_eq!(blobs[0].epoch, 10);
     assert_eq!(open_sync_blob(&key, &blobs[0]).unwrap(), b"legacy-secret");

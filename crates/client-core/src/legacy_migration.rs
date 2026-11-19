@@ -5,7 +5,7 @@ use zeroize::Zeroizing;
 
 use crate::{
     open, CiphertextSyncSnapshot, ClientCoreError, DeviceKey, PersistedStore, SyncBlob, SyncCursor,
-    SyncStore, MAX_SYNC_CIPHERTEXT_BYTES, MAX_SYNC_ID_BYTES,
+    SyncStore, sync_auth, MAX_SYNC_ID_BYTES,
 };
 
 impl SyncStore {
@@ -68,7 +68,7 @@ fn migrate(
             || blob.id.len() > MAX_SYNC_ID_BYTES
             || blob.epoch == 0
             || blob.epoch > i64::MAX as u64
-            || blob.ciphertext.len() > MAX_SYNC_CIPHERTEXT_BYTES
+            || blob.ciphertext.len() > sync_auth::LEGACY_MIGRATION_CIPHERTEXT_MAX
         {
             return Err(ClientCoreError::InvalidBlob("invalid legacy sync blob"));
         }

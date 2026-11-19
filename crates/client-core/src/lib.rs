@@ -27,7 +27,9 @@ pub mod snapshot;
 mod sync_apply;
 mod sync_auth;
 
-pub use sync_auth::{open_sync_blob, MAX_SYNC_CIPHERTEXT_BYTES, MAX_SYNC_ID_BYTES};
+pub use sync_auth::{
+    open_sync_blob, LEGACY_MIGRATION_CIPHERTEXT_MAX, MAX_SYNC_CIPHERTEXT_BYTES, MAX_SYNC_ID_BYTES,
+};
 
 pub use snapshot::{
     assert_ciphertext_only_json, refuse_deployment_seal_as_wrap_key, CiphertextSyncSnapshot,
@@ -287,8 +289,8 @@ impl SyncStore {
     /// # Errors
     ///
     /// Returns an error when validation or the underlying operation fails.
-    pub fn to_persisted_json(&self, key: &DeviceKey) -> Result<String, ClientCoreError> {
-        self.checked_key(key)?;
+    pub fn to_persisted_json(&mut self, key: &DeviceKey) -> Result<String, ClientCoreError> {
+        let guard = self.checked_key(key)?;
         let blobs: Vec<SyncBlob> = self
             .entries
             .iter()
@@ -305,6 +307,7 @@ impl SyncStore {
             integrity: None,
         };
         p.integrity = Some(persist_auth::tag(key, &p)?);
+        self.remember_key(guard);
         serde_json::to_string(&p).map_err(|e| ClientCoreError::Persist(e.to_string()))
     }
 
@@ -318,6 +321,12 @@ impl SyncStore {
         persist_auth::verify(key, &p)?;
         let mut store = Self::new(p.cursor.device_id.clone());
         store.apply_remote(key, &p.blobs)?;
+        if store.key_guard.is_none() {
+            store.remember_key(blake3::keyed_hash(
+                key.as_bytes(),
+                b"OpenSesame sync store key v2",
+            ));
+        }
         if p.cursor.epoch < store.cursor.epoch || p.cursor.epoch > i64::MAX as u64 {
             return Err(ClientCoreError::Persist(
                 "invalid authenticated cursor epoch".into(),
@@ -338,7 +347,7 @@ impl SyncStore {
     ///
     /// Returns an error when validation or the underlying operation fails.
     pub fn save_path(
-        &self,
+        &mut self,
         key: &DeviceKey,
         path: &std::path::Path,
     ) -> Result<(), ClientCoreError> {

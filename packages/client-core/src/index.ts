@@ -126,6 +126,9 @@ const memorySealed = new Map<string, string>();
 export interface SealedStore {
   cursor: { device_id: string; epoch: number };
   blobs: Array<{ id: string; epoch: number; ciphertextB64: string }>;
+  /** Authenticated on-disk format (`crates/client-core` persist v2). */
+  version?: number;
+  integrity?: string;
 }
 
 const MAX_SEALED_BLOBS = 4096;
@@ -133,6 +136,8 @@ const MAX_DEVICE_ID_LENGTH = 128;
 const MAX_BLOB_ID_LENGTH = 128;
 const SAFE_ID = /^[A-Za-z0-9._:-]+$/;
 const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
+const BLAKE3_HEX = /^[0-9a-f]{64}$/i;
+const PERSISTED_STORE_VERSION = 2;
 
 function safeId(value: BoundaryValue, max: number): string | null {
   if (!isString(value)) return null;
@@ -159,8 +164,27 @@ export function parseSealedStore(json: string): SealedStore | null {
   const row = boundary;
   // Unknown keys are where a plaintext document would hide, so there are none.
   for (const key of Object.keys(row)) {
-    if (key !== "cursor" && key !== "blobs") return null;
+    if (
+      key !== "cursor" &&
+      key !== "blobs" &&
+      key !== "version" &&
+      key !== "integrity"
+    ) {
+      return null;
+    }
   }
+  let version: number | undefined;
+  if ("version" in row) {
+    if (!isNumber(row.version) || row.version !== PERSISTED_STORE_VERSION)
+      return null;
+    version = PERSISTED_STORE_VERSION;
+  }
+  let integrity: string | undefined;
+  if ("integrity" in row) {
+    if (!isString(row.integrity) || !BLAKE3_HEX.test(row.integrity)) return null;
+    integrity = row.integrity;
+  }
+  if ((version === undefined) !== (integrity === undefined)) return null;
   const cursorRow = row.cursor;
   if (!isTypeofObject(cursorRow) || cursorRow === null) return null;
   const cursorFields = overlapCast(cursorRow);
@@ -178,16 +202,56 @@ export function parseSealedStore(json: string): SealedStore | null {
     if (!isTypeofObject(entry) || entry === null) return null;
     const blob = overlapCast(entry);
     for (const key of Object.keys(blob)) {
-      if (key !== "id" && key !== "epoch" && key !== "ciphertextB64")
+      if (
+        key !== "id" &&
+        key !== "epoch" &&
+        key !== "ciphertextB64" &&
+        key !== "ciphertext"
+      ) {
         return null;
+      }
     }
     const id = safeId(blob.id, MAX_BLOB_ID_LENGTH);
     const blobEpoch = epoch(blob.epoch);
     if (id === null || blobEpoch === null) return null;
-    if (!isString(blob.ciphertextB64) || !BASE64.test(blob.ciphertextB64)) {
+    let ciphertextB64: string | null = null;
+    const hasB64 = "ciphertextB64" in blob;
+    const hasBytes = "ciphertext" in blob;
+    if (hasB64 === hasBytes) return null;
+    if (hasB64) {
+      if (!isString(blob.ciphertextB64) || !BASE64.test(blob.ciphertextB64)) {
+        return null;
+      }
+      ciphertextB64 = blob.ciphertextB64;
+    } else if (version === undefined) {
       return null;
+    } else if (!Array.isArray(blob.ciphertext)) {
+      return null;
+    } else {
+      const bytes = new Uint8Array(blob.ciphertext.length);
+      for (let i = 0; i < blob.ciphertext.length; i += 1) {
+        const value = blob.ciphertext[i];
+        if (
+          !isNumber(value) ||
+          !Number.isInteger(value) ||
+          value < 0 ||
+          value > 255
+        ) {
+          return null;
+        }
+        bytes[i] = value;
+      }
+      ciphertextB64 = bytesToB64(bytes);
     }
-    blobs.push({ id, epoch: blobEpoch, ciphertextB64: blob.ciphertextB64 });
+    blobs.push({ id, epoch: blobEpoch, ciphertextB64 });
+  }
+  if (version !== undefined && integrity !== undefined) {
+    return {
+      cursor: { device_id: deviceId, epoch: cursorEpoch },
+      blobs,
+      version,
+      integrity,
+    };
   }
   return { cursor: { device_id: deviceId, epoch: cursorEpoch }, blobs };
 }

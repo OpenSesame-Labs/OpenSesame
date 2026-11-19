@@ -9,6 +9,8 @@ const AAD_DOMAIN: &[u8] = b"OpenSesame client sync blob v2\0";
 /// Match the Host's existing per-blob admission limits.
 pub const MAX_SYNC_ID_BYTES: usize = 128;
 pub const MAX_SYNC_CIPHERTEXT_BYTES: usize = 2 * 1024 * 1024;
+/// Legacy blobs omit the v2 magic prefix; reserve it so migrated envelopes stay admissible.
+pub const LEGACY_MIGRATION_CIPHERTEXT_MAX: usize = MAX_SYNC_CIPHERTEXT_BYTES - MAGIC.len();
 const ENVELOPE_OVERHEAD: usize = MAGIC.len() + 24 + 16;
 
 fn aad(id: &str, epoch: u64) -> Vec<u8> {
