@@ -136,11 +136,9 @@ describe("the gate tutorials", () => {
       expect(goal?.guide).toContain('focus "unlock.seal-actions"');
       expect(goal?.guide).toContain("Accept the recovery notice");
       expect(goal?.guide).toContain(
-        "If it fails or is unavailable, select PIN, then Next.",
+        "If it fails or is unavailable, use PIN and select Next.",
       );
-      expect(goal?.guide).toContain(
-        'wait target "unlock.seal-pin-entry" event=appear',
-      );
+      expect(goal?.guide).toContain('focus "unlock.seal-pin-entry"');
       expect(goal?.guide).toContain('focus "unlock.seal-pin-confirm"');
       expect(goal?.guide).toContain('focus "unlock.seal-ack"');
       read.mockReturnValue(true);

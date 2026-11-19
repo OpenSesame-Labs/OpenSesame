@@ -7,14 +7,13 @@ export const FIRST_VAULT_PIN_STEPS = [
 ] as const;
 
 export const FIRST_VAULT_SEAL_INSTRUCTION =
-  "Accept the recovery notice and select Seal with passkey, if available. If it fails or is unavailable, select PIN, then Next.";
+  "Accept the recovery notice and select Seal with passkey, if available. If it fails or is unavailable, use PIN and select Next.";
 
 const SIGN_IN_STEPS = [
   'focus "unlock.local-only" "Select Use without an account to keep this vault on this device." side=top',
   'wait target "unlock.local-only" event=activate timeout=60000',
   'wait target "unlock.methods" event=appear timeout=60000',
   `focus "unlock.seal-actions" "${FIRST_VAULT_SEAL_INSTRUCTION}" side=bottom`,
-  'wait target "unlock.seal-pin-entry" event=appear timeout=60000',
   ...FIRST_VAULT_PIN_STEPS,
   'wait state "vault.unlocked" is=true timeout=60000',
 ] as const;

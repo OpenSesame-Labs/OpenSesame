@@ -168,7 +168,7 @@ describe("VaultStore passkey unlock", () => {
     store.lock();
 
     ceremony.failGet = new Error(
-      "Passkey was cancelled or timed out. Try again or choose another method.",
+      "Passkey was cancelled or timed out. Try again, or use a PIN / password unlock instead.",
     );
     const reopened = new VaultStore();
     await expect(reopened.unlockWithPasskey()).rejects.toThrow(/cancelled/);

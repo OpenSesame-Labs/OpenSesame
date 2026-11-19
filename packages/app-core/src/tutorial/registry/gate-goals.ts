@@ -107,12 +107,7 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
         creating
           ? `focus "unlock.seal-actions" "${FIRST_VAULT_SEAL_INSTRUCTION}" side=bottom`
           : 'focus "unlock.submit" "Select Unlock with passkey, then approve the prompt." side=top',
-        ...(creating
-          ? [
-              'wait target "unlock.seal-pin-entry" event=appear timeout=60000',
-              ...FIRST_VAULT_PIN_STEPS,
-            ]
-          : []),
+        ...(creating ? FIRST_VAULT_PIN_STEPS : []),
         'success "If you enrolled a second step, enter its code when asked."',
         "end",
       ].join("\n");

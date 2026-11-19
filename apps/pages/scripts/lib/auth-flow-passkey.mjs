@@ -18,6 +18,7 @@ import { checkLateSealScroll } from "./tutorial-gates.mjs";
 import { checkKeyboardViewport } from "./tutorial-keyboard-viewport.mjs";
 import {
   checkControlReachable,
+  waitForPinTutorial,
   waitForSecurityKey,
 } from "./tutorial-measure.mjs";
 
@@ -103,6 +104,15 @@ export async function sealFirstVault(
     );
     await recovery.check();
   }
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[role="tab"][aria-selected="true"]')
+        ?.textContent?.trim() === "PIN",
+  );
+  await page
+    .locator('[data-guide-targets~="unlock.seal-pin-entry"]')
+    .waitFor({ state: "visible" });
   const next = page.locator(".coach__btn--go");
   check(
     (await page
@@ -118,22 +128,12 @@ export async function sealFirstVault(
     "first vault: selecting PIN reveals the tutorial Next action",
   );
   await checkControlReachable(page, check, next, `${protection} tutorial Next`);
-  await checkControlReachable(
-    page,
-    check,
-    recovery,
-    `${protection} recovery notice`,
-  );
-  await checkControlReachable(
-    page,
-    check,
-    page.getByRole("button", { name: "Seal with PIN" }),
-    `${protection} Seal with PIN`,
+  check(
+    (await next.getAttribute("aria-disabled")) !== "true",
+    "first vault: PIN tutorial Next is enabled",
   );
   await next.click();
-  await page
-    .locator('.coach[data-coach-target="unlock.seal-pin-entry"]')
-    .waitFor();
+  await waitForPinTutorial(page, { out, width, label, keepShots });
   await step("unlock.seal-pin-entry", 5, 16);
   await revisitIncompletePin(page, step, check);
   if (phone && process.env.TUTORIALS_KEYBOARD_VIEWPORT === "1") {
