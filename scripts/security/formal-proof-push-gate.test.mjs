@@ -58,6 +58,40 @@ test("registry boundaries reject non-string ids, paths and commands", () => {
   }
 });
 
+test("manifest projection descriptors reject ambiguous and untracked inputs", () => {
+  const suite = {
+    ...registry.suites[0],
+    implementation: ["crates/domain/Cargo.toml"],
+    manifestProjection: {
+      path: "Cargo.toml",
+      package: "crates/domain/Cargo.toml",
+      lock: "Cargo.lock",
+      root: "opensesame-domain",
+    },
+  };
+  for (const change of [
+    { path: "nested/Cargo.toml" },
+    { package: "../other/Cargo.toml" },
+    { package: "crates/other/Cargo.toml" },
+    { lock: "other.lock" },
+    { root: "../domain" },
+    { unexpected: true },
+  ]) {
+    const input = Buffer.from(
+      JSON.stringify({
+        version: 1,
+        suites: [
+          {
+            ...suite,
+            manifestProjection: { ...suite.manifestProjection, ...change },
+          },
+        ],
+      }),
+    );
+    assert.throws(() => parseRegistry(input), /Invalid formal proof suite/);
+  }
+});
+
 test("runs only suites mapped to the pushed implementation and propagates failure", (t) => {
   const f = fixture(t);
   f.write("src/a", "a1\n");

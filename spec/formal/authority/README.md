@@ -3,12 +3,39 @@
 These properties cover grant attenuation in the Host domain. They are one
 slice of [ADR 0005](../../../docs/adr/0005-authority-handle-connectionref.md)
 and [ADR 0046](../../../docs/adr/0046-relayed-execution-and-authorization-inbox.md).
-The reviewed source revision and SHA-256 hashes are recorded in `coverage.json`.
-A source hash is a drift alarm, not proof that a review was correct.
-The pre-push registry selects this suite for its mapped Rust implementation
-files. Changes only to the reviewed Cargo manifests or lockfile do not select it;
-the release qualification gate runs every suite and catches that drift. Run
-this suite explicitly when those build inputs change.
+The reviewed source revision, source hashes, and bounded Cargo input projections
+are recorded in `coverage.json`. These are drift alarms, not proof that the
+review or model is correct. The pre-push registry selects this suite for its
+mapped Rust files and domain manifest, for a change in the domain's resolved
+root lockfile closure, or for a relevant root workspace manifest change. It
+also checks changes that are later reverted or arrive through a merge.
+The crate root's reviewed token sequence is independently pinned so module
+redirects and re-exports cannot be introduced merely by refreshing coverage
+hashes. The currently absent `build.rs` is mapped and its absence is pinned;
+enabling a build script or a custom library path requires a separate verifier
+and mapping review. The drift check runs before Cargo and again afterwards.
+
+The workspace projection retains the domain's inherited package fields and
+workspace dependency keys (including build, development, optional and
+target-specific declarations), resolver and global Cargo settings, relevant
+patches and package profile overrides, and explicit domain membership. It
+uses the union of the before and after lock closures to select named overrides;
+unsupported package selectors and workspace member patterns fail closed.
+It ignores unrelated workspace dependencies, members, metadata, and
+package-specific overrides. Global settings can conservatively select the
+suite even when a particular edit would not affect this package.
+
+The lockfile graph includes inactive optional, development and target-specific
+packages; it does not encode which features or targets are active. This bounded
+projection does not model feature unification caused by other workspace
+packages, `.cargo/config*`, the toolchain, dependency build scripts, or environment
+inputs. Local path dependencies within the domain closure fail closed until
+their source and manifest coverage is explicitly added. Those other inputs
+require separate review. The standalone harness has its own
+reviewed manifest and lockfile; the drift check requires its direct domain
+dependency identities and checksums to match the production lock. The full
+standalone and workspace graphs may differ because the latter records unioned
+dependency edges, so equality of those graphs is not claimed.
 
 | ID | Requirement | Implementation | Lean theorem |
 |---|---|---|---|
@@ -28,10 +55,12 @@ missing/same/different bindings for every scope dimension
 client, and actor instance) and for proof keys; and all subsets of the two
 sample actions. Each of the six scope vectors is applied once per dimension.
 A fresh grant ID is used for each fixture. The [Rust lock file](Cargo.lock)
-pins the harness dependency versions; its selected dependency versions match
-the reviewed repository lock.
-That lock, the harness `Cargo.toml`, and `conformance.rs` are hashed in
-`coverage.json` and listed in the proof registry.
+pins the harness dependency versions separately from the production workspace.
+Its direct domain dependency identities and checksums match the reviewed
+repository lock. That lock, the harness `Cargo.toml`, `conformance.rs`, and the
+mapped domain, `opensesame-time`, and patched `sqlx-sqlite` sources are hashed
+in `coverage.json`. The domain sources and those path-package inputs are listed
+in the proof registry.
 
 Run with Lean 4.24.0, the repository Rust toolchain, and its usual shared Cargo
 cache:
