@@ -152,6 +152,11 @@ function relocated(recorded) {
   return files;
 }
 
+execFileSync(process.execPath, ["scripts/quality/cd-pwa-workspace-paths-gate.mjs"], {
+  cwd: root,
+  stdio: "inherit",
+});
+
 // The vendor-size exemption applies only to the reviewed upstream bytes.
 execFileSync(
   "python3",

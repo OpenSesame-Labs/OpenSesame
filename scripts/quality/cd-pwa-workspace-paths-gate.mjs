@@ -34,14 +34,60 @@ export function productionClosure(components) {
 export function workflowPathFilters(yaml) {
   const lines = yaml.split("\n");
   const paths = [];
+  let inOn = false;
+  let onIndent = 0;
+  let inPush = false;
+  let pushIndent = 0;
   let inPaths = false;
   let pathsIndent = 0;
   for (const line of lines) {
+    if (!inOn) {
+      const on = /^(\s*)on:\s*$/.exec(line);
+      if (on) {
+        inOn = true;
+        onIndent = on[1].length;
+      }
+      continue;
+    }
+    if (!inPush) {
+      const push = /^(\s*)push:\s*$/.exec(line);
+      if (push && push[1].length > onIndent) {
+        inPush = true;
+        pushIndent = push[1].length;
+        inPaths = false;
+        continue;
+      }
+      if (line.trim() && !/^\s*#/.test(line)) {
+        const indent = /^(\s*)\S/.exec(line)?.[1]?.length ?? 0;
+        if (indent <= onIndent) inOn = false;
+      }
+      continue;
+    }
+    if (line.trim() && !/^\s*#/.test(line)) {
+      const indent = /^(\s*)\S/.exec(line)?.[1]?.length ?? 0;
+      if (indent === pushIndent && !/^\s+push:\s*$/.test(line)) {
+        inPush = false;
+        inPaths = false;
+        continue;
+      }
+      if (indent <= onIndent) {
+        inOn = false;
+        inPush = false;
+        inPaths = false;
+        continue;
+      }
+    }
     if (!inPaths) {
       const header = /^(\s*)paths:\s*$/.exec(line);
-      if (header) {
+      if (header && header[1].length > pushIndent) {
         inPaths = true;
         pathsIndent = header[1].length;
+      } else if (line.trim() && !/^\s*#/.test(line)) {
+        const indent = /^(\s*)\S/.exec(line)?.[1]?.length ?? 0;
+        if (indent <= pushIndent) {
+          inPush = false;
+          inPaths = false;
+        }
       }
       continue;
     }
@@ -50,7 +96,10 @@ export function workflowPathFilters(yaml) {
       paths.push(match[2]);
       continue;
     }
-    if (line.trim() && !/^\s*#/.test(line)) inPaths = false;
+    if (line.trim() && !/^\s*#/.test(line)) {
+      const indent = /^(\s*)\S/.exec(line)?.[1]?.length ?? 0;
+      if (indent <= pathsIndent) inPaths = false;
+    }
   }
   return paths;
 }
@@ -61,17 +110,38 @@ export function packageGlob(dir) {
 }
 
 /**
+ * Exact package glob, or a broader parent glob (`packages/**` covers
+ * `packages/foo/**`). A narrower child glob does not.
+ *
+ * @param {string} pattern
+ * @param {string} glob
+ */
+function patternCovers(pattern, glob) {
+  if (pattern === glob) return true;
+  return (
+    pattern.endsWith("/**") && glob.startsWith(`${pattern.slice(0, -3)}/`)
+  );
+}
+
+/**
+ * Last matching filter wins. A positive filter covers only when it is the
+ * package glob or a broader parent. A `!` filter clears coverage when that
+ * same relation holds, so a later positive can restore it. A narrower `!`
+ * child does not uncover the package.
+ *
  * @param {string[]} filters
  * @param {string} glob package dir glob such as `packages/foo/**`
  */
 export function pathCovers(filters, glob) {
-  return filters.some((filter) => {
-    if (filter === glob) return true;
-    if (filter.endsWith("/**") && glob.startsWith(`${filter.slice(0, -3)}/`)) {
-      return true;
+  let covered = false;
+  for (const filter of filters) {
+    if (filter.startsWith("!")) {
+      if (patternCovers(filter.slice(1), glob)) covered = false;
+      continue;
     }
-    return false;
-  });
+    if (patternCovers(filter, glob)) covered = true;
+  }
+  return covered;
 }
 
 /**
@@ -87,7 +157,10 @@ export function assertCdPwaPaths(repoRoot = root) {
   );
   const filters = workflowPathFilters(workflow);
   const missing = [];
-  if (!filters.includes(PAGES_APP_GLOB)) {
+  if (
+    !filters.includes(PAGES_APP_GLOB) ||
+    !pathCovers(filters, PAGES_APP_GLOB)
+  ) {
     missing.push({ name: PAGES, glob: PAGES_APP_GLOB });
   }
   for (const component of closure) {
