@@ -110,9 +110,7 @@
 }
 
 .road.road--lead .road__mark,
-.road.road--lead:hover:not(:disabled) .road__mark,
-.road.road--advanced .road__mark,
-.road.road--advanced:hover:not(:disabled) .road__mark {
+.road.road--lead:hover:not(:disabled) .road__mark {
   border-color: var(--ink);
   background: var(--ink);
   color: var(--canvas);
