@@ -34,10 +34,14 @@ export function mainPagesDist() {
     cwd: tree,
     stdio: "inherit",
   });
-  execFileSync("mise", ["exec", "--", "npm", "run", "build", "-w", "@opensesame/pages"], {
-    cwd: tree,
-    stdio: "inherit",
-  });
+  execFileSync(
+    "mise",
+    ["exec", "--", "npm", "run", "build", "-w", "@opensesame/pages"],
+    {
+      cwd: tree,
+      stdio: "inherit",
+    },
+  );
   if (!existsSync(path.join(outDir, "index.html"))) {
     throw new Error(`main dist missing at ${outDir}`);
   }
