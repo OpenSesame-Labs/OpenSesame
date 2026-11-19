@@ -223,7 +223,7 @@ Formal status: **unproved**. No Lean model or registry suite covers this
 transport boundary yet.
 
 Evidence: Vitest regressions in
-[`listener-rotation.test.ts`](../../packages/control-plane/src/transport/listener-rotation.test.ts)
+[`listener-rotation.test.ts`](../../packages/control-plane/src/transport/__tests__/listener-rotation.test.ts)
 (client CA, binding, originating-trust, credential-only reload, stale replay).
 
 ### CLI-WA3: restricted CLI approvals
