@@ -286,6 +286,26 @@ export async function checkControlReachable(page, check, control, label) {
   );
 }
 
+/** Prove the method decision cannot advance before a usable PIN field exists. */
+export async function checkTutorialNextBlocked(
+  page,
+  check,
+  next,
+  target = "unlock.seal-actions",
+) {
+  const visible = await next.isVisible();
+  check(
+    !visible || (await next.getAttribute("aria-disabled")) === "true",
+    `first vault: Next cannot skip required action ${target}`,
+  );
+  if (!visible) return;
+  await next.evaluate((button) => button.click());
+  check(
+    (await page.locator(`.coach[data-coach-target="${target}"]`).count()) === 1,
+    `first vault: disabled Next keeps ${target} active`,
+  );
+}
+
 /** Wait for PRF failure to select the cross-platform road, with useful state. */
 export async function waitForSecurityKey(
   page,

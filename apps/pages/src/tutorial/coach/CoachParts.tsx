@@ -47,7 +47,7 @@ export function coachMessage(
   if (requiredAction && ready && !tour.action) {
     if (tour.target === "editor.password-options")
       return "Password options are open. Select Next.";
-    if (tour.target === "unlock.seal-pin")
+    if (tour.target === "unlock.seal-actions")
       return "PIN is selected. Select Next.";
   }
   return tour.message;
