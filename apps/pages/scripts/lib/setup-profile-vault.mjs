@@ -303,18 +303,7 @@ export function assertProfileVaultDom(profileId, markers, check) {
   }
 }
 
-export async function captureProfileAppliedVault(
-  page,
-  href,
-  dir,
-  profileId,
-  check,
-) {
-  await openSetupChoices(page, href);
-  const picker = path.join(dir, "setup-profile-picker.png");
-  await shotFrame(page, picker);
-  check(existsSync(picker), `${profileId} setup-profile-picker.png`);
-
+async function commitSetupRoadChoice(page, profileId, check, dir) {
   const choice =
     profileId === "minimal"
       ? "Minimal"
@@ -340,6 +329,32 @@ export async function captureProfileAppliedVault(
     .locator("visible=true")
     .first()
     .waitFor({ timeout: 25_000 });
+}
+
+/** Setup road → sealed/unlocked vault; no profile evidence screenshots. */
+export async function applySetupProfileToUnlockedVault(
+  page,
+  href,
+  profileId,
+  check,
+  dir,
+) {
+  await openSetupChoices(page, href);
+  await commitSetupRoadChoice(page, profileId, check, dir);
+}
+
+export async function captureProfileAppliedVault(
+  page,
+  href,
+  dir,
+  profileId,
+  check,
+) {
+  await openSetupChoices(page, href);
+  const picker = path.join(dir, "setup-profile-picker.png");
+  await shotFrame(page, picker);
+  check(existsSync(picker), `${profileId} setup-profile-picker.png`);
+  await commitSetupRoadChoice(page, profileId, check, dir);
 
   let rail = await vaultRailMarkers(page);
   if (profileId === "default" || profileId === "full") {
