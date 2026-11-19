@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import {
   type ApprovalActivation,
@@ -107,6 +108,18 @@ import type {
 export type Database = PostgresJsDatabase<typeof schema>;
 
 type TxDb = Database;
+
+type AmbientTransaction = { root: Database; transaction: TxDb };
+const ambientTransaction = new AsyncLocalStorage<AmbientTransaction>();
+
+/** Bind repository calls on one root database to its caller-owned transaction. */
+export function withPostgresTransactionContext<T>(
+  root: Database,
+  transaction: Database,
+  run: () => Promise<T>,
+): Promise<T> {
+  return ambientTransaction.run({ root, transaction }, run);
+}
 
 function normalizeTenant(tenant?: string | null): string {
   return tenant ?? "";
@@ -538,6 +551,8 @@ function dbOf(uow: UnitOfWork | undefined, root: Database): TxDb {
   if (uow instanceof PostgresUnitOfWork) {
     return uow.db;
   }
+  const ambient = ambientTransaction.getStore();
+  if (ambient?.root === root) return ambient.transaction;
   return root;
 }
 
