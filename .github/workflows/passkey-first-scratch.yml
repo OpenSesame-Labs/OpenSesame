@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          ref: 06d447d1a39bfef1061b6f2b4a5c46b7fb550445
+          ref: 3262e228850bbdc4d3d8191d3151712bdf2c654c
           persist-credentials: false
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
