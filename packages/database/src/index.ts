@@ -49,6 +49,7 @@ export {
   createEventSealer,
   eventSealSecret,
 } from "./event-seal.js";
+export type { MemoryStoreFork } from "./memory-transaction.js";
 export { runMigrations } from "./migrate.js";
 export { internalSecurityPrincipal } from "./oidc-internal-scope.js";
 export { oidcLookup, openOidcRow, sealOidcRow } from "./oidc-seal.js";
@@ -142,8 +143,15 @@ export {
   type ScimTokenStore,
   type ScimUserRecord,
   type ScimUserStore,
+  type VersionedScimUser,
   createMemoryScimStores,
   createPostgresScimStores,
 } from "./scim-group-store.js";
+export {
+  MemoryScimGroupMappingStore,
+  MemoryScimGroupStore,
+} from "./scim-groups-memory.js";
+export { MemoryScimUserStore } from "./scim-users-memory.js";
+export { PostgresScimUserStore } from "./scim-users-postgres.js";
 export { openSecretText, sealSecretText } from "./secret-seal.js";
 export { appendOutboxInTransaction, withOutbox } from "./tx.js";
