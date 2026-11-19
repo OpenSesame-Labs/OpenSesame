@@ -1,4 +1,6 @@
 import {
+  createCipheriv,
+  createDecipheriv,
   createHash,
   createHmac,
   scryptSync,
@@ -51,6 +53,23 @@ const pendingFederatedAuthSchema = z.object({
   orgId: z.string().optional(),
 });
 
+const wirePendingSchema = pendingFederatedAuthSchema
+  .omit({ verifier: true })
+  .extend({
+    verifier: z.string().optional(),
+    verifierEnc: z.string().optional(),
+  })
+  .refine((data) => data.verifier !== undefined || data.verifierEnc !== undefined, {
+    message: "verifier field required",
+  });
+
+const SCRYPT_PARAMS = {
+  N: 32768,
+  r: 8,
+  p: 1,
+  maxmem: 64 * 1024 * 1024,
+} as const;
+
 /** Cookie carrying `PendingFederatedAuth`, scoped to this interaction only. */
 export function pendingCookieName(uid: string): string {
   return `os.fed.${uid}`;
@@ -70,12 +89,106 @@ function pendingVerifierBinding(
     .update(nonce)
     .digest()
     .subarray(0, 16);
-  return scryptSync(verifier, salt, 32, {
-    N: 32768,
-    r: 8,
-    p: 1,
-    maxmem: 64 * 1024 * 1024,
-  }).toString("base64url");
+  return scryptSync(verifier, salt, 32, SCRYPT_PARAMS).toString("base64url");
+}
+
+function verifierSealKey(
+  secret: string,
+  state: string,
+  nonce: string,
+): Buffer {
+  const salt = createHash("sha256")
+    .update(secret)
+    .update("\0opensesame:fed-pending-verifier-seal\0")
+    .update(state)
+    .update(nonce)
+    .digest()
+    .subarray(0, 16);
+  return scryptSync("\0seal-key\0", salt, 32, SCRYPT_PARAMS);
+}
+
+/** Seal the PKCE verifier for wire transport; the MAC never covers the raw verifier. */
+function sealVerifier(
+  verifier: string,
+  secret: string,
+  state: string,
+  nonce: string,
+): string {
+  const key = verifierSealKey(secret, state, nonce);
+  const iv = createHmac("sha256", key)
+    .update("\0opensesame:fed-pending-seal-iv\0")
+    .update(state)
+    .update(nonce)
+    .digest()
+    .subarray(0, 12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([
+    cipher.update(verifier, "utf8"),
+    cipher.final(),
+  ]);
+  return Buffer.concat([iv, cipher.getAuthTag(), ciphertext]).toString(
+    "base64url",
+  );
+}
+
+function unsealVerifier(
+  sealed: string,
+  secret: string,
+  state: string,
+  nonce: string,
+): string | undefined {
+  try {
+    const raw = Buffer.from(sealed, "base64url");
+    const iv = raw.subarray(0, 12);
+    const tag = raw.subarray(12, 28);
+    const ciphertext = raw.subarray(28);
+    const key = verifierSealKey(secret, state, nonce);
+    const decipher = createDecipheriv("aes-256-gcm", key, iv);
+    decipher.setAuthTag(tag);
+    return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString(
+      "utf8",
+    );
+  } catch {
+    return undefined;
+  }
+}
+
+function wirePendingBody(
+  pending: PendingFederatedAuth,
+  secret: string,
+): z.infer<typeof wirePendingSchema> {
+  const { verifier, ...rest } = pending;
+  return {
+    ...rest,
+    verifierEnc: sealVerifier(verifier, secret, pending.state, pending.nonce),
+  };
+}
+
+function resolveVerifier(
+  data: z.infer<typeof wirePendingSchema>,
+  secret?: string,
+): string | undefined {
+  if (data.verifier !== undefined) return data.verifier;
+  if (data.verifierEnc === undefined || secret === undefined) return undefined;
+  return unsealVerifier(data.verifierEnc, secret, data.state, data.nonce);
+}
+
+function pendingFromWire(
+  data: z.infer<typeof wirePendingSchema>,
+  verifier: string,
+): PendingFederatedAuth {
+  return {
+    issuer: data.issuer,
+    state: data.state,
+    nonce: data.nonce,
+    verifier,
+    ...(data.kind !== undefined ? { kind: data.kind } : undefined),
+    ...(data.providerId !== undefined
+      ? { providerId: data.providerId }
+      : undefined),
+    ...(data.byoId !== undefined ? { byoId: data.byoId } : undefined),
+    ...(data.orgId !== undefined ? { orgId: data.orgId } : undefined),
+  };
 }
 
 /** Canonical HMAC input: OAuth leg fields with scrypt-bound PKCE verifier. */
@@ -137,7 +250,8 @@ export function encodePending(
   pending: PendingFederatedAuth,
   secret?: string,
 ): string {
-  const payload = Buffer.from(JSON.stringify(pending), "utf8").toString(
+  const body = secret ? wirePendingBody(pending, secret) : pending;
+  const payload = Buffer.from(JSON.stringify(body), "utf8").toString(
     "base64url",
   );
   if (!secret) return payload;
@@ -168,9 +282,11 @@ function verifiedPendingPayload(
     const parsed = JSON.parse(
       Buffer.from(payload, "base64url").toString("utf8"),
     );
-    const macResult = pendingFederatedAuthSchema.safeParse(parsed);
+    const macResult = wirePendingSchema.safeParse(parsed);
     if (!macResult.success) return undefined;
     const data = macResult.data;
+    const verifier = resolveVerifier(data, secret);
+    if (verifier === undefined) return undefined;
     // Old signatures did not cover any field outside this set. A future
     // decoder must not give an unsigned extension security meaning.
     const legacyFields = new Set([
@@ -192,7 +308,7 @@ function verifiedPendingPayload(
       issuer: data.issuer,
       state: data.state,
       nonce: data.nonce,
-      verifier: data.verifier,
+      verifier,
       ...(data.kind !== undefined ? { kind: data.kind } : undefined),
       ...(data.providerId !== undefined
         ? { providerId: data.providerId }
@@ -227,25 +343,16 @@ export function decodePending(
     const parsed = JSON.parse(
       Buffer.from(payload, "base64url").toString("utf8"),
     );
-    const result = pendingFederatedAuthSchema.safeParse(parsed);
+    const result = wirePendingSchema.safeParse(parsed);
     if (!result.success) return undefined;
+    const data = result.data;
+    const verifier = resolveVerifier(data, secret);
+    if (verifier === undefined) return undefined;
     // Rebuilt field by field rather than handed back whole: an absent v2 field
     // must stay absent, not become a present `undefined`. The difference is
     // visible — `{...pending, kind: undefined}` re-encodes as a cookie
     // claiming a `kind` of `null`, which then fails to parse on the way back.
-    const data = result.data;
-    return {
-      issuer: data.issuer,
-      state: data.state,
-      nonce: data.nonce,
-      verifier: data.verifier,
-      ...(data.kind !== undefined ? { kind: data.kind } : undefined),
-      ...(data.providerId !== undefined
-        ? { providerId: data.providerId }
-        : undefined),
-      ...(data.byoId !== undefined ? { byoId: data.byoId } : undefined),
-      ...(data.orgId !== undefined ? { orgId: data.orgId } : undefined),
-    };
+    return pendingFromWire(data, verifier);
   } catch {
     return undefined;
   }
