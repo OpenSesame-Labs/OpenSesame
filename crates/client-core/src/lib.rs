@@ -258,8 +258,7 @@ impl SyncStore {
             .filter(|value| *value <= i64::MAX as u64)
             .ok_or(ClientCoreError::EpochExhausted)?;
         let blob = sync_auth::seal_blob_deterministic(key, id.clone(), epoch, plaintext)?;
-        self.entries
-            .insert(id, (epoch, blob.ciphertext.clone()));
+        self.entries.insert(id, (epoch, blob.ciphertext.clone()));
         self.cursor.epoch = epoch;
         self.remember_key(guard);
         Ok(())
