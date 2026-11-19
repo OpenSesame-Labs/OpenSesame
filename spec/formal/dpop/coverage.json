@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "reviewed_revision": "e4c138ce617eebc40266a8bc8a2e3e2ca2acffdb",
+  "sources": [
+    {
+      "path": "crates/proof/src/replay.rs",
+      "sha256": "f6da7a1a31cddd450b6c66b13d4c5b89d951fd9e1dab72e7defa836d29bb3920"
+    },
+    {
+      "path": "crates/proof/src/validator.rs",
+      "sha256": "967ad727efd4936e834163d882dd1bf79e8ca6efdac99755b5d5cef29525ac8f"
+    },
+    {
+      "path": "crates/proof/src/jwk.rs",
+      "sha256": "fd7971be7e10f469cc7db78ea5aaa62f05181536db86d04a182bb27882708b06"
+    },
+    {
+      "path": "spec/formal/dpop/replay_conformance.rs",
+      "sha256": "5c72c00a6c46a0a3b5e99a3c2c2f629ee8735a0fc48eae94e3f6753c50ea20dc"
+    }
+  ]
+}
