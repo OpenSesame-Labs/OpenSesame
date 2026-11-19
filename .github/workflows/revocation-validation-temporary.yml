@@ -1,0 +1,61 @@
+name: Revocation exact-head validation
+on:
+  push:
+    branches: [codex/revocation-validation-20261119]
+permissions: {}
+jobs:
+  revocation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: d751dee7493e85ece6a41dfae18d4f697d302980
+          fetch-depth: 100
+          persist-credentials: false
+      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c
+        with:
+          cache: false
+          install_args: node@24
+      - run: npm ci --ignore-scripts
+      - name: Structural and exposure checks
+        run: |
+          npm run audit:exposure
+          npm run typecheck -w @opensesame/control-plane
+          npm run lint:anti-slop:files -- packages/control-plane/src/interactions/upstream-logout.ts packages/control-plane/src/repos/durable-map.ts packages/control-plane/src/repos/provisional-revocation.ts packages/control-plane/src/__tests__/principals-edge.test.ts packages/control-plane/src/__tests__/durable-map.test.ts packages/control-plane/src/__tests__/organization-session-postgres.test.ts packages/control-plane/src/__tests__/device-approve-postgres.test.ts
+      - name: Focused recovery regressions
+        env:
+          OPENSESAME_ALLOW_DEV_DEFAULTS: "1"
+        run: npx vitest run packages/control-plane/src/__tests__/identity-replica.test.ts packages/control-plane/src/__tests__/durable-map.test.ts packages/control-plane/src/__tests__/principals-edge.test.ts --maxWorkers=1
+      - name: Real PostgreSQL replica regressions
+        env:
+          DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/postgres
+          OPENSESAME_ALLOW_DEV_DEFAULTS: "1"
+        run: npx vitest run packages/control-plane/src/__tests__/organization-session-postgres.test.ts packages/control-plane/src/__tests__/device-approve-postgres.test.ts --maxWorkers=1
+      - name: Install verified Lean 4.24.0
+        run: |
+          curl --fail --silent --show-error --location --retry 3 https://github.com/leanprover/lean4/releases/download/v4.24.0/lean-4.24.0-linux.tar.zst -o "$RUNNER_TEMP/lean.tar.zst"
+          printf '%s  %s\n' 'b14f5e5159219dd1a1956c3b806813319f5e94ccd5bdfd56f54520609a5bb5ec' "$RUNNER_TEMP/lean.tar.zst" | sha256sum --check --status
+          mkdir -p "$RUNNER_TEMP/lean"
+          tar --zstd -xf "$RUNNER_TEMP/lean.tar.zst" -C "$RUNNER_TEMP/lean" --strip-components=1
+      - name: Formal authentication evidence
+        env:
+          OPENSESAME_LEAN_BIN: ${{ runner.temp }}/lean/bin/lean
+          LEAN_BIN: ${{ runner.temp }}/lean/bin/lean
+        run: |
+          npm run verify:auth-formal
+          npm run verify:auth-source
