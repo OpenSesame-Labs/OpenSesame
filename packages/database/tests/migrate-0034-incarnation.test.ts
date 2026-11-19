@@ -20,15 +20,15 @@ const migrationsFolder = join(
 );
 const sentinel = "00000000-0000-0000-0000-000000000000";
 
-it("upgrades existing memberships and gives later inserts a new incarnation", async () => {
-  const before = mkdtempSync(join(tmpdir(), "os-migrate-0034-"));
+it("upgrades 0034 memberships and gives later inserts fresh authority tokens", async () => {
+  const before = mkdtempSync(join(tmpdir(), "os-migrate-0035-"));
   const client = new PGlite();
   try {
     cpSync(migrationsFolder, before, { recursive: true });
     const journalPath = join(before, "meta", "_journal.json");
     const journal = JSON.parse(readFileSync(journalPath, "utf8"));
     journal.entries = journal.entries.filter(
-      (entry: { idx: number }) => entry.idx < 34,
+      (entry: { idx: number }) => entry.idx <= 34,
     );
     writeFileSync(journalPath, JSON.stringify(journal));
     await client.waitReady;
