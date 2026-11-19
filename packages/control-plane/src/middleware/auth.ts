@@ -1,6 +1,7 @@
 import { getCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
 import type { AppContext } from "../context.js";
+import { withPrincipalSessionBoundary } from "../repos/principal-session-boundary.js";
 import type { Variables } from "./context.js";
 
 /**
@@ -32,13 +33,36 @@ export async function resolveProvisionalSession(
   const sessionId = await ctx.stores.provisionalTokens.get(token);
   if (!sessionId) return undefined;
   const session = await ctx.stores.provisionalSessions.get(sessionId);
-  if (!session || session.expiresAt <= ctx.clock() || session.revokedAt) {
+  if (!session) return undefined;
+  try {
+    return await withPrincipalSessionBoundary(
+      ctx.stores,
+      session.principalId,
+      "authenticate",
+      async (stores) => {
+        // Re-read after taking the shared boundary: a revocation may have
+        // committed between the initial token lookup and lock acquisition.
+        const standingId = await stores.provisionalTokens.get(token);
+        if (standingId !== sessionId) return undefined;
+        const standing = await stores.provisionalSessions.get(sessionId);
+        if (
+          !standing ||
+          standing.principalId !== session.principalId ||
+          standing.expiresAt <= ctx.clock() ||
+          standing.revokedAt
+        ) {
+          return undefined;
+        }
+        if (!(await principalStillAuthenticates(ctx, standing.principalId)))
+          return undefined;
+        return { principalId: standing.principalId, sessionId: standing.id };
+      },
+    );
+  } catch {
+    // A contending revocation is an authentication refusal, never a retry
+    // that can run a protected handler with authority already being removed.
     return undefined;
   }
-  if (!(await principalStillAuthenticates(ctx, session.principalId))) {
-    return undefined;
-  }
-  return { principalId: session.principalId, sessionId: session.id };
 }
 
 /** Methods that only read. A forged read is not a forged write. */
