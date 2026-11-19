@@ -6,6 +6,10 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { unlockWithPin } from "./pages-journey.mjs";
+import {
+  expectedPauseAllQueueCount,
+  mergedGuideGoalCount,
+} from "./setup-pause-goals.mjs";
 import { startTutorial, tutorialDialog } from "./tutorial-walk.mjs";
 
 export async function openSetupChoices(page, href) {
@@ -110,9 +114,14 @@ export async function captureMinimalWarning(page, dir, check) {
     .click();
   const dialog = page.getByRole("dialog", { name: "Notifications" });
   await dialog.waitFor({ timeout: 8_000 });
+  const trayText = await dialog.innerText();
   check(
-    (await dialog.innerText()).includes("Advanced."),
-    "minimal warning in notifications tray",
+    /password|passkey|card|note/.test(trayText),
+    "minimal warning names what Minimal gives up",
+  );
+  check(
+    (await dialog.getByRole("button", { name: "Keep Default" }).count()) > 0,
+    "Keep Default in tray",
   );
   const trayShot = path.join(dir, "minimal-warning-notifications.png");
   await shotPage(page, trayShot);
@@ -144,53 +153,148 @@ export async function openVaultDefaultPin(page, href, sealLocalOnly) {
   await sealLocalOnly(page);
 }
 
+async function exitVaultLockTutorial(page, href, sealLocalOnly) {
+  await openVaultDefaultPin(page, href, sealLocalOnly);
+  const card = await startTutorial(page, "vault.lock");
+  await card.getByRole("button", { name: "Exit tutorial" }).click();
+  await card.waitFor({ state: "hidden", timeout: 15_000 }).catch(() => {});
+  await page.waitForTimeout(400);
+}
+
+async function countResumeKeys(dialog) {
+  return dialog.getByRole("button", { name: "Resume walkthrough" }).count();
+}
+
 export async function captureTutorialPauseFlow(
-  page,
+  browser,
+  freshHarnessPage,
   dir,
   check,
   href,
   sealLocalOnly,
 ) {
-  await openVaultDefaultPin(page, href, sealLocalOnly);
-  await startTutorial(page, "vault.lock");
-  await page.getByRole("button", { name: "Exit tutorial" }).click();
-  const queued = await openNotes(page);
-  await queued
-    .getByRole("button", { name: "Pause all for this session" })
-    .first()
-    .waitFor({ timeout: 8_000 });
-  await queued
-    .getByRole("button", { name: "Resume walkthrough" })
-    .first()
-    .waitFor({ timeout: 8_000 });
-  const optOut = path.join(dir, "tutorial-opt-out-notifications.png");
-  await shotPage(page, optOut);
-  const lockCard = queued.locator(".notice-card", {
-    hasText: "Lock the vault",
-  });
-  await lockCard.getByRole("button", { name: "Resume walkthrough" }).waitFor();
-  await queued
-    .getByRole("button", { name: "Pause all for this session" })
-    .click();
-  await page.waitForTimeout(1500);
-  await page.reload({ waitUntil: "domcontentloaded" });
-  const lock = page
-    .getByRole("button", { name: "Lock vault" })
-    .locator("visible=true");
-  const pin = page.getByLabel("PIN", { exact: true });
-  await lock.or(pin).first().waitFor({ timeout: 30_000 });
-  if (await pin.isVisible().catch(() => false)) await unlockWithPin(page);
-  const again = await openNotes(page);
-  const restored = again.locator(".notice-card", { hasText: "Lock the vault" });
-  await restored.getByRole("button", { name: "Resume walkthrough" }).waitFor();
-  const reloaded = path.join(dir, "tutorial-queue-after-reload.png");
-  await shotPage(page, reloaded);
-  const pauseLeft = await again
-    .getByRole("button", { name: "Pause all for this session" })
-    .count();
-  check(pauseLeft === 0, "pause prompt is gone after reload");
-  await restored.getByRole("button", { name: "Resume walkthrough" }).click();
-  await tutorialDialog(page).waitFor({ timeout: 20_000 });
-  const resumed = path.join(dir, "tutorial-resumed-coach.png");
-  await shotPage(page, resumed);
+  const goalCount = mergedGuideGoalCount();
+  const pauseAllCount = expectedPauseAllQueueCount(goalCount);
+  check(goalCount > 1, `merged guide goals: ${goalCount}`);
+
+  async function freshPage() {
+    const opened = await freshHarnessPage(browser);
+    return { context: opened.context, page: opened.page };
+  }
+
+  {
+    const { context, page } = await freshPage();
+    try {
+      await exitVaultLockTutorial(page, href, sealLocalOnly);
+      const dialog = await openNotes(page);
+      await dialog
+        .getByRole("button", { name: "Pause all for this session" })
+        .first()
+        .waitFor({ timeout: 8_000 });
+      await dialog
+        .getByRole("button", { name: "Resume walkthrough" })
+        .first()
+        .waitFor({ timeout: 8_000 });
+      const optOut = path.join(dir, "tutorial-opt-out-notifications.png");
+      await shotPage(page, optOut);
+      check(
+        (await countResumeKeys(dialog)) === 1,
+        "one queued tour before pause choice",
+      );
+    } finally {
+      await context.close();
+    }
+  }
+
+  {
+    const { context, page } = await freshPage();
+    try {
+      await exitVaultLockTutorial(page, href, sealLocalOnly);
+      const dialog = await openNotes(page);
+      await dialog.getByRole("button", { name: "Only this one" }).click();
+      check(
+        (await countResumeKeys(dialog)) === 1,
+        "Only this one leaves one queued tour",
+      );
+      const onlyOne = path.join(dir, "tutorial-pause-only-one.png");
+      await shotPage(page, onlyOne);
+    } finally {
+      await context.close();
+    }
+  }
+
+  {
+    const { context, page } = await freshPage();
+    try {
+      await exitVaultLockTutorial(page, href, sealLocalOnly);
+      const dialog = await openNotes(page);
+      const pauseCard = dialog.locator(".notice-card", {
+        hasText: "Pause the others",
+      });
+      await pauseCard.getByRole("button", { name: "Dismiss" }).click();
+      check(
+        (await countResumeKeys(dialog)) === 1,
+        "dismiss (X) still leaves tour queued",
+      );
+      const dismissX = path.join(dir, "tutorial-pause-dismiss-x.png");
+      await shotPage(page, dismissX);
+    } finally {
+      await context.close();
+    }
+  }
+
+  {
+    const { context, page } = await freshPage();
+    try {
+      await exitVaultLockTutorial(page, href, sealLocalOnly);
+      let dialog = await openNotes(page);
+      await dialog
+        .getByRole("button", { name: "Pause all for this session" })
+        .click();
+      await page.waitForTimeout(800);
+      const queuedCount = await countResumeKeys(dialog);
+      check(
+        queuedCount === pauseAllCount,
+        `pause all queues every unanswered tour (${queuedCount} of ${pauseAllCount})`,
+      );
+      const pauseAll = path.join(dir, "tutorial-pause-all-queued.png");
+      await shotPage(page, pauseAll);
+      await dialog.getByRole("button", { name: "Close", exact: true }).click();
+      await dialog.waitFor({ state: "hidden" });
+      await page.waitForTimeout(2500);
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      const pin = page.getByLabel("PIN", { exact: true });
+      const lock = page
+        .getByRole("button", { name: "Lock vault" })
+        .locator("visible=true");
+      await lock.or(pin).first().waitFor({ timeout: 30_000 });
+      if (await pin.isVisible().catch(() => false)) await unlockWithPin(page);
+      dialog = await openNotes(page);
+      const afterReload = await countResumeKeys(dialog);
+      check(
+        afterReload === pauseAllCount,
+        `queued tours survive reload (${afterReload} of ${pauseAllCount})`,
+      );
+      const reloaded = path.join(dir, "tutorial-queue-after-reload.png");
+      await shotPage(page, reloaded);
+      const pauseLeft = await dialog
+        .getByRole("button", { name: "Pause all for this session" })
+        .count();
+      check(pauseLeft === 0, "pause prompt is gone after reload");
+      const lockCard = dialog.locator(".notice-card", {
+        hasText: "Lock the vault",
+      });
+      const lockResume = lockCard.getByRole("button", {
+        name: "Resume walkthrough",
+      });
+      await lockResume.scrollIntoViewIfNeeded();
+      await lockResume.click();
+      await tutorialDialog(page).waitFor({ timeout: 20_000 });
+      const resumed = path.join(dir, "tutorial-resumed-coach.png");
+      await shotPage(page, resumed);
+    } finally {
+      await context.close();
+    }
+  }
 }

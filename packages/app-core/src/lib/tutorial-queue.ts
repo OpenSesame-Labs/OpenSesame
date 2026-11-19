@@ -28,7 +28,8 @@ export const SESSION_TUTORIALS_PAUSED_KEY = "opensesame.tutorials.paused";
 export const TUTORIAL_PAUSE_NOTICE = "tutorial.pause.session";
 
 const ID = /^[a-z0-9][a-z0-9._-]{0,79}$/;
-const LIMIT = 80;
+export const TUTORIAL_QUEUE_LIMIT = 80;
+const LIMIT = TUTORIAL_QUEUE_LIMIT;
 const TITLE_LIMIT = 400;
 
 export type QueuedTutorial = Readonly<{ goalId: string }>;
@@ -177,6 +178,17 @@ export function dequeueTutorial(goalId: string): void {
 
 export function listQueuedTutorials(): readonly QueuedTutorial[] {
   return loadGoals().map((goalId) => ({ goalId }));
+}
+
+/** Replace the queue with validated registry ids, capped at {@link LIMIT}. */
+export function setQueuedTutorials(goalIds: readonly string[]): void {
+  const cleaned: string[] = [];
+  for (const goalId of goalIds) {
+    if (!ID.test(goalId) || guideGoal(goalId) === null) continue;
+    if (cleaned.includes(goalId)) continue;
+    cleaned.push(goalId);
+  }
+  store(cleaned.slice(-LIMIT));
 }
 
 export function sessionTutorialsPaused(): boolean {
