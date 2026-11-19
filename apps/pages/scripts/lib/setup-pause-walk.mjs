@@ -7,7 +7,7 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { unlockWithPin } from "./pages-journey.mjs";
 import {
-  expectedPauseAllQueueCount,
+  TUTORIAL_QUEUE_LIMIT,
   mergedGuideGoalCount,
 } from "./setup-pause-goals.mjs";
 import { startTutorial, tutorialDialog } from "./tutorial-walk.mjs";
@@ -264,7 +264,7 @@ export async function captureTutorialPauseFlow(
         `pause all queues more than the declined tour (${queuedCount})`,
       );
       check(
-        queuedCount <= expectedPauseAllQueueCount(mergedGuideGoalCount()),
+        queuedCount <= TUTORIAL_QUEUE_LIMIT,
         `pause all respects cap (${queuedCount})`,
       );
       const pauseAll = path.join(dir, "tutorial-pause-all-queued.png");
