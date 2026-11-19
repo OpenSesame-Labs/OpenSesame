@@ -36,6 +36,10 @@ test("fetchAbortTimeoutMs caps stalled headers at the shared CDN remainder", () 
     fetchAbortTimeoutMs(15_000, 50, () => 60),
     1,
   );
+  assert.equal(
+    fetchAbortTimeoutMs(15_000, 50, () => 60, false),
+    15_000,
+  );
 });
 
 test("readBoundedBody stops at shared CDN deadline before per-chunk cap", async () => {

@@ -278,6 +278,7 @@ async function assertLiveAsset(
   bodyDeadlineAt,
   now,
   perChunkReadMs,
+  enforcePerAssetDeadline,
 ) {
   const url = new URL(asset.relative, pagesBase);
   let response;
@@ -286,7 +287,12 @@ async function assertLiveAsset(
       cache: "no-store",
       redirect: "error",
       signal: AbortSignal.timeout(
-        fetchAbortTimeoutMs(timeoutMs, bodyDeadlineAt, now),
+        fetchAbortTimeoutMs(
+          timeoutMs,
+          bodyDeadlineAt,
+          now,
+          enforcePerAssetDeadline,
+        ),
       ),
     });
   } catch (error) {
@@ -338,6 +344,7 @@ async function assertLiveShellAssets(
       bodyDeadlineAt,
       now,
       perChunkReadMs,
+      enforcePerAssetDeadline,
     );
     matched.add(asset.relative);
   }

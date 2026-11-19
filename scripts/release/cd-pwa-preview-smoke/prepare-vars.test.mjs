@@ -8,7 +8,11 @@ import {
   normalizePagesBase,
   serializeHurlVariables,
 } from "./prepare-vars.mjs";
-import { cdnRetryBudget, registryRetryBudget } from "./retry-budget.mjs";
+import {
+  cdnPollBudget,
+  cdnRetryBudget,
+  registryRetryBudget,
+} from "./retry-budget.mjs";
 
 const sha = "c".repeat(40);
 const version = "0.0.0-alpha.12";
@@ -88,5 +92,12 @@ test("cdn retry budget stays bounded", () => {
   assert.ok(
     attempts * budget.maxTimeSec * 1000 + budget.retries * budget.intervalMs <=
       120_000,
+  );
+});
+
+test("cdn poll budget rejects non-safe deadline integers", () => {
+  assert.throws(
+    () => cdnPollBudget({ PWA_SMOKE_CDN_DEADLINE_MS: "9".repeat(400) }),
+    /safe integer/,
   );
 });
