@@ -94,7 +94,7 @@ function EditorForm({ mode }: { mode: "new" | "edit" }) {
   const [pendingDeliveryId, setPendingDeliveryId] = useState<string>();
   const [issuanceKey, setIssuanceKey] = useState(() => crypto.randomUUID());
 
-  // Reset before paint: a passive reset can erase input made on arrival.
+  // Reset before paint so input entered on arrival is not erased.
   useLayoutEffect(() => {
     setDraft(initial.item);
     setError(initial.error);
