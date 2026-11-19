@@ -243,3 +243,15 @@ export async function createRealPostgresContext(
     return failAfterCleanup(error, scope);
   }
 }
+
+/** A disposable real server database migrated through a chosen journal. */
+export function createRealPostgresContextWithMigrations(
+  url: string,
+  folder: string,
+): Promise<PgTestContext> {
+  return createRealPostgresContext(url, {
+    ...realPostgresDriver,
+    migrate: (database) =>
+      migratePostgresJs(database, { migrationsFolder: folder }),
+  });
+}

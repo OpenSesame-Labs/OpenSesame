@@ -43,6 +43,8 @@ export function withChainedAudit(
     transaction: (fn) => baseRepos.transaction(fn),
     auditEvents: {
       append: (event) => chainedAudit.append(event),
+      getByDigest: (digest) => baseRepos.auditEvents.getByDigest(digest),
+      getById: (id) => baseRepos.auditEvents.getById(id),
       list: (filter) => baseRepos.auditEvents.list(filter),
     },
   };
