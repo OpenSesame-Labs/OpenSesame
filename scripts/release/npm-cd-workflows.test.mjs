@@ -74,6 +74,7 @@ test("npm CD proves cli and web-pwa locally and drops env-spec-bridge", () => {
   assert.doesNotMatch(action, /dist-tag add/);
   assert.doesNotMatch(action, /npm install -g npm@/);
   assert.doesNotMatch(action, /npx(?:\s+-y)?\s+npm@/);
+  assert.match(action, /Refuse unqualified npm publication/);
   assert.match(cli, /group: cd-npm-cli\n {2}cancel-in-progress: true/);
   assert.match(pwa, /group: cd-pwa\n {2}cancel-in-progress: false/);
   assert.doesNotMatch(cli, /cancel-in-progress: false/);
