@@ -66,6 +66,7 @@ async function main() {
     runHurl("pages.hurl", varPath, cdn.attempts, cdn.intervalMs);
   } catch (error) {
     await writeSmokePhaseFailure(process.env, "hurl", error);
+    if (error instanceof Error) error.phaseWritten = true;
     throw error;
   }
   const hurlMs = Date.now() - hurlStarted;
@@ -76,6 +77,7 @@ async function main() {
     shellAssets = await pollLiveShellAssets(process.env);
   } catch (error) {
     await writeSmokePhaseFailure(process.env, "shell-poll", error);
+    if (error instanceof Error) error.phaseWritten = true;
     throw error;
   }
   const shellMs = Date.now() - shellStarted;
@@ -109,7 +111,9 @@ if (
       error instanceof Error ? error.message : "pwa preview smoke failed";
     console.error(message);
     try {
-      await writeSmokePhaseFailure(process.env, "run", error);
+      if (!(error instanceof Error && error.phaseWritten === true)) {
+        await writeSmokePhaseFailure(process.env, "run", error);
+      }
     } catch (evidenceError) {
       const text =
         evidenceError instanceof Error
