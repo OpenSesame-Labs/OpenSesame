@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, HashMap};
 
-use crate::{sync_auth, ClientCoreError, DeviceKey, SyncBlob, SyncStore};
+use crate::{sync_auth, sync_limits, ClientCoreError, DeviceKey, SyncBlob, SyncStore};
 
 impl SyncStore {
     fn reject_equal_epoch_conflict(
@@ -47,6 +47,8 @@ impl SyncStore {
         key: &DeviceKey,
         blobs: &[SyncBlob],
     ) -> Result<usize, ClientCoreError> {
+        sync_limits::validate_cursor(&self.cursor)?;
+        sync_limits::validate_capacity(&self.entries, blobs)?;
         let guard = self.checked_key(key)?;
         for blob in blobs {
             sync_auth::verify_blob(key, blob)?;
