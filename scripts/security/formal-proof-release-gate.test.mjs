@@ -254,10 +254,13 @@ test("missing or failing axiom controls stop qualification before any suite", (t
 
 test("formal coverage pins use origin/main lineage and survive squash onto main", () => {
   const root = fileURLToPath(new URL("../..", import.meta.url));
+  const env = { ...process.env };
+  delete env.NODE_TEST_CONTEXT;
+  delete env.NODE_OPTIONS;
   const run = spawnSync(
     process.execPath,
     ["--test", "scripts/test/formal-coverage-squash.test.mjs"],
-    { cwd: root, encoding: "utf8" },
+    { cwd: root, encoding: "utf8", env },
   );
   assert.equal(run.status, 0, run.stderr || run.stdout);
 });

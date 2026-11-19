@@ -7,7 +7,7 @@ git fetch origin main >/dev/null 2>&1 || true
 MAIN="$(git rev-parse origin/main)"
 SCRATCH="$(mktemp -d)"
 trap 'git worktree remove -f "$SCRATCH" 2>/dev/null || rm -rf "$SCRATCH"' EXIT
-git worktree add -f -B formal-squash-sim "$SCRATCH" "$MAIN" >/dev/null
+git worktree add -f --detach "$SCRATCH" "$MAIN" >/dev/null
 for rel in \
   scripts/security/formal_coverage_drift.py \
   spec/formal/authority \
@@ -29,6 +29,16 @@ for manifest in (
         dest = scratch / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(root / rel, dest)
+scratch_pkg = scratch / "package.json"
+root_pkg = root / "package.json"
+if scratch_pkg.exists() and root_pkg.exists():
+    scratch_data = json.loads(scratch_pkg.read_text())
+    root_scripts = json.loads(root_pkg.read_text()).get("scripts", {})
+    scripts = scratch_data.setdefault("scripts", {})
+    for key in ("verify:authority-formal", "verify:dpop-formal"):
+        if key in root_scripts:
+            scripts[key] = root_scripts[key]
+    scratch_pkg.write_text(json.dumps(scratch_data, indent=2) + "\n")
 PY
 (
   cd "$SCRATCH"

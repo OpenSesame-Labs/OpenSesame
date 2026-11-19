@@ -22,5 +22,5 @@ trap 'rm -rf "$scratch"' EXIT
 vectors="$scratch/vectors.tsv"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-$scratch/target}"
 bash "$root/spec/formal/check-axioms.sh" "$lean_bin" "$root/spec/formal/authority/Authority.lean" > "$vectors"
-cargo run --locked --manifest-path "$root/spec/formal/authority/Cargo.toml" -- "$vectors"
+OPENSESAME_RUSTC="$rustc_bin" RUSTC="$rustc_bin" cargo run --locked --manifest-path "$root/spec/formal/authority/Cargo.toml" -- "$vectors"
 python3 "$root/spec/formal/authority/check-drift.py"

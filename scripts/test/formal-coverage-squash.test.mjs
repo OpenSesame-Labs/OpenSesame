@@ -65,14 +65,17 @@ sys.path.insert(0, "${repoRoot}/scripts/security")
 from formal_coverage_drift import assert_reviewed_revision_on_main
 try:
     assert_reviewed_revision_on_main(root, branch_only, "test")
-    raise SystemExit(0)
-except SystemExit:
-    raise SystemExit(1)
+except SystemExit as exc:
+    code = exc.code
+    if code is None or code == 0:
+        raise
+    sys.exit(code)
+sys.exit(2)
 `,
     ],
     { encoding: "utf8" },
   );
-  assert.notEqual(py.status, 0);
+  assert.equal(py.status, 1, py.stderr || py.stdout);
 });
 
 test("formal squash verify script passes on this repository", () => {
