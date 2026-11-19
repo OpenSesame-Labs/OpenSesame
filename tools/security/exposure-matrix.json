@@ -2,6 +2,31 @@
   "version": 1,
   "surfaces": [
     {
+      "id": "host-authorization-membership-consumption",
+      "kind": "artifact",
+      "area": "host-admission",
+      "flow": "host-authorization-membership",
+      "observer": "authenticated",
+      "artifacts": ["authority-api"],
+      "verification": "signature",
+      "controls": ["mandatory-proof", "recipient-bound", "step-up"],
+      "guarantees": ["single-use", "expiry", "revocation"],
+      "enforcement": "authoritative",
+      "entropyBits": 0,
+      "minSecretBytes": 0,
+      "budget": null,
+      "implementation": [
+        "crates/gateway/src/host_authorization.rs",
+        "crates/gateway/src/routes/host_authorizations.rs",
+        "crates/storage/src/host_authorizations.rs"
+      ],
+      "regressions": [
+        "crates/gateway/src/host_authorization_tests.rs",
+        "crates/storage/tests/host_authorization_membership.rs"
+      ],
+      "review": "The Host canonical-validates the optional membership incarnation/revision pair, requires it to equal a revision-bound session outside browser-authentication bootstrap, and atomically binds bootstrap evidence to the browser client while consuming the challenge only if that exact revision has no withdrawal tombstone. The same transaction activates that tagged revision as current Host membership authority, so later agent launches inherit it; a withdrawal removes it and a rejoin must authenticate the new revision before new launches become revision-bound. Untagged compatibility remains limited to unbound subjects with no withdrawal history. This does not prove Identity issuance or cross-plane refinement; the protocol has no mechanized model."
+    },
+    {
       "id": "hosted-secret-drop",
       "kind": "online",
       "area": "hosted-drop",
@@ -1279,6 +1304,56 @@
     }
   ],
   "sources": {
+    "crates/gateway/src/host_authorization.rs": [
+      "960cd7a4",
+      "e9c960ee",
+      "980cd46a",
+      "efe12968",
+      "9c6e2826",
+      "5f9a5ca0",
+      "a470b188",
+      "bf489124"
+    ],
+    "crates/gateway/src/host_authorization_tests.rs": [
+      "973e6ecb",
+      "605e3fa0",
+      "4506962a",
+      "4895ed52",
+      "a9b1b1c2",
+      "62216ea8",
+      "ccec84a8",
+      "877c11d0"
+    ],
+    "crates/gateway/src/routes/host_authorizations.rs": [
+      "39ebb231",
+      "2cfd3a6b",
+      "9185c154",
+      "8c10acc1",
+      "4f3d9eb3",
+      "5e5874f0",
+      "b2058523",
+      "a135008c"
+    ],
+    "crates/storage/src/host_authorizations.rs": [
+      "e223a77d",
+      "fea75fd6",
+      "aa09460b",
+      "8b84bb9c",
+      "69630a94",
+      "a8067747",
+      "0febd74c",
+      "8a47bd5d"
+    ],
+    "crates/storage/tests/host_authorization_membership.rs": [
+      "3a5e8153",
+      "033692c2",
+      "354ac2da",
+      "ced2a5fe",
+      "dff6fa3a",
+      "fb7ad4ac",
+      "932b9522",
+      "1749d5a2"
+    ],
     "crates/bitwarden-server/src/budget_subject.rs": [
       "b67c8d64",
       "7d189880",

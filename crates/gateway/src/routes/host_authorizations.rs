@@ -37,6 +37,10 @@ pub struct EvidenceRequest {
 pub struct BrowserAuthentication {
     pub role: opensesame_domain::OrganizationRole,
     pub auth_time: i64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub membership_incarnation: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub authority_revision: Option<String>,
 }
 
 pub fn browser_claims(st: &AppState, headers: &HeaderMap) -> Result<HostSessionClaims, Response> {
@@ -170,6 +174,15 @@ pub async fn authorize(
         || evidence.dpop_jkt != claims.dpop_jkt.as_deref().unwrap_or("")
         || crate::session_claims::parse_principal(&evidence.sub) != Some(claims.principal_id)
         || evidence.organization_id != claims.organization_id.to_string()
+        || (pending.operation != "browser.authenticate"
+            && claims
+                .membership_revision
+                .as_ref()
+                .map(|revision| (&revision.incarnation, &revision.revision))
+                != evidence
+                    .membership_incarnation
+                    .as_ref()
+                    .zip(evidence.authority_revision.as_ref()))
     {
         return refusal("invalid_host_authorization");
     }
@@ -178,6 +191,8 @@ pub async fn authorize(
             serde_json::to_string(&BrowserAuthentication {
                 role: evidence.organization_role,
                 auth_time: evidence.auth_time,
+                membership_incarnation: evidence.membership_incarnation.clone(),
+                authority_revision: evidence.authority_revision.clone(),
             })
         })
         .transpose();

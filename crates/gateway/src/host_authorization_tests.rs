@@ -35,6 +35,42 @@ fn only_pinned_fresh_phishing_resistant_purpose_evidence_is_accepted() {
     assert!(verifier
         .verify(&token, "https://other-host.example", now)
         .is_err());
+    let mut revision_bound = claims.clone();
+    revision_bound["membership_incarnation"] = json!("11111111-1111-4111-8111-111111111111");
+    revision_bound["authority_revision"] = json!("22222222-2222-4222-8222-222222222222");
+    assert!(verifier
+        .verify(
+            &encode(&header, &revision_bound, &signing).unwrap(),
+            "https://host.example",
+            now,
+        )
+        .is_ok());
+    for (incarnation, revision) in [
+        (Some(json!("11111111-1111-4111-8111-111111111111")), None),
+        (
+            Some(json!("11111111-1111-4111-8111-111111111111")),
+            Some(json!("not-a-revision")),
+        ),
+        (
+            Some(json!("00000000-0000-0000-0000-000000000000")),
+            Some(json!("22222222-2222-4222-8222-222222222222")),
+        ),
+    ] {
+        let mut changed = claims.clone();
+        if let Some(value) = incarnation {
+            changed["membership_incarnation"] = value;
+        }
+        if let Some(value) = revision {
+            changed["authority_revision"] = value;
+        }
+        assert!(verifier
+            .verify(
+                &encode(&header, &changed, &signing).unwrap(),
+                "https://host.example",
+                now,
+            )
+            .is_err());
+    }
     for (field, value) in [
         ("iss", json!("https://attacker.example")),
         ("aud", json!("https://attacker.example")),
