@@ -183,8 +183,6 @@ export interface ClaimItemRepository {
 export interface AuditEventRepository {
   append(event: AuditEvent, uow?: UnitOfWork): Promise<AuditEvent>;
   getById(id: string): Promise<AuditEvent | null>;
-  /** Resolve the event that produced a chain digest. */
-  getByDigest(digest: string): Promise<AuditEvent | null>;
   list(filter?: {
     principalId?: string;
     clientId?: string;
