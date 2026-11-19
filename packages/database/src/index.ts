@@ -22,6 +22,7 @@ export {
   createPostgresOrganizationStores,
   createPostgresProjectStores,
   createPostgresRepositories,
+  withPostgresTransactionContext,
   type Database,
 } from "./repos/postgres.js";
 export {
