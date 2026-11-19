@@ -470,11 +470,7 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
           "A user with that userName already exists.",
           "uniqueness",
         );
-      return scimError(
-        c,
-        409,
-        "Legacy inactive row requires operator recovery.",
-      );
+      return scimError(c, 409, "SCIM user changed concurrently.");
     }
     const { user, updated } = result;
     await appendAuditEvent(ctx.repos.auditEvents, {
@@ -510,11 +506,7 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
     if ("error" in result) {
       if (result.error === "not_found")
         return scimError(c, 404, "User not found.");
-      return scimError(
-        c,
-        409,
-        "SCIM deactivation could not be resumed safely.",
-      );
+      return scimError(c, 409, "SCIM user changed concurrently.");
     }
     const { user, updated } = result;
     if (user.active) {
