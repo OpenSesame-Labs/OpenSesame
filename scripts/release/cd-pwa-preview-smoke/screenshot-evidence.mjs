@@ -11,6 +11,10 @@ import { pathToFileURL } from "node:url";
 import { launchHeadlessPlaywright } from "../../../apps/pages/scripts/duress/headless-playwright.mjs";
 import { readString } from "../../lib/json-boundary.mjs";
 import { normalizePagesBase } from "./prepare-vars.mjs";
+import {
+  bootstrapSmokeEvidence,
+  redactDiagnosticText,
+} from "./smoke-failure-evidence.mjs";
 
 /**
  * The shell document `pages.hurl` proves:
@@ -114,8 +118,23 @@ async function captureFullSignInRoad(page, fullChoice, outRoot) {
 
 const MAX_DIAGNOSTIC_ENTRIES = 200;
 
-function pushDiagnostic(entries, entry) {
-  if (entries.length < MAX_DIAGNOSTIC_ENTRIES) entries.push(entry);
+function truncateEntry(entry) {
+  const out = { ...entry };
+  for (const key of ["text", "url", "error"]) {
+    if (typeof out[key] === "string") out[key] = redactDiagnosticText(out[key]);
+  }
+  return out;
+}
+
+/** Ring buffer: newest events win when the cap is reached. */
+export function pushDiagnostic(entries, entry) {
+  const next = truncateEntry(entry);
+  if (entries.length < MAX_DIAGNOSTIC_ENTRIES) {
+    entries.push(next);
+    return;
+  }
+  entries.shift();
+  entries.push(next);
 }
 
 function callMethod(target, name) {
@@ -165,8 +184,7 @@ function recordPageDiagnostics(page, consoleEntries, networkEntries) {
   }
 }
 
-async function writeFailureEvidence(
-  page,
+async function writeFailureFiles(
   outRoot,
   consoleEntries,
   networkEntries,
@@ -174,6 +192,19 @@ async function writeFailureEvidence(
 ) {
   const message =
     error instanceof Error ? error.message : "preview smoke capture failed";
+  const body = (entries) =>
+    `${JSON.stringify({ error: message, entries }, null, 2)}\n`;
+  await writeFile(join(outRoot, "failure-console.json"), body(consoleEntries));
+  await writeFile(join(outRoot, "failure-network.json"), body(networkEntries));
+}
+
+async function writeFailureEvidence(
+  page,
+  outRoot,
+  consoleEntries,
+  networkEntries,
+  error,
+) {
   try {
     await page.screenshot({
       path: join(outRoot, "failure-screenshot.png"),
@@ -186,10 +217,11 @@ async function writeFailureEvidence(
         : "failure screenshot failed";
     pushDiagnostic(consoleEntries, { type: "evidence", text });
   }
-  const body = (entries) =>
-    `${JSON.stringify({ error: message, entries }, null, 2)}\n`;
-  await writeFile(join(outRoot, "failure-console.json"), body(consoleEntries));
-  await writeFile(join(outRoot, "failure-network.json"), body(networkEntries));
+  await writeFailureFiles(outRoot, consoleEntries, networkEntries, error);
+}
+
+async function writePrePageFailureEvidence(outRoot, error, consoleEntries) {
+  await writeFailureFiles(outRoot, consoleEntries, [], error);
 }
 
 export async function captureLiveSmokeEvidence(env, deps = {}) {
@@ -203,18 +235,25 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
     process.env.PLAYWRIGHT_CHROMIUM = discovery.path;
   }
 
-  await mkdir(outRoot, { recursive: true });
+  await bootstrapSmokeEvidence(env);
   const started = Date.now();
+  const consoleEntries = [];
+  const networkEntries = [];
   const launch =
     deps.launchHeadlessPlaywright ??
     (async () =>
       launchHeadlessPlaywright({
         args: ["--no-sandbox", "--disable-dev-shm-usage"],
       }));
-  const { browser } = await launch();
+  let browser;
   let page;
-  const consoleEntries = [];
-  const networkEntries = [];
+  try {
+    ({ browser } = await launch());
+  } catch (launchError) {
+    await writePrePageFailureEvidence(outRoot, launchError, consoleEntries);
+    if (launchError instanceof Error) launchError.phaseWritten = true;
+    throw launchError;
+  }
   try {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
@@ -255,8 +294,8 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
     );
     return manifest;
   } catch (error) {
-    if (page !== undefined) {
-      try {
+    try {
+      if (page !== undefined) {
         await writeFailureEvidence(
           page,
           outRoot,
@@ -264,16 +303,19 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
           networkEntries,
           error,
         );
-      } catch (evidenceError) {
-        const text =
-          evidenceError instanceof Error
-            ? evidenceError.message
-            : "failure evidence was not written";
-        console.error(text);
+      } else {
+        await writePrePageFailureEvidence(outRoot, error, consoleEntries);
       }
+      if (error instanceof Error) error.phaseWritten = true;
+    } catch (evidenceError) {
+      const text =
+        evidenceError instanceof Error
+          ? evidenceError.message
+          : "failure evidence was not written";
+      console.error(text);
     }
     throw error;
   } finally {
-    await browser.close();
+    await browser?.close();
   }
 }

@@ -1,11 +1,6 @@
 /**
  * Prove the Vite shell chunks linked from staged index.html are on the live
  * Pages CDN before Playwright runs.
- *
- * pages.hurl matches index.html, release.json, os-runtime-config, the
- * manifest, and sw.js. Those can be fresh while /assets/main-*.js or a
- * linked stylesheet is still 404 or stale, so React never mounts and the
- * front door never appears.
  */
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -14,42 +9,11 @@ import { setTimeout as delay } from "node:timers/promises";
 import { readString } from "../../lib/json-boundary.mjs";
 import { pollUntilDeadline } from "../cd-preview-smoke-registry.mjs";
 import { normalizePagesBase } from "./prepare-vars.mjs";
-import { cdnPollBudget } from "./retry-budget.mjs";
+import { cdnPollBudget, sharedCdnDeadlineEndMs } from "./retry-budget.mjs";
+import { shellAssetRefs } from "./shell-html-refs.mjs";
 
 const MAX_SHELL_ASSET_BYTES = 16 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 15_000;
-
-function htmlAttribute(tag, name) {
-  const match = tag.match(
-    new RegExp(
-      `\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'=<>]+))`,
-      "iu",
-    ),
-  );
-  if (!match) return undefined;
-  return match[1] ?? match[2] ?? match[3];
-}
-
-function shellAssetRefs(html) {
-  const refs = [];
-  for (const match of html.matchAll(/<(script|link)\b[^>]*>/giu)) {
-    const tag = match[0];
-    if (match[1].toLowerCase() === "script") {
-      const src = htmlAttribute(tag, "src");
-      if (src !== undefined && src.length > 0) refs.push(src);
-      continue;
-    }
-    const rel = htmlAttribute(tag, "rel");
-    if (rel === undefined) continue;
-    const relTokens = rel.toLowerCase().split(/\s+/u);
-    const isModulePreload = relTokens.includes("modulepreload");
-    const isStylesheet = relTokens.includes("stylesheet");
-    if (!isModulePreload && !isStylesheet) continue;
-    const href = htmlAttribute(tag, "href");
-    if (href !== undefined && href.length > 0) refs.push(href);
-  }
-  return refs;
-}
 
 function normalizeDistRelative(pathPart, ref) {
   const parts = [];
@@ -71,7 +35,7 @@ function normalizeDistRelative(pathPart, ref) {
 }
 
 /** Path under the Pages base, or undefined when the URL is another origin. */
-function shellAssetRelative(ref, pagesBase) {
+export function shellAssetRelative(ref, pagesBase) {
   const base = new URL(pagesBase);
   let pathPart = ref.trim();
   if (pathPart.length === 0) return undefined;
@@ -117,12 +81,6 @@ function stagedFilePath(distDir, distRelative) {
   return abs;
 }
 
-/**
- * Absolute paths of `script[src]`, `link[rel=modulepreload][href]`, and
- * `link[rel=stylesheet][href]` in staged index.html. Root-absolute
- * `/OpenSesame/...` URLs drop the Pages
- * base pathname. External origins are skipped. Document order, de-duplicated.
- */
 export function listStagedShellAssetPaths(distDir, pagesBase) {
   const root = resolve(distDir);
   const base = normalizePagesBase(pagesBase);
@@ -181,7 +139,6 @@ function declaredLength(response) {
   }
 }
 
-/** Drop a response body so a retry does not hold fetch sockets open. */
 async function releaseResponseBody(response) {
   if (response === null || response === undefined) return;
   const stream = response.body;
@@ -197,7 +154,7 @@ async function releaseResponseBody(response) {
   }
 }
 
-async function readStreamChunk(reader, distRelative, timeoutMs) {
+async function readStreamChunk(reader, distRelative, chunkTimeoutMs) {
   let timer;
   try {
     return await Promise.race([
@@ -205,7 +162,7 @@ async function readStreamChunk(reader, distRelative, timeoutMs) {
       new Promise((_, reject) => {
         timer = setTimeout(
           () => reject(new Error("body read timed out")),
-          timeoutMs,
+          chunkTimeoutMs,
         );
       }),
     ]);
@@ -220,7 +177,9 @@ async function readStreamChunk(reader, distRelative, timeoutMs) {
 async function readBoundedBody(
   response,
   distRelative,
-  readTimeoutMs = FETCH_TIMEOUT_MS,
+  bodyDeadlineAt,
+  now = Date.now,
+  perChunkCapMs = FETCH_TIMEOUT_MS,
 ) {
   const declared = declaredLength(response);
   if (declared !== undefined && declared > MAX_SHELL_ASSET_BYTES) {
@@ -252,12 +211,20 @@ async function readBoundedBody(
   }
   const chunks = [];
   let total = 0;
+  const readEndsAt = Math.max(bodyDeadlineAt, now() + perChunkCapMs);
   try {
     while (true) {
+      if (now() > readEndsAt) {
+        throw mismatch(distRelative, "body read timed out");
+      }
+      const chunkTimeoutMs = Math.min(
+        perChunkCapMs,
+        Math.max(1, readEndsAt - now()),
+      );
       const { done, value } = await readStreamChunk(
         reader,
         distRelative,
-        readTimeoutMs,
+        chunkTimeoutMs,
       );
       if (done) break;
       const size = value?.byteLength ?? 0;
@@ -290,7 +257,9 @@ async function assertLiveAsset(
   pagesBase,
   fetcher,
   timeoutMs,
-  readTimeoutMs,
+  bodyDeadlineAt,
+  now,
+  perChunkReadMs,
 ) {
   const url = new URL(asset.relative, pagesBase);
   let response;
@@ -309,7 +278,13 @@ async function assertLiveAsset(
     const status = response?.status ?? "error";
     throw mismatch(asset.relative, `HTTP ${status}`);
   }
-  const body = await readBoundedBody(response, asset.relative, readTimeoutMs);
+  const body = await readBoundedBody(
+    response,
+    asset.relative,
+    bodyDeadlineAt,
+    now,
+    perChunkReadMs,
+  );
   const live = createHash("sha256").update(body).digest("hex");
   if (live !== asset.sha256) {
     throw mismatch(
@@ -324,18 +299,29 @@ async function assertLiveShellAssets(
   pagesBase,
   fetcher,
   timeoutMs,
-  readTimeoutMs,
+  bodyDeadlineAt,
+  now,
+  matched,
+  perChunkReadMs,
 ) {
   for (const asset of assets) {
-    await assertLiveAsset(asset, pagesBase, fetcher, timeoutMs, readTimeoutMs);
+    if (matched.has(asset.relative)) continue;
+    if (now() > bodyDeadlineAt) {
+      throw mismatch(asset.relative, "CDN poll deadline expired");
+    }
+    await assertLiveAsset(
+      asset,
+      pagesBase,
+      fetcher,
+      timeoutMs,
+      bodyDeadlineAt,
+      now,
+      perChunkReadMs,
+    );
+    matched.add(asset.relative);
   }
 }
 
-/**
- * GET each staged shell asset at `new URL(relative, pagesBase)` until its
- * sha256 matches the staged file or the CDN poll deadline expires.
- * The thrown error names the first asset that did not match.
- */
 export async function pollLiveShellAssets(env, deps = {}) {
   const pagesBase = normalizePagesBase(env.PAGES_URL);
   const distRaw = readString(env.STAGED_DIST);
@@ -348,10 +334,19 @@ export async function pollLiveShellAssets(env, deps = {}) {
   const now = deps.now ?? Date.now;
   const fetcher = deps.fetch ?? fetch;
   const fetchTimeoutMs = deps.fetchTimeoutMs ?? FETCH_TIMEOUT_MS;
-  const readTimeoutMs = deps.readTimeoutMs ?? FETCH_TIMEOUT_MS;
+  const perChunkReadMs = deps.readTimeoutMs ?? FETCH_TIMEOUT_MS;
+  const pollStartedAt = now();
+  const sharedStarted = readString(env.PWA_SMOKE_CDN_STARTED_MS);
+  const deadlineEndMs =
+    deps.cdnDeadlineEndMs ??
+    (sharedStarted !== undefined
+      ? sharedCdnDeadlineEndMs(env, pollStartedAt)
+      : pollStartedAt + deadlineMs);
+  const remainingMs = Math.max(0, deadlineEndMs - now());
+  const matched = new Set();
   const started = now();
   await pollUntilDeadline(
-    deadlineMs,
+    remainingMs,
     pollMs,
     sleep,
     () =>
@@ -360,7 +355,10 @@ export async function pollLiveShellAssets(env, deps = {}) {
         pagesBase,
         fetcher,
         fetchTimeoutMs,
-        readTimeoutMs,
+        deadlineEndMs,
+        now,
+        matched,
+        perChunkReadMs,
       ),
     now,
   );
@@ -375,3 +373,5 @@ export async function pollLiveShellAssets(env, deps = {}) {
   );
   return assets.map((asset) => asset.relative);
 }
+
+export { shellAssetRefs } from "./shell-html-refs.mjs";

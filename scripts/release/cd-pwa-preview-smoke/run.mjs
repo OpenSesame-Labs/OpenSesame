@@ -1,18 +1,6 @@
 #!/usr/bin/env node
 /**
  * CD PWA Preview deploy smoke — Hurl HTTP checks with staged artifact digests.
- *
- *   node scripts/release/cd-pwa-preview-smoke/run.mjs
- *
- * Requires `hurl` on PATH (pinned in mise.toml). Writes a temp variables file,
- * runs pages.hurl with bounded retries, then polls the Vite shell chunks
- * linked from staged index.html before a single Playwright capture.
- *
- * npm publication is disabled, so registry.hurl no longer runs and the smoke
- * job starts seconds after Deploy GitHub Pages. pages.hurl proves index.html,
- * release.json, os-runtime-config, the manifest, and sw.js — not those entry
- * chunks. A matching index can still 404 /assets/main-*.js, and React never
- * mounts. The shell poll closes that gap. Playwright is not retried.
  */
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
@@ -25,6 +13,10 @@ import { pollLiveShellAssets } from "./live-bundle-poll.mjs";
 import { buildHurlVariables, serializeHurlVariables } from "./prepare-vars.mjs";
 import { cdnRetryBudget } from "./retry-budget.mjs";
 import { captureLiveSmokeEvidence } from "./screenshot-evidence.mjs";
+import {
+  bootstrapSmokeEvidence,
+  writeSmokePhaseFailure,
+} from "./smoke-failure-evidence.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -48,13 +40,14 @@ function runHurl(name, variablesPath, retry, intervalMs) {
     throw ran.error;
   }
   if (ran.status !== 0) {
-    process.exit(ran.status === null ? 1 : ran.status);
+    throw new Error(`hurl ${name} failed with exit ${ran.status ?? 1}`);
   }
 }
 
 async function main() {
   const started = Date.now();
   assertNotProofGateFail(process.env);
+  await bootstrapSmokeEvidence(process.env);
   await checkReleaseMeta(
     resolve(process.env.STAGED_META ?? ""),
     resolve(process.env.STAGED_PACKAGE ?? ""),
@@ -65,17 +58,40 @@ async function main() {
   const varPath = join(varDir, "vars.properties");
   writeFileSync(varPath, serializeHurlVariables(variables));
 
-  const hurlStarted = Date.now();
+  const cdnStartedMs = Date.now();
+  process.env.PWA_SMOKE_CDN_STARTED_MS = String(cdnStartedMs);
   const cdn = cdnRetryBudget(process.env);
-  runHurl("pages.hurl", varPath, cdn.attempts, cdn.intervalMs);
+  const hurlStarted = Date.now();
+  try {
+    runHurl("pages.hurl", varPath, cdn.attempts, cdn.intervalMs);
+  } catch (error) {
+    await writeSmokePhaseFailure(process.env, "hurl", error);
+    throw error;
+  }
   const hurlMs = Date.now() - hurlStarted;
 
   const shellStarted = Date.now();
-  const shellAssets = await pollLiveShellAssets(process.env);
+  let shellAssets;
+  try {
+    shellAssets = await pollLiveShellAssets(process.env);
+  } catch (error) {
+    await writeSmokePhaseFailure(process.env, "shell-poll", error);
+    throw error;
+  }
   const shellMs = Date.now() - shellStarted;
 
   const evidenceStarted = Date.now();
-  const evidence = await captureLiveSmokeEvidence(process.env);
+  let evidence;
+  try {
+    evidence = await captureLiveSmokeEvidence(process.env);
+  } catch (error) {
+    if (error?.phaseWritten !== true) {
+      await writeSmokePhaseFailure(process.env, "capture", error).catch(
+        () => {},
+      );
+    }
+    throw error;
+  }
   const evidenceMs = Date.now() - evidenceStarted;
 
   const elapsedMs = Date.now() - started;
@@ -88,10 +104,19 @@ if (
   process.argv[1] !== undefined &&
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
 ) {
-  main().catch((error) => {
+  main().catch(async (error) => {
     const message =
       error instanceof Error ? error.message : "pwa preview smoke failed";
     console.error(message);
+    try {
+      await writeSmokePhaseFailure(process.env, "run", error);
+    } catch (evidenceError) {
+      const text =
+        evidenceError instanceof Error
+          ? evidenceError.message
+          : "failure evidence was not written";
+      console.error(text);
+    }
     process.exit(1);
   });
 }

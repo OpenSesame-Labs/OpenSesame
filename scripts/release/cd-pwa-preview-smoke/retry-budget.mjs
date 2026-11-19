@@ -17,7 +17,23 @@ function readBoundedInt(value, fallback, label, min) {
   return parsed;
 }
 
-/** Same Pages CDN window as `cdnRetryBudget`, as a deadline poll. */
+/** Absolute deadline for the shared hurl + shell-poll CDN window. */
+export function sharedCdnDeadlineEndMs(env, nowMs = Date.now()) {
+  const { deadlineMs } = cdnPollBudget(env);
+  const started = readBoundedInt(
+    env.PWA_SMOKE_CDN_STARTED_MS,
+    nowMs,
+    "PWA_SMOKE_CDN_STARTED_MS",
+    0,
+  );
+  return started + deadlineMs;
+}
+
+export function remainingSharedCdnMs(env, nowMs = Date.now()) {
+  return Math.max(0, sharedCdnDeadlineEndMs(env, nowMs) - nowMs);
+}
+
+/** Same shared Pages CDN window for `cdnRetryBudget` and shell poll. */
 export function cdnPollBudget(env) {
   const deadlineMs = readBoundedInt(
     env.PWA_SMOKE_CDN_DEADLINE_MS,
