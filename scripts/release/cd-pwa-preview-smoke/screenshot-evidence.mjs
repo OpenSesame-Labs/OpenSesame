@@ -190,14 +190,27 @@ async function writeFailureFiles(
   consoleEntries,
   networkEntries,
   error,
+  phase = "capture",
 ) {
   const raw =
     error instanceof Error ? error.message : "preview smoke capture failed";
   const message = redactDiagnosticText(raw);
   const body = (entries) =>
-    `${JSON.stringify({ error: message, entries }, null, 2)}\n`;
+    `${JSON.stringify({ error: message, phase, entries }, null, 2)}\n`;
   await writeFile(join(outRoot, "failure-console.json"), body(consoleEntries));
   await writeFile(join(outRoot, "failure-network.json"), body(networkEntries));
+  await writeFile(
+    join(outRoot, "failure-summary.json"),
+    `${JSON.stringify(
+      {
+        format: "cd-pwa-preview-smoke-failure",
+        phase,
+        error: message,
+      },
+      null,
+      2,
+    )}\n`,
+  );
 }
 
 async function writeFailureEvidence(
@@ -223,7 +236,7 @@ async function writeFailureEvidence(
 }
 
 async function writePrePageFailureEvidence(outRoot, error, consoleEntries) {
-  await writeFailureFiles(outRoot, consoleEntries, [], error);
+  await writeFailureFiles(outRoot, consoleEntries, [], error, "launch");
 }
 
 export async function captureLiveSmokeEvidence(env, deps = {}) {
