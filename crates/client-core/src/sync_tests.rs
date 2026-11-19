@@ -354,9 +354,7 @@ fn two_independent_legacy_migrations_apply_onto_each_other() {
     let right = SyncStore::migrate_trusted_legacy_json(&key, &legacy).unwrap();
     assert_eq!(left.opaque_blobs(), right.opaque_blobs());
     let mut reconciled = SyncStore::new("peer");
-    reconciled
-        .apply_remote(&key, &left.opaque_blobs())
-        .unwrap();
+    reconciled.apply_remote(&key, &left.opaque_blobs()).unwrap();
     reconciled
         .apply_remote(&key, &right.opaque_blobs())
         .unwrap();
@@ -383,11 +381,11 @@ fn divergent_legacy_plaintext_at_same_id_rejects_on_sync() {
     .to_string();
     let mut left = SyncStore::migrate_trusted_legacy_json(&key, &legacy_a).unwrap();
     let right = SyncStore::migrate_trusted_legacy_json(&key, &legacy_b).unwrap();
-    assert_ne!(left.opaque_blobs()[0].ciphertext, right.opaque_blobs()[0].ciphertext);
-    assert!(
-        left.apply_remote(&key, &right.opaque_blobs())
-            .is_err()
+    assert_ne!(
+        left.opaque_blobs()[0].ciphertext,
+        right.opaque_blobs()[0].ciphertext
     );
+    assert!(left.apply_remote(&key, &right.opaque_blobs()).is_err());
 }
 
 #[test]
