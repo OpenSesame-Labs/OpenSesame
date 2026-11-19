@@ -99,6 +99,7 @@ describe("tutorial queue", () => {
     const started: string[] = [];
     const unbind = bindTutorialResume((goalId, guide, home) => {
       started.push(`${goalId} ${home} ${guide.includes(goalId)}`);
+      return true;
     });
     queueTutorial("feature.identity", { title: "Turn on Identity" });
     queueTutorial("vault.lock", { title: "Lock the vault" });
@@ -112,6 +113,7 @@ describe("tutorial queue", () => {
   });
 
   it("queues a decline with a resume key and a pause prompt", () => {
+    const unbind = bindTutorialResume(() => true);
     expect(noteTutorialDeclined("vault.lock", "Lock the vault")).toBe(true);
     expect(noteTutorialDeclined("vault.lock", "Lock the vault")).toBe(true);
     expect(listQueuedTutorials()).toEqual([{ goalId: "vault.lock" }]);
@@ -134,6 +136,7 @@ describe("tutorial queue", () => {
     expect(queued?.act?.label).toBe(RESUME_WALKTHROUGH);
     queued?.act?.run();
     expect(listQueuedTutorials()).toEqual([]);
+    unbind();
   });
 
   it("pause all queues every unanswered walkthrough", () => {
