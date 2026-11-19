@@ -106,6 +106,8 @@ export interface AppStores {
     import("./services/host-authorization.js").HostAuthorizationPending
   >;
   provisionalSessions: SecurityMap<ProvisionalSession>;
+  /** Monotonic authority generation required to publish a principal session. */
+  principalSessionEpochs: SecurityMap<number>;
   /** session token → session id */
   provisionalTokens: SecurityMap<string>;
   /**
@@ -234,6 +236,7 @@ export function createAppStores(options?: {
     options?.organizationStores ?? createMemoryOrganizationStores();
   return {
     provisionalSessions: new Map(),
+    principalSessionEpochs: new Map(),
     provisionalTokens: new Map(),
     projects: projectStores.projects,
     projectMemberships: projectStores.projectMemberships,
