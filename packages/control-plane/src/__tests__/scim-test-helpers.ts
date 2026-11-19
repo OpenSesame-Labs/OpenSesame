@@ -13,13 +13,24 @@ export function installHostRevocationMock(status: () => number = () => 200) {
   const realFetch = globalThis.fetch;
   return vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
     const url = input instanceof Request ? input.url : String(input);
-    if (url.endsWith("/api/v1/sessions/revoke"))
+    if (url.endsWith("/api/v1/sessions/revoke")) {
+      const request = overlapCast(JSON.parse(String(init?.body)));
       return Promise.resolve(
-        new Response(JSON.stringify({ revoked: 1 }), {
-          status: status(),
-          headers: { "content-type": "application/json" },
-        }),
+        new Response(
+          JSON.stringify({
+            revoked: 1,
+            durable: true,
+            withdrawal_id: request.withdrawal_id,
+            membership_incarnation: request.membership_incarnation,
+            authority_revision: request.authority_revision,
+          }),
+          {
+            status: status(),
+            headers: { "content-type": "application/json" },
+          },
+        ),
       );
+    }
     return realFetch(input, init);
   });
 }
