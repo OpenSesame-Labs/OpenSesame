@@ -34,7 +34,6 @@ import {
   scimAuditActor,
   scimBody,
   scimError,
-  scimPage,
   scimPatchOperations,
   scimUserNameFilter,
   scimUserUpdateAudit,
@@ -86,10 +85,20 @@ const NEVER_STORED = new Set(["password", "schemas", "meta", "id"]);
 const MAX_USER_NAME_LENGTH = 320;
 const MAX_DISPLAY_LENGTH = 512;
 const MAX_SCIM_USERS_PER_ORG = 10_000;
+const DEFAULT_SCIM_PAGE_SIZE = 100;
+const MAX_SCIM_PAGE_SIZE = 200;
 
 // Protocol parsing is shared with the other SCIM routes; this module retains
 // the tenant authorization, audit, and durable provisioning decisions.
 // Storage admission remains atomic below this HTTP boundary.
+// Directory pages stay bounded here: count must be a positive integer and
+// never exceeds MAX_SCIM_PAGE_SIZE.
+
+function scimPositiveInteger(value: string | undefined): number | undefined {
+  if (value === undefined || !/^[1-9][0-9]*$/u.test(value)) return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
+}
 
 function scimTokenHash(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -394,22 +403,30 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
     if (filter === undefined || filter.trim() === "") {
       const rawStart = c.req.query("startIndex");
       const rawCount = c.req.query("count");
-      const page = scimPage(rawStart, rawCount);
-      if (!page) {
+      const parsedStart = scimPositiveInteger(rawStart);
+      const parsedCount = scimPositiveInteger(rawCount);
+      if (
+        (rawStart !== undefined && parsedStart === undefined) ||
+        (rawCount !== undefined && parsedCount === undefined)
+      ) {
         return scimError(
           c,
           400,
-          "startIndex must be positive and count must be non-negative.",
+          "startIndex and count must be positive integers.",
           "invalidValue",
         );
       }
-      startIndex = page.startIndex;
+      startIndex = parsedStart ?? 1;
+      const pageSize = Math.min(
+        parsedCount ?? DEFAULT_SCIM_PAGE_SIZE,
+        MAX_SCIM_PAGE_SIZE,
+      );
       totalResults = await ctx.stores.scim.users.countByOrganization(
         organization.id,
       );
       resources = await ctx.stores.scim.users.listByOrganization(
         organization.id,
-        page,
+        { offset: startIndex - 1, limit: pageSize },
       );
     } else {
       const userName = scimUserNameFilter(filter);
