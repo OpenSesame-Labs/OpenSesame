@@ -169,6 +169,15 @@ export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
     capabilityId: "vault.items.reveal",
   },
   {
+    id: "item.copy-generated",
+    description:
+      "Copy the generated password parts, including the part after a pepper when present.",
+    role: "action",
+    routes: ["/vault/item"],
+    capabilityId: "vault.items.reveal",
+    authoredOnly: true,
+  },
+  {
     id: "trash.restore",
     description: "Restore the selected item from Trash.",
     role: "action",

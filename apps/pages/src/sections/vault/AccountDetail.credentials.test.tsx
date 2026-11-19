@@ -1,7 +1,12 @@
 /** @vitest-environment jsdom */
-import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registry/targets.js";
-import type { Folder, VaultItem } from "@opensesame/vault-core";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import * as guideTargets from "@opensesame/app-core/tutorial/registry/targets.js";
+import {
+  type AccountItem,
+  type Folder,
+  type VaultItem,
+  passwordMethod,
+} from "@opensesame/vault-core";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import {
@@ -24,6 +29,7 @@ const store = vi.hoisted(() => ({
 }));
 const copySecret = vi.hoisted(() => vi.fn());
 
+import { useCopyFeedback } from "../../components/FieldRow.js";
 import { vaultHooksSeams } from "../../lib/vault/hooks.js";
 
 const originalVaultHooksSeams = { ...vaultHooksSeams };
@@ -34,9 +40,28 @@ Object.assign(vaultHooksSeams, {
 });
 afterAll(() => Object.assign(vaultHooksSeams, originalVaultHooksSeams));
 
+import { AccountPasswordRow } from "./AccountPasswordRow.js";
 import { makeAccount } from "./account.test-support.js";
 import { slottedAccount } from "./account-pepper.test-support.js";
 import { ItemDetail } from "./ItemDetail.js";
+
+const { resolveGuideTargetElement } = guideTargets;
+
+function PasswordHarness({ item }: { item: AccountItem }) {
+  const copying = useCopyFeedback();
+  const method = passwordMethod(item);
+  if (!method) throw new Error("Missing test password");
+  return (
+    <AccountPasswordRow
+      item={item}
+      method={method}
+      title="Password"
+      copying={copying}
+      guide
+      onSave={async () => {}}
+    />
+  );
+}
 
 function renderAt(id: string) {
   return render(
@@ -59,6 +84,7 @@ describe("account credentials", () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   const keyed = (key: string, header = "X-Api-Key") => {
@@ -80,6 +106,149 @@ describe("account credentials", () => {
     expect(resolveGuideTargetElement("item.copy-password")).toBe(rest);
     await userEvent.click(rest);
     await waitFor(() => expect(copySecret).toHaveBeenCalledWith("abcdefghij"));
+  });
+
+  it.each([
+    [
+      "off",
+      makeAccount({ id: "plain", password: "abcdefghij" }),
+      "Copy password",
+    ],
+    ["at the end", slottedAccount("abcdefghij"), "Copy password"],
+    [
+      "at the start",
+      slottedAccount("abcdefghij", "0"),
+      "Copy rest of password",
+    ],
+  ])(
+    "completes after one successful copy with pepper %s",
+    async (_, item, label) => {
+      const report = vi.spyOn(guideTargets, "reportGuideActivation");
+      render(<PasswordHarness item={item} />);
+      const button = screen.getByRole("button", { name: label });
+      expect(resolveGuideTargetElement("item.copy-generated")).toBe(button);
+      await userEvent.click(button);
+      await waitFor(() =>
+        expect(report).toHaveBeenCalledWith("item.copy-generated"),
+      );
+      expect(copySecret).toHaveBeenCalledWith("abcdefghij");
+    },
+  );
+
+  it("waits for both successful copies when pepper splits a password", async () => {
+    const report = vi.spyOn(guideTargets, "reportGuideActivation");
+    copySecret
+      .mockResolvedValueOnce("copied")
+      .mockResolvedValueOnce("unavailable")
+      .mockResolvedValueOnce("copied")
+      .mockResolvedValueOnce("unavailable")
+      .mockResolvedValueOnce("copied");
+    render(<PasswordHarness item={slottedAccount("abcdefghij", "3")} />);
+    const first = screen.getByRole("button", { name: "Copy password" });
+    const rest = screen.getByRole("button", { name: "Copy rest of password" });
+    expect(resolveGuideTargetElement("item.copy-generated")).toBe(first);
+
+    await userEvent.click(rest);
+    await waitFor(() => expect(copySecret).toHaveBeenCalledTimes(1));
+    expect(report).not.toHaveBeenCalledWith("item.copy-generated");
+    expect(resolveGuideTargetElement("item.copy-generated")).toBe(first);
+    await userEvent.click(first);
+    await screen.findByRole("button", { name: "Could not copy password" });
+    expect(resolveGuideTargetElement("item.copy-generated")).toBe(first);
+    expect(report).not.toHaveBeenCalledWith("item.copy-generated");
+
+    await userEvent.click(first);
+    await waitFor(() =>
+      expect(resolveGuideTargetElement("item.copy-generated")).toBe(rest),
+    );
+    expect(resolveGuideTargetElement("item.copy-password")).toBe(first);
+    expect(report).not.toHaveBeenCalledWith("item.copy-generated");
+    await userEvent.click(rest);
+    await screen.findByRole("button", {
+      name: "Could not copy rest of password",
+    });
+    expect(resolveGuideTargetElement("item.copy-generated")).toBe(rest);
+    expect(report).not.toHaveBeenCalledWith("item.copy-generated");
+    await userEvent.click(rest);
+    await waitFor(() =>
+      expect(report).toHaveBeenCalledWith("item.copy-generated"),
+    );
+    expect(copySecret.mock.calls.map(([value]) => value)).toEqual([
+      "defghij",
+      "abc",
+      "abc",
+      "defghij",
+      "defghij",
+    ]);
+  });
+
+  it("forgets split-copy progress when the item or password changes", async () => {
+    const original = slottedAccount("abcdefghij", "3");
+    const { rerender } = render(<PasswordHarness item={original} />);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Copy password" }),
+    );
+    await waitFor(() =>
+      expect(
+        resolveGuideTargetElement("item.copy-generated")?.getAttribute(
+          "aria-label",
+        ),
+      ).toBe("Copy rest of password"),
+    );
+    const changed = slottedAccount("klmnopqrst", "3");
+    rerender(<PasswordHarness item={changed} />);
+    await waitFor(() =>
+      expect(
+        resolveGuideTargetElement("item.copy-generated")?.getAttribute(
+          "aria-label",
+        ),
+      ).toMatch(/^(Copy|Copied) password$/),
+    );
+    await userEvent.click(
+      screen.getByRole("button", { name: /^(Copy|Copied) password$/ }),
+    );
+    await waitFor(() =>
+      expect(
+        resolveGuideTargetElement("item.copy-generated")?.getAttribute(
+          "aria-label",
+        ),
+      ).toBe("Copy rest of password"),
+    );
+    rerender(<PasswordHarness item={{ ...changed, id: "itm_other" }} />);
+    expect(
+      resolveGuideTargetElement("item.copy-generated")?.getAttribute(
+        "aria-label",
+      ),
+    ).toBe("Copy password");
+    rerender(<PasswordHarness item={changed} />);
+    expect(
+      resolveGuideTargetElement("item.copy-generated")?.getAttribute(
+        "aria-label",
+      ),
+    ).toMatch(/^(Copy|Copied) password$/);
+  });
+
+  it("ignores a first copy that finishes after switching away and back", async () => {
+    let finish: (result: string) => void = () => {};
+    copySecret.mockImplementationOnce(
+      () =>
+        new Promise<string>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const original = slottedAccount("abcdefghij", "3");
+    const { rerender } = render(<PasswordHarness item={original} />);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Copy password" }),
+    );
+    rerender(<PasswordHarness item={{ ...original, id: "itm_other" }} />);
+    rerender(<PasswordHarness item={original} />);
+    await act(async () => finish("copied"));
+    expect(
+      resolveGuideTargetElement("item.copy-generated")?.getAttribute(
+        "aria-label",
+      ),
+    ).toMatch(/^(Copy|Copied) password$/);
   });
 
   it("offers editing instead of copying when pepper replaces every generated character", () => {

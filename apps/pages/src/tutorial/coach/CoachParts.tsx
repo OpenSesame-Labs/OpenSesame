@@ -347,7 +347,7 @@ export function canReturn(
     );
   }
   if (guide.goal === "vault.item.first") {
-    return !["item.editor.name", "item.copy-password"].includes(
+    return !["item.editor.name", "item.copy-generated"].includes(
       tour.target ?? "",
     );
   }

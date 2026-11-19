@@ -4,15 +4,15 @@ import {
   checkLateSealScroll,
   revisitIncompletePin,
 } from "./tutorial-gates.mjs";
-import { checkZoomViewport, closeWithZoomCheck } from "./tutorial-interact.mjs";
+import { checkZoomViewport } from "./tutorial-interact.mjs";
 import { checkKeyboardViewport } from "./tutorial-keyboard-viewport.mjs";
 import { stepChecks } from "./tutorial-measure.mjs";
 import {
   choosePepper,
   preparePepperStep,
   recoverEmptyGeneration,
-  recoverEmptyPepper,
   revisitPepper,
+  saveAndCopyPassword,
 } from "./tutorial-pepper.mjs";
 import { readStep, startTutorial } from "./tutorial-walk.mjs";
 
@@ -277,51 +277,6 @@ async function generatePassword(page, step, check, first, label) {
     `${label}: a new password was generated`,
   );
   return generated;
-}
-
-async function saveAndCopyPassword(page, step, check, first, label, generated) {
-  await recoverEmptyPepper(page, step, check, first, label);
-  await page.getByRole("button", { name: "Save item" }).click();
-  await step("item.copy-password", first + 6);
-  check(
-    await page.locator(".coach__btn").filter({ hasText: "Back" }).isDisabled(),
-    `${label}: Back does not return to the closed editor`,
-  );
-  await page.locator(".coach__btn--go").focus();
-  await page.keyboard.press("ArrowRight");
-  check(
-    (await page
-      .locator('.coach[data-coach-target="item.copy-password"]')
-      .count()) === 1,
-    `${label}: Next cannot skip copying the password`,
-  );
-  await page.locator('[data-guide-targets~="item.copy-password"]').click();
-  await page
-    .getByText(
-      "Copied. Pepper off: this is the full password. Pepper on: add your secret at its chosen position and copy the rest if needed.",
-    )
-    .waitFor({ timeout: 15000 });
-  const copied = await page.evaluate(() => navigator.clipboard.readText());
-  const position = process.env.TUTORIALS_PEPPER_POSITION;
-  const expected = position === "3" ? generated.slice(0, 3) : generated;
-  check(
-    copied === expected,
-    `${label}: the generated portion reached the clipboard`,
-  );
-  await closeWithZoomCheck(page, check);
-  if (position === "3") {
-    await page.getByRole("button", { name: "Copy rest of password" }).click();
-    check(
-      (await page.evaluate(() => navigator.clipboard.readText())) ===
-        generated.slice(3),
-      `${label}: the remaining generated portion can be copied`,
-    );
-  }
-  await page.waitForTimeout(1600);
-  check(
-    (await page.locator(".coach").count()) === 0,
-    `${label}: finishing does not immediately start another tutorial`,
-  );
 }
 
 /** Walk the empty-vault offer through the same password journey. */
