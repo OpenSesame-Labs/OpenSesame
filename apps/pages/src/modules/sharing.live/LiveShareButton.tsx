@@ -8,14 +8,33 @@
  * says so; pressing it opens the session rather than starting another.
  */
 
+import { subscribeContributions } from "@opensesame/app-core/lib/contributions.js";
 import { isGuestSessionTomb } from "@opensesame/app-core/lib/duress/store/decoy-scratch.js";
+import { isKnownGuideTarget } from "@opensesame/app-core/tutorial/registry/targets.js";
+import { useCallback, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router";
 import { IconShare } from "../../components/Icons.js";
 import { useVaultShare } from "../../components/vault-share-seat.js";
 import { useVault } from "../../lib/vault/hooks.js";
+import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { useLiveGuest, useLiveHost } from "./live-hooks.js";
-import { useLiveShareGuideTarget } from "./use-live-share-guide.js";
 import "./live.css";
+
+const target = "shell.share";
+const isDeclared = () => isKnownGuideTarget(target);
+
+function useLiveShareGuideTarget(): (node: HTMLButtonElement | null) => void {
+  const declared = useSyncExternalStore(
+    subscribeContributions,
+    isDeclared,
+    isDeclared,
+  );
+  const bind = useGuideTarget<HTMLButtonElement>(target);
+  return useCallback(
+    (node) => bind(node && declared && isDeclared() ? node : null),
+    [bind, declared],
+  );
+}
 
 export function LiveShareButton() {
   const share = useVaultShare();
