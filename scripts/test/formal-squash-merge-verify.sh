@@ -10,7 +10,6 @@ trap 'git worktree remove -f "$SCRATCH" 2>/dev/null || rm -rf "$SCRATCH"' EXIT
 git worktree add -f -B formal-squash-sim "$SCRATCH" "$MAIN" >/dev/null
 for rel in \
   scripts/security/formal_coverage_drift.py \
-  scripts/security/cargo-lock-projection.py \
   spec/formal/authority \
   spec/formal/dpop; do
   rm -rf "$SCRATCH/$rel"
