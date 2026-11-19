@@ -24,11 +24,11 @@ it("does not contact an old daemon that would approve any verb", async () => {
     "run",
     "pass-reveal",
   ] as const) {
-    // Exercise untyped callers as well as the declared CLI verbs.
-    const input: unknown = { verb, terminalSessionId: "term-test" };
-    const outcome = await port.ensureReveal(
-      input as Parameters<typeof port.ensureReveal>[0],
-    );
+    const outcome = await port.ensureReveal({
+      // @ts-expect-error Exercise invalid verbs supplied by untyped callers.
+      verb,
+      terminalSessionId: "term-test",
+    });
     expect(outcome).toBe("blockedApproval");
   }
   expect(oldDaemon).not.toHaveBeenCalled();
