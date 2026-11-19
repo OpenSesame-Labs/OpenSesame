@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { TextDecoder } from "node:util";
+import { lockAffectedSuites } from "./formal-proof-lock-history.mjs";
 import {
   assertCleanWorktree,
   assertProofFiles,
@@ -320,7 +321,8 @@ export function planPush(root, refs, remote) {
     const change = changedForUpdate(root, ref, remote, getTips, getMain);
     if (!change) continue;
     const history = inspectPolicyHistory(root, change, head, git);
-    const selected = selectHistoricalSuites(change, history);
+    const lockAffected = lockAffectedSuites(root, change, history, head, git);
+    const selected = selectHistoricalSuites(change, history, lockAffected);
     if (!selected.length) continue;
     const existing = planned.get(change.target) ?? new Map();
     for (const suite of selected) existing.set(suite.id, suite);

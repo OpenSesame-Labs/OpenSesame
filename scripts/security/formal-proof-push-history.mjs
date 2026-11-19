@@ -189,12 +189,14 @@ function assertRetainedMappings(suite, id, paths) {
   }
 }
 
-function assertHistoricalContracts(suite, paths, snapshots) {
+function assertHistoricalContracts(suite, paths, snapshots, lockAffected) {
   for (const snapshot of snapshots) {
     for (const policy of [snapshot.registry, snapshot.requirements]) {
       const previous = policy?.suites.find((entry) => entry.id === suite.id);
       if (
-        previous?.implementation.some((path) => paths.has(path)) &&
+        previous &&
+        (lockAffected ||
+          previous.implementation.some((path) => paths.has(path))) &&
         !sameProofContract(previous, suite)
       )
         throw new Error(
@@ -204,8 +206,15 @@ function assertHistoricalContracts(suite, paths, snapshots) {
   }
 }
 
-export function selectHistoricalSuites(change, history) {
+export function selectHistoricalSuites(
+  change,
+  history,
+  lockAffected = new Set(),
+) {
   const mappings = collectMappings(history.snapshots, change.changed);
+  for (const id of lockAffected) {
+    if (!mappings.has(id)) mappings.set(id, new Set());
+  }
   if (!mappings.size) return [];
   if (!history.target.registry)
     throw new Error(
@@ -219,7 +228,12 @@ export function selectHistoricalSuites(change, history) {
       (entry) => entry.id === id,
     );
     assertRetainedMappings(suite, id, paths);
-    assertHistoricalContracts(suite, paths, history.snapshots);
+    assertHistoricalContracts(
+      suite,
+      paths,
+      history.snapshots,
+      lockAffected.has(id),
+    );
     suites.push(suite);
   }
   return suites;
