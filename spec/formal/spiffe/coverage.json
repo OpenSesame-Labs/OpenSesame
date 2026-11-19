@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "reviewed_revision": "bb4feb90e9ff79dec74e09a9a66289e6d3539642",
+  "reviewed_revision": "f38dd885834648cfacebaf7a0db980ce0b7ba3d9",
   "reviewed_source_state": "The source hashes identify this security fix and its correspondence tests after the reviewed base revision.",
   "sdk_projection": {
     "package": {
