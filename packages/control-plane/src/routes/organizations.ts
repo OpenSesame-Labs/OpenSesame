@@ -24,10 +24,13 @@ import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
 import { organizationIssuerAdmission } from "../proofs/organization-issuer-admission.js";
-import { withPrincipalSessionBoundary } from "../repos/principal-session-boundary.js";
+import {
+  advancePrincipalSessionEpoch,
+  advancePrincipalSessionEpochOn,
+  withPrincipalSessionBoundary,
+} from "../repos/principal-session-boundary.js";
 import { serializeKeyed } from "../serialize.js";
 import {
-  removeOrganizationMembership,
   writeOrganization,
   writeOrganizationMembership,
 } from "../services/org-admin.js";
@@ -280,6 +283,8 @@ export type OrganizationRevocationInput = {
    * attempt removed the row and then failed before ending sessions.
    */
   revokeSessionsWithoutMembership?: boolean;
+  /** Internal: caller already owns this organization's mutation turn. */
+  membershipSerialized?: boolean;
 };
 
 export type OrganizationRevocationResult = {
@@ -304,16 +309,24 @@ export async function revokeOrganizationMembership(
       ctx.stores,
       input.principalId,
       "revoke",
-      async (stores) => {
-        const membershipRemoved = await serializeMembershipMutation(
-          { ...ctx, stores },
-          input.organizationId,
-          async () =>
-            stores.organizationMemberships.remove(
+      async (stores, database) => {
+        const remove = async () =>
+          await stores.organizationMemberships.remove(
+            input.organizationId,
+            input.principalId,
+          );
+        const membershipRemoved = input.membershipSerialized
+          ? await remove()
+          : await serializeMembershipMutation(
+              { ...ctx, stores },
               input.organizationId,
-              input.principalId,
-            ),
-        );
+              remove,
+            );
+        if (membershipRemoved || input.revokeSessionsWithoutMembership) {
+          if (database)
+            await advancePrincipalSessionEpochOn(database, input.principalId);
+          else await advancePrincipalSessionEpoch(stores, input.principalId);
+        }
 
         // A membership that was already gone normally authorized nothing here,
         // and the holder's sessions are not this tenant's to end. A SCIM retry
@@ -939,7 +952,13 @@ organizationRoutes.delete(
         }
         // Remove authority before yielding so no approval can mint a session in the
         // gap between revocation and this mutation. Restore it if Host fails closed.
-        await removeOrganizationMembership(ctx, org, proof, targetPrincipalId);
+        await revokeOrganizationMembership(ctx, {
+          organizationId,
+          principalId: targetPrincipalId,
+          correlationId: c.get("correlationId"),
+          reason: "owner_removed",
+          membershipSerialized: true,
+        });
         if (
           !(await revokeHostSessions(ctx, organizationId, targetPrincipalId))
         ) {

@@ -500,7 +500,12 @@ export async function mintProvisionalForInteraction(
         }
 
         accessToken = `pst_${randomBytes(24).toString("base64url")}`;
-        await saveProvisional(ctx.stores, provisionalSession, accessToken);
+        await saveProvisional(
+          ctx.stores,
+          provisionalSession,
+          accessToken,
+          await principalSessionEpoch(ctx.stores, principal.id),
+        );
       } catch (error) {
         // No half-minted identity survives a failed mint: the principal, its
         // unclaimed mapping and any session row are all removed before the
@@ -669,3 +674,4 @@ import {
   removeOrphanTokens,
   saveProvisional,
 } from "../repos/session-storage.js";
+import { principalSessionEpoch } from "../repos/principal-session-boundary.js";
