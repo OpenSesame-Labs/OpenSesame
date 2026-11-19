@@ -1,5 +1,8 @@
 import { overlapCast } from "@opensesame/os-domain";
-import { GenericContainer, type StartedTestContainer } from "testcontainers";
+import {
+  PostgreSqlContainer,
+  type StartedPostgreSqlContainer,
+} from "@testcontainers/postgresql";
 import { describe, expect, it, vi } from "vitest";
 import {
   PINNED_POSTGRES_IMAGE,
@@ -15,19 +18,18 @@ describe("postgres testcontainer defaults", () => {
 
   it("returns the adapter connection URI and stops once for concurrent cleanup", async () => {
     const stop = vi.fn(async () => undefined);
+    const getConnectionUri = vi.fn(
+      () => "postgres://test:test@127.0.0.1:15432/test",
+    );
     const container = {
-      getHost: () => "127.0.0.1",
-      getMappedPort: (port: number) => {
-        expect(port).toBe(5432);
-        return 15432;
-      },
+      getConnectionUri,
       stop,
     };
     const start = vi
-      .spyOn(GenericContainer.prototype, "start")
+      .spyOn(PostgreSqlContainer.prototype, "start")
       .mockImplementation(async () => {
-        // The adapter only calls these three methods in this fixture.
-        const started: StartedTestContainer = overlapCast(container);
+        // The adapter only calls these two methods in this fixture.
+        const started: StartedPostgreSqlContainer = overlapCast(container);
         return started;
       });
     try {
@@ -37,6 +39,7 @@ describe("postgres testcontainer defaults", () => {
       );
       await Promise.all([result.close(), result.stop(), result.close()]);
       expect(start).toHaveBeenCalledTimes(1);
+      expect(getConnectionUri).toHaveBeenCalledTimes(1);
       expect(stop).toHaveBeenCalledTimes(1);
     } finally {
       start.mockRestore();
