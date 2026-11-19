@@ -72,17 +72,24 @@ export async function chargeMagicLinkBudget(
       const ledger = currentLedger(current, now);
       const recipientWindow = ledger.recipients[recipient] ?? [];
       const sourceWindow = ledger.sources[sourceKey] ?? [];
-      if (recipientWindow.length >= RECIPIENT_LIMIT) result = "recipient";
-      else if (sourceWindow.length >= SOURCE_LIMIT) result = "source";
-      else if (ledger.global.length >= GLOBAL_LIMIT) result = "global";
-      else {
-        result = "ok";
-        recipientWindow.push(now);
-        sourceWindow.push(now);
-        ledger.global.push(now);
-        ledger.recipients[recipient] = recipientWindow;
-        ledger.sources[sourceKey] = sourceWindow;
+      if (recipientWindow.length >= RECIPIENT_LIMIT) {
+        result = "recipient";
+        return current ?? ledger;
       }
+      if (sourceWindow.length >= SOURCE_LIMIT) {
+        result = "source";
+        return current ?? ledger;
+      }
+      if (ledger.global.length >= GLOBAL_LIMIT) {
+        result = "global";
+        return current ?? ledger;
+      }
+      result = "ok";
+      recipientWindow.push(now);
+      sourceWindow.push(now);
+      ledger.global.push(now);
+      ledger.recipients[recipient] = recipientWindow;
+      ledger.sources[sourceKey] = sourceWindow;
       return ledger;
     },
   );
@@ -118,8 +125,9 @@ export async function chargeAuthenticationMagicLinkBudget(
         recipientWindow.push(now);
         ledger.backendApplications[application] = applicationWindow;
         ledger.backendRecipients[recipient] = recipientWindow;
+        return ledger;
       }
-      return ledger;
+      return current ?? ledger;
     },
   );
   return allowed;

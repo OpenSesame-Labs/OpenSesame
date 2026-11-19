@@ -45,7 +45,7 @@
         "packages/app-core/src/lib/magic-link-client.test.ts",
         "packages/app-core/src/lib/providers.test.ts"
       ],
-      "review": "The emailed proof remains a high-entropy bearer for the mailbox holder, but GET is inert. First-party completion additionally requires the initiating tab's verifier and state; hosted completion requires explicit confirmation plus the initiating interaction cookie. Durable server stores enforce expiry and atomic single use. Send budgets protect availability, not proof secrecy. This classification does not claim protection from a compromised mailbox/browser or a scanner that submits forms."
+      "review": "The emailed proof remains a high-entropy bearer for the mailbox holder, but GET is inert. First-party completion additionally requires the initiating tab's verifier and state; hosted completion requires explicit confirmation plus the initiating interaction cookie. Durable server stores enforce expiry and atomic single use. Send budgets protect availability, not proof secrecy. This classification does not claim protection from a compromised mailbox/browser or a scanner that submits forms. 2026-11-19: refusal regressions compare the complete durable send-budget ledger before and after recipient, source, global, backend-recipient, and backend-application denials; denial now preserves even ledger expiry metadata. Passed all changed magic-link/federation suites (60 tests in 7 files)."
     },
     {
       "id": "hosted-secret-drop",
@@ -1298,14 +1298,14 @@
       "96f5f928"
     ],
     "packages/control-plane/src/__tests__/magic-link-exchange.test.ts": [
-      "1481ca8d",
-      "9d06ae04",
-      "b9965353",
-      "33e077b0",
-      "12c907b0",
-      "b362ae05",
-      "68b5ecac",
-      "4346c2f5"
+      "1716548a",
+      "91bdde7f",
+      "77732a4e",
+      "6c236a8e",
+      "26327e39",
+      "518231ef",
+      "e6bd8c83",
+      "69f6ff0a"
     ],
     "packages/control-plane/src/__tests__/magic-link-first-party.test.ts": [
       "159709ab",
@@ -1358,14 +1358,14 @@
       "a4b58cc5"
     ],
     "packages/control-plane/src/services/magic-link-budget.ts": [
-      "83ba2e12",
-      "424f4406",
-      "d3531aaf",
-      "7466ae2a",
-      "f733a3b3",
-      "cc9bd625",
-      "4ac0c893",
-      "058bbb02"
+      "a6b285cc",
+      "5cd02418",
+      "46e1259c",
+      "9edf8899",
+      "89dd807a",
+      "aefa882e",
+      "d16d9b33",
+      "e06f7e1e"
     ],
     "packages/control-plane/src/services/magic-link-confirmation.ts": [
       "40c049c5",

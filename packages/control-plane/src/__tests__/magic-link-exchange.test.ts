@@ -211,9 +211,15 @@ it("limits rotating recipients by source without draining global on refusal", as
         "192.0.2.20",
       ),
     ).toBe("ok");
+  const beforeSourceRefusal = structuredClone(
+    ctx.stores.magicLinkBudgets.get("deployment"),
+  );
   expect(
     await chargeMagicLinkBudget(ctx, "next@example.test", "192.0.2.20"),
   ).toBe("source");
+  expect(ctx.stores.magicLinkBudgets.get("deployment")).toEqual(
+    beforeSourceRefusal,
+  );
   expect(
     await chargeMagicLinkBudget(ctx, "limited@example.test", "192.0.2.21"),
   ).toBe("ok");
@@ -223,7 +229,10 @@ it("limits rotating recipients by source without draining global on refusal", as
       "limited@example.test",
       `192.0.2.${attempt + 30}`,
     );
-  for (let attempt = 0; attempt < 25; attempt++)
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const beforeRecipientRefusal = structuredClone(
+      ctx.stores.magicLinkBudgets.get("deployment"),
+    );
     expect(
       await chargeMagicLinkBudget(
         ctx,
@@ -231,6 +240,10 @@ it("limits rotating recipients by source without draining global on refusal", as
         `192.0.2.${attempt + 60}`,
       ),
     ).toBe("recipient");
+    expect(ctx.stores.magicLinkBudgets.get("deployment")).toEqual(
+      beforeRecipientRefusal,
+    );
+  }
   expect(
     await chargeMagicLinkBudget(ctx, "fresh@example.test", "192.0.2.22"),
   ).toBe("ok");
@@ -250,6 +263,9 @@ it("bounds authenticated backend mail per application and recipient", async () =
         "recipient@example.test",
       ),
     ).toBe(true);
+  const beforeRecipientRefusal = structuredClone(
+    ctx.stores.magicLinkBudgets.get("deployment"),
+  );
   expect(
     await chargeAuthenticationMagicLinkBudget(
       ctx,
@@ -257,6 +273,9 @@ it("bounds authenticated backend mail per application and recipient", async () =
       "recipient@example.test",
     ),
   ).toBe(false);
+  expect(ctx.stores.magicLinkBudgets.get("deployment")).toEqual(
+    beforeRecipientRefusal,
+  );
   expect(
     await chargeAuthenticationMagicLinkBudget(
       ctx,
@@ -281,9 +300,7 @@ it("does not charge recipient dimensions when global or application admission re
         `192.0.2.${Math.floor(attempt / 20)}`,
       ),
     ).toBe("ok");
-  const beforeGlobal = Object.keys(
-    publicStore.get("deployment")?.recipients ?? {},
-  ).length;
+  const beforeGlobal = structuredClone(publicStore.get("deployment"));
   expect(
     await chargeMagicLinkBudget(
       ctx,
@@ -291,9 +308,7 @@ it("does not charge recipient dimensions when global or application admission re
       "198.51.100.1",
     ),
   ).toBe("global");
-  expect(
-    Object.keys(publicStore.get("deployment")?.recipients ?? {}),
-  ).toHaveLength(beforeGlobal);
+  expect(publicStore.get("deployment")).toEqual(beforeGlobal);
 
   const backendStore = new Map<string, MagicLinkBudgetLedger>();
   const backend = overlapCast<unknown, AppContext>({
@@ -309,9 +324,7 @@ it("does not charge recipient dimensions when global or application admission re
         `backend-${attempt}@example.test`,
       ),
     ).toBe(true);
-  const beforeApplication = Object.keys(
-    backendStore.get("deployment")?.backendRecipients ?? {},
-  ).length;
+  const beforeApplication = structuredClone(backendStore.get("deployment"));
   expect(
     await chargeAuthenticationMagicLinkBudget(
       backend,
@@ -319,7 +332,5 @@ it("does not charge recipient dimensions when global or application admission re
       "backend-refused@example.test",
     ),
   ).toBe(false);
-  expect(
-    Object.keys(backendStore.get("deployment")?.backendRecipients ?? {}),
-  ).toHaveLength(beforeApplication);
+  expect(backendStore.get("deployment")).toEqual(beforeApplication);
 });
