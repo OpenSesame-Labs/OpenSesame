@@ -122,6 +122,7 @@ fn persisted_load_rejects_wrong_key_for_mutations() {
 
     let mut loaded = SyncStore::from_persisted_json(&key_a, &json).unwrap();
     assert_eq!(loaded.opaque_blobs().len(), 1);
+    assert!(loaded.put_local(&key_a, "item-2", b"x").is_ok());
     expect_wrong_key_on_mutations(&mut loaded, &key_b);
 
     #[cfg(not(target_arch = "wasm32"))]

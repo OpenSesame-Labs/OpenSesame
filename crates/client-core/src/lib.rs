@@ -341,6 +341,13 @@ impl SyncStore {
             serde_json::from_str(json).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
         persist_auth::verify(key, &p)?;
         let mut store = Self::new(p.cursor.device_id.clone());
+        // Pin before apply_remote so an empty blob list cannot leave the store
+        // unbound. apply_remote repeats this for non-empty loads; both writes
+        // use the same guard.
+        store.remember_key(blake3::keyed_hash(
+            key.as_bytes(),
+            b"OpenSesame sync store key v2",
+        ));
         store.apply_remote(key, &p.blobs)?;
         if store.key_guard.is_none() {
             store.remember_key(blake3::keyed_hash(
