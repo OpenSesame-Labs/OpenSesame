@@ -72,6 +72,13 @@ async fn missing_pages_configuration_is_actionable_and_creates_no_grant() {
 #[ignore = "requires Node and installed workspace dependencies"]
 async fn public_sdk_script_exercises_real_host_and_cleans_up() {
     let state = crate::app_state::test_demo_state().await;
+    let repository_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../..")
+        .canonicalize()
+        .expect("gateway crate lives under the repository root");
+    assert!(repository_root
+        .join("scripts/test/customer-sdk-live.mts")
+        .is_file());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
     let router = crate::routes::router(state.clone());
@@ -80,6 +87,7 @@ async fn public_sdk_script_exercises_real_host_and_cleans_up() {
         std::time::Duration::from_secs(60),
         tokio::process::Command::new("node")
             .args(["--import", "tsx", "scripts/test/customer-sdk-live.mts"])
+            .current_dir(repository_root)
             .env("OPENSESAME_TEST_HOST_URL", format!("http://{address}"))
             .env("OPENSESAME_OPERATOR_TOKEN", &state.operator_token)
             .kill_on_drop(true)
