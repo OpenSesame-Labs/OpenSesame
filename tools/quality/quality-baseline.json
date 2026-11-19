@@ -696,7 +696,7 @@
     },
     "packages/app-core/src/lib/vault/import/formats/kdbx.ts": {
       "complexity": 3,
-      "max-lines": 413,
+      "max-lines": 410,
       "max-lines-per-function": 1
     },
     "packages/app-core/src/lib/vault/import/formats/onepassword.ts": {

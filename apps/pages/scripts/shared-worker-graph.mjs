@@ -4,6 +4,10 @@ import { basename, dirname, extname, resolve } from "node:path";
 import ts from "typescript";
 import { searchForWorkspaceRoot, transformWithEsbuild } from "vite";
 import { bitwardenWorkerAssets } from "./bitwarden-worker-assets.mjs";
+import {
+  combineWorkerAssets,
+  kdbxWorkerAssets,
+} from "./kdbx-worker-assets.mjs";
 import { workerRealmSource } from "./lib/capability-graph.mjs";
 import { chunkName, installChunkName } from "./lib/code-splitting.mjs";
 import {
@@ -49,6 +53,10 @@ function original(id) {
 function privateSource(file, realm, sdk) {
   if (sdk?.owns(file, realm)) return true;
   const path = file.replaceAll("\\", "/");
+  if (realm === "kdbx-argon2.worker")
+    return /\/packages\/app-core\/src\/lib\/vault\/import\/formats\/kdbx-argon2\.worker\.ts$/.test(
+      path,
+    );
   if (/\/packages\/os-domain\/src\//.test(path)) return true;
   if (
     /\/packages\/(?:os-domain\/src\/json|vault-core\/src\/bytes|app-core\/src\/lib\/zod-jitless)\.ts$/.test(
@@ -329,7 +337,10 @@ export function sharedWorkerGraph({ workers } = {}) {
       return emittedChunks.get(fileName);
     },
     buildStart() {
-      sdk = bitwardenWorkerAssets(plans);
+      sdk = combineWorkerAssets(
+        bitwardenWorkerAssets(plans),
+        kdbxWorkerAssets(plans),
+      );
       pureRoots.clear();
       minted.clear();
       refs.clear();

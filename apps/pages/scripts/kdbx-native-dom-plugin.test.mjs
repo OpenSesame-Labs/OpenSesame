@@ -21,14 +21,14 @@ const root =
 const require = createRequire(resolve(root, "packages/app-core/package.json"));
 const sdk = realpathSync(require.resolve("kdbxweb"));
 
-test("only replaces the reviewed SDK's exact XML fallback during builds", () => {
+test("only replaces the reviewed SDK's exact XML fallback", () => {
   assert.equal(classify("src/lib/kdbx-native-dom.ts"), null);
   assert.equal(
     classify("src/browser/kdbx-native-dom.ts")?.classification,
     "core",
   );
   const plugin = kdbxNativeDOM(root);
-  assert.equal(plugin.apply, "build");
+  assert.equal(plugin.apply, undefined);
   plugin.buildStart();
   assert.equal(
     plugin.resolveId("@xmldom/xmldom", sdk),
@@ -85,6 +85,13 @@ test("only the KDBX importer receives the reviewed, tree-shakable SDK source", (
   assert.equal(
     plugin.transform(
       "global.crypto.subtle",
+      `${resolve(source, "crypto/crypto-engine.ts")}?v=deadbeef`,
+    ),
+    "globalThis.crypto.subtle",
+  );
+  assert.equal(
+    plugin.transform(
+      "global.crypto.subtle",
       resolve(source, "crypto/crypto-engine.ts").replaceAll("/", "\\"),
     ),
     "globalThis.crypto.subtle",
@@ -97,6 +104,42 @@ test("only the KDBX importer receives the reviewed, tree-shakable SDK source", (
     /nativeKdbxDom/,
   );
   assert.equal(plugin.transform("global.crypto", "/unrelated.ts"), null);
+});
+
+test("both reviewed AES-KDF call sites use the worker adapter, without redirecting other imports", () => {
+  const plugin = kdbxNativeDOM(root);
+  const source = resolve(dirname(dirname(sdk)), "lib");
+  const adapter = resolve(
+    root,
+    "packages/app-core/src/lib/vault/import/formats/kdbx-aes-kdf-worker-client.ts",
+  );
+  const v3 = resolve(source, "format/kdbx-format.ts");
+  const v4 = resolve(source, "crypto/key-encryptor-kdf.ts");
+  assert.equal(plugin.resolveId("../crypto/key-encryptor-aes", v3), adapter);
+  assert.equal(plugin.resolveId("./key-encryptor-aes", v4), adapter);
+  assert.equal(
+    plugin.resolveId("./key-encryptor-aes", `${v4}?v=deadbeef`),
+    adapter,
+  );
+  assert.equal(plugin.resolveId("./key-encryptor-aes", v3), null);
+  assert.equal(plugin.resolveId("../crypto/key-encryptor-aes", v4), null);
+  assert.equal(plugin.resolveId("./key-encryptor-aes", `${v4}?other`), null);
+  assert.equal(plugin.resolveId("./key-encryptor-aes", "/unrelated.ts"), null);
+});
+
+test("the dev worker uses the pinned source, including Vite worker and version queries", () => {
+  const plugin = kdbxNativeDOM(root);
+  plugin.configResolved({ command: "serve" });
+  plugin.buildStart();
+  const worker = resolve(
+    root,
+    "packages/app-core/src/lib/vault/import/formats/kdbx-argon2.worker.ts",
+  );
+  assert.match(
+    plugin.transform("ignored", `${worker}?worker_file&type=module`),
+    /import \* as KeyEncryptorAes from .*key-encryptor-aes\.ts/,
+  );
+  assert.equal(plugin.transform("ignored", `${worker}?raw`), null);
 });
 
 test("ordinary Node SDK resolution and XML integrity remain unchanged", async () => {
@@ -129,6 +172,17 @@ test("a replacement SDK cannot acquire the pinned fallback adapter", () => {
       () => plugin.resolveId("@xmldom/xmldom", changed),
       /reviewed SDK bytes/,
     );
+    const dev = kdbxNativeDOM(directory);
+    dev.configResolved({ command: "serve" });
+    assert.doesNotThrow(() => dev.buildStart());
+    const importer = resolve(
+      directory,
+      "packages/app-core/src/lib/vault/import/formats/kdbx.ts",
+    );
+    assert.throws(
+      () => dev.resolveId("kdbxweb", importer),
+      /reviewed SDK bytes/,
+    );
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -156,6 +210,49 @@ test("a source change is refused even when the SDK distribution is unchanged", (
     );
     assert.throws(
       () => kdbxNativeDOM(directory).buildStart(),
+      /reviewed source bytes/,
+    );
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+test("development rejects a pinned source changed after the server starts", () => {
+  const directory = mkdtempSync(resolve(tmpdir(), "kdbx-dev-source-"));
+  try {
+    const packageRoot = resolve(
+      directory,
+      "packages/app-core/node_modules/kdbxweb",
+    );
+    const importer = resolve(
+      directory,
+      "packages/app-core/src/lib/vault/import/formats/kdbx.ts",
+    );
+    mkdirSync(resolve(packageRoot, "dist"), { recursive: true });
+    mkdirSync(dirname(importer), { recursive: true });
+    writeFileSync(
+      resolve(packageRoot, "package.json"),
+      '{"main":"dist/kdbxweb.js"}',
+    );
+    cpSync(sdk, resolve(packageRoot, "dist/kdbxweb.js"));
+    cpSync(resolve(dirname(dirname(sdk)), "lib"), resolve(packageRoot, "lib"), {
+      recursive: true,
+    });
+    cpSync(
+      resolve(root, "packages/app-core/src/lib/vault/import/formats/kdbx.ts"),
+      importer,
+    );
+    const plugin = kdbxNativeDOM(directory);
+    plugin.configResolved({ command: "serve" });
+    plugin.buildStart();
+    assert.equal(
+      plugin.resolveId("kdbxweb", importer),
+      "\0opensesame-kdbx-source",
+    );
+    const engine = resolve(packageRoot, "lib/crypto/crypto-engine.ts");
+    writeFileSync(engine, "modified");
+    assert.throws(
+      () => plugin.transform("modified", `${engine}?v=deadbeef`),
       /reviewed source bytes/,
     );
   } finally {
