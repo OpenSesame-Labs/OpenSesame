@@ -39,6 +39,7 @@ impl From<BoundedBlob> for SyncBlob {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 struct BoundedCursor {
     #[serde(deserialize_with = "deserialize_device_id")]
     device_id: String,

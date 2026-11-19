@@ -66,6 +66,7 @@ pub enum ClientCoreError {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct SyncCursor {
     pub device_id: String,
     pub epoch: u64,
