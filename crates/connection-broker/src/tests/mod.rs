@@ -33,6 +33,11 @@ mod minting_changelog;
 mod org_integrations;
 mod revocation_cleanup;
 mod rotation_leftover;
+mod sync_target_pact;
+mod sync_target_pact_chain;
+mod sync_target_pact_https;
+mod sync_target_pact_norm;
+mod sync_target_pact_scan;
 mod web_rotation;
 mod web_rotation_custom;
 
