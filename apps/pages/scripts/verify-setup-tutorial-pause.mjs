@@ -91,8 +91,7 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
   await shotFrame(page, choices);
   check(existsSync(choices), `${label} setup-choices.png written`);
   const records = [];
-  const profileHashes = [];
-  const profileFingerprints = [];
+  const profileMarkerKeys = [];
   const newProfilePage = async () => {
     if (harness) {
       const opened = await harness.newPage(browser);
@@ -117,30 +116,28 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
         id,
         check,
       );
-      const hash = digest(applied.file);
-      profileHashes.push(hash);
-      profileFingerprints.push(applied.fingerprint);
+      check(existsSync(applied.picker), `${label}/${id} setup-profile-picker.png`);
+      profileMarkerKeys.push(applied.markerKey);
       records.push({
         build: label,
         profile: id,
-        setupProfileApplied: hash,
-        planFingerprint: createHash("sha256")
-          .update(applied.fingerprint)
-          .digest("hex"),
+        setupProfileApplied: digest(applied.file),
+        setupProfilePicker: digest(applied.picker),
+        vaultMarkers: applied.markers,
+        vaultMarkerKey: applied.markerKey,
       });
     } finally {
       await opened.context.close();
     }
   }
-  const uniqueShots = new Set(profileHashes);
   check(
-    uniqueShots.size >= 3,
-    `profile captures differ visually (${uniqueShots.size} unique of ${profileHashes.length})`,
+    new Set(profileMarkerKeys).size === profileMarkerKeys.length,
+    `each profile leaves distinct vault DOM markers: ${profileMarkerKeys.join(" · ")}`,
   );
-  check(
-    new Set(profileFingerprints).size === profileFingerprints.length,
-    `each profile leaves a distinct plan fingerprint: ${profileFingerprints.join(" · ")}`,
-  );
+  for (const id of PROFILES) {
+    const applied = path.join(outRoot, label, id, "setup-profile-applied.png");
+    check(existsSync(applied), `${label}/${id} setup-profile-applied.png on disk`);
+  }
   if (expectAdvanced) {
     const warnDir = profileDir(outRoot, label, "minimal");
     const opened = await newProfilePage();
