@@ -5,6 +5,306 @@ on:
 permissions: {}
 
 jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: 79bf71a3b457e7854dc0ead0d1419360b69d175f
+          path: candidate
+          persist-credentials: false
+      - name: Verify the reviewed branch and tree
+        working-directory: candidate
+        run: |
+          test "$(git rev-parse HEAD)" = "79bf71a3b457e7854dc0ead0d1419360b69d175f"
+          test "$(git rev-parse HEAD^{tree})" = "0b2c167541b28161a36248a46db45fab25ec881d"
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
+        with:
+          cache: false
+          install_args: node@24
+      - name: Install locked dependencies
+        working-directory: candidate
+        run: npm ci --ignore-scripts
+      - name: Check Pages and tutorial behavior
+        working-directory: candidate
+        run: |
+          npm run typecheck -w @opensesame/pages
+          npm run quality:gate
+          npm exec -w @opensesame/pages -- vitest run src/tutorial/coach src/components/StatusMark.test.tsx src/sections/vault/RotationPanel.test.tsx src/sections/vault/ItemEditor.limits.test.tsx
+          npm exec -w @opensesame/app-core -- vitest run src/tutorial/registry/gate-goals.test.ts src/tutorial/registry/copy-accuracy.test.ts
+      - name: Build the reviewed app
+        working-directory: candidate
+        env:
+          VITE_BASE: /OpenSesame/
+        run: node scripts/lib/ci-pages-build.mjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: final-review-dist
+          path: candidate/apps/pages/dist/
+          retention-days: 2
+          if-no-files-found: error
+
+  catalog:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: 79bf71a3b457e7854dc0ead0d1419360b69d175f
+          path: candidate
+          persist-credentials: false
+      - name: Verify the reviewed branch and tree
+        working-directory: candidate
+        run: |
+          test "$(git rev-parse HEAD)" = "79bf71a3b457e7854dc0ead0d1419360b69d175f"
+          test "$(git rev-parse HEAD^{tree})" = "0b2c167541b28161a36248a46db45fab25ec881d"
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
+        with:
+          cache: false
+          install_args: node@24
+      - name: Install locked dependencies
+        working-directory: candidate
+        run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: final-review-dist
+          path: candidate/apps/pages/dist/
+      - name: Walk the mobile tutorial catalog
+        id: walk
+        continue-on-error: true
+        working-directory: candidate
+        env:
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+          VITE_BASE: /OpenSesame/
+          TUTORIALS_WIDTHS: 320,390
+          TUTORIALS_SHARD: ${{ matrix.shard }}/4
+          TUTORIALS_ENABLE: except-ai
+          TUTORIALS_AI: "off"
+          TUTORIALS_OUT: ${{ runner.temp }}/tutorial-catalog
+        run: npm run verify:tutorials -w @opensesame/pages > "$RUNNER_TEMP/catalog.log" 2>&1
+      - name: Report tutorial results
+        if: always()
+        env:
+          WALK_OUTCOME: ${{ steps.walk.outcome }}
+        run: |
+          node -e 'const fs=require("node:fs");const p=`${process.env.RUNNER_TEMP}/catalog.log`;console.log(`tutorial catalog: ${process.env.WALK_OUTCOME || "not run"}`);if(fs.existsSync(p)){for(const line of fs.readFileSync(p,"utf8").split("\n"))if(/checks passed|^\s*FAIL |tutorials walked|gates walked/.test(line))console.log(line);}if(process.env.WALK_OUTCOME!=="success")process.exitCode=1;'
+
+  first_vault:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: 79bf71a3b457e7854dc0ead0d1419360b69d175f
+          path: candidate
+          persist-credentials: false
+      - name: Verify the reviewed branch and tree
+        working-directory: candidate
+        run: |
+          test "$(git rev-parse HEAD)" = "79bf71a3b457e7854dc0ead0d1419360b69d175f"
+          test "$(git rev-parse HEAD^{tree})" = "0b2c167541b28161a36248a46db45fab25ec881d"
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
+        with:
+          cache: false
+          install_args: node@24
+      - name: Install locked dependencies
+        working-directory: candidate
+        run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: final-review-dist
+          path: candidate/apps/pages/dist/
+      - name: Walk and capture the first password journey
+        working-directory: candidate
+        env:
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+          VITE_BASE: /OpenSesame/
+          TUTORIALS_WIDTHS: 320,390,1280
+          TUTORIALS_ONLY: gate.front-door
+          TUTORIALS_ENABLE: except-ai
+          TUTORIALS_AI: "off"
+          TUTORIALS_SHOTS: "1"
+          TUTORIALS_KEYBOARD_VIEWPORT: "1"
+          TUTORIALS_OUT: ${{ runner.temp }}/first-vault
+        run: npm run verify:tutorials -w @opensesame/pages
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: final-first-vault-evidence
+          path: ${{ runner.temp }}/first-vault/
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Verify generation failure and retry on phones
+        working-directory: candidate
+        env:
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+          VITE_BASE: /OpenSesame/
+          TUTORIALS_WIDTHS: 320,390
+          TUTORIALS_ONLY: gate.front-door
+          TUTORIALS_ENABLE: except-ai
+          TUTORIALS_AI: "off"
+          TUTORIALS_GENERATION_FAILURE: "1"
+          TUTORIALS_OUT: ${{ runner.temp }}/first-vault-retry
+        run: npm run verify:tutorials -w @opensesame/pages
+
+      - name: Walk and capture the first password journey in dark mode
+        working-directory: candidate
+        env:
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+          VITE_BASE: /OpenSesame/
+          TUTORIALS_WIDTHS: 390
+          TUTORIALS_ONLY: gate.front-door
+          TUTORIALS_ENABLE: except-ai
+          TUTORIALS_AI: "off"
+          TUTORIALS_COLOR_SCHEME: dark
+          TUTORIALS_SHOTS: "1"
+          TUTORIALS_KEYBOARD_VIEWPORT: "1"
+          TUTORIALS_OUT: ${{ runner.temp }}/first-vault-dark
+        run: npm run verify:tutorials -w @opensesame/pages
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: final-first-vault-dark-evidence
+          path: ${{ runner.temp }}/first-vault-dark/
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Walk and capture model settings on phones
+        working-directory: candidate
+        env:
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+          VITE_BASE: /OpenSesame/
+          TUTORIALS_WIDTHS: 320,390
+          TUTORIALS_ONLY: settings.model-provider
+          TUTORIALS_ENABLE: all
+          TUTORIALS_SHOTS: "1"
+          TUTORIALS_OUT: ${{ runner.temp }}/model-guide
+        run: npm run verify:tutorials -w @opensesame/pages
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: final-model-guide-evidence
+          path: ${{ runner.temp }}/model-guide/
+          retention-days: 7
+          if-no-files-found: warn
+
+  rotation:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: 79bf71a3b457e7854dc0ead0d1419360b69d175f
+          path: candidate
+          persist-credentials: false
+      - name: Verify the reviewed branch and tree
+        working-directory: candidate
+        run: |
+          test "$(git rev-parse HEAD)" = "79bf71a3b457e7854dc0ead0d1419360b69d175f"
+          test "$(git rev-parse HEAD^{tree})" = "0b2c167541b28161a36248a46db45fab25ec881d"
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
+        with:
+          cache: false
+          install_args: node@24
+      - name: Install locked dependencies
+        working-directory: candidate
+        run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: final-review-dist
+          path: candidate/apps/pages/dist/
+      - name: Verify mobile rotation and copying
+        working-directory: candidate
+        env:
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+          VITE_BASE: /OpenSesame/
+          PAGES_VERIFY_OUT: ${{ runner.temp }}/rotation
+        run: npm run verify:rotation-mobile -w @opensesame/pages
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: final-rotation-evidence
+          path: ${{ runner.temp }}/rotation/
+          retention-days: 7
+          if-no-files-found: warn
+
+      - name: Verify mobile rotation and copying in dark mode
+        working-directory: candidate
+        env:
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+          VITE_BASE: /OpenSesame/
+          PAGES_VERIFY_COLOR_SCHEME: dark
+          PAGES_VERIFY_OUT: ${{ runner.temp }}/rotation-dark
+        run: npm run verify:rotation-mobile -w @opensesame/pages
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: always()
+        with:
+          name: final-rotation-dark-evidence
+          path: ${{ runner.temp }}/rotation-dark/
+          retention-days: 7
+          if-no-files-found: warn
+
+  keyboard:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: 79bf71a3b457e7854dc0ead0d1419360b69d175f
+          path: candidate
+          persist-credentials: false
+      - name: Verify the reviewed branch and tree
+        working-directory: candidate
+        run: |
+          test "$(git rev-parse HEAD)" = "79bf71a3b457e7854dc0ead0d1419360b69d175f"
+          test "$(git rev-parse HEAD^{tree})" = "0b2c167541b28161a36248a46db45fab25ec881d"
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
+        with:
+          cache: false
+          install_args: node@24
+      - name: Install locked dependencies
+        working-directory: candidate
+        run: npm ci --ignore-scripts
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          name: final-review-dist
+          path: candidate/apps/pages/dist/
+      - name: Verify the real keyboard journey
+        id: keyboard
+        continue-on-error: true
+        working-directory: candidate
+        env:
+          VITE_BASE: /OpenSesame/
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+          PAGES_VERIFY_OUT: ${{ runner.temp }}/keyboard
+        run: npm run verify:keyboard -w @opensesame/pages > "$RUNNER_TEMP/keyboard.log" 2>&1
+      - name: Report sanitized diagnostics
+        if: always()
+        env:
+          KEYBOARD_OUTCOME: ${{ steps.keyboard.outcome }}
+        run: |
+          node -e 'const fs=require("node:fs");const p=`${process.env.RUNNER_TEMP}/keyboard.log`;console.log(`keyboard: ${process.env.KEYBOARD_OUTCOME || "not run"}`);if(fs.existsSync(p)){const s=fs.readFileSync(p,"utf8");for(const line of s.split("\n"))if(line.startsWith("PASS "))console.log(line);for(const name of ["toBeVisible","toBeFocused","toHaveURL","toBeEnabled","TimeoutError","Timeout","connection did not form","Keyboard journey reported browser errors"])if(s.includes(name))console.log(`diagnostic: ${name}`);for(const m of new Set(s.match(/(?:verify-keyboard|live-keyboard-contract|live-keyboard-entry)\.mjs:\d+:\d+/g)||[]))console.log(`location: ${m}`);}if(process.env.KEYBOARD_OUTCOME!=="success")process.exitCode=1;'
+
   repository_checks:
     runs-on: ubuntu-latest
     timeout-minutes: 75
@@ -13,19 +313,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        check: [lint, quality, typecheck]
+        check: [lint, quality, typecheck, test]
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: 1d9f5a96555a955196e26d0dc68cef44e2b1287e
+          ref: 79bf71a3b457e7854dc0ead0d1419360b69d175f
           path: candidate
           persist-credentials: false
           fetch-depth: 100
-      - name: Verify the reviewed branch and fetch its base
+      - name: Verify the reviewed branch and tree
         working-directory: candidate
         run: |
-          test "$(git rev-parse HEAD)" = "1d9f5a96555a955196e26d0dc68cef44e2b1287e"
-          test "$(git rev-parse HEAD^{tree})" = "8f0a6c8e26ea8d8b89087c6b0bd5db4cb5b9a463"
+          test "$(git rev-parse HEAD)" = "79bf71a3b457e7854dc0ead0d1419360b69d175f"
+          test "$(git rev-parse HEAD^{tree})" = "0b2c167541b28161a36248a46db45fab25ec881d"
           git fetch --no-tags --depth=100 origin +refs/heads/main:refs/remotes/origin/main
           git merge-base HEAD origin/main > /dev/null
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
