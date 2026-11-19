@@ -1,6 +1,9 @@
 #[test]
 fn pact_auth_precedes_storage_and_the_receipt_precedes_the_body() {
-    let source = include_str!("../../kv_facade.rs");
+    let source = concat!(
+        include_str!("../../kv_facade.rs"),
+        include_str!("../../kv_facade_receipt.rs")
+    );
     // A read authenticates, resolves inside the caller's organization, and only
     // then touches storage.
     opensesame_host_core::pact::assert_source_order(

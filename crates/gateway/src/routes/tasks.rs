@@ -386,7 +386,12 @@ pub async fn invoke_task(
         intent.operation.clone(),
         ResourceSelector::exact(intent.resource.clone()),
     );
-    let opening_intent = intent.clone();
+    let mut opening_intent =
+        serde_json::to_value(&intent).map_err(|_| internal("intent encoding"))?;
+    opening_intent
+        .as_object_mut()
+        .ok_or_else(|| internal("intent encoding"))?
+        .remove("intent_digest");
     let receipt = st
         .broker
         .invoke_frozen(
@@ -411,7 +416,7 @@ pub async fn invoke_task(
     let body = super::receipts::private_receipt_body(
         &st,
         &receipt,
-        &opening_intent.intent_digest,
+        &body.intent_digest,
         &opening_intent,
     )?;
     Ok(super::receipts::private_response(StatusCode::OK, body))
