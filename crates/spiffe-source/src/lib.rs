@@ -25,4 +25,4 @@ pub use status::{SourcePhase, SourceStatus};
 pub use svid_profile::{SvidExpectation, SvidFacts, SvidProfileError, SvidRole};
 
 /// The exact SDK this crate is built on, for status and reports.
-pub const SDK: &str = concat!("spiffe ", "0.16.1");
+pub const SDK: &str = concat!("spiffe ", "0.19.0");
