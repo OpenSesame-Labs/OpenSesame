@@ -79,7 +79,9 @@ function legBindingMaterial(state: string, nonce: string): Buffer {
   const stateBytes = Buffer.from(state, "utf8");
   const nonceBytes = Buffer.from(nonce, "utf8");
   if (stateBytes.length > 255 || nonceBytes.length > 255) {
-    throw new Error("federated pending leg binding exceeds 255-byte field limit");
+    throw new Error(
+      "federated pending leg binding exceeds 255-byte field limit",
+    );
   }
   return Buffer.concat([
     Buffer.from([stateBytes.length]),
