@@ -128,20 +128,16 @@ describe("the tutorial card", () => {
     // No fixture is bound for the lock, so the step has nothing to light.
     const { user, card } = await startLock([]);
     await user.click(within(card).getByRole("button", { name: /^Next/ }));
-    await waitFor(() =>
-      expect(card.querySelector(".coach__cue")?.textContent).toContain(
-        "not on screen",
-      ),
-    );
+    await waitFor(() => expect(card.textContent).toContain("not on screen"));
     expect(document.querySelector(".coach__ring")).toBeNull();
     expect(within(card).getByRole("button", { name: /^Next/ })).toBeTruthy();
   });
 
   it("writes the sentence as text, whatever it contains", async () => {
     const { card } = await startLock();
-    // The first step is authored prose and arrives as one text node.
-    const text = card.querySelector(".coach__text");
-    expect(text?.querySelectorAll("*").length).toBe(1); // only the hidden counter
+    // The authored sentence remains text, separate from the counter and status.
+    const text = card.querySelector(".coach__message");
+    expect(text?.querySelectorAll("*").length).toBe(0);
     expect(text?.textContent).toContain("Lock the vault to remove its keys");
   });
 

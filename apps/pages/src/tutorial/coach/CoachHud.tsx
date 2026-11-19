@@ -170,17 +170,17 @@ function Narration({
   compactMissing: boolean;
 }): ReactElement {
   const closing = tour.kind === "close";
+  const message = tour.message ?? (closing ? CLOSING_TEXT : "");
   return (
     <p className="coach__text" id={id} aria-live="polite">
       {counter && !closing ? (
         <span className="visually-hidden">{counter}. </span>
       ) : null}
-      {tour.message ?? (closing ? CLOSING_TEXT : "")}
+      <span className="coach__message">{message}</span>
       {compactMissing ? " Control not on screen." : null}
     </p>
   );
 }
-
 type CardPresentation = {
   firstVault: boolean;
   requiredAction: boolean;
@@ -300,7 +300,7 @@ function CoachCard({
       />
       <Foot
         tour={tour}
-        missing={missing}
+        missing={missing && !constrained}
         support={support}
         primary={primaryRef}
         firstVault={firstVault}
