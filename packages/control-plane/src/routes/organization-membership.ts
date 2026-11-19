@@ -72,8 +72,8 @@ export async function revokeOrganizationMembership(
     input.principalId,
     "revoke",
     async (stores, database) => {
-      const remove = async () =>
-        await stores.organizationMemberships.remove(
+      const remove = () =>
+        stores.organizationMemberships.remove(
           input.organizationId,
           input.principalId,
         );
