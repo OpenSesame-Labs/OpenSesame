@@ -123,6 +123,37 @@
         "spec/formal/check-axioms.test.mjs"
       ],
       "command": ["npm", "run", "verify:dpop-formal"]
+    },
+    {
+      "id": "spiffe",
+      "implementation": [
+        "crates/spiffe-source/Cargo.toml",
+        "crates/spiffe-source/src/lib.rs",
+        "crates/spiffe-source/src/source.rs",
+        "crates/spiffe-source/src/source_policy.rs",
+        "crates/spiffe-source/src/bundles.rs",
+        "crates/spiffe-source/src/outage.rs",
+        "crates/spiffe-source/src/status.rs",
+        "crates/spiffe-source/src/snapshot.rs",
+        "crates/spiffe-source/src/error.rs",
+        "crates/spiffe-source/src/config.rs",
+        "crates/spiffe-source/src/svid_profile.rs",
+        "crates/spiffe-source/src/sink.rs",
+        "crates/spiffe-source/src/sink/transport.rs",
+        "crates/transport-security/src/generations.rs"
+      ],
+      "lockProjection": {
+        "path": "Cargo.lock",
+        "root": "opensesame-spiffe-source"
+      },
+      "proofs": [
+        "spec/formal/spiffe/SpiffePolicy.lean",
+        "spec/formal/spiffe/required-theorems.lean",
+        "spec/formal/required-theorem-command.lean",
+        "spec/formal/check-axioms.sh",
+        "spec/formal/check-axioms.test.mjs"
+      ],
+      "command": ["npm", "run", "verify:spiffe-formal"]
     }
   ]
 }
