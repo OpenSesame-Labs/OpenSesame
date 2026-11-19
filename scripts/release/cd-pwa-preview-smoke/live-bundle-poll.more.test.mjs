@@ -36,6 +36,14 @@ test("fetchAbortTimeoutMs caps stalled headers at the shared CDN remainder", () 
     fetchAbortTimeoutMs(15_000, 50, () => 60),
     1,
   );
+  assert.equal(
+    fetchAbortTimeoutMs(15_000, 50, () => 60, false),
+    15_000,
+  );
+  assert.equal(
+    fetchAbortTimeoutMs(15_000, 200, () => 50, false),
+    15_000,
+  );
 });
 
 test("readBoundedBody stops at shared CDN deadline before per-chunk cap", async () => {
@@ -48,6 +56,37 @@ test("readBoundedBody stops at shared CDN deadline before per-chunk cap", async 
         100,
         () => 99,
         5000,
+      ),
+    /body read timed out/,
+  );
+});
+
+test("readBoundedBody rejects expired nonzero CDN deadline when enforced", async () => {
+  await assert.rejects(
+    () =>
+      readBoundedBody(
+        new Response("ok"),
+        "assets/main.js",
+        100,
+        () => 101,
+        5000,
+        true,
+      ),
+    /CDN poll deadline expired/,
+  );
+});
+
+test("readBoundedBody keeps the per-chunk cap when the deadline is not enforced", async () => {
+  const stream = new ReadableStream({ pull() {} });
+  await assert.rejects(
+    () =>
+      readBoundedBody(
+        new Response(stream),
+        "assets/main.js",
+        100,
+        () => 101,
+        20,
+        false,
       ),
     /body read timed out/,
   );

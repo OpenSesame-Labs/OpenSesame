@@ -11,6 +11,9 @@ function readBoundedInt(value, fallback, label, min) {
     throw new Error(`${label} must be a non-negative integer`);
   }
   const parsed = Number(text);
+  if (!Number.isFinite(parsed) || !Number.isSafeInteger(parsed)) {
+    throw new Error(`${label} must be a safe integer`);
+  }
   if (parsed < min) {
     throw new Error(`${label} must be at least ${min}`);
   }
@@ -38,8 +41,14 @@ export function remainingSharedCdnMs(env, nowMs = Date.now()) {
 }
 
 /** Cap fetch abort at the remainder of the shared CDN window, or full timeout. */
-export function fetchAbortTimeoutMs(timeoutMs, bodyDeadlineAt, now) {
+export function fetchAbortTimeoutMs(
+  timeoutMs,
+  bodyDeadlineAt,
+  now,
+  enforceDeadline = true,
+) {
   const at = now();
+  if (!enforceDeadline) return timeoutMs;
   if (bodyDeadlineAt <= at) return 1;
   return Math.min(timeoutMs, Math.max(1, bodyDeadlineAt - at));
 }
@@ -69,7 +78,7 @@ function hurlFitsDeadline(retries, intervalMs, maxTimeSec, deadlineMs) {
 /** Hurl `--retry` is per request; keep retries inside one wall-clock CDN window. */
 export function cdnRetryBudget(env) {
   const { deadlineMs, pollMs } = cdnPollBudget(env);
-  let retries = Math.floor(deadlineMs / pollMs);
+  let retries = Math.min(Math.floor(deadlineMs / pollMs), 10_000);
   let maxTimeSec = 1;
   while (retries >= 0) {
     const attemptBudgetMs = deadlineMs - retries * pollMs;

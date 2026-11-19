@@ -331,6 +331,6 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
     }
     throw error;
   } finally {
-    await browser?.close();
+    await browser?.close()?.catch(() => undefined);
   }
 }

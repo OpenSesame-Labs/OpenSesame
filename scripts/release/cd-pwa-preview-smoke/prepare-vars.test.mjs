@@ -8,7 +8,11 @@ import {
   normalizePagesBase,
   serializeHurlVariables,
 } from "./prepare-vars.mjs";
-import { cdnRetryBudget, registryRetryBudget } from "./retry-budget.mjs";
+import {
+  cdnPollBudget,
+  cdnRetryBudget,
+  registryRetryBudget,
+} from "./retry-budget.mjs";
 
 const sha = "c".repeat(40);
 const version = "0.0.0-alpha.12";
@@ -88,5 +92,27 @@ test("cdn retry budget stays bounded", () => {
   assert.ok(
     attempts * budget.maxTimeSec * 1000 + budget.retries * budget.intervalMs <=
       120_000,
+  );
+});
+
+test("cdn poll budget rejects non-safe deadline integers", () => {
+  assert.throws(
+    () => cdnPollBudget({ PWA_SMOKE_CDN_DEADLINE_MS: "9".repeat(400) }),
+    /safe integer/,
+  );
+});
+
+test("cdn retry budget caps retries inside the hurl wall clock", () => {
+  const deadlineMs = Number.MAX_SAFE_INTEGER;
+  const budget = cdnRetryBudget({
+    PWA_SMOKE_CDN_DEADLINE_MS: String(deadlineMs),
+    PWA_SMOKE_CDN_POLL_MS: "1",
+  });
+  assert.ok(budget.retries <= 10_000);
+  assert.ok(budget.retries >= 0);
+  const attempts = budget.retries + 1;
+  assert.ok(
+    attempts * budget.maxTimeSec * 1000 + budget.retries * budget.intervalMs <=
+      deadlineMs,
   );
 });
