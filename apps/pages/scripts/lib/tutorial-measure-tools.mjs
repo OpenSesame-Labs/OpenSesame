@@ -125,3 +125,132 @@ export function readableInstruction(prose) {
   );
   return prose.clientHeight + 1 >= minimum;
 }
+
+/** Measure the zoomed card and its touch controls in the browser. */
+export function measureZoomedKeyboard(id) {
+  const v = visualViewport;
+  const field = document.querySelector(`[data-guide-targets~="${id}"]`);
+  const card = document.querySelector(".coach__card");
+  const text = card.querySelector(".coach__text");
+  const controls = [
+    card.querySelector('[aria-label="Exit tutorial"]'),
+    card.querySelector(".coach__btn--back"),
+    card.querySelector(".coach__btn--go"),
+  ];
+  const a = card.getBoundingClientRect();
+  const b = field.getBoundingClientRect();
+  const scrollCard = card.classList.contains("coach__card--short-scroll");
+  const textBox = text.getBoundingClientRect();
+  const line = parseFloat(getComputedStyle(text).lineHeight);
+  const next = controls[2].getBoundingClientRect();
+  const back = controls[1].getBoundingClientRect();
+  text.scrollTop = text.scrollHeight;
+  return {
+    geometry: {
+      viewport: {
+        width: v.width,
+        height: v.height,
+        scale: v.scale,
+        left: v.offsetLeft,
+        top: v.offsetTop,
+      },
+      card: { width: a.width, height: a.height, left: a.left, top: a.top },
+      field: { width: b.width, height: b.height },
+      text: {
+        height: text.clientHeight,
+        lineHeight: getComputedStyle(text).lineHeight,
+      },
+      controls: controls.map((control) => {
+        const box = control.getBoundingClientRect();
+        return {
+          width: box.width,
+          height: box.height,
+          left: box.left - a.left,
+          top: box.top - a.top,
+          disabled: control.disabled,
+        };
+      }),
+    },
+    clear: a.bottom <= b.top || a.top >= b.bottom,
+    inside:
+      a.left >= v.offsetLeft &&
+      a.right <= v.offsetLeft + v.width &&
+      a.top >= v.offsetTop &&
+      a.bottom <= v.offsetTop + v.height,
+    readable: scrollCard
+      ? text.clientHeight >= line &&
+        textBox.bottom <= a.top + 1 &&
+        card.scrollTop > 0 &&
+        card.scrollTop + card.clientHeight >= card.scrollHeight - 1
+      : text.clientHeight + 1 >= line &&
+        text.scrollTop + text.clientHeight >= text.scrollHeight - 1,
+    controls: controls.every((control, index) => {
+      const box = control.getBoundingClientRect();
+      if (
+        index === 1 &&
+        control.disabled &&
+        getComputedStyle(control).display === "none"
+      )
+        return true;
+      return (
+        box.width >= 44 &&
+        box.height >= 44 &&
+        box.left >= a.left &&
+        box.right <= a.right &&
+        box.top >= a.top &&
+        box.bottom <= a.bottom &&
+        control.contains(
+          document.elementFromPoint(
+            box.left + box.width / 2,
+            box.top + box.height / 2,
+          ),
+        )
+      );
+    }),
+    point: {
+      x: next.left + next.width / 2 - v.offsetLeft,
+      y: next.top + next.height / 2 - v.offsetTop,
+    },
+    backPoint: {
+      x: back.left + back.width / 2 - v.offsetLeft,
+      y: back.top + back.height / 2 - v.offsetTop,
+    },
+  };
+}
+
+/** Measure the visible controls on the zoomed completion card. */
+export function measureZoomedCompletion() {
+  const v = visualViewport;
+  const card = document.querySelector(".coach__card");
+  const bounds = card.getBoundingClientRect();
+  const controls = [
+    card.querySelector('[aria-label="Exit tutorial"]'),
+    ...card.querySelectorAll(".coach__keys button"),
+  ];
+  const allFit =
+    controls.length === 3 &&
+    controls.every((control) => {
+      const box = control.getBoundingClientRect();
+      const hit = document.elementFromPoint(
+        box.left + box.width / 2,
+        box.top + box.height / 2,
+      );
+      return (
+        box.width >= 44 &&
+        box.height >= 44 &&
+        box.left >= bounds.left &&
+        box.right <= bounds.right &&
+        box.top >= bounds.top &&
+        box.bottom <= bounds.bottom &&
+        control.contains(hit)
+      );
+    });
+  const done = controls[2].getBoundingClientRect();
+  return {
+    allFit,
+    point: {
+      x: done.left + done.width / 2 - v.offsetLeft,
+      y: done.top + done.height / 2 - v.offsetTop,
+    },
+  };
+}

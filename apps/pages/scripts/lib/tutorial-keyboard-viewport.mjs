@@ -1,6 +1,7 @@
+import { checkShortKeyboardCard } from "./tutorial-interact.mjs";
+import { measureZoomedKeyboard } from "./tutorial-measure-tools.mjs";
 import { readStep } from "./tutorial-walk.mjs";
 
-/** Emulate the visual viewport left by a phone keyboard while editing a field. */
 export async function checkKeyboardViewport(
   page,
   check,
@@ -58,17 +59,20 @@ export async function checkKeyboardViewport(
   }
   if (
     original.width <= 390 &&
-    (target === "unlock.seal-pin-entry" || target === "item.editor.name")
+    (target === "unlock.seal-pin-entry" ||
+      target === "unlock.seal-pin-confirm" ||
+      target === "item.editor.name")
   ) {
     await checkZoomedKeyboard(page, check, field, target, keyboardHeight);
+    if (target === "unlock.seal-pin-confirm")
+      await checkZoomedKeyboard(page, check, field, target, 190);
   }
 }
 
-/** Keep the active field, instruction, and navigation usable at 2× zoom. */
 async function checkZoomedKeyboard(page, check, field, target, keyboardHeight) {
   const original = page.viewportSize();
   const session = await page.context().newCDPSession(page);
-  let advanced = false;
+  let moved = "";
   try {
     await field.focus();
     await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 });
@@ -85,49 +89,35 @@ async function checkZoomedKeyboard(page, check, field, target, keyboardHeight) {
       const box = card.getBoundingClientRect();
       return (
         Math.abs(input.top - v.offsetTop) < 2 &&
+        box.left >= v.offsetLeft + 7 &&
+        box.right <= v.offsetLeft + v.width - 7 &&
         box.top >= v.offsetTop &&
         box.bottom <= v.offsetTop + v.height + 1 &&
         box.height >= v.height - input.height - 15
       );
     }, target);
-    const result = await page.evaluate((id) => {
-      const v = visualViewport;
-      const field = document.querySelector(`[data-guide-targets~="${id}"]`);
-      const card = document.querySelector(".coach__card");
-      const text = card.querySelector(".coach__text");
-      const controls = [
-        card.querySelector('[aria-label="Exit tutorial"]'),
-        card.querySelector(".coach__btn--back"),
-        card.querySelector(".coach__btn--go"),
-      ];
-      const a = card.getBoundingClientRect();
-      const b = field.getBoundingClientRect();
-      const next = controls[2].getBoundingClientRect();
-      text.scrollTop = text.scrollHeight;
-      return {
-        clear: a.bottom <= b.top || a.top >= b.bottom,
-        readable:
-          text.clientHeight + 1 >=
-            parseFloat(getComputedStyle(text).lineHeight) &&
-          text.scrollTop + text.clientHeight >= text.scrollHeight - 1,
-        controls: controls.every((control) => {
-          const box = control.getBoundingClientRect();
-          return (
-            box.width * v.scale >= 44 &&
-            box.height * v.scale >= 44 &&
-            box.left >= a.left &&
-            box.right <= a.right &&
-            box.top >= a.top &&
-            box.bottom <= a.bottom
-          );
-        }),
-        point: {
-          x: next.left + next.width / 2 - v.offsetLeft,
-          y: next.top + next.height / 2 - v.offsetTop,
-        },
-      };
-    }, target);
+    if (process.env.TUTORIALS_SHOTS === "1" && process.env.TUTORIALS_OUT) {
+      await page.screenshot({
+        path: `${process.env.TUTORIALS_OUT}/${original.width}-${target}-${keyboardHeight}-zoomed-instruction.png`,
+      });
+    }
+    if (target === "unlock.seal-pin-confirm" && keyboardHeight === 190)
+      await checkShortKeyboardCard(page, session, check);
+    const result = await page.evaluate(measureZoomedKeyboard, target);
+    if (!result.clear || !result.inside || !result.readable || !result.controls)
+      console.log(
+        `  Zoomed keyboard ${target}: ${JSON.stringify(result.geometry)}`,
+      );
+    if (process.env.TUTORIALS_SHOTS === "1" && process.env.TUTORIALS_OUT) {
+      await page.screenshot({
+        path: `${process.env.TUTORIALS_OUT}/${original.width}-${target}-${keyboardHeight}-zoomed-keyboard.png`,
+      });
+    }
     check(result.clear, `first vault: zoomed keyboard leaves ${target} clear`);
+    check(
+      result.inside,
+      `first vault: zoomed keyboard card fits the visible viewport`,
+    );
     check(
       result.readable,
       "first vault: zoomed keyboard instruction can be read",
@@ -145,18 +135,31 @@ async function checkZoomedKeyboard(page, check, field, target, keyboardHeight) {
         true,
         "first vault: Next works by touch with the zoomed keyboard open",
       );
-      advanced = true;
+      moved = "next";
+    } else if (target === "unlock.seal-pin-confirm") {
+      await page.touchscreen.tap(result.backPoint.x, result.backPoint.y);
+      await page
+        .locator('.coach[data-coach-target="unlock.seal-pin-entry"]')
+        .waitFor();
+      check(
+        true,
+        "first vault: Back works by touch with the zoomed keyboard open",
+      );
+      moved = "back";
     }
   } finally {
     await page.setViewportSize(original);
     await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
     await session.detach();
   }
-  if (advanced) {
-    await page.getByRole("button", { name: "Back", exact: true }).click();
+  if (moved) {
     await page
-      .locator('.coach[data-coach-target="unlock.seal-pin-entry"]')
-      .waitFor();
+      .getByRole("button", {
+        name: moved === "next" ? "Back" : "Next",
+        exact: true,
+      })
+      .click();
+    await page.locator(`.coach[data-coach-target="${target}"]`).waitFor();
   }
 }
 

@@ -37,6 +37,7 @@ import {
   Meter,
   Ring,
   counterOf,
+  viewportDockStyle,
 } from "./CoachParts.js";
 import type { placeCoach } from "./placement.js";
 import {
@@ -126,37 +127,6 @@ function canReturn(guide: GuideRuntimeSnapshot, tour: GuideTourView): boolean {
   return true;
 }
 
-function viewportDockStyle(
-  placement: ReturnType<typeof placeCoach> | null,
-  viewport: {
-    width: number;
-    height: number;
-    offsetLeft: number;
-    rightOffset: number;
-    offsetTop: number;
-    bottomOffset: number;
-  },
-): CSSProperties {
-  if (placement?.kind !== "dock") {
-    return { maxWidth: `calc(${viewport.width}px - 1.5rem)` };
-  }
-  const horizontal = {
-    left: `calc(0.5rem + ${viewport.offsetLeft}px)`,
-    right: `calc(0.5rem + ${viewport.rightOffset}px)`,
-  };
-  const edge = viewport.width < 230 && viewport.height < 220 ? "0px" : "0.5rem";
-  if (placement.edge === "top") {
-    return {
-      ...horizontal,
-      top: `calc(${edge} + env(safe-area-inset-top, 0px) + ${viewport.offsetTop}px)`,
-    };
-  }
-  return {
-    ...horizontal,
-    bottom: `calc(${edge} + env(safe-area-inset-bottom, 0px) + ${viewport.bottomOffset}px)`,
-  };
-}
-
 /** The sentence, announced with its position for a listener who never sees the meter. */
 function Narration({
   id,
@@ -190,6 +160,7 @@ type CardPresentation = {
   constrained: boolean;
   narrow: boolean;
   short: boolean;
+  shortScroll: boolean;
   awaitingAction: boolean;
   compactRow: boolean;
 };
@@ -207,6 +178,7 @@ function cardClassName(
     view.constrained && "coach__card--constrained",
     view.narrow && "coach__card--narrow",
     view.short && "coach__card--short",
+    view.shortScroll && "coach__card--short-scroll",
     view.awaitingAction && "coach__card--awaiting-action",
     view.compactRow && "coach__card--compact-row",
     placed && "is-placed",
@@ -241,6 +213,7 @@ function CoachCard({
     displayTour,
     constrained,
     awaitingAction,
+    shortScroll,
     ready,
     canBack,
     requiredAction,
@@ -248,9 +221,6 @@ function CoachCard({
   } = view;
   const { style, dock } = cardStyle(placement);
   const viewportDock = viewportDockStyle(placement, viewport);
-  const touchSize = view.short
-    ? { "--coach-touch-size": `${Math.max(24, 44 / viewport.scale)}px` }
-    : {};
   const facing = placement?.kind === "anchored" ? placement.facing : undefined;
   const notch = placement?.kind === "anchored" ? placement.notch : 0;
   const counter = counterOf(displayTour);
@@ -262,8 +232,8 @@ function CoachCard({
       style={{
         ...style,
         ...viewportDock,
-        ...touchSize,
         maxHeight,
+        height: shortScroll ? maxHeight : undefined,
         minHeight: awaitingAction ? Math.min(maxHeight ?? 52, 52) : undefined,
       }}
       role="dialog"
@@ -312,6 +282,21 @@ function CoachCard({
   );
 }
 
+function compactRowFor(
+  layout: ReturnType<typeof useCoachLayout>,
+  canBack: boolean,
+  awaitingAction: boolean,
+): boolean {
+  const { constrained, narrow, short, maxHeight } = layout;
+  return (
+    constrained &&
+    (!narrow || (short && !canBack)) &&
+    !awaitingAction &&
+    maxHeight !== undefined &&
+    maxHeight < 90
+  );
+}
+
 function Coach({
   guide,
   tour,
@@ -328,17 +313,13 @@ function Coach({
   const ready = guide.status === "waiting";
   const canBack = canReturn(guide, tour);
   const layout = useCoachLayout(guide.runId, tour, cardRef);
-  const { stepKey, viewport, hole, placement, gliding, missing, maxHeight } =
-    layout;
+  const { stepKey, viewport, hole, placement, gliding, missing } = layout;
   const { narrow, short, constrained } = layout;
   const awaitingAction =
     constrained && requiredAction && tour.action && !missing && !canBack;
+  const shortScroll = short && (canBack || tour.kind === "close");
   const compactRow =
-    constrained &&
-    !narrow &&
-    !awaitingAction &&
-    maxHeight !== undefined &&
-    maxHeight < 90;
+    !shortScroll && compactRowFor(layout, canBack, awaitingAction);
   useCoachFocus(
     placement !== null,
     stepKey,
@@ -356,6 +337,7 @@ function Coach({
     constrained,
     narrow,
     short,
+    shortScroll,
     awaitingAction,
     compactRow,
   };

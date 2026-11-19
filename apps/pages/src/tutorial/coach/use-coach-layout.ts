@@ -3,6 +3,7 @@ import type { GuideTourView } from "@opensesame/guide-runtime";
 import { type RefObject, useCallback } from "react";
 import { padded } from "./CoachParts.js";
 import {
+  type Box,
   CONSTRAINED_CARD_HEIGHT,
   clearOfDock,
   phoneCardHeightLimit,
@@ -16,6 +17,26 @@ import {
   useSafeInsets,
   useViewport,
 } from "./use-geometry.js";
+
+/** At high zoom the ring may meet the card edge, but the target stays clear. */
+function targetForPlacement(
+  rect: Box | null,
+  paddedRect: Box | null,
+  viewport: {
+    width: number;
+    height: number;
+    offsetLeft: number;
+    offsetTop: number;
+  },
+): Box | null {
+  if (rect === null || viewport.width >= 230 || viewport.height >= 110)
+    return paddedRect;
+  return {
+    ...rect,
+    left: rect.left - viewport.offsetLeft,
+    top: rect.top - viewport.offsetTop,
+  };
+}
 
 function sizeFlags(
   viewport: { width: number; height: number; scale: number },
@@ -66,13 +87,14 @@ export function useCoachLayout(
           left: box.left - viewport.offsetLeft,
           top: box.top - viewport.offsetTop,
         };
+  const placementBox = targetForPlacement(rect, relativeBox, viewport);
   const relativePlacement =
     size === null
       ? null
       : placeCoach({
           viewport,
           card: size,
-          target: relativeBox,
+          target: placementBox,
           prefer: tour.side,
           phone,
           insets,
@@ -98,7 +120,7 @@ export function useCoachLayout(
           top: relativeHole.top + viewport.offsetTop,
         };
   const maxHeight = phone
-    ? phoneCardHeightLimit(viewport, relativeBox, insets)
+    ? phoneCardHeightLimit(viewport, placementBox, insets)
     : undefined;
   return {
     stepKey,

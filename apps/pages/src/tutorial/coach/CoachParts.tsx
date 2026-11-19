@@ -17,7 +17,7 @@ import {
   IconX,
 } from "../../components/Icons.js";
 import type { SupportController } from "../session.js";
-import type { Box } from "./placement.js";
+import type { Box, CoachPlacement } from "./placement.js";
 
 /** How far the aperture stands off the control it lights. */
 export const APERTURE_PAD = 6;
@@ -205,11 +205,12 @@ export function Foot({
           <button
             type="button"
             className="coach__btn"
+            aria-label={firstVault ? "Replay password steps" : "Replay"}
             disabled={!ready}
             onClick={() => support.replayGuide()}
           >
             <IconRefresh size={15} />
-            {firstVault ? "Replay password steps" : "Replay"}
+            <span>{firstVault ? "Replay password steps" : "Replay"}</span>
           </button>
         ) : (
           <button
@@ -249,4 +250,35 @@ export function Foot({
       </div>
     </footer>
   );
+}
+
+export function viewportDockStyle(
+  placement: CoachPlacement | null,
+  viewport: {
+    width: number;
+    height: number;
+    offsetLeft: number;
+    rightOffset: number;
+    offsetTop: number;
+    bottomOffset: number;
+  },
+): CSSProperties {
+  if (placement?.kind !== "dock") {
+    return { maxWidth: `calc(${viewport.width}px - 1.5rem)` };
+  }
+  const horizontal = {
+    left: `calc(0.5rem + ${viewport.offsetLeft}px)`,
+    right: `calc(0.5rem + ${viewport.rightOffset}px)`,
+  };
+  const edge = viewport.width < 230 && viewport.height < 220 ? "0px" : "0.5rem";
+  if (placement.edge === "top") {
+    return {
+      ...horizontal,
+      top: `calc(${edge} + env(safe-area-inset-top, 0px) + ${viewport.offsetTop}px)`,
+    };
+  }
+  return {
+    ...horizontal,
+    bottom: `calc(${edge} + env(safe-area-inset-bottom, 0px) + ${viewport.bottomOffset}px)`,
+  };
 }

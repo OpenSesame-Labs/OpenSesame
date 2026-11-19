@@ -6,6 +6,7 @@
  * aperture cannot pass.
  */
 
+import { measureZoomedCompletion } from "./tutorial-measure-tools.mjs";
 import {
   advancedFrom,
   readStep,
@@ -146,7 +147,28 @@ export async function checkZoomViewport(page, check) {
       touchPoints: [],
     });
     await page.waitForFunction(() => visualViewport.offsetLeft > 0);
+    await page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          let previous = visualViewport.offsetLeft;
+          let stable = 0;
+          let frames = 0;
+          const frame = () => {
+            const next = visualViewport.offsetLeft;
+            stable = Math.abs(next - previous) < 0.1 ? stable + 1 : 0;
+            previous = next;
+            if (stable >= 4 || ++frames >= 120) resolve();
+            else requestAnimationFrame(frame);
+          };
+          requestAnimationFrame(frame);
+        }),
+    );
     await checkZoomPosition(page, check, "zoomed and panned");
+    if (process.env.TUTORIALS_SHOTS === "1" && process.env.TUTORIALS_OUT) {
+      await page.screenshot({
+        path: `${process.env.TUTORIALS_OUT}/${page.viewportSize().width}-setup-panned.png`,
+      });
+    }
     const point = await page.evaluate(() => {
       const v = visualViewport;
       const target = document
@@ -229,4 +251,126 @@ async function checkZoomPosition(page, check, label) {
   check(result.clear, `first vault: the ${label} card leaves setup clear`);
   check(result.readable, `first vault: the ${label} instruction can be read`);
   check(result.exit, `first vault: the ${label} exit remains in reach`);
+}
+
+/** Swipe the short card to its controls, as on a phone. */
+export async function checkShortKeyboardCard(page, session, check) {
+  const swipe = await page.evaluate(() => {
+    const v = visualViewport;
+    const node = document.querySelector(".coach__card");
+    const card = node.getBoundingClientRect();
+    const text = node.querySelector(".coach__text");
+    const bounds = text.getBoundingClientRect();
+    const controls = [...node.querySelectorAll(".coach__keys button")];
+    return {
+      x: card.right - v.offsetLeft - 8,
+      from: card.bottom - v.offsetTop - 4,
+      to: card.top - v.offsetTop + 4,
+      controlsOffscreen: controls.every(
+        (control) => control.getBoundingClientRect().top >= card.bottom,
+      ),
+      firstLineVisible:
+        bounds.top >= card.top &&
+        bounds.top + parseFloat(getComputedStyle(text).lineHeight) <=
+          card.bottom,
+    };
+  });
+  check(
+    swipe.firstLineVisible,
+    "first vault: the short card shows its instruction before scrolling",
+  );
+  check(
+    swipe.controlsOffscreen,
+    "first vault: the short card does not partially show its controls",
+  );
+  for (let i = 0; i < 2; i += 1) {
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: swipe.x, y: swipe.from }],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: swipe.x, y: swipe.to }],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+  }
+  await page.waitForFunction(() => {
+    const card = document.querySelector(".coach__card");
+    return (
+      card.scrollTop > 0 &&
+      card.scrollTop + card.clientHeight >= card.scrollHeight - 1
+    );
+  });
+  await page.evaluate(
+    () =>
+      new Promise((resolve, reject) => {
+        const card = document.querySelector(".coach__card");
+        const started = performance.now();
+        let previous = card.scrollTop;
+        let since = started;
+        const frame = () => {
+          const now = performance.now();
+          if (card.scrollTop !== previous) {
+            previous = card.scrollTop;
+            since = now;
+          }
+          if (now - since >= 200) resolve();
+          else if (now - started > 5000)
+            reject(new Error("The short card kept scrolling."));
+          else requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+      }),
+  );
+  check(true, "first vault: the short card scrolls to its controls by touch");
+}
+
+/** Finish the tour by touch at 2× zoom in a short phone viewport. */
+export async function closeWithZoomCheck(page, check) {
+  const original = page.viewportSize();
+  if (process.env.TUTORIALS_KEYBOARD_VIEWPORT !== "1" || original.width > 390) {
+    await page.getByRole("button", { name: "Done", exact: true }).click();
+    return;
+  }
+  const session = await page.context().newCDPSession(page);
+  try {
+    await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 2 });
+    await page.setViewportSize({ width: original.width, height: 190 });
+    await page.waitForFunction(() => {
+      const card = document.querySelector(".coach__card--short-scroll");
+      const box = card?.getBoundingClientRect();
+      const v = visualViewport;
+      return (
+        box &&
+        box.left >= v.offsetLeft &&
+        box.right <= v.offsetLeft + v.width &&
+        box.top >= v.offsetTop &&
+        box.bottom <= v.offsetTop + v.height
+      );
+    });
+    if (process.env.TUTORIALS_SHOTS === "1" && process.env.TUTORIALS_OUT)
+      await page.screenshot({
+        path: `${process.env.TUTORIALS_OUT}/${original.width}-zoomed-close-instruction.png`,
+      });
+    await checkShortKeyboardCard(page, session, check);
+    const result = await page.evaluate(measureZoomedCompletion);
+    check(
+      result.allFit,
+      "first vault: zoomed completion controls fit and remain touch-sized",
+    );
+    if (process.env.TUTORIALS_SHOTS === "1" && process.env.TUTORIALS_OUT)
+      await page.screenshot({
+        path: `${process.env.TUTORIALS_OUT}/${original.width}-zoomed-close-controls.png`,
+      });
+    await page.touchscreen.tap(result.point.x, result.point.y);
+    await page.waitForFunction(() => !document.querySelector(".coach"));
+    check(true, "first vault: Done works by touch while zoomed");
+  } finally {
+    await page.setViewportSize(original);
+    await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
+    await session.detach();
+  }
 }

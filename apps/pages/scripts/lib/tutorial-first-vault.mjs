@@ -1,6 +1,6 @@
 /** Walk the first-vault tutorial by doing what it asks, including the copy. */
 import { PIN } from "./pages-journey.mjs";
-import { checkZoomViewport } from "./tutorial-interact.mjs";
+import { checkZoomViewport, closeWithZoomCheck } from "./tutorial-interact.mjs";
 import { checkKeyboardViewport } from "./tutorial-keyboard-viewport.mjs";
 import { stepChecks } from "./tutorial-measure.mjs";
 import { preparePepperStep, revisitPepper } from "./tutorial-pepper.mjs";
@@ -308,7 +308,7 @@ async function saveAndCopyPassword(page, step, check, first, label, generated) {
     copied === generated,
     `${label}: the complete generated password reached the clipboard`,
   );
-  await page.getByRole("button", { name: "Done", exact: true }).click();
+  await closeWithZoomCheck(page, check);
   await page.waitForTimeout(1600);
   check(
     (await page.locator(".coach").count()) === 0,
