@@ -37,7 +37,7 @@ type PromptingSensor = Readonly<{
 
 /** Whether this browser has a motion sensor API at all. */
 function hasSensor(): boolean {
-  return "DeviceMotionEvent" in globalThis;
+  return typeof globalThis.DeviceMotionEvent === "function";
 }
 
 /** The browser's permission prompt, where it has one. */

@@ -55,7 +55,7 @@ export function alreadyHolds(
 }
 
 /** Recheck a satisfied level wait if the person makes it false again. */
-export function observeWhenLost(
+function observeWhenLost(
   ports: GuideRuntimePorts,
   wait: WaitInstruction,
 ): ((signal: AbortSignal) => Promise<void>) | null {

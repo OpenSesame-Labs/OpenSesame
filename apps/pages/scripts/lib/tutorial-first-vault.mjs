@@ -1,15 +1,14 @@
 /** Walk the first-vault tutorial by doing what it asks, including the copy. */
 import { PIN } from "./pages-journey.mjs";
-import { checkLateSealScroll } from "./tutorial-gates.mjs";
+import {
+  checkLateSealScroll,
+  revisitIncompletePin,
+} from "./tutorial-gates.mjs";
 import { checkZoomViewport, closeWithZoomCheck } from "./tutorial-interact.mjs";
 import { checkKeyboardViewport } from "./tutorial-keyboard-viewport.mjs";
 import { stepChecks } from "./tutorial-measure.mjs";
 import { preparePepperStep, revisitPepper } from "./tutorial-pepper.mjs";
-import {
-  readStep,
-  revisitIncompletePin,
-  startTutorial,
-} from "./tutorial-walk.mjs";
+import { readStep, startTutorial } from "./tutorial-walk.mjs";
 
 export async function runFirstVaultPass({ newPage, width, ...options }) {
   const { page, context } = await newPage(width);
