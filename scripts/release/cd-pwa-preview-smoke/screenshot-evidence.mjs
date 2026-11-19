@@ -121,7 +121,8 @@ const MAX_DIAGNOSTIC_ENTRIES = 200;
 function truncateEntry(entry) {
   const out = { ...entry };
   for (const key of ["text", "url", "error"]) {
-    if (typeof out[key] === "string") out[key] = redactDiagnosticText(out[key]);
+    const text = readString(out[key]);
+    if (text !== undefined) out[key] = redactDiagnosticText(text);
   }
   return out;
 }
