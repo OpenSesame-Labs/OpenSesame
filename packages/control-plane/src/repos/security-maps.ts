@@ -26,6 +26,18 @@ export function installDurableSecurityMaps(
     ttlMs,
   );
   stores.provisionalTokens = map("OpenSesame:ProvisionalToken", true, ttlMs);
+  stores.organizationWithdrawalAudits = map(
+    "OpenSesame:OrganizationWithdrawalAudit",
+    true,
+    null,
+  );
+  stores.upstreamLogoutOperations = map(
+    "OpenSesame:UpstreamLogoutOperation",
+    true,
+    // Incomplete operations must survive arbitrary downtime. Completed rows
+    // are explicitly removed after their replay window by the recovery sweep.
+    null,
+  );
   stores.totpSecrets = map("OpenSesame:TotpSecret", false, null);
   // Outlives the one step a code is good for; after that the step is past.
   stores.totpSteps = map("OpenSesame:TotpStep", false, 120_000);

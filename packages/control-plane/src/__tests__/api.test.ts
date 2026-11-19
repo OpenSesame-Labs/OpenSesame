@@ -11,6 +11,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { resetDeviceApprovalBudgetForTest } from "../routes/device.js";
+import { hostRevocationResponseFor } from "./scim-test-helpers.js";
 
 interface DeviceApprovalHeaders {
   origin?: string;
@@ -236,7 +237,6 @@ describe("control-plane API", () => {
       headers: { ...auth, "content-type": "application/json" },
       body: JSON.stringify({ token: project.claimToken }),
     });
-
     // Approval must not resurrect an expired project; force that state directly.
     const stored = ctx.stores.projects.get(project.projectId);
     expect(stored).toBeDefined();
@@ -1196,6 +1196,7 @@ describe("control-plane API", () => {
               )
             )?.role,
           );
+          return hostRevocationResponseFor(requests.at(-1)?.body ?? {});
         }
         return new Response(JSON.stringify({ ok: true }), {
           status: 200,

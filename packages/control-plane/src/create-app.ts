@@ -55,6 +55,7 @@ import {
   sealExistingEvents,
   sealPostgresEvents,
 } from "./event-sealing.js";
+import { resumePendingUpstreamLogouts } from "./interactions/upstream-logout.js";
 import {
   type AccountLookupSlot,
   lookupHostedAccount,
@@ -68,6 +69,7 @@ import { verifySecurityDatabase } from "./repos/security-readiness.js";
 import { hostAuthorizationAudiences } from "./services/host-authorization.js";
 import { createMailer } from "./services/mailer.js";
 import { createNotificationCallbackAdapters } from "./services/notification-callbacks.js";
+import { scheduleOrganizationWithdrawalRecovery } from "./services/organization-withdrawal-recovery.js";
 import { createSmsBridge } from "./services/sms-bridge.js";
 import { createAppStores } from "./state.js";
 import { agentAuthOAuthClient } from "./ui/agent-auth-pages.js";
@@ -335,6 +337,10 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
     eventSealer,
   );
 
+  let recoverSecurityState = async (): Promise<void> => {};
+  const securityRecoveryReady = systemPrincipalReady.then(() =>
+    recoverSecurityState(),
+  );
   const ctx: AppContext = {
     hostAuthorizationAudiences: hostAudiences,
     ...passkeyComponents,
@@ -361,6 +367,7 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
     ...(betterAuthDatabase ? { betterAuthDatabase } : undefined),
     systemOwnerPrincipalId: SYSTEM_OWNER_PRINCIPAL_ID,
     systemPrincipalReady,
+    securityRecoveryReady,
     securityStateReady: async () => {
       try {
         await systemPrincipalReady;
@@ -373,9 +380,12 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
       }
     },
   };
+  recoverSecurityState = () => resumePendingUpstreamLogouts(ctx);
 
   const app = createHonoApp(
-    ctx,
+    scheduleOrganizationWithdrawalRecovery(ctx, systemPrincipalReady, () =>
+      log.warn("Organization withdrawal recovery deferred"),
+    ),
     resolveWalletNativeMounts({
       config,
       sealer: eventSealer,

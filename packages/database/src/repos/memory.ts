@@ -15,7 +15,6 @@ import type {
   InteractionKind,
   NotificationDelivery,
   NotificationPreferences,
-  OrganizationMembership,
   OutboxEvent,
   Principal,
   Project,
@@ -48,7 +47,6 @@ import {
   type NotificationDeliveryRepository,
   type NotificationPreferenceRepository,
   OUTBOX_CLAIM_HOLD_MS,
-  type OrganizationMembershipStore,
   type OrganizationStores,
   type OutboxRepository,
   type PrincipalRepository,
@@ -71,7 +69,9 @@ import {
   MemoryStore,
   MemoryUnitOfWork,
   applyNowOrDefer,
+  checkAuditInsert,
 } from "./memory-unit-of-work.js";
+import { MemoryOrganizationMembershipStore } from "./organization-membership-memory.js";
 import { MemoryOrganizationStore } from "./organization-store-memory.js";
 import { createMemoryPushSubscriptions } from "./push-subscriptions-memory.js";
 import { MemoryWalletInteractionRepos } from "./wallet-interaction-memory.js";
@@ -753,6 +753,8 @@ export class MemoryRepositories implements Repositories {
         ...event,
         metadata: { ...event.metadata },
       };
+      checkAuditInsert(this.#store, row);
+      if (uow instanceof MemoryUnitOfWork) uow.claimAudit(row);
       const apply = () => {
         this.#store.audit.set(row.id, {
           ...row,
@@ -761,6 +763,10 @@ export class MemoryRepositories implements Repositories {
       };
       applyNowOrDefer(uow, apply);
       return { ...row, metadata: { ...row.metadata } };
+    },
+    getById: async (id) => {
+      const row = this.#store.audit.get(id);
+      return row ? { ...row, metadata: { ...row.metadata } } : null;
     },
     list: async (filter) => {
       // Insertion order is append order, which is the order the hash chain was
@@ -1559,71 +1565,7 @@ export function createMemoryProjectStores(): ProjectStores & {
   };
 }
 
-function organizationMembershipKey(
-  organizationId: string,
-  principalId: string,
-): string {
-  return `${organizationId}:${principalId}`;
-}
-
-/**
- * In-memory organization membership store — the Map the control plane held in
- * `AppStores`, promoted to the store interface. It extends Map keyed by
- * `${organizationId}:${principalId}` for the same reason as
- * {@link MemoryProjectMembershipStore}: rows seeded through the Map API stay
- * visible to the interface reads.
- */
-export class MemoryOrganizationMembershipStore
-  extends Map<string, OrganizationMembership>
-  implements OrganizationMembershipStore
-{
-  find(
-    organizationId: string,
-    principalId: string,
-  ): OrganizationMembership | undefined {
-    return super.get(organizationMembershipKey(organizationId, principalId));
-  }
-
-  upsert(membership: OrganizationMembership): OrganizationMembership {
-    this.set(
-      organizationMembershipKey(
-        membership.organizationId,
-        membership.principalId,
-      ),
-      membership,
-    );
-    return membership;
-  }
-
-  remove(organizationId: string, principalId: string): boolean {
-    return this.delete(organizationMembershipKey(organizationId, principalId));
-  }
-
-  listByOrganization(organizationId: string): OrganizationMembership[] {
-    return [...this.values()].filter(
-      (m) => m.organizationId === organizationId,
-    );
-  }
-
-  listByPrincipal(principalId: string): OrganizationMembership[] {
-    return [...this.values()].filter((m) => m.principalId === principalId);
-  }
-
-  countOwners(organizationId: string): number {
-    let count = 0;
-    for (const membership of this.values()) {
-      if (
-        membership.organizationId === organizationId &&
-        membership.role === "owner"
-      ) {
-        count += 1;
-      }
-    }
-    return count;
-  }
-}
-
-export { MemoryOrganizationStore };
+export { MemoryOrganizationMembershipStore, MemoryOrganizationStore };
 
 /** The organization pair, mirroring {@link createMemoryProjectStores}. */
 export function createMemoryOrganizationStores(): OrganizationStores & {

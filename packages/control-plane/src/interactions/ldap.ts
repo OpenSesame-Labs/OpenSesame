@@ -10,7 +10,7 @@ import {
 } from "@opensesame/os-domain";
 import { type Client, type Entry, escapeFilter } from "ldapts";
 import type { AppContext } from "../context.js";
-import { revokeOrganizationMembership } from "../routes/organizations.js";
+import { removeLdapMembership } from "../routes/directory-removal.js";
 import {
   type LdapTarget,
   createClient,
@@ -628,12 +628,11 @@ export async function syncLdapDirectory(
     if (!fromThisDirectory) continue;
     if (present.has(fromThisDirectory.subject)) continue;
 
-    await revokeOrganizationMembership(ctx, {
-      organizationId: config.organizationId,
-      principalId: membership.principalId,
-      correlationId: `ldap-sync-${config.organizationId}`,
-      reason: "ldap_directory_sync",
-    });
+    await removeLdapMembership(
+      ctx,
+      config.organizationId,
+      membership.principalId,
+    );
     deactivated += 1;
   }
 

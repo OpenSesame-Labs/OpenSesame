@@ -5,6 +5,7 @@ import { overlapCast } from "@opensesame/os-domain";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeAll, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { resumePendingUpstreamLogouts } from "../interactions/upstream-logout.js";
 import { DurableMap, incrementSecurityCounter } from "../repos/durable-map.js";
 import { durablePasskeyCredentials } from "../repos/durable-passkey-store.js";
 import { migratedPGlite, warmMigratedPGlite } from "./migrated-pglite.js";
@@ -16,6 +17,71 @@ import { migratedPGlite, warmMigratedPGlite } from "./migrated-pglite.js";
 // copy (migrated-pglite.ts). The 60s budget stays as the margin for load.
 vi.setConfig({ testTimeout: 60_000 });
 beforeAll(warmMigratedPGlite, 60_000);
+
+it("recovers an incomplete upstream logout after restart without an IdP retry", async () => {
+  const client = await migratedPGlite();
+  try {
+    const db = drizzle(client, { schema });
+    const options = {
+      database: overlapCast(db),
+      config: { claimPepper: "replica-test-only-claim-pepper-32chars" },
+    };
+    const first = createControlPlane(options);
+    await first.ctx.securityRecoveryReady;
+    const minted = await first.app.request("/v1/principals/provisional", {
+      method: "POST",
+    });
+    const session: {
+      sessionId: string;
+      principalId: string;
+      accessToken: string;
+    } = overlapCast(await minted.json());
+    const operationKey = `oidc-logout:${"a".repeat(64)}`;
+    await first.ctx.stores.upstreamLogoutOperations.set(operationKey, {
+      operationKey,
+      issuer: "https://issuer.example",
+      subject: "subject",
+      principalIds: [session.principalId],
+      sessionIds: [session.sessionId],
+      preparedSessionCount: 1,
+      correlationId: "corr-upstream-recovery",
+      retainUntil: Date.now() + 60_000,
+      completed: false,
+    });
+
+    const restarted = createControlPlane(options);
+    await restarted.ctx.securityRecoveryReady;
+    expect(
+      (await restarted.ctx.stores.upstreamLogoutOperations.get(operationKey))
+        ?.completed,
+    ).toBe(true);
+    expect(
+      (
+        await restarted.app.request("/v1/principals/me", {
+          headers: { authorization: `Bearer ${session.accessToken}` },
+        })
+      ).status,
+    ).toBe(401);
+    const events = await restarted.ctx.repos.auditEvents.list({ limit: 100 });
+    expect(
+      events.filter((event) => event.eventType === "principal.upstream_logout"),
+    ).toHaveLength(1);
+
+    const completed =
+      await restarted.ctx.stores.upstreamLogoutOperations.get(operationKey);
+    if (!completed) throw new Error("Missing completed upstream logout");
+    await restarted.ctx.stores.upstreamLogoutOperations.set(operationKey, {
+      ...completed,
+      retainUntil: 0,
+    });
+    await resumePendingUpstreamLogouts(restarted.ctx);
+    expect(
+      await restarted.ctx.stores.upstreamLogoutOperations.get(operationKey),
+    ).toBeUndefined();
+  } finally {
+    await client.close();
+  }
+});
 
 it("shares sessions/revocation and atomic passkey/counter state across app instances", async () => {
   const client = await migratedPGlite();

@@ -1,5 +1,5 @@
-import http from "node:http";
 import type { OutgoingHttpHeader, OutgoingHttpHeaders } from "node:http";
+import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { pathToFileURL } from "node:url";
 import { getRequestListener } from "@hono/node-server";
@@ -418,7 +418,7 @@ export async function startServer(
   // The system owner principal row must exist before the first /auth prefetch
   // auto-admits an origin client owned by it (ADR 0050 R-A; the FK is real on
   // Postgres). Fail startup rather than fail the first admission.
-  await ctx.systemPrincipalReady;
+  await ctx.securityRecoveryReady;
 
   await new Promise<void>((resolve, reject) => {
     server.listen(config.port, config.host, () => resolve());

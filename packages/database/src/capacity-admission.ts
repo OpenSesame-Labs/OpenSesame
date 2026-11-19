@@ -29,6 +29,16 @@ export interface ScimUserStore {
     limit: number,
   ): Promise<ScimUserRecord | null>;
   getById(orgId: string, id: string): Promise<ScimUserRecord | null>;
+  getVersioned(
+    orgId: string,
+    id: string,
+  ): Promise<{ user: ScimUserRecord; revision: string } | null>;
+  replaceIfRevision(
+    orgId: string,
+    id: string,
+    expectedRevision: string,
+    next: ScimUserRecord,
+  ): Promise<{ user: ScimUserRecord; revision: string } | undefined>;
   findByUserName(
     orgId: string,
     userName: string,
@@ -156,6 +166,7 @@ export function createMemoryScimWithinLimit(
 
 export function createMemoryScimUserStore(): ScimUserStore {
   const users = new Map<string, ScimUserRecord>();
+  const revisions = new Map<string, string>();
   const ofOrg = (orgId: string) =>
     [...users.values()].filter((user) => user.organizationId === orgId);
   return {
@@ -167,14 +178,38 @@ export function createMemoryScimUserStore(): ScimUserStore {
         throw new ConflictError(`scim user already exists: ${row.userName}`);
       }
       users.set(row.id, row);
+      revisions.set(row.id, crypto.randomUUID());
       return normalizeScimUser(row);
     },
     async createWithinLimit(user, limit) {
-      return createMemoryScimWithinLimit(users, user, limit);
+      const created = createMemoryScimWithinLimit(users, user, limit);
+      if (created) revisions.set(created.id, crypto.randomUUID());
+      return created;
     },
     async getById(orgId, id) {
       const row = users.get(id);
       return row?.organizationId === orgId ? normalizeScimUser(row) : null;
+    },
+    async getVersioned(orgId, id) {
+      const row = users.get(id);
+      const revision = revisions.get(id);
+      return row?.organizationId === orgId && revision
+        ? { user: normalizeScimUser(row), revision }
+        : null;
+    },
+    async replaceIfRevision(orgId, id, expectedRevision, next) {
+      const row = users.get(id);
+      if (
+        !row ||
+        row.organizationId !== orgId ||
+        revisions.get(id) !== expectedRevision
+      )
+        return undefined;
+      const normalized = normalizeScimUser(next);
+      const revision = crypto.randomUUID();
+      users.set(id, normalized);
+      revisions.set(id, revision);
+      return { user: normalizeScimUser(normalized), revision };
     },
     async findByUserName(orgId, userName) {
       const row = ofOrg(orgId).find((user) => user.userName === userName);
@@ -193,6 +228,7 @@ export function createMemoryScimUserStore(): ScimUserStore {
         throw new ConflictError(`scim user not found: ${row.id}`);
       }
       users.set(row.id, row);
+      revisions.set(row.id, crypto.randomUUID());
       return normalizeScimUser(row);
     },
     async countByOrganization(orgId) {
