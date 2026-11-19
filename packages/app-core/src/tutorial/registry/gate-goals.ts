@@ -1,4 +1,7 @@
-import { FIRST_VAULT_GATE_GUIDE } from "./first-vault-guide.js";
+import {
+  FIRST_VAULT_GATE_GUIDE,
+  FIRST_VAULT_PIN_STEPS,
+} from "./first-vault-guide.js";
 import type { GuideGoalDescriptor } from "./goal-types.js";
 import { isKnownGuidePredicate, readGuidePredicate } from "./state.js";
 
@@ -74,14 +77,14 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
           ? 'say "Protect your new vault with a passkey or a PIN. Your vault is encrypted on this device."'
           : 'say "Use an enrolled key to unlock your vault."',
         creating
-          ? 'focus "unlock.methods" "Keep Passkey selected when it is offered. If this browser has no WebAuthn PRF, PIN is shown instead." side=bottom'
+          ? 'focus "unlock.methods" "Select PIN, then select Next." side=bottom'
           : 'focus "unlock.methods" "Keep the selected method for this walkthrough." side=bottom',
-        creating
-          ? 'focus "unlock.seal-ack" "Read and accept the recovery notice. Enter and confirm a PIN only if the passkey road is unavailable or falls back." side=bottom'
-          : 'focus "unlock.secret" "Enter the credential for the selected method." side=bottom',
-        creating
-          ? 'focus "unlock.submit" "Seal with the offered passkey. If an authenticator cannot use PRF, retry the offered key; use PIN only when the form falls back." side=top'
-          : 'focus "unlock.submit" "Select Unlock. If you set up a second step, enter its code when asked." side=top',
+        ...(creating
+          ? FIRST_VAULT_PIN_STEPS
+          : [
+              'focus "unlock.secret" "Enter the credential for the selected method." side=bottom',
+              'focus "unlock.submit" "Select Unlock. If you set up a second step, enter its code when asked." side=top',
+            ]),
         'success "You can review vault keys and second steps in Settings → Security."',
         "end",
       ].join("\n");
@@ -91,15 +94,28 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
     id: "gate.unlock.passkey",
     title: "Open this device's vault with a passkey",
     routes: ["/unlock/passkey"],
-    guide: [
-      "guide/1",
-      'goal "gate.unlock.passkey"',
-      'say "A passkey uses your device authenticator, such as a fingerprint, face, security key or screen lock."',
-      'focus "unlock.passkey" "Select the Passkey tab." side=bottom',
-      'focus "unlock.submit" "For a new vault, accept the recovery notice. Then select this button and approve the passkey prompt." side=top',
-      'success "If you enrolled a second step, enter its code when asked."',
-      "end",
-    ].join("\n"),
+    get guide() {
+      const creating =
+        isKnownGuidePredicate("vault.key-enrolled") &&
+        !readGuidePredicate("vault.key-enrolled");
+      return [
+        "guide/1",
+        'goal "gate.unlock.passkey"',
+        'say "A passkey uses your device authenticator, such as a fingerprint, face, security key or screen lock."',
+        'focus "unlock.passkey" "Select the Passkey tab." side=bottom',
+        creating
+          ? 'focus "unlock.seal-actions" "Accept the recovery notice and seal with Passkey. To use PIN, select PIN, then Next." side=bottom'
+          : 'focus "unlock.submit" "Select Unlock with passkey, then approve the prompt." side=top',
+        ...(creating
+          ? [
+              'wait target "unlock.seal-pin-entry" event=appear timeout=60000',
+              ...FIRST_VAULT_PIN_STEPS,
+            ]
+          : []),
+        'success "If you enrolled a second step, enter its code when asked."',
+        "end",
+      ].join("\n");
+    },
   },
   {
     id: "gate.unlock.account",

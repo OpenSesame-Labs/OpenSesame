@@ -1,12 +1,12 @@
 /** Walk the first-vault tutorial by doing what it asks, including the copy. */
-import { PIN } from "./pages-journey.mjs";
+
 import {
-  checkLateSealScroll,
-  revisitIncompletePin,
-} from "./tutorial-gates.mjs";
+  addTutorialAuthenticator,
+  sealFirstVault,
+} from "./auth-flow-passkey.mjs";
 import { checkZoomViewport } from "./tutorial-interact.mjs";
 import { checkKeyboardViewport } from "./tutorial-keyboard-viewport.mjs";
-import { stepChecks } from "./tutorial-measure.mjs";
+import { tutorialStepChecker } from "./tutorial-measure.mjs";
 import {
   choosePepper,
   preparePepperStep,
@@ -17,16 +17,24 @@ import {
 import { readStep, startTutorial } from "./tutorial-walk.mjs";
 
 export async function runFirstVaultPass({ newPage, width, ...options }) {
-  const { page, context } = await newPage(width);
-  try {
-    await firstVaultPass({ page, context, width, ...options });
-  } catch (error) {
-    options.check(
-      false,
-      `first vault: walking threw — ${String(error.message).split("\n").slice(0, 4).join(" ")}`,
-    );
-  } finally {
-    await context.close();
+  for (const protection of ["passkey", "fallback", "pin-only"]) {
+    const { page, context } = await newPage(width);
+    try {
+      await firstVaultPass({
+        page,
+        context,
+        width,
+        protection,
+        ...options,
+      });
+    } catch (error) {
+      options.check(
+        false,
+        `${protection} first vault: walking threw — ${String(error.message).split("\n").slice(0, 4).join(" ")}`,
+      );
+    } finally {
+      await context.close();
+    }
   }
 }
 
@@ -40,10 +48,16 @@ async function firstVaultPass({
   out,
   width,
   keepShots,
+  protection,
 }) {
   await context.addInitScript(() =>
     Object.defineProperty(navigator, "webdriver", { get: () => false }),
   );
+  if (protection === "pin-only") {
+    await context.addInitScript(() => {
+      delete globalThis.PublicKeyCredential;
+    });
+  }
   await context.grantPermissions(["clipboard-read", "clipboard-write"], {
     origin,
   });
@@ -51,46 +65,29 @@ async function firstVaultPass({
   await page
     .getByRole("button", { name: "Set up your own" })
     .waitFor({ timeout: 30000 });
-  const step = stepChecker(page, check, phone, 16, "first vault", {
+  const label = `${protection} first vault`;
+  const step = tutorialStepChecker(page, check, phone, 12, label, readStep, {
     out,
     width,
     keepShots,
   });
-  await enterVault(page, step, check, phone);
-  await makePassword(page, step, check, phone);
+  await enterVault(page, context, step, check, phone, protection, {
+    out,
+    width,
+    keepShots,
+  });
+  await makePassword(page, step, check, phone, label, protection);
 }
 
-function stepChecker(
+async function enterVault(
   page,
+  context,
+  step,
   check,
   phone,
-  total,
-  label,
-  { out, width, keepShots } = {},
+  protection,
+  { out, width, keepShots },
 ) {
-  return async function step(target, number) {
-    await page
-      .locator(
-        `.coach[data-coach-target="${target}"][data-coach-status="waiting"]`,
-      )
-      .waitFor({ timeout: 30000 });
-    const info = await readStep(page);
-    check(info?.target === target, `${label}: target ${target}`);
-    const expected = `Step ${number} of ${total}`;
-    check(info?.counter === expected, `${label}: progress ${expected}`);
-    if (info) {
-      for (const [ok, what] of stepChecks(info, { phone }))
-        check(ok, `${label} · ${target}: ${what}`);
-    }
-    if (keepShots)
-      await page.screenshot({
-        path: `${out}/${width}-${label.replaceAll(" ", "-")}-${String(number).padStart(2, "0")}.png`,
-      });
-    return info;
-  };
-}
-
-async function enterVault(page, step, check, phone) {
   await step("unlock.setup", 1);
   await page.locator(".coach__btn--go").focus();
   await page.keyboard.press("ArrowRight");
@@ -106,71 +103,71 @@ async function enterVault(page, step, check, phone) {
   await page.getByRole("button", { name: "Default", exact: true }).click();
   await step("unlock.local-only", 3);
   await page.getByRole("button", { name: "Use without an account" }).click();
-  await step("unlock.seal-pin", 4);
-  const pin = page.getByRole("tab", { name: "PIN", exact: true });
-  if ((await pin.getAttribute("aria-selected")) === "true") {
-    await page.locator(".coach__btn--go").click();
-  } else {
-    await pin.click();
-  }
-  await step("unlock.seal-pin-entry", 5);
-  await revisitIncompletePin(page, step, check);
-  if (phone && process.env.TUTORIALS_KEYBOARD_VIEWPORT === "1") {
-    await checkKeyboardViewport(page, check, "first vault", {
-      fieldLabel: "Device PIN",
-      target: "unlock.seal-pin-entry",
-      shot: "pin-keyboard",
-    });
-  }
-  await page.getByLabel("Device PIN", { exact: true }).fill(PIN);
-  await page.locator(".coach__btn--go").click();
-  await step("unlock.seal-pin-confirm", 6);
-  if (phone && process.env.TUTORIALS_KEYBOARD_VIEWPORT === "1") {
-    await checkKeyboardViewport(page, check, "first vault", {
-      fieldLabel: "Confirm PIN",
-      target: "unlock.seal-pin-confirm",
-      shot: "confirm-pin-keyboard",
-    });
-  }
-  await page.getByLabel("Confirm PIN", { exact: true }).fill(PIN);
-  await page.locator(".coach__btn--go").click();
-  await step("unlock.seal-ack", 7);
-  await page.getByLabel("I understand this vault cannot be recovered.").check();
-  await page.locator(".coach__btn--go").click();
-  await step("unlock.seal", 8);
-  if (page.viewportSize().width <= 320)
-    await checkLateSealScroll(page, step, check);
-  await page.getByRole("button", { name: "Seal with PIN" }).click();
+  await step("unlock.seal-actions", 4);
+  // Register after the phone zoom check detaches its separate CDP session.
+  if (protection !== "pin-only")
+    await addTutorialAuthenticator(context, page, protection === "passkey");
+  await sealFirstVault(page, {
+    step,
+    check,
+    phone,
+    protection,
+    label: `${protection} first vault`,
+    out,
+    width,
+    keepShots,
+  });
 }
 
-async function makePassword(page, step, check, phone) {
-  await page.waitForFunction(
-    () =>
-      [
-        ...document.querySelectorAll('.coach[data-coach-status="waiting"]'),
-      ].some(
-        (node) =>
-          node.querySelector(".coach__count")?.textContent === "Step 9 of 16",
+async function makePassword(page, step, check, phone, label, protection) {
+  const first = protection === "passkey" ? 5 : 9;
+  const total = protection === "passkey" ? 12 : 16;
+  const expected = `Step ${first} of ${total}`;
+  try {
+    await page.waitForFunction(
+      (counter) =>
+        [
+          ...document.querySelectorAll('.coach[data-coach-status="waiting"]'),
+        ].some(
+          (node) =>
+            node.querySelector(".coach__count")?.textContent === counter,
+        ),
+      expected,
+      { timeout: 30000 },
+    );
+  } catch (error) {
+    const state = await page.evaluate(() => ({
+      url: location.href,
+      heading: document.querySelector("h1")?.textContent?.trim(),
+      counters: [...document.querySelectorAll(".coach__count")].map((node) =>
+        node.textContent?.trim(),
       ),
-    undefined,
-    { timeout: 30000 },
-  );
-  const target = await page.evaluate(() =>
-    [...document.querySelectorAll('.coach[data-coach-status="waiting"]')]
-      .find(
-        (node) =>
-          node.querySelector(".coach__count")?.textContent === "Step 9 of 16",
-      )
-      ?.getAttribute("data-coach-target"),
+      alert: document.querySelector('[role="alert"]')?.textContent?.trim(),
+    }));
+    throw new Error(
+      `First-vault handoff did not reach ${expected}: ${JSON.stringify(state)}`,
+      { cause: error },
+    );
+  }
+  const target = await page.evaluate(
+    (counter) =>
+      [...document.querySelectorAll('.coach[data-coach-status="waiting"]')]
+        .find(
+          (node) =>
+            node.querySelector(".coach__count")?.textContent === counter,
+        )
+        ?.getAttribute("data-coach-target"),
+    expected,
   );
   if (target === "settings.account-pack") {
-    await step("settings.account-pack", 9);
+    await step("settings.account-pack", first, total);
     await page.getByRole("switch", { name: "Account", exact: true }).click();
   } else {
-    await step("", 9);
+    await step("", first, total);
     await page.locator(".coach__btn--go").click();
   }
-  await passwordSteps(page, step, check, 10, "first vault", phone);
+  const pathStep = (target, number) => step(target, number, total);
+  await passwordSteps(page, pathStep, check, first + 1, label, phone);
 }
 
 async function passwordSteps(page, step, check, first, label, phone) {
@@ -304,11 +301,15 @@ export async function firstItemPass({
     await page.waitForURL(/\?f=note/);
   }
   await startTutorial(page, "vault.item.first");
-  const step = stepChecker(page, check, phone, 8, "first item", {
-    out,
-    width,
-    keepShots,
-  });
+  const step = tutorialStepChecker(
+    page,
+    check,
+    phone,
+    8,
+    "first item",
+    readStep,
+    { out, width, keepShots },
+  );
   await step("", 1);
   await page.locator(".coach__btn--go").click();
   await passwordSteps(page, step, check, 2, "first item", phone);

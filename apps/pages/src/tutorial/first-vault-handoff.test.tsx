@@ -5,6 +5,7 @@ import { StrictMode } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 import {
   continueFirstVaultGuide,
+  firstVaultGateSteps,
   firstVaultSignInPending,
   preserveFirstVaultGate,
   takeFirstVaultGuide,
@@ -113,6 +114,29 @@ it("resumes once after StrictMode remounts the shell effects", async () => {
   await waitFor(() => expect(startGuide).toHaveBeenCalledOnce());
   expect(startGuide).toHaveBeenCalledWith(expect.any(String), "authored");
   expect(takeFirstVaultGuide()).toBe(false);
+});
+
+it("scopes passkey progress to the resumed controller across StrictMode", async () => {
+  const controller = stubSupportController("/vault");
+  vi.spyOn(controller.support, "startGuide").mockResolvedValue();
+  function Shell() {
+    useFirstVaultHandoff(controller.support);
+    return null;
+  }
+  continueFirstVaultGuide(4);
+  render(
+    <StrictMode>
+      <Shell />
+    </StrictMode>,
+  );
+  await waitFor(() => expect(firstVaultGateSteps(controller.support)).toBe(4));
+  expect(firstVaultGateSteps(stubSupportController("/vault").support)).toBe(8);
+
+  act(() => controller.set({ guide: { ...signInGuide, status: "done" } }));
+  expect(firstVaultGateSteps(controller.support)).toBe(8);
+
+  continueFirstVaultGuide(4);
+  await waitFor(() => expect(firstVaultGateSteps(controller.support)).toBe(4));
 });
 
 it("does not restart the gate tutorial after the vault has opened", async () => {

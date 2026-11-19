@@ -229,3 +229,96 @@ export function stepChecks(info, { phone }) {
   if (info.kind === "point" && info.target !== "") out.push(...litChecks(info));
   return out;
 }
+
+/** Build the standard measured tutorial step assertion for a browser walk. */
+export function tutorialStepChecker(
+  page,
+  check,
+  phone,
+  total,
+  label,
+  readStep,
+  { out, width, keepShots } = {},
+) {
+  return async function step(target, number, expectedTotal = total) {
+    await page
+      .locator(
+        `.coach[data-coach-target="${target}"][data-coach-status="waiting"]`,
+      )
+      .waitFor({ timeout: 30000 });
+    const info = await readStep(page);
+    check(info?.target === target, `${label}: target ${target}`);
+    check(
+      info?.counter === `Step ${number} of ${expectedTotal}`,
+      `${label}: progress Step ${number} of ${expectedTotal}`,
+    );
+    if (info) {
+      for (const [ok, what] of stepChecks(info, { phone }))
+        check(ok, `${label} · ${target}: ${what}`);
+    }
+    if (keepShots)
+      await page.screenshot({
+        path: `${out}/${width}-${label.replaceAll(" ", "-")}-${String(number).padStart(2, "0")}.png`,
+      });
+    return info;
+  };
+}
+
+/** Assert a required control is in the viewport and wins its center hit test. */
+export async function checkControlReachable(page, check, control, label) {
+  const box = await control.boundingBox();
+  const viewport = page.viewportSize();
+  const hit =
+    box &&
+    (await control.evaluate(
+      (node, point) => {
+        const top = document.elementFromPoint(point.x, point.y);
+        return top !== null && (node === top || node.contains(top));
+      },
+      { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+    ));
+  check(
+    box !== null &&
+      box.y >= 0 &&
+      box.y + box.height <= viewport.height &&
+      hit === true,
+    `first vault: ${label} is visible and reachable`,
+  );
+}
+
+/** Wait for PRF failure to select the cross-platform road, with useful state. */
+export async function waitForSecurityKey(
+  page,
+  { out, width, label, keepShots },
+) {
+  try {
+    await page.waitForFunction(
+      () =>
+        [...document.querySelectorAll('[role="tab"]')].some(
+          (tab) =>
+            tab.textContent?.trim() === "Security key" &&
+            tab.getAttribute("aria-selected") === "true",
+        ),
+      undefined,
+      { timeout: 15000 },
+    );
+  } catch (error) {
+    if (keepShots)
+      await page.screenshot({
+        path: `${out}/${width}-${label.replaceAll(" ", "-")}-security-key-timeout.png`,
+        fullPage: true,
+      });
+    const state = await page.evaluate(() => ({
+      url: location.href,
+      tabs: [...document.querySelectorAll('[role="tab"]')].map((tab) => ({
+        text: tab.textContent?.trim(),
+        selected: tab.getAttribute("aria-selected"),
+      })),
+      alert: document.querySelector('[role="alert"]')?.textContent?.trim(),
+    }));
+    throw new Error(
+      `Security key fallback did not appear: ${JSON.stringify(state)}`,
+      { cause: error },
+    );
+  }
+}

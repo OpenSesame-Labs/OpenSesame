@@ -53,6 +53,25 @@ export function coachMessage(
   return tour.message;
 }
 
+/** Join the adaptive gate phase to its first-vault shell continuation. */
+export function firstVaultTourProgress(
+  target: string | null,
+  count: number,
+  gateSteps: number,
+): { offset: number; count: number } {
+  const gateTarget =
+    target?.startsWith("unlock.") || target === "setup.default";
+  const pinTarget = [
+    "unlock.seal-pin-entry",
+    "unlock.seal-pin-confirm",
+    "unlock.seal-ack",
+    "unlock.seal",
+  ].includes(target ?? "");
+  if (count === 8 && !gateTarget)
+    return { offset: gateSteps, count: gateSteps + count };
+  return { offset: count === 6 ? 2 : 0, count: pinTarget ? 16 : 12 };
+}
+
 export function padded(box: Box): Box {
   return {
     left: box.left - APERTURE_PAD,
