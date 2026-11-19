@@ -89,7 +89,11 @@ async function main() {
   try {
     evidence = await captureLiveSmokeEvidence(process.env);
   } catch (error) {
-    await writeSmokePhaseFailure(process.env, "capture", error).catch(() => {});
+    if (error?.phaseWritten !== true) {
+      await writeSmokePhaseFailure(process.env, "capture", error).catch(
+        () => {},
+      );
+    }
     throw error;
   }
   const evidenceMs = Date.now() - evidenceStarted;
