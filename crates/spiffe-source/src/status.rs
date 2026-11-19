@@ -4,6 +4,8 @@
 use opensesame_domain::{CredentialStatus, Custody, IdentitySourceKind};
 use opensesame_time::{DateTime, Utc};
 
+use crate::outage::bounded_deadline;
+
 /// Where the source's connection loop is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SourcePhase {
@@ -83,7 +85,9 @@ impl SourceStatus {
             (SourcePhase::Withdrawn | SourcePhase::Stopped, Some(generation), _) => {
                 CredentialStatus::Expired { generation }
             }
-            (_, Some(generation), Some(not_after)) if now > not_after => {
+            (_, Some(generation), Some(not_after))
+                if now >= bounded_deadline(not_after, self.retain_until) =>
+            {
                 CredentialStatus::Expired { generation }
             }
             (_, Some(generation), Some(not_after)) => CredentialStatus::Configured {
@@ -136,6 +140,31 @@ mod tests {
         s.phase = SourcePhase::Withdrawn;
         assert_eq!(
             s.credential_status(now),
+            CredentialStatus::Expired { generation: 3 }
+        );
+    }
+
+    #[test]
+    fn credential_status_expires_at_the_earlier_boundary_including_equality() {
+        let now = Utc::now();
+        let mut status = SourceStatus::initial("spiffe://td.test/a");
+        status.phase = SourcePhase::Outage;
+        status.generation = Some(3);
+        let not_after = now + Duration::minutes(5);
+        let retain_until = now + Duration::minutes(1);
+        status.not_after = Some(not_after);
+        status.retain_until = Some(retain_until);
+        assert!(matches!(
+            status.credential_status(retain_until - Duration::milliseconds(1)),
+            CredentialStatus::Configured { generation: 3, .. }
+        ));
+        assert_eq!(
+            status.credential_status(retain_until),
+            CredentialStatus::Expired { generation: 3 }
+        );
+        status.retain_until = Some(not_after + Duration::minutes(1));
+        assert_eq!(
+            status.credential_status(not_after),
             CredentialStatus::Expired { generation: 3 }
         );
     }
