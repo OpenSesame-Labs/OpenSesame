@@ -454,16 +454,13 @@ describe("SCIM Users surface", () => {
         { userName: "c@example.test" },
       ],
     });
-    const countOnly = await app.request(`${usersPath(org.id)}?count=0`, {
-      headers: scimHeaders(token),
-    });
-    expect(countOnly.status).toBe(200);
-    expect(overlapCast(await countOnly.json())).toMatchObject({
-      totalResults: 3,
-      startIndex: 1,
-      itemsPerPage: 0,
-      Resources: [],
-    });
+    expect(
+      (
+        await app.request(`${usersPath(org.id)}?count=0`, {
+          headers: scimHeaders(token),
+        })
+      ).status,
+    ).toBe(400);
     const createWithinLimit = vi
       .spyOn(ctx.stores.scim.users, "createWithinLimit")
       .mockResolvedValue(null);
