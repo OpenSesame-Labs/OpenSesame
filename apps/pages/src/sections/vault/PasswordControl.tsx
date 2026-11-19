@@ -1,7 +1,9 @@
 import { signalRecommendation } from "@opensesame/app-core/lib/recommendations.js";
 import { FIELD_LIMITS } from "@opensesame/app-core/lib/vault/field-limits.js";
+import { reportGuideActivation } from "@opensesame/app-core/tutorial/registry/targets.js";
 import type { PasswordMethod } from "@opensesame/vault-core";
 import { useCallback, useState } from "react";
+import { FailureNotice } from "../../components/FailureNotice.js";
 import { IconKey } from "../../components/IconKey.js";
 import {
   IconEye,
@@ -9,6 +11,7 @@ import {
   IconRefresh,
   IconSettings,
 } from "../../components/Icons.js";
+import { StatusMark } from "../../components/StatusMark.js";
 import {
   useGuideTarget,
   useOptionalGuideTarget,
@@ -21,6 +24,8 @@ import {
 } from "./account-secrets.js";
 
 const GENERATED = new Set(["rules", "passphrase", "derived"]);
+const GENERATION_FAILURE =
+  "Could not generate a password. Check the password options and try again.";
 
 /**
  * The password itself: typed, generated or computed, with its reveal,
@@ -40,8 +45,12 @@ export function PasswordControl({
   options: { open: boolean; controls: string; onToggle: () => void };
 }) {
   const [reveal, setReveal] = useState(false);
+  const [generationFailure, setGenerationFailure] = useState<{
+    generator: PasswordMethod["generator"];
+  } | null>(null);
   const generateRef = useGuideTarget<HTMLButtonElement>(
     "editor.generate-password",
+    { activation: "manual" },
   );
   const optionsRef = useGuideTarget<HTMLButtonElement>(
     "editor.password-options",
@@ -58,6 +67,7 @@ export function PasswordControl({
     [optionsRef, enabledRef],
   );
   const { generator } = method;
+  const generationFailed = generationFailure?.generator === generator;
   return (
     <div className="editor__inline editor__inline--adorned">
       <input
@@ -83,15 +93,22 @@ export function PasswordControl({
           onClick={() => {
             const made =
               generator.id === "derived" ? rotate(method) : regenerate(method);
-            if (made) {
-              onEdit(made);
-              setReveal(true);
-              signalRecommendation("password.generated");
+            if (!made || !shownPassword(made)) {
+              setGenerationFailure({ generator });
+              return;
             }
+            onEdit(made);
+            setReveal(true);
+            setGenerationFailure(null);
+            signalRecommendation("password.generated");
+            reportGuideActivation("editor.generate-password");
           }}
         >
           <IconRefresh size={17} />
         </IconKey>
+      ) : null}
+      {generationFailed ? (
+        <StatusMark tone="err" label={GENERATION_FAILURE} />
       ) : null}
       <IconKey
         label="Password options"
@@ -102,6 +119,13 @@ export function PasswordControl({
       >
         <IconSettings size={17} />
       </IconKey>
+      <FailureNotice
+        id={`password-generation:${method.id}`}
+        title="Password"
+        message={generationFailed ? GENERATION_FAILURE : null}
+        occurrence={generationFailure}
+        clearOnUnmount
+      />
     </div>
   );
 }
