@@ -12,10 +12,22 @@ import { fileURLToPath } from "node:url";
 import { findChromium } from "./duress/find-chromium.mjs";
 import { createHarness } from "./lib/static-origin-harness.mjs";
 import {
+  applySetupChoice,
+  captureChoices,
+  enterVault,
+  openDoor,
+} from "./lib/verification-checklist-setup.mjs";
+import {
   appPaths,
   buildDist,
   resolveWalks,
 } from "./lib/verification-checklist-profiles.mjs";
+import {
+  BASE,
+  ORIGIN,
+  createShot,
+  emptyRecord,
+} from "./lib/verification-checklist-shot.mjs";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -24,6 +36,10 @@ const repoRoot = path.resolve(
 const panelRel =
   "apps/pages/src/sections/connections/connect/UserTokenPanel.tsx";
 const panelPath = path.join(repoRoot, panelRel);
+
+const MANAGE_KEY = "k".repeat(40);
+const CONNECTOR_ID = "scl_evidence";
+const CONNECT_VITE = { VITE_CONNECT_CALLBACK_BASE: "/" };
 
 const phaseArg = process.argv.indexOf("--phase");
 const phase = phaseArg === -1 ? "after" : process.argv[phaseArg + 1];
@@ -66,16 +82,32 @@ function buildsNeeded(walks) {
   return [...byKey.values()];
 }
 
-async function captureTokenLabel(harness, page, walk) {
+const LISTED_CONNECTOR = {
+  id: CONNECTOR_ID,
+  uid: "resend/wedding",
+  service: "resend",
+  name: "wedding-resend",
+  userTokens: { scopes: ["emails:send"] },
+};
+
+async function routeConnectRelay(page) {
   await page.route("**/api/connect/**", async (route) => {
     const url = route.request().url();
+    const method = route.request().method();
+    if (url.endsWith("/api/connect/connectors") && method === "GET") {
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ connectors: [LISTED_CONNECTOR] }),
+      });
+    }
     if (url.endsWith("/api/connect/connector/read")) {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
           connector: {
-            id: "scl_evidence",
+            id: CONNECTOR_ID,
             uid: "resend/wedding",
             type: "oauth",
             data: {},
@@ -98,23 +130,86 @@ async function captureTokenLabel(harness, page, walk) {
     }
     return route.fulfill({ status: 404, body: "{}" });
   });
-  await page.goto(`${harness.origin}${harness.base}#/connections/resend`, {
-    waitUntil: "networkidle",
-  });
-  const testButton = page.getByRole("button", { name: "Test user token" });
-  if (!(await testButton.isVisible().catch(() => false))) {
-    console.error(`[user-token-label] ${walk.name} skipped (no connect UI)`);
-    return;
+}
+
+async function armConnectRelay(page, shot, origin, base) {
+  const command = page.locator("#command-bar-input");
+  if (await command.isVisible().catch(() => false)) {
+    await command.fill("connections");
+    await page.keyboard.press("Enter");
+    await page.waitForURL(/\/connections/, { timeout: 30_000 });
+  } else {
+    await page.goto(`${origin}${base}connections`, {
+      waitUntil: "domcontentloaded",
+    });
   }
+  await shot("connections-landing");
+  const importKey = page.getByRole("button", { name: "Import connectors" });
+  await importKey.waitFor({ state: "visible", timeout: 60_000 });
+  await importKey.click();
+  const vercel = page.getByRole("button", { name: /Vercel Connect/i });
+  await vercel.click();
+  const keyField = page.getByLabel("Relay management key");
+  if (await keyField.isVisible().catch(() => false)) {
+    await keyField.fill(MANAGE_KEY);
+    await page.getByRole("button", { name: "Seal in vault" }).click();
+    await page
+      .getByRole("button", { name: "Seal in vault" })
+      .waitFor({ state: "hidden", timeout: 120_000 })
+      .catch(() => undefined);
+    await shot("connect-after-seal");
+  }
+  const reload = page.getByRole("button", { name: "Reload connections" });
+  if (await reload.isEnabled().catch(() => false)) {
+    const listed = page.waitForResponse(
+      (resp) =>
+        resp.url().includes("/api/connect/connectors") && resp.status() === 200,
+      { timeout: 60_000 },
+    );
+    await reload.click();
+    await listed;
+  }
+  await page
+    .locator(".conn-service", { hasText: "wedding-resend" })
+    .waitFor({ state: "visible", timeout: 60_000 });
+}
+
+async function captureTokenLabel(page, walk, origin, base) {
+  const record = emptyRecord(walk);
+  const shotDir = path.join(outRoot, walk.name);
+  fs.mkdirSync(shotDir, { recursive: true });
+  const shot = createShot(page, shotDir, record);
+
+  await routeConnectRelay(page);
+  await openDoor(page, shot, record, `${origin}${base}`);
+  await captureChoices(page, shot, record);
+  const where = await applySetupChoice(page, shot, record, walk.setupChoice);
+  const entry = await enterVault(page, where);
+  record.entry = entry;
+  await shot(`vault-${entry}`);
+
+  await armConnectRelay(page, shot, origin, base);
+
+  await page
+    .locator(".conn-service", { hasText: "wedding-resend" })
+    .getByRole("link", { name: "Open" })
+    .click();
+  await page.waitForURL(/\/connections\/resend\/scl_evidence/, {
+    timeout: 60_000,
+  });
+  await shot("resend-settings");
+
+  const testButton = page.getByRole("button", { name: "Test user token" });
+  await testButton.waitFor({ state: "visible", timeout: 120_000 });
+
   await testButton.click();
   const label =
     phase === "before" ? "sha256:0123456789ab…" : "scrypt:0123456789ab…";
   await page.getByText(label).waitFor({ timeout: 120_000 });
-  const shotDir = path.join(outRoot, walk.name);
-  fs.mkdirSync(shotDir, { recursive: true });
+
   await page.screenshot({
     path: path.join(shotDir, "user-token-fingerprint-label.png"),
-    fullPage: false,
+    fullPage: true,
   });
   console.error(`[user-token-label] ${walk.name} ${phase} ok`);
 }
@@ -123,20 +218,28 @@ async function main() {
   prepareChromium();
   const restore = phase === "before" ? runBeforeLabelPatch() : () => undefined;
   const { appRoot, scriptsDir, profilesDir } = appPaths();
+  const origin = process.env.PAGES_ORIGIN ?? ORIGIN;
+  const base = process.env.VITE_BASE ?? BASE;
   try {
-    const walks = resolveWalks(profilesDir);
+    const onlyArg = process.argv.indexOf("--only");
+    const only =
+      onlyArg === -1
+        ? undefined
+        : process.argv[onlyArg + 1]?.split(",").map((name) => name.trim());
+    const walks = resolveWalks(profilesDir, only);
     const dists = new Map();
     for (const walk of buildsNeeded(walks)) {
       const outDir = path.join(
         appRoot,
         "dist-profiles",
-        `user-token-label-${walk.buildKey}`,
+        `verification-${walk.buildKey === "stock" ? "stock" : walk.buildKey}`,
       );
       buildDist({
         appRoot,
         scriptsDir,
         outDir,
         capabilityProfile: walk.capabilityProfile,
+        viteEnv: CONNECT_VITE,
       });
       dists.set(walk.buildKey, outDir);
     }
@@ -144,8 +247,8 @@ async function main() {
       const dist = dists.get(walk.buildKey);
       const harness = createHarness({
         dist,
-        origin: process.env.PAGES_ORIGIN ?? "https://opensesame-labs.github.io",
-        base: "/OpenSesame/",
+        origin,
+        base,
         out: path.join(outRoot, walk.name),
       });
       const browser = await harness.launch({
@@ -153,7 +256,7 @@ async function main() {
       });
       try {
         const opened = await harness.newPage(browser);
-        await captureTokenLabel(harness, opened.page, walk);
+        await captureTokenLabel(opened.page, walk, origin, base);
         await opened.context.close();
       } finally {
         await browser.close();
