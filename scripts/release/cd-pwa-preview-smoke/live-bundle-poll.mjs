@@ -293,8 +293,7 @@ export async function pollLiveShellAssets(env, deps = {}) {
     .slice(0, 3)
     .map((asset) => `${asset.relative} sha256=${asset.sha256.slice(0, 12)}…`)
     .join(", ");
-  const more =
-    assets.length > 3 ? ` (+${assets.length - 3} more)` : "";
+  const more = assets.length > 3 ? ` (+${assets.length - 3} more)` : "";
   console.log(
     `live shell poll matched ${assets.length} assets in ${elapsedMs}ms: ${digestPreview}${more}`,
   );
