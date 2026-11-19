@@ -86,17 +86,27 @@ PY
 python3 "$SCRATCH/spec/formal/authority/check-drift.py"
 python3 "$SCRATCH/spec/formal/dpop/check_drift.py"
 python3 "$SCRATCH/spec/formal/spiffe/check-drift.py"
+run_spiffe_skip_lean_integration() {
+  (
+    cd "$SCRATCH"
+    cargo test --locked -p opensesame-spiffe-source --all-features \
+      --test withdrawal_policy --test trust_reduction_policy --test outage_policy -- \
+      no_identity_issued_on_the_stream_withdraws_and_recovers \
+      no_identity_denial_on_reconnect_withdraws_the_active_generation \
+      rejected_profile_with_removed_anchor_withdraws \
+      rejected_activation_after_reconnect_cannot_extend_the_outage \
+      invalid_profile_after_reconnect_cannot_end_the_outage_or_extend_its_deadline
+  )
+}
+
 if [[ "${OPENSESAME_FORMAL_SQUASH_SKIP_LEAN:-}" != "1" ]]; then
   (cd "$SCRATCH" && npm run verify:authority-formal && npm run verify:dpop-formal && npm run verify:spiffe-formal)
 else
-  # The full Lean verify scripts stay skipped. SPIFFE still runs the Rust
-  # correspondence for no_identity_withdraws, missing_anchor_withdraws, and
-  # retry_cannot_extend_deadline, plus the integration tests that exercise
-  # those decisions. Vectors come from the shared checker when Lean is present.
+  # The full Lean verify scripts stay skipped. SPIFFE still runs vector
+  # correspondence when Lean is present, and always runs the Lean-independent
+  # integration tests that exercise withdrawal, trust reduction, and outage.
   lean_bin="${OPENSESAME_LEAN_BIN:-lean}"
-  if ! command -v "$lean_bin" >/dev/null 2>&1; then
-    echo "formal-squash-merge-verify: Lean unavailable; skipping SPIFFE vector correspondence" >&2
-  else
+  if command -v "$lean_bin" >/dev/null 2>&1; then
     vectors="$(mktemp "${TMPDIR:-/tmp}/opensesame-spiffe-formal.XXXXXXXX")"
     trap 'rm -f "$vectors"; git worktree remove -f "$SCRATCH" 2>/dev/null || rm -rf "$SCRATCH"' EXIT
     (
@@ -107,14 +117,10 @@ else
       cd "$SCRATCH"
       OPENSESAME_SPIFFE_VECTORS="$vectors" cargo test --locked -p opensesame-spiffe-source --all-features --lib \
         source::formal_tests::lean_vectors_match_the_sdk_classifier_and_outage_deadlines -- --ignored --exact
-      cargo test --locked -p opensesame-spiffe-source --all-features \
-        --test withdrawal_policy --test trust_reduction_policy --test outage_policy -- \
-        no_identity_issued_on_the_stream_withdraws_and_recovers \
-        no_identity_denial_on_reconnect_withdraws_the_active_generation \
-        rejected_profile_with_removed_anchor_withdraws \
-        rejected_activation_after_reconnect_cannot_extend_the_outage \
-        invalid_profile_after_reconnect_cannot_end_the_outage_or_extend_its_deadline
     )
+  else
+    echo "formal-squash-merge-verify: Lean unavailable; skipping SPIFFE vector correspondence" >&2
   fi
+  run_spiffe_skip_lean_integration
 fi
 echo "formal-squash-merge-verify: ok (base origin/main $MAIN)"
