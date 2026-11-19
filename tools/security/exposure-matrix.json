@@ -45,7 +45,7 @@
         "packages/app-core/src/lib/magic-link-client.test.ts",
         "packages/app-core/src/lib/providers.test.ts"
       ],
-      "review": "The emailed proof remains a high-entropy bearer for the mailbox holder, but GET is inert. First-party completion additionally requires the initiating tab's verifier and state; hosted completion requires explicit confirmation plus the initiating interaction cookie. Durable server stores enforce expiry and atomic single use. Send budgets protect availability, not proof secrecy. This classification does not claim protection from a compromised mailbox/browser or a scanner that submits forms. 2026-11-19: refusal regressions compare the complete durable send-budget ledger before and after recipient, source, global, backend-recipient, and backend-application denials; denial now preserves even ledger expiry metadata. Passed all changed magic-link/federation suites (60 tests in 7 files)."
+      "review": "The emailed proof remains a high-entropy bearer for the mailbox holder, but GET is inert. First-party completion additionally requires the initiating tab's verifier and state; hosted completion requires explicit confirmation plus the initiating interaction cookie. Durable server stores enforce expiry and atomic single use. Send budgets protect availability, not proof secrecy. This classification does not claim protection from a compromised mailbox/browser or a scanner that submits forms. 2026-11-19: refusal regressions compare the complete durable send-budget ledger before and after recipient, source, global, backend-recipient, and backend-application denials; denial now preserves even ledger expiry metadata. Passed all changed magic-link/federation suites (60 tests in 7 files). Cached pre-verifier clients receive a distinct non-cacheable 426 upgrade response and structured telemetry before mail or budget effects; deploy Pages and drain its cache before enforcing the Identity protocol. The legacy bearer exchange remains absent."
     },
     {
       "id": "hosted-secret-drop",
@@ -1308,24 +1308,24 @@
       "69f6ff0a"
     ],
     "packages/control-plane/src/__tests__/magic-link-first-party.test.ts": [
-      "159709ab",
-      "e3a90462",
-      "780297c3",
-      "cb0f95a6",
-      "e9229812",
-      "acc344d4",
-      "9a4d5ce0",
-      "578f5f4d"
+      "5fae6fe5",
+      "c1582b3a",
+      "ca5dd991",
+      "b2480879",
+      "0d3ace65",
+      "b9615d60",
+      "a8430772",
+      "8f18d24c"
     ],
     "packages/control-plane/src/routes/auth-upstream.ts": [
-      "062d609b",
-      "3122fe49",
-      "07735682",
-      "4ab97c77",
-      "2d9eb4e7",
-      "ffd11f2a",
-      "17b04687",
-      "e54862fb"
+      "c4972602",
+      "2ea334bf",
+      "7d3aba71",
+      "6c4403bd",
+      "e54f5c95",
+      "e59d8334",
+      "4f452488",
+      "b9c24143"
     ],
     "packages/control-plane/src/routes/authentication-service.ts": [
       "910d896d",

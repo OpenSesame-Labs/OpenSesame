@@ -94,6 +94,24 @@ function installMagicLinkRequest(routes: AuthRouter, ctx: AppContext): void {
     );
     if (!parsed.success) return c.json({ error: "invalid_request" }, 400);
     const { email, callbackURL, codeChallenge, state } = parsed.data;
+    if (!codeChallenge || !state) {
+      ctx.log.warn(
+        {
+          event: "magic_link_client_upgrade_required",
+          requiredProtocol: "magic-link-pkce-v1",
+        },
+        "legacy magic-link request refused",
+      );
+      c.header("cache-control", "no-store");
+      return c.json(
+        {
+          error: "client_upgrade_required",
+          requiredProtocol: "magic-link-pkce-v1",
+          action: "reload",
+        },
+        426,
+      );
+    }
     const origin = c.req.header("origin");
     const callback =
       origin && callbackURL
@@ -101,9 +119,7 @@ function installMagicLinkRequest(routes: AuthRouter, ctx: AppContext): void {
         : undefined;
     if (
       !callback ||
-      !codeChallenge ||
       !validMagicChallenge(codeChallenge) ||
-      !state ||
       !MAGIC_STATE.test(state)
     )
       return c.json({ error: "invalid_request" }, 400);

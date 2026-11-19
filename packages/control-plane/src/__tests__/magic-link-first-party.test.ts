@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { overlapCast } from "@opensesame/os-domain";
-import { afterAll, beforeAll, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it, vi } from "vitest";
 import type { startServer } from "../server.js";
 import { onFreePort } from "./free-port.js";
 
@@ -171,6 +171,10 @@ it("burns a code on a wrong verifier and rejects unsafe callbacks before email",
     });
     expect(refused.status).toBe(400);
   }
+  const budgetBefore = structuredClone(
+    started.ctx.stores.magicLinkBudgets.get("deployment"),
+  );
+  const logged = vi.spyOn(started.ctx.log, "warn").mockImplementation(() => {});
   const downgrade = await fetch(`${base}/v1/auth/sign-in/magic-link`, {
     method: "POST",
     headers: { "content-type": "application/json", origin },
@@ -179,6 +183,23 @@ it("burns a code on a wrong verifier and rejects unsafe callbacks before email",
       callbackURL: callback,
     }),
   });
-  expect(downgrade.status).toBe(400);
+  expect(downgrade.status).toBe(426);
+  expect(downgrade.headers.get("cache-control")).toBe("no-store");
+  expect(await downgrade.json()).toEqual({
+    error: "client_upgrade_required",
+    requiredProtocol: "magic-link-pkce-v1",
+    action: "reload",
+  });
+  expect(started.ctx.stores.magicLinkBudgets.get("deployment")).toEqual(
+    budgetBefore,
+  );
+  expect(logged).toHaveBeenCalledWith(
+    {
+      event: "magic_link_client_upgrade_required",
+      requiredProtocol: "magic-link-pkce-v1",
+    },
+    "legacy magic-link request refused",
+  );
+  logged.mockRestore();
   expect(started.ctx.mailer.outbox).toHaveLength(before);
 });

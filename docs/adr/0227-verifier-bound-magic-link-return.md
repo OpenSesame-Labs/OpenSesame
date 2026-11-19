@@ -34,6 +34,20 @@ recipient, canonical TCP-source and global send windows; stored keys are
 HMAC-derived rather than cleartext. Authenticated application mail uses a
 separate application/recipient budget so it cannot consume public capacity.
 
+### Rollout
+
+Deploy Pages with `magic-link-pkce-v1` support before deploying the Identity
+route that requires it. Keep that Pages release live for at least the configured
+HTML/service-worker cache lifetime, then deploy Identity. A cached older Pages
+client sends neither challenge nor state; Identity answers `426` with
+`client_upgrade_required`, `requiredProtocol: magic-link-pkce-v1`, and
+`action: reload`, emits the structured `magic_link_client_upgrade_required`
+event, sends no email, and does not charge a send budget. The response is
+`Cache-Control: no-store`. Operators should watch that event through the cache
+drain and pause the Identity rollout if it remains material. Rollback restores
+the newer Pages build first; it must never restore the bearer-returning legacy
+exchange.
+
 ## Consequences
 
 The callback must match an explicitly allowed CORS origin and, when configured,
