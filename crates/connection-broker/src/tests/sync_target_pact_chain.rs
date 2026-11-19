@@ -251,14 +251,29 @@ fn function_item_head(rest: &str) -> Option<usize> {
 
 fn let_name_before_path(source: &str, head: usize) -> Option<String> {
     let path_start = path_prefix_start(source, head);
-    if path_start == 0 || source.as_bytes()[path_start - 1] != b'=' {
+    if path_start == 0 {
         return None;
     }
-    let name = trailing_ident(&source[..path_start - 1]);
+    let bytes = source.as_bytes();
+    let mut eq = path_start;
+    while eq > 0 && bytes[eq - 1].is_ascii_whitespace() {
+        eq -= 1;
+    }
+    if eq == 0 || bytes[eq - 1] != b'=' {
+        return None;
+    }
+    let mut bind = source[..eq - 1].trim_end();
+    if let Some(colon) = bind.find(':') {
+        let rhs = bind[colon + 1..].trim_start();
+        if !rhs.contains("::") {
+            bind = bind[..colon].trim_end();
+        }
+    }
+    let name = trailing_ident(bind);
     if name.is_empty() {
         return None;
     }
-    let before = source[..path_start - 1 - name.len()].trim_end();
+    let before = bind[..bind.len() - name.len()].trim_end();
     let before = if ends_with_kw(before, "mut") {
         before[..before.len() - 3].trim_end()
     } else {
@@ -363,26 +378,3 @@ fn leading_ident(source: &str) -> String {
     source.chars().take_while(|ch| is_ident_char(*ch)).collect()
 }
 
-/// Argument list opener for `name(…)` and `(name)(…)` alias dispatches.
-pub(crate) fn call_tail(source: &str, at: usize) -> Option<&str> {
-    let rest = &source[at..];
-    let name_len = leading_ident(rest).len();
-    if name_len == 0 {
-        return None;
-    }
-    let mut tail = rest[name_len..].trim_start();
-    if tail.starts_with('(') {
-        return Some(tail);
-    }
-    loop {
-        let Some(stripped) = tail.strip_prefix(')') else { break };
-        tail = strip_turbofish(stripped).unwrap_or(stripped).trim_start();
-        if tail.starts_with('(') {
-            return Some(tail);
-        }
-        if !tail.starts_with(')') {
-            break;
-        }
-    }
-    None
-}
