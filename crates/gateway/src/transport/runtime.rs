@@ -21,7 +21,9 @@ use opensesame_ingress_evidence::{
     originating_peer_layer, BindingSetAdmission, IngressLimits, OriginatingPeerLayer,
 };
 use opensesame_spiffe_source::sink::TransportGenerationsSink;
-use opensesame_spiffe_source::{SourcePhase, SpiffeSource, SpiffeSourceConfig, SpiffeSourceHandle};
+use opensesame_spiffe_source::{
+    SourcePhase, SpiffeSource, SpiffeSourceConfig, SpiffeSourceHandle, WaitError,
+};
 use opensesame_storage::Db;
 use opensesame_transport_security::env::{NativeIdentitySpec, NativeTrustSpec};
 use opensesame_transport_security::{
@@ -292,7 +294,11 @@ async fn start_spiffe(
         .await;
     match ready {
         Ok(status) if status.generation.is_some() => Ok((generations, handle)),
-        Ok(_) | Err(_) => Err(TransportError::IdentityMissing),
+        // Withdrawal, a deadline with no generation, and a source task that
+        // exited all refuse to bind the listener.
+        Ok(_) | Err(WaitError::DeadlineElapsed(_) | WaitError::StatusTaskGone(_)) => {
+            Err(TransportError::IdentityMissing)
+        }
     }
 }
 
