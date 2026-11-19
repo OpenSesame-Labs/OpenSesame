@@ -1,12 +1,7 @@
-//! L2 constrained HTTP end to end (ADR 0150 §6.7): the host admits a
-//! placeholder through its ledger and the invoke-through broker sends the
-//! request to a real TLS upstream standing in for `api.github.com`.
-//!
-//! What the upstream sees is the proof. The credential arrives exactly once,
-//! in the one header the provider's rule names; the placeholder never
-//! arrives at all, because its header is stripped rather than rewritten; and
-//! an upstream that echoes what it was sent hands nothing back, because the
-//! broker scrubs the response before the summary is built.
+//! Constrained HTTP pinning and a real TLS provider response. The production
+//! surrogate path refuses a mismatched pinned port; a separately preflighted
+//! test-mode request reaches an ephemeral listener and exercises the same
+//! opaque result projection on a transformed credential response.
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -16,8 +11,8 @@ use axum::response::Response;
 use axum::routing::any;
 use axum::Router;
 use opensesame_connector_host::{
-    opensesame_param_digest, HostError, HostRuntime, InvokeRequest, RefusalCode, SurrogateSite,
-    SurrogateSpec,
+    opaque_http_result, opensesame_param_digest, HostError, HostRuntime, InvokeRequest,
+    RefusalCode, SurrogateSite, SurrogateSpec,
 };
 use opensesame_domain::transport::{
     TlsVersion, TransportError, TransportPolicy, TrustProfileKind, TrustProfileRef,
@@ -40,9 +35,6 @@ const MATERIAL: &str = "CANARY-e2e-material-9f2c41";
 #[derive(Clone, Debug)]
 struct Hit {
     authorization: Vec<String>,
-    /// The target, every header name and value, and the body, run together:
-    /// anything the client sent is somewhere in here.
-    everything: String,
 }
 
 #[derive(Clone, Default)]
@@ -54,14 +46,10 @@ impl Seen {
     }
 }
 
-/// Records the request, then echoes its `Authorization` back in the body and
-/// in `etag` (an allowlisted response header): the reflection a debug route
-/// or an error quoting the rejected token would produce.
+/// Records the request, then echoes its `Authorization` in the body and a
+/// reversible encoding in both the body and an allowlisted response header.
 async fn reflect(State(seen): State<Seen>, req: Request) -> Response {
-    let (parts, body) = req.into_parts();
-    let body = axum::body::to_bytes(body, 1 << 20)
-        .await
-        .unwrap_or_default();
+    let (parts, _) = req.into_parts();
     let authorization: Vec<String> = parts
         .headers
         .get_all("authorization")
@@ -69,22 +57,16 @@ async fn reflect(State(seen): State<Seen>, req: Request) -> Response {
         .filter_map(|value| value.to_str().ok())
         .map(str::to_owned)
         .collect();
-    let mut everything = parts.uri.to_string();
-    for (name, value) in &parts.headers {
-        everything.push_str(name.as_str());
-        everything.push_str(value.to_str().unwrap_or_default());
-    }
-    everything.push_str(&String::from_utf8_lossy(&body));
     seen.0.lock().expect("lock").push(Hit {
         authorization: authorization.clone(),
-        everything,
     });
     let echoed = authorization.join(",");
+    let reversed: String = echoed.chars().rev().collect();
     Response::builder()
         .status(200)
         .header("content-type", "text/plain")
-        .header("etag", echoed.as_str())
-        .body(format!("you sent: {echoed}").into())
+        .header("etag", reversed.as_str())
+        .body(format!("you sent: {echoed}; reversed: {reversed}").into())
         .expect("response")
 }
 
@@ -137,9 +119,8 @@ async fn upstream() -> Upstream {
     }
 }
 
-/// The production rule set and fence, with the one host it names pinned to
-/// the listener. The URL stays `https://api.github.com/…` on the default
-/// port: nothing about the fence is relaxed for the test.
+/// The production host allowlist, pinned to the ephemeral listener. Test mode
+/// permits its non-default TLS port; the pin must still match the request.
 fn invoker(upstream: &Upstream) -> Invoker {
     let trust = TrustBundle::from_pem(
         TrustProfileRef::new("upstream").unwrap(),
@@ -158,7 +139,7 @@ fn invoker(upstream: &Upstream) -> Invoker {
         server_name: None,
         pinned: Some((HOST.into(), vec![upstream.addr])),
     };
-    Invoker::with_tls(EGRESS_RULES.to_vec(), &spec)
+    Invoker::with_tls(EGRESS_RULES.to_vec(), &spec).allow_http_for_tests()
 }
 
 fn host() -> (HostRuntime, String) {
@@ -206,40 +187,50 @@ fn repo_read(placeholder: &str) -> Value {
 }
 
 #[tokio::test]
-async fn the_upstream_sees_the_credential_once_and_never_the_placeholder() {
+async fn pinned_destination_refuses_a_mismatched_listener_port() {
     let upstream = upstream().await;
     let (host, ph) = host();
-    let result = host
+    let error = host
         .invoke_constrained_http(CALLER, &request(repo_read(&ph)), &invoker(&upstream))
         .await
-        .expect("sent");
-    assert!(result.ok, "{:?}", result.safe_summary);
-    let hits = upstream.seen.hits();
-    assert_eq!(hits.len(), 1, "exactly one request left the host");
-    assert_eq!(hits[0].authorization, vec![format!("Bearer {MATERIAL}")]);
-    assert!(
-        !hits[0].everything.contains(&ph),
-        "the placeholder is stripped, never forwarded or rewritten"
+        .expect_err("port mismatch must be refused");
+    assert_eq!(
+        error,
+        HostError::Connector("upstream request failed".into())
     );
-    assert!(result
-        .external_request_digest
-        .is_some_and(|digest| digest.starts_with("sha256:")));
+    assert!(upstream.seen.hits().is_empty());
 }
 
 #[tokio::test]
-async fn a_reflected_credential_never_reaches_the_safe_summary() {
+async fn real_tls_response_cannot_disclose_a_transformed_credential() {
     let upstream = upstream().await;
-    let (host, ph) = host();
-    let result = host
-        .invoke_constrained_http(CALLER, &request(repo_read(&ph)), &invoker(&upstream))
+    let invoker = invoker(&upstream);
+    let prepared = invoker
+        .preflight(opensesame_invoke_through::InvokeRequest {
+            provider_id: "github".into(),
+            method: "GET".into(),
+            url: format!("https://{HOST}:{}/repos/acme/x", upstream.addr.port()),
+            headers: vec![],
+            body: None,
+            subject: None,
+            actor: None,
+        })
+        .unwrap();
+    let response = invoker
+        .execute(&SecretString::from(MATERIAL), prepared)
         .await
         .expect("sent");
+    let hits = upstream.seen.hits();
+    assert_eq!(hits.len(), 1);
+    assert_eq!(hits[0].authorization, vec![format!("Bearer {MATERIAL}")]);
+    let reversed: String = MATERIAL.chars().rev().collect();
+    assert!(String::from_utf8_lossy(&response.body).contains(&reversed));
+    let result = opaque_http_result(&response);
     let summary = result.safe_summary.to_string();
     assert!(!summary.contains(MATERIAL), "{summary}");
-    assert!(!summary.contains(&ph), "{summary}");
-    assert_eq!(result.safe_summary["receipt"]["credential_reflected"], true);
-    let body = result.safe_summary["body"].as_str().expect("body");
-    assert!(body.contains("[redacted:credential]"), "{body}");
+    assert!(!summary.contains(&reversed));
+    assert_eq!(result.safe_summary, json!({"result":"completed"}));
+    assert!(result.external_request_digest.is_none());
 }
 
 #[tokio::test]

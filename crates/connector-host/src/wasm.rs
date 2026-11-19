@@ -15,7 +15,8 @@
 //! - all egress goes through [`HostEgress`] after re-checking the
 //!   *intersection* of `HostPolicy` egress and the manifest's
 //!   `outbound.hosts`; credentials are injected on the host side of that
-//!   trait and never enter guest linear memory.
+//!   trait. A hostile upstream can nevertheless encode a credential in its
+//!   response, so guest memory must be treated as potentially sensitive.
 
 use std::collections::HashSet;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -30,7 +31,7 @@ use crate::manifest::ConnectorManifest;
 use crate::wasm_guest::{assert_imports_safe, WasmGuestPolicy};
 use crate::{
     assert_destination_allowed, opensesame_param_digest, Connector, HostError, HostPolicy,
-    InvokeRequest, InvokeResult,
+    InvocationBinding, InvokeRequest, InvokeResult,
 };
 
 mod bindings {
@@ -40,18 +41,21 @@ mod bindings {
     });
 }
 
-#[path = "wasm_result.rs"]
-mod result_summary;
-// Keep guest bytes out of the model-visible runtime receipt.
-use result_summary::opaque_guest_summary;
-
 use bindings::opensesame::connector::host_http;
 use bindings::opensesame::connector::host_oauth;
 use bindings::opensesame::connector::types;
 
+#[path = "wasm_result.rs"]
+mod result_summary;
+use result_summary::opaque_guest_summary;
+
+#[path = "wasm_outcome.rs"]
+mod outcome;
+use outcome::map_invoke_error;
+
 /// One outbound HTTP request as it crosses the host boundary. The connection
-/// is identified by ref; the host injects the credential after this value is
-/// formed — a guest never sees or supplies credential bytes.
+/// is identified by ref; the guest cannot directly supply or open the
+/// credential. A hostile provider can still encode it in a response.
 #[derive(Clone, Debug)]
 pub struct EgressRequest {
     pub method: String,
@@ -80,6 +84,7 @@ pub trait HostEgress: Send + Sync {
     /// material or raw upstream bodies beyond policy.
     fn authorized_request(
         &self,
+        binding: &InvocationBinding,
         connection_ref: &str,
         req: EgressRequest,
     ) -> Result<EgressResponse, String>;
@@ -89,7 +94,12 @@ pub trait HostEgress: Send + Sync {
     /// # Errors
     ///
     /// Returns a guest-visible error string.
-    fn sign(&self, purpose: &str, digest: &[u8]) -> Result<Vec<u8>, String>;
+    fn sign(
+        &self,
+        binding: &InvocationBinding,
+        purpose: &str,
+        digest: &[u8],
+    ) -> Result<Vec<u8>, String>;
 
     /// Acquire an access token, returning an opaque handle id — never bytes.
     ///
@@ -98,6 +108,7 @@ pub trait HostEgress: Send + Sync {
     /// Returns a guest-visible error string.
     fn oauth_acquire(
         &self,
+        binding: &InvocationBinding,
         connection_ref: &str,
         resource: Option<&str>,
         audience: Option<&str>,
@@ -111,6 +122,7 @@ pub trait HostEgress: Send + Sync {
     /// Returns a guest-visible error string.
     fn authenticated_request(
         &self,
+        binding: &InvocationBinding,
         connection_ref: &str,
         token_handle: u32,
         req: EgressRequest,
@@ -191,11 +203,25 @@ struct GuestState {
     policy: HostPolicy,
     outbound_hosts: HashSet<String>,
     connection_ref: String,
+    binding: Option<InvocationBinding>,
     egress: Arc<dyn HostEgress>,
     max_response_bytes: usize,
 }
 
 impl GuestState {
+    fn egress_binding(&self) -> Result<&InvocationBinding, String> {
+        match self.binding.as_ref() {
+            Some(binding) if binding.is_delegated() => {
+                Err("delegated execution unavailable".to_owned())
+            }
+            Some(binding) if binding.connection_policy_id() == self.connection_ref.as_str() => {
+                Ok(binding)
+            }
+            Some(_) => Err("invocation binding mismatch".to_owned()),
+            None => Err("invocation binding required".to_owned()),
+        }
+    }
+
     /// The runtime's egress fence: HTTPS + SSRF checks + `HostPolicy`
     /// egress + manifest outbound intersection. Refusals reach the guest as
     /// plain strings — no oracle beyond "denied".
@@ -259,6 +285,7 @@ impl host_http::Host for GuestState {
     ) -> Result<host_http::Response, String> {
         self.assert_guest_destination(&req.url)?;
         let resp = self.egress.authorized_request(
+            self.egress_binding()?,
             &self.connection_ref,
             EgressRequest {
                 method: req.method,
@@ -286,7 +313,7 @@ impl bindings::opensesame::connector::host_crypto::Host for GuestState {
         if purpose.trim().is_empty() {
             return Err("sign requires a purpose".to_owned());
         }
-        self.egress.sign(&purpose, &digest)
+        self.egress.sign(self.egress_binding()?, &purpose, &digest)
     }
 }
 
@@ -297,6 +324,7 @@ impl host_oauth::Host for GuestState {
         request: host_oauth::TokenRequest,
     ) -> Result<Resource<types::AccessTokenHandle>, String> {
         let handle = self.egress.oauth_acquire(
+            self.egress_binding()?,
             &self.connection_ref,
             request.resource.as_deref(),
             request.audience.as_deref(),
@@ -313,6 +341,7 @@ impl host_oauth::Host for GuestState {
     ) -> Result<host_http::Response, String> {
         self.assert_guest_destination(&request.url)?;
         let resp = self.egress.authenticated_request(
+            self.egress_binding()?,
             &self.connection_ref,
             token.rep(),
             EgressRequest {
@@ -430,7 +459,7 @@ impl WasmConnector {
 
         // Run `describe` once at load: proves the exports exist and binds
         // the manifest identity to what the component says about itself.
-        let (mut store, instance) = connector.fresh_instance("")?;
+        let (mut store, instance) = connector.fresh_instance("", None)?;
         let info = instance
             .call_describe(&mut store)
             .map_err(|e| WasmConnector::map_guest_error(&e))?;
@@ -459,6 +488,7 @@ impl WasmConnector {
     fn fresh_instance(
         &self,
         connection_ref: &str,
+        binding: Option<&InvocationBinding>,
     ) -> Result<(Store<GuestState>, bindings::Connector), HostError> {
         let state = GuestState {
             limits: StoreLimitsBuilder::new()
@@ -474,6 +504,7 @@ impl WasmConnector {
                 .map(|h| h.to_ascii_lowercase())
                 .collect(),
             connection_ref: connection_ref.to_owned(),
+            binding: binding.cloned(),
             egress: Arc::clone(&self.egress),
             max_response_bytes: self.limits.max_response_bytes,
         };
@@ -499,99 +530,15 @@ impl WasmConnector {
             return match trap {
                 wasmtime::Trap::OutOfFuel => HostError::Connector("fuel exhausted".into()),
                 wasmtime::Trap::Interrupt => HostError::Connector("deadline exceeded".into()),
-                other => HostError::Connector(format!("trap: {other}")),
+                _ => HostError::Connector("guest trapped".into()),
             };
         }
-        HostError::Connector(format!("guest: {error}"))
+        HostError::Connector("guest failed".into())
     }
 }
 
-fn map_invoke_error(error: &types::InvokeError) -> HostError {
-    let text = match error {
-        types::InvokeError::InvalidInput(m) => format!("invalid-input: {m}"),
-        types::InvokeError::Unauthorized(m) => format!("unauthorized: {m}"),
-        types::InvokeError::ApprovalRequired(m) => format!("approval-required: {m}"),
-        types::InvokeError::RateLimited(after) => match after {
-            Some(secs) => format!("rate-limited: retry after {secs}s"),
-            None => "rate-limited".to_owned(),
-        },
-        types::InvokeError::ProviderError((status, m)) => {
-            format!("provider-error {status}: {m}")
-        }
-        types::InvokeError::Transient(m) => format!("transient: {m}"),
-        types::InvokeError::Permanent(m) => format!("permanent: {m}"),
-    };
-    HostError::Connector(text)
-}
-
-impl Connector for WasmConnector {
-    fn id(&self) -> &str {
-        &self.manifest.metadata.id
-    }
-
-    fn version(&self) -> &str {
-        &self.manifest.metadata.version
-    }
-
-    fn component_digest(&self) -> &str {
-        &self.digest
-    }
-
-    fn operations(&self) -> &[&str] {
-        &self.operations_static
-    }
-
-    fn invoke(&self, req: &InvokeRequest) -> Result<InvokeResult, HostError> {
-        // Dispatcher-enforced checks (ADR 0065 §7): the guest cannot forget
-        // them because they run before it does.
-        let _ = &req.connection_ref;
-        if req.operation != req.authorized_operation {
-            return Err(HostError::OperationMismatch);
-        }
-        if opensesame_param_digest(&req.parameters) != req.parameters_digest {
-            return Err(HostError::ParameterDigestMismatch);
-        }
-        if req.invoke_level == Some(opensesame_domain::InvokeLevel::Materialize.as_u8()) {
-            return Err(HostError::MaterializeDenied);
-        }
-        if !self.operations.iter().any(|op| op == &req.operation) {
-            return Err(HostError::OperationMismatch);
-        }
-        // Re-verify the pin on every invocation: a mutated policy or
-        // component cannot ride an old approval.
-        if !self.policy.trusted_digests.contains(&self.digest) {
-            return Err(HostError::UntrustedComponent);
-        }
-
-        let (mut store, instance) = self.fresh_instance(&req.connection_ref)?;
-        let connection = Resource::<types::ConnectionHandle>::new_own(0);
-        let parameters = serde_json::to_vec(&req.parameters)
-            .map_err(|e| HostError::Connector(format!("parameters: {e}")))?;
-        let intent = types::Intent {
-            id: req.parameters_digest.clone(),
-            operation: req.operation.clone(),
-            resource: req.resource.clone(),
-            audience: req.audience.clone(),
-            parameters,
-            parameters_digest: req.parameters_digest.clone(),
-            expires_at_unix_ms: 0,
-            idempotency_key: String::new(),
-        };
-        let outcome = instance
-            .call_invoke(&mut store, connection, &intent)
-            .map_err(|e| Self::map_guest_error(&e))?;
-        let bytes = outcome.map_err(|e| map_invoke_error(&e))?;
-        if bytes.len() > self.limits.max_result_bytes {
-            return Err(HostError::Connector("result exceeds size cap".into()));
-        }
-        let (safe_summary, digest) = opaque_guest_summary(&bytes);
-        Ok(InvokeResult {
-            ok: true,
-            safe_summary,
-            external_request_digest: Some(digest),
-        })
-    }
-}
+#[path = "wasm_dispatch.rs"]
+mod dispatch;
 
 impl WasmConnector {
     /// Operation ids from the manifest (the authoritative allowlist).
@@ -615,16 +562,23 @@ mod tests {
     impl HostEgress for NoEgress {
         fn authorized_request(
             &self,
+            _binding: &InvocationBinding,
             _connection_ref: &str,
             _req: EgressRequest,
         ) -> Result<EgressResponse, String> {
             Err("unreachable in this test".into())
         }
-        fn sign(&self, _purpose: &str, _digest: &[u8]) -> Result<Vec<u8>, String> {
+        fn sign(
+            &self,
+            _binding: &InvocationBinding,
+            _purpose: &str,
+            _digest: &[u8],
+        ) -> Result<Vec<u8>, String> {
             Err("unreachable in this test".into())
         }
         fn oauth_acquire(
             &self,
+            _binding: &InvocationBinding,
             _connection_ref: &str,
             _resource: Option<&str>,
             _audience: Option<&str>,
@@ -634,6 +588,7 @@ mod tests {
         }
         fn authenticated_request(
             &self,
+            _binding: &InvocationBinding,
             _connection_ref: &str,
             _token_handle: u32,
             _req: EgressRequest,
@@ -648,6 +603,7 @@ mod tests {
             policy,
             outbound_hosts: outbound.iter().map(|h| (*h).to_owned()).collect(),
             connection_ref: "conn://test".into(),
+            binding: None,
             egress: Arc::new(NoEgress),
             max_response_bytes: 1024,
         }
@@ -697,3 +653,7 @@ mod tests {
         assert_eq!(resp.body.len(), 1024);
     }
 }
+
+#[cfg(test)]
+#[path = "wasm_binding_tests.rs"]
+mod binding_tests;

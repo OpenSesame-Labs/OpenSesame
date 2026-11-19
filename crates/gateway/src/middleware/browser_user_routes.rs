@@ -180,7 +180,10 @@ pub fn required_capability(method: &str, path: &str) -> Option<&'static str> {
     }
     let tail = path.strip_prefix("/api/v1/")?;
     if tail == "connections/discover"
-        || matches!(tail, "tasks/intents" | "tasks/invoke")
+        || matches!(
+            tail,
+            "tasks/intents" | "tasks/invoke" | "tasks/intent-opening"
+        )
         || (tail == "sync-targets/sync-all" && method != "POST")
         || (tail == "receipts/keys" && method != "GET")
     {
@@ -245,6 +248,7 @@ mod tests {
             "/api/v1/agent/runs/id/steps/claim",
             "/api/v1/tasks/intents",
             "/api/v1/tasks/invoke",
+            "/api/v1/tasks/intent-opening",
             "/api/v1/relay/requests/id/result",
         ] {
             for method in ["GET", "POST", "PUT", "PATCH", "DELETE"] {
