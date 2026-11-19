@@ -18,7 +18,7 @@
   "totals": {
     "files": 439,
     "violations": 698,
-    "oversizedLines": 212550
+    "oversizedLines": 212515
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -291,7 +291,7 @@
       "max-lines": 2736
     },
     "crates/connection-broker/src/sync_target.rs": {
-      "max-lines": 796
+      "max-lines": 761
     },
     "crates/connection-broker/src/tests/connection_lifecycle.rs": {
       "max-lines": 878
