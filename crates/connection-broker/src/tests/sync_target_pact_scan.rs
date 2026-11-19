@@ -31,8 +31,12 @@ pub(crate) fn response_body_reads(source: &str) -> Vec<&'static str> {
         "::chunk(",
         "::bytes_stream(",
         "::text_with_charset(",
-        "::copy_to(",
         "::copy_to::<",
+        "::copy_to(",
+        ".headers(",
+        "response.into",
+        "res.into",
+        "upstream.into",
     ];
     let (alias_calls, alias_modules) =
         super::sync_target_pact_norm::response_reader_aliases(source);
