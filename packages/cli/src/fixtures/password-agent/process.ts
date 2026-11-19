@@ -1,10 +1,13 @@
 import { spawn } from "node:child_process";
 import { chmod, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { z } from "zod";
 import { envWithFakeCliAppIntegrationDaemon } from "../cli-app-integration-fake-daemon.js";
 import { tsxLoader } from "./tsx-loader.js";
+
+const tsxLoader = createRequire(import.meta.url).resolve("tsx");
 
 const InvocationSchema = z.object({
   args: z.array(z.string()),

@@ -239,8 +239,6 @@ assertions that they passed on a particular commit or exercise every edge.
   restores a valid trigger, and a tablist has one reachable selected stop.
 - **Evidence and gap:** `apps/pages/src/lib/modal-focus.test.tsx` covers
   examples and `apps/pages/scripts/verify-keyboard.mjs` is a browser keyboard
-  gate. `RovingTabs.tla`, a generated React sequence test and a Bombadil
-  keyboard fixture cover a stable, enabled tablist; they assume the parent
-  accepts selection. There is no paired formal model and generated sequence
-  suite for nested modals or dynamically changing tab sets. Include removed
-  or disabled triggers and focus targets in further checks.
+  gate. No paired formal model and generated sequence suite for nested modals
+  and dynamically changing tab sets are registered in the reviewed ledger.
+  Include removed or disabled triggers and focus targets in future checks.

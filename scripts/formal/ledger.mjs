@@ -128,22 +128,6 @@ function checkBehavior(behavior, state) {
 }
 
 function checkRegisteredModels(state) {
-  const formalDir = resolve(state.root, "spec/formal-verification");
-  if (existsSync(formalDir)) {
-    for (const sub of readdirSync(formalDir, { withFileTypes: true }).filter(
-      (entry) => entry.isDirectory(),
-    )) {
-      const modelDir = resolve(formalDir, sub.name);
-      for (const name of readdirSync(modelDir).filter((entry) =>
-        entry.endsWith(".cfg"),
-      )) {
-        if (name.endsWith("Buggy.cfg")) continue;
-        const path = `spec/formal-verification/${sub.name}/${name}`;
-        if (!state.configs.has(path))
-          state.errors.push(`Unregistered model config: ${path}`);
-      }
-    }
-  }
   for (const directory of ["spec/ui-behavior", "spec/auth-verification"]) {
     const modelDir = resolve(state.root, directory);
     if (existsSync(modelDir)) {
