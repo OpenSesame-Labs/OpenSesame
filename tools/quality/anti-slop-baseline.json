@@ -11,20 +11,20 @@
     "(npm run lint:anti-slop:files), so a file someone touches leaves this ledger."
   ],
   "totals": {
-    "files": 151,
-    "violations": 538,
+    "files": 148,
+    "violations": 524,
     "byRule": {
       "anti-slop/no-chained-type-assertions": 4,
       "anti-slop/no-conditional-empty-object-spread": 15,
-      "anti-slop/no-known-value-widening": 198,
-      "anti-slop/no-object-parameters": 10,
+      "anti-slop/no-known-value-widening": 192,
+      "anti-slop/no-object-parameters": 6,
       "anti-slop/no-reflect-get": 6,
-      "anti-slop/no-runtime-typeof": 151,
+      "anti-slop/no-runtime-typeof": 150,
       "anti-slop/no-shape-in-symbol-names": 11,
-      "anti-slop/no-unknown-parameters": 33,
+      "anti-slop/no-unknown-parameters": 32,
       "anti-slop/no-unknown-returns": 2,
       "anti-slop/no-unsafe-dictionary-type": 12,
-      "anti-slop/require-safety-comment-for-type-assertion": 96
+      "anti-slop/require-safety-comment-for-type-assertion": 94
     }
   },
   "files": {
@@ -447,10 +447,6 @@
     "packages/control-plane/src/transport/__tests__/pki.ts": {
       "anti-slop/no-object-parameters": 1
     },
-    "packages/control-plane/src/transport/__tests__/resource-binding.test.ts": {
-      "anti-slop/no-known-value-widening": 5,
-      "anti-slop/no-object-parameters": 2
-    },
     "packages/control-plane/src/transport/__tests__/server-helpers.ts": {
       "anti-slop/no-known-value-widening": 1,
       "anti-slop/no-object-parameters": 1
@@ -460,15 +456,6 @@
     },
     "packages/control-plane/src/transport/config.ts": {
       "anti-slop/no-known-value-widening": 3
-    },
-    "packages/control-plane/src/transport/listener.ts": {
-      "anti-slop/no-known-value-widening": 1,
-      "anti-slop/no-runtime-typeof": 1,
-      "anti-slop/no-unknown-parameters": 1,
-      "anti-slop/require-safety-comment-for-type-assertion": 2
-    },
-    "packages/control-plane/src/transport/request-evidence.ts": {
-      "anti-slop/no-object-parameters": 2
     },
     "packages/control-plane/src/transport/resource-binding.ts": {
       "anti-slop/no-object-parameters": 1,
