@@ -77,12 +77,8 @@ async function resumeWithdrawal(
       ? prepareWithdrawal(tx, input, request, attempts + 1)
       : { status: "busy" };
   }
-  return sameWithdrawal(
-    pending,
-    input.actorType,
-    input.reason,
-    request,
-  ) && current.withdrawalId
+  return sameWithdrawal(pending, input.actorType, input.reason, request) &&
+    current.withdrawalId
     ? {
         status: "ready",
         prepared: {
