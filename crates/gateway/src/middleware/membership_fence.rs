@@ -49,15 +49,15 @@ pub async fn guard(State(st): State<AppState>, request: Request, next: Next) -> 
         let live = match claims.credential_kind {
             CredentialKind::NativeSession if claims.local_session => true,
             CredentialKind::NativeSession => {
-                let revision = claims
-                    .membership_revision
-                    .as_ref()
-                    .map(|revision| (revision.incarnation.as_str(), revision.revision.as_str()));
+                let Some(revision) = claims.membership_revision.as_ref() else {
+                    return StatusCode::UNAUTHORIZED.into_response();
+                };
                 st.db
                     .host_membership_live(
                         &claims.organization_id.to_string(),
                         &claims.principal_id.to_string(),
-                        revision,
+                        &revision.incarnation,
+                        &revision.revision,
                     )
                     .await
                     .unwrap_or(false)
