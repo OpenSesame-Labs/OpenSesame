@@ -70,7 +70,7 @@ function distRelForRef(distRelative, ref, base, assetRelative) {
   }
   if (ref.startsWith(".") || ref.startsWith("assets/")) {
     return ref.startsWith("assets/")
-      ? ref
+      ? normalizeDistRelative(ref, ref)
       : resolveDistImport(distRelative, ref);
   }
   return undefined;
