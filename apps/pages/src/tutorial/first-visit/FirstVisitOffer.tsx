@@ -151,8 +151,6 @@ function usePendingFirstVisit(
   useEffect(() => {
     return subscribeSessionTutorialsPaused(() => {
       if (!sessionTutorialsPaused()) return;
-      const pending = asked.current;
-      if (pending === null) return;
       asked.current = null;
       support.stopGuide("superseded");
     });
