@@ -73,7 +73,6 @@ pub struct SyncCursor {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(deny_unknown_fields)]
 pub struct SyncBlob {
     pub id: String,
     pub epoch: u64,

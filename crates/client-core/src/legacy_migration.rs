@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 use zeroize::Zeroizing;
 
 use crate::{
-    open, CiphertextSyncSnapshot, ClientCoreError, DeviceKey, PersistedStore, SyncBlob, SyncCursor,
-    SyncStore, sync_auth, MAX_SYNC_ID_BYTES,
+    open, sync_limits, CiphertextSyncSnapshot, ClientCoreError, DeviceKey, PersistedStore,
+    SyncBlob, SyncCursor, SyncStore, sync_auth, MAX_SYNC_ID_BYTES,
 };
 
 impl SyncStore {
@@ -103,5 +103,15 @@ fn migrate(
             b"OpenSesame sync store key v2",
         ));
     }
+    let migrated: Vec<SyncBlob> = store
+        .entries
+        .iter()
+        .map(|(id, (epoch, ciphertext))| SyncBlob {
+            id: id.clone(),
+            epoch: *epoch,
+            ciphertext: ciphertext.clone(),
+        })
+        .collect();
+    sync_limits::validate_blobs(&migrated)?;
     Ok(store)
 }
