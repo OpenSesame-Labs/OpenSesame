@@ -1,4 +1,8 @@
 //! Attachment state in the reserved namespace of the existing outside witness.
+//!
+//! A live attachment entry commits to the exact manifest plaintext. Revision
+//! alone is not enough: two forks of one checkpoint can seal different
+//! manifests under the same name and revision.
 use std::collections::BTreeSet;
 use std::path::Path;
 
@@ -16,6 +20,14 @@ fn identity(name: &str) -> Result<String, StoreError> {
         "{PREFIX}{}",
         crate::store::revision_identity(name)?
     ))
+}
+
+fn manifest_commitment(plaintext: &[u8]) -> [u8; 32] {
+    *blake3::hash(plaintext).as_bytes()
+}
+
+fn manifest_matches(state: &EntryWitness, plaintext: &[u8]) -> bool {
+    state.commitment != [0; 32] && state.commitment == manifest_commitment(plaintext)
 }
 
 pub(super) fn marked(witness: &Witness) -> bool {
@@ -38,6 +50,7 @@ pub(super) fn mark_empty(witness: &mut Witness) {
         EntryWitness {
             revision: 1,
             deleted: false,
+            commitment: [0; 32],
         },
     );
 }
@@ -72,12 +85,14 @@ impl StoreRoot {
                 EntryWitness {
                     revision: opened.revision,
                     deleted: false,
+                    commitment: manifest_commitment(&opened.plaintext),
                 }
             } else {
                 EntryWitness {
                     revision: known
                         .ok_or_else(|| StoreError::Crypto("missing attachment revision".into()))?,
                     deleted: true,
+                    commitment: [0; 32],
                 }
             };
             if state.revision == 0 {
@@ -108,6 +123,39 @@ impl StoreRoot {
         require_marker(&self.current_witness(key)?.1)
     }
 
+    fn open_manifest_plaintext(
+        &self,
+        name: &str,
+        key: &ItemDataKey,
+        revision: u64,
+    ) -> Result<Vec<u8>, StoreError> {
+        let relative = attach_relative(name)?;
+        if !self.path.join(&relative).exists() {
+            return Err(StoreError::Crypto(format!(
+                "witnessed attachment {name} is missing"
+            )));
+        }
+        let blob = confined_read(&self.path, &relative)?;
+        let (opened, _) =
+            open_osseal_in_for_path(COLLECTION_ATTACHMENTS, &blob, key, name, Some(revision))?;
+        Ok(opened.plaintext)
+    }
+
+    fn require_manifest_commitment(
+        &self,
+        name: &str,
+        key: &ItemDataKey,
+        state: &EntryWitness,
+    ) -> Result<(), StoreError> {
+        let plaintext = self.open_manifest_plaintext(name, key, state.revision)?;
+        if !manifest_matches(state, &plaintext) {
+            return Err(StoreError::Crypto(
+                "attachment manifest does not match its rollback witness".into(),
+            ));
+        }
+        Ok(())
+    }
+
     pub(crate) fn attachment_witness(
         &self,
         name: &str,
@@ -115,13 +163,17 @@ impl StoreRoot {
     ) -> Result<EntryWitness, StoreError> {
         let (_, witness) = self.current_witness(key)?;
         require_marker(&witness)?;
-        witness
+        let state = witness
             .entries
             .get(&identity(name)?)
             .copied()
             .ok_or_else(|| {
                 StoreError::Crypto(format!("missing attachment anti-rollback state for {name}"))
-            })
+            })?;
+        if !state.deleted {
+            self.require_manifest_commitment(name, key, &state)?;
+        }
+        Ok(state)
     }
 
     pub(crate) fn advance_attachment_witness(
@@ -130,6 +182,7 @@ impl StoreRoot {
         path: &Path,
         key: &ItemDataKey,
         minimum: u64,
+        manifest_plaintext: Option<&[u8]>,
     ) -> Result<u64, StoreError> {
         let (store_id, mut witness) = self.current_witness(key)?;
         require_marker(&witness)?;
@@ -139,6 +192,29 @@ impl StoreRoot {
                 "missing attachment anti-rollback state for {name}"
             )));
         }
+        if let Some(state) = witness.entries.get(&name_key).copied() {
+            // A same-revision fork authenticates under the witnessed revision.
+            // An interrupted write does not, and recovery may replace it.
+            if !state.deleted && path.exists() {
+                match self.open_manifest_plaintext(name, key, state.revision) {
+                    Ok(plaintext) if !manifest_matches(&state, &plaintext) => {
+                        return Err(StoreError::Crypto(
+                            "attachment manifest does not match its rollback witness".into(),
+                        ));
+                    }
+                    Ok(_) => {}
+                    Err(StoreError::Crypto(_)) => {}
+                    Err(error) => return Err(error),
+                }
+            }
+        }
+        let commitment = match manifest_plaintext {
+            Some(plaintext) => {
+                parse_attachment_manifest(plaintext)?;
+                manifest_commitment(plaintext)
+            }
+            None => [0; 32],
+        };
         let next = witness
             .entries
             .get(&name_key)
@@ -151,6 +227,7 @@ impl StoreRoot {
             EntryWitness {
                 revision: next,
                 deleted: false,
+                commitment,
             },
         );
         witness.epoch = witness
@@ -217,6 +294,7 @@ impl StoreRoot {
         path: &Path,
         key: &ItemDataKey,
         minimum: u64,
+        manifest_plaintext: &[u8],
     ) -> Result<Option<u64>, StoreError> {
         if self.read_store_id()?.is_none() && self.read_outside_identity(key)?.is_none() {
             return Ok(None);
@@ -225,8 +303,53 @@ impl StoreRoot {
         if !marked(&witness) {
             return Ok(None);
         }
-        self.advance_attachment_witness(name, path, key, minimum)
+        self.advance_attachment_witness(name, path, key, minimum, Some(manifest_plaintext))
             .map(Some)
+    }
+
+    /// Rotation reseals manifests under the new root, which changes chunk
+    /// ciphertext digests and therefore the manifest plaintext. Publish that
+    /// new commitment before the redundant witness slot is restored.
+    pub(crate) fn rebind_rotated_attachments(
+        &self,
+        prepared: &mut super::WitnessRekey,
+        key: &ItemDataKey,
+    ) -> Result<(), StoreError> {
+        let names: Vec<String> = prepared
+            .witness
+            .entries
+            .keys()
+            .filter_map(|name| name.strip_prefix(PREFIX).map(str::to_string))
+            .collect();
+        let mut changed = false;
+        for name in names {
+            let id = identity(&name)?;
+            let Some(state) = prepared.witness.entries.get(&id).copied() else {
+                continue;
+            };
+            if state.deleted {
+                continue;
+            }
+            let plaintext = self.open_manifest_plaintext(&name, key, state.revision)?;
+            let commitment = manifest_commitment(&plaintext);
+            if commitment == state.commitment {
+                continue;
+            }
+            let Some(entry) = prepared.witness.entries.get_mut(&id) else {
+                continue;
+            };
+            entry.commitment = commitment;
+            changed = true;
+        }
+        if !changed {
+            return Ok(());
+        }
+        prepared.witness.epoch = prepared
+            .witness
+            .epoch
+            .checked_add(1)
+            .ok_or_else(|| StoreError::Crypto("rollback witness epoch exhausted".into()))?;
+        self.write_witness(&prepared.store_id, key, &prepared.witness)
     }
 }
 
@@ -313,7 +436,7 @@ mod tests {
         add(&root, &key, b"one", false);
         let path = dir.path().join("Docs/file.osattach");
         let old = std::fs::read(&path).unwrap();
-        root.advance_attachment_witness("Docs/file", &path, &key, 1)
+        root.advance_attachment_witness("Docs/file", &path, &key, 1, None)
             .unwrap();
         assert!(root.attach_get("Docs/file", &mut Vec::new(), &key).is_err());
         root.recover_attachment_trusting_ciphertext("Docs/file", &key)
@@ -373,5 +496,60 @@ mod tests {
         let mut after = Vec::new();
         root.attach_get("Docs/file", &mut after, &new_key).unwrap();
         assert_eq!(after, b"content");
+    }
+
+    #[test]
+    fn same_revision_forked_manifest_fails_witness_check() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = init_store(dir.path(), &[]).unwrap();
+        let key = init_store_key(dir.path(), b"correct horse").unwrap();
+        add(&root, &key, b"alpha", false);
+        let path = dir.path().join("Docs/file.osattach");
+        let original = std::fs::read(&path).unwrap();
+        let witnessed = root.attachment_witness("Docs/file", &key).unwrap();
+        assert!(!witnessed.deleted);
+        assert_ne!(witnessed.commitment, [0; 32]);
+
+        let (opened, bound) = super::open_osseal_in_for_path(
+            super::COLLECTION_ATTACHMENTS,
+            &original,
+            &key,
+            "Docs/file",
+            Some(witnessed.revision),
+        )
+        .unwrap();
+        let mut manifest = super::parse_attachment_manifest(&opened.plaintext).unwrap();
+        manifest.filename = "other-file".into();
+        let plaintext = serde_json::to_vec(&manifest).unwrap();
+        let forked = crate::envelope::seal_osseal_in(
+            super::COLLECTION_ATTACHMENTS,
+            &plaintext,
+            &key,
+            &bound,
+            witnessed.revision,
+        )
+        .unwrap();
+        assert_ne!(forked, original);
+        std::fs::write(&path, &forked).unwrap();
+
+        assert!(root.attachment_witness("Docs/file", &key).is_err());
+        assert!(root
+            .advance_attachment_witness(
+                "Docs/file",
+                &path,
+                &key,
+                witnessed.revision,
+                Some(&plaintext),
+            )
+            .is_err());
+        assert!(root.attach_get("Docs/file", &mut Vec::new(), &key).is_err());
+
+        std::fs::write(&path, original).unwrap();
+        let restored = root.attachment_witness("Docs/file", &key).unwrap();
+        assert_eq!(restored.revision, witnessed.revision);
+        assert_eq!(restored.commitment, witnessed.commitment);
+        let mut out = Vec::new();
+        root.attach_get("Docs/file", &mut out, &key).unwrap();
+        assert_eq!(out, b"alpha");
     }
 }

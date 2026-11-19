@@ -228,10 +228,21 @@ impl StoreRoot {
         confined_atomic_write(&self.path, Path::new(ATTACHMENT_REVISION_FILE), &bytes)
     }
 
-    fn next_attachment_revision(&self, name: &str, key: &ItemDataKey) -> Result<u64, StoreError> {
+    fn next_attachment_revision(
+        &self,
+        name: &str,
+        key: &ItemDataKey,
+        manifest_plaintext: Option<&[u8]>,
+    ) -> Result<u64, StoreError> {
         let relative = attach_relative(name)?;
         let local = self.attachment_revision(name)?.unwrap_or(0);
-        let next = self.advance_attachment_witness(name, &self.path.join(relative), key, local)?;
+        let next = self.advance_attachment_witness(
+            name,
+            &self.path.join(relative),
+            key,
+            local,
+            manifest_plaintext,
+        )?;
         self.record_attachment_revision(name, next)?;
         Ok(next)
     }
@@ -348,9 +359,9 @@ impl StoreRoot {
             created_at_unix_ms: now_unix_ms(),
         };
 
-        let revision = self.next_attachment_revision(name, key)?;
         let plaintext = serde_json::to_vec(&manifest)
             .map_err(|e| StoreError::Crypto(format!("manifest encode: {e}")))?;
+        let revision = self.next_attachment_revision(name, key, Some(&plaintext))?;
         let sealed = seal_osseal_in(COLLECTION_ATTACHMENTS, &plaintext, key, name, revision)?;
         confined_atomic_write(&self.path, &rel, &sealed)?;
 

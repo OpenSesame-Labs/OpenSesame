@@ -35,13 +35,18 @@ impl StoreRoot {
             .attachment_revision(name)?
             .unwrap_or(0)
             .max(opened.revision);
-        let next =
-            match self.recover_attachment_witness(name, &self.path.join(&rel), key, current)? {
-                Some(next) => next,
-                None => current
-                    .checked_add(1)
-                    .ok_or_else(|| StoreError::Crypto("attachment revision exhausted".into()))?,
-            };
+        let next = match self.recover_attachment_witness(
+            name,
+            &self.path.join(&rel),
+            key,
+            current,
+            &plaintext,
+        )? {
+            Some(next) => next,
+            None => current
+                .checked_add(1)
+                .ok_or_else(|| StoreError::Crypto("attachment revision exhausted".into()))?,
+        };
         let sealed = seal_osseal_in(COLLECTION_ATTACHMENTS, &plaintext, key, &bound_name, next)?;
         self.record_attachment_revision(name, next)?;
         confined_atomic_write(&self.path, &rel, &sealed)?;
