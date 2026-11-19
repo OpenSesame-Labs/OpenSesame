@@ -24,6 +24,8 @@ describe("autofill gesture formal replay", () => {
       },
     };
     const decision = decideFill(arm, facts, 1_000);
-    expect(decision).toEqual({ fill: false, refusal: "untrusted_trigger" });
+    expect(decision.fill).toBe(false);
+    if (decision.fill) throw new Error("expected refusal");
+    expect(decision.refusal).toBe("untrusted_trigger");
   });
 });

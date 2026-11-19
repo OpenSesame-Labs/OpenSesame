@@ -12,6 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   checkExploration,
   switchCoverage,
+  tabsCoverage,
 } from "../../apps/pages/scripts/lib/ui-property-trace.mjs";
 import {
   checkModelDirectories,
@@ -32,6 +33,13 @@ const workflow = parse(
   ),
 );
 const temporary = [];
+const federationSecuritySuites = [
+  "issuer-trust.property.test.ts",
+  "federated-pending-integrity.test.ts",
+  "federated-pending-integrity.property.test.ts",
+  "federated-trust-binding.property.test.ts",
+  "federated.units.test.ts",
+];
 
 function directory() {
   const path = mkdtempSync(join(tmpdir(), "ui-model-test-"));
@@ -140,6 +148,18 @@ describe("UI behavior qualifies each candidate", () => {
       "npm run verify:behavior-models -w @opensesame/pages",
     );
     expect(steps).toContain("toast-model-fault.test.mjs");
+    expect(steps).toContain("roving-tabs-model-fault.test.mjs");
+    expect(steps).toContain("provisional-session-counterexample.test.mjs");
+    expect(steps).toContain("native-oidc-evidence-counterexample.test.mjs");
+    expect(steps).toContain("webauthn-model-fault.test.mjs");
+    expect(steps).toContain("device-model-fault.test.mjs");
+    expect(steps).toContain("agent-registration-model-fault.test.mjs");
+    expect(steps).toContain("claim-lifecycle-model-fault.test.mjs");
+    expect(steps).toContain("saml-replay-model-fault.test.mjs");
+    expect(steps).toContain("passkey-race-model-fault.test.mjs");
+    expect(steps).toContain("issuer-trust-model-fault.test.mjs");
+    expect(steps).toContain("federated-pending-model-fault.test.mjs");
+    expect(steps).toContain("federated-trust-model-fault.test.mjs");
     expect(steps).toContain("leanprover/lean4/releases/download/v4.24.0/");
     expect(steps).toContain(
       "b14f5e5159219dd1a1956c3b806813319f5e94ccd5bdfd56f54520609a5bb5ec",
@@ -148,6 +168,7 @@ describe("UI behavior qualifies each candidate", () => {
     expect(steps).toContain(
       "node --test spec/auth-verification/verify.test.mjs",
     );
+    expect(steps).toContain("npm run verify:auth-source");
     expect(steps).toContain(
       "npm run verify:ui-properties -w @opensesame/pages",
     );
@@ -155,14 +176,29 @@ describe("UI behavior qualifies each candidate", () => {
     expect(steps).toContain("google-chrome --version");
     expect(JSON.stringify(job)).not.toContain("continue-on-error");
   });
+});
 
+describe("UI behavior implementation coverage", () => {
   it("runs the implementation and accessibility regression suites", () => {
     const steps = workflow.jobs["behavior-verification"].steps
       .map((step) => step.run ?? "")
       .join("\n");
     const suites = [
       "transaction.auth-proof.properties.test.ts",
+      "evidence-custody.property.test.ts",
       "auth-admission.properties.test.ts",
+      "auth-session-interleaving.property.test.ts",
+      "webauthn-challenge.property.test.ts",
+      "device-authorization.property.test.ts",
+      "agent-registration.property.test.ts",
+      "claim-lifecycle.property.test.ts",
+      "claim-completion-identity.test.ts",
+      "replay-custody.property.test.ts",
+      "assertion-purpose-boundary.test.ts",
+      "passkey-verification-race.test.ts",
+      "passkey-store.property.test.ts",
+      "passkey-durable-race.test.ts",
+      ...federationSecuritySuites,
       "authorization-request-finite.test.ts",
       "scripts/saml-browser-crypto.integration.test.mjs",
       "src/lib/capabilities/classification.test.ts",
@@ -197,9 +233,24 @@ describe("UI behavior qualifies each candidate", () => {
       "ProviderTiles.test.tsx",
       "IntegrationSections.roads.test.tsx",
       "tutorial-route.property.test.tsx",
+      "use-roving-tabs.property.test.tsx",
     ];
     for (const suite of suites) expect(steps).toContain(suite);
   });
+});
+
+it("uses the pinned Lean executable for source-derived proofs", () => {
+  const job = workflow.jobs["behavior-verification"];
+  const packageScripts = JSON.parse(
+    readFileSync(join(root, "package.json"), "utf8"),
+  ).scripts;
+  expect(packageScripts["verify:auth-source"]).toBe(
+    "node spec/auth-verification/source/verify.mjs && node --test spec/auth-verification/source/verify.test.mjs spec/auth-verification/source/extended.test.mjs",
+  );
+  expect(
+    job.steps.find((step) => step.run?.includes("npm run verify:auth-source"))
+      ?.env.LEAN_BIN,
+  ).toBe("${{ runner.temp }}/lean/bin/lean");
 });
 
 describe("generated browser evidence", () => {
@@ -230,5 +281,16 @@ describe("generated browser evidence", () => {
     ).toThrow(/rejected/);
     const covered = { accepted: 1, rejected: 2, disabled: 3 };
     expect(switchCoverage(trace(covered))).toEqual(covered);
+  });
+
+  it("requires all four tab-navigation keys in a normal trace", () => {
+    const trace = (coverage) =>
+      JSON.stringify({ snapshots: [{ name: "state", value: { coverage } }] });
+    expect(() => tabsCoverage("{}")).toThrow(/left/);
+    expect(() =>
+      tabsCoverage(trace({ left: 1, right: 1, home: 0, end: 1 })),
+    ).toThrow(/home/);
+    const covered = { left: 1, right: 2, home: 3, end: 4 };
+    expect(tabsCoverage(trace(covered))).toEqual(covered);
   });
 });

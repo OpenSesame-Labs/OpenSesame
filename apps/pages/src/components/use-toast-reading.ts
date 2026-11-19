@@ -12,7 +12,10 @@ export function useToastReading(
   const [focused, setFocused] = useState(false);
   const left = useRef(duration);
   const since = useRef(0);
-  const { sticky } = toast;
+  const { sticky, title, body } = toast;
+  useEffect(() => {
+    left.current = duration;
+  }, [toast.id, title, body, duration]);
   useEffect(() => {
     if (hovered || focused || sticky) return;
     since.current = Date.now();
@@ -21,7 +24,7 @@ export function useToastReading(
       clearTimeout(timer);
       left.current -= Date.now() - since.current;
     };
-  }, [hovered, focused, sticky, onDone, toast.id]);
+  }, [hovered, focused, sticky, onDone, toast.id, title, body, duration]);
 
   return {
     enter: () => {
