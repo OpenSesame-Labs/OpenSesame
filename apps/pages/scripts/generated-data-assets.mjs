@@ -326,7 +326,7 @@ const generatedModules = Object.freeze([
   ),
   tutorialDataModule(
     "keyboard-goals",
-    "575ebe3ee2ddd041f1db309c530923c9528d9174eb675f78649bb4aa3983ca73",
+    "f2713f15765192eff63b93dbbbf8de15f58eb0407b893e462efb9f53f927a8ee",
     ["KEYBOARD_GOALS"],
   ),
   tutorialDataModule(
