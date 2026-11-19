@@ -33,24 +33,24 @@ impl Db {
         .rows_affected()
             == 1;
         if !inserted {
-            if let Some(row) = sqlx::query(
+            let existing = sqlx::query(
                 "SELECT organization_id,principal_id,membership_incarnation,authority_revision
                  FROM host_membership_withdrawals WHERE withdrawal_id=?",
             )
             .bind(input.withdrawal_id)
             .fetch_optional(&mut *tx)
-            .await?
-            {
-                anyhow::ensure!(
-                    row.try_get::<String, _>("organization_id")? == input.organization_id
-                        && row.try_get::<String, _>("principal_id")? == input.principal_id
-                        && row.try_get::<String, _>("membership_incarnation")?
-                            == input.membership_incarnation
-                        && row.try_get::<String, _>("authority_revision")?
-                            == input.authority_revision,
-                    "withdrawal id conflict"
-                );
-            }
+            .await?;
+            let Some(row) = existing else {
+                anyhow::bail!("membership revision already fenced by another withdrawal id");
+            };
+            anyhow::ensure!(
+                row.try_get::<String, _>("organization_id")? == input.organization_id
+                    && row.try_get::<String, _>("principal_id")? == input.principal_id
+                    && row.try_get::<String, _>("membership_incarnation")?
+                        == input.membership_incarnation
+                    && row.try_get::<String, _>("authority_revision")? == input.authority_revision,
+                "withdrawal id conflict"
+            );
         }
         tx.commit().await?;
         Ok(inserted)
