@@ -224,7 +224,11 @@ async function readBoundedBody(
   }
   const chunks = [];
   let total = 0;
-  const readEndsAt = Math.max(bodyDeadlineAt, now() + perChunkCapMs);
+  const perReadCapEnd = now() + perChunkCapMs;
+  const readEndsAt =
+    bodyDeadlineAt > now()
+      ? Math.min(bodyDeadlineAt, perReadCapEnd)
+      : perReadCapEnd;
   try {
     while (true) {
       if (now() > readEndsAt) {
@@ -390,3 +394,4 @@ export async function pollLiveShellAssets(env, deps = {}) {
 }
 
 export { shellAssetRefs } from "./shell-html-refs.mjs";
+export { readBoundedBody };

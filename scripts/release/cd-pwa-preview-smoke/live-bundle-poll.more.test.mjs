@@ -14,10 +14,26 @@ import {
   dynamicImportRefsFromJs,
   listStagedShellAssetPaths,
   pollLiveShellAssets,
+  readBoundedBody,
   shellAssetRefs,
   shellAssetRelative,
 } from "./live-bundle-poll.mjs";
 import { sharedCdnDeadlineEndMs } from "./retry-budget.mjs";
+
+test("readBoundedBody stops at shared CDN deadline before per-chunk cap", async () => {
+  const stream = new ReadableStream({ pull() {} });
+  await assert.rejects(
+    () =>
+      readBoundedBody(
+        new Response(stream),
+        "assets/main.js",
+        100,
+        () => 99,
+        5000,
+      ),
+    /body read timed out/,
+  );
+});
 
 test("shellAssetRefs ignores data-src and reads tags past > inside quotes", () => {
   const html = [
