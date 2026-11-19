@@ -175,14 +175,37 @@ describe("SCIM provisioning lifecycle", () => {
     expect(deactivated.status).toBe(200);
     expect(overlapCast(await deactivated.json()).active).toBe(false);
 
-    // Membership gone, and the session it authorised with it.
+    // Membership authority is gone, while the principal-wide session remains
+    // usable for personal work and other tenants.
     expect(
       await ctx.stores.organizationMemberships.find(org.id, guest.principalId),
     ).toBeUndefined();
     const stillSignedIn = await app.request("/v1/organizations", {
       headers: auth(guest.accessToken),
     });
-    expect(stillSignedIn.status).toBe(401);
+    expect(stillSignedIn.status).toBe(200);
+
+    // A directory retry advances the publication fence even though the row is
+    // already absent, without turning an organization event into global logout.
+    const retried = await app.request(
+      usersPath(org.id, `/${created.body.id}`),
+      {
+        method: "PATCH",
+        headers: scimHeaders(token),
+        body: JSON.stringify({
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+          Operations: [{ op: "replace", path: "active", value: false }],
+        }),
+      },
+    );
+    expect(retried.status).toBe(200);
+    expect(
+      (
+        await app.request("/v1/organizations", {
+          headers: auth(guest.accessToken),
+        })
+      ).status,
+    ).toBe(200);
   }, 30_000);
 
   it("refuses a subject the directory deactivated before it ever signed in", async () => {

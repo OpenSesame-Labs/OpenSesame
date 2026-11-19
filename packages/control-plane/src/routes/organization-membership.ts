@@ -1,3 +1,4 @@
+import type { Named } from "@gdp-ts/core";
 import { appendAuditEvent } from "@opensesame/audit";
 import type {
   Organization,
@@ -5,12 +6,14 @@ import type {
   OrganizationRole,
 } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
+import type { OrganizationId } from "../lib/ids.js";
+import type { OrgOwner } from "../proofs/org-owner.js";
 import {
   advancePrincipalSessionEpoch,
   advancePrincipalSessionEpochOn,
   withPrincipalSessionBoundary,
 } from "../repos/principal-session-boundary.js";
-import { removeOrphanTokens } from "../repos/session-storage.js";
+import { removeOrganizationMembership } from "../services/org-admin.js";
 
 export async function getMembership(
   ctx: AppContext,
@@ -52,55 +55,37 @@ export type OrganizationRevocationInput = {
   principalId: string;
   correlationId: string;
   reason: string;
-  revokeSessionsWithoutMembership?: boolean;
-  /** Internal: caller already owns this organization's mutation turn. */
-  membershipSerialized?: boolean;
+  advanceEpochWithoutMembership?: boolean;
 };
 
 export type OrganizationRevocationResult = {
   membershipRemoved: boolean;
-  sessionsRevoked: number;
 };
 
 /** Drop a membership and every session it authorized (ADR 0056/0057). */
-export async function revokeOrganizationMembership(
+async function revokeSerializedOrganizationMembership(
   ctx: AppContext,
   input: OrganizationRevocationInput,
+  removeMembership?: (ctx: AppContext) => Promise<boolean>,
 ): Promise<OrganizationRevocationResult> {
   const result = await withPrincipalSessionBoundary(
     ctx.stores,
     input.principalId,
     "revoke",
     async (stores, database) => {
-      const remove = async () =>
-        await stores.organizationMemberships.remove(
-          input.organizationId,
-          input.principalId,
-        );
-      const membershipRemoved = input.membershipSerialized
-        ? await remove()
-        : await serializeMembershipMutation(
-            { ...ctx, stores },
+      const transactionContext = { ...ctx, stores };
+      const membershipRemoved = removeMembership
+        ? await removeMembership(transactionContext)
+        : await stores.organizationMemberships.remove(
             input.organizationId,
-            remove,
+            input.principalId,
           );
-      if (membershipRemoved || input.revokeSessionsWithoutMembership) {
+      if (membershipRemoved || input.advanceEpochWithoutMembership) {
         if (database)
           await advancePrincipalSessionEpochOn(database, input.principalId);
         else await advancePrincipalSessionEpoch(stores, input.principalId);
       }
-      let sessionsRevoked = 0;
-      const sessions =
-        membershipRemoved || input.revokeSessionsWithoutMembership
-          ? await stores.provisionalSessions.entries()
-          : [];
-      for (const [, session] of sessions) {
-        if (session.principalId !== input.principalId) continue;
-        await stores.provisionalSessions.delete(session.id);
-        sessionsRevoked += 1;
-      }
-      await removeOrphanTokens(stores);
-      return { membershipRemoved, sessionsRevoked };
+      return { membershipRemoved };
     },
   );
   await appendAuditEvent(ctx.repos.auditEvents, {
@@ -112,10 +97,39 @@ export async function revokeOrganizationMembership(
     metadata: {
       action: "organization.member.revoke",
       reason: input.reason,
-      count: result.sessionsRevoked,
     },
   });
   return result;
+}
+
+/** System path: always acquire organization authority before principal authority. */
+export function revokeOrganizationMembership(
+  ctx: AppContext,
+  input: OrganizationRevocationInput,
+): Promise<OrganizationRevocationResult> {
+  return serializeMembershipMutation(ctx, input.organizationId, () =>
+    revokeSerializedOrganizationMembership(ctx, input),
+  );
+}
+
+/** Owner path: bind the owner proof to the organization being removed from. */
+export function revokeOwnedOrganizationMembership<A, O>(
+  ctx: AppContext,
+  org: Named<O, OrganizationId>,
+  proof: OrgOwner<A, O>,
+  input: Omit<OrganizationRevocationInput, "organizationId">,
+): Promise<OrganizationRevocationResult> {
+  return revokeSerializedOrganizationMembership(
+    ctx,
+    { ...input, organizationId: org.value },
+    (transactionContext) =>
+      removeOrganizationMembership(
+        transactionContext,
+        org,
+        proof,
+        input.principalId,
+      ),
+  );
 }
 
 export type JitJoinInput = {

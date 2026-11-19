@@ -4,6 +4,7 @@ import {
   PostgresOrganizationMembershipStore,
   createDrizzle,
   createSqlClient,
+  principals,
 } from "@opensesame/database";
 import { overlapCast } from "@opensesame/os-domain";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
@@ -19,11 +20,55 @@ import { adoptSessionWithinCapacity } from "../routes/federated-session.js";
 import {
   ensurePersonalOrganization,
   revokeOrganizationMembership,
+  serializeMembershipMutation,
 } from "../routes/organizations.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 
 describe("memory membership revocation boundary", () => {
+  it("takes the organization turn before the principal boundary", async () => {
+    const started = createControlPlane({
+      processEnv: { ...process.env, DATABASE_URL: "" },
+    });
+    const principalId = "prn_lock_order";
+    const organizationId = "org:lock-order";
+    let releaseOrganization = () => {};
+    let organizationHeld = () => {};
+    const held = new Promise<void>((resolve) => {
+      organizationHeld = resolve;
+    });
+    const release = new Promise<void>((resolve) => {
+      releaseOrganization = resolve;
+    });
+    const ownerMutation = serializeMembershipMutation(
+      started.ctx,
+      organizationId,
+      async () => {
+        organizationHeld();
+        await release;
+      },
+    );
+    await held;
+
+    const revoking = revokeOrganizationMembership(started.ctx, {
+      organizationId,
+      principalId,
+      correlationId: "lock-order",
+      reason: "deprovisioned",
+    });
+    await Promise.resolve();
+    await withPrincipalSessionBoundary(
+      started.ctx.stores,
+      principalId,
+      "revoke",
+      async () => undefined,
+    );
+
+    releaseOrganization();
+    await ownerMutation;
+    await revoking;
+  });
+
   it("refuses session publication while revocation is pending", async () => {
     const started = createControlPlane({
       processEnv: { ...process.env, DATABASE_URL: "" },
@@ -134,6 +179,34 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
     }
   });
 
+  it("routes root repository reads through the DurableMap transaction", async () => {
+    const principalId = `prn_tx_${randomUUID()}`;
+    const sessions = first.ctx.stores.provisionalSessions;
+    if (!(sessions instanceof DurableMap))
+      throw new Error("Expected durable sessions");
+
+    await expect(
+      sessions.transaction(async (database) => {
+        await database.insert(principals).values({
+          id: principalId,
+          state: "active",
+          assurance: "verified",
+          version: 1,
+          sessionAuthorityVersion: 0,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        await expect(
+          first.ctx.repos.principals.getById(principalId),
+        ).resolves.toMatchObject({ id: principalId, state: "active" });
+        throw new Error("rollback transaction context regression");
+      }),
+    ).rejects.toThrow("rollback transaction context regression");
+    await expect(
+      first.ctx.repos.principals.getById(principalId),
+    ).resolves.toBeNull();
+  });
+
   it("refuses publication on another replica while revocation commits", async () => {
     const response = await first.app.request("/v1/principals/provisional", {
       method: "POST",
@@ -220,7 +293,7 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
           headers: { authorization: `Bearer ${person.accessToken}` },
         })
       ).status,
-    ).toBe(401);
+    ).toBe(200);
 
     const rollbackResponse = await first.app.request(
       "/v1/principals/provisional",

@@ -56,7 +56,7 @@ import { type OrgOwnerSource, asOrgOwner } from "./org-owner-gate.js";
 import {
   getMembership,
   jitJoinOrganization,
-  revokeOrganizationMembership,
+  revokeOwnedOrganizationMembership,
   serializeMembershipMutation,
 } from "./organization-membership.js";
 import { provisionedRoleForSubject } from "./scim.js";
@@ -859,12 +859,10 @@ organizationRoutes.delete(
         }
         // Remove authority before yielding so no approval can mint a session in the
         // gap between revocation and this mutation. Restore it if Host fails closed.
-        await revokeOrganizationMembership(ctx, {
-          organizationId,
+        await revokeOwnedOrganizationMembership(ctx, org, proof, {
           principalId: targetPrincipalId,
           correlationId: c.get("correlationId"),
           reason: "owner_removed",
-          membershipSerialized: true,
         });
         if (
           !(await revokeHostSessions(ctx, organizationId, targetPrincipalId))
