@@ -13,7 +13,7 @@ jobs:
     env:
       EVIDENCE_BASE_SHA: a98c08ab76fe530fe766eb89504ca1eb0b7fcb08
       EVIDENCE_HEAD_SHA: c9942886a5a0375ee7be9f6b42493906653b641b
-      EVIDENCE_ROOT: ${{ runner.temp }}/rotation-comparison
+      EVIDENCE_ROOT: /tmp/rotation-comparison
       PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
       VITE_BASE: /OpenSesame/
     steps:
@@ -74,6 +74,6 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: rotation-comparison-${{ github.run_id }}
-          path: ${{ runner.temp }}/rotation-comparison/
+          path: /tmp/rotation-comparison/
           retention-days: 14
           if-no-files-found: warn
