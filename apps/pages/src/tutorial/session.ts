@@ -494,7 +494,11 @@ export function createSupportController(
         void runProgram(program, "authored");
         return true;
       };
-      if (engine) return beginAuthored(engine);
+      if (engine) {
+        if (!beginAuthored(engine)) return false;
+        completeQueuedTutorial(goalId);
+        return true;
+      }
       void ensureEngine().then((loaded) => {
         if (!loaded) {
           notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
@@ -503,7 +507,7 @@ export function createSupportController(
         if (!beginAuthored(loaded)) return;
         completeQueuedTutorial(goalId);
       });
-      return false;
+      return true;
     },
     async ask(question) {
       const gate = gateSupportAsk(question, state.thinking);
