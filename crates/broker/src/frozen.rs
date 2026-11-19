@@ -1,15 +1,15 @@
 //! Authorize-and-execute path that never accepts a second mutable parameter blob.
 
 use opensesame_authz::{AuthZenAction, AuthZenRequest, AuthZenResource, AuthZenSubject};
-use opensesame_connector_host::InvokeRequest;
+use opensesame_connector_host::{InvocationBinding, InvokeRequest};
 use opensesame_domain::{
     receipt_delegation_chain, AvailabilityClass, Capability, DetachedProof, DomainError,
     FrozenIntentV2, Grant, Intent, Invocation, InvocationReceipt, InvocationState, ReceiptId,
-    ReceiptOutcome, ValidatedGrantChain,
+    ReceiptOutcome, ResourceSelector, ValidatedGrantChain, OPAQUE_RESULT_RECEIPT_SCHEMA_VERSION,
 };
 use opensesame_task_access::{TaskAccessEngine, TaskStore};
 use opensesame_time::Utc;
-use serde_json::{json, Value};
+use serde_json::json;
 
 use crate::{Broker, FinishReceiptParts};
 
@@ -67,7 +67,7 @@ pub fn assert_grant_covers_frozen_intent(
     Ok(())
 }
 
-fn legacy_intent(intent: &FrozenIntentV2) -> Result<Intent, DomainError> {
+pub(crate) fn legacy_intent(intent: &FrozenIntentV2) -> Result<Intent, DomainError> {
     Ok(Intent {
         id: intent.id,
         organization_id: intent.organization_id,
@@ -140,15 +140,24 @@ impl Broker {
         input.intent.assert_fresh(now)?;
         input.grant.assert_active(now)?;
 
-        // Recompute and bind digest; reject caller-supplied mismatches.
-        let intent = input.intent.clone().with_computed_digest()?;
-        intent.assert_digest()?;
+        // The authority already froze this intent. Verify that snapshot before
+        // using it; recomputing in place would accept post-freeze mutation.
+        input.intent.assert_digest()?;
+        let intent = input.intent.clone();
 
         assert_grant_covers_frozen_intent(&input.grant, &intent)?;
 
+        let required = Capability::new(
+            intent.operation.clone(),
+            ResourceSelector::exact(intent.resource.clone()),
+        );
+        anyhow::ensure!(
+            input.required_capability == required,
+            "required capability does not match the frozen operation"
+        );
         let run = tasks.assert_capability(
             intent.task_run_id,
-            &input.required_capability,
+            &required,
             intent.task_state_version,
             now,
         )?;
@@ -169,18 +178,7 @@ impl Broker {
 
         // Compatibility: store a V1 projection for idempotency tables that expect Intent.
         let legacy = legacy_intent(&intent)?;
-        if let Some(receipt) = self
-            .prior_receipt(
-                &legacy,
-                "idempotency conflict: prior frozen intent has no receipt yet",
-            )
-            .await?
-        {
-            return Ok(receipt);
-        }
-        self.db.insert_intent(&legacy).await?;
-
-        let mut inv = Self::begin_invocation(intent.id, now)?;
+        let fingerprint = crate::idempotency::frozen_fingerprint(&input, &intent)?;
         let authz_req = frozen_authz_request(&input, &intent);
 
         let decision = self.policy.decide(
@@ -189,9 +187,32 @@ impl Broker {
             input.lineage.as_ref(),
             AvailabilityClass::A3ExternalSideEffect,
         )?;
+        if let Some(receipt) = self
+            .prior_receipt(&legacy, &fingerprint, Some(&intent.intent_digest))
+            .await?
+        {
+            anyhow::ensure!(
+                decision.decision,
+                "idempotency conflict: current authorization denied"
+            );
+            return Ok(receipt);
+        }
+        let mut inv = Self::begin_invocation(intent.id, now)?;
+        let authority = if decision.decision {
+            Some(InvocationBinding::from_frozen(
+                inv.id,
+                &intent,
+                &input.grant,
+                &input.subject,
+                &input.connection_policy_id,
+                input.lineage.as_ref(),
+            )?)
+        } else {
+            None
+        };
+        self.db.insert_bound_intent(&legacy, &fingerprint).await?;
         if !decision.decision {
             inv.transition(InvocationState::Denied, Utc::now())?;
-            self.db.insert_invocation(&inv).await?;
             let receipt = self.finish_frozen_receipt(
                 &intent,
                 &inv,
@@ -199,8 +220,7 @@ impl Broker {
                     decision_id: &decision.decision_id,
                     policy_digest: &decision.policy_version_digest,
                     outcome: ReceiptOutcome::Denied,
-                    summary: json!({"reason": decision.context}),
-                    ext: None,
+                    binding: fingerprint.digest(),
                     connector_digest: self.host.component_digest(&input.connection_policy_id),
                     delegation_chain: receipt_delegation_chain(
                         &input.grant,
@@ -208,16 +228,22 @@ impl Broker {
                     ),
                 },
             )?;
-            self.db.insert_receipt(&receipt).await?;
+            self.db
+                .insert_denied_invocation_with_receipt(&inv, &receipt)
+                .await?;
             return Ok(receipt);
         }
 
         self.execute_frozen_authorized(
             &input,
             &intent,
-            inv,
+            (
+                inv,
+                authority.ok_or_else(|| anyhow::anyhow!("missing invocation context"))?,
+            ),
             &decision.decision_id,
             &decision.policy_version_digest,
+            fingerprint.digest(),
         )
         .await
     }
@@ -226,10 +252,12 @@ impl Broker {
         &self,
         input: &FrozenInvokeInput,
         intent: &FrozenIntentV2,
-        mut invocation: Invocation,
+        invocation: (Invocation, InvocationBinding),
         decision_id: &str,
         policy_digest: &str,
+        binding: &str,
     ) -> anyhow::Result<InvocationReceipt> {
+        let (mut invocation, authority) = invocation;
         invocation.transition(InvocationState::Authorized, Utc::now())?;
         invocation.transition(InvocationState::Leased, Utc::now())?;
         invocation.lease_owner = Some("worker-local".into());
@@ -238,7 +266,7 @@ impl Broker {
 
         // Execute ONLY from frozen canonical_arguments — never a second parameter map.
         let params_digest = Intent::parameters_hash(&intent.canonical_arguments)?;
-        let result = self.host.invoke(
+        let result = self.host.invoke_bound(
             &input.connection_policy_id,
             &InvokeRequest {
                 operation: intent.operation.clone(),
@@ -250,22 +278,31 @@ impl Broker {
                 invoke_level: Some(1),
                 connection_ref: input.connection_policy_id.clone(),
             },
+            &authority,
         );
 
-        let (outcome, summary, ext) = match result {
+        let outcome = match result {
             Ok(r) => {
-                invocation.transition(InvocationState::Succeeded, Utc::now())?;
-                (
-                    ReceiptOutcome::Succeeded,
-                    r.safe_summary,
-                    r.external_request_digest,
-                )
+                let (state, outcome) = if r.ok {
+                    (InvocationState::Succeeded, ReceiptOutcome::Succeeded)
+                } else {
+                    (InvocationState::Failed, ReceiptOutcome::Failed)
+                };
+                invocation.transition(state, Utc::now())?;
+                outcome
             }
-            Err(e) => {
+            Err(_) => {
                 invocation.transition(InvocationState::Failed, Utc::now())?;
-                let message = opensesame_redaction::redact_text(&e.to_string());
-                (ReceiptOutcome::Failed, json!({"error": message}), None)
+                ReceiptOutcome::Failed
             }
+        };
+        let outcome = if self
+            .host
+            .permits_outcome_disclosure(&input.connection_policy_id)
+        {
+            outcome
+        } else {
+            ReceiptOutcome::Indeterminate
         };
 
         let receipt = self.finish_frozen_receipt(
@@ -275,8 +312,7 @@ impl Broker {
                 decision_id,
                 policy_digest,
                 outcome,
-                summary,
-                ext,
+                binding,
                 connector_digest: self.host.component_digest(&input.connection_policy_id),
                 delegation_chain: receipt_delegation_chain(&input.grant, input.lineage.as_ref()),
             },
@@ -284,7 +320,9 @@ impl Broker {
         if !receipt.assert_no_secret_leak() {
             anyhow::bail!("receipt summary rejected by secret-leak check");
         }
-        self.db.insert_receipt(&receipt).await?;
+        self.db
+            .finish_executing_invocation(&invocation, &receipt)
+            .await?;
         Ok(receipt)
     }
 
@@ -294,10 +332,13 @@ impl Broker {
         inv: &Invocation,
         parts: FinishReceiptParts<'_>,
     ) -> anyhow::Result<InvocationReceipt> {
-        let mut receipt = InvocationReceipt {
-            id: ReceiptId::new(),
+        let receipt = InvocationReceipt {
+            id: ReceiptId::from_uuid(intent.id.as_uuid()),
             invocation_id: inv.id,
-            intent_digest: intent.intent_digest.clone(),
+            intent_digest: self
+                .signer
+                .intent_commitment(&inv.id, &intent.intent_digest)?,
+            idempotency_binding: Some(self.signer.idempotency_commitment(parts.binding)),
             principal_id: intent.principal_id,
             organization_id: Some(intent.organization_id),
             actor_id: intent.actor_id,
@@ -313,308 +354,27 @@ impl Broker {
             approval_id: None,
             credential_handle_id: None,
             connector_component_digest: parts.connector_digest.map(str::to_owned),
-            external_request_digest: parts.ext,
+            external_request_digest: None,
             external_response_digest: None,
             started_at: inv.created_at,
             completed_at: Utc::now(),
             outcome: parts.outcome,
-            safe_result_summary: Some(parts.summary),
+            safe_result_summary: None,
             authority_key_id: String::new(),
             signature: String::new(),
-            receipt_schema_version: 3,
+            receipt_schema_version: OPAQUE_RESULT_RECEIPT_SCHEMA_VERSION,
             task_run_id: Some(intent.task_run_id),
             task_state_version: Some(intent.task_state_version),
             task_state_digest: Some(intent.task_state_digest.clone()),
         };
-        if let Some(summary) = receipt.safe_result_summary.as_mut() {
-            if let Some(obj) = summary.as_object_mut() {
-                obj.insert(
-                    "task_run_id".into(),
-                    Value::String(intent.task_run_id.to_string()),
-                );
-                obj.insert(
-                    "task_state_version".into(),
-                    json!(intent.task_state_version),
-                );
-            }
-        }
         Ok(self.signer.sign_receipt(receipt)?)
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use opensesame_audit::ReceiptSigner;
-    use opensesame_authz::PolicyEngine;
-    use opensesame_connector_host::HostRuntime;
-    use opensesame_domain::{
-        ActorId, ActorInstanceId, AuthorityContext, AuthorityContextId, AuthorityContextMode,
-        CapabilitySet, CeilingInput, ClientId, ConnectionId, GrantConstraints, GrantId, IntentId,
-        OfflineUse, OrganizationId, PrincipalId, ProjectId, ResourceSelector, TaskRunId,
-        TaskTemplateId, FROZEN_INTENT_SCHEMA_VERSION,
-    };
-    use opensesame_storage::Db;
-    use opensesame_task_access::{InMemoryTaskStore, StartTaskParams};
-    use opensesame_time::Duration;
+#[path = "frozen_tests.rs"]
+mod tests;
 
-    type Narrowing = (&'static str, fn(&mut Grant));
-
-    fn sample_grant(org: OrganizationId, principal: PrincipalId) -> Grant {
-        Grant {
-            id: GrantId::new(),
-            version: 1,
-            issuer_principal_id: principal,
-            beneficiary_principal_id: principal,
-            actor_id: None,
-            client_id: None,
-            actor_instance_id: None,
-            proof_key_thumbprint: None,
-            organization_id: org,
-            project_id: None,
-            environment_id: None,
-            connection_id: None,
-            actions: vec!["read".into()],
-            resources: vec!["doc:1".into()],
-            constraints: GrantConstraints {
-                audiences: vec!["https://rs.example".into()],
-                not_before: None,
-                expires_at: Utc::now() + Duration::hours(1),
-                required_assurance: None,
-                authentication_max_age_seconds: None,
-                allowed_networks: vec![],
-                parameter_rules_digest: None,
-                budgets: std::collections::BTreeMap::default(),
-                maximum_delegation_depth: 2,
-                offline_use: OfflineUse::Forbidden,
-                raw_credential_export: false,
-            },
-            parent_grant_id: None,
-            delegation_depth: 0,
-            created_at: Utc::now(),
-            revoked_at: None,
-        }
-    }
-
-    fn sample_intent(org: OrganizationId, principal: PrincipalId) -> FrozenIntentV2 {
-        FrozenIntentV2 {
-            schema_version: FROZEN_INTENT_SCHEMA_VERSION,
-            id: IntentId::new(),
-            task_run_id: TaskRunId::new(),
-            task_state_version: 1,
-            task_state_digest: "sha256:state".into(),
-            organization_id: org,
-            project_id: None,
-            principal_id: principal,
-            actor_id: ActorId::new(),
-            actor_instance_id: None,
-            client_id: None,
-            operator_id: None,
-            connection_id: None,
-            operation: "read".into(),
-            resource: "doc:1".into(),
-            audience: "https://rs.example".into(),
-            canonical_arguments: json!({}),
-            body_hash: None,
-            nonce: "n".into(),
-            idempotency_key: "idem".into(),
-            issued_at: Utc::now(),
-            expires_at: Utc::now() + Duration::minutes(5),
-            intent_digest: String::new(),
-        }
-    }
-
-    #[test]
-    fn a_grant_only_covers_what_it_was_narrowed_to() {
-        let org = OrganizationId::new();
-        let principal = PrincipalId::new();
-        let unscoped = sample_grant(org, principal);
-        let intent = sample_intent(org, principal);
-        // Nothing narrowed but the organization and the beneficiary: covered.
-        assert!(assert_grant_covers_frozen_intent(&unscoped, &intent).is_ok());
-
-        // A grant belongs to its beneficiary, not to whoever presents it.
-        let mut other_beneficiary = unscoped.clone();
-        other_beneficiary.beneficiary_principal_id = PrincipalId::new();
-        assert!(assert_grant_covers_frozen_intent(&other_beneficiary, &intent).is_err());
-
-        // An intent that names nothing does not satisfy a grant that names
-        // something: that reading is how a scoped grant became an unscoped one.
-        let project = ProjectId::new();
-        let mut scoped = unscoped.clone();
-        scoped.project_id = Some(project);
-        assert!(assert_grant_covers_frozen_intent(&scoped, &intent).is_err());
-        let mut in_project = intent.clone();
-        in_project.project_id = Some(project);
-        assert!(assert_grant_covers_frozen_intent(&scoped, &in_project).is_ok());
-        in_project.project_id = Some(ProjectId::new());
-        assert!(assert_grant_covers_frozen_intent(&scoped, &in_project).is_err());
-
-        let narrowings: [Narrowing; 4] = [
-            ("actor", |g| g.actor_id = Some(ActorId::new())),
-            ("actor instance", |g| {
-                g.actor_instance_id = Some(ActorInstanceId::new());
-            }),
-            ("client", |g| g.client_id = Some(ClientId::new())),
-            ("connection", |g| {
-                g.connection_id = Some(ConnectionId::new());
-            }),
-        ];
-        for (what, narrow) in narrowings {
-            let mut g = unscoped.clone();
-            narrow(&mut g);
-            assert!(
-                assert_grant_covers_frozen_intent(&g, &intent).is_err(),
-                "a grant narrowed to one {what} must not cover an intent that names none"
-            );
-        }
-
-        // The actor the grant names is the actor that must appear.
-        let mut actor_scoped = unscoped.clone();
-        actor_scoped.actor_id = Some(intent.actor_id);
-        assert!(assert_grant_covers_frozen_intent(&actor_scoped, &intent).is_ok());
-    }
-
-    #[tokio::test]
-    async fn frozen_receipts_bind_the_organization_across_idempotent_replay() {
-        let org = OrganizationId::new();
-        let principal = PrincipalId::new();
-        let capabilities = CapabilitySet::new(vec![Capability::new(
-            "read",
-            ResourceSelector::exact("doc:1"),
-        )]);
-        let tasks = TaskAccessEngine::new(InMemoryTaskStore::new());
-        let ceiling = tasks
-            .compile_ceiling(
-                vec![CeilingInput {
-                    principal_id: principal,
-                    capabilities: capabilities.clone(),
-                }],
-                Utc::now(),
-            )
-            .unwrap();
-        let run = tasks
-            .start_task(StartTaskParams {
-                template_id: TaskTemplateId::new(),
-                authority_context: AuthorityContext {
-                    id: AuthorityContextId::new(),
-                    mode: AuthorityContextMode::SinglePrincipal,
-                    organization_id: org,
-                    project_id: None,
-                    principal_ids: vec![principal],
-                    capability_ceiling: capabilities,
-                    compiled_at: Utc::now(),
-                },
-                ceiling,
-                maximum_expires_at: Utc::now() + Duration::hours(1),
-                now: Utc::now(),
-            })
-            .unwrap();
-        let mut intent = sample_intent(org, principal);
-        intent.task_run_id = run.id;
-        intent.task_state_version = run.state_version;
-        intent.task_state_digest = run.state_digest;
-
-        let db = Db::connect_memory().await.unwrap();
-        db.create_organization(&org, "frozen").await.unwrap();
-        let mut policy = PolicyEngine::default();
-        policy
-            .relationships
-            .write("connection:demo-conn", "user", "user:demo");
-        let broker = Broker {
-            db,
-            policy,
-            host: HostRuntime::default(),
-            signer: ReceiptSigner::generate(),
-        };
-        let invoke = || FrozenInvokeInput {
-            intent: intent.clone(),
-            grant: sample_grant(org, principal),
-            subject: "user:demo".into(),
-            connection_policy_id: "demo-conn".into(),
-            required_capability: Capability::new("read", ResourceSelector::exact("doc:1")),
-            lineage: None,
-        };
-
-        let first = broker.invoke_frozen(&tasks, invoke()).await.unwrap();
-        let replay = broker.invoke_frozen(&tasks, invoke()).await.unwrap();
-        assert_eq!(first.id, replay.id);
-        assert_eq!(first.organization_id, Some(org));
-        assert_eq!(first.receipt_schema_version, 3);
-        assert_eq!(replay.organization_id, Some(org));
-        assert_eq!(broker.db.count_receipts().await.unwrap(), 1);
-    }
-
-    #[tokio::test]
-    async fn mutation_after_freeze_rejected_by_digest() {
-        let caps = CapabilitySet::new(vec![Capability::new(
-            "read",
-            ResourceSelector::exact("doc:1"),
-        )]);
-        let org = OrganizationId::new();
-        let principal = PrincipalId::new();
-        let ctx = AuthorityContext {
-            id: AuthorityContextId::new(),
-            mode: AuthorityContextMode::SinglePrincipal,
-            organization_id: org,
-            project_id: None,
-            principal_ids: vec![principal],
-            capability_ceiling: caps.clone(),
-            compiled_at: Utc::now(),
-        };
-        let engine = TaskAccessEngine::new(InMemoryTaskStore::new());
-        let ceiling = engine
-            .compile_ceiling(
-                vec![CeilingInput {
-                    principal_id: principal,
-                    capabilities: caps.clone(),
-                }],
-                Utc::now(),
-            )
-            .unwrap();
-        let run = engine
-            .start_task(StartTaskParams {
-                template_id: TaskTemplateId::new(),
-                authority_context: ctx,
-                ceiling,
-                maximum_expires_at: Utc::now() + Duration::hours(1),
-                now: Utc::now(),
-            })
-            .unwrap();
-
-        let mut intent = FrozenIntentV2 {
-            schema_version: FROZEN_INTENT_SCHEMA_VERSION,
-            id: IntentId::new(),
-            task_run_id: run.id,
-            task_state_version: run.state_version,
-            task_state_digest: run.state_digest.clone(),
-            organization_id: org,
-            project_id: None,
-            principal_id: principal,
-            actor_id: ActorId::new(),
-            actor_instance_id: None,
-            client_id: None,
-            operator_id: None,
-            connection_id: None,
-            operation: "read".into(),
-            resource: "doc:1".into(),
-            audience: "https://rs.example".into(),
-            canonical_arguments: json!({"tenant": "A"}),
-            body_hash: None,
-            nonce: "n1".into(),
-            idempotency_key: "idem-mut".into(),
-            issued_at: Utc::now(),
-            expires_at: Utc::now() + Duration::minutes(5),
-            intent_digest: String::new(),
-        }
-        .with_computed_digest()
-        .unwrap();
-
-        let authorized_digest = intent.intent_digest.clone();
-        // Mutate after authorization snapshot — digest must fail.
-        intent.canonical_arguments = json!({"tenant": "B"});
-        assert!(intent.assert_digest().is_err());
-        assert_ne!(intent.compute_digest().unwrap(), authorized_digest);
-        let _ = sample_grant(org, principal);
-    }
-}
+#[cfg(test)]
+#[path = "frozen_outcome_tests.rs"]
+mod outcome_tests;

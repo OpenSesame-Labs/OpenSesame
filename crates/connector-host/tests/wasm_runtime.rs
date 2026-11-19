@@ -18,6 +18,9 @@ use opensesame_connector_host::{
 };
 use sha2::{Digest, Sha256};
 
+#[path = "wasm_runtime_egress.rs"]
+mod egress;
+
 /// A component of the connector world. Layout notes:
 /// - `describe` returns a pointer to a connector-info record at offset 64
 ///   (id "echo" @16, version "1.0.0" @20, empty operations list);
@@ -125,6 +128,7 @@ struct RecordingEgress;
 impl HostEgress for RecordingEgress {
     fn authorized_request(
         &self,
+        _binding: &opensesame_connector_host::InvocationBinding,
         _connection_ref: &str,
         _req: EgressRequest,
     ) -> Result<EgressResponse, String> {
@@ -134,11 +138,17 @@ impl HostEgress for RecordingEgress {
             body: b"{}".to_vec(),
         })
     }
-    fn sign(&self, _purpose: &str, _digest: &[u8]) -> Result<Vec<u8>, String> {
+    fn sign(
+        &self,
+        _binding: &opensesame_connector_host::InvocationBinding,
+        _purpose: &str,
+        _digest: &[u8],
+    ) -> Result<Vec<u8>, String> {
         Ok(vec![0; 32])
     }
     fn oauth_acquire(
         &self,
+        _binding: &opensesame_connector_host::InvocationBinding,
         _connection_ref: &str,
         _resource: Option<&str>,
         _audience: Option<&str>,
@@ -148,6 +158,7 @@ impl HostEgress for RecordingEgress {
     }
     fn authenticated_request(
         &self,
+        _binding: &opensesame_connector_host::InvocationBinding,
         _connection_ref: &str,
         _token_handle: u32,
         _req: EgressRequest,
@@ -207,13 +218,38 @@ fn loads_describes_and_invokes() {
 
     let result = connector.invoke(&request("echo.read")).expect("invoke ok");
     assert!(result.ok);
-    // Ok([]) from the guest: the summary contains only host-derived metadata.
-    assert_eq!(result.safe_summary["bytes"], 0);
-    assert_eq!(result.safe_summary["digest"], digest_of(&[]));
-    assert!(result
-        .external_request_digest
-        .as_deref()
-        .is_some_and(|d| d.starts_with("sha256:")));
+    assert_eq!(
+        result.safe_summary,
+        serde_json::json!({"result":"completed"})
+    );
+    assert!(result.external_request_digest.is_none());
+}
+
+#[test]
+fn guest_json_cannot_enter_the_result_or_digest() {
+    // The old host accepted these bytes as a JSON summary. The string is a
+    // reversible encoding of a synthetic credential a provider could return.
+    let wat = ECHO_WAT.replace(
+        "(data (i32.const 16) \"echo1.0.0\")",
+        r#"(data (i32.const 16) "echo1.0.0")
+           (data (i32.const 128) "\00\00\00\00\00\01\00\00\1a\00\00\00")
+           (data (i32.const 256) "{\22result\22:\221-ssecca-ecar\22}")"#,
+    );
+    let bytes = wat.as_bytes();
+    let connector = WasmConnector::load(
+        manifest_for(bytes),
+        bytes,
+        &pinned_policy(&digest_of(bytes)),
+        Arc::new(RecordingEgress),
+        GuestLimits::default(),
+    )
+    .expect("guest loads");
+    let result = connector.invoke(&request("echo.read")).unwrap();
+    assert_eq!(
+        result.safe_summary,
+        serde_json::json!({"result":"completed"})
+    );
+    assert!(result.external_request_digest.is_none());
 }
 
 #[test]
