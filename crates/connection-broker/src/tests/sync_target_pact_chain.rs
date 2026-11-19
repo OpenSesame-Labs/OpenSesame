@@ -38,8 +38,9 @@ fn chain_method_on_response(scanned: &str, method: &str) -> bool {
 }
 
 fn chain_root_is_response(source: &str, dot: usize) -> bool {
-    root_ident(source, dot)
-        .is_some_and(|name| super::sync_target_pact_rename::tracks_response_receiver(source, dot, name))
+    root_ident(source, dot).is_some_and(|name| {
+        super::sync_target_pact_rename::tracks_response_receiver(source, dot, name)
+    })
 }
 
 fn root_ident(source: &str, mut end: usize) -> Option<String> {
@@ -366,5 +367,3 @@ fn ends_with_kw(source: &str, keyword: &str) -> bool {
 fn leading_ident(source: &str) -> String {
     source.chars().take_while(|ch| is_ident_char(*ch)).collect()
 }
-
-

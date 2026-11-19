@@ -149,9 +149,12 @@ mod tests {
 
     #[test]
     fn typed_dispatch_aliases_register() {
-        let source =
-            "async fn f() { let dispatch: _ = reqwest::RequestBuilder::send; dispatch(r).await?; }";
-        assert_eq!(dispatch_alias_calls(source).len(), 1);
+        for source in [
+            "async fn f() { let dispatch: _ = reqwest::RequestBuilder::send; dispatch(r).await?; }",
+            "async fn f() { let dispatch:_=reqwest::RequestBuilder::send; dispatch(r).await?; }",
+        ] {
+            assert_eq!(dispatch_alias_calls(source).len(), 1, "{source}");
+        }
     }
 
     #[test]

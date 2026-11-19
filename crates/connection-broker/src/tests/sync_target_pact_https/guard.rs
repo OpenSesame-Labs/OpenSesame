@@ -150,7 +150,8 @@ fn url_parse_arg(rhs: &str) -> Option<&str> {
             index += len;
             continue;
         }
-        if rhs[index..].starts_with("Url::parse(") && (index == 0 || !is_ident_byte(bytes[index - 1]))
+        if rhs[index..].starts_with("Url::parse(")
+            && (index == 0 || !is_ident_byte(bytes[index - 1]))
         {
             if let Some(inner) = args_of(&rhs[index + "Url::parse".len()..]) {
                 let arg = strip_ref(first_arg(inner));
@@ -333,7 +334,9 @@ fn scheme_neq_end(source: &str, index: usize) -> Option<usize> {
 }
 
 fn https_cmp_len(tail: &str) -> Option<usize> {
-    let rest = tail.strip_prefix("!=").or_else(|| tail.strip_prefix(".ne"))?;
+    let rest = tail
+        .strip_prefix("!=")
+        .or_else(|| tail.strip_prefix(".ne"))?;
     let op = tail.len() - rest.len();
     let body = rest.trim_start_matches('(');
     if !body.starts_with("\"https\"") {

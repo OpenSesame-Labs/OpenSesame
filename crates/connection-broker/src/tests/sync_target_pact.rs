@@ -334,6 +334,8 @@ fn contract_response_into_and_headers_are_body_reads() {
         "response.headers().get(\"X-Secret\")",
         "res.headers().iter().next()",
         "let reply = response; reply.into()",
+        "let leaked = (response).into();",
+        "let body: reqwest::Body = res.into();",
     ] {
         assert_body_read(sample);
     }

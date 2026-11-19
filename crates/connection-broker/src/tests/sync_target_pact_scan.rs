@@ -107,23 +107,40 @@ fn renamed_response_into(scanned: &str) -> bool {
     let mut offset = 0usize;
     while let Some(rel) = scanned[offset..].find(".into()") {
         let index = offset + rel;
-        let name: String = scanned[..index]
-            .trim_end()
-            .chars()
-            .rev()
-            .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
-            .collect::<String>()
-            .chars()
-            .rev()
-            .collect();
-        if !name.is_empty()
-            && super::sync_target_pact_rename::tracks_response_receiver(scanned, index, name)
-        {
+        let Some(name) = into_receiver_name(scanned, index) else {
+            offset = index + ".into()".len();
+            continue;
+        };
+        if super::sync_target_pact_rename::tracks_response_receiver(scanned, index, name) {
             return true;
         }
         offset = index + ".into()".len();
     }
     false
+}
+
+fn into_receiver_name(scanned: &str, dot: usize) -> Option<String> {
+    let before = scanned[..dot].trim_end();
+    if let Some(stripped) = before.strip_suffix(')') {
+        let open = stripped.rfind('(')?;
+        let inner = stripped[open + 1..].trim();
+        if inner
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || ch == '_')
+            && !inner.is_empty()
+        {
+            return Some(inner.to_string());
+        }
+    }
+    let name: String = before
+        .chars()
+        .rev()
+        .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect();
+    (!name.is_empty()).then_some(name)
 }
 
 fn alias_reader(scanned: &str, calls: &[String], modules: &[String]) -> bool {
