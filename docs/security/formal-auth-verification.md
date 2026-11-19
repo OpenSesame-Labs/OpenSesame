@@ -1,7 +1,7 @@
 # Formal authentication and authorization verification
 
 This register connects security requirements to their implementation, formal
-model, and checks. The present Lean coverage consists of bounded slices of the Identity API. It is not a
+model, and checks. The present Lean coverage consists of bounded slices of the Identity API and Host. It is not a
 proof of OpenSesame's complete authentication or authorization system. Update this register whenever the covered behavior changes or a new
 formal property is introduced.
 
@@ -126,9 +126,12 @@ claim of exhaustive inventory or Lean coverage:
 |---|---|---|
 | Federated sign-in. [Contract](../architecture/federated-signin.md). | [`federated-pending.ts`](../../packages/control-plane/src/interactions/federated-pending.ts) and [`interactions.ts`](../../packages/control-plane/src/routes/interactions.ts). | [FED-I1–I3](../../spec/formal/oauth/README.md) model signed pending-cookie binding, legacy provenance, and matching current trust. They do not prove PKCE, redirects, tokens, or protocol compliance. |
 | Interaction approval binding. [ADR 0084](../adr/0084-external-authorization-notifications.md). | [`interaction.ts`](../../packages/os-domain/src/machines/interaction.ts). | [APR-B1–B5](../../spec/formal/webauthn/README.md) model digest binding, expiry, lifecycle, and sequential consumption. WebAuthn cryptography and concurrent storage are outside the model. |
+| CLI app-integration assertion origin and presence. [CLI-WA1](#cli-wa1-cli-assertion-origin-and-presence). | [`webauthn_assertion.rs`](../../crates/cli-app-integration/src/webauthn_assertion.rs), called for registration and approval. | Unproved; separate from APR-B1–B5. |
+| CLI app-integration credential registration and retries. [CLI-WA2](#cli-wa2-cli-credential-registration-and-retries). | [`register_webauthn`](../../crates/cli-app-integration/src/pairing/binding.rs). | Unproved; separate from APR-B1–B5. |
+| CLI app-integration restricted approvals. [CLI-WA3](#cli-wa3-restricted-cli-approvals). | [`ensure`](../../crates/cli-app-integration/src/lib.rs) and [`human_proof_verify`](../../crates/cli-app-integration/src/human_proof.rs). | Unproved; separate from APR-B1–B5. |
 | Interaction deadline admission. [ADR 0086](../adr/0086-wallet-native-interaction-layer.md). | [`interaction-clock.ts`](../../packages/control-plane/src/services/interaction-clock.ts) and the approval and consumption routes. | [CLOCK-1](../../spec/formal/interaction-clock/README.md) proves the sampled deadline predicate. The real-route tests cover selected pauses; commit-time expiry, atomic storage, and rollback are not proved. |
-| DPoP proof validation. RFC 9449. | [`validator.rs`](../../crates/proof/src/validator.rs). | Not modeled by this suite. |
-| Grant validity and delegation. [ADR 0036](../adr/0036-coverage-guided-fuzz-and-bounded-proofs.md). | [`grant.rs`](../../crates/domain/src/grant.rs). | A separate Kani harness checks a bounded interval case; this suite does not prove grant behavior. |
+| DPoP replay cache. RFC 9449. | [`replay.rs`](../../crates/proof/src/replay.rs). | [DPOP-R1](../../spec/formal/dpop/README.md) models the single-process cache under stated clock and atomicity assumptions; full DPoP validation is not proved. |
+| Grant delegation and replacement. [ADR 0036](../adr/0036-coverage-guided-fuzz-and-bounded-proofs.md). | [`grant.rs`](../../crates/domain/src/grant.rs) and its validators. | [AUTH-D1–D6](../../spec/formal/authority/README.md) model selected attenuation checks. Caller authentication, all constraint dimensions, and concurrent behavior are outside the model. A separate Kani harness checks a bounded interval case. |
 | Host API relay organization tenant isolation. [ADR 0046](../adr/0046-relayed-execution-and-authorization-inbox.md). | [`caller_scope`](../../crates/gateway/src/routes/relay_scope.rs) scopes inspection and denial in [`relay.rs`](../../crates/gateway/src/routes/relay.rs). | **RELAY-T1** is **unproved**. Sessions use their authenticated organization; operators use the bootstrap organization. Cross-organization inspection and denial return `not_found`. Disabled execution and result routes return 501 after authentication without disclosing tenant records. [`relay_tenant_tests.rs`](../../crates/gateway/src/routes/relay_tenant_tests.rs) exercises the boundary; the relay route suite passed before the latest main integration, and there is no Lean suite. |
 
 **RELAY-F1 — relay execution fails closed (unproved).** Until a holder can
@@ -149,6 +152,93 @@ before the latest main integration; broker-mode regressions passed again on the
 updated base. No formal theorem proves the property.
 The restriction cannot recall previously disclosed requests or cancel effects
 already started. Restoring relay requires a separate holder-side authority fence.
+
+### CLI-WA1: CLI assertion origin and presence
+
+For a CLI app-integration assertion, the signed client data must name the exact
+origin bound to the pairing and must not describe a cross-origin ceremony. The
+signed authenticator data must contain the SHA-256 hash of that origin's
+hostname as RP ID and have both user-presence and user-verification flags set.
+This applies when attaching a credential and when approving a CLI request. It
+prevents accepting an otherwise valid assertion for another origin or RP, or
+one missing those flags. The relevant requirements are in
+[WebAuthn assertion verification](https://www.w3.org/TR/webauthn-3/#sctn-verifying-assertion)
+and [authenticator data](https://www.w3.org/TR/webauthn-3/#sec-authenticator-data).
+
+[`verify_passkey_assertion`](../../crates/cli-app-integration/src/webauthn_assertion.rs)
+checks these fields along with the challenge, signature and counter. Pairing
+supplies the expected origin, while Pages requests its hostname as the RP ID.
+This assumes the pairing and authenticator are trustworthy: client-supplied
+key material and flags do not establish authenticator provenance or hardware
+attestation. The current registration requests no attestation. A client-supplied
+`passkey` label is not evidence of hardware provenance.
+
+There is no formal theorem for CLI-WA1. The signed-fixture tests in
+[`webauthn_assertion_tests.rs`](../../crates/cli-app-integration/src/webauthn_assertion_tests.rs)
+exercise accepted and rejected cases through registration and approval. At the
+review based on `24096a75`, a direct Rust test harness passed all 62 crate
+tests using existing dependency artifacts; Cargo, daemon integration and
+real-browser interoperability had not yet been run for this change. Those
+tests do not prove authenticator provenance.
+
+### CLI-WA2: CLI credential registration and retries
+
+For one live pairing bearer, a verified registration may attach a credential
+only when none is attached. A subsequent verified retry must name the same
+credential ID and public key and cannot lower the highest observed sign count;
+a different credential requires a new operator-armed pairing. This prevents a
+replayed registration from rolling back the counter and a bearer holder from
+replacing an already attached key. The requirement extends the registration
+boundary in [ADR 0206](../adr/0206-device-key-trust-d7-2.md); WebAuthn's
+[assertion verification](https://www.w3.org/TR/webauthn-3/#sctn-verifying-assertion)
+describes sign-count handling.
+
+[`register_webauthn`](../../crates/cli-app-integration/src/pairing/binding.rs)
+checks the credential identity, verifies the assertion, and updates the maximum
+count while holding mutable access to the pairing store. Daemon callers hold
+the same mutex used for approval and counter updates. The protection lasts only
+for the in-memory pairing and does not authenticate the first key or provide
+hardware attestation; counterless authenticators cannot provide clone detection
+through the counter.
+
+There is no formal theorem for CLI-WA2. Signed cases in
+[`webauthn_registration_tests.rs`](../../crates/cli-app-integration/src/webauthn_registration_tests.rs)
+exercise retries, rollback, replacement and re-pairing. The direct Rust harness
+result and remaining integration limits are those recorded for CLI-WA1.
+
+### CLI-WA3: restricted CLI approvals
+
+Until authenticator provenance is established, CLI app-integration must refuse
+every verb, including unknown verbs, before creating or reusing an approval
+session, and reject either client-supplied proof label. This prevents a
+relabeled software assertion from approving plaintext reveal or command
+injection. The denied response carries a reason for newer clients while
+remaining a denial to older clients. A separately authorized run grant does not
+use this app-approval path.
+
+The native and TypeScript CLI clients also refuse locally before contacting a
+daemon or accepting an injected approval port. This prevents an older daemon's
+`approved` response from bypassing the pause when the CLI has been updated.
+An old CLI paired with an old daemon still lacks this protection until at least
+one side is updated.
+
+The pause is recorded in the
+[CLI integration conformance policy](../../spec/conformance/cli-app-integration.json).
+The Rust session store and proof verifier apply it; the TypeScript session
+model mirrors it. Tests cover signed assertions, preexisting pending requests,
+prior approved sessions, unknown verbs, an old approving daemon, injected
+approval ports and the refusal message. Legacy session
+lifecycle and app-approved CLI process success cases remain as dormant
+requirements and are exercised again only once app approval is safely restored;
+startup-template unit tests remain active. Re-enablement must invalidate
+existing pairings and enroll credentials under the new trust mechanism; it must
+not promote an unattested key registered during the pause. This property is unproved;
+the temporary refusal must not be described as authenticator attestation. In
+the `c7226a37` review, a direct Rust 1.97.1 harness passed 62 tests with one
+unrelated trusted-executable fixture skipped because its executable was under
+`/tmp`. The repository now pins Rust 1.99.0; Cargo and daemon integration tests
+under that toolchain remain to run. The affected TypeScript tests and CLI
+and app-core typechecks passed.
 
 The session model abstracts token-prefix matching to a Boolean and does not
 prove the security of token generation or storage. The model also omits

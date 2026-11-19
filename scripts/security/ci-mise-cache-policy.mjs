@@ -10,6 +10,9 @@
  * main and workflow_dispatch. None of the four uses mise-action. Each may restore
  * the trunk mise tool cache (GHCR: node and rust keys; PWA and npm CLI: the node
  * key) and must not save it.
+ *
+ * The PR visual and Rust evidence workflows check out an untrusted pull-request
+ * head before mise-action, so those installs keep the Actions cache off.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -28,7 +31,13 @@ export function miseCacheDisabledForWorkflow(name) {
     return false;
   }
   if (/^(?:cd-|release-|candidate-)/u.test(name)) return true;
-  if (name === "dependency-review.yml") return true;
+  if (
+    name === "dependency-review.yml" ||
+    name === "pr-visual-evidence.yml" ||
+    name === "pr-rust-security-evidence.yml"
+  ) {
+    return true;
+  }
   const text = readFileSync(join(workflowDir, name), "utf8");
   return text.includes("workflow_call:");
 }

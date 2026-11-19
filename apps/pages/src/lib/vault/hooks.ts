@@ -1,16 +1,11 @@
 import { trustedHideRetires } from "@opensesame/app-core/lib/document-lifecycle.js";
 import { endSession } from "@opensesame/app-core/lib/identity.js";
-import {
-  clearNotices,
-  dismissNotice,
-  setStatusNotice,
-} from "@opensesame/app-core/lib/notices.js";
+import { clearNotices } from "@opensesame/app-core/lib/notices.js";
 import { clearStagedClaimTokens } from "@opensesame/app-core/lib/queue.js";
 import {
   type VaultState,
   vaultStore,
 } from "@opensesame/app-core/lib/vault/store.js";
-import { overlapCast } from "@opensesame/os-domain";
 import { packsVersion, subscribePacks } from "@opensesame/vault-item-types";
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { lockAfterDraft } from "../sw-update-guard.js";
@@ -21,6 +16,15 @@ import {
   setTheme,
   useThemePreference,
 } from "../theme.js";
+import {
+  type CopyResult,
+  clearCopiedSecret as clearClipboard,
+  copySecret,
+  restoreClipboardReadNotice,
+} from "./sensitive-clipboard.js";
+
+export type { CopyResult } from "./sensitive-clipboard.js";
+export { CLIPBOARD_READ_NOTICE } from "./sensitive-clipboard.js";
 
 function useVaultDefault(): VaultState {
   // A built-in type switched on or off changes how every item draws, and the
@@ -67,6 +71,7 @@ function useSessionGuardsDefault(): void {
         clearCopiedSecret();
         clearStagedClaimTokens();
         clearNotices();
+        restoreClipboardReadNotice();
         if (vaultStore.getSnapshot().prefs.signOutOnLock) {
           endSession();
         }
@@ -141,111 +146,18 @@ function useSessionGuardsDefault(): void {
   }, [status, prefs.lockOnHide]);
 }
 
-export type CopyResult = "copied" | "unavailable";
-
-/**
- * Said in the tray before `readText`, which otherwise raises a browser
- * permission prompt with no reason (ADR 0163). Present for the whole read.
- */
-export const CLIPBOARD_READ_NOTICE = {
-  id: "clipboard-clear",
-  tone: "info" as const,
-  title: "Clipboard",
-  body: "Reading the clipboard to clear a secret this vault copied, if it is still the one there.",
-};
-
-/** Last value this app put on the clipboard, so lock can wipe it. */
-let lastCopied: string | null = null;
-let pendingClear: number | null = null;
-
-async function clipboardReadIsGranted(): Promise<boolean> {
-  if (!navigator.permissions?.query) return false;
-  try {
-    const status = await navigator.permissions.query({
-      name: overlapCast<"clipboard-read", PermissionName>("clipboard-read"),
-    });
-    return status.state === "granted";
-  } catch {
-    return false;
-  }
-}
-
-async function clearIfOurs(
-  value: string,
-  mode: "timer" | "lock",
-): Promise<void> {
-  const readGranted = await clipboardReadIsGranted();
-  if (!readGranted) {
-    if (mode === "timer") {
-      // A timed clear must not surprise someone mid-navigation with a read prompt.
-      return;
-    }
-    // Lock must not open a clipboard-read permission dialog either.
-    try {
-      await navigator.clipboard.writeText("");
-    } catch {
-      /* clipboard unavailable — nothing further we can do */
-    }
-    if (lastCopied === value) lastCopied = null;
-    return;
-  }
-  // The read is what prompts. The tray sentence is up before it, and leaves
-  // once the read has finished.
-  setStatusNotice(CLIPBOARD_READ_NOTICE);
-  try {
-    const current = await navigator.clipboard.readText();
-    if (current === value) await navigator.clipboard.writeText("");
-  } catch {
-    // Clipboard read is often denied. Clearing unconditionally is the safer
-    // failure mode for a secret we ourselves just wrote.
-    try {
-      await navigator.clipboard.writeText("");
-    } catch {
-      /* clipboard unavailable — nothing further we can do */
-    }
-  } finally {
-    dismissNotice(CLIPBOARD_READ_NOTICE.id);
-  }
-  if (lastCopied === value) lastCopied = null;
-}
-
 /** Wipe anything this app copied. Called on vault lock. */
 function clearCopiedSecretDefault(): void {
-  if (pendingClear !== null) {
-    window.clearTimeout(pendingClear);
-    pendingClear = null;
-  }
-  const value = lastCopied;
-  if (value === null) return;
-  void clearIfOurs(value, "lock");
+  clearClipboard();
 }
 
 /**
- * Copy a secret and schedule a clipboard clear. Also cleared when the vault
- * locks, so a copied password does not outlive the unlocked session.
+ * Copy a secret and attempt to clear it after the configured delay or on lock.
  */
 function useCopySecretDefault(): (value: string) => Promise<CopyResult> {
   const { prefs } = useVault();
   return useCallback(
-    async (value: string) => {
-      if (!navigator.clipboard?.writeText) return "unavailable";
-      try {
-        await navigator.clipboard.writeText(value);
-      } catch {
-        return "unavailable";
-      }
-      lastCopied = value;
-      if (pendingClear !== null) window.clearTimeout(pendingClear);
-      pendingClear = null;
-      const clearAfter = prefs?.clipboardClearSeconds ?? 0;
-      if (clearAfter > 0) {
-        pendingClear = window.setTimeout(() => {
-          pendingClear = null;
-          void clearIfOurs(value, "timer");
-        }, clearAfter * 1000);
-      }
-      return "copied";
-    },
+    (value: string) => copySecret(value, prefs?.clipboardClearSeconds ?? 0),
     [prefs?.clipboardClearSeconds],
   );
 }

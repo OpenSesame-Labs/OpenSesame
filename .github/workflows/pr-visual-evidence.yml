@@ -1,0 +1,126 @@
+# Synthetic PR review comparisons, dispatched manually from the trusted main
+# workflow. PR build and browser code run without network, credentials, root,
+# capabilities, or access to the runner's Docker socket.
+name: PR visual security evidence
+
+on:
+  workflow_dispatch:
+    inputs:
+      pull_request:
+        description: Main-targeted pull request number
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  evidence:
+    if: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      pull-requests: read
+    env:
+      PR_VISUAL_NUMBER: ${{ inputs.pull_request }}
+      PR_VISUAL_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      PR_VISUAL_BASE_SHA: ${{ github.sha }}
+    steps:
+      - name: Check out the trusted controller
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.sha }}
+          path: base
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Resolve a current same-repository PR
+        id: resolve
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$PR_VISUAL_NUMBER" =~ ^[1-9][0-9]{0,6}$ ]]
+          [[ "$PR_VISUAL_DEFAULT_BRANCH" =~ ^[A-Za-z0-9._-]+$ ]]
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_VISUAL_NUMBER" > "$RUNNER_TEMP/pr-visual-pull.json"
+          gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$PR_VISUAL_DEFAULT_BRANCH" > "$RUNNER_TEMP/pr-visual-branch.json"
+          node base/scripts/ci/pr-visual-ref.mjs "$RUNNER_TEMP/pr-visual-pull.json" "$RUNNER_TEMP/pr-visual-branch.json"
+      - name: Check out the exact PR head
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ steps.resolve.outputs.head_sha }}
+          path: head
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Require matching dependency and native pins
+        env:
+          PR_VISUAL_HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
+        run: |
+          test "$(git -C base rev-parse HEAD)" = "$PR_VISUAL_BASE_SHA"
+          test "$(git -C head rev-parse HEAD)" = "$PR_VISUAL_HEAD_SHA"
+          for checkout in base head; do
+            if git -C "$checkout" config --local --get-regexp 'http\..*\.extraheader' > /dev/null; then
+              echo "$checkout checkout unexpectedly persisted credentials" >&2; exit 1
+            fi
+          done
+          git -C base fetch --no-tags --depth=1 origin "$PR_VISUAL_HEAD_SHA"
+          if ! git -C base diff --quiet "$PR_VISUAL_BASE_SHA" "$PR_VISUAL_HEAD_SHA" -- \
+            package.json package-lock.json npm-shrinkwrap.json .npmrc \
+            ':(glob)**/package.json' ':(glob)**/.npmrc' mise.toml mise.lock \
+            patches/vendor tools/pwa-tailscale-native-http \
+            apps/pages/src/lib/capabilities/tailscale-artifacts.json; then
+            echo 'Dependency or native pins differ; use a separately reviewed evidence path.' >&2
+            exit 1
+          fi
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          working_directory: base
+          install_args: node@24
+          cache: false
+          cache_save: false
+          persist_github_token: false
+      - name: Resolve the locked Node executable from trusted base
+        id: runtime
+        working-directory: base
+        run: |
+          node -e 'const p = process.execPath; if (!/^24\./.test(process.versions.node) || /[,\r\n]/.test(p)) throw new Error("Invalid Node executable"); require("node:fs").appendFileSync(process.env.GITHUB_OUTPUT, `binary=${p}\n`);'
+      - name: Install trusted base dependencies without lifecycle scripts
+        working-directory: base
+        env:
+          NPM_CONFIG_USERCONFIG: /dev/null
+          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
+        run: |
+          npm ci --ignore-scripts
+          test "$(node -p "require('./node_modules/@playwright/test/package.json').version")" = 1.65.0
+      - name: Test the trusted evidence controller
+        working-directory: base
+        run: node --test scripts/ci/pr-visual-*.test.mjs
+      - name: Prepare the pinned native distribution from trusted base source
+        working-directory: base/apps/pages
+        run: node --input-type=module -e 'import("./scripts/tailscale-wasm-assets.mjs").then((m) => m.loadTailscaleAssets())'
+      - name: Build both exact revisions in restricted containers
+        env:
+          PR_VISUAL_HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
+          PR_VISUAL_NODE_BINARY: ${{ steps.runtime.outputs.binary }}
+        run: |
+          bash base/scripts/ci/pr-visual-sandbox.sh base
+          bash base/scripts/ci/pr-visual-sandbox.sh head
+      - name: Capture and validate synthetic comparisons
+        env:
+          PR_VISUAL_HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
+          PR_VISUAL_NODE_BINARY: ${{ steps.runtime.outputs.binary }}
+        run: bash base/scripts/ci/pr-visual-sandbox.sh capture
+      - name: Recheck both PR revisions before retaining evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_VISUAL_EXPECTED_HEAD: ${{ steps.resolve.outputs.head_sha }}
+          PR_VISUAL_NODE_BINARY: ${{ steps.runtime.outputs.binary }}
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_VISUAL_NUMBER" > "$RUNNER_TEMP/pr-visual-pull-current.json"
+          gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$PR_VISUAL_DEFAULT_BRANCH" > "$RUNNER_TEMP/pr-visual-branch-current.json"
+          "$PR_VISUAL_NODE_BINARY" base/scripts/ci/pr-visual-ref.mjs "$RUNNER_TEMP/pr-visual-pull-current.json" "$RUNNER_TEMP/pr-visual-branch-current.json"
+      - name: Retain the comparison sheets for PR review
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: pr-visual-${{ inputs.pull_request }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/pr-visual/capture/pr-visual/artifact/
+          if-no-files-found: error
+          retention-days: 14

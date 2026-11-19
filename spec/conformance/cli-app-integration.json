@@ -5,6 +5,7 @@
   "requestTimeoutSeconds": 120,
   "pollIntervalMs": 500,
   "daemonPinProbeVerb": "daemon-pin-probe",
+  "approvalAvailable": false,
   "daemonPaths": {
     "ensure": "/v1/cli/app-integration/ensure",
     "respond": "/v1/cli/app-integration/respond",
@@ -20,6 +21,7 @@
   "messages": {
     "appUnavailable": "OpenSesame is not running. Unlock OpenSesame and allow CLI integration to reveal secrets from this terminal.",
     "denied": "CLI integration was denied in OpenSesame.",
+    "blockedApproval": "CLI app approval is temporarily unavailable until authenticator provenance can be verified.",
     "expired": "CLI integration for this terminal expired due to inactivity. Allow it again in OpenSesame.",
     "requestTimeout": "No one answered in OpenSesame. Run the command again.",
     "pending": "Waiting for you to allow CLI integration in OpenSesame…",

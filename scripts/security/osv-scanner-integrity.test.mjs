@@ -65,6 +65,7 @@ function fixture(t) {
     "osv-scanner.toml",
     "scripts/audit/osv-scanner-gate.sh",
     "scripts/lib/audit-directory.sh",
+    "scripts/lib/json-boundary.mjs",
     "scripts/security/assert-no-advisories.mjs",
   ]) {
     mkdirSync(dirname(join(checkout, file)), { recursive: true });
