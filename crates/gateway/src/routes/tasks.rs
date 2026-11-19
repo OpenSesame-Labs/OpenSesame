@@ -393,7 +393,7 @@ pub async fn invoke_task(
         .ok_or_else(|| internal("intent encoding"))?
         .remove("intent_digest");
     let connection_policy_id =
-        super::intents_bootstrap::bootstrap_connection_policy_for(&st, &boot)?;
+        crate::routes::intents::bootstrap_connection_policy_for(&st, &boot)?;
     let receipt = st
         .broker
         .invoke_frozen(

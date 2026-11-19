@@ -35,7 +35,7 @@ pub(super) fn bootstrap_connection_policy_id() -> String {
     "demo-conn".into()
 }
 
-pub(super) fn bootstrap_connection_policy_for(
+pub(crate) fn bootstrap_connection_policy_for(
     st: &AppState,
     boot: &crate::app_state::Bootstrap,
 ) -> Result<String, Response> {
