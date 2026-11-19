@@ -6718,14 +6718,14 @@
       "6765730d"
     ],
     "crates/gateway/src/routes/local_authority_routes.rs": [
-      "628c7122",
-      "b21349a7",
-      "f47e96fd",
-      "acd14676",
-      "d45c39fe",
-      "d186bbe9",
-      "530bc417",
-      "fed62d2e"
+      "4709c1fa",
+      "b9dcf0a4",
+      "db0f7b53",
+      "f7922289",
+      "0da5f890",
+      "06c53744",
+      "79be76a4",
+      "bbd2f6a2"
     ],
     "crates/gateway/src/routes/wire_connections.rs": [
       "e7df9f88",
@@ -6828,14 +6828,14 @@
       "d51aea81"
     ],
     "crates/gateway/src/middleware/agent_grants.rs": [
-      "17a299e6",
-      "38c26761",
-      "58bd97d0",
-      "a24ce47e",
-      "17c1f5d7",
-      "d26454fb",
-      "6d5addd3",
-      "ad429a91"
+      "e120da89",
+      "f769f705",
+      "af33127e",
+      "8e88fee4",
+      "a16a7bcd",
+      "cd1f0221",
+      "b65f93ce",
+      "432aeada"
     ],
     "crates/gateway/src/middleware/browser_grants.rs": [
       "cde1d0c9",
