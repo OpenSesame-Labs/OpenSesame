@@ -42,7 +42,10 @@ fn ordinary_reads_refuse_unbound_ciphertext_at_every_name() {
     }
     for name in ["Dev/a", "Dev/b", "sealed-store-entry"] {
         let error = root.show(name, &key).unwrap_err();
-        assert!(error.to_string().contains("no authenticated name"));
+        assert!(
+            error.to_string().contains("no authenticated name")
+                || error.to_string().contains("rollback anchor")
+        );
     }
     assert!(!dir.path().join(".opensesame-revisions.json").exists());
     assert_eq!(fs::read(dir.path().join("Dev/b.osseal")).unwrap(), old);
@@ -62,6 +65,7 @@ fn explicit_migration_binds_the_verified_name_and_rejects_replay() {
 
     root.migrate_legacy_entry_trusting_name("Dev/a", &key)
         .unwrap();
+    root.migrate_rollback_anchor(&key).unwrap();
     assert_eq!(root.show("Dev/a", &key).unwrap().secret, "legacy secret");
     let migrated = fs::read(dir.path().join("Dev/a.osseal")).unwrap();
     assert_ne!(migrated, old);
@@ -85,6 +89,7 @@ fn the_old_generic_item_id_cannot_collide_with_a_real_entry_name() {
     assert!(root.show("sealed-store-entry", &key).is_err());
     root.migrate_legacy_entry_trusting_name("  sealed-store-entry  ", &key)
         .unwrap();
+    root.migrate_rollback_anchor(&key).unwrap();
     assert_eq!(
         root.revisions().unwrap().get("sealed-store-entry"),
         Some(&8)
@@ -143,6 +148,7 @@ fn migration_advances_a_preexisting_revision_witness() {
     .unwrap();
     root.migrate_legacy_entry_trusting_name("Dev/a", &key)
         .unwrap();
+    root.migrate_rollback_anchor(&key).unwrap();
     assert_eq!(root.revisions().unwrap().get("Dev/a"), Some(&8));
     assert_eq!(root.show("Dev/a", &key).unwrap().secret, "verified");
 }
@@ -161,8 +167,27 @@ fn root_rotation_refuses_to_rebind_legacy_entries_implicitly() {
     let error = crate::rotate_store_root(dir.path(), password, crate::RotationEdit::default())
         .err()
         .expect("rotation must reject an unbound entry");
-    assert!(error.to_string().contains("no authenticated name"));
+    assert!(
+        error.to_string().contains("no authenticated name")
+            || error.to_string().contains("rollback anchor")
+    );
     assert_eq!(fs::read(entry_path).unwrap(), old);
     assert_eq!(fs::read(key_path).unwrap(), key_before);
     assert!(root.show("entry", &key).is_err());
+}
+
+#[test]
+fn trusted_legacy_migration_advances_an_existing_outside_witness() {
+    let (dir, root, key) = setup();
+    root.insert("Dev/a", &crate::Entry::parse("earlier"), &key)
+        .unwrap();
+    let path = dir.path().join("Dev/a.osseal");
+    let earlier = fs::read(&path).unwrap();
+    fs::write(&path, legacy_blob(&key, b"verified legacy\n", 1)).unwrap();
+    root.migrate_legacy_entry_trusting_name("Dev/a", &key)
+        .unwrap();
+    assert_eq!(root.entry_witness("Dev/a", &key).unwrap().revision, 2);
+    assert_eq!(root.show("Dev/a", &key).unwrap().secret, "verified legacy");
+    fs::write(path, earlier).unwrap();
+    assert!(root.show("Dev/a", &key).is_err());
 }

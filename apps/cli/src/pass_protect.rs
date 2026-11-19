@@ -14,8 +14,10 @@ use opensesame_sealed_store::{
 use crate::store::{prompt_password, prompt_secret_hidden, require_reveal, resolve_root};
 
 mod legacy;
+mod recovery;
 mod rotate;
 use legacy::cmd_migrate_legacy;
+use recovery::cmd_recover_ciphertext;
 use rotate::{cmd_protect_remove, cmd_protect_rewrap, cmd_protect_root_rotate, RotateArgs};
 
 #[derive(Subcommand, Debug)]
@@ -27,6 +29,21 @@ pub enum PassProtectCmd {
         /// Affirm that the file's name and version were verified independently.
         #[arg(long, required = true)]
         trust_source: bool,
+        #[arg(long)]
+        path: Option<PathBuf>,
+        #[arg(long)]
+        tomb: Option<String>,
+    },
+    /// Recover an owner-verified ciphertext after an interrupted write or removal.
+    RecoverCiphertext {
+        /// Logical entry or attachment name.
+        name: String,
+        /// Affirm that this file's version was verified independently; it may be stale.
+        #[arg(long, required = true)]
+        trust_source: bool,
+        /// Recover an attachment manifest instead of an entry.
+        #[arg(long)]
+        attachment: bool,
         #[arg(long)]
         path: Option<PathBuf>,
         #[arg(long)]
@@ -174,6 +191,19 @@ pub fn run(cmd: PassProtectCmd) -> anyhow::Result<()> {
             path,
             tomb,
         } => cmd_migrate_legacy(&name, trust_source, path.as_deref(), tomb.as_deref()),
+        PassProtectCmd::RecoverCiphertext {
+            name,
+            trust_source,
+            attachment,
+            path,
+            tomb,
+        } => cmd_recover_ciphertext(
+            &name,
+            trust_source,
+            attachment,
+            path.as_deref(),
+            tomb.as_deref(),
+        ),
         PassProtectCmd::List { path, tomb } => cmd_protect_list(path.as_deref(), tomb.as_deref()),
         PassProtectCmd::Add { cmd } => match cmd {
             PassProtectAddCmd::Age {
