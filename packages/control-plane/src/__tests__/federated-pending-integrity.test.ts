@@ -73,26 +73,40 @@ it.each([
   },
 );
 
-it("continues old signed cookies only when they have no unbound tenant or visitor ID", () => {
-  expect(decodePending(legacyCookie(pending), secret)).toEqual(pending);
+it("continues old signed cookies only with bound static-provider provenance", () => {
+  expect(decodePending(legacyCookie(pending), secret)).toBeUndefined();
   expect(
     decodePending(legacyCookie({ ...pending, providerId: "provider" }), secret),
   ).toEqual({ ...pending, providerId: "provider" });
   expect(
-    decodePending(legacyCookie({ ...pending, orgId: "org-a" }), secret),
-  ).toBeUndefined();
-  expect(
-    decodePending(legacyCookie({ ...pending, byoId: "byo-a" }), secret),
-  ).toBeUndefined();
-  expect(
     decodePending(
-      replacePayload(legacyCookie(pending), { ...pending, orgId: "org-a" }),
+      legacyCookie({ ...pending, providerId: "provider", orgId: "org-a" }),
       secret,
     ),
   ).toBeUndefined();
   expect(
     decodePending(
-      replacePayload(legacyCookie(pending), { ...pending, byoId: "byo-a" }),
+      legacyCookie({ ...pending, providerId: "provider", byoId: "byo-a" }),
+      secret,
+    ),
+  ).toBeUndefined();
+  expect(
+    decodePending(
+      replacePayload(legacyCookie({ ...pending, providerId: "provider" }), {
+        ...pending,
+        providerId: "provider",
+        orgId: "org-a",
+      }),
+      secret,
+    ),
+  ).toBeUndefined();
+  expect(
+    decodePending(
+      replacePayload(legacyCookie({ ...pending, providerId: "provider" }), {
+        ...pending,
+        providerId: "provider",
+        byoId: "byo-a",
+      }),
       secret,
     ),
   ).toBeUndefined();
