@@ -35,6 +35,10 @@ pub(super) fn router() -> Router<AppState> {
         .route("/api/v1/device/authorize", post(device::authorize))
         .route("/api/v1/device/token", post(device::token))
         .route("/api/v1/device/approve", post(device::approve))
+        .route(
+            "/api/v1/device/approve-membership",
+            post(device::approve_membership),
+        )
         .route("/api/v1/session", get(session::status))
         .route("/api/v1/session/local", post(session::local_mint))
         .route("/api/v1/sessions/revoke", post(session::revoke))

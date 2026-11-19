@@ -663,6 +663,26 @@ paths:
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+  /device/approve-membership:
+    post:
+      summary: Approve a device code for a specific Identity membership revision
+      description: Internal Identity-to-Host operation; this distinct path requires revision-bound organization authority.
+      security: [{ HostOperatorBearer: [] }, { HostOperatorHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MembershipDeviceApproveRequest" }
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeviceApproveResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
   /session:
     get:
       summary: Count active Host sessions
@@ -4499,6 +4519,18 @@ components:
         principal: { type: string }
         organization_id: { type: string }
         organization_role: { $ref: "#/components/schemas/OrganizationRole" }
+        membership_incarnation: { type: string, format: uuid }
+        authority_revision: { type: string, format: uuid }
+    MembershipDeviceApproveRequest:
+      type: object
+      required: [user_code, principal, organization_id, organization_role, membership_incarnation, authority_revision]
+      properties:
+        user_code: { type: string }
+        principal: { type: string }
+        organization_id: { type: string }
+        organization_role: { $ref: "#/components/schemas/OrganizationRole" }
+        membership_incarnation: { type: string, format: uuid }
+        authority_revision: { type: string, format: uuid }
     DeviceApproveResponse:
       type: object
       required: [status]

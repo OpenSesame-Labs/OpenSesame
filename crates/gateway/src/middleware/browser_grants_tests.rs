@@ -27,6 +27,7 @@ fn ciphertext_grants_never_admit_administration_or_ambiguous_paths() {
     for path in [
         "/api/v1/session/local",
         "/api/v1/device/approve",
+        "/api/v1/device/approve-membership",
         "/api/v1/agent-runs/control",
         "/api/v1/sync/%70ull",
         "/api/v1/sync//pull",
