@@ -56,7 +56,8 @@ export function scheduleOrganizationWithdrawalRecovery(
     void ready
       .then(() => resumePendingOrganizationWithdrawals(ctx))
       .then((pending) => {
-        if (pending) retry();
+        if (pending) delayMs = WITHDRAWAL_RETRY_MS;
+        retry();
       })
       .catch(() => {
         warn();
