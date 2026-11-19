@@ -95,7 +95,7 @@ export async function captureProfilePicker(page, href, dir, profileId, check) {
   const file = path.join(dir, "setup-profile-picker.png");
   await shotFrame(page, file);
   check(
-    (await page.locator(".setup__frame").innerText()).includes(profileId),
+    (await page.locator(".setup__frame").innerText()).includes(choice),
     `${profileId} picker names the profile`,
   );
   return file;
