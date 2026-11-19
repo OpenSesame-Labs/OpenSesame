@@ -31,7 +31,10 @@ describe("showMinimalConfirm", () => {
   });
 
   it("exposes the expected worded keys", () => {
-    showMinimalConfirm(() => {}, () => {});
+    showMinimalConfirm(
+      () => {},
+      () => {},
+    );
     const notice = listNotices().find((n) => n.id === "setup.minimal.confirm");
     expect(notice?.act?.label).toBe(USE_MINIMAL_ANYWAY);
     expect(notice?.alt?.label).toBe(KEEP_DEFAULT_SETUP);
