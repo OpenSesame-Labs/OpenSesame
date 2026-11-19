@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "reviewed_attestation": "spec/formal/auth/reviewed-sources.json",
+  "reviewed_attestation": "spec/formal/auth/reviewed-sources-session-standing.json",
   "sources": [
     {
       "path": "packages/control-plane/src/middleware/auth.ts",
