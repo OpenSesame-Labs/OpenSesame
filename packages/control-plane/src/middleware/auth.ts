@@ -55,7 +55,13 @@ export async function resolveProvisionalSession(
           return undefined;
         }
         const authenticationContext = database
-          ? { ...ctx, repos: new PostgresRepositories(database) }
+          ? {
+              ...ctx,
+              repos: {
+                ...ctx.repos,
+                principals: new PostgresRepositories(database).principals,
+              },
+            }
           : ctx;
         if (
           !(await principalStillAuthenticates(
