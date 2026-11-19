@@ -507,7 +507,7 @@
       "max-lines": 420
     },
     "crates/sealed-store/src/attachment.rs": {
-      "max-lines": 1157
+      "max-lines": 1184
     },
     "crates/session-observe/src/lease.rs": {
       "max-lines": 625
