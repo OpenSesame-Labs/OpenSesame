@@ -15,7 +15,11 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PIN, waitOpen } from "./pages-journey.mjs";
 import { measureStep, stepChecks } from "./tutorial-measure.mjs";
-import { measurementTools } from "./tutorial-measure-tools.mjs";
+import {
+  measureButton,
+  measurementTools,
+  readableInstruction,
+} from "./tutorial-measure-tools.mjs";
 
 export { stepChecks };
 
@@ -230,7 +234,9 @@ export async function readStep(page) {
   await placed(page);
   await lit(page);
   await settled(page);
-  return page.evaluate(`(${measureStep})(${measurementTools})`);
+  return page.evaluate(
+    `(${measureStep})(() => (${measurementTools})(${readableInstruction}, ${measureButton}))`,
+  );
 }
 
 /** Re-enters the first screen of the shell without reloading (which locks). */

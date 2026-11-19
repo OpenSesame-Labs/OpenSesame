@@ -1,5 +1,5 @@
 /** DOM helpers serialized with the tutorial measurement into the page. */
-export function measurementTools() {
+export function measurementTools(readableInstruction, measureButton) {
   const box = (node) => {
     if (!node) return null;
     const { left, top, right, bottom, width, height } =
@@ -23,35 +23,7 @@ export function measurementTools() {
     }
     return true;
   };
-  /** Runs in the browser with the measurement's geometry and visibility helpers. */
-  function button(node) {
-    const bounds = box(node);
-    const hit = bounds
-      ? document.elementFromPoint(
-          (bounds.left + bounds.right) / 2,
-          (bounds.top + bounds.bottom) / 2,
-        )
-      : null;
-    return {
-      box: bounds,
-      reachable: Boolean(node && hit && node.contains(hit)),
-      disabled: node ? node.disabled : null,
-      ariaDisabled: node?.getAttribute("aria-disabled") === "true",
-      visible: node ? pointable(node) : false,
-    };
-  }
-  /** Check that the tutorial instruction can be read or scrolled. */
-  function readableInstruction(prose) {
-    if (!prose) return false;
-    const style = getComputedStyle(prose);
-    const minimum = Math.min(
-      prose.scrollHeight,
-      2 * Number.parseFloat(style.lineHeight) +
-        Number.parseFloat(style.paddingTop) +
-        Number.parseFloat(style.paddingBottom),
-    );
-    return prose.clientHeight + 1 >= minimum;
-  }
+  const button = (node) => measureButton(node, box, pointable);
   const describe = (node) => {
     if (!node) return "nothing";
     const id = node.id ? `#${node.id}` : "";
@@ -121,4 +93,35 @@ export function measurementTools() {
     probeControl,
     readableInstruction,
   };
+}
+
+/** Runs in the browser with the measurement's geometry and visibility helpers. */
+export function measureButton(node, box, pointable) {
+  const bounds = box(node);
+  const hit = bounds
+    ? document.elementFromPoint(
+        (bounds.left + bounds.right) / 2,
+        (bounds.top + bounds.bottom) / 2,
+      )
+    : null;
+  return {
+    box: bounds,
+    reachable: Boolean(node && hit && node.contains(hit)),
+    disabled: node ? node.disabled : null,
+    ariaDisabled: node?.getAttribute("aria-disabled") === "true",
+    visible: node ? pointable(node) : false,
+  };
+}
+
+/** Check that the tutorial instruction can be read or scrolled. */
+export function readableInstruction(prose) {
+  if (!prose) return false;
+  const style = getComputedStyle(prose);
+  const minimum = Math.min(
+    prose.scrollHeight,
+    2 * Number.parseFloat(style.lineHeight) +
+      Number.parseFloat(style.paddingTop) +
+      Number.parseFloat(style.paddingBottom),
+  );
+  return prose.clientHeight + 1 >= minimum;
 }
