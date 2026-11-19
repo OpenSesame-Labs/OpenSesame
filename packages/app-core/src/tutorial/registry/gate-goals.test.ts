@@ -97,7 +97,7 @@ describe("the gate tutorials", () => {
     }
   });
 
-  it("keeps the typed unlock walkthrough on the method its next step describes", () => {
+  it("describes the PIN already selected on the typed unlock form", () => {
     const known = vi
       .spyOn(state, "isKnownGuidePredicate")
       .mockReturnValue(true);
@@ -106,8 +106,11 @@ describe("the gate tutorials", () => {
       const goal = GATE_GOALS.find((item) => item.id === "gate.unlock");
       expect(goal).toBeDefined();
       read.mockReturnValue(false);
-      expect(goal?.guide).toContain("Keep PIN selected for this walkthrough.");
-      expect(goal?.guide).toContain("Enter a PIN");
+      expect(goal?.guide).toContain("Select PIN, then select Next.");
+      expect(goal?.guide).toContain('focus "unlock.seal-pin-entry"');
+      expect(goal?.guide).toContain('focus "unlock.seal-pin-confirm"');
+      expect(goal?.guide).toContain('focus "unlock.seal-ack"');
+      expect(goal?.guide).toContain('focus "unlock.seal"');
       read.mockReturnValue(true);
       expect(goal?.guide).toContain(
         "Keep the selected method for this walkthrough.",
@@ -115,6 +118,31 @@ describe("the gate tutorials", () => {
       expect(goal?.guide).toContain(
         "Enter the credential for the selected method.",
       );
+    } finally {
+      known.mockRestore();
+      read.mockRestore();
+    }
+  });
+
+  it("keeps the new-vault passkey notice and seal action in one target", () => {
+    const known = vi
+      .spyOn(state, "isKnownGuidePredicate")
+      .mockReturnValue(true);
+    const read = vi.spyOn(state, "readGuidePredicate");
+    try {
+      const goal = GATE_GOALS.find((item) => item.id === "gate.unlock.passkey");
+      expect(goal).toBeDefined();
+      read.mockReturnValue(false);
+      expect(goal?.guide).toContain('focus "unlock.seal-actions"');
+      expect(goal?.guide).toContain("Accept the recovery notice");
+      expect(goal?.guide).toContain(
+        'wait target "unlock.seal-pin-entry" event=appear',
+      );
+      expect(goal?.guide).toContain('focus "unlock.seal-pin-confirm"');
+      expect(goal?.guide).toContain('focus "unlock.seal-ack"');
+      read.mockReturnValue(true);
+      expect(goal?.guide).toContain('focus "unlock.submit"');
+      expect(goal?.guide).toContain("Select Unlock with passkey");
     } finally {
       known.mockRestore();
       read.mockRestore();

@@ -29,6 +29,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { firstVaultGateSteps } from "../first-vault-handoff.js";
 import { type SupportController, useSupport } from "../session.js";
 import "./coach.css";
 import {
@@ -41,6 +42,7 @@ import {
   canReturn,
   coachMessage,
   counterOf,
+  firstVaultTourProgress,
   viewportDockStyle,
 } from "./CoachParts.js";
 import type { placeCoach } from "./placement.js";
@@ -77,21 +79,16 @@ function displayedTour(
   requiredAction: boolean,
   ready: boolean,
   recovery: "edit" | "options" | "pepper" | "",
+  gateSteps: number,
 ): GuideTourView {
-  const gateTarget =
-    tour.target?.startsWith("unlock.") || tour.target === "setup.default";
-  const offset = firstVault
-    ? tour.count === 8 && !gateTarget
-      ? 8
-      : tour.count === 6
-        ? 2
-        : 0
-    : 0;
+  const progress = firstVault
+    ? firstVaultTourProgress(tour.target, tour.count, gateSteps)
+    : { offset: 0, count: tour.count };
   return {
     ...tour,
     message: coachMessage(tour, requiredAction, ready, recovery),
-    step: tour.step + offset,
-    count: firstVault ? 16 : tour.count,
+    step: tour.step + progress.offset,
+    count: progress.count,
   };
 }
 
@@ -336,6 +333,7 @@ function Coach({
       requiredAction,
       ready,
       layout.recovery,
+      firstVaultGateSteps(support),
     ),
     constrained,
     narrow,

@@ -56,6 +56,13 @@ export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
     capabilityId: null,
   },
   {
+    id: "unlock.seal-actions",
+    description: "The recovery notice and action that seal a new vault.",
+    role: "surface",
+    routes: ["/unlock"],
+    capabilityId: null,
+  },
+  {
     id: "unlock.submit",
     description:
       "Unlock the vault with the selected method, or finish creating a new vault.",
