@@ -232,18 +232,21 @@ test("there is no command that automatically blesses changed implementations", (
 
 test("a real pre-push hook checks actual other refs even when optional checks are off", (t) => {
   const f = gateFixture(t);
+  installFormalGate(f);
   const remote = join(f.container, "remote.git");
   f.git(["init", "--bare", "-q", remote]);
   f.git(["remote", "add", "origin", remote]);
+  // The fixture carries reviewed implementation files shared with formal
+  // proof suites. Advertise that baseline before testing a new ref, so the
+  // hook checks only the actual incoming commits in this scenario.
   f.git([
     "-c",
     "core.hooksPath=/dev/null",
     "push",
     "--quiet",
     "origin",
-    "HEAD:refs/heads/safe",
+    "HEAD:refs/heads/reviewed-baseline",
   ]);
-  installFormalGate(f);
   f.git(["config", "core.hooksPath", ".githooks"]);
   const env = { OPENSESAME_PREPUSH: "off" };
   const safe = f.command(

@@ -53,5 +53,6 @@ tempfile = { workspace = true, optional = true }
 
 [dev-dependencies]
 opensesame-spiffe-source = { path = ".", features = ["fake-workload-api"] }
+opensesame-transport-security = { path = "../transport-security", features = ["testkit"] }
 tempfile = { workspace = true }
 serde = { workspace = true }
