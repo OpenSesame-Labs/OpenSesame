@@ -48,3 +48,23 @@ async fn withdrawal_id_cannot_be_reused_for_different_authority() {
         .await
         .is_err());
 }
+
+#[tokio::test]
+async fn membership_revision_cannot_attest_an_unstored_withdrawal_id() {
+    let db = Db::connect_memory().await.unwrap();
+    assert!(db
+        .withdraw_host_membership(&withdrawal("first-id", "revision"))
+        .await
+        .unwrap());
+    assert!(db
+        .withdraw_host_membership(&withdrawal("second-id", "revision"))
+        .await
+        .is_err());
+    let stored: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM host_membership_withdrawals WHERE withdrawal_id='second-id'",
+    )
+    .fetch_one(db.pool())
+    .await
+    .unwrap();
+    assert_eq!(stored, 0);
+}
