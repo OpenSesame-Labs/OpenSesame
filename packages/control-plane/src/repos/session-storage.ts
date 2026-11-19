@@ -38,6 +38,19 @@ export async function saveProvisional(
   );
 }
 
+export async function saveCurrent(
+  stores: AppStores,
+  session: ProvisionalSession,
+  token: string,
+): Promise<void> {
+  await saveProvisional(
+    stores,
+    session,
+    token,
+    await principalSessionEpoch(stores, session.principalId),
+  );
+}
+
 export async function removeOrphanTokens(stores: AppStores): Promise<void> {
   for (const [token, id] of await stores.provisionalTokens.entries()) {
     if (!(await stores.provisionalSessions.has(id)))
