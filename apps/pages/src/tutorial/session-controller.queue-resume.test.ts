@@ -1,4 +1,6 @@
 /** @vitest-environment jsdom */
+
+import * as notices from "@opensesame/app-core/lib/notices.js";
 import {
   dequeueTutorial,
   listQueuedTutorials,
@@ -6,7 +8,6 @@ import {
 } from "@opensesame/app-core/lib/tutorial-queue.js";
 import { GUIDE_LANG_VERSION, type GuideProgram } from "@opensesame/guide-lang";
 import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
-import * as notices from "@opensesame/app-core/lib/notices.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SupportEngine } from "./engine.js";
 import { createSupportController } from "./session-controller.js";
