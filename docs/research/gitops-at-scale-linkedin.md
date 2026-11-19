@@ -138,12 +138,18 @@ today's alarm-on-any-change behavior.
 
 ### P2. An ownership ledger, and deletion as a reviewed step (L4, L5)
 
-Have `--apply` write a small `applied` record (ruleset names and IDs,
-environment names, and the commit they came from) to the run artifact or
-summary. Don't commit it to the repository, following the
+**Proposal.** `node ops/github/governance.mjs --apply` is a local
+administrator command. No workflow invokes it. A local CLI run has no Actions
+run, so it does not produce a run artifact or a step summary. Those exist
+only when the command is executed in a workflow.
+
+If apply runs in that workflow, have it write a small `applied` record
+(ruleset names and IDs, environment names, and the commit they came from) to
+the run artifact or summary. A local run cannot write either. Don't commit
+the record to the repository, following the
 [repository footprint](../contributing/repository-footprint.md) rules. On the
-next run, any ID in the ledger whose declaration file is gone becomes a
-**deletion candidate**:
+next run that can read the ledger, any ID whose declaration file is gone
+becomes a **deletion candidate**:
 
 - `--dry-run` lists it.
 - `--apply` never deletes it.
