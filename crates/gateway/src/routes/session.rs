@@ -4,7 +4,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::Utc;
+use opensesame_time::Utc;
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::HashMap;

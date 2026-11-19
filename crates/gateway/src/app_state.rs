@@ -37,7 +37,7 @@ pub struct DevicePending {
     pub user_code_hash: String,
     pub client_id: String,
     pub scope: String,
-    pub expires_at: chrono::DateTime<chrono::Utc>,
+    pub expires_at: opensesame_time::DateTime<opensesame_time::Utc>,
     pub approved: Option<ApprovedDevice>,
 }
 

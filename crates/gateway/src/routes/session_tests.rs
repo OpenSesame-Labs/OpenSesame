@@ -3,8 +3,8 @@ use crate::app_state::{ApprovedDevice, DevicePending};
 use crate::session_claims::fixture;
 use axum::extract::State;
 use axum::http::StatusCode;
-use chrono::{Duration, Utc};
 use opensesame_domain::{OrganizationId, OrganizationRole, PrincipalId};
+use opensesame_time::{Duration, Utc};
 use serde_json::json;
 use std::{
     collections::HashMap,

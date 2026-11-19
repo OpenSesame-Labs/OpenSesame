@@ -122,7 +122,7 @@ async fn whoami(st: &AppState, access_token: &str) -> StatusCode {
 
 #[tokio::test]
 async fn device_flow_and_withdrawal_cross_independent_replicas() {
-    let (_dir, a, b) = replicas().await;
+    let (directory, a, b) = replicas().await;
     let organization = OrganizationId::new();
     let principal = PrincipalId::new().to_string();
     let incarnation = uuid::Uuid::new_v4().to_string();
@@ -147,11 +147,28 @@ async fn device_flow_and_withdrawal_cross_independent_replicas() {
     let access = minted["access_token"].as_str().unwrap();
     assert_eq!(whoami(&a, access).await, StatusCode::OK);
     assert_eq!(whoami(&b, access).await, StatusCode::OK);
+
+    // A fresh process connection has no in-memory session cache. Durable
+    // authority must still restore the session before route authentication.
+    let url = opensesame_storage::sqlite_file_url(&directory.path().join("host.sqlite"));
+    let mut restarted = b.clone();
+    restarted.db = opensesame_storage::Db::connect_sqlite(&url).await.unwrap();
+    restarted.sessions = Arc::new(Mutex::new(HashMap::new()));
+    crate::native_authority::bind_configuration(
+        restarted.db.pool(),
+        &restarted.resource,
+        &restarted.claim_pepper,
+    )
+    .await
+    .unwrap();
+    assert_eq!(whoami(&restarted, access).await, StatusCode::OK);
+
     let response = withdraw(&b, &principal, organization, &incarnation, &revision).await;
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(body(response).await["revoked"], 1);
     assert_eq!(whoami(&a, access).await, StatusCode::UNAUTHORIZED);
     assert_eq!(whoami(&b, access).await, StatusCode::UNAUTHORIZED);
+    assert_eq!(whoami(&restarted, access).await, StatusCode::UNAUTHORIZED);
 }
 
 #[tokio::test]
