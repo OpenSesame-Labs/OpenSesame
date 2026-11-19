@@ -2,7 +2,7 @@ import type { AppContext } from "../context.js";
 import { hostApiEndpoint } from "../services/host-endpoint.js";
 import { revokeOrganizationMembership } from "./organization-revocation.js";
 
-export type LegacyOrphan = {
+type LegacyOrphan = {
   principalId: string;
   incarnation: string;
   authorityRevision: string;
