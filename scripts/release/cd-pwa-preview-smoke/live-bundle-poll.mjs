@@ -13,7 +13,10 @@ import { cdnPollBudget, sharedCdnDeadlineEndMs } from "./retry-budget.mjs";
 import { expandDynamicShellImports } from "./shell-dynamic-imports.mjs";
 import { shellAssetRefs } from "./shell-html-refs.mjs";
 
-export { dynamicImportRefsFromJs } from "./shell-dynamic-imports.mjs";
+export {
+  cssUrlRefsFromStylesheet,
+  dynamicImportRefsFromJs,
+} from "./shell-dynamic-imports.mjs";
 
 const MAX_SHELL_ASSET_BYTES = 16 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 15_000;

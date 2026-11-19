@@ -6,7 +6,12 @@ const VITE_DEP_ASSET = /["'](assets\/[^"']+\.(?:m?js|css))["']/giu;
 /** Emitted `import … from "./chunk.js"` in Vite bundles (incl. minified). */
 const STATIC_MODULE_FROM =
   /(?:^|[;,])import(?:\s+type\s+)?[\s\w*{},$]*?from\s*["'](\.[^"']+\.m?js)["']/giu;
-const STATIC_EXPORT_FROM = /export\s+[^"']*from\s*["'](\.[^"']+\.m?js)["']/giu;
+const STATIC_EXPORT_FROM =
+  /(?:^|[;,])export[\s\w*{},$]*?from\s*["'](\.[^"']+\.m?js)["']/giu;
+/** Side-effect-only `import"./chunk.js"`. */
+const STATIC_SIDE_EFFECT =
+  /(?:^|[;,])import\s*["'](\.[^"']+\.m?js)["']/giu;
+const CSS_URL = /url\(\s*(?:'([^']*)'|"([^"]*)"|([^"')]+))\s*\)/giu;
 
 function normalizeDistRelative(pathPart, ref) {
   const parts = [];
@@ -41,7 +46,34 @@ export function dynamicImportRefsFromJs(source) {
   for (const match of source.matchAll(STATIC_EXPORT_FROM)) {
     refs.add(match[1]);
   }
+  for (const match of source.matchAll(STATIC_SIDE_EFFECT)) {
+    refs.add(match[1]);
+  }
   return [...refs];
+}
+
+/** `url(...)` targets in emitted CSS (fonts, images under dist). */
+export function cssUrlRefsFromStylesheet(source) {
+  const refs = [];
+  for (const match of source.matchAll(CSS_URL)) {
+    const raw = (match[1] ?? match[2] ?? match[3] ?? "").trim();
+    if (raw.length === 0) continue;
+    if (/^(?:data:|https?:|\/\/)/iu.test(raw)) continue;
+    refs.push(raw);
+  }
+  return refs;
+}
+
+function distRelForRef(distRelative, ref, base, assetRelative) {
+  if (ref.startsWith("/")) {
+    return assetRelative(ref, base);
+  }
+  if (ref.startsWith(".") || ref.startsWith("assets/")) {
+    return ref.startsWith("assets/")
+      ? ref
+      : resolveDistImport(distRelative, ref);
+  }
+  return undefined;
 }
 
 export function resolveDistImport(fromDistRelative, ref) {
@@ -68,24 +100,19 @@ export function expandDynamicShellImports(
     if (seen.has(distRelative)) continue;
     seen.add(distRelative);
     paths.push(abs);
-    if (!/\.m?js$/iu.test(distRelative)) continue;
     let text;
     try {
       text = readFileSync(abs, "utf8");
     } catch {
       continue;
     }
-    for (const ref of dynamicImportRefsFromJs(text)) {
-      let distRel;
-      if (ref.startsWith("/")) {
-        distRel = assetRelative(ref, base);
-      } else if (ref.startsWith(".") || ref.startsWith("assets/")) {
-        distRel = ref.startsWith("assets/")
-          ? ref
-          : resolveDistImport(distRelative, ref);
-      } else {
-        continue;
-      }
+    const refs = /\.css$/iu.test(distRelative)
+      ? cssUrlRefsFromStylesheet(text)
+      : /\.m?js$/iu.test(distRelative)
+        ? dynamicImportRefsFromJs(text)
+        : [];
+    for (const ref of refs) {
+      const distRel = distRelForRef(distRelative, ref, base, assetRelative);
       if (distRel === undefined || seen.has(distRel)) continue;
       queue.push(stagedFilePath(root, distRel));
     }

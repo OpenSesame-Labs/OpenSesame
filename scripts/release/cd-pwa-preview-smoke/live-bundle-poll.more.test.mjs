@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import {
@@ -10,6 +10,7 @@ import {
   stageDist,
 } from "./live-bundle-poll.harness.mjs";
 import {
+  cssUrlRefsFromStylesheet,
   dynamicImportRefsFromJs,
   listStagedShellAssetPaths,
   pollLiveShellAssets,
@@ -40,6 +41,41 @@ test("shellAssetRelative strips query from absolute same-origin URLs", () => {
     ),
     "assets/main.js",
   );
+});
+
+test("dynamicImportRefsFromJs includes side-effect and minified export-from", () => {
+  const source = 'import"./side.js";export{a}from"./peer.js";\n';
+  assert.deepEqual(new Set(dynamicImportRefsFromJs(source)), new Set([
+    "./side.js",
+    "./peer.js",
+  ]));
+});
+
+test("cssUrlRefsFromStylesheet collects relative font and asset urls", () => {
+  const css =
+    "@font-face{font-family:mark;src:url(./fonts/os-logo.woff2)}.x{background:url(/OpenSesame/assets/bg.png)}";
+  assert.deepEqual(cssUrlRefsFromStylesheet(css), [
+    "./fonts/os-logo.woff2",
+    "/OpenSesame/assets/bg.png",
+  ]);
+});
+
+test("listStagedShellAssetPaths follows url() dependencies from shell CSS", () => {
+  const { root, dist } = stageDist();
+  try {
+    mkdirSync(join(dist, "assets", "fonts"), { recursive: true });
+    writeFileSync(join(dist, "assets", "fonts", "os-logo.woff2"), "font");
+    writeFileSync(
+      join(dist, "assets", "app.css"),
+      '@font-face{src:url("./fonts/os-logo.woff2")}',
+    );
+    const paths = listStagedShellAssetPaths(dist, pagesBase).map((p) =>
+      p.replace(`${dist}/`, ""),
+    );
+    assert.ok(paths.includes("assets/fonts/os-logo.woff2"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
 });
 
 test("dynamicImportRefsFromJs keeps Vite assets/*.js literals dist-relative", () => {
