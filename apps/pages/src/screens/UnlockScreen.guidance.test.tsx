@@ -74,6 +74,10 @@ describe("UnlockScreen — guidance is drawn in the page, not trayed", () => {
     render(<UnlockScreen />);
     goLocalOnly();
     chooseSealMethod("PIN");
+    const pin = screen.getByLabelText("Device PIN");
+    const confirmation = screen.getByLabelText("Confirm PIN");
+    expect(pin.getAttribute("data-guide-next-blocked")).toBe("true");
+    expect(confirmation.getAttribute("data-guide-next-blocked")).toBe("true");
     fireEvent.change(screen.getByLabelText("Device PIN"), {
       target: { value: "12345678" },
     });
@@ -94,6 +98,14 @@ describe("UnlockScreen — guidance is drawn in the page, not trayed", () => {
       target: { value: "12345678" },
     });
     expect(submitButton().disabled).toBe(true);
+    expect(pin.getAttribute("data-guide-next-blocked")).toBe("true");
+    fireEvent.change(pin, { target: { value: "13579246" } });
+    expect(pin.getAttribute("data-guide-next-blocked")).toBeNull();
+    expect(confirmation.getAttribute("data-guide-next-blocked")).toBe("true");
+    fireEvent.change(confirmation, { target: { value: "13579246" } });
+    expect(confirmation.getAttribute("data-guide-next-blocked")).toBeNull();
+    fireEvent.change(pin, { target: { value: "24681357" } });
+    expect(confirmation.getAttribute("data-guide-next-blocked")).toBe("true");
     expect(v.store.createWithPin).not.toHaveBeenCalled();
     // Leaving the field takes the guidance with it; nothing is left behind.
     chooseSealMethod("Passkey");

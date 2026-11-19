@@ -1,5 +1,7 @@
 import { checkShortKeyboardCard } from "./tutorial-interact.mjs";
 import {
+  checkWholeWord,
+  checkZoomedTouch,
   keyboardGeometry,
   measureZoomedKeyboard,
 } from "./tutorial-measure-tools.mjs";
@@ -100,18 +102,7 @@ async function checkZoomedKeyboard(page, check, field, target, keyboardHeight) {
         box.height >= v.height - input.height - 15
       );
     }, target);
-    if (target === "item.editor.name") {
-      const wholeWord = await page.evaluate(() => {
-        const node = document.querySelector(".coach__message")?.firstChild;
-        const start = node?.textContent?.indexOf("account") ?? -1;
-        if (!node || start < 0) return false;
-        const range = document.createRange();
-        range.setStart(node, start);
-        range.setEnd(node, start + "account".length);
-        return range.getClientRects().length === 1;
-      });
-      check(wholeWord, "first vault: zoomed instruction keeps words intact");
-    }
+    if (target === "item.editor.name") await checkWholeWord(page, check);
     await captureZoomedInstruction(
       page,
       session,
@@ -145,50 +136,7 @@ async function checkZoomedKeyboard(page, check, field, target, keyboardHeight) {
       result.controls,
       "first vault: zoomed keyboard controls fit and remain touch-sized",
     );
-    if (target === "item.editor.name") {
-      const point = await field.evaluate((node) => {
-        const box = node.getBoundingClientRect();
-        const v = visualViewport;
-        return {
-          x:
-            (Math.max(box.left, v.offsetLeft) +
-              Math.min(box.right, v.offsetLeft + v.width)) /
-              2 -
-            v.offsetLeft,
-          y:
-            (Math.max(box.top, v.offsetTop) +
-              Math.min(box.bottom, v.offsetTop + v.height)) /
-              2 -
-            v.offsetTop,
-        };
-      });
-      await page.touchscreen.tap(point.x, point.y);
-      check(
-        await field.evaluate((node) => document.activeElement === node),
-        "first vault: the zoomed account name field is touch-reachable",
-      );
-    }
-    if (target === "unlock.seal-pin-entry") {
-      await page.touchscreen.tap(result.point.x, result.point.y);
-      await page
-        .locator('.coach[data-coach-target="unlock.seal-pin-confirm"]')
-        .waitFor();
-      check(
-        true,
-        "first vault: Next works by touch with the zoomed keyboard open",
-      );
-      moved = "next";
-    } else if (target === "unlock.seal-pin-confirm") {
-      await page.touchscreen.tap(result.backPoint.x, result.backPoint.y);
-      await page
-        .locator('.coach[data-coach-target="unlock.seal-pin-entry"]')
-        .waitFor();
-      check(
-        true,
-        "first vault: Back works by touch with the zoomed keyboard open",
-      );
-      moved = "back";
-    }
+    moved = await checkZoomedTouch(page, check, field, target, result);
   } finally {
     await page.setViewportSize(original);
     await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });

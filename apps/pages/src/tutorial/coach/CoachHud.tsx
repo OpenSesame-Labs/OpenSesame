@@ -51,7 +51,11 @@ import {
   useCoachFocus,
   useEscapeToExit,
 } from "./use-coach-behavior.js";
-import { useCoachLayout } from "./use-coach-layout.js";
+import {
+  coachLayoutFlags,
+  guidedTour,
+  useCoachLayout,
+} from "./use-coach-layout.js";
 
 /** The notch's offset along the card edge, as the custom property coach.css reads. */
 function notchStyle(px: number): CSSProperties & { "--coach-notch": string } {
@@ -267,21 +271,6 @@ function CoachCard({
   );
 }
 
-function compactRowFor(
-  layout: ReturnType<typeof useCoachLayout>,
-  canBack: boolean,
-  awaitingAction: boolean,
-): boolean {
-  const { constrained, narrow, short, maxHeight } = layout;
-  return (
-    constrained &&
-    (!narrow || (short && !canBack)) &&
-    !awaitingAction &&
-    maxHeight !== undefined &&
-    maxHeight < 90
-  );
-}
-
 function Coach({
   guide,
   tour,
@@ -307,17 +296,15 @@ function Coach({
     cardRef,
     firstVault || guide.goal === "vault.item.first",
   );
+  const activeTour = guidedTour(tour, layout.nextBlocked);
   const { stepKey, viewport, hole, placement, gliding, missing } = layout;
   const { narrow, short, constrained } = layout;
-  const awaitingAction =
-    constrained && requiredAction && tour.action && !missing && !canBack;
-  const shortScroll =
-    short &&
-    (canBack ||
-      tour.kind === "close" ||
-      (!awaitingAction && layout.viewport.width < 200));
-  const compactRow =
-    !shortScroll && compactRowFor(layout, canBack, awaitingAction);
+  const { awaitingAction, shortScroll, compactRow } = coachLayoutFlags(
+    layout,
+    activeTour,
+    requiredAction,
+    canBack,
+  );
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset on a new step or layout mode.
   useLayoutEffect(() => {
     if (!cardRef.current) return;
@@ -339,7 +326,7 @@ function Coach({
     ready,
     canBack,
     displayTour: displayedTour(
-      tour,
+      activeTour,
       firstVault,
       requiredAction,
       ready,
@@ -364,11 +351,11 @@ function Coach({
     >
       <Dim hole={hole} viewport={viewport} gliding={gliding} />
       {hole !== null ? (
-        <Ring hole={hole} gliding={gliding} action={tour.action} />
+        <Ring hole={hole} gliding={gliding} action={activeTour.action} />
       ) : null}
       <CoachCard
         guide={guide}
-        tour={tour}
+        tour={activeTour}
         support={support}
         layout={layout}
         view={view}

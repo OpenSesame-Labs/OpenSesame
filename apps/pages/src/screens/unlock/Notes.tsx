@@ -67,7 +67,7 @@ export function FormNotes({
           <p id="master-help">
             {activeMethod === "passkey"
               ? "If you lose access to this passkey, you cannot recover items encrypted on this device. If the passkey cannot secure this vault, choose PIN instead."
-              : "There is no recovery. Forget this PIN and the encrypted items on this device are unreadable — by you and by us."}
+              : "If you forget this PIN, the encrypted items on this device cannot be recovered."}
           </p>
           <label className="check" ref={ackGuideRef}>
             <input

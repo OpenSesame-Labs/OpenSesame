@@ -7,6 +7,7 @@
 
 import type { ShellWrapperContribution } from "@opensesame/app-core/lib/capabilities/runtime-contract.js";
 import { registerTutorialRealm } from "@opensesame/app-core/tutorial/registry/optional-tutorials.test-support.js";
+import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
 import { fakeAgentAlwaysUnavailable } from "@opensesame/support-agent";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -177,7 +178,10 @@ describe("what the key opens", () => {
 });
 
 describe("the first-vault sealing handoff", () => {
-  const guide = (status: "running" | "waiting" | "done", target?: string) =>
+  const guide = (
+    status: "running" | "waiting" | "done",
+    target?: string,
+  ): GuideRuntimeSnapshot =>
     // SAFETY: this fixture supplies every field the sealing-state helper reads.
     ({
       status,
@@ -185,7 +189,7 @@ describe("the first-vault sealing handoff", () => {
       tour: target
         ? { target, message: "Seal the vault.", step: 1, count: 8 }
         : null,
-    }) as Parameters<typeof firstVaultSealingState>[1];
+    }) as GuideRuntimeSnapshot;
 
   it("disarms when Exit finishes the guide before sealing", () => {
     expect(

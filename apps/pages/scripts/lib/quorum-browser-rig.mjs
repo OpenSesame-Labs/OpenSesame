@@ -47,6 +47,56 @@ export const AUTHENTICATOR = {
   automaticPresenceSimulation: true,
 };
 
+/** Add the tutorial's internal authenticator, with an old-Chromium fallback. */
+export async function addVirtualAuthenticator(context, page, protocol) {
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  const options = (value) => ({
+    options: {
+      ...AUTHENTICATOR,
+      protocol: value,
+      transport: "internal",
+      hasResidentKey: true,
+    },
+  });
+  try {
+    const result = await cdp.send(
+      "WebAuthn.addVirtualAuthenticator",
+      options(protocol),
+    );
+    return { ...result, protocol };
+  } catch {
+    const result = await cdp.send(
+      "WebAuthn.addVirtualAuthenticator",
+      options("ctap2"),
+    );
+    return { ...result, protocol: "ctap2" };
+  }
+}
+
+/** A separate fixture proves the app consumes browser-shaped PRF results. */
+export async function stubPrfResults(page) {
+  await page.addInitScript(() => {
+    window.__prfPending = null;
+    const read = PublicKeyCredential.prototype.getClientExtensionResults;
+    PublicKeyCredential.prototype.getClientExtensionResults = function () {
+      const base = read.call(this);
+      return window.__prfPending
+        ? { ...base, prf: { results: { first: window.__prfPending } } }
+        : base;
+    };
+    for (const verb of ["create", "get"]) {
+      const call = navigator.credentials[verb].bind(navigator.credentials);
+      navigator.credentials[verb] = async (options) => {
+        const salt = options?.publicKey?.extensions?.prf?.eval?.first;
+        if (salt)
+          window.__prfPending = await crypto.subtle.digest("SHA-256", salt);
+        return call(options);
+      };
+    }
+  });
+}
+
 export class StepError extends Error {
   constructor(step, answer) {
     super(

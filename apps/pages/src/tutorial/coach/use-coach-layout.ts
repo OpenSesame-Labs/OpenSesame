@@ -72,6 +72,7 @@ function subscribeRecovery(listener: () => void): () => void {
 
 const noRecovery = () => "" as const;
 const noSubscription = () => () => {};
+const notBlocked = () => false;
 const RECOVERY_TARGETS = {
   edit: "item.edit",
   options: "editor.password-options",
@@ -95,6 +96,40 @@ function useRecoveryTarget(tour: GuideTourView, firstPassword: boolean) {
     recovery,
     target: recovery ? RECOVERY_TARGETS[recovery] : tour.target,
   };
+}
+
+/** A focused form step may hold Next until its highlighted value is valid. */
+function useNextBlocked(target: GuideTourView["target"]): boolean {
+  const blocked = () =>
+    target !== null &&
+    resolveGuideTargetElement(target)?.dataset.guideNextBlocked === "true";
+  const subscribe = (listener: () => void) => {
+    let observer: MutationObserver | null = null;
+    const refresh = () => {
+      observer?.disconnect();
+      const element =
+        target === null ? null : resolveGuideTargetElement(target);
+      if (element) {
+        observer = new MutationObserver(listener);
+        observer.observe(element, {
+          attributes: true,
+          attributeFilter: ["data-guide-next-blocked"],
+        });
+      }
+      listener();
+    };
+    const unsubscribe = subscribeToGuideTargets(refresh);
+    refresh();
+    return () => {
+      observer?.disconnect();
+      unsubscribe();
+    };
+  };
+  return useSyncExternalStore(
+    target === null ? noSubscription : subscribe,
+    blocked,
+    notBlocked,
+  );
 }
 
 function visibleTarget(
@@ -149,6 +184,40 @@ function sizeFlags(
       narrow ||
       (maxHeight !== undefined && maxHeight < CONSTRAINED_CARD_HEIGHT),
   };
+}
+
+export function guidedTour(
+  tour: GuideTourView,
+  blocked: boolean,
+): GuideTourView {
+  return blocked ? { ...tour, action: true } : tour;
+}
+
+export function coachLayoutFlags(
+  layout: ReturnType<typeof useCoachLayout>,
+  tour: GuideTourView,
+  requiredAction: boolean,
+  canBack: boolean,
+) {
+  const awaitingAction =
+    layout.constrained &&
+    requiredAction &&
+    tour.action &&
+    !layout.missing &&
+    !canBack;
+  const shortScroll =
+    layout.short &&
+    (canBack ||
+      tour.kind === "close" ||
+      (!awaitingAction && layout.viewport.width < 200));
+  const compactRow =
+    !shortScroll &&
+    layout.constrained &&
+    (!layout.narrow || (layout.short && !canBack)) &&
+    !awaitingAction &&
+    layout.maxHeight !== undefined &&
+    layout.maxHeight < 90;
+  return { awaitingAction, shortScroll, compactRow };
 }
 
 /**
@@ -223,6 +292,7 @@ export function useCoachLayout(
     stepKey,
     target,
     recovery,
+    nextBlocked: useNextBlocked(target),
     viewport,
     hole,
     placement,

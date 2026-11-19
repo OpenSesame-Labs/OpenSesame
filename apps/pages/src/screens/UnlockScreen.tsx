@@ -667,6 +667,9 @@ function UnlockForm({
                 inputMode="numeric"
                 autoComplete={firstRun ? "new-password" : "one-time-code"}
                 value={pin}
+                data-guide-next-blocked={
+                  firstRun && pinProblems.length > 0 ? "true" : undefined
+                }
                 title={
                   firstRun
                     ? `${MIN_PIN_LENGTH}–12 characters, no repeated character, no sequential digits`
@@ -738,6 +741,9 @@ function UnlockForm({
                 inputMode="numeric"
                 autoComplete="new-password"
                 value={confirm}
+                data-guide-next-blocked={
+                  confirm.length === 0 || confirm !== pin ? "true" : undefined
+                }
                 disabled={busy}
                 onChange={(e) => setConfirm(e.target.value)}
               />
