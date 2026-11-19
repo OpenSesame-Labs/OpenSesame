@@ -136,6 +136,8 @@ export function gateFixture(t) {
 export function installFormalGate(f) {
   for (const name of [
     "scripts/lib/json-boundary.mjs",
+    "scripts/security/cargo-lock-projection.py",
+    "scripts/security/formal-proof-lock-history.mjs",
     "scripts/security/formal-proof-pinned-suites.mjs",
     "scripts/security/formal-proof-push-gate.mjs",
     "scripts/security/formal-proof-push-gate-registry.mjs",

@@ -108,7 +108,11 @@ fn admit(
     if revoked {
         return Err(deny(&TransportError::EvidenceRevoked));
     }
-    let current = runtime.generations.current().number;
+    let current = runtime
+        .generations
+        .checked_current(None)
+        .map_err(|error| deny(&error))?
+        .number;
     let bindings = runtime.binding_set();
     let caller = ServiceCaller::admit(
         peer,
