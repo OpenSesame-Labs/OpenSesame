@@ -179,6 +179,8 @@ describe("leaving a tour", () => {
     const unbind = controller.bindTutorialResume((goalId, guide, homeRoute) =>
       controller.resumeQueuedWalkthrough(goalId, guide, homeRoute),
     );
+    controller.open("tutorials");
+    await Promise.resolve();
     expect(resumeTutorialFromNotice("settings.danger.review")).toBe(true);
     unbind();
     await home.whenRunning;

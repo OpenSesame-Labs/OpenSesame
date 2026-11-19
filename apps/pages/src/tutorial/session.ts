@@ -485,8 +485,25 @@ export function createSupportController(
         if (!navigator) return false;
         navigator(homeRoute);
       }
-      void startGuide(guide, "authored");
-      return true;
+      const beginAuthored = (loaded: SupportEngine) => {
+        const program = loaded.compileAuthored(guide);
+        if (!program) {
+          notifyFailure(GUIDE_ERROR_TEXT.GUIDE_VALIDATION_ERROR);
+          return false;
+        }
+        void runProgram(program, "authored");
+        return true;
+      };
+      if (engine) return beginAuthored(engine);
+      void ensureEngine().then((loaded) => {
+        if (!loaded) {
+          notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
+          return;
+        }
+        if (!beginAuthored(loaded)) return;
+        completeQueuedTutorial(goalId);
+      });
+      return false;
     },
     async ask(question) {
       const gate = gateSupportAsk(question, state.thinking);
