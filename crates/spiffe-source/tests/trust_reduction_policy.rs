@@ -32,7 +32,7 @@ async fn rejected_reduction_withdraws(profile_error: bool, remove_one_anchor: bo
     let initial_bundle = [foreign_a.bundle_der(), foreign_b.bundle_der()].concat();
     api.push_snapshot(federated_snapshot(&td, &gateway, Some(initial_bundle)));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
 
     let rejected = if profile_error {
@@ -88,7 +88,7 @@ async fn rejected_profile_with_added_trust_retains_the_previous_generation() {
         Some(foreign_a.bundle_der()),
     ));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone());
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone()).unwrap();
     streaming(&handle, 1).await;
 
     let mut spec =
