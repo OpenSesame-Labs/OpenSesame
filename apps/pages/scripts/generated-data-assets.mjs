@@ -245,7 +245,7 @@ const generatedModules = Object.freeze([
   {
     kind: "literal-array",
     path: `${root}/packages/app-core/src/tutorial/registry/vault-catalog.ts`,
-    hash: "afb663ed86c4ba9443a104e034628561a0fa571d198e7dcf9abbcd4a631f1222",
+    hash: "482d7a2e35caf2c819fcb004108ce38f826a7cd9813c9545c2a6986acf065319",
     exportName: "VAULT_TARGETS",
     assetName: "generated-data/tutorial-vault-targets.json",
   },
@@ -316,7 +316,7 @@ const generatedModules = Object.freeze([
   ),
   tutorialDataModule(
     "settings-goals",
-    "3af6763b381ccb3db92d4c06084bd7b3d1738a1cb46732d9c6fb0615e6439586",
+    "b436b2467b5f8b889011c6722ec0c3a73439c132c5a909893676539b37a0d1c4",
     ["SETTINGS_GOALS"],
   ),
   tutorialDataModule(
