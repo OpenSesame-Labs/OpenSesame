@@ -3,6 +3,7 @@ import {
   forgetGuidanceAnswers,
   forgetSessionAnswers,
   guidanceSeams,
+  loadGuidance,
   setGuidanceMode,
 } from "@opensesame/app-core/lib/guidance.js";
 import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
@@ -20,6 +21,7 @@ import {
   PAUSE_ALL_FOR_SESSION,
   RESUME_WALKTHROUGH,
 } from "@opensesame/app-core/lib/tutorial-queue-present.js";
+import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
 import {
   act,
   cleanup,
@@ -88,6 +90,29 @@ function settle() {
   act(() => {
     vi.advanceTimersByTime(firstVisitSeams.delayMs + 5);
   });
+}
+
+function touring(goal: string): GuideRuntimeSnapshot {
+  return {
+    status: "running",
+    goal,
+    index: 0,
+    total: 1,
+    runId: 1,
+    message: null,
+    error: null,
+    tour: {
+      step: 1,
+      count: 1,
+      kind: "narrate",
+      message: "This is the first step.",
+      target: null,
+      side: null,
+      action: false,
+      degraded: false,
+      canBack: false,
+    },
+  };
 }
 
 describe("declining a first-visit offer", () => {
@@ -167,6 +192,24 @@ describe("declining a first-visit offer", () => {
     mount(support);
     setSessionTutorialsPaused(true);
     expect(stops.count).toBe(0);
+  });
+
+  it("pause-all still stops an automatic tour that starts after the engine loads", () => {
+    setGuidanceMode("auto");
+    const { support, started, set, stops } =
+      stubSupportController("/settings/danger");
+    mount(support);
+    settle();
+    expect(started).toHaveLength(1);
+    expect(loadGuidance().tours).toEqual([]);
+    act(() => {
+      setSessionTutorialsPaused(true);
+    });
+    const stopsWhileLoading = stops.count;
+    act(() => set({ guide: touring("settings.danger.review") }));
+    expect(stops.count).toBeGreaterThan(stopsWhileLoading);
+    expect(stops.reason).toBe("superseded");
+    expect(loadGuidance().tours).toEqual([]);
   });
 
   it("clears an offer already on screen when tutorials may not speak", () => {
