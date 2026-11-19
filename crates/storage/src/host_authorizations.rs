@@ -42,6 +42,72 @@ pub async fn narrow_identity_role(
 struct Authentication {
     role: String,
     auth_time: i64,
+    membership_incarnation: Option<String>,
+    authority_revision: Option<String>,
+}
+
+/// Bind Identity's membership assertion in the same transaction that consumes
+/// the browser authentication challenge. A tagged assertion must name the
+/// client's existing revision (or fill an unbound bootstrap) and must not have
+/// been withdrawn. Untagged compatibility is refused after any withdrawal.
+async fn bind_membership(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    client: &str,
+    evidence: &Authentication,
+) -> anyhow::Result<bool> {
+    let incarnation = evidence.membership_incarnation.as_deref();
+    let revision = evidence.authority_revision.as_deref();
+    if incarnation.is_some() != revision.is_some() {
+        return Ok(false);
+    }
+    let changed = sqlx::query(
+        "UPDATE browser_clients SET membership_incarnation=?,authority_revision=?
+        WHERE id=? AND revoked_at IS NULL
+        AND ((membership_incarnation IS NULL AND authority_revision IS NULL)
+            OR (membership_incarnation=? AND authority_revision=?))
+        AND NOT EXISTS(SELECT 1 FROM host_membership_withdrawals w
+            WHERE w.organization_id=browser_clients.organization_id
+              AND w.principal_id=browser_clients.principal_id
+              AND (? IS NULL OR (w.membership_incarnation=? AND w.authority_revision=?)))",
+    )
+    .bind(incarnation)
+    .bind(revision)
+    .bind(client)
+    .bind(incarnation)
+    .bind(revision)
+    .bind(incarnation)
+    .bind(incarnation)
+    .bind(revision)
+    .execute(&mut **tx)
+    .await?
+    .rows_affected();
+    if changed != 1 {
+        return Ok(false);
+    }
+    if let (Some(incarnation), Some(revision)) = (incarnation, revision) {
+        let activated = sqlx::query(
+            "INSERT INTO host_membership_current
+            (organization_id,principal_id,membership_incarnation,authority_revision)
+            SELECT organization_id,principal_id,?,? FROM browser_clients
+            WHERE id=? AND NOT EXISTS(SELECT 1 FROM host_membership_withdrawals w
+                WHERE w.organization_id=browser_clients.organization_id
+                  AND w.principal_id=browser_clients.principal_id
+                  AND w.membership_incarnation=? AND w.authority_revision=?)
+            ON CONFLICT(organization_id,principal_id) DO UPDATE SET
+              membership_incarnation=excluded.membership_incarnation,
+              authority_revision=excluded.authority_revision",
+        )
+        .bind(incarnation)
+        .bind(revision)
+        .bind(client)
+        .bind(incarnation)
+        .bind(revision)
+        .execute(&mut **tx)
+        .await?
+        .rows_affected();
+        return Ok(activated == 1);
+    }
+    Ok(true)
 }
 
 pub struct HostAuthorization {
@@ -135,6 +201,9 @@ impl Db {
                 "wrong authorization purpose"
             );
             let evidence: Authentication = serde_json::from_str(authentication)?;
+            if !bind_membership(&mut tx, &input.client_id, &evidence).await? {
+                return Ok(false);
+            }
             let client = sqlx::query("SELECT principal_id,organization_id FROM browser_clients WHERE id=? AND revoked_at IS NULL")
                 .bind(&input.client_id).fetch_one(&mut *tx).await?;
             narrow_identity_role(
