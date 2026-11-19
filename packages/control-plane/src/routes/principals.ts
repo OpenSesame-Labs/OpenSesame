@@ -212,7 +212,12 @@ principalRoutes.post(
         }
 
         const accessToken = `pst_${randomBytes(24).toString("base64url")}`;
-        await saveProvisional(ctx.stores, provisionalSession, accessToken);
+        await saveProvisional(
+          ctx.stores,
+          provisionalSession,
+          accessToken,
+          await principalSessionEpoch(ctx.stores, principal.id),
+        );
 
         setCookie(c, ctx.config.provisionalCookieName, accessToken, {
           httpOnly: true,
@@ -665,3 +670,4 @@ import {
   revokeSessionTokens,
   saveProvisional,
 } from "../repos/session-storage.js";
+import { principalSessionEpoch } from "../repos/principal-session-boundary.js";

@@ -9,6 +9,9 @@ import { overlapCast } from "@opensesame/os-domain";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { DurableMap } from "../repos/durable-map.js";
+import { principalSessionEpoch } from "../repos/principal-session-boundary.js";
+import { saveProvisional } from "../repos/session-storage.js";
 import { adoptSessionWithinCapacity } from "../routes/federated-session.js";
 import {
   ensurePersonalOrganization,
@@ -138,6 +141,10 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
       first.ctx,
       person.principalId,
     );
+    const staleEpoch = await principalSessionEpoch(
+      second.ctx.stores,
+      person.principalId,
+    );
 
     let reached = () => {};
     let release = () => {};
@@ -185,6 +192,23 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
     await revoking;
     spy.mockRestore();
 
+    const now = second.ctx.clock();
+    await expect(
+      saveProvisional(
+        second.ctx.stores,
+        {
+          id: `ps_${randomUUID()}`,
+          principalId: person.principalId,
+          quotaProfile: "anonymous",
+          allowedActions: ["session.continue_anonymous"],
+          createdAt: now,
+          expiresAt: new Date(now.getTime() + 60_000),
+        },
+        `pst_${randomUUID()}`,
+        staleEpoch,
+      ),
+    ).rejects.toThrow(/session authority changed/i);
+
     expect(
       (
         await second.app.request("/v1/principals/me", {
@@ -192,5 +216,46 @@ describe.skipIf(!databaseUrl)("replica membership revocation boundary", () => {
         })
       ).status,
     ).toBe(401);
+
+    const rollbackResponse = await first.app.request(
+      "/v1/principals/provisional",
+      { method: "POST" },
+    );
+    const rollbackPerson: { principalId: string } = overlapCast(
+      await rollbackResponse.json(),
+    );
+    const rollbackMembership = await ensurePersonalOrganization(
+      first.ctx,
+      rollbackPerson.principalId,
+    );
+    const rollbackEpoch = await principalSessionEpoch(
+      first.ctx.stores,
+      rollbackPerson.principalId,
+    );
+    const cleanupSpy = vi
+      .spyOn(DurableMap.prototype, "entries")
+      .mockImplementationOnce(
+      async function () {
+        throw new Error("session cleanup unavailable");
+      },
+      );
+    await expect(
+      revokeOrganizationMembership(first.ctx, {
+        organizationId: rollbackMembership.organizationId,
+        principalId: rollbackPerson.principalId,
+        correlationId: "rollback",
+        reason: "deprovisioned",
+      }),
+    ).rejects.toThrow("session cleanup unavailable");
+    cleanupSpy.mockRestore();
+    expect(
+      await second.ctx.stores.organizationMemberships.find(
+        rollbackMembership.organizationId,
+        rollbackPerson.principalId,
+      ),
+    ).toBeDefined();
+    expect(
+      await principalSessionEpoch(second.ctx.stores, rollbackPerson.principalId),
+    ).toBe(rollbackEpoch);
   }, 60_000);
 });

@@ -11,6 +11,7 @@ import {
   overlapCast,
 } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
+import { principalSessionEpoch } from "../repos/principal-session-boundary.js";
 import { saveProvisional } from "../repos/session-storage.js";
 import {
   ProvisionalMintRefusedError,
@@ -268,6 +269,7 @@ export async function verifyMagicLinkToken(
 async function issueProvisionalBearer(
   ctx: AppContext,
   principalId: string,
+  expectedEpoch: number,
 ): Promise<string> {
   const now = ctx.clock();
   const session: ProvisionalSession = {
@@ -279,7 +281,7 @@ async function issueProvisionalBearer(
     expiresAt: new Date(now.getTime() + ctx.config.provisionalTtlMs),
   };
   const accessToken = `pst_${randomBytes(24).toString("base64url")}`;
-  await saveProvisional(ctx.stores, session, accessToken);
+  await saveProvisional(ctx.stores, session, accessToken, expectedEpoch);
   return accessToken;
 }
 
@@ -330,6 +332,10 @@ export async function principalForBetterAuthSubject(
 
   const knownPrincipalId = mapped?.principalId ?? existing?.principalId;
   if (knownPrincipalId) {
+    const expectedEpoch = await principalSessionEpoch(
+      ctx.stores,
+      knownPrincipalId,
+    );
     if (!(await settleVerifiedOwner(ctx, knownPrincipalId))) {
       throw new BetterAuthBridgeError(
         "principal_unavailable",
@@ -345,7 +351,11 @@ export async function principalForBetterAuthSubject(
     }
     return {
       principalId: knownPrincipalId,
-      accessToken: await issueProvisionalBearer(ctx, knownPrincipalId),
+      accessToken: await issueProvisionalBearer(
+        ctx,
+        knownPrincipalId,
+        expectedEpoch,
+      ),
     };
   }
 
@@ -392,6 +402,7 @@ export async function principalForBetterAuthSubject(
   // address to a principal that already owned it through another leg, and the
   // principal minted a moment ago is then not the account signing in.
   const principalId = attached.identity.principalId;
+  const expectedEpoch = await principalSessionEpoch(ctx.stores, principalId);
   if (!(await settleVerifiedOwner(ctx, principalId))) {
     throw new BetterAuthBridgeError(
       "principal_unavailable",
@@ -420,6 +431,6 @@ export async function principalForBetterAuthSubject(
         : // The minted session belongs to the minted principal and to nothing
           // else; when D15 redirected the identity, that bearer names an
           // account this sign-in did not complete as.
-          await issueProvisionalBearer(ctx, principalId),
+          await issueProvisionalBearer(ctx, principalId, expectedEpoch),
   };
 }
