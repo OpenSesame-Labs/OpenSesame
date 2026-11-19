@@ -55,7 +55,7 @@ async fn an_empty_snapshot_withdraws_the_only_identity_then_recovers() {
     handle.stop().await;
 }
 
-async fn material_rpc_denial_withdraws_and_recovers(denial: Status) {
+async fn material_rpc_denial_withdraws_and_recovers(denial: Status, code: &str) {
     let api = FakeWorkloadApi::start();
     let td = FakeTrustDomain::new(TD);
     let gateway = td.issue_svid(GW, Duration::from_mins(10));
@@ -65,7 +65,19 @@ async fn material_rpc_denial_withdraws_and_recovers(denial: Status) {
     streaming(&handle, 1).await;
 
     api.deny_all(denial);
-    withdrawn_promptly(&handle).await;
+    let status = withdrawn_promptly(&handle).await;
+    // A denial is immediate withdrawal. An outage would keep `Outage`, set
+    // `outage_since` / `retain_until`, and leave withdrawals at 0.
+    assert_eq!(status.phase, SourcePhase::Withdrawn);
+    assert_eq!(status.last_error.as_deref(), Some(code));
+    assert_eq!(status.generation, Some(1));
+    assert_eq!(status.withdrawals, 1);
+    assert!(status.outage_since.is_none());
+    assert!(status.retain_until.is_none());
+    assert_eq!(
+        status.credential_status(opensesame_time::Utc::now()),
+        opensesame_domain::CredentialStatus::Expired { generation: 1 }
+    );
     assert_eq!(
         sink.last(),
         Some(SinkEvent::Withdrawn(TransportError::IdentityMissing))
@@ -78,24 +90,78 @@ async fn material_rpc_denial_withdraws_and_recovers(denial: Status) {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn no_identity_issued_on_the_stream_withdraws_and_recovers() {
-    material_rpc_denial_withdraws_and_recovers(Status::permission_denied("no identity issued"))
-        .await;
+    material_rpc_denial_withdraws_and_recovers(
+        Status::permission_denied("no identity issued"),
+        "svid_not_issued",
+    )
+    .await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn permission_denied_on_the_stream_withdraws_and_recovers() {
-    material_rpc_denial_withdraws_and_recovers(Status::permission_denied(
-        "workload permission denied",
-    ))
+    material_rpc_denial_withdraws_and_recovers(
+        Status::permission_denied("workload permission denied"),
+        "workload_api_denied",
+    )
     .await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn unauthenticated_on_the_stream_withdraws_and_recovers() {
-    material_rpc_denial_withdraws_and_recovers(Status::unauthenticated(
-        "workload not authenticated",
-    ))
+    material_rpc_denial_withdraws_and_recovers(
+        Status::unauthenticated("workload not authenticated"),
+        "workload_api_unauthenticated",
+    )
     .await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn stream_outage_retains_the_generation_until_a_denial_withdraws_it() {
+    let api = FakeWorkloadApi::start();
+    let td = FakeTrustDomain::new(TD);
+    let gateway = td.issue_svid(GW, Duration::from_mins(10));
+    api.push_snapshot(snapshot(&td, &[&gateway]));
+    let sink = RecordingSink::shared();
+    let config = config(&api, Duration::from_secs(30))
+        .with_reconnect(opensesame_spiffe_source::ReconnectPolicy {
+            initial: Duration::from_millis(800),
+            max: Duration::from_millis(800),
+            jitter_permille: 0,
+        })
+        .expect("reconnect policy");
+    let handle = SpiffeSource::start(config, sink.clone());
+    streaming(&handle, 1).await;
+
+    api.close_streams();
+    let outage = handle
+        .wait_for(WAIT, |s| {
+            s.phase == SourcePhase::Outage && s.connections == 1 && s.retain_until.is_some()
+        })
+        .await
+        .expect("a broken stream is an outage, not a withdrawal");
+    assert_eq!(outage.generation, Some(1));
+    assert_eq!(outage.withdrawals, 0);
+    assert!(outage.outage_since.is_some());
+    let deadline = outage.retain_until.expect("outage deadline");
+    assert!(deadline > opensesame_time::Utc::now() + opensesame_time::Duration::seconds(10));
+    assert!(matches!(
+        sink.last(),
+        Some(SinkEvent::Activated { number: 1, .. })
+    ));
+
+    api.deny_on_reconnect(Status::permission_denied("workload permission denied"));
+    let status = withdrawn_promptly(&handle).await;
+    assert_eq!(status.phase, SourcePhase::Withdrawn);
+    assert_eq!(status.last_error.as_deref(), Some("workload_api_denied"));
+    assert!(status.retain_until.is_none());
+    assert_eq!(status.withdrawals, 1);
+    assert_eq!(status.generation, Some(1));
+    assert!(opensesame_time::Utc::now() < deadline);
+    assert_eq!(
+        sink.last(),
+        Some(SinkEvent::Withdrawn(TransportError::IdentityMissing))
+    );
+    handle.stop().await;
 }
 
 async fn denial_opening_a_reconnected_stream_withdraws(denial: Status, code: &str) {
