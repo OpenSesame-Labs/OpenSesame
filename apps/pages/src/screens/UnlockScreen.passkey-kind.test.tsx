@@ -215,4 +215,16 @@ describe("UnlockScreen — first run, which authenticator", () => {
     ).toBe("true");
     expect(screen.queryByRole("tablist", { name: "Passkey on" })).toBeNull();
   });
+
+  it("does not offer a passkey where WebAuthn is absent", async () => {
+    vi.stubGlobal("PublicKeyCredential", undefined);
+    render(<UnlockScreen />);
+    goLocalOnly();
+    await waitFor(() =>
+      expect(screen.queryByRole("tab", { name: "Passkey" })).toBeNull(),
+    );
+    expect(
+      screen.getByRole("tab", { name: "PIN" }).getAttribute("aria-selected"),
+    ).toBe("true");
+  });
 });
