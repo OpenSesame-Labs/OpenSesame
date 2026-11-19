@@ -15,10 +15,7 @@ export function usePasskeyRoad(hostOk: boolean): boolean {
     webauthnPrfCapabilities().then(
       (report) => {
         if (live) {
-          setAvailable(
-            report.availability.runtime === "available" &&
-              report.details.extensionPrf !== false,
-          );
+          setAvailable(report.availability.runtime === "available");
         }
       },
       () => {},
