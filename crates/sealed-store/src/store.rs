@@ -261,7 +261,14 @@ impl StoreRoot {
                 let key = key.ok_or_else(|| StoreError::NotInitialized(self.path.clone()))?;
                 let rel = Self::entry_relative(name, "osseal")?;
                 let path = self.path.join(&rel);
-                let revision = self.next_entry_revision(name, &path, key)?;
+                let revision = self.next_entry_revision_after(
+                    name,
+                    &path,
+                    key,
+                    0,
+                    Some(&plaintext),
+                    false,
+                )?;
                 let blob = seal_osseal(&plaintext, key, name, revision)?;
                 // Keep the preceding ciphertext whole if a write stops after
                 // advancing the counter; it can then be explicitly recovered.
@@ -342,6 +349,7 @@ impl StoreRoot {
                     name,
                     Some(witness.revision),
                 )?;
+                self.verify_entry_plaintext(name, key, &witness)?;
                 if self.revision(name)?.is_some() {
                     opened.plaintext
                 } else {
@@ -357,6 +365,7 @@ impl StoreRoot {
                         name,
                         Some(witness.revision),
                     )?;
+                    self.verify_entry_plaintext(name, key, &witness)?;
                     if self.revision(name)?.is_none() {
                         self.record_revision(name, witness.revision)?;
                     }
