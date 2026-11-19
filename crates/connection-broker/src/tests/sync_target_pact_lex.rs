@@ -37,7 +37,7 @@ pub(super) fn skip_comment(bytes: &[u8], start: usize) -> usize {
     if bytes.get(start + 1) == Some(&b'/') {
         return skip_line_comment(bytes, start);
     }
-    skip_block_comment_flat(bytes, start)
+    skip_block_comment_nested(bytes, start)
 }
 
 fn skip_line_comment(bytes: &[u8], start: usize) -> usize {
@@ -246,12 +246,14 @@ mod probes {
     use crate::tests::sync_target_pact_let::typed_let_name_before_path;
 
     #[test]
-    fn p5_block_comment_does_not_nest() {
+    fn p5_block_comment_noise_uses_nested_skip() {
         let bytes = br#"/* outer /* inner */ still */.text()"#;
         let flat = skip_block_comment_flat(bytes, 0);
         assert_eq!(&bytes[flat..], b" still */.text()");
         let nested = skip_block_comment_nested(bytes, 0);
         assert_eq!(&bytes[nested..], b".text()");
+        let noise = super::skip_comment(bytes, 0);
+        assert_eq!(noise, nested, "non_code_len must hide nested comment tails");
     }
 
     #[test]

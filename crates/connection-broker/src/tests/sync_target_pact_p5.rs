@@ -272,6 +272,12 @@ fn p5_closure_whitespace_before_pipe_is_not_https_guard() {
 }
 
 #[test]
+fn p5_nested_block_comment_hides_dispatch_rebind() {
+    let sample = r#"async fn f() { let dispatch = reqwest::RequestBuilder::send; /* /* */ let dispatch = innocent; */ dispatch(request).await?; }"#;
+    assert_gaps(sample, (1, 1));
+}
+
+#[test]
 fn p5_as_str_before_send_stays_guarded() {
     let sample = r#"async fn f() { let _ = url.as_str(); if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#;
     assert_gaps(sample, (1, 0));
