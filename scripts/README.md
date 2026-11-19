@@ -31,8 +31,12 @@ coverage, assumptions, and limits are in [formal authentication and
 authorization verification](../docs/security/formal-auth-verification.md).
 
 Install the Git hooks with `npm run setup:hooks`. Before a push, the mandatory
-formal gate reads the actual ref updates and runs only suites whose registered
-implementation paths occur in the pushed changes. The mappings and commands are
+formal gate reads the actual ref updates and runs suites when registered
+implementation paths occur in the pushed changes. A suite can also register a
+reviewed Cargo.lock dependency projection; the suite runs when its resolved
+graph changes. This lockfile projection conservatively includes inactive
+optional, development, and target-specific dependencies. See the
+[projection contract](security/cargo-lock-projection.md). The mappings and commands are
 in [`proof-registry.json`](../spec/formal/proof-registry.json) and must match the
 declarative [`proof-requirements.json`](../spec/formal/proof-requirements.json).
 The gate inspects policy changes and their parent snapshots in the pushed

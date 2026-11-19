@@ -1,7 +1,7 @@
 import { lstatSync } from "node:fs";
 import { resolve } from "node:path";
 import { TextDecoder } from "node:util";
-import { isString } from "../lib/json-boundary.mjs";
+import { isJsonObject, isString } from "../lib/json-boundary.mjs";
 
 const decoder = new TextDecoder("utf-8", { fatal: true });
 export function assertCleanWorktree(root, git, dirtyMessage) {
@@ -59,6 +59,34 @@ function validSuiteCommand(command) {
   );
 }
 
+function validLockProjection(suite) {
+  const projection = suite.lockProjection;
+  if (projection === undefined) return true;
+  if (!isJsonObject(projection)) return false;
+  const keys = Object.keys(projection);
+  const name = (value) =>
+    isString(value) && /^[A-Za-z0-9][A-Za-z0-9_-]*$/u.test(value);
+  return (
+    keys.every((key) => ["path", "root", "dependency"].includes(key)) &&
+    projection.path === "Cargo.lock" &&
+    name(projection.root) &&
+    (projection.dependency === undefined || name(projection.dependency)) &&
+    !suite.implementation.includes(projection.path)
+  );
+}
+
+function validSuite(suite, ids) {
+  return (
+    suite &&
+    isString(suite.id) &&
+    /^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(suite.id) &&
+    !ids.has(suite.id) &&
+    validSuitePaths(suite) &&
+    validLockProjection(suite) &&
+    validSuiteCommand(suite.command)
+  );
+}
+
 export function parseRegistry(bytes) {
   let registry;
   try {
@@ -74,14 +102,7 @@ export function parseRegistry(bytes) {
     throw new Error("Invalid formal proof registry");
   const ids = new Set();
   for (const suite of registry.suites) {
-    if (
-      !suite ||
-      !isString(suite.id) ||
-      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(suite.id) ||
-      ids.has(suite.id) ||
-      !validSuitePaths(suite) ||
-      !validSuiteCommand(suite.command)
-    )
+    if (!validSuite(suite, ids))
       throw new Error(`Invalid formal proof suite: ${suite?.id ?? "unknown"}`);
     ids.add(suite.id);
   }
