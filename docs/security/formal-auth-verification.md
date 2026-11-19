@@ -1,7 +1,7 @@
 # Formal authentication and authorization verification
 
 This register connects security requirements to their implementation, formal
-model, and checks. The present Lean coverage consists of bounded slices of the Identity API. It is not a
+model, and checks. The present Lean coverage consists of bounded slices of the Identity API and Host. It is not a
 proof of OpenSesame's complete authentication or authorization system. Update this register whenever the covered behavior changes or a new
 formal property is introduced.
 
@@ -130,8 +130,8 @@ claim of exhaustive inventory or Lean coverage:
 | CLI app-integration credential registration and retries. [CLI-WA2](#cli-wa2-cli-credential-registration-and-retries). | [`register_webauthn`](../../crates/cli-app-integration/src/pairing/binding.rs). | Unproved; separate from APR-B1–B5. |
 | CLI app-integration restricted approvals. [CLI-WA3](#cli-wa3-restricted-cli-approvals). | [`ensure`](../../crates/cli-app-integration/src/lib.rs) and [`human_proof_verify`](../../crates/cli-app-integration/src/human_proof.rs). | Unproved; separate from APR-B1–B5. |
 | Interaction deadline admission. [ADR 0086](../adr/0086-wallet-native-interaction-layer.md). | [`interaction-clock.ts`](../../packages/control-plane/src/services/interaction-clock.ts) and the approval and consumption routes. | [CLOCK-1](../../spec/formal/interaction-clock/README.md) proves the sampled deadline predicate. The real-route tests cover selected pauses; commit-time expiry, atomic storage, and rollback are not proved. |
-| DPoP proof validation. RFC 9449. | [`validator.rs`](../../crates/proof/src/validator.rs). | Not modeled by this suite. |
-| Grant validity and delegation. [ADR 0036](../adr/0036-coverage-guided-fuzz-and-bounded-proofs.md). | [`grant.rs`](../../crates/domain/src/grant.rs). | A separate Kani harness checks a bounded interval case; this suite does not prove grant behavior. |
+| DPoP replay cache. RFC 9449. | [`replay.rs`](../../crates/proof/src/replay.rs). | [DPOP-R1](../../spec/formal/dpop/README.md) models the single-process cache under stated clock and atomicity assumptions; full DPoP validation is not proved. |
+| Grant delegation and replacement. [ADR 0036](../adr/0036-coverage-guided-fuzz-and-bounded-proofs.md). | [`grant.rs`](../../crates/domain/src/grant.rs) and its validators. | [AUTH-D1–D6](../../spec/formal/authority/README.md) model selected attenuation checks. Caller authentication, all constraint dimensions, and concurrent behavior are outside the model. A separate Kani harness checks a bounded interval case. |
 | Host API relay organization tenant isolation. [ADR 0046](../adr/0046-relayed-execution-and-authorization-inbox.md). | [`caller_scope`](../../crates/gateway/src/routes/relay_scope.rs) scopes inspection and denial in [`relay.rs`](../../crates/gateway/src/routes/relay.rs). | **RELAY-T1** is **unproved**. Sessions use their authenticated organization; operators use the bootstrap organization. Cross-organization inspection and denial return `not_found`. Disabled execution and result routes return 501 after authentication without disclosing tenant records. [`relay_tenant_tests.rs`](../../crates/gateway/src/routes/relay_tenant_tests.rs) exercises the boundary; the relay route suite passed before the latest main integration, and there is no Lean suite. |
 
 **RELAY-F1 — relay execution fails closed (unproved).** Until a holder can
