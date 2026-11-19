@@ -19,6 +19,8 @@ import { revokeOrganizationMembership } from "../routes/organization-revocation.
 import { hostApiEndpoint } from "./host-endpoint.js";
 import { confirmsDurableWithdrawal } from "./host-withdrawal-attestation.js";
 import {
+  type WithdrawalInput,
+  type WithdrawalRequest,
   expectedMembership,
   sameWithdrawal,
 } from "./organization-withdrawal-match.js";
@@ -31,22 +33,6 @@ export type PrepareWithdrawalResult =
   | { status: "last_owner" }
   | { status: "busy" };
 
-type WithdrawalInput = {
-  organizationId: string;
-  principalId: string;
-  expectedIncarnation?: string;
-  actorPrincipalId: string;
-  actorType: "human" | "system";
-  correlationId: string;
-  reason?:
-    | "organization_owner_removed"
-    | "scim_deactivated"
-    | "ldap_directory_sync";
-};
-
-type Request =
-  | { kind: "remove" }
-  | { kind: "change_role"; role: OrganizationRole };
 type WithdrawingMembership = VersionedOrganizationMembership & {
   withdrawal: OrganizationMembershipWithdrawal;
 };
@@ -54,7 +40,7 @@ type WithdrawingMembership = VersionedOrganizationMembership & {
 async function resumeWithdrawal(
   tx: AppContext,
   input: WithdrawalInput,
-  request: Request,
+  request: WithdrawalRequest,
   current: WithdrawingMembership,
   attempts: number,
 ): Promise<PrepareWithdrawalResult> {
@@ -112,7 +98,7 @@ async function resumeWithdrawal(
 async function prepareWithdrawal(
   tx: AppContext,
   input: WithdrawalInput,
-  request: Request,
+  request: WithdrawalRequest,
   attempts = 0,
 ): Promise<PrepareWithdrawalResult> {
   const store = tx.stores.organizationMemberships;

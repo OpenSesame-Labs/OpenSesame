@@ -31,3 +31,14 @@ export async function resumePendingOrganizationWithdrawals(
   );
   return retry;
 }
+
+export function scheduleOrganizationWithdrawalRecovery(
+  ctx: AppContext,
+  ready: Promise<void>,
+  warn: () => void,
+): AppContext {
+  void ready
+    .then(() => resumePendingOrganizationWithdrawals(ctx))
+    .catch(warn);
+  return ctx;
+}
