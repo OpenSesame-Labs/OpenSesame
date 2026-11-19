@@ -13,14 +13,14 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: abb451d0432e9c1fddbfd438290f70ef677ee255
+          ref: 71c143d6599f1d12d86cf3a852f961c6d3dd72b9
           path: candidate
           persist-credentials: false
       - name: Verify the reviewed branch and tree
         working-directory: candidate
         run: |
-          test "$(git rev-parse HEAD)" = "abb451d0432e9c1fddbfd438290f70ef677ee255"
-          test "$(git rev-parse HEAD^{tree})" = "82a40fa3c75556f0160f427763864555d5f5ae9f"
+          test "$(git rev-parse HEAD)" = "71c143d6599f1d12d86cf3a852f961c6d3dd72b9"
+          test "$(git rev-parse HEAD^{tree})" = "aea40366775bc13e239d334c21b557a1ac8921a6"
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
         with:
           cache: false
@@ -60,14 +60,14 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: abb451d0432e9c1fddbfd438290f70ef677ee255
+          ref: 71c143d6599f1d12d86cf3a852f961c6d3dd72b9
           path: candidate
           persist-credentials: false
       - name: Verify the reviewed branch and tree
         working-directory: candidate
         run: |
-          test "$(git rev-parse HEAD)" = "abb451d0432e9c1fddbfd438290f70ef677ee255"
-          test "$(git rev-parse HEAD^{tree})" = "82a40fa3c75556f0160f427763864555d5f5ae9f"
+          test "$(git rev-parse HEAD)" = "71c143d6599f1d12d86cf3a852f961c6d3dd72b9"
+          test "$(git rev-parse HEAD^{tree})" = "aea40366775bc13e239d334c21b557a1ac8921a6"
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
         with:
           cache: false
@@ -108,14 +108,14 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: abb451d0432e9c1fddbfd438290f70ef677ee255
+          ref: 71c143d6599f1d12d86cf3a852f961c6d3dd72b9
           path: candidate
           persist-credentials: false
       - name: Verify the reviewed branch and tree
         working-directory: candidate
         run: |
-          test "$(git rev-parse HEAD)" = "abb451d0432e9c1fddbfd438290f70ef677ee255"
-          test "$(git rev-parse HEAD^{tree})" = "82a40fa3c75556f0160f427763864555d5f5ae9f"
+          test "$(git rev-parse HEAD)" = "71c143d6599f1d12d86cf3a852f961c6d3dd72b9"
+          test "$(git rev-parse HEAD^{tree})" = "aea40366775bc13e239d334c21b557a1ac8921a6"
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
         with:
           cache: false
@@ -211,14 +211,14 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: abb451d0432e9c1fddbfd438290f70ef677ee255
+          ref: 71c143d6599f1d12d86cf3a852f961c6d3dd72b9
           path: candidate
           persist-credentials: false
       - name: Verify the reviewed branch and tree
         working-directory: candidate
         run: |
-          test "$(git rev-parse HEAD)" = "abb451d0432e9c1fddbfd438290f70ef677ee255"
-          test "$(git rev-parse HEAD^{tree})" = "82a40fa3c75556f0160f427763864555d5f5ae9f"
+          test "$(git rev-parse HEAD)" = "71c143d6599f1d12d86cf3a852f961c6d3dd72b9"
+          test "$(git rev-parse HEAD^{tree})" = "aea40366775bc13e239d334c21b557a1ac8921a6"
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
         with:
           cache: false
@@ -270,14 +270,14 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: abb451d0432e9c1fddbfd438290f70ef677ee255
+          ref: 71c143d6599f1d12d86cf3a852f961c6d3dd72b9
           path: candidate
           persist-credentials: false
       - name: Verify the reviewed branch and tree
         working-directory: candidate
         run: |
-          test "$(git rev-parse HEAD)" = "abb451d0432e9c1fddbfd438290f70ef677ee255"
-          test "$(git rev-parse HEAD^{tree})" = "82a40fa3c75556f0160f427763864555d5f5ae9f"
+          test "$(git rev-parse HEAD)" = "71c143d6599f1d12d86cf3a852f961c6d3dd72b9"
+          test "$(git rev-parse HEAD^{tree})" = "aea40366775bc13e239d334c21b557a1ac8921a6"
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
         with:
           cache: false
@@ -317,15 +317,15 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: abb451d0432e9c1fddbfd438290f70ef677ee255
+          ref: 71c143d6599f1d12d86cf3a852f961c6d3dd72b9
           path: candidate
           persist-credentials: false
           fetch-depth: 100
       - name: Verify the reviewed branch and tree
         working-directory: candidate
         run: |
-          test "$(git rev-parse HEAD)" = "abb451d0432e9c1fddbfd438290f70ef677ee255"
-          test "$(git rev-parse HEAD^{tree})" = "82a40fa3c75556f0160f427763864555d5f5ae9f"
+          test "$(git rev-parse HEAD)" = "71c143d6599f1d12d86cf3a852f961c6d3dd72b9"
+          test "$(git rev-parse HEAD^{tree})" = "aea40366775bc13e239d334c21b557a1ac8921a6"
           git fetch --no-tags --depth=100 origin +refs/heads/main:refs/remotes/origin/main
           git merge-base HEAD origin/main > /dev/null
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
@@ -348,18 +348,18 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: 857189a56a932a19072ae9524616f0fb96dd1797
+          ref: 238f8d758a015ec00d7abf680c9fd91c1cdb1289
           path: baseline
           persist-credentials: false
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
         with:
-          ref: abb451d0432e9c1fddbfd438290f70ef677ee255
+          ref: 71c143d6599f1d12d86cf3a852f961c6d3dd72b9
           path: candidate
           persist-credentials: false
       - name: Verify source revisions
         run: |
-          test "$(git -C baseline rev-parse HEAD)" = "857189a56a932a19072ae9524616f0fb96dd1797"
-          test "$(git -C candidate rev-parse HEAD)" = "abb451d0432e9c1fddbfd438290f70ef677ee255"
+          test "$(git -C baseline rev-parse HEAD)" = "238f8d758a015ec00d7abf680c9fd91c1cdb1289"
+          test "$(git -C candidate rev-parse HEAD)" = "71c143d6599f1d12d86cf3a852f961c6d3dd72b9"
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b
         with:
           cache: false
