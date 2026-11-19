@@ -52,7 +52,7 @@ export const KEYMAP_TUTORIALS = {
   "voice.toggle": bar("Press m to start voice input"),
   "item.copy-secret": item(
     "vault.item.copy",
-    "press y on a row to copy its password or secret value",
+    "press y on a row to copy its password or secret",
   ),
   "item.copy-username": item(
     "vault.item.copy",
