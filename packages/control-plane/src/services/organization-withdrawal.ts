@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type {
   OrganizationMembershipWithdrawal,
   PendingOrganizationMembershipWithdrawal,
+  VersionedOrganizationMembership,
 } from "@opensesame/database";
 import { MemoryOrganizationMembershipStore } from "@opensesame/database";
 import type {
@@ -17,6 +18,10 @@ import { withPrincipalSessionBoundary } from "../repos/principal-session-boundar
 import { revokeOrganizationMembership } from "../routes/organization-revocation.js";
 import { hostApiEndpoint } from "./host-endpoint.js";
 import { confirmsDurableWithdrawal } from "./host-withdrawal-attestation.js";
+import {
+  expectedMembership,
+  sameWithdrawal,
+} from "./organization-withdrawal-match.js";
 
 export type PreparedWithdrawal = PendingOrganizationMembershipWithdrawal;
 export type PrepareWithdrawalResult =
@@ -42,6 +47,66 @@ type WithdrawalInput = {
 type Request =
   | { kind: "remove" }
   | { kind: "change_role"; role: OrganizationRole };
+type WithdrawingMembership = VersionedOrganizationMembership & {
+  withdrawal: OrganizationMembershipWithdrawal;
+};
+
+async function resumeWithdrawal(
+  tx: AppContext,
+  input: WithdrawalInput,
+  request: Request,
+  current: WithdrawingMembership,
+  attempts: number,
+): Promise<PrepareWithdrawalResult> {
+  const pending = current.withdrawal;
+  if (
+    request.kind === "remove" &&
+    input.actorType === "system" &&
+    pending.kind === "change_role" &&
+    current.withdrawalId
+  ) {
+    const withdrawal: OrganizationMembershipWithdrawal = {
+      id: current.withdrawalId,
+      kind: "remove",
+      actorType: "system",
+      actorPrincipalId: input.actorPrincipalId,
+      correlationId: input.correlationId,
+      ...(input.reason ? { reason: input.reason } : {}),
+    };
+    const upgraded =
+      await tx.stores.organizationMemberships.upgradeRoleWithdrawalToRemoval(
+        input.organizationId,
+        input.principalId,
+        current.incarnation,
+        current.authorityRevision,
+        current.withdrawalId,
+        withdrawal,
+      );
+    if (upgraded)
+      return {
+        status: "ready",
+        prepared: { ...current, withdrawalId: withdrawal.id, withdrawal },
+      };
+    return attempts < 2
+      ? prepareWithdrawal(tx, input, request, attempts + 1)
+      : { status: "busy" };
+  }
+  return sameWithdrawal(
+    pending,
+    input.actorType,
+    input.reason,
+    request,
+  ) && current.withdrawalId
+    ? {
+        status: "ready",
+        prepared: {
+          ...current,
+          withdrawalId: current.withdrawalId,
+          withdrawal: pending,
+        },
+      }
+    : { status: "busy" };
+}
 
 /** Must run inside the caller's organization boundary and commit before Host I/O. */
 async function prepareWithdrawal(
@@ -55,68 +120,16 @@ async function prepareWithdrawal(
     input.organizationId,
     input.principalId,
   );
-  if (
-    !current ||
-    (input.expectedIncarnation &&
-      current.incarnation !== input.expectedIncarnation)
-  )
+  if (!expectedMembership(current, input.expectedIncarnation))
     return { status: "missing" };
-  if (current.withdrawal) {
-    if (
-      request.kind === "remove" &&
-      input.actorType === "system" &&
-      current.withdrawal.kind === "change_role" &&
-      current.withdrawalId
-    ) {
-      // A directory deactivation supersedes a pending role change without
-      // opening a gap in the fence or changing the Host tombstone tuple.
-      const withdrawal: OrganizationMembershipWithdrawal = {
-        id: current.withdrawalId,
-        kind: "remove",
-        actorType: "system",
-        actorPrincipalId: input.actorPrincipalId,
-        correlationId: input.correlationId,
-        ...(input.reason ? { reason: input.reason } : {}),
-      };
-      const upgraded = await store.upgradeRoleWithdrawalToRemoval(
-        input.organizationId,
-        input.principalId,
-        current.incarnation,
-        current.authorityRevision,
-        current.withdrawalId,
-        withdrawal,
-      );
-      if (upgraded) {
-        return {
-          status: "ready",
-          prepared: { ...current, withdrawalId: withdrawal.id, withdrawal },
-        };
-      }
-      // A role completion may have won the CAS; fence the resulting revision
-      // before allowing the directory's deactivation transaction to commit.
-      return attempts < 2
-        ? prepareWithdrawal(tx, input, request, attempts + 1)
-        : { status: "busy" };
-    }
-    const same =
-      current.withdrawal.kind === request.kind &&
-      current.withdrawal.actorType === input.actorType &&
-      (request.kind !== "remove" ||
-        current.withdrawal.reason === input.reason) &&
-      (request.kind !== "change_role" ||
-        (current.withdrawal.kind === "change_role" &&
-          current.withdrawal.role === request.role));
-    return same && current.withdrawalId
-      ? {
-          status: "ready",
-          prepared: {
-            ...current,
-            withdrawalId: current.withdrawalId,
-            withdrawal: current.withdrawal,
-          },
-        }
-      : { status: "busy" };
-  }
+  if (current.withdrawal)
+    return resumeWithdrawal(
+      tx,
+      input,
+      request,
+      current as WithdrawingMembership,
+      attempts,
+    );
   if (current.withdrawalId) return { status: "busy" };
   if (
     request.kind === "change_role" &&
@@ -307,11 +320,10 @@ async function completeRole(
   );
 }
 
-/** Resume exactly one already-authorized durable withdrawal. */
-export async function finishOrganizationWithdrawal(
+async function revalidateWithdrawal(
   ctx: AppContext,
   prepared: PreparedWithdrawal,
-): Promise<FinishWithdrawalResult> {
+): Promise<VersionedOrganizationMembership | FinishWithdrawalResult> {
   const { membership, withdrawal, incarnation, authorityRevision } = prepared;
   const current = await ctx.stores.organizationMemberships.findVersioned(
     membership.organizationId,
@@ -336,6 +348,17 @@ export async function finishOrganizationWithdrawal(
         current.withdrawal.role !== withdrawal.role))
   )
     return { status: "stale" };
+  return current;
+}
+
+/** Resume exactly one already-authorized durable withdrawal. */
+export async function finishOrganizationWithdrawal(
+  ctx: AppContext,
+  prepared: PreparedWithdrawal,
+): Promise<FinishWithdrawalResult> {
+  const { membership, withdrawal, incarnation, authorityRevision } = prepared;
+  const validated = await revalidateWithdrawal(ctx, prepared);
+  if (!validated || "status" in validated) return validated;
   // A timeout can mean Host committed but the response was lost. Keep the same
   // intent fenced and retry its idempotency key until Host confirms success.
   if (!(await revokeHost(ctx, prepared))) return { status: "pending" };

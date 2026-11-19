@@ -11,7 +11,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { resetDeviceApprovalBudgetForTest } from "../routes/device.js";
-import { hostRevocationResponse } from "./scim-test-helpers.js";
+import { hostRevocationResponseFor } from "./scim-test-helpers.js";
 
 interface DeviceApprovalHeaders {
   origin?: string;
@@ -1197,9 +1197,7 @@ describe("control-plane API", () => {
               )
             )?.role,
           );
-          return hostRevocationResponse({
-            body: JSON.stringify(requests.at(-1)?.body ?? {}),
-          });
+          return hostRevocationResponseFor(requests.at(-1)?.body ?? {});
         }
         return new Response(JSON.stringify({ ok: true }), {
           status: 200,

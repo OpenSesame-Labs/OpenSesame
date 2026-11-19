@@ -23,6 +23,10 @@ export function hostRevocationResponse(init?: RequestInit, status = 200) {
   );
 }
 
+export function hostRevocationResponseFor(request: unknown) {
+  return hostRevocationResponse({ body: JSON.stringify(request) });
+}
+
 export function installHostRevocationMock(status: () => number = () => 200) {
   const realFetch = globalThis.fetch;
   return vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
