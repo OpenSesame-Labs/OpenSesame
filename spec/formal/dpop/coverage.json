@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "reviewed_revision": "606024f7324aa6b7f522b6cb1090956d0ebc235c",
+  "reviewed_revision": "c8b4c4b86d4ff2b80fd1a1168ebd2276b7b23b39",
   "sources": [
     {
       "path": "crates/proof/src/replay.rs",
