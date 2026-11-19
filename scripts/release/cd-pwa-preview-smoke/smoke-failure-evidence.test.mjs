@@ -22,6 +22,10 @@ test("redactDiagnosticText truncates and redacts bearer tokens", () => {
     redactDiagnosticText('console error {"token":"abc"}'),
     'console error {"token":"[redacted]"}',
   );
+  assert.equal(
+    redactDiagnosticText('{"api_key":"sekret","password":"p"}'),
+    '{"api_key":"[redacted]","password":"[redacted]"}',
+  );
 });
 
 test("bootstrapSmokeEvidence creates the output directory", async () => {

@@ -48,10 +48,9 @@ export function fetchAbortTimeoutMs(
   enforceDeadline = true,
 ) {
   const at = now();
-  if (bodyDeadlineAt > at) {
-    return Math.min(timeoutMs, Math.max(1, bodyDeadlineAt - at));
-  }
-  return enforceDeadline ? 1 : timeoutMs;
+  if (!enforceDeadline) return timeoutMs;
+  if (bodyDeadlineAt <= at) return 1;
+  return Math.min(timeoutMs, Math.max(1, bodyDeadlineAt - at));
 }
 
 /** Same shared Pages CDN window for `cdnRetryBudget` and shell poll. */

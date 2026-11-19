@@ -5,18 +5,18 @@ import { join, relative, resolve, sep } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { readString } from "../../lib/json-boundary.mjs";
 import { pollUntilDeadline } from "../cd-preview-smoke-registry.mjs";
-import { normalizePagesBase } from "./prepare-vars.mjs";
-import {
-  cdnPollBudget,
-  fetchAbortTimeoutMs,
-  sharedCdnDeadlineEndMs,
-} from "./retry-budget.mjs";
 import {
   FETCH_TIMEOUT_MS,
   readBoundedBody,
   releaseResponseBody,
   shellAssetMismatch,
 } from "./live-bundle-body.mjs";
+import { normalizePagesBase } from "./prepare-vars.mjs";
+import {
+  cdnPollBudget,
+  fetchAbortTimeoutMs,
+  sharedCdnDeadlineEndMs,
+} from "./retry-budget.mjs";
 import { expandDynamicShellImports } from "./shell-dynamic-imports.mjs";
 import { shellAssetRefs } from "./shell-html-refs.mjs";
 
@@ -149,7 +149,6 @@ async function assertLiveAsset(
   bodyDeadlineAt,
   now,
   perChunkReadMs,
-  enforcePerAssetDeadline,
 ) {
   const url = new URL(asset.relative, pagesBase);
   let response;
@@ -157,14 +156,7 @@ async function assertLiveAsset(
     response = await fetcher(url, {
       cache: "no-store",
       redirect: "error",
-      signal: AbortSignal.timeout(
-        fetchAbortTimeoutMs(
-          timeoutMs,
-          bodyDeadlineAt,
-          now,
-          enforcePerAssetDeadline,
-        ),
-      ),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "request failed";
@@ -181,7 +173,6 @@ async function assertLiveAsset(
     bodyDeadlineAt,
     now,
     perChunkReadMs,
-    enforcePerAssetDeadline,
   );
   const live = createHash("sha256").update(body).digest("hex");
   if (live !== asset.sha256) {
@@ -208,15 +199,22 @@ async function assertLiveShellAssets(
     if (enforcePerAssetDeadline && now() > bodyDeadlineAt) {
       throw shellAssetMismatch(asset.relative, "CDN poll deadline expired");
     }
+    const bodyDeadline = enforcePerAssetDeadline
+      ? bodyDeadlineAt
+      : Number.POSITIVE_INFINITY;
     await assertLiveAsset(
       asset,
       pagesBase,
       fetcher,
-      timeoutMs,
-      bodyDeadlineAt,
+      fetchAbortTimeoutMs(
+        timeoutMs,
+        bodyDeadlineAt,
+        now,
+        enforcePerAssetDeadline,
+      ),
+      bodyDeadline,
       now,
       perChunkReadMs,
-      enforcePerAssetDeadline,
     );
     matched.add(asset.relative);
   }
@@ -275,5 +273,5 @@ export async function pollLiveShellAssets(env, deps = {}) {
   return assets.map((asset) => asset.relative);
 }
 
-export { shellAssetRefs } from "./shell-html-refs.mjs";
 export { readBoundedBody } from "./live-bundle-body.mjs";
+export { shellAssetRefs } from "./shell-html-refs.mjs";

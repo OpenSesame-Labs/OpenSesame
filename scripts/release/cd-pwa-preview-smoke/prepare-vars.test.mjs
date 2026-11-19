@@ -101,3 +101,18 @@ test("cdn poll budget rejects non-safe deadline integers", () => {
     /safe integer/,
   );
 });
+
+test("cdn retry budget caps retries inside the hurl wall clock", () => {
+  const deadlineMs = Number.MAX_SAFE_INTEGER;
+  const budget = cdnRetryBudget({
+    PWA_SMOKE_CDN_DEADLINE_MS: String(deadlineMs),
+    PWA_SMOKE_CDN_POLL_MS: "1",
+  });
+  assert.ok(budget.retries <= 10_000);
+  assert.ok(budget.retries >= 0);
+  const attempts = budget.retries + 1;
+  assert.ok(
+    attempts * budget.maxTimeSec * 1000 + budget.retries * budget.intervalMs <=
+      deadlineMs,
+  );
+});

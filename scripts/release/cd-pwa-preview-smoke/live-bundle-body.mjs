@@ -38,51 +38,48 @@ async function readStreamChunk(reader, distRelative, chunkTimeoutMs) {
   }
 }
 
-export async function readBoundedBody(
-  response,
+function oversizedShellBody(distRelative) {
+  return shellAssetMismatch(
+    distRelative,
+    `body exceeds ${MAX_SHELL_ASSET_BYTES} bytes`,
+  );
+}
+
+function assertWithinByteCap(size, distRelative) {
+  if (size > MAX_SHELL_ASSET_BYTES) {
+    throw oversizedShellBody(distRelative);
+  }
+}
+
+async function readArrayBufferBody(response, distRelative) {
+  const bytes = Buffer.from(await response.arrayBuffer());
+  assertWithinByteCap(bytes.length, distRelative);
+  return bytes;
+}
+
+function rethrowShellRead(error, distRelative) {
+  if (error instanceof Error && error.message.startsWith("live shell asset")) {
+    throw error;
+  }
+  const detail = error instanceof Error ? error.message : "body read failed";
+  throw shellAssetMismatch(distRelative, detail);
+}
+
+async function readStreamBody(
+  reader,
   distRelative,
+  at,
   bodyDeadlineAt,
-  now = Date.now,
-  perChunkCapMs = FETCH_TIMEOUT_MS,
-  enforceDeadline = true,
+  now,
+  perChunkCapMs,
 ) {
-  const at = now();
-  if (enforceDeadline && bodyDeadlineAt <= at) {
-    throw shellAssetMismatch(distRelative, "CDN poll deadline expired");
-  }
-  const declared = declaredLength(response);
-  if (declared !== undefined && declared > MAX_SHELL_ASSET_BYTES) {
-    throw shellAssetMismatch(distRelative, `body exceeds ${MAX_SHELL_ASSET_BYTES} bytes`);
-  }
-  const stream = response.body;
-  if (stream === null) {
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.length > MAX_SHELL_ASSET_BYTES) {
-      throw shellAssetMismatch(
-        distRelative,
-        `body exceeds ${MAX_SHELL_ASSET_BYTES} bytes`,
-      );
-    }
-    return bytes;
-  }
-  let reader;
-  try {
-    reader = stream.getReader();
-  } catch {
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.length > MAX_SHELL_ASSET_BYTES) {
-      throw shellAssetMismatch(
-        distRelative,
-        `body exceeds ${MAX_SHELL_ASSET_BYTES} bytes`,
-      );
-    }
-    return bytes;
-  }
   const chunks = [];
   let total = 0;
   const perReadCapEnd = at + perChunkCapMs;
   const readEndsAt =
-    bodyDeadlineAt > at ? Math.min(bodyDeadlineAt, perReadCapEnd) : perReadCapEnd;
+    bodyDeadlineAt > at
+      ? Math.min(bodyDeadlineAt, perReadCapEnd)
+      : perReadCapEnd;
   try {
     while (true) {
       if (now() > readEndsAt) {
@@ -100,27 +97,51 @@ export async function readBoundedBody(
       if (done) break;
       const size = value?.byteLength ?? 0;
       total += size;
-      if (total > MAX_SHELL_ASSET_BYTES) {
-        throw shellAssetMismatch(
-          distRelative,
-          `body exceeds ${MAX_SHELL_ASSET_BYTES} bytes`,
-        );
-      }
+      assertWithinByteCap(total, distRelative);
       chunks.push(Buffer.from(value));
     }
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.startsWith("live shell asset")
-    ) {
-      throw error;
-    }
-    const detail = error instanceof Error ? error.message : "body read failed";
-    throw shellAssetMismatch(distRelative, detail);
+    rethrowShellRead(error, distRelative);
   } finally {
     await reader.cancel().catch(() => undefined);
   }
   return Buffer.concat(chunks, total);
+}
+
+export async function readBoundedBody(
+  response,
+  distRelative,
+  bodyDeadlineAt,
+  now = Date.now,
+  perChunkCapMs = FETCH_TIMEOUT_MS,
+  enforceDeadline = true,
+) {
+  const at = now();
+  if (enforceDeadline && bodyDeadlineAt <= at) {
+    throw shellAssetMismatch(distRelative, "CDN poll deadline expired");
+  }
+  const declared = declaredLength(response);
+  if (declared !== undefined && declared > MAX_SHELL_ASSET_BYTES) {
+    throw oversizedShellBody(distRelative);
+  }
+  const stream = response.body;
+  if (stream === null) {
+    return readArrayBufferBody(response, distRelative);
+  }
+  let reader;
+  try {
+    reader = stream.getReader();
+  } catch {
+    return readArrayBufferBody(response, distRelative);
+  }
+  return readStreamBody(
+    reader,
+    distRelative,
+    at,
+    bodyDeadlineAt,
+    now,
+    perChunkCapMs,
+  );
 }
 
 export async function releaseResponseBody(response) {
