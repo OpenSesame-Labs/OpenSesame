@@ -4,6 +4,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import type { ParseResult } from "../types.js";
 import { keepassKdbx } from "./kdbx.js";
+import { installKdbxTestWorker } from "./kdbx-argon2-worker.test-support.js";
 
 /**
  * Characterization snapshots of what a KeePass database becomes.
@@ -114,6 +115,7 @@ async function parse(bytes: Uint8Array): Promise<ParseResult> {
 }
 
 beforeAll(async () => {
+  installKdbxTestWorker();
   kdbxweb = await import("kdbxweb");
   // Writing a database needs the same Argon2 the adapter installs for
   // reading one; the adapter only does so inside `parse()`, which has not run
