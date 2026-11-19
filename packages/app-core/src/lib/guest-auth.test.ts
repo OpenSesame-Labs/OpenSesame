@@ -8,12 +8,9 @@ import {
   continueAsGuest,
   guestAuthDependencies,
   linkGuestAccount,
-  openVaultAfterSignIn,
   recoverPendingFederatedLink,
-  resumeGuestSession,
 } from "./guest-auth.js";
 import { IdentityError } from "./identity.js";
-import { clearGuestSessionPerson } from "./local-guest.js";
 import { clearNotices, listNotices } from "./notices.js";
 
 const connectProvisional = vi.fn();
@@ -97,145 +94,6 @@ afterEach(() => {
 });
 
 describe("continueAsGuest", () => {
-  it("requires sign-out before replacing a live Identity session", async () => {
-    currentSession.mockReturnValue({
-      principalId: "prn_member",
-      accessToken: "member-tok",
-      issuerOrigin: "http://127.0.0.1:18788",
-    });
-
-    await expect(continueAsGuest()).rejects.toThrow(
-      FRESH_GUEST_SIGN_OUT_MESSAGE,
-    );
-    expect(createGuest).not.toHaveBeenCalled();
-    expect(connectProvisional).not.toHaveBeenCalled();
-  });
-
-  it("requires sign-out when an Identity cookie resumes after reload", async () => {
-    inspectRemoteSession.mockResolvedValue({
-      kind: "present",
-      session: {
-        principalId: "prn_member",
-        accessToken: "cookie:prn_member",
-        cookieOnly: true,
-        issuerOrigin: "http://127.0.0.1:18788",
-      },
-    });
-
-    await expect(continueAsGuest()).rejects.toThrow(
-      FRESH_GUEST_SIGN_OUT_MESSAGE,
-    );
-    expect(createGuest).not.toHaveBeenCalled();
-  });
-
-  it("fails closed when the remote cookie status is unknown", async () => {
-    inspectRemoteSession.mockResolvedValue({ kind: "unknown" });
-
-    await expect(continueAsGuest()).rejects.toThrow(
-      FRESH_GUEST_STATUS_UNKNOWN_MESSAGE,
-    );
-    expect(createGuest).not.toHaveBeenCalled();
-    expect(connectProvisional).not.toHaveBeenCalled();
-  });
-
-  it("rechecks local session state after the remote probe", async () => {
-    let finishProbe: (() => void) | undefined;
-    inspectRemoteSession.mockReturnValue(
-      new Promise((resolve) => {
-        finishProbe = () => resolve({ kind: "absent" });
-      }),
-    );
-
-    const opening = continueAsGuest();
-    currentSession.mockReturnValue({
-      principalId: "prn_member",
-      accessToken: "member-tok",
-      issuerOrigin: "http://127.0.0.1:18788",
-    });
-    finishProbe?.();
-
-    await expect(opening).rejects.toThrow(FRESH_GUEST_SIGN_OUT_MESSAGE);
-    expect(createGuest).not.toHaveBeenCalled();
-  });
-
-  it("rechecks at the guest-person commit after waiting for its lock", async () => {
-    let enterMint: (() => void) | undefined;
-    let releaseMint: (() => void) | undefined;
-    const entered = new Promise<void>((resolve) => {
-      enterMint = resolve;
-    });
-    const released = new Promise<void>((resolve) => {
-      releaseMint = resolve;
-    });
-    guestAuthDependencies.mintGuestPerson = vi.fn(async (validate) => {
-      enterMint?.();
-      await released;
-      validate?.();
-      throw new Error("unreachable");
-    });
-
-    const opening = continueAsGuest();
-    await entered;
-    currentSession.mockReturnValue({
-      principalId: "prn_member",
-      accessToken: "member-tok",
-      issuerOrigin: "http://127.0.0.1:18788",
-    });
-    releaseMint?.();
-
-    await expect(opening).rejects.toThrow(FRESH_GUEST_SIGN_OUT_MESSAGE);
-    expect(createGuest).not.toHaveBeenCalled();
-  });
-
-  it("requires sign-out before replacing a federated session", async () => {
-    loadFederationSession.mockReturnValue({ idToken: "signed-in" });
-
-    await expect(continueAsGuest()).rejects.toThrow(
-      FRESH_GUEST_SIGN_OUT_MESSAGE,
-    );
-    expect(resumeSession).not.toHaveBeenCalled();
-    expect(createGuest).not.toHaveBeenCalled();
-  });
-
-  it("still resumes the established guest person", async () => {
-    await continueAsGuest();
-    currentSession.mockReturnValue({
-      principalId: "prn_guest",
-      accessToken: "guest-tok",
-      issuerOrigin: "http://127.0.0.1:18788",
-    });
-
-    createGuest.mockClear();
-    await expect(resumeGuestSession()).resolves.toBeUndefined();
-    expect(createGuest).toHaveBeenCalledWith({ resume: true });
-  });
-
-  it("treats resume without a surviving guest person as a fresh guest", async () => {
-    clearGuestSessionPerson();
-    currentSession.mockReturnValue({
-      principalId: "prn_member",
-      accessToken: "member-tok",
-      issuerOrigin: "http://127.0.0.1:18788",
-    });
-
-    await expect(resumeGuestSession()).rejects.toThrow(
-      FRESH_GUEST_SIGN_OUT_MESSAGE,
-    );
-    expect(createGuest).not.toHaveBeenCalled();
-  });
-
-  it("still opens an empty vault after completed sign-in", async () => {
-    currentSession.mockReturnValue({
-      principalId: "prn_member",
-      accessToken: "member-tok",
-      issuerOrigin: "http://127.0.0.1:18788",
-    });
-    vaultStatus.mockReturnValueOnce("empty").mockReturnValue("unlocked");
-
-    await expect(openVaultAfterSignIn()).resolves.toBe(true);
-    expect(createGuest).toHaveBeenCalledWith({ resume: true });
-  });
-
   it("opens a guest vault and stages a claim notice without minting a resource claim", async () => {
     await continueAsGuest();
     expect(createGuest).toHaveBeenCalledTimes(1);

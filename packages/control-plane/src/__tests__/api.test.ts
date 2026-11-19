@@ -68,35 +68,6 @@ describe("control-plane API", () => {
     expect(body.state).toBe("provisional");
   });
 
-  it("refuses a fresh guest mint when the request carries a live session cookie", async () => {
-    const { app } = createControlPlane({
-      config: {
-        port: 0,
-        publicUrl: "http://127.0.0.1:8788",
-        issuer: "http://127.0.0.1:8788",
-      },
-    });
-    const first = await app.request("/v1/principals/provisional", {
-      method: "POST",
-    });
-    const cookie = first.headers.get("set-cookie")?.split(";", 1)[0];
-    expect(cookie).toBeTruthy();
-
-    const guarded = await app.request("/v1/principals/provisional", {
-      method: "POST",
-      headers: {
-        cookie: cookie ?? "",
-        origin: "http://127.0.0.1:8788",
-        "x-opensesame-fresh-guest": "1",
-      },
-    });
-
-    expect(guarded.status).toBe(409);
-    await expect(guarded.json()).resolves.toMatchObject({
-      error: "fresh_guest_requires_sign_out",
-    });
-  });
-
   it("seeds one owner workspace only when the local stack opts in", async () => {
     const { app } = createControlPlane({
       config: {

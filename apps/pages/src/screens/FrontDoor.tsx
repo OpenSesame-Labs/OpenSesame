@@ -58,6 +58,39 @@ interface FrontDoorProps {
   onOpenJoin: () => void;
 }
 
+function GuestFailureAction({
+  message,
+  onRetry,
+  onClear,
+}: {
+  message: string | null;
+  onRetry: () => void;
+  onClear: () => void;
+}) {
+  return message ? (
+    <div className="door__guest-action">
+      <StatusMark tone="err" label={message} />
+      {message === FRESH_GUEST_SIGN_OUT_MESSAGE ? (
+        <button
+          type="button"
+          className="unlock__switch"
+          onClick={() => {
+            signOut();
+            onClear();
+          }}
+        >
+          Sign out
+        </button>
+      ) : null}
+      {message === FRESH_GUEST_STATUS_UNKNOWN_MESSAGE ? (
+        <button type="button" className="unlock__switch" onClick={onRetry}>
+          Try again
+        </button>
+      ) : null}
+    </div>
+  ) : null;
+}
+
 export function FrontDoor({ onOpenSetup, onOpenJoin }: FrontDoorProps) {
   useSupportRoute("/unlock/door");
   const setupRef = useGuideTarget<HTMLButtonElement>("unlock.setup");
@@ -94,6 +127,11 @@ export function FrontDoor({ onOpenSetup, onOpenJoin }: FrontDoorProps) {
         <GuestSkip busy={busy} onGuest={startGuest} lands />
         <PendingLinkBanner />
         <GateNoticeSeat />
+        <GuestFailureAction
+          message={guestFailed}
+          onRetry={startGuest}
+          onClear={() => setGuestFailed(null)}
+        />
         <header className="door__hero">
           <Wordmark as="h1" className="door__wordmark" fit={HERO_FIT} />
           <p className="door__lede">Set up your own vault, or join one.</p>
@@ -139,24 +177,6 @@ export function FrontDoor({ onOpenSetup, onOpenJoin }: FrontDoorProps) {
           data-first-visit-return="unlock.setup"
         />
 
-        {guestFailed ? <StatusMark tone="err" label={guestFailed} /> : null}
-        {guestFailed === FRESH_GUEST_SIGN_OUT_MESSAGE ? (
-          <button
-            type="button"
-            className="unlock__switch"
-            onClick={() => {
-              signOut();
-              setGuestFailed(null);
-            }}
-          >
-            Sign out
-          </button>
-        ) : null}
-        {guestFailed === FRESH_GUEST_STATUS_UNKNOWN_MESSAGE ? (
-          <button type="button" className="unlock__switch" onClick={startGuest}>
-            Retry Identity connection
-          </button>
-        ) : null}
         <FailureNotice
           id="front-door:guest"
           title="Guest"

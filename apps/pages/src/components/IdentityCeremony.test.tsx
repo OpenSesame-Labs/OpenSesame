@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 
 import type { ConnectorStatus } from "@opensesame/app-core/lib/connectors.js";
+import { FRESH_GUEST_SIGN_OUT_MESSAGE } from "@opensesame/app-core/lib/guest-auth.js";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
@@ -30,11 +31,6 @@ function connector(over: Partial<ConnectorStatus> = {}): ConnectorStatus {
 beforeEach(() => {
   Object.assign(identityCeremonyDependencies, {
     ...original,
-    useConnect: () => ({
-      connect: vi.fn().mockResolvedValue(undefined),
-      connecting: false,
-      error: null,
-    }),
     useIdentitySession: () => null,
     beginSignIn: vi.fn(),
     defaultUpstream: () => ({
@@ -46,6 +42,8 @@ beforeEach(() => {
     claimGuestAuth: vi.fn().mockResolvedValue(undefined),
     connectFreshProvisional: vi.fn().mockResolvedValue(undefined),
     clearSession: vi.fn(),
+    signOut: vi.fn(),
+    ensureIdentitySession: vi.fn().mockResolvedValue(undefined),
     identityBase: () => "http://127.0.0.1:18788",
   });
 });
@@ -115,19 +113,37 @@ describe("IdentityCeremony", () => {
   });
 
   it("does not reuse a surviving remote session as this device", async () => {
-    const connect = vi.fn().mockResolvedValue(undefined);
+    const signOut = vi.fn();
+    const onClose = vi.fn();
     Object.assign(identityCeremonyDependencies, {
-      useConnect: () => ({ connect, connecting: false, error: null }),
+      signOut,
       connectFreshProvisional: vi
         .fn()
-        .mockRejectedValue(new Error("Sign out of the current account first.")),
+        .mockRejectedValue(new Error(FRESH_GUEST_SIGN_OUT_MESSAGE)),
     });
-    render(<IdentityCeremony connector={connector()} onClose={() => {}} />);
+    render(<IdentityCeremony connector={connector()} onClose={onClose} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Use this device" }));
 
-    await expectInTray("Sign out of the current account first.");
-    expect(connect).not.toHaveBeenCalled();
+    await expectInTray(FRESH_GUEST_SIGN_OUT_MESSAGE);
+    expect(screen.getByText("Browser session detected")).toBeTruthy();
+    expect(
+      screen.getByText("Browser session detected").closest(".found--attn"),
+    ).toBeTruthy();
+    expect(screen.getByText("Sign out before continuing")).toBeTruthy();
+    expect(screen.queryByText("Not signed in")).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Use this device" }),
+    ).toBeNull();
+    expect(screen.queryByRole("button", { name: /Sign in with/ })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: /Use a token from the CLI/ }),
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Sign out to continue" }),
+    );
+    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("clears the credential before refreshing, or the refresh is a no-op", () => {
@@ -145,6 +161,23 @@ describe("IdentityCeremony", () => {
     // ensureIdentitySession reuses a live session, so refreshing without
     // clearing would report success having changed nothing.
     expect(clearSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports a failed refresh instead of claiming success", async () => {
+    Object.assign(identityCeremonyDependencies, {
+      ensureIdentitySession: vi
+        .fn()
+        .mockRejectedValue(new Error("Identity unavailable")),
+      useIdentitySession: () => ({
+        principalId: "prn_abc123",
+        accessToken: "t",
+        issuerOrigin: "http://127.0.0.1:18788",
+      }),
+    });
+    render(<IdentityCeremony connector={connector()} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Refresh session" }));
+    await expectInTray("Identity unavailable");
+    expect(screen.queryByText("Session refreshed.")).toBeNull();
   });
 
   it("offers to swap accounts only when there is one to swap", () => {

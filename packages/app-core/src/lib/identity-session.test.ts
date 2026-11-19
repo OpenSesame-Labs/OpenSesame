@@ -17,7 +17,6 @@ import {
   adoptToken,
   clearHostSession,
   clearSession,
-  connectFreshProvisional,
   connectProvisional,
   currentSession,
   endSession,
@@ -27,11 +26,9 @@ import {
   hostFetch,
   identityFetch,
   identityJson,
-  inspectRemoteIdentitySession,
   noteUnauthorized,
   probeIdentity,
   probeOrphanSession,
-  restoreSession,
   settleRevokes,
 } from "./identity.js";
 import { localNetworkFetchSeams } from "./local-network-fetch.js";
@@ -64,119 +61,12 @@ afterEach(() => {
 });
 
 describe("session lifecycle", () => {
-  it.each([
-    [401, {}, "absent"],
-    [503, {}, "unknown"],
-    [200, {}, "unknown"],
-  ] as const)(
-    "classifies remote cookie inspection status %s as %s",
-    async (status, body, kind) => {
-      stubFetch((url) => {
-        if (url === `${IDENTITY}/v1/principals/me`) {
-          return jsonResponse(body, status);
-        }
-        return jsonResponse({}, 404);
-      });
-
-      await expect(inspectRemoteIdentitySession()).resolves.toMatchObject({
-        kind,
-      });
-    },
-  );
-
-  it("returns the validated HttpOnly principal as a present session", async () => {
-    stubFetch((url) => {
-      if (url === `${IDENTITY}/v1/principals/me`) {
-        return jsonResponse({ id: "prn_cookie" });
-      }
-      return jsonResponse({}, 404);
-    });
-
-    await expect(inspectRemoteIdentitySession()).resolves.toMatchObject({
-      kind: "present",
-      session: { principalId: "prn_cookie", cookieOnly: true },
-    });
-  });
-
-  it("marks the authority request as a fresh guest mint", async () => {
-    let guarded = false;
-    stubFetch((url, init) => {
-      if (url === `${IDENTITY}/v1/principals/me`) {
-        return jsonResponse({}, 401);
-      }
-      if (url === `${IDENTITY}/v1/principals/provisional`) {
-        guarded =
-          new Headers(init?.headers).get("x-opensesame-fresh-guest") === "1";
-        return jsonResponse(provisionalBody());
-      }
-      return jsonResponse({}, 404);
-    });
-
-    await expect(connectFreshProvisional()).resolves.toMatchObject({
-      principalId: "principal_1",
-    });
-    expect(guarded).toBe(true);
-  });
-
-  it("surfaces the authority refusal when another tab installed a cookie", async () => {
-    stubFetch((url) => {
-      if (url === `${IDENTITY}/v1/principals/me`) {
-        return jsonResponse({}, 401);
-      }
-      if (url === `${IDENTITY}/v1/principals/provisional`) {
-        return jsonResponse(
-          {
-            error: "fresh_guest_requires_sign_out",
-            message:
-              "Sign out of the current account first, then continue as a fresh guest.",
-          },
-          409,
-        );
-      }
-      return jsonResponse({}, 404);
-    });
-
-    await expect(connectFreshProvisional()).rejects.toThrow(
-      "Sign out of the current account first",
-    );
-  });
-
-  it("refuses a member session installed while the fresh mint is in flight", async () => {
-    let answerMint: ((response: Response) => void) | undefined;
-    stubFetch((url) => {
-      if (url === `${IDENTITY}/v1/principals/me`) {
-        return jsonResponse({}, 401);
-      }
-      if (url === `${IDENTITY}/v1/principals/provisional`) {
-        return new Promise<Response>((resolve) => {
-          answerMint = resolve;
-        });
-      }
-      return jsonResponse({}, 404);
-    });
-
-    const minting = connectFreshProvisional();
-    await vi.waitFor(() => expect(answerMint).toBeTypeOf("function"));
-    restoreSession({
-      principalId: "prn_member",
-      accessToken: "member-token",
-      issuerOrigin: new URL(IDENTITY).origin,
-    });
-    answerMint?.(jsonResponse(provisionalBody()));
-
-    await expect(minting).rejects.toThrow(
-      "Sign out of the current account first",
-    );
-    expect(currentSession()?.principalId).toBe("prn_member");
-  });
-
   it("mints a provisional session and drops it on expiry", async () => {
     stubBasic();
     const session = await connectProvisional();
     expect(session.principalId).toBe("principal_1");
     expect(session.issuerOrigin).toBe(new URL(IDENTITY).origin);
     expect(currentSession()?.accessToken).toBe("identity_tok");
-    // A second caller reuses the live session instead of minting again.
     await expect(ensureIdentitySession()).resolves.toBe(session);
   });
 

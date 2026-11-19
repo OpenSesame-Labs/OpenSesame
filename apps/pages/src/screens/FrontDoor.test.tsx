@@ -2,6 +2,7 @@ import { deviceIdentitySeams } from "@opensesame/app-core/lib/device-identity.js
 import { federationSeams } from "@opensesame/app-core/lib/federation.js";
 import {
   FRESH_GUEST_SIGN_OUT_MESSAGE,
+  FRESH_GUEST_STATUS_UNKNOWN_MESSAGE,
   guestAuthSeams,
 } from "@opensesame/app-core/lib/guest-auth.js";
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
@@ -218,6 +219,28 @@ describe("the front door", () => {
 
     await expectInTray(FRESH_GUEST_SIGN_OUT_MESSAGE);
     expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
+  });
+
+  it("offers a retry beside the notice when the connection cannot be checked", async () => {
+    continueAsGuest.mockRejectedValueOnce(
+      new Error(FRESH_GUEST_STATUS_UNKNOWN_MESSAGE),
+    );
+    renderDoor();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Skip sign-in and continue as guest",
+      }),
+    );
+
+    await expectInTray(FRESH_GUEST_STATUS_UNKNOWN_MESSAGE);
+    const retry = screen.getByRole("button", { name: "Try again" });
+    const setup = screen.getByRole("button", { name: "Set up your own" });
+    expect(
+      retry.compareDocumentPosition(setup) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    fireEvent.click(retry);
+    await waitFor(() => expect(continueAsGuest).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 
   it("names no deployment and no failure: a door that asks nothing reports nothing", () => {

@@ -21,11 +21,26 @@ storage or network implementations.
 | ID | Requirement and implementation | Lean property | Executable correspondence |
 |---|---|---|---|
 | AUTH-S1 | A provisional session authenticates only for a `pst_` token mapped to a present, unexpired, unrevoked session and a present principal that is neither suspended nor closed. [`resolveProvisionalSession`](../../packages/control-plane/src/middleware/auth.ts) performs those checks. | `bad_session_prefix_denied`, `unmapped_session_denied`, `missing_session_denied`, `revoked_session_denied`, `expired_session_denied`, `missing_principal_session_denied`, `suspended_principal_session_denied`, `closed_principal_session_denied` | The actual resolver is compared with 240 combinations of the abstract guards, expiry boundary, and principal state. |
-| AUTH-C1 | A fresh guest-labelled road must not reuse or replace an existing Identity or federation session. [`connectFreshProvisional`](../../packages/app-core/src/lib/identity.ts) classifies remote-cookie status, and guarded [`POST /v1/principals/provisional`](../../packages/control-plane/src/routes/principals.ts) atomically refuses when that request already authenticates. [`continueAsGuest`](../../packages/app-core/src/lib/guest-auth.ts), claim guest continuation, and the Identity device ceremony use that guarded operation; guest resume bypasses it only when a guest person already survives. Threat: an ambient or concurrently installed member cookie could otherwise make “guest” act as the member, or be silently replaced. Assumptions: configured remote deployments share the authoritative cookie plane; purely local deployments have no remote cookie; the browser sends the guarded header and current cookie together. | **Unproved.** Browser concurrency, cookie delivery, UI state, and the Identity transaction boundary are outside the current Lean models. | Client regressions cover present, absent, unknown, same-tab race, established-guest resume, claim, and device roads. The control-plane regression covers a guarded mint carrying a live cookie; FrontDoor and locked-vault regressions require visible sign-out/retry actions. The non-mechanized AUTH-C1 review snapshot records the exact implementation blobs below. Status: **unproved**. |
+| AUTH-C1 | A fresh guest must require sign-out when an existing Identity or federation session is detected, and must not reuse, replace, or act under a session installed concurrently. [`connectFreshProvisional`](../../packages/app-core/src/lib/identity.ts) checks the remote cookie before and after minting. The guarded [`POST /v1/principals/provisional`](../../packages/control-plane/src/routes/principals.ts) rejects presented credentials and returns a bearer without setting a cookie. Guest requests and bearer cleanup omit ambient cookies; a tab-persistent isolation marker prevents cookie adoption after expiry or reload. A member cookie arriving after the last check can coexist with the guest, but cannot replace or authenticate that guest. [`continueAsGuest`](../../packages/app-core/src/lib/guest-auth.ts), claim guest continuation, and the Identity ceremony use this admission path. Assumptions: configured remote deployments share the authoritative cookie plane; device-native Identity has no cookie plane; browser session storage and the at-rest key are available for remote guest admission. | **Unproved.** Browser concurrency, cookie delivery, UI state, and the Identity transaction boundary are outside the current Lean models. | Client regressions cover present, absent, unknown, held cross-tab responses, cookie-free requests, revocation retry, storage failure, bearer loss, established-guest resume, claim, and device roads. Control-plane tests cover credential rejection and a bearer-only response; FrontDoor and locked-vault tests cover sign-out and retry. The non-mechanized AUTH-C1 review snapshot records the exact implementation blobs below. Status: **unproved**. |
 | AUTH-P1 | An absent principal is refused and a principal with `provisional` assurance is refused. [`verifiedPrincipal`](../../packages/control-plane/src/proofs/verified-principal.ts) makes both checks. | `missing_principal_denied`, `provisional_principal_denied`, `admitted_principal_not_provisional` | The actual function is compared with all eight abstract lookup/assurance cases. |
 | AUTH-Z1 | A missing project, an invisible project, or a caller without a resolved role gets no project proof. [`projectAccess`](../../packages/control-plane/src/proofs/project-role.ts) calls [`isVisible` and `roleFor`](../../packages/control-plane/src/services/project-access.ts). | `absent_project_denied`, `hidden_project_denied`, `no_role_denied` | The actual functions are compared with the model across project presence, every declared state, four expiry classes, and four role results. |
 | AUTH-Z2 | A member gets no admin proof; only a resolved owner can receive an owner proof. `projectAccess` creates the role-specific proof values. | `member_never_receives_admin`, `nonowner_never_receives_owner` | The same matrix checks the role and the actual proof fields and kinds. |
 | AUTH-Z3 | A project at or after its expiration instant is invisible; a deleted project is invisible. `isVisible` uses an inclusive expiry check. | `not_visible_at_expiry`, `not_visible_after_expiry`, `deleted_project_not_visible` | The matrix includes times before, exactly at, and after expiry for every project state and role. |
+
+Guest bearer revocations that fail are retained in memory and retried before
+another guest mint against the same Identity API in that tab. Cleanup and
+session work are bound to the original full API base, so a changed service
+does not receive that bearer. If the original service is not selected again,
+its inaccessible lease expires at the configured TTL. A reload deliberately
+loses the bearer, which is never persisted; its authority lease then expires at
+the configured TTL. The isolation marker survives the reload so a member
+cookie cannot silently replace the guest. A successful sign-out or deliberate member
+adoption ends that isolation.
+
+The revoke endpoint invalidates the presented sessions on the authority. It
+does not send a cookie deletion: a delayed name-only deletion could erase a
+newer sign-in cookie. The invalid old cookie cannot authenticate and expires
+or is replaced by the next sign-in.
 
 AUTH-C1 was independently reviewed against these exact Git blobs. A squash
 commit that contains the reviewed implementation retains these content-addressed
@@ -33,14 +48,24 @@ objects, so the evidence does not depend on an intermediate commit remaining in
 history. This register does not mechanically check these paths for later drift;
 future changes require a new independent review and snapshot update:
 
-- `packages/app-core/src/lib/identity.ts`: `3d63a443934591e65b4d6a0af44908e442723d82`
-- `packages/app-core/src/lib/guest-auth.ts`: `0c32b4f54edb861a3498613ded927327d3336dd8`
+- `packages/app-core/src/lib/identity.ts`: `43e35c6e66e62647e33711a5b8ca1af388aff1df`
+- `packages/app-core/src/lib/identity-probe.ts`: `eeff84e7fc64eccc07426cd49cf04aca60a76364`
+- `packages/app-core/src/lib/identity-token-proof.ts`: `47c7a46311b3a9e68a819ccbcf608d96f148fb76`
+- `packages/app-core/src/lib/identity-session-types.ts`: `264a48c5fd9b232fcaa5abaca6dcdc9f9418077b`
+- `packages/app-core/src/lib/device-identity.ts`: `5413ace0727f28634ac0455354b52cdb09a1ba98`
+- `packages/app-core/src/lib/browser-pairing.ts`: `9906a3699c68c654b9e0e2df010ad6ef6fc5ef9f`
+- `packages/app-core/src/lib/guest-auth.ts`: `2b87480a3cc08d6c83963d3ded7e52b2246db8c2`
+- `packages/app-core/src/lib/federation.ts`: `2732cd686f5daab808b5554f7d91673b9d90ce30`
 - `packages/app-core/src/lib/claims/transport.ts`: `994e9de1fe080cf0c81e62c62cc4f93dd75b600f`
 - `packages/app-core/src/lib/claims/ceremony.ts`: `4a2206a3ddb5dbc33b12d80cbff87ba6c2b6b24a`
-- `packages/control-plane/src/routes/principals.ts`: `1d6ead4e49a13f20755b204770873d648b9c1966`
-- `apps/pages/src/components/IdentityCeremony.tsx`: `9a32749723b3d70a8ee7be0cc8b9550cd67510e2`
-- `apps/pages/src/screens/FrontDoor.tsx`: `3e7bd11ec1777b8842744b87a438e7de8afe929b`
-- `apps/pages/src/screens/unlock/GuestRoad.tsx`: `1ab2af63e5a000ccba504f77870c1d2671784823`
+- `packages/control-plane/src/app.ts`: `d467ad8513b50361446c5b4f93e755aa68e9b900`
+- `packages/control-plane/src/routes/principals.ts`: `19d13097728bae571fc71b5c1cb45cac96b01b77`
+- `apps/pages/src/components/IdentityCeremony.tsx`: `cf6dad1f123d6697935a1d33d617dda9e870859d`
+- `apps/pages/src/components/ConnectionCeremony.tsx`: `89fc81187818e662b78915b066ae5fd51ebd3e5f`
+- `apps/pages/src/components/status-mark.css`: `ae855527fd73a13db16e382e5dd04a6249933ad7`
+- `apps/pages/src/screens/FrontDoor.tsx`: `f115adb482976ad92ef252cd4fb2613145d9bc2e`
+- `apps/pages/src/screens/door.css`: `d6ba80f79e8ee3a4dbd485e17c9d1b40c99f3c7e`
+- `apps/pages/src/screens/unlock/GuestRoad.tsx`: `cea5725e83f995950ccb2e95482455b66a5d110b`
 
 The Lean theorems quantify over their declared model inputs. Time in the model
 is an arbitrary integer. The correspondence test exercises 8 principal cases,

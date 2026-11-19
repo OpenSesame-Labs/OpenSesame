@@ -1,3 +1,4 @@
+import type { ConnectorStatus } from "@opensesame/app-core/lib/connectors.js";
 import {
   cleanup,
   fireEvent,
@@ -8,8 +9,6 @@ import {
 import { MemoryRouter } from "react-router";
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-
-import type { ConnectorStatus } from "@opensesame/app-core/lib/connectors.js";
 
 const connectSpy = vi.fn();
 const beginSignIn = vi.fn();
@@ -23,7 +22,7 @@ import {
 import { identityCeremonyDependencies } from "./IdentityCeremony.js";
 
 Object.assign(identityCeremonyDependencies, {
-  useConnect: () => ({ connect: connectSpy, connecting: false, error: null }),
+  connectFreshProvisional: connectSpy,
   useIdentitySession: () => null,
   beginSignIn,
   defaultUpstream: () => ({

@@ -448,7 +448,7 @@ async function adoptBrokeredSessionDefault(
       "That sign-in was ended by a sign-out. Start again.",
     );
   assertOriginal();
-  restoreSession(session, sessionEpoch);
+  restoreSession(session, sessionEpoch, base);
   return session;
 }
 

@@ -29,6 +29,7 @@ import {
 } from "@opensesame/app-core/lib/guest-auth.js";
 import { signOut } from "@opensesame/app-core/lib/session-exit.js";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useGuestsAllowed } from "../../bindings/guest-access.js";
 import { landFocus } from "../../lib/focus.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
@@ -134,6 +135,25 @@ export function GuestUnlockSwitch({
       })
       .finally(() => setBusy(false));
   };
+  const recovery =
+    admissionFailure === FRESH_GUEST_SIGN_OUT_MESSAGE ? (
+      <button
+        type="button"
+        className="unlock__switch"
+        onClick={() => {
+          signOut();
+          setAdmissionFailure(null);
+          setError(null);
+        }}
+      >
+        Sign out
+      </button>
+    ) : admissionFailure === FRESH_GUEST_STATUS_UNKNOWN_MESSAGE ? (
+      <button type="button" className="unlock__switch" onClick={startGuest}>
+        Try again
+      </button>
+    ) : null;
+  const seat = recovery ? document.querySelector(".gate-notice-seat") : null;
   return (
     <>
       <button
@@ -145,24 +165,7 @@ export function GuestUnlockSwitch({
       >
         {GUEST_VAULT_LINK}
       </button>
-      {admissionFailure === FRESH_GUEST_SIGN_OUT_MESSAGE ? (
-        <button
-          type="button"
-          className="unlock__switch"
-          onClick={() => {
-            signOut();
-            setAdmissionFailure(null);
-            setError(null);
-          }}
-        >
-          Sign out
-        </button>
-      ) : null}
-      {admissionFailure === FRESH_GUEST_STATUS_UNKNOWN_MESSAGE ? (
-        <button type="button" className="unlock__switch" onClick={startGuest}>
-          Retry Identity connection
-        </button>
-      ) : null}
+      {seat && recovery ? createPortal(recovery, seat) : recovery}
     </>
   );
 }
