@@ -17,11 +17,10 @@ import {
 } from "react";
 import { useVault } from "../lib/vault/hooks.js";
 import {
-  type SupportController,
-  type SupportView,
   createSupportController,
   supportSessionSeams,
-} from "./session.js";
+} from "./session-controller.js";
+import { type SupportController, type SupportView } from "./session.js";
 import { SupportContext } from "./support-context.js";
 import { useSupportRouteSync } from "./use-support-route.js";
 
