@@ -1,31 +1,26 @@
 #!/usr/bin/env node
 /**
  * Playwright evidence for the user-token fingerprint label (`UserTokenPanel`).
- * Walks minimal-local, default, custom, and full capability profiles.
- *
- *   node apps/pages/scripts/capture-user-token-fingerprint-label.mjs --phase after
- *   node apps/pages/scripts/capture-user-token-fingerprint-label.mjs --phase before
- *
- * `before` briefly checks out the signed parent label (`sha256:`) via git show,
- * builds stock dist once, then restores the working tree.
+ * Profiles: minimal-local, default, custom, full (same checklist matrix as
+ * verification-checklist-walk.mjs).
  */
 
 import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import { chromium } from "playwright";
 import { fileURLToPath } from "node:url";
 import { findChromium } from "./duress/find-chromium.mjs";
 import {
+  appPaths,
   buildDist,
   resolveWalks,
 } from "./lib/verification-checklist-profiles.mjs";
 import { createHarness } from "./lib/static-origin-harness.mjs";
 
-const here = path.dirname(fileURLToPath(import.meta.url));
-const appRoot = path.resolve(here, "..");
-const repoRoot = path.resolve(appRoot, "../..");
-const profilesDir = path.join(appRoot, "capability-profiles");
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
 const panelRel =
   "apps/pages/src/sections/connections/connect/UserTokenPanel.tsx";
 const panelPath = path.join(repoRoot, panelRel);
@@ -54,9 +49,24 @@ function runBeforeLabelPatch() {
   return () => fs.writeFileSync(panelPath, saved);
 }
 
-async function captureProfile(walk, distDir, harness) {
-  const browser = await chromium.launch({ headless: true });
-  const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+function prepareChromium() {
+  const discovery = findChromium();
+  if (!discovery.path) {
+    console.error("[user-token-label] no Chromium binary");
+    process.exit(2);
+  }
+  process.env.PLAYWRIGHT_CHROMIUM = discovery.path;
+}
+
+function buildsNeeded(walks) {
+  const byKey = new Map();
+  for (const walk of walks) {
+    if (!byKey.has(walk.buildKey)) byKey.set(walk.buildKey, walk);
+  }
+  return [...byKey.values()];
+}
+
+async function captureTokenLabel(harness, page, walk) {
   await page.route("**/api/connect/**", async (route) => {
     const url = route.request().url();
     if (url.endsWith("/api/connect/connector/read")) {
@@ -88,61 +98,66 @@ async function captureProfile(walk, distDir, harness) {
     }
     return route.fulfill({ status: 404, body: "{}" });
   });
-  const origin = harness.originFor(distDir);
-  await page.goto(`${origin}/OpenSesame/#/connections/resend`, {
+  await page.goto(`${harness.origin}${harness.base}#/connections/resend`, {
     waitUntil: "networkidle",
   });
   const testButton = page.getByRole("button", { name: "Test user token" });
-  if (await testButton.isVisible().catch(() => false)) {
-    await testButton.click();
-    const label =
-      phase === "before" ? "sha256:0123456789ab…" : "scrypt:0123456789ab…";
-    await page.getByText(label).waitFor({ timeout: 60_000 });
-    const shotDir = path.join(outRoot, walk.name);
-    fs.mkdirSync(shotDir, { recursive: true });
-    await page.screenshot({
-      path: path.join(shotDir, "user-token-fingerprint-label.png"),
-      fullPage: false,
-    });
-    console.error(`[user-token-label] ${walk.name} ${phase} ok`);
-  } else {
-    console.error(
-      `[user-token-label] ${walk.name} skipped (connect panel not in profile build)`,
-    );
+  if (!(await testButton.isVisible().catch(() => false))) {
+    console.error(`[user-token-label] ${walk.name} skipped (no connect UI)`);
+    return;
   }
-  await browser.close();
-}
-
-function prepareChromium() {
-  const discovery = findChromium();
-  if (!discovery.path) {
-    console.error("[user-token-label] no Chromium binary");
-    process.exit(2);
-  }
-  process.env.PLAYWRIGHT_CHROMIUM = discovery.path;
+  await testButton.click();
+  const label =
+    phase === "before" ? "sha256:0123456789ab…" : "scrypt:0123456789ab…";
+  await page.getByText(label).waitFor({ timeout: 120_000 });
+  const shotDir = path.join(outRoot, walk.name);
+  fs.mkdirSync(shotDir, { recursive: true });
+  await page.screenshot({
+    path: path.join(shotDir, "user-token-fingerprint-label.png"),
+    fullPage: false,
+  });
+  console.error(`[user-token-label] ${walk.name} ${phase} ok`);
 }
 
 async function main() {
   prepareChromium();
   const restore =
     phase === "before" ? runBeforeLabelPatch() : () => undefined;
+  const { appRoot, scriptsDir, profilesDir } = appPaths();
   try {
     const walks = resolveWalks(profilesDir);
-    const built = new Map();
-    for (const walk of walks) {
-      const distDir = buildDist({
+    const dists = new Map();
+    for (const walk of buildsNeeded(walks)) {
+      const outDir = path.join(
         appRoot,
-        repoRoot,
-        name: walk.name,
-        buildKey: walk.buildKey,
+        "dist-profiles",
+        `user-token-label-${walk.buildKey}`,
+      );
+      buildDist({
+        appRoot,
+        scriptsDir,
+        outDir,
         capabilityProfile: walk.capabilityProfile,
-        built,
       });
-      const harness = await createHarness();
+      dists.set(walk.buildKey, outDir);
+    }
+    for (const walk of walks) {
+      const dist = dists.get(walk.buildKey);
+      const harness = createHarness({
+        dist,
+        origin: process.env.PAGES_ORIGIN ?? "https://opensesame-labs.github.io",
+        base: "/OpenSesame/",
+        out: path.join(outRoot, walk.name),
+      });
+      const browser = await harness.launch({
+        args: ["--no-sandbox", "--disable-dev-shm-usage"],
+      });
       try {
-        await captureProfile(walk, distDir, harness);
+        const opened = await harness.newPage(browser);
+        await captureTokenLabel(harness, opened.page, walk);
+        await opened.context.close();
       } finally {
-        await harness.close();
+        await browser.close();
       }
     }
   } finally {
@@ -150,7 +165,4 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+await main();

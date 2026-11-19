@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "reviewed_base_revision": "51b7c83969120aec0f35559984dfd280d1613d98",
+  "reviewed_base_revision": "00996e26a2cfb0e53be905d5d4f3d61d60d5eb6e",
   "reviewed_source_state": "Reviewed v3 MAC with scrypt-bound verifier, optional verifierEnc wire seal behind federatedPendingSealVerifierOnWire (default off for mixed-version rollout), and leg-binding for seal/unseal.",
   "sources": [
     {
