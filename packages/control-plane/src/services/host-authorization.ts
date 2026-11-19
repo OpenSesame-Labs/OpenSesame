@@ -238,8 +238,12 @@ export async function completeHostAuthorization(
     pending.challenge.organization_id,
     principalId,
   );
+  const organization = await ctx.stores.organizations.get(
+    pending.challenge.organization_id,
+  );
   const now = Math.floor(ctx.clock().getTime() / 1000);
   if (
+    organization?.state !== "active" ||
     !membership ||
     now >= pending.challenge.expires_at ||
     !ctx.hostAuthorizationAudiences.includes(pending.challenge.host_audience)
