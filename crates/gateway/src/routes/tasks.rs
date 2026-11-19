@@ -16,6 +16,10 @@ use opensesame_time::{Duration, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+#[path = "tasks_claim.rs"]
+mod tasks_claim;
+use tasks_claim::claim_frozen_intent;
+
 use crate::app_state::AppState;
 use crate::middleware::auth::{
     parse_principal, require_demo_bootstrap, resolve_caller, resolve_caller_subject,
@@ -25,7 +29,7 @@ use crate::middleware::auth::{
 /// small by construction and capped to keep a chatty agent from growing it.
 const MAX_FROZEN_INTENTS: usize = 512;
 
-fn execution_bootstrap_for_organization(
+pub(super) fn execution_bootstrap_for_organization(
     st: &AppState,
     organization_id: &OrganizationId,
     principal_id: &PrincipalId,
@@ -285,8 +289,8 @@ pub async fn freeze_intent(
             "the configured grant does not cover this task authority",
         )
     })?;
-    // Custody of the frozen bytes stays here: execution later names the digest,
-    // it does not restate operation/resource/arguments.
+    let response = tasks_claim::frozen_response(&intent)?;
+    // Execution later names the digest; it does not restate the arguments.
     {
         let mut pending = st.frozen_intents.lock().map_err(|_| internal("lock"))?;
         pending.retain(|_, i| i.expires_at > now);
@@ -299,61 +303,13 @@ pub async fn freeze_intent(
         }
         pending.insert(intent.intent_digest.clone(), intent.clone());
     }
-    Ok((
-        StatusCode::CREATED,
-        Json(json!({
-            "intent_id": intent.id.to_string(),
-            "intent_digest": intent.intent_digest,
-            "task_run_id": intent.task_run_id.to_string(),
-            "task_state_version": intent.task_state_version,
-            "canonical_arguments": intent.canonical_arguments,
-        })),
-    )
-        .into_response())
+    Ok(response)
 }
 
 #[derive(Deserialize)]
 pub struct InvokeTaskBody {
     /// Digest returned by `POST /api/v1/tasks/intents`.
     pub intent_digest: String,
-}
-
-/// Execute a frozen intent under its task ceiling.
-///
-/// The legacy `/api/v1/intents` path builds an intent from whatever the caller
-/// sends, so a task-bound caller that used it spent no ceiling at all. Here the
-/// digest names bytes the server already holds, and the broker re-asserts the
-/// capability, task state version, and ceiling before anything executes.
-/// Take a frozen intent for the caller, spending it only when it is theirs.
-///
-/// Single use: a spent digest cannot be replayed into a second invocation. The
-/// ownership question is settled before the digest is spent — removing first
-/// would let anyone who learned a digest burn another principal's intent and
-/// collect a 404 for it, leaving the owner with nothing to invoke.
-///
-/// An intent that is absent and one that belongs to someone else are the same
-/// answer here, so a caller cannot use this to enumerate other principals' work.
-fn claim_frozen_intent(
-    pending: &mut std::collections::HashMap<String, FrozenIntentV2>,
-    digest: &str,
-    caller: &crate::middleware::auth::Caller,
-    execution_grant: &Grant,
-    now: opensesame_time::DateTime<Utc>,
-) -> Result<Option<FrozenIntentV2>, ()> {
-    pending.retain(|_, i| i.expires_at > now);
-    let Some(intent) = pending.get(digest) else {
-        return Ok(None);
-    };
-    if !caller.owns(&intent.principal_id) || !caller.in_organization(&intent.organization_id) {
-        return Ok(None);
-    }
-    if execution_grant.parent_grant_id.is_some()
-        || execution_grant.delegation_depth != 0
-        || opensesame_broker::assert_grant_covers_frozen_intent(execution_grant, intent).is_err()
-    {
-        return Err(());
-    }
-    Ok(pending.remove(digest))
 }
 
 pub async fn invoke_task(
@@ -388,6 +344,7 @@ pub async fn invoke_task(
         intent.operation.clone(),
         ResourceSelector::exact(intent.resource.clone()),
     );
+    let opening_intent = intent.clone();
     let receipt = st
         .broker
         .invoke_frozen(
@@ -409,7 +366,13 @@ pub async fn invoke_task(
                 opensesame_redaction::redact_text(&e.to_string()),
             )
         })?;
-    Ok((StatusCode::OK, Json(receipt)).into_response())
+    let body = super::receipts::private_receipt_body(
+        &st,
+        &receipt,
+        &opening_intent.intent_digest,
+        &opening_intent,
+    )?;
+    Ok(super::receipts::private_response(StatusCode::OK, body))
 }
 
 #[derive(Deserialize)]

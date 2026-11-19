@@ -160,7 +160,7 @@ surrogate carries no provider checksum. There are three reasons:
 A client that validates token format is served by `Handle` delivery or an L1
 typed operation instead.
 
-### 4. The credential never rides back in a response (landed as a fix)
+### 4. Reflection defense and untrusted provider responses
 
 The same oracle runs the other way. An upstream that echoes what it was sent
 hands the caller the credential the broker placed. Examples:
@@ -184,14 +184,129 @@ body or any allowlisted header, the following are replaced with
 `ReceiptMeta.credential_reflected` records that it happened. A well-behaved API
 never sets it.
 
-This protects every invoke-through caller, not only surrogate clients.
+This reduces direct reflection for every invoke-through caller, not only
+surrogate clients. It does not prove that returned data is safe to disclose.
 
 Limits, stated plainly:
 
-- A hash, an encryption or any other transform of the credential is not the
-  credential, and is not matched.
-- The scrub cannot be used as an oracle. Confirming a guess requires guessing
-  the whole token.
+- Reversals, encryption with a known key, nested encodings, split fragments,
+  and other transforms can disclose the credential without matching the scrub.
+  A digest can also disclose a low-entropy credential through guessing.
+- An upstream or connector controlling response fields can encode data in
+  arbitrary strings, numbers, lengths, hashes, or error messages. A schema or
+  finite list of encodings cannot make arbitrary returned data safe.
+
+Consequently, broker receipts use schema 6 with an opaque result: they retain
+host-owned invocation and authority metadata, but no provider
+body, headers, connector output, free-form error, or output-derived digest.
+Credential-bearing and community-connector executions report `indeterminate`
+regardless of their actual terminal outcome, which is kept in the Host's
+protected invocation record. Host-owned mock and KV operations retain their
+accurate outcome. An indeterminate receipt must not be treated as success or
+as evidence that no side effect occurred.
+Constrained HTTP and community Wasm connectors likewise return only a fixed
+result summary through their public invocation interface. Internal Host
+adapters that need provider JSON, including GitHub setup and certificate/DNS
+workflows, continue to consume it inside the Host. The generic L2 and Wasm
+interfaces no longer return operation data to callers; restoring particular
+fields needs an explicit, reviewed operation-specific declassification and an
+authorization decision that treats the provider as trusted for those fields.
+GitHub setup also presents provider-supplied repository names and URLs to the
+authorized user. Those fields are necessary for that workflow and remain a
+trust in the provider, not a guarantee against a malicious GitHub response.
+The KV facade still returns its ordinary authorized read body, while its new
+receipt omits the prior count summary.
+
+The MCP task invocation returns only the outcome and a validated Host-issued
+receipt identifier to the model for schema 6 receipts. Older Host responses,
+HTTP failures and malformed responses all project to the same indeterminate
+outcome without an identifier. The frozen intent is cleared before dispatch,
+because a failed transport cannot prove the side effect did not occur. The
+response is bounded in size and time before parsing. Other receipt evidence
+remains available through the authorized Host receipt interface where
+disclosure is safe.
+MCP freeze and invocation responses are limited to 128 KiB and 15 seconds;
+an oversized or incomplete response is refused. Starting a replacement freeze
+clears any older frozen intent, so a failed replacement cannot accidentally
+execute the previous operation. A delayed freeze response cannot restore an
+older task or overwrite a newer task context.
+
+Older signed receipts remain stored unchanged for verification. Public receipt
+GET and idempotent replay refuse receipts without the schema 6 opaque shape;
+they also verify the signature instead of trusting the version number. Receipt
+verification remains available without disclosing the old payload. In schema 6,
+`intent_digest` is a salted commitment to the original intent digest, and
+`idempotency_binding` is a separate keyed request commitment. Their distinct
+keys are derived from the receipt-signing seed. Ordinary receipt viewers cannot
+test low-entropy request guesses offline without the private opening. The Host
+still uses the original frozen digest for task admission and internal retry
+checks.
+
+Successful `/intents` and `/tasks/invoke` responses include the original
+intent, its raw digest and the per-invocation opening in an `intent_opening`
+object, with `Cache-Control: no-store`. A retry must re-prove the same canonical
+principal/subject and request-authority fingerprint; a different session for
+that principal can therefore receive the same opening. The operator has the
+existing explicit authority to act as the bootstrap principal and can receive
+its matching retry. Frozen task execution likewise uses principal and
+organization ownership, with the existing operator exception. This is not a
+session-instance binding. The object is private and is not part of the
+signed receipt; GET, KV and model-visible MCP responses do not include it.
+Anyone holding the opening can test candidate intent digests, so the caller
+must store and share it only with authorized verifiers and protect it from logs
+and intermediaries. An offline verifier first verifies the signature on the
+receipt fields with the signer's published key, recomputes the original intent
+digest, and then checks the opening against the signed commitment using
+`InvocationReceipt::verifies_intent_opening` or the API client's
+`verifyReceiptIntentOpening`. Opening verification alone does not authenticate
+the receipt or establish that supplied parameters match their hash. A
+verifier of the invocation response must project the signed receipt fields and
+exclude the unsigned opening and other response metadata before signature
+verification.
+
+Save the opening when the response arrives. `/intents` can recover a lost
+opening through a matching reauthorized retry while the signing key remains
+active, provided the caller supplied and retained the idempotency key. The
+frozen-task handle remains single-use. Task freeze now returns the complete
+digest input and preassigned receipt ID with `no-store`; callers must save both
+before dispatch. The saved JSON must retain its exact field values and number
+precision; use a lossless JSON parser for integers outside JavaScript's safe
+range. If the invocation response is lost, an authenticated caller
+can submit that exact intent and digest to `/tasks/intent-opening`. Recovery
+compares the original principal/subject and authority fingerprint with the
+stored, signed invocation, returns only the opening, and never dispatches an
+effect. All authenticated mismatch, unavailable-evidence and retired-key cases
+return the same 404. Freeze refuses an intent whose serialized recovery request
+would exceed the 16 MiB recovery-body limit, before recording it as pending.
+It accepts a different native opaque session of the same
+principal and the existing operator authority, but does not accept agent
+capabilities or paired browser grants. The
+caller can retrieve the signed receipt using the preassigned ID. Existing
+clients must save the newly returned freeze fields to use recovery; the generic
+MCP flow does not retain them or expose them to a model. A saved opening
+continues to verify with a retained old public key, but an opening that was not
+saved cannot be recovered after its private signing key is retired. KV receipt
+consumers do not currently receive an opening or the Host-generated KV intent,
+so they can verify its signature but cannot independently open its commitment.
+Schema 5 and earlier receipts remain verifiable but are withheld from GET and
+replay.
+An authorized caller who knows an idempotency key may still test candidate
+requests online via the retry endpoint; the commitment does not remove that
+oracle. A replay
+whose receipt was signed by a retired key is withheld until the broker can
+verify that key; it must never execute the provider a second time. An operator
+who finds an actual historical disclosure should rotate the affected
+credential, since old exports or previously delivered responses cannot be
+retracted.
+
+Execution timing and authorized side effects remain observable. Direct
+in-process connector APIs also reveal whether a guest or HTTP operation
+succeeded, and Wasm resource-limit failures remain distinguishable; only
+brokered receipts suppress those outcome choices. A colluding provider can
+vary these channels, so this boundary does not claim full noninterference
+against a hostile provider. During a rolling upgrade, direct
+clients remain exposed through any old Host or gateway still serving traffic;
+upgrade or drain every instance before relying on this boundary.
 
 ### 5. Every refusal is a tripwire, and the client learns nothing from it
 

@@ -2,6 +2,9 @@
 
 use super::*;
 
+#[path = "tasks_opening_tests.rs"]
+mod opening_tests;
+
 #[tokio::test]
 async fn non_bootstrap_organization_cannot_freeze_an_unusable_intent() {
     let state = crate::app_state::test_demo_state().await;

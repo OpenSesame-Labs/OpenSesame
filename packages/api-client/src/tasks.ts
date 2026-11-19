@@ -74,5 +74,20 @@ export function tasksApi(ctx: HostRequestContext) {
         body: JSON.stringify({ intent_digest: intentDigest }),
       });
     },
+
+    /** Recover the private opening after losing a task invocation response. */
+    async recoverTaskIntentOpening(
+      intent: BoundaryValue,
+      intentDigest: string,
+    ): Promise<BoundaryValue> {
+      return ctx.requestJson(
+        "task_intent_opening",
+        "/api/v1/tasks/intent-opening",
+        {
+          method: "POST",
+          body: JSON.stringify({ intent, intent_digest: intentDigest }),
+        },
+      );
+    },
   };
 }
