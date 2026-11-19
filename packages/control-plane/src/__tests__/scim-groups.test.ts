@@ -5,17 +5,18 @@ import {
 import { overlapCast } from "@opensesame/os-domain";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { provisionedRoleForSubject } from "../routes/scim.js";
 import {
   memberIds,
   parseMemberSelector,
   resolveMemberIds,
 } from "../routes/scim-member-selector.js";
-import { provisionedRoleForSubject } from "../routes/scim.js";
 import { putGroupRoleMappingAsOwner } from "./org-owner-fixture.js";
 import {
   DEFAULT_IDP_SUBJECT,
   PAGES_ORIGIN,
   groupsPath,
+  installHostRevocationMock,
   joinTenant,
   mintOrgIdToken,
   mintScimToken,
@@ -28,12 +29,16 @@ import {
 } from "./scim-test-helpers.js";
 
 let idp: ReferenceIdp;
+let restoreHost: () => void;
 
 beforeAll(async () => {
   idp = await startReferenceIdp();
+  const mock = installHostRevocationMock();
+  restoreHost = () => mock.mockRestore();
 }, 30_000);
 
 afterAll(async () => {
+  restoreHost();
   await idp.close();
 });
 

@@ -3,7 +3,6 @@ import { name } from "@gdp-ts/core";
 import { appendAuditEvent } from "@opensesame/audit";
 import {
   AddOrganizationMemberRequestSchema,
-  ChangeOrganizationMemberRoleRequestSchema,
   CreateOrganizationRequestSchema,
   JoinOrganizationTenantRequestSchema,
   OrganizationMembershipResponseSchema,
@@ -18,7 +17,6 @@ import type {
 } from "@opensesame/os-domain";
 import { Hono } from "hono";
 import type { AppContext } from "../context.js";
-import { secureServiceEndpoint } from "../deployment-mode.js";
 import { organizationId } from "../lib/ids.js";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
@@ -56,7 +54,6 @@ import { type OrgOwnerSource, asOrgOwner } from "./org-owner-gate.js";
 import {
   getMembership,
   jitJoinOrganization,
-  revokeOrganizationMembership,
   serializeMembershipMutation,
 } from "./organization-membership.js";
 import { provisionedRoleForSubject } from "./scim.js";
@@ -65,7 +62,6 @@ import { asVerifiedPrincipal } from "./verified-principal-gate.js";
 export type { JitJoinInput, JitJoinResult } from "./organization-membership.js";
 export {
   jitJoinOrganization,
-  revokeOrganizationMembership,
   serializeMembershipMutation,
 } from "./organization-membership.js";
 
@@ -210,18 +206,8 @@ export async function ensurePersonalOrganization(
   return ctx.stores.organizationMemberships.upsert(membership);
 }
 
-export function hostApiEndpoint(
-  configuredUrl: string,
-  path: string,
-): URL | undefined {
-  try {
-    const base = secureServiceEndpoint(configuredUrl);
-    if (!base.pathname.endsWith("/")) base.pathname += "/";
-    return new URL(path.replace(/^\/+/, ""), base);
-  } catch {
-    return undefined;
-  }
-}
+export { hostApiEndpoint } from "../services/host-endpoint.js";
+export { revokeOrganizationMembership } from "./organization-revocation.js";
 
 function toResponse(org: Organization, role: OrganizationRole) {
   return OrganizationResponseSchema.parse({
@@ -266,36 +252,6 @@ function membershipResponse(membership: OrganizationMembership) {
     createdAt: membership.createdAt.toISOString(),
     updatedAt: membership.updatedAt.toISOString(),
   });
-}
-
-async function revokeHostSessions(
-  ctx: AppContext,
-  organizationId: string,
-  principalId: string,
-): Promise<boolean> {
-  const url = hostApiEndpoint(ctx.config.hostApiUrl, "api/v1/sessions/revoke");
-  if (!url) return false;
-
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-opensesame-operator": ctx.config.operatorToken,
-      },
-      body: JSON.stringify({
-        organization_id: organizationId,
-        principal_id: principalId,
-      }),
-      redirect: "error",
-      signal: AbortSignal.timeout(5_000),
-    });
-    await response.body?.cancel();
-    return response.ok;
-  } catch {
-    ctx.log.warn("Host session revocation failed");
-    return false;
-  }
 }
 
 organizationRoutes.get("/", requirePrincipal(), async (c) => {
@@ -763,132 +719,6 @@ organizationRoutes.post("/:id/members", requirePrincipal(), async (c) => {
     }),
   );
 });
-
-organizationRoutes.patch(
-  "/:id/members/:principalId",
-  requirePrincipal(),
-  async (c) => {
-    const ctx = c.get("ctx");
-    const organizationId = c.req.param("id");
-    return serializeMembershipMutation(ctx, organizationId, () =>
-      asOrgOwner(c, MEMBER_ADMIN, async ({ org, proof, actor }) => {
-        const actorPrincipalId = actor.value;
-        const targetPrincipalId = c.req.param("principalId");
-        const target = await getMembership(
-          ctx,
-          organizationId,
-          targetPrincipalId,
-        );
-        if (!target) return c.json({ error: "membership_not_found" }, 404);
-        const parsed = ChangeOrganizationMemberRoleRequestSchema.safeParse(
-          await c.req.json(),
-        );
-        if (!parsed.success) {
-          return c.json(
-            { error: "validation_error", details: parsed.error.flatten() },
-            400,
-          );
-        }
-        if (target.role === parsed.data.role) {
-          return c.json(membershipResponse(target));
-        }
-        if (
-          target.role === "owner" &&
-          (await ctx.stores.organizationMemberships.countOwners(
-            organizationId,
-          )) === 1
-        ) {
-          return c.json({ error: "last_owner" }, 409);
-        }
-        const updated: OrganizationMembership = {
-          ...target,
-          role: parsed.data.role,
-          updatedAt: ctx.clock(),
-        };
-        // Publish the new role before yielding to Host revocation. Otherwise a
-        // concurrent approval can capture the old role after Host has revoked it.
-        await writeOrganizationMembership(ctx, org, proof, updated);
-        if (
-          !(await revokeHostSessions(ctx, organizationId, targetPrincipalId))
-        ) {
-          await writeOrganizationMembership(ctx, org, proof, target);
-          return c.json({ error: "session_revocation_failed" }, 502);
-        }
-        await appendAuditEvent(ctx.repos.auditEvents, {
-          eventType: "organization.member_role_changed",
-          outcome: "succeeded",
-          principalId: actorPrincipalId,
-          organizationId,
-          correlationId: c.get("correlationId"),
-          metadata: {
-            action: "organization.member.role.change",
-            memberPrincipalId: targetPrincipalId,
-            previousRole: target.role,
-            role: updated.role,
-          },
-        });
-        return c.json(membershipResponse(updated));
-      }),
-    );
-  },
-);
-
-organizationRoutes.delete(
-  "/:id/members/:principalId",
-  requirePrincipal(),
-  async (c) => {
-    const ctx = c.get("ctx");
-    const organizationId = c.req.param("id");
-    return serializeMembershipMutation(ctx, organizationId, () =>
-      asOrgOwner(c, MEMBER_ADMIN, async ({ org, proof, actor }) => {
-        const actorPrincipalId = actor.value;
-        const targetPrincipalId = c.req.param("principalId");
-        const target = await getMembership(
-          ctx,
-          organizationId,
-          targetPrincipalId,
-        );
-        if (!target) return c.json({ error: "membership_not_found" }, 404);
-        if (
-          target.role === "owner" &&
-          (await ctx.stores.organizationMemberships.countOwners(
-            organizationId,
-          )) === 1
-        ) {
-          return c.json({ error: "last_owner" }, 409);
-        }
-        // Remove authority before yielding so no approval can mint a session in the
-        // gap between revocation and this mutation. Restore it if Host fails closed.
-        await revokeOrganizationMembership(ctx, {
-          organizationId,
-          principalId: targetPrincipalId,
-          correlationId: c.get("correlationId"),
-          reason: "owner_removed",
-          membershipSerialized: true,
-        });
-        if (
-          !(await revokeHostSessions(ctx, organizationId, targetPrincipalId))
-        ) {
-          await writeOrganizationMembership(ctx, org, proof, target);
-          return c.json({ error: "session_revocation_failed" }, 502);
-        }
-        await appendAuditEvent(ctx.repos.auditEvents, {
-          eventType: "organization.member_removed",
-          outcome: "succeeded",
-          principalId: actorPrincipalId,
-          organizationId,
-          correlationId: c.get("correlationId"),
-          metadata: {
-            action: "organization.member.remove",
-            memberPrincipalId: targetPrincipalId,
-            role: target.role,
-          },
-        });
-        return c.body(null, 204);
-      }),
-    );
-  },
-);
 
 organizationRoutes.get("/:id", requirePrincipal(), async (c) => {
   const ctx = c.get("ctx");
