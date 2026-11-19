@@ -15,6 +15,7 @@ import { deleteSecurityMapEntry } from "../repos/durable-map.js";
 import {
   removeOrphanTokens,
   revokeSessionTokens,
+  saveProvisional,
 } from "../repos/session-storage.js";
 import { serializeKeyed } from "../serialize.js";
 import { settleVerifiedOwner } from "../services/identity-principal-fence.js";
@@ -137,9 +138,8 @@ export async function adoptSession(
     expiresAt: new Date(now.getTime() + ctx.config.provisionalTtlMs),
   };
   const accessToken = `pst_${randomBytes(24).toString("base64url")}`;
-  await ctx.stores.provisionalSessions.set(session.id, session);
   try {
-    await ctx.stores.provisionalTokens.set(accessToken, session.id);
+    await saveProvisional(ctx.stores, session, accessToken);
   } catch (error) {
     // A capacity refusal on the token must not leave a session nobody can
     // redeem, occupying a slot until its TTL.
