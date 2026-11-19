@@ -1,0 +1,52 @@
+name: Passkey-first scratch validation
+
+on:
+  pull_request:
+    branches: [codex/mobile-tutorial-end-to-end]
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  browser:
+    name: Passkey and PIN (${{ matrix.width }}px)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        width: [320, 390]
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: dfb05d7c6fa3c23cb60799dd2b73a878d3ecd7c1
+          persist-credentials: false
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+        with:
+          cache: false
+          install_args: node
+      - run: npm ci --ignore-scripts
+      - name: Build Pages
+        env:
+          VITE_BASE: /OpenSesame/
+        run: node scripts/lib/ci-pages-build.mjs
+      - name: Walk passkey and PIN fallback
+        env:
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+          VITE_BASE: /OpenSesame/
+          TUTORIALS_ONLY: gate.front-door
+          TUTORIALS_WIDTHS: ${{ matrix.width }}
+          TUTORIALS_KEYBOARD_VIEWPORT: 1
+          TUTORIALS_PIN_BACK: 1
+          TUTORIALS_SHOTS: 1
+          TUTORIALS_OUT: ${{ runner.temp }}/passkey-evidence
+        run: npm run verify:tutorials -w @opensesame/pages
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: passkey-first-${{ matrix.width }}px
+          path: ${{ runner.temp }}/passkey-evidence
+          if-no-files-found: warn
