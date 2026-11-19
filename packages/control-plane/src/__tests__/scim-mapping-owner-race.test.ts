@@ -4,6 +4,7 @@ import { createControlPlane } from "../create-app.js";
 
 it("rechecks owner authority before a delayed SCIM group mapping is applied", async () => {
   const plane = createControlPlane({
+    processEnv: { ...process.env, OPENSESAME_ALLOW_DEV_DEFAULTS: "1" },
     config: {
       port: 0,
       publicUrl: "http://localhost",
@@ -42,17 +43,16 @@ it("rechecks owner authority before a delayed SCIM group mapping is applied", as
   const proofObserved = new Promise<void>((resolve) => {
     proofRead = resolve;
   });
-  const find = ctx.stores.organizationMemberships.findVersioned.bind(
+  const find = ctx.stores.organizationMemberships.find.bind(
     ctx.stores.organizationMemberships,
   );
-  vi.spyOn(
-    ctx.stores.organizationMemberships,
-    "findVersioned",
-  ).mockImplementationOnce(async (...args) => {
-    const observed = await find(...args);
-    proofRead();
-    return observed;
-  });
+  vi.spyOn(ctx.stores.organizationMemberships, "find").mockImplementationOnce(
+    async (...args) => {
+      const observed = await find(...args);
+      proofRead();
+      return observed;
+    },
+  );
   let sendBody: ReadableStreamDefaultController<Uint8Array> | undefined;
   const body = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -105,6 +105,5 @@ it("rechecks owner authority before a delayed SCIM group mapping is applied", as
     ).toBe("owner");
   } finally {
     vi.restoreAllMocks();
-    await plane.withdrawalRecovery.stop();
   }
 });
