@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { doorGuest } from "./lib/front-door.mjs";
 import {
+  PIN,
   lockVault,
   openSettingsCategory,
   sealWithPin,
@@ -63,13 +64,36 @@ async function newAccount(page, name, website) {
   await page.getByRole("heading", { level: 1, name }).waitFor();
 }
 
+// Close transient first-visit prompts through their real controls on both builds.
+// This keeps unrelated prompts from obscuring one side of the comparison.
+async function dismissAmbientPrompts(page) {
+  const offer = page.locator('aside[aria-label$=" walkthrough"]')
+    .getByRole("button", {name: "Not now", exact: true});
+  const dismiss = page.getByRole("button", {name: /^Dismiss recommendation:/});
+  for (let attempt = 0; attempt < 8; attempt++) {
+    await page.waitForTimeout(350);
+    const hasOffer = await offer.count() && await offer.first().isVisible();
+    const hasRecommendation = await dismiss.count() && await dismiss.first().isVisible();
+    if (hasOffer) await press(page, offer.first());
+    if (hasRecommendation) await press(page, dismiss.first());
+    if (!hasOffer && !hasRecommendation) {
+      await page.waitForTimeout(350);
+      if (!(await offer.count() && await offer.first().isVisible()) &&
+          !(await dismiss.count() && await dismiss.first().isVisible())) return;
+    }
+  }
+  throw new Error("Ambient prompts did not settle");
+}
+
 async function generateAndCopy(page) {
   const name = "Guest mail";
   await newAccount(page, name, "https://mail.example.test");
+  await dismissAmbientPrompts(page);
   const generatorRegion = page.getByRole("region", { name: /^(Password generator|Rotation)$/ });
   if (await generatorRegion.count()) await generatorRegion.first().scrollIntoViewIfNeeded();
   await page.screenshot({path: path.join(out, `guest-${page.viewportSize().width}-detail.png`), animations: "disabled"});
   await page.getByRole("link", { name: "Edit", exact: true }).click();
+  await dismissAmbientPrompts(page);
   const password = page.getByLabel("Password", { exact: true }).first();
   const before = await password.inputValue();
   const generate = page.getByRole("button", { name: "Generate another password" });
@@ -162,6 +186,7 @@ function assertBubbleGeometry(bubbleBox, actionBox, viewport) {
 
 async function verifyFailureClearsOnLock(page, width) {
   await prepareFailingRotation(page);
+  await dismissAmbientPrompts(page);
   const panel = page.getByRole("region", { name: "Rotation", exact: true });
   const action = panel.getByRole("button", { name: "Request rotation" });
   await action.scrollIntoViewIfNeeded();
@@ -181,6 +206,7 @@ async function verifyFailureClearsOnLock(page, width) {
   await page.screenshot({path: path.join(out, `rotation-${width}-failure.png`), animations: "disabled"});
   await page.keyboard.press("Escape");
   await tray.waitFor({state: "hidden"});
+  await dismissAmbientPrompts(page);
   await action.scrollIntoViewIfNeeded();
   const status = panel.getByRole("img", {name: failure});
   const statusCount = await status.count();
@@ -211,7 +237,25 @@ async function verifyFailureClearsOnLock(page, width) {
   }
   await restoreRotationStorage(page);
   await lockVault(page);
+  await page.screenshot({path: path.join(out, `unlock-${width}-locked.png`), animations: "disabled"});
+  await page.getByLabel("PIN", { exact: true }).fill(PIN);
+  const unlock = page.getByRole("button", { name: "Unlock", exact: true });
+  const unlockBox = await unlock.boundingBox();
+  const unlockHit = unlockBox && await unlock.evaluate((node, point) => {
+    const top = document.elementFromPoint(point.x, point.y);
+    return top === node || node.contains(top);
+  }, { x: unlockBox.x + unlockBox.width / 2, y: unlockBox.y + unlockBox.height / 2 });
+  record.unlock = { box: unlockBox, hit: Boolean(unlockHit) };
+  await page.screenshot({path: path.join(out, `unlock-${width}-ready.png`), animations: "disabled"});
+  if (side === "after" && touch(page)) {
+    assert(unlockBox && unlockBox.x >= 0 && unlockBox.y >= 0 &&
+      unlockBox.x + unlockBox.width <= page.viewportSize().width &&
+      unlockBox.y + unlockBox.height <= page.viewportSize().height &&
+      unlockBox.width >= 44 && unlockBox.height >= 44 && unlockHit,
+      "existing-vault Unlock control is visible and reachable");
+  }
   await unlockWithPin(page);
+  await dismissAmbientPrompts(page);
   tray = await openTray(page);
   record.failureAfterUnlock = await tray.getByText(failure, {exact: true}).count();
   await page.screenshot({path: path.join(out, `rotation-${width}-after-lock.png`), animations: "disabled"});

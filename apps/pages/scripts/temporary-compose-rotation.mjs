@@ -22,7 +22,7 @@ try {
       );
     }
     for (const width of (process.env.EVIDENCE_WIDTHS ?? "320,390,1280").split(",").map(Number)) {
-      for (const frame of ["guest-detail", "guest-editor", "rotation-error", "rotation-failure", "rotation-after-lock"]) {
+      for (const frame of ["guest-detail", "guest-editor", "rotation-error", "rotation-failure", "rotation-after-lock", "unlock-locked", "unlock-ready"]) {
         const parts = frame.split("-");
         const file = `${parts[0]}-${width}-${parts.slice(1).join("-")}.png`;
         const png = (side) => fs.readFileSync(path.join(root, side, theme, file)).toString("base64");
