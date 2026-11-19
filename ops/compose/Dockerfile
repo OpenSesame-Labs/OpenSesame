@@ -48,6 +48,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS debian-runtime
 RUN useradd -u 10001 -m app \
   && apt-get update \
+  && apt-get -y upgrade --no-install-recommends \
   && apt-get install -y --no-install-recommends ca-certificates curl libdbus-1-3 \
   && rm -rf /var/lib/apt/lists/* \
   && mkdir -p /var/lib/opensesame \

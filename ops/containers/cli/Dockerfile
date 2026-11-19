@@ -5,6 +5,7 @@
 # The native host binary is ghcr.io/opensesame-labs/opensesame, not this image.
 FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS build
 RUN apt-get update \
+  && apt-get -y upgrade --no-install-recommends \
   && apt-get install -y --no-install-recommends ca-certificates git python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
@@ -16,6 +17,9 @@ ENV CLI_RELEASE_PACK=1 \
 RUN npm run build -w @opensesame/cli \
   && node scripts/release/prepare-cli-release.mjs
 FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
+RUN apt-get update \
+  && apt-get -y upgrade --no-install-recommends \
+  && rm -rf /var/lib/apt/lists/*
 RUN useradd -u 10001 -m app
 WORKDIR /opt/opensesame-cli
 COPY --from=build /src/packages/cli/release/ ./
