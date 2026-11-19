@@ -9,27 +9,26 @@ export type App = ReturnType<typeof createControlPlane>["app"];
 export const PAGES_ORIGIN = "http://localhost:5180";
 export const DEFAULT_IDP_SUBJECT = "mock-user-1";
 
+export function hostRevocationResponse(init?: RequestInit, status = 200) {
+  const request = overlapCast(JSON.parse(String(init?.body)));
+  return new Response(
+    JSON.stringify({
+      revoked: 1,
+      durable: true,
+      withdrawal_id: request.withdrawal_id,
+      membership_incarnation: request.membership_incarnation,
+      authority_revision: request.authority_revision,
+    }),
+    { status, headers: { "content-type": "application/json" } },
+  );
+}
+
 export function installHostRevocationMock(status: () => number = () => 200) {
   const realFetch = globalThis.fetch;
   return vi.spyOn(globalThis, "fetch").mockImplementation((input, init) => {
     const url = input instanceof Request ? input.url : String(input);
     if (url.endsWith("/api/v1/sessions/revoke")) {
-      const request = overlapCast(JSON.parse(String(init?.body)));
-      return Promise.resolve(
-        new Response(
-          JSON.stringify({
-            revoked: 1,
-            durable: true,
-            withdrawal_id: request.withdrawal_id,
-            membership_incarnation: request.membership_incarnation,
-            authority_revision: request.authority_revision,
-          }),
-          {
-            status: status(),
-            headers: { "content-type": "application/json" },
-          },
-        ),
-      );
+      return Promise.resolve(hostRevocationResponse(init, status()));
     }
     return realFetch(input, init);
   });
