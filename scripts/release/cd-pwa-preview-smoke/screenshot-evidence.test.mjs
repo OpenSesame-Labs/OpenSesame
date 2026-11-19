@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import {
   captureLiveSmokeEvidence,
+  pushDiagnostic,
   smokeBrowserEntryUrl,
 } from "./screenshot-evidence.mjs";
 
@@ -273,6 +274,95 @@ test("capture still rejects a front door that offers Continue as guest", async (
           { launchHeadlessPlaywright: harness.launchHeadlessPlaywright },
         ),
       /live front door must not offer Continue as guest/,
+    );
+  });
+});
+
+test("pushDiagnostic keeps a ring buffer of the newest entries", () => {
+  const entries = [];
+  for (let i = 0; i < 205; i += 1)
+    pushDiagnostic(entries, { type: "log", text: String(i) });
+  assert.equal(entries.length, 200);
+  assert.equal(entries[0].text, "5");
+  assert.equal(entries[199].text, "204");
+});
+
+test("capture writes failure evidence when browser launch fails", async () => {
+  await withEvidence(async (out) => {
+    await assert.rejects(
+      () =>
+        captureLiveSmokeEvidence(
+          {
+            PAGES_URL: "https://example.github.io/OpenSesame/",
+            GITHUB_SHA: sha,
+            SMOKE_EVIDENCE_OUT: out,
+          },
+          {
+            launchHeadlessPlaywright: async () => {
+              throw new Error("launch failed");
+            },
+          },
+        ),
+      /launch failed/,
+    );
+    const consoleLog = JSON.parse(
+      readFileSync(join(out, "failure-console.json"), "utf8"),
+    );
+    assert.equal(consoleLog.error, "launch failed");
+  });
+});
+
+test("capture records pageerror diagnostics", async () => {
+  await withEvidence(async (out) => {
+    const page = {
+      on(event, handler) {
+        if (event === "pageerror") {
+          handler(new Error("boom"));
+        }
+      },
+      async goto() {},
+      getByRole() {
+        return {
+          async waitFor() {
+            throw new Error("missing");
+          },
+        };
+      },
+      async screenshot(shot) {
+        await writeFile(shot.path, "png");
+      },
+    };
+    await assert.rejects(
+      () =>
+        captureLiveSmokeEvidence(
+          {
+            PAGES_URL: "https://example.github.io/OpenSesame/",
+            GITHUB_SHA: sha,
+            SMOKE_EVIDENCE_OUT: out,
+          },
+          {
+            launchHeadlessPlaywright: async () => ({
+              browser: {
+                async newContext() {
+                  return {
+                    async newPage() {
+                      return page;
+                    },
+                  };
+                },
+                async close() {},
+              },
+            }),
+          },
+        ),
+      /missing/,
+    );
+    const consoleLog = JSON.parse(
+      readFileSync(join(out, "failure-console.json"), "utf8"),
+    );
+    assert.equal(
+      consoleLog.entries.some((e) => e.type === "pageerror"),
+      true,
     );
   });
 });
