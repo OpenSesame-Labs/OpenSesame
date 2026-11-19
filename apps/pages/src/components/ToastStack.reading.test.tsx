@@ -193,6 +193,35 @@ it("updates an existing focused toast without changing its place in tab order", 
   );
 });
 
+it.each(["idle", "focus", "pointer"] as const)(
+  "gives an updated toast a full reading interval when %s",
+  (channel) => {
+    mount();
+    const send = (title: string) =>
+      act(() =>
+        showToast({ id: "same", title, body: "Details", tone: "info" }),
+      );
+    send("Before");
+    advance(TOAST_MS - 100);
+    const card = screen.getByText("Before").closest("article");
+    if (!card) throw new Error("Missing notification");
+    const dismiss = within(card).getByRole("button", {
+      name: "Dismiss notification: Before",
+    });
+    if (channel === "focus") act(() => dismiss.focus());
+    if (channel === "pointer") fireEvent.pointerEnter(card);
+    send("Updated");
+    advance(channel === "idle" ? 0 : TOAST_MS * 2);
+    expect(screen.getByText("Updated")).toBeTruthy();
+    if (channel === "focus") act(() => dismiss.blur());
+    if (channel === "pointer") fireEvent.pointerLeave(card);
+    advance(TOAST_MS - 1);
+    expect(screen.getByText("Updated")).toBeTruthy();
+    advance(1);
+    expect(screen.queryByText("Updated")).toBeNull();
+  },
+);
+
 it("names notifications and their actions visibly, dismissing only the selected echo", () => {
   mount();
   act(() => {
