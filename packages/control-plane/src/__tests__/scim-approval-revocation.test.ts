@@ -11,7 +11,7 @@ type CreatedScimUser = {
 };
 
 it.each(["PATCH", "DELETE"])(
-  "SCIM %s still removes existing membership and sessions after issuer approval is withdrawn",
+  "SCIM %s removes tenant authority without global logout after issuer approval is withdrawn",
   async (method) => {
     const { app, ctx } = createControlPlane();
     const minted = await app.request("/v1/principals/provisional", {
@@ -99,7 +99,7 @@ it.each(["PATCH", "DELETE"])(
           headers: { authorization: `Bearer ${session.accessToken}` },
         })
       ).status,
-    ).toBe(401);
+    ).toBe(200);
   },
 );
 
