@@ -15,6 +15,7 @@ import {
   createQueuedResumeHandlers,
 } from "./session-queued-resume.js";
 import { emptyView } from "./session-view.js";
+import { guideSnapshotActive } from "./guide-snapshot-active.js";
 import { queueTourExit } from "./tutorial-exit.js";
 import {
   GUIDE_ERROR_TEXT,
@@ -191,7 +192,8 @@ export class SupportControllerCore {
     source: string,
     origin: GuideOrigin = "model",
   ): Promise<void> {
-    if (this.state.guide !== null || this.queuedResumeLoading) return;
+    if (guideSnapshotActive(this.state.guide) || this.queuedResumeLoading)
+      return;
     const loaded = await this.ensureEngine();
     if (!loaded) {
       this.notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
@@ -241,7 +243,7 @@ export class SupportControllerCore {
       setPending: (value) => {
         this.pendingQueuedResume = value;
       },
-      guideRunning: () => this.state.guide !== null,
+      guideRunning: () => guideSnapshotActive(this.state.guide),
       queuedResumeLoading: () => this.queuedResumeLoading,
       setQueuedResumeLoading: (loading) => {
         this.queuedResumeLoading = loading;
