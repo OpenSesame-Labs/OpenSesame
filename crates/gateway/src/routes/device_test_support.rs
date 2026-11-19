@@ -12,14 +12,35 @@ pub(super) fn pending(device_digest: &str, user_code: &str) -> DevicePending {
     }
 }
 
+pub(super) async fn insert_pending(state: &AppState, digest: &str, pending: DevicePending) {
+    let approved = pending.approved.as_ref();
+    sqlx::query("INSERT INTO host_device_codes(device_digest,user_code_hash,client_id,scope,expires_at,approved_json,organization_id,principal_id,membership_incarnation,authority_revision) VALUES (?,?,?,?,?,?,?,?,?,?)")
+        .bind(digest).bind(&pending.user_code_hash).bind(&pending.client_id).bind(&pending.scope)
+        .bind(pending.expires_at.timestamp_millis())
+        .bind(approved.map(|value| serde_json::to_string(value).unwrap()))
+        .bind(approved.map(|value| value.organization_id.to_string()))
+        .bind(approved.map(|value| value.principal.clone()))
+        .bind(approved.and_then(|value| value.membership_revision.as_ref()).map(|value| value.incarnation.as_str()))
+        .bind(approved.and_then(|value| value.membership_revision.as_ref()).map(|value| value.revision.as_str()))
+        .execute(state.db.pool()).await.unwrap();
+}
+
+pub(super) async fn pending_count(state: &AppState) -> i64 {
+    sqlx::query_scalar("SELECT COUNT(*) FROM host_device_codes")
+        .fetch_one(state.db.pool())
+        .await
+        .unwrap()
+}
+
 pub(super) async fn mint_approved(
     state: &AppState,
     device_code: &str,
     principal: String,
     organization_id: opensesame_domain::OrganizationId,
 ) -> serde_json::Value {
-    state.device_codes.lock().unwrap().insert(
-        hash_secret(device_code),
+    insert_pending(
+        state,
+        &hash_secret(device_code),
         DevicePending {
             user_code_hash: "digest".into(),
             client_id: "opensesame-cli".into(),
@@ -32,7 +53,8 @@ pub(super) async fn mint_approved(
                 membership_revision: None,
             }),
         },
-    );
+    )
+    .await;
     let response = token(
         State(state.clone()),
         Json(DeviceTokenRequest {

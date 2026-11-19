@@ -27,6 +27,8 @@ mod lifecycle;
 mod managed_certs;
 mod managed_certs_tls;
 mod middleware;
+mod native_authority;
+mod native_device;
 // Reached only through the `wasm-connectors` connector runtime.
 #[cfg_attr(not(feature = "wasm-connectors"), allow(dead_code))]
 mod oci_component;
@@ -155,18 +157,6 @@ mod pact_coverage {
         opensesame_host_core::pact::assert_source_order(
             include_str!("routes/agents.rs"),
             &["st.claims.lock()", "map.len() >= 256"],
-        );
-    }
-
-    #[test]
-    fn device_capacity_check_holds_the_map_lock() {
-        opensesame_host_core::pact::assert_source_order(
-            include_str!("routes/device.rs"),
-            &[
-                "device_codes.lock()",
-                "map.len() >= MAX_PENDING_DEVICE_CODES",
-                "map.insert",
-            ],
         );
     }
 

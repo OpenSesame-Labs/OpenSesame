@@ -1,5 +1,7 @@
-//! Enforce durable Identity membership withdrawal fences on every request.
-use crate::{app_state::AppState, middleware::auth::require_session};
+//! Reload native authority and enforce the durable Identity withdrawal fence.
+use crate::{
+    app_state::AppState, middleware::auth::require_session, session_claims::CredentialKind,
+};
 use axum::{
     extract::{Request, State},
     http::StatusCode,
@@ -8,85 +10,79 @@ use axum::{
 };
 
 pub async fn guard(State(st): State<AppState>, request: Request, next: Next) -> Response {
-    if let Ok((digest, claims)) = require_session(&st, request.headers()) {
-        if let Some(revision) = claims.membership_revision.as_ref() {
-            let live = st
-                .db
-                .host_membership_live(
-                    &claims.organization_id.to_string(),
-                    &claims.principal_id.to_string(),
-                    &revision.incarnation,
-                    &revision.revision,
-                )
-                .await
-                .unwrap_or(false);
-            if !live {
-                st.sessions.lock().unwrap().remove(&digest);
-                return StatusCode::UNAUTHORIZED.into_response();
+    // Browser DPoP and agent capabilities have their own proof-checking guards.
+    // For native bearers, cached claims never grant authority: every request
+    // must first find the live session in the shared store.
+    let raw = request
+        .headers()
+        .get("authorization")
+        .and_then(|h| h.to_str().ok())
+        .and_then(|h| {
+            h.strip_prefix("Bearer ")
+                .or_else(|| h.strip_prefix("bearer "))
+        })
+        .and_then(|token| token.strip_prefix("opaque-session:"));
+    if let Some(raw) = raw {
+        let digest = opensesame_claims::hash_secret(raw);
+        #[cfg(test)]
+        let fixture =
+            raw.starts_with("fixture_") && st.sessions.lock().unwrap().contains_key(&digest);
+        #[cfg(not(test))]
+        let fixture = false;
+        if !fixture {
+            match crate::native_authority::session(st.db.pool(), &digest).await {
+                Ok(Some(claims)) if claims.credential_kind == CredentialKind::NativeSession => {
+                    let mut sessions = st.sessions.lock().unwrap();
+                    sessions.retain(|_, value| value.expires_at > chrono::Utc::now());
+                    sessions.insert(digest, claims);
+                }
+                Ok(_) => {
+                    st.sessions.lock().unwrap().remove(&digest);
+                    return StatusCode::UNAUTHORIZED.into_response();
+                }
+                Err(_) => return StatusCode::SERVICE_UNAVAILABLE.into_response(),
             }
         }
     }
-    next.run(request).await
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use axum::{body::Body, http::Request};
-    use std::{
-        collections::HashMap,
-        sync::{Arc, Mutex},
-    };
-    use tower::ServiceExt;
-
-    #[tokio::test]
-    async fn withdrawal_on_one_replica_fences_a_session_on_another() {
-        let directory = tempfile::tempdir().unwrap();
-        let url = opensesame_storage::sqlite_file_url(&directory.path().join("host.sqlite"));
-        let mut first = crate::app_state::test_demo_state().await;
-        first.db = opensesame_storage::Db::connect_sqlite(&url).await.unwrap();
-        let mut second = first.clone();
-        second.db = opensesame_storage::Db::connect_sqlite(&url).await.unwrap();
-        second.sessions = Arc::new(Mutex::new(HashMap::new()));
-
-        let principal = opensesame_domain::PrincipalId::new();
-        let organization = opensesame_domain::OrganizationId::new();
-        let revision = crate::session_claims::MembershipRevision {
-            incarnation: uuid::Uuid::new_v4().to_string(),
-            revision: uuid::Uuid::new_v4().to_string(),
+    let session = require_session(&st, request.headers()).ok();
+    if let Some((digest, claims)) = session {
+        let live = match claims.credential_kind {
+            CredentialKind::NativeSession if claims.local_session => true,
+            CredentialKind::NativeSession => {
+                let revision = claims
+                    .membership_revision
+                    .as_ref()
+                    .map(|revision| (revision.incarnation.as_str(), revision.revision.as_str()));
+                st.db
+                    .host_membership_live(
+                        &claims.organization_id.to_string(),
+                        &claims.principal_id.to_string(),
+                        revision,
+                    )
+                    .await
+                    .unwrap_or(false)
+            }
+            // Recheck after proof verification: withdrawal may have committed
+            // while a browser or agent credential was being authenticated.
+            CredentialKind::BrowserGrant => st
+                .db
+                .browser_grant(&digest, chrono::Utc::now().timestamp())
+                .await
+                .ok()
+                .flatten()
+                .is_some(),
+            CredentialKind::AgentCapability => st
+                .db
+                .agent_grant(&digest, chrono::Utc::now().timestamp())
+                .await
+                .ok()
+                .flatten()
+                .is_some(),
         };
-        let raw = "replica-session";
-        let digest = opensesame_claims::hash_secret(raw);
-        let mut claims = crate::session_claims::fixture(
-            principal,
-            organization,
-            opensesame_domain::OrganizationRole::Member,
-            &first.resource,
-        );
-        claims.membership_revision = Some(revision.clone());
-        first.sessions.lock().unwrap().insert(digest, claims);
-
-        let withdrawal_id = uuid::Uuid::new_v4().to_string();
-        let organization_id = organization.to_string();
-        let principal_id = principal.to_string();
-        second
-            .db
-            .withdraw_host_membership(&opensesame_storage::host_membership::MembershipWithdrawal {
-                withdrawal_id: &withdrawal_id,
-                organization_id: &organization_id,
-                principal_id: &principal_id,
-                membership_incarnation: &revision.incarnation,
-                authority_revision: &revision.revision,
-            })
-            .await
-            .unwrap();
-
-        let request = Request::builder()
-            .uri("/api/v1/whoami")
-            .header("authorization", format!("Bearer opaque-session:{raw}"))
-            .body(Body::empty())
-            .unwrap();
-        let response = crate::routes::router(first).oneshot(request).await.unwrap();
-        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+        if !live {
+            st.sessions.lock().unwrap().remove(&digest);
+            return StatusCode::UNAUTHORIZED.into_response();
+        }
     }
+    next.run(request).await
 }

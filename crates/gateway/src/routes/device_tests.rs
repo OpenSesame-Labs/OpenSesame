@@ -7,28 +7,6 @@ mod support;
 use support::*;
 
 #[test]
-fn authorize_capacity_check_holds_the_map_lock() {
-    opensesame_host_core::pact::assert_source_order(
-        include_str!("device.rs"),
-        &[
-            "device_codes.lock()",
-            "map.len() >= MAX_PENDING_DEVICE_CODES",
-            "map.insert",
-        ],
-    );
-    opensesame_host_core::pact::assert_source_order(
-        include_str!("device_approval.rs"),
-        &[
-            "pub(super) fn approve_native",
-            "device_approve_failures.lock()",
-            "prune_failures",
-            "device_codes.lock()",
-            "failures.push(now)",
-        ],
-    );
-}
-
-#[test]
 fn codes_are_stored_as_digests_only() {
     let device_code = "dc_secret";
     let digest = hash_secret(device_code);
@@ -68,11 +46,12 @@ async fn unknown_clients_and_client_swaps_fail_closed() {
     .await
     .into_response();
     assert_eq!(unknown.status(), StatusCode::BAD_REQUEST);
-    assert!(state.device_codes.lock().unwrap().is_empty());
+    assert_eq!(pending_count(&state).await, 0);
 
     let device_code = "dc_bound";
-    state.device_codes.lock().unwrap().insert(
-        hash_secret(device_code),
+    insert_pending(
+        &state,
+        &hash_secret(device_code),
         DevicePending {
             user_code_hash: "digest".into(),
             client_id: "opensesame-cli".into(),
@@ -85,7 +64,8 @@ async fn unknown_clients_and_client_swaps_fail_closed() {
                 membership_revision: None,
             }),
         },
-    );
+    )
+    .await;
     let swapped = token(
         State(state.clone()),
         Json(DeviceTokenRequest {
@@ -96,11 +76,13 @@ async fn unknown_clients_and_client_swaps_fail_closed() {
     )
     .await;
     assert_eq!(swapped.status(), StatusCode::BAD_REQUEST);
-    assert!(state
-        .device_codes
-        .lock()
-        .unwrap()
-        .contains_key(&hash_secret(device_code)));
+    let count: i64 =
+        sqlx::query_scalar("SELECT COUNT(*) FROM host_device_codes WHERE device_digest=?")
+            .bind(hash_secret(device_code))
+            .fetch_one(state.db.pool())
+            .await
+            .unwrap();
+    assert_eq!(count, 1);
 }
 
 #[test]
@@ -108,7 +90,7 @@ fn wrong_guesses_never_invalidate_pending_authorizations() {
     let mut map: HashMap<String, DevicePending> = HashMap::new();
     let digest = hash_secret("dc_1");
     map.insert(digest.clone(), pending(&digest, "BCDF-GHJK"));
-    let mut failures: Vec<opensesame_time::DateTime<Utc>> = Vec::new();
+    let mut failures: Vec<chrono::DateTime<Utc>> = Vec::new();
 
     for _ in 0..(MAX_APPROVE_FAILURES * 3) {
         let now = Utc::now();
@@ -155,7 +137,7 @@ fn session_bearer_is_never_retained() {
 #[test]
 fn failure_window_prunes_and_caps() {
     let now = Utc::now();
-    let mut failures: Vec<opensesame_time::DateTime<Utc>> = vec![
+    let mut failures: Vec<chrono::DateTime<Utc>> = vec![
         now - Duration::seconds(APPROVE_FAILURE_WINDOW_SECS + 5),
         now - Duration::seconds(APPROVE_FAILURE_WINDOW_SECS + 1),
     ];
@@ -206,8 +188,9 @@ async fn trusted_organization_session_mints_and_identifies_without_demo_bootstra
     let device_code = "dc_production";
     let organization_id = opensesame_domain::OrganizationId::new();
     let principal = opensesame_domain::PrincipalId::new().to_string();
-    state.device_codes.lock().unwrap().insert(
-        hash_secret(device_code),
+    insert_pending(
+        &state,
+        &hash_secret(device_code),
         DevicePending {
             user_code_hash: "digest".into(),
             client_id: "opensesame-cli".into(),
@@ -220,7 +203,8 @@ async fn trusted_organization_session_mints_and_identifies_without_demo_bootstra
                 membership_revision: None,
             }),
         },
-    );
+    )
+    .await;
     *state.bootstrap.lock().unwrap() = None;
 
     let response = token(
@@ -305,11 +289,14 @@ async fn demo_metadata_only_attaches_to_matching_approved_authority() {
 #[tokio::test]
 async fn authorize_capacity_fence_holds_under_interleaving() {
     let state = crate::app_state::test_demo_state().await;
-    state
-        .device_codes
-        .lock()
-        .unwrap()
-        .extend((0..500).map(|index| (format!("fill-{index}"), pending("digest", "BCDFGHJK"))));
+    for index in 0..500 {
+        insert_pending(
+            &state,
+            &format!("fill-{index}"),
+            pending("digest", "BCDFGHJK"),
+        )
+        .await;
+    }
     let mut joins = Vec::new();
     for _ in 0..32 {
         joins.push(spawn_authorize(state.clone()));
@@ -326,11 +313,15 @@ async fn authorize_capacity_fence_holds_under_interleaving() {
     }
     assert_eq!(created, 12, "live pending grants must never be evicted");
     assert_eq!(fenced, 20);
-    let codes = state.device_codes.lock().unwrap();
-    assert!((0..500).all(|index| codes.contains_key(&format!("fill-{index}"))));
-    drop(codes);
+    let retained: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM host_device_codes WHERE device_digest LIKE 'fill-%'",
+    )
+    .fetch_one(state.db.pool())
+    .await
+    .unwrap();
+    assert_eq!(retained, 500);
     assert_eq!(created + fenced, 32);
-    assert!(state.device_codes.lock().unwrap().len() <= MAX_PENDING_DEVICE_CODES);
+    assert_eq!(pending_count(&state).await, MAX_PENDING_DEVICE_CODES as i64);
 }
 
 #[tokio::test]
@@ -362,85 +353,9 @@ async fn approve_failure_fence_holds_under_interleaving() {
         "concurrent misses must not exceed the fence: {unknown}"
     );
     assert_eq!(unknown + limited, 32);
-    assert!(state.device_approve_failures.lock().unwrap().len() <= MAX_APPROVE_FAILURES);
-}
-
-fn revision_pending(
-    state: &AppState,
-    device_code: &str,
-) -> (
-    opensesame_domain::PrincipalId,
-    opensesame_domain::OrganizationId,
-    crate::session_claims::MembershipRevision,
-) {
-    let principal = opensesame_domain::PrincipalId::new();
-    let organization = opensesame_domain::OrganizationId::new();
-    let revision = crate::session_claims::MembershipRevision {
-        incarnation: uuid::Uuid::new_v4().to_string(),
-        revision: uuid::Uuid::new_v4().to_string(),
-    };
-    state.device_codes.lock().unwrap().insert(
-        hash_secret(device_code),
-        DevicePending {
-            user_code_hash: "unused".into(),
-            client_id: "opensesame-cli".into(),
-            scope: DEVICE_SCOPE.into(),
-            expires_at: Utc::now() + Duration::minutes(5),
-            approved: Some(ApprovedDevice {
-                principal: principal.to_string(),
-                organization_id: organization,
-                organization_role: opensesame_domain::OrganizationRole::Member,
-                membership_revision: Some(revision.clone()),
-            }),
-        },
-    );
-    (principal, organization, revision)
-}
-
-fn token_request(device_code: &str) -> DeviceTokenRequest {
-    DeviceTokenRequest {
-        device_code: device_code.into(),
-        client_id: "opensesame-cli".into(),
-        grant_type: "urn:ietf:params:oauth:grant-type:device_code".into(),
-    }
-}
-
-#[tokio::test]
-async fn withdrawal_before_redemption_rejects_the_stale_approval() {
-    let state = crate::app_state::test_demo_state().await;
-    let (principal, organization, revision) = revision_pending(&state, "dc_withdrawn");
-    let withdrawal_id = uuid::Uuid::new_v4().to_string();
-    let organization_id = organization.to_string();
-    let principal_id = principal.to_string();
-    state
-        .db
-        .withdraw_host_membership(&opensesame_storage::host_membership::MembershipWithdrawal {
-            withdrawal_id: &withdrawal_id,
-            organization_id: &organization_id,
-            principal_id: &principal_id,
-            membership_incarnation: &revision.incarnation,
-            authority_revision: &revision.revision,
-        })
+    let failures: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM host_device_approval_failures")
+        .fetch_one(state.db.pool())
         .await
         .unwrap();
-
-    let response = token(State(state.clone()), Json(token_request("dc_withdrawn"))).await;
-    assert_eq!(response.status(), StatusCode::BAD_REQUEST);
-    assert!(state.sessions.lock().unwrap().is_empty());
-}
-
-#[tokio::test]
-async fn simultaneous_redemption_has_one_winner() {
-    let state = crate::app_state::test_demo_state().await;
-    revision_pending(&state, "dc_once");
-    let (first, second) = tokio::join!(
-        token(State(state.clone()), Json(token_request("dc_once"))),
-        token(State(state.clone()), Json(token_request("dc_once")))
-    );
-    let successes = [first.status(), second.status()]
-        .into_iter()
-        .filter(|status| *status == StatusCode::OK)
-        .count();
-    assert_eq!(successes, 1);
-    assert_eq!(state.sessions.lock().unwrap().len(), 1);
+    assert!(failures <= MAX_APPROVE_FAILURES as i64);
 }

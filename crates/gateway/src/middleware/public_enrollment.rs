@@ -162,10 +162,11 @@ mod tests {
             let response = app.clone().oneshot(request).await.unwrap();
             assert_eq!(response.status(), expected_status(index == PER_SOURCE));
         }
-        assert_eq!(
-            state.device_codes.lock().unwrap().len(),
-            usize::try_from(PER_SOURCE + 1).unwrap()
-        );
+        let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM host_device_codes")
+            .fetch_one(state.db.pool())
+            .await
+            .unwrap();
+        assert_eq!(count, i64::from(PER_SOURCE + 1));
     }
 
     #[tokio::test]

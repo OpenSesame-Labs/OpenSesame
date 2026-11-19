@@ -42,7 +42,11 @@ async fn authorization_links_to_the_configured_pages_ceremony() {
             answer["user_code"].as_str().unwrap().into()
         )]
     );
-    assert_eq!(state.device_codes.lock().unwrap().len(), 1);
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM host_device_codes")
+        .fetch_one(state.db.pool())
+        .await
+        .unwrap();
+    assert_eq!(count, 1);
 }
 
 #[tokio::test]
@@ -57,7 +61,11 @@ async fn missing_pages_configuration_is_actionable_and_creates_no_grant() {
         .as_str()
         .unwrap()
         .contains("administrator"));
-    assert!(state.device_codes.lock().unwrap().is_empty());
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM host_device_codes")
+        .fetch_one(state.db.pool())
+        .await
+        .unwrap();
+    assert_eq!(count, 0);
 }
 
 #[tokio::test]
@@ -87,8 +95,9 @@ async fn public_sdk_script_exercises_real_host_and_cleans_up() {
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
-    assert!(
-        state.sessions.lock().unwrap().is_empty(),
-        "the script must withdraw all sessions"
-    );
+    let count: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM host_native_sessions")
+        .fetch_one(state.db.pool())
+        .await
+        .unwrap();
+    assert_eq!(count, 0, "the script must withdraw all sessions");
 }
