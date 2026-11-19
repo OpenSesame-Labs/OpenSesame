@@ -56,6 +56,33 @@ describe("PasswordControl generate key", () => {
     expect(onEdit.mock.calls[0]?.[0].secret).not.toBe("current-secret-value");
   });
 
+  it("explains how to recover when the pepper replaces the entire generated password", async () => {
+    const onEdit = vi.fn<(next: PasswordMethod) => void>();
+    const control = (value: PasswordMethod) => (
+      <PasswordControl
+        method={value}
+        onEdit={onEdit}
+        options={{ open: true, controls: "m1-options", onToggle: () => {} }}
+      />
+    );
+    const empty = { ...method(), pepper: true, pepperAt: "0:" };
+    const view = render(control(empty));
+    const generate = screen.getByRole("button", {
+      name: "Generate another password",
+    });
+    await userEvent.click(generate);
+    expect(onEdit).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("img", { name: /Set the pepper position to end/ }),
+    ).toBeTruthy();
+    view.rerender(control({ ...empty, pepperAt: "end" }));
+    await userEvent.click(generate);
+    expect(onEdit).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByRole("img", { name: /Set the pepper position to end/ }),
+    ).toBeNull();
+  });
+
   it("advances a waiting tutorial only after a new password is generated", async () => {
     const valid = method();
     if (valid.generator.id !== "rules") throw new Error("Expected rules");

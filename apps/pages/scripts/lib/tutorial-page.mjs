@@ -8,6 +8,99 @@ const PHONE = {
 export const isPhone = (width) =>
   width < 600 || process.env.TUTORIALS_TOUCH === "1";
 
+/** Swipe the overflowing instruction itself, as on a zoomed phone. */
+async function checkInstructionTouchScroll(page, session, check) {
+  await page.waitForFunction(() =>
+    document.querySelector(".coach__text")?.classList.contains("is-scrollable"),
+  );
+  const swipe = await page.evaluate(() => {
+    const text = document.querySelector(".coach__text");
+    const box = text.getBoundingClientRect();
+    const view = visualViewport;
+    const cue = text.querySelector(".coach__scroll-cue");
+    return {
+      cue: getComputedStyle(cue, "::before").content,
+      cueVisible: getComputedStyle(cue).display !== "none",
+      cueHidden: cue.getAttribute("aria-hidden") === "true",
+      x: box.left + box.width / 2 - view.offsetLeft,
+      from: box.bottom - view.offsetTop - 3,
+      to: box.top - view.offsetTop + 3,
+    };
+  });
+  check(
+    swipe.cue.includes("↕") && swipe.cueVisible && swipe.cueHidden,
+    "first vault: overflowing instructions show a scroll cue",
+  );
+  const narration = await page.locator(".coach__text").ariaSnapshot();
+  check(
+    !narration.includes("↕"),
+    "first vault: the scroll cue is not announced",
+  );
+  for (let i = 0; i < 2; i += 1) {
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchStart",
+      touchPoints: [{ x: swipe.x, y: swipe.from }],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchMove",
+      touchPoints: [{ x: swipe.x, y: swipe.to }],
+    });
+    await session.send("Input.dispatchTouchEvent", {
+      type: "touchEnd",
+      touchPoints: [],
+    });
+  }
+  await page.waitForFunction(() => {
+    const text = document.querySelector(".coach__text");
+    return (
+      text.scrollTop > 0 &&
+      text.scrollTop + text.clientHeight >= text.scrollHeight - 1
+    );
+  });
+  const lastLineVisible = await page.evaluate(() => {
+    const text = document.querySelector(".coach__text");
+    const range = document.createRange();
+    range.selectNodeContents(text.querySelector(".coach__message"));
+    const last = [...range.getClientRects()].at(-1);
+    const clip = text.getBoundingClientRect();
+    return last && last.top >= clip.top && last.bottom <= clip.bottom;
+  });
+  check(
+    lastLineVisible,
+    "first vault: touch scrolling reveals the rest of the instruction",
+  );
+}
+
+export async function captureZoomedInstruction(
+  page,
+  session,
+  check,
+  width,
+  target,
+  keyboardHeight,
+) {
+  const overflowCase =
+    target === "unlock.seal-pin-entry" && keyboardHeight === 240;
+  const shots =
+    process.env.TUTORIALS_SHOTS === "1" && process.env.TUTORIALS_OUT;
+  if (overflowCase)
+    await page.waitForFunction(() =>
+      document
+        .querySelector(".coach__text")
+        ?.classList.contains("is-scrollable"),
+    );
+  if (shots)
+    await page.screenshot({
+      path: `${process.env.TUTORIALS_OUT}/${width}-${target}-${keyboardHeight}-zoomed-instruction.png`,
+    });
+  if (!overflowCase) return;
+  await checkInstructionTouchScroll(page, session, check);
+  if (shots)
+    await page.screenshot({
+      path: `${process.env.TUTORIALS_OUT}/${width}-${target}-zoomed-instruction-scrolled.png`,
+    });
+}
+
 async function observeResizeErrors(page, context, harness) {
   // Chromium reports ResizeObserver delivery failures as window errors even
   // when it does not emit Playwright's `pageerror` event.

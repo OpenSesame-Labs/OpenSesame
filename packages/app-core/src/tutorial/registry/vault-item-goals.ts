@@ -92,7 +92,7 @@ export const VAULT_ITEM_GOALS: readonly GuideGoalDescriptor[] = [
       return [
         "guide/1",
         'goal "vault.item.accounts"',
-        'say "A type is listed among the filters once the vault holds one. Accounts lists only accounts."',
+        'say "A filter appears when your vault contains that item type. Select Accounts to show only accounts."',
         narrow ? 'navigate "/vault/list"' : 'navigate "/vault"',
         narrow
           ? 'wait route "/vault/list" timeout=15000'
@@ -100,11 +100,11 @@ export const VAULT_ITEM_GOALS: readonly GuideGoalDescriptor[] = [
         ...(narrow ? openFilters("vault.filter.logins") : []),
         narrow
           ? 'focus "vault.filter.logins" "Select Accounts. If the menu closes, open the filter again." side=right'
-          : 'focus "vault.filter.logins" "Accounts lists only accounts." side=right',
+          : 'focus "vault.filter.logins" "Select Accounts to show only accounts." side=right',
         ...(narrow
           ? ['wait target "vault.filter.logins" event=activate timeout=30000']
           : []),
-        'success "Search still narrows whichever list is on screen, so this filter searches inside accounts."',
+        'success "Search within Accounts to find a specific account."',
         "end",
       ].join("\n");
     },

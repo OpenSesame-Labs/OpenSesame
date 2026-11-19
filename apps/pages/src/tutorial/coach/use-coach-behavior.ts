@@ -187,3 +187,64 @@ export function cardKeys(
     }
   };
 }
+
+/** Stop correcting when the person scrolls, while allowing pinch zoom. */
+export function observeScrollIntent(
+  stop: () => void,
+  target: () => HTMLElement | null,
+): () => void {
+  const onWheel = (event: WheelEvent): void => {
+    if (!event.ctrlKey) stop();
+  };
+  const onTouchMove = (event: TouchEvent): void => {
+    if (event.touches.length < 2) stop();
+  };
+  const onPointerMove = (event: PointerEvent): void => {
+    if (event.pointerType !== "touch" && event.buttons !== 0) stop();
+  };
+  const onPointerDown = (event: PointerEvent): void => {
+    const element = event.target;
+    if (
+      element instanceof Element &&
+      !element.closest(".coach") &&
+      !target()?.contains(element)
+    )
+      stop();
+  };
+  const onKey = (event: KeyboardEvent): void => {
+    if (
+      event.key === "Tab" ||
+      ([
+        "ArrowUp",
+        "ArrowDown",
+        "PageUp",
+        "PageDown",
+        "Home",
+        "End",
+        " ",
+      ].includes(event.key) &&
+        !(
+          event.target instanceof Element &&
+          event.target.closest(
+            ".coach, input, textarea, select, [contenteditable=true]",
+          )
+        ))
+    )
+      stop();
+  };
+  window.addEventListener("pointerdown", onPointerDown, true);
+  window.addEventListener("wheel", onWheel, { capture: true, passive: true });
+  window.addEventListener("touchmove", onTouchMove, {
+    capture: true,
+    passive: true,
+  });
+  window.addEventListener("pointermove", onPointerMove, true);
+  window.addEventListener("keydown", onKey, true);
+  return () => {
+    window.removeEventListener("pointerdown", onPointerDown, true);
+    window.removeEventListener("wheel", onWheel, true);
+    window.removeEventListener("touchmove", onTouchMove, true);
+    window.removeEventListener("pointermove", onPointerMove, true);
+    window.removeEventListener("keydown", onKey, true);
+  };
+}

@@ -304,21 +304,6 @@
   color: var(--canvas);
 }
 
-.vtree__row.is-cursor .vtree__name {
-  font-weight: 600;
-}
-
-.vtree__row.is-cursor .vtree__dim,
-.vtree__row.is-cursor .vtree__count,
-.vtree__row.is-cursor .vtree__caret,
-.vtree__row.is-cursor .vtree__side {
-  color: color-mix(in srgb, var(--canvas) 62%, var(--ink));
-}
-
-.vtree__row.is-cursor .vtree__more {
-  color: color-mix(in srgb, var(--canvas) 75%, var(--ink));
-}
-
 .vtree__caret {
   flex: none;
   color: var(--ink-3);
@@ -386,6 +371,21 @@
   color: var(--ink-2);
   cursor: pointer;
   opacity: 0;
+}
+
+.vtree__row.is-cursor .vtree__name {
+  font-weight: 600;
+}
+
+.vtree__row.is-cursor .vtree__dim,
+.vtree__row.is-cursor .vtree__count,
+.vtree__row.is-cursor .vtree__caret,
+.vtree__row.is-cursor .vtree__side {
+  color: color-mix(in srgb, var(--canvas) 62%, var(--ink));
+}
+
+.vtree__row.is-cursor .vtree__more {
+  color: color-mix(in srgb, var(--canvas) 75%, var(--ink));
 }
 
 .vtree__row:hover .vtree__more,
@@ -937,6 +937,11 @@
 /* —— Generator ————————————————————————————————————————————— */
 
 .gen__opts {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.editor__pepper-options {
   display: grid;
   gap: 0.6rem;
 }
