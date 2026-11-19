@@ -463,10 +463,10 @@ impl StoreRoot {
         self.verify_attachment_inventory(key, &names.iter().cloned().collect())?;
         let mut out = Vec::new();
         for name in names {
-            let manifest = self.open_manifest_locked(&name, key)?;
             if prefix.is_some_and(|prefix| !name.starts_with(prefix)) {
                 continue;
             }
+            let manifest = self.open_manifest_locked(&name, key)?;
             out.push(summary_of(&name, &manifest));
         }
         out.sort_by(|a, b| a.name.cmp(&b.name));

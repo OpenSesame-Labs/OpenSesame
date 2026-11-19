@@ -73,7 +73,7 @@ fn reject_unbound(body: &OssealBody) -> Result<(), StoreError> {
     {
         return Err(StoreError::Crypto(
             "legacy entry has no authenticated name; verify its source and use \
-             `opensesame pass protect migrate-legacy NAME --trust-source`"
+             `opensesame vault pass protect migrate-legacy NAME --trust-source`"
                 .into(),
         ));
     }
