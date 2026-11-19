@@ -34,6 +34,8 @@ const CHOICES: ReadonlyArray<{
   Icon: typeof IconCheck;
   /** The one a person with no reason to choose otherwise should take. */
   recommended?: true;
+  /** Marked for people who already know which types they want off. */
+  advanced?: true;
 }> = [
   {
     id: "default",
@@ -45,8 +47,9 @@ const CHOICES: ReadonlyArray<{
   {
     id: "minimal",
     name: "Minimal",
-    kind: "Plain secrets and files only. No password, card or note types until you turn them on.",
+    kind: "Advanced. Plain secrets and files only. No password, card or note types until you turn them on.",
     Icon: IconDownload,
+    advanced: true,
   },
   {
     id: "full",
@@ -61,6 +64,12 @@ const CHOICES: ReadonlyArray<{
     Icon: IconSettings,
   },
 ];
+
+function roadClass(choice: (typeof CHOICES)[number]): string {
+  if (choice.recommended) return "road road--lead";
+  if (choice.advanced) return "road road--advanced";
+  return "road";
+}
 
 export function SetupConfiguration({
   busy,
@@ -107,7 +116,7 @@ export function SetupConfiguration({
               refs.current[at] = node;
             }}
             type="button"
-            className={choice.recommended ? "road road--lead" : "road"}
+            className={roadClass(choice)}
             aria-label={choice.name}
             aria-describedby={`setup-config-${choice.id}`}
             aria-busy={pending === choice.id}

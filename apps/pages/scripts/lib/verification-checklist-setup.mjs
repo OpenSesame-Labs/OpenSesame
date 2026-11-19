@@ -1,8 +1,9 @@
 /**
  * Front door, setup choices, and the no-account road into the vault.
  *
- * Minimal, Default and Full commit and return. Custom opens the capabilities
- * ceremony; Skip all still retires the door onto sign-in.
+ * Default and Full commit and return. Minimal warns first and commits only
+ * on "Use Minimal anyway". Custom opens the capabilities ceremony; Skip all
+ * still retires the door onto sign-in.
  */
 
 import { sealLocalOnly } from "./pages-journey.mjs";
@@ -98,8 +99,22 @@ async function finishCustom(page, shot, record) {
   if (!left) await visibleClick(page, "button", "Close", 8_000);
 }
 
+async function confirmMinimal(page, shot, record) {
+  const confirm = page.getByRole("button", { name: "Use Minimal anyway" });
+  await confirm.first().waitFor({ state: "visible", timeout: 8_000 });
+  const warning = await shot("setup-minimal-warning");
+  mark(
+    record,
+    "minimal-confirm",
+    /Use Minimal anyway/.test(warning) && /Advanced/.test(warning),
+    "confirm after the warning",
+  );
+  await confirm.first().click();
+}
+
 export async function applySetupChoice(page, shot, record, choice) {
   await visibleClick(page, "button", choice);
+  if (choice === "Minimal") await confirmMinimal(page, shot, record);
   if (choice === "Custom") await finishCustom(page, shot, record);
   const where = await waitPastSetup(page);
   record.landed = where;
