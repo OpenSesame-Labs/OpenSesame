@@ -1,6 +1,7 @@
 import type { ProvisionalSession } from "@opensesame/os-domain";
 import type { AppStores } from "../state.js";
 import { DurableMap } from "./durable-map.js";
+import { withPrincipalSessionBoundary } from "./principal-session-boundary.js";
 
 async function deleteTokenEntry(stores: AppStores, key: string): Promise<void> {
   const tokens = stores.provisionalTokens;
@@ -13,8 +14,15 @@ export async function saveProvisional(
   session: ProvisionalSession,
   token: string,
 ): Promise<void> {
-  await stores.provisionalSessions.set(session.id, session);
-  await stores.provisionalTokens.set(token, session.id);
+  await withPrincipalSessionBoundary(
+    stores,
+    session.principalId,
+    "publish",
+    async (bound) => {
+      await bound.provisionalSessions.set(session.id, session);
+      await bound.provisionalTokens.set(token, session.id);
+    },
+  );
 }
 
 export async function removeOrphanTokens(stores: AppStores): Promise<void> {
