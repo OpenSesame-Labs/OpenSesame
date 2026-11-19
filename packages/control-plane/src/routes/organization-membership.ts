@@ -5,6 +5,12 @@ import type {
   OrganizationRole,
 } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
+import {
+  advancePrincipalSessionEpoch,
+  advancePrincipalSessionEpochOn,
+  withPrincipalSessionBoundary,
+} from "../repos/principal-session-boundary.js";
+import { removeOrphanTokens } from "../repos/session-storage.js";
 
 export async function getMembership(
   ctx: AppContext,
@@ -39,6 +45,77 @@ export async function serializeMembershipMutation<T>(
       ctx.stores.organizationMembershipMutations.delete(organizationId);
     }
   }
+}
+
+export type OrganizationRevocationInput = {
+  organizationId: string;
+  principalId: string;
+  correlationId: string;
+  reason: string;
+  revokeSessionsWithoutMembership?: boolean;
+  /** Internal: caller already owns this organization's mutation turn. */
+  membershipSerialized?: boolean;
+};
+
+export type OrganizationRevocationResult = {
+  membershipRemoved: boolean;
+  sessionsRevoked: number;
+};
+
+/** Drop a membership and every session it authorized (ADR 0056/0057). */
+export async function revokeOrganizationMembership(
+  ctx: AppContext,
+  input: OrganizationRevocationInput,
+): Promise<OrganizationRevocationResult> {
+  const result = await withPrincipalSessionBoundary(
+    ctx.stores,
+    input.principalId,
+    "revoke",
+    async (stores, database) => {
+      const remove = () =>
+        stores.organizationMemberships.remove(
+          input.organizationId,
+          input.principalId,
+        );
+      const membershipRemoved = input.membershipSerialized
+        ? await remove()
+        : await serializeMembershipMutation(
+            { ...ctx, stores },
+            input.organizationId,
+            remove,
+          );
+      if (membershipRemoved || input.revokeSessionsWithoutMembership) {
+        if (database)
+          await advancePrincipalSessionEpochOn(database, input.principalId);
+        else await advancePrincipalSessionEpoch(stores, input.principalId);
+      }
+      let sessionsRevoked = 0;
+      const sessions =
+        membershipRemoved || input.revokeSessionsWithoutMembership
+          ? await stores.provisionalSessions.entries()
+          : [];
+      for (const [, session] of sessions) {
+        if (session.principalId !== input.principalId) continue;
+        await stores.provisionalSessions.delete(session.id);
+        sessionsRevoked += 1;
+      }
+      await removeOrphanTokens(stores);
+      return { membershipRemoved, sessionsRevoked };
+    },
+  );
+  await appendAuditEvent(ctx.repos.auditEvents, {
+    eventType: "organization.member_revoked",
+    outcome: "succeeded",
+    principalId: input.principalId,
+    organizationId: input.organizationId,
+    correlationId: input.correlationId,
+    metadata: {
+      action: "organization.member.revoke",
+      reason: input.reason,
+      count: result.sessionsRevoked,
+    },
+  });
+  return result;
 }
 
 export type JitJoinInput = {
