@@ -57,6 +57,21 @@ test("readBoundedBody stops at shared CDN deadline before per-chunk cap", async 
   );
 });
 
+test("readBoundedBody rejects expired nonzero CDN deadline when enforced", async () => {
+  await assert.rejects(
+    () =>
+      readBoundedBody(
+        new Response("ok"),
+        "assets/main.js",
+        100,
+        () => 101,
+        5000,
+        true,
+      ),
+    /CDN poll deadline expired/,
+  );
+});
+
 test("shellAssetRefs ignores data-src and reads tags past > inside quotes", () => {
   const html = [
     '<div data-src="/OpenSesame/assets/ghost.js">',

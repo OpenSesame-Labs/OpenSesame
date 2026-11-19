@@ -11,6 +11,12 @@ import {
   fetchAbortTimeoutMs,
   sharedCdnDeadlineEndMs,
 } from "./retry-budget.mjs";
+import {
+  FETCH_TIMEOUT_MS,
+  readBoundedBody,
+  releaseResponseBody,
+  shellAssetMismatch,
+} from "./live-bundle-body.mjs";
 import { expandDynamicShellImports } from "./shell-dynamic-imports.mjs";
 import { shellAssetRefs } from "./shell-html-refs.mjs";
 
@@ -18,9 +24,6 @@ export {
   cssUrlRefsFromStylesheet,
   dynamicImportRefsFromJs,
 } from "./shell-dynamic-imports.mjs";
-
-const MAX_SHELL_ASSET_BYTES = 16 * 1024 * 1024;
-const FETCH_TIMEOUT_MS = 15_000;
 
 function normalizeDistRelative(pathPart, ref) {
   const parts = [];
@@ -138,138 +141,6 @@ function readStagedShellAssets(distDir, pagesBase) {
   });
 }
 
-function mismatch(distRelative, detail) {
-  return new Error(`live shell asset mismatch: ${distRelative} (${detail})`);
-}
-
-function declaredLength(response) {
-  try {
-    const raw = response.headers.get("content-length");
-    if (raw === null || raw === "") return undefined;
-    const size = Number(raw);
-    return Number.isFinite(size) ? size : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-async function releaseResponseBody(response) {
-  if (response === null || response === undefined) return;
-  const stream = response.body;
-  if (stream === null || stream === undefined) {
-    await response.arrayBuffer().catch(() => undefined);
-    return;
-  }
-  try {
-    const reader = stream.getReader();
-    await reader.cancel().catch(() => undefined);
-  } catch {
-    await response.arrayBuffer().catch(() => undefined);
-  }
-}
-
-async function readStreamChunk(reader, distRelative, chunkTimeoutMs) {
-  let timer;
-  try {
-    return await Promise.race([
-      reader.read(),
-      new Promise((_, reject) => {
-        timer = setTimeout(
-          () => reject(new Error("body read timed out")),
-          chunkTimeoutMs,
-        );
-      }),
-    ]);
-  } catch (error) {
-    const detail = error instanceof Error ? error.message : "body read failed";
-    throw mismatch(distRelative, detail);
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-async function readBoundedBody(
-  response,
-  distRelative,
-  bodyDeadlineAt,
-  now = Date.now,
-  perChunkCapMs = FETCH_TIMEOUT_MS,
-) {
-  const declared = declaredLength(response);
-  if (declared !== undefined && declared > MAX_SHELL_ASSET_BYTES) {
-    throw mismatch(distRelative, `body exceeds ${MAX_SHELL_ASSET_BYTES} bytes`);
-  }
-  const stream = response.body;
-  if (stream === null) {
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.length > MAX_SHELL_ASSET_BYTES) {
-      throw mismatch(
-        distRelative,
-        `body exceeds ${MAX_SHELL_ASSET_BYTES} bytes`,
-      );
-    }
-    return bytes;
-  }
-  let reader;
-  try {
-    reader = stream.getReader();
-  } catch {
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.length > MAX_SHELL_ASSET_BYTES) {
-      throw mismatch(
-        distRelative,
-        `body exceeds ${MAX_SHELL_ASSET_BYTES} bytes`,
-      );
-    }
-    return bytes;
-  }
-  const chunks = [];
-  let total = 0;
-  const perReadCapEnd = now() + perChunkCapMs;
-  const readEndsAt =
-    bodyDeadlineAt > now()
-      ? Math.min(bodyDeadlineAt, perReadCapEnd)
-      : perReadCapEnd;
-  try {
-    while (true) {
-      if (now() > readEndsAt) {
-        throw mismatch(distRelative, "body read timed out");
-      }
-      const chunkTimeoutMs = Math.min(
-        perChunkCapMs,
-        Math.max(1, readEndsAt - now()),
-      );
-      const { done, value } = await readStreamChunk(
-        reader,
-        distRelative,
-        chunkTimeoutMs,
-      );
-      if (done) break;
-      const size = value?.byteLength ?? 0;
-      total += size;
-      if (total > MAX_SHELL_ASSET_BYTES) {
-        throw mismatch(
-          distRelative,
-          `body exceeds ${MAX_SHELL_ASSET_BYTES} bytes`,
-        );
-      }
-      chunks.push(Buffer.from(value));
-    }
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.startsWith("live shell asset")
-    ) {
-      throw error;
-    }
-    const detail = error instanceof Error ? error.message : "body read failed";
-    throw mismatch(distRelative, detail);
-  } finally {
-    await reader.cancel().catch(() => undefined);
-  }
-  return Buffer.concat(chunks, total);
-}
-
 async function assertLiveAsset(
   asset,
   pagesBase,
@@ -297,12 +168,12 @@ async function assertLiveAsset(
     });
   } catch (error) {
     const detail = error instanceof Error ? error.message : "request failed";
-    throw mismatch(asset.relative, detail);
+    throw shellAssetMismatch(asset.relative, detail);
   }
   if (!response?.ok) {
     await releaseResponseBody(response);
     const status = response?.status ?? "error";
-    throw mismatch(asset.relative, `HTTP ${status}`);
+    throw shellAssetMismatch(asset.relative, `HTTP ${status}`);
   }
   const body = await readBoundedBody(
     response,
@@ -310,10 +181,11 @@ async function assertLiveAsset(
     bodyDeadlineAt,
     now,
     perChunkReadMs,
+    enforcePerAssetDeadline,
   );
   const live = createHash("sha256").update(body).digest("hex");
   if (live !== asset.sha256) {
-    throw mismatch(
+    throw shellAssetMismatch(
       asset.relative,
       `sha256 ${live.slice(0, 12)} != ${asset.sha256.slice(0, 12)}`,
     );
@@ -334,7 +206,7 @@ async function assertLiveShellAssets(
   for (const asset of assets) {
     if (matched.has(asset.relative)) continue;
     if (enforcePerAssetDeadline && now() > bodyDeadlineAt) {
-      throw mismatch(asset.relative, "CDN poll deadline expired");
+      throw shellAssetMismatch(asset.relative, "CDN poll deadline expired");
     }
     await assertLiveAsset(
       asset,
@@ -404,4 +276,4 @@ export async function pollLiveShellAssets(env, deps = {}) {
 }
 
 export { shellAssetRefs } from "./shell-html-refs.mjs";
-export { readBoundedBody };
+export { readBoundedBody } from "./live-bundle-body.mjs";

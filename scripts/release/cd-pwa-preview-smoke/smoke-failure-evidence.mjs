@@ -5,10 +5,16 @@ import { readString } from "../../lib/json-boundary.mjs";
 const MAX_ENTRY_TEXT = 500;
 const SENSITIVE =
   /(?:Bearer\s+[A-Za-z0-9._~+/=-]+|(?:api[_-]?key|token|secret|password)\s*[=:]\s*)\S+/giu;
+const JSON_CREDENTIAL =
+  /"(?:api[_-]?key|token|secret|password)"\s*:\s*"(?:\\.|[^"\\])*"/giu;
 
 export function redactDiagnosticText(text) {
   const raw = String(text ?? "");
-  const redacted = raw.replace(SENSITIVE, "[redacted]");
+  const redacted = raw
+    .replace(JSON_CREDENTIAL, (match) =>
+      match.replace(/:\s*"(?:\\.|[^"\\])*"/u, ':"[redacted]"'),
+    )
+    .replace(SENSITIVE, "[redacted]");
   return redacted.length > MAX_ENTRY_TEXT
     ? `${redacted.slice(0, MAX_ENTRY_TEXT)}…`
     : redacted;

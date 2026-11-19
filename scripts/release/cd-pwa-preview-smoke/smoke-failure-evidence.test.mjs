@@ -18,6 +18,10 @@ test("redactDiagnosticText truncates and redacts bearer tokens", () => {
     redactDiagnosticText("Authorization Bearer abc.def.ghi"),
     /\[redacted\]/,
   );
+  assert.equal(
+    redactDiagnosticText('console error {"token":"abc"}'),
+    'console error {"token":"[redacted]"}',
+  );
 });
 
 test("bootstrapSmokeEvidence creates the output directory", async () => {
