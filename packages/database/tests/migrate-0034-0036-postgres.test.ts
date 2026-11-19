@@ -62,18 +62,18 @@ it.skipIf(!process.env.DATABASE_URL)(
         sql`SELECT pg_relation_filenode('public.organization_memberships') AS filenode`,
       );
       await migrate(db, { migrationsFolder: brokenUpgrade });
-      const legacy = await db.execute<{ incarnation: string }>(
-        sql`SELECT incarnation FROM organization_memberships WHERE principal_id = 'p1'`,
-      );
-      expect(legacy[0]?.incarnation).toBe(
-        "00000000-0000-0000-0000-000000000000",
-      );
       const missing = await db.execute<{ groups: string | null }>(
         sql`SELECT to_regclass('public.scim_groups')::text AS groups`,
       );
       expect(missing[0]?.groups).toBeNull();
 
       await migrate(db, { migrationsFolder });
+      const legacy = await db.execute<{ incarnation: string }>(
+        sql`SELECT incarnation FROM organization_memberships WHERE principal_id = 'p1'`,
+      );
+      expect(legacy[0]?.incarnation).toBe(
+        "00000000-0000-0000-0000-000000000000",
+      );
       const afterStorage = await db.execute<{ filenode: number }>(
         sql`SELECT pg_relation_filenode('public.organization_memberships') AS filenode`,
       );
