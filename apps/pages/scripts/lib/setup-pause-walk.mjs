@@ -144,7 +144,32 @@ export async function captureMinimalWarning(page, dir, check, href) {
   await dialog.waitFor({ state: "hidden" });
 }
 
+async function clearObstructingSheets(page) {
+  const notifications = page.getByRole("dialog", { name: "Notifications" });
+  if (await notifications.isVisible().catch(() => false)) {
+    const close = notifications.getByRole("button", {
+      name: "Close",
+      exact: true,
+    });
+    if (await close.isVisible().catch(() => false)) await close.click();
+    await notifications.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+  }
+  const support = page.getByRole("dialog", { name: "Support", exact: true });
+  if (await support.isVisible().catch(() => false)) {
+    await page.keyboard.press("Escape");
+    await support.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+  }
+  const coach = page.locator(".coach__card").locator("visible=true");
+  if (await coach.isVisible().catch(() => false)) {
+    const exit = page.getByRole("button", { name: "Exit tutorial" });
+    if (await exit.isVisible().catch(() => false)) await exit.click();
+    await coach.waitFor({ state: "hidden", timeout: 8_000 }).catch(() => {});
+  }
+  await page.waitForTimeout(200);
+}
+
 export async function openNotes(page) {
+  await clearObstructingSheets(page);
   await page
     .getByRole("button", { name: /Notifications —/ })
     .first()
