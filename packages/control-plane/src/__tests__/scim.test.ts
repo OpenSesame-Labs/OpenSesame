@@ -161,6 +161,20 @@ describe("SCIM provisioning lifecycle", () => {
     ).toBeTruthy();
 
     // The leaver signal.
+    const realFetch = globalThis.fetch;
+    const hostRevoke = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation((input, init) => {
+        const url = input instanceof Request ? input.url : String(input);
+        if (url.endsWith("/api/v1/sessions/revoke"))
+          return Promise.resolve(
+            new Response(JSON.stringify({ revoked: 1 }), {
+              status: 200,
+              headers: { "content-type": "application/json" },
+            }),
+          );
+        return realFetch(input, init);
+      });
     const deactivated = await app.request(
       usersPath(org.id, `/${created.body.id}`),
       {
@@ -173,6 +187,7 @@ describe("SCIM provisioning lifecycle", () => {
       },
     );
     expect(deactivated.status).toBe(200);
+    hostRevoke.mockRestore();
     expect(overlapCast(await deactivated.json()).active).toBe(false);
 
     // Membership gone, and the session it authorised with it.
