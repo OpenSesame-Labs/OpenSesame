@@ -177,7 +177,7 @@ describe("signed federated state integrity", () => {
 
   it("decodes a frozen historical sealed blob", () => {
     const frozen =
-      "eyJpc3N1ZXIiOiJodHRwczovL2lzc3Vlci5leGFtcGxlIiwic3RhdGUiOiJzdGF0ZS1leGFtcGxlIiwibm9uY2UiOiJub25jZS1leGFtcGxlIiwia2luZCI6Im9pZGMiLCJwcm92aWRlcklkIjoicHJvdmlkZXItZXhhbXBsZSIsImJ5b0lkIjoiYnlvLWV4YW1wbGUiLCJvcmdJZCI6Im9yZy1leGFtcGxlIiwidmVyaWZpZXJFbmMiOiJFTDc2X0FKSG1NZDhtTjIzTEF0aENzTEpSVktleXZ1TkptOUY3Z3hIMEV2LXFjS2VOdjFMU0swUzNpayJ9.MLquXkODnP2hz9aLiRRvSyNg9Q8Ne7hIPLJ-HJsukxc";
+      "eyJpc3N1ZXIiOiJodHRwczovL2lzc3Vlci5leGFtcGxlIiwic3RhdGUiOiJzdGF0ZS1leGFtcGxlIiwibm9uY2UiOiJub25jZS1leGFtcGxlIiwia2luZCI6Im9pZGMiLCJwcm92aWRlcklkIjoicHJvdmlkZXItZXhhbXBsZSIsImJ5b0lkIjoiYnlvLWV4YW1wbGUiLCJvcmdJZCI6Im9yZy1leGFtcGxlIiwidmVyaWZpZXJFbmMiOiJNNE50eVFsSWFFX05peHItRlBPa0NxU0k0RU1vY2JOR05kX2JTRHJBZ0RqYXBxNkxfbTFPb2Rialc2SSJ9.8XAuAdF3JCU5Uim5SJqIaI1rVEaJBTGRmFG7KgqxkNY";
     expect(decodePending(frozen, secret)).toEqual(pending);
   });
 
