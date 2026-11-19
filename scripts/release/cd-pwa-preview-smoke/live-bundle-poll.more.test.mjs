@@ -85,6 +85,11 @@ test("dynamicImportRefsFromJs includes side-effect and minified export-from", ()
   );
 });
 
+test("dynamicImportRefsFromJs includes side-effect stylesheet imports", () => {
+  const source = 'import"./async.css";\n';
+  assert.deepEqual(dynamicImportRefsFromJs(source), ["./async.css"]);
+});
+
 test("cssUrlRefsFromStylesheet collects relative font and asset urls", () => {
   const css =
     "@font-face{font-family:mark;src:url(./fonts/os-logo.woff2)}.x{background:url(/OpenSesame/assets/bg.png)}";

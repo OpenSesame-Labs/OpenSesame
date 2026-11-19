@@ -62,10 +62,15 @@ export function cdnPollBudget(env) {
 export function cdnRetryBudget(env) {
   const { deadlineMs, pollMs } = cdnPollBudget(env);
   const retries = Math.floor(deadlineMs / pollMs);
+  const attempts = retries + 1;
+  const maxTimeSec = Math.max(
+    1,
+    Math.ceil(deadlineMs / 1000 / Math.max(1, attempts)),
+  );
   return {
     retries,
     intervalMs: pollMs,
-    maxTimeSec: Math.max(1, Math.ceil(deadlineMs / 1000)),
+    maxTimeSec,
   };
 }
 

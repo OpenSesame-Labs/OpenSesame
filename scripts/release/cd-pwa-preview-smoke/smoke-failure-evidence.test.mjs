@@ -21,12 +21,14 @@ test("redactDiagnosticText truncates and redacts bearer tokens", () => {
 });
 
 test("bootstrapSmokeEvidence creates the output directory", async () => {
-  const out = mkdtempSync(join(tmpdir(), "smoke-bootstrap-"));
+  const parent = mkdtempSync(join(tmpdir(), "smoke-bootstrap-parent-"));
+  const out = join(parent, "evidence");
   try {
+    assert.equal(existsSync(out), false);
     await bootstrapSmokeEvidence({ SMOKE_EVIDENCE_OUT: out, GITHUB_SHA: sha });
     assert.equal(existsSync(out), true);
   } finally {
-    rmSync(out, { recursive: true, force: true });
+    rmSync(parent, { recursive: true, force: true });
   }
 });
 

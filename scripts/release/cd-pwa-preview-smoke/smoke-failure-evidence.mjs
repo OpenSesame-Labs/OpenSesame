@@ -45,10 +45,11 @@ function redactEntries(entries) {
  */
 export async function writeSmokePhaseFailure(env, phase, error, details = {}) {
   const outRoot = await bootstrapSmokeEvidence(env);
-  const message =
+  const rawMessage =
     error instanceof Error
       ? error.message
       : String(error ?? "preview smoke failed");
+  const message = redactDiagnosticText(rawMessage);
   const consoleEntries = Array.isArray(details.console)
     ? redactEntries(details.console)
     : [{ type: "phase", text: redactDiagnosticText(phase) }];
