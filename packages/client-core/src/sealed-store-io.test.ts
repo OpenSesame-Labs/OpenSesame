@@ -165,6 +165,52 @@ describe("parseSealedStore guards", () => {
       blobs: [{ id: "b", epoch: 0, ciphertextB64: "" }],
     });
   });
+
+  it("accepts authenticated persistence metadata for wasm OPFS writes", () => {
+    const tag = "a".repeat(64);
+    const doc = JSON.stringify({
+      version: 2,
+      integrity: tag,
+      cursor: { device_id: "d", epoch: 0 },
+      blobs: [],
+    });
+    expect(parseSealedStore(doc)).toEqual({
+      version: 2,
+      integrity: tag,
+      cursor: { device_id: "d", epoch: 0 },
+      blobs: [],
+    });
+    expect(
+      parseSealedStore(
+        JSON.stringify({
+          version: 2,
+          integrity: tag,
+          cursor: { device_id: "d", epoch: 1 },
+          blobs: [
+            {
+              id: "item",
+              epoch: 1,
+              ciphertext: [1, 2, 3, 4],
+            },
+          ],
+        }),
+      ),
+    ).toEqual({
+      version: 2,
+      integrity: tag,
+      cursor: { device_id: "d", epoch: 1 },
+      blobs: [{ id: "item", epoch: 1, ciphertextB64: "AQIDBA==" }],
+    });
+    expect(
+      parseSealedStore(
+        JSON.stringify({
+          version: 2,
+          cursor: { device_id: "d", epoch: 0 },
+          blobs: [],
+        }),
+      ),
+    ).toBeNull();
+  });
 });
 
 describe("sealed store IO against OPFS", () => {
