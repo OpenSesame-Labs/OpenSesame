@@ -1,5 +1,5 @@
 import { writeFileSync } from "node:fs";
-import type { IncomingMessage } from "node:http";
+import { IncomingMessage } from "node:http";
 import net from "node:net";
 import { join } from "node:path";
 import tls from "node:tls";
@@ -63,8 +63,10 @@ describe("identity trust rotation", () => {
       if (!original) throw new Error("request was not dispatched");
       const request: IncomingMessage = original;
       const saved = requestEvidenceOf(request);
-      // SAFETY: the replay fixture is only a WeakMap key; lookup uses object identity, the same contract as adoptRequestEvidence.
-      const replay = {} as IncomingMessage;
+      // Evidence lookup accepts an opaque carrier only when it is an IncomingMessage.
+      const carrier = new net.Socket();
+      carrier.unref();
+      const replay = new IncomingMessage(carrier);
       adoptRequestEvidence(replay, request);
       const oauth = identityMtlsTransport({
         listener: config,
