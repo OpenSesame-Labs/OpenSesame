@@ -269,6 +269,18 @@ function Toast({
             {toast.choice.label}
           </button>
         ) : null}
+        {toast.alt ? (
+          <button
+            type="button"
+            className="btn btn--sm choice"
+            onClick={() => {
+              onDone(toast.id);
+              toast.alt?.run();
+            }}
+          >
+            {toast.alt.label}
+          </button>
+        ) : null}
         {toast.open ? (
           <button
             type="button"
