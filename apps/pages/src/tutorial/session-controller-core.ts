@@ -1,3 +1,4 @@
+import { rememberTourAnswered } from "@opensesame/app-core/lib/guidance.js";
 import { setStatusNotice } from "@opensesame/app-core/lib/notices.js";
 import { completeQueuedTutorial } from "@opensesame/app-core/lib/tutorial-queue.js";
 import type { GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes.js";
@@ -181,6 +182,7 @@ export class SupportControllerCore {
     if (outcome.kind === "completed") {
       const closing = this.state.guide?.message;
       if (closing) this.push("note", closing, []);
+      rememberTourAnswered(outcome.goal);
       completeQueuedTutorial(outcome.goal);
     }
     if (outcome.kind === "cancelled" && outcome.reason === "user") {
