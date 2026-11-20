@@ -124,6 +124,31 @@ describe("resumeQueuedWalkthrough", () => {
     controller.destroy();
   });
 
+  it("clears queued resume loading when navigation leaves the tour home route", async () => {
+    const controller = createSupportController({
+      loadEngine: () => Promise.resolve(stubEngine(false)),
+      onLock: () => () => {},
+      clearTargets: () => {},
+    });
+    controller.setRoute("/vault");
+    controller.setNavigator(() => true);
+    queueTutorial("settings.danger.review", { title: "Danger" });
+    expect(
+      controller.resumeQueuedWalkthrough(
+        "settings.danger.review",
+        "guide",
+        "/settings",
+      ),
+    ).toBe(true);
+    controller.setRoute("/vault/item");
+    await Promise.resolve();
+    await controller.startGuide("other-tour", "authored");
+    expect(listQueuedTutorials()).toEqual([
+      { goalId: "settings.danger.review" },
+    ]);
+    controller.destroy();
+  });
+
   it("keeps the queue when the route changes before the engine loads", async () => {
     let resolver: (engine: SupportEngine) => void = () => {};
     const pending = new Promise<SupportEngine>((resolve) => {
