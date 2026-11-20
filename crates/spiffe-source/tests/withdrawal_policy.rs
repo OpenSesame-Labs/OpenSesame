@@ -298,16 +298,12 @@ async fn dropping_the_handle_stops_further_generation_activation() {
     let mut status = handle.status();
     drop(handle);
     tokio::time::timeout(Duration::from_secs(3), async {
-        loop {
-            if status.borrow().phase == SourcePhase::Stopped {
-                break;
-            }
+        while status.borrow().phase != SourcePhase::Stopped {
             status
                 .changed()
                 .await
                 .expect("status task ended before it published Stopped");
         }
-        let _ = status.changed().await;
     })
     .await
     .expect("dropping the handle stops the source");
@@ -324,7 +320,7 @@ async fn dropping_the_handle_stops_further_generation_activation() {
         .count();
 
     api.push_snapshot(snapshot(&td, &[&gateway]));
-    tokio::time::sleep(Duration::from_millis(250)).await;
+    tokio::time::sleep(Duration::from_millis(500)).await;
     assert_eq!(
         sink.events()
             .into_iter()
