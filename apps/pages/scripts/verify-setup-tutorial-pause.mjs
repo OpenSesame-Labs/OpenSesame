@@ -207,7 +207,6 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
         tutDir,
         check,
         href,
-        sealLocalOnly,
         id,
       );
       const shotHashes = [];
