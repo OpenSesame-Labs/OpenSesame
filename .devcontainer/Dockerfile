@@ -1,14 +1,14 @@
 # Devcontainer image for OpenSesame.
-# The base is the digest-pinned Debian trixie Rust devcontainer (2.1.6-trixie).
+# The base is the digest-pinned Debian trixie devcontainer (no preinstalled Rust).
+# Rust, Node, Go, Java, and Playwright come from `mise install --locked` only.
 # `apt-get -y upgrade --no-install-recommends` runs at image build so Debian
-# security fixes land here before the upstream tag is rebuilt. Node, npm, Go,
-# Java, and the locked Rust toolchain are not baked from a Node feature.
+# security fixes land here before the upstream tag is rebuilt.
 # updateContentCommand runs `mise install --locked`, which installs the tools
 # pinned in the workspace mise.toml and mise.lock.
 #
 # ghcr.io/devcontainers-extra/features/mise is not used. Its gh-release asset
 # filter matches both the glibc and musl tarballs for one mise version.
-FROM mcr.microsoft.com/devcontainers/rust:2.1.6-trixie@sha256:c2ef122297b39608e9db2181a355f9cda0cfb856405d14920c519c3200a2ff95
+FROM mcr.microsoft.com/devcontainers/base:debian-trixie@sha256:ea5711efc43c9337df558111d469df1dce5a94ae96e7eed341736e1c0417f180
 
 USER root
 
@@ -46,9 +46,12 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update \
   && apt-get -y upgrade --no-install-recommends \
   && apt-get install -y --no-install-recommends \
+    build-essential \
     ca-certificates \
     curl \
     git \
+    pkg-config \
+    python3 \
   && rm -rf /var/lib/apt/lists/*
 
 # Pinned GitHub release tarball. Same version and linux digests as the
