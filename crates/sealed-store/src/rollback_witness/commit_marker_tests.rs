@@ -260,10 +260,12 @@ fn rekey_retains_the_old_marker_until_the_new_slot_is_committed() {
         .write_commit_marker(&prepared.store_id, &new_key, &prepared.witness)
         .unwrap();
     assert!(store.entry_witness("Dev/token", &old_key).is_ok());
-    assert!(store.entry_witness("Dev/token", &new_key).is_ok());
+    assert!(store.current_witness(&new_key).is_ok());
+    assert!(store.entry_witness("Dev/token", &new_key).is_err());
     store.finish_rekeyed_witness(&prepared, &new_key).unwrap();
     assert!(store.entry_witness("Dev/token", &old_key).is_err());
-    assert!(store.entry_witness("Dev/token", &new_key).is_ok());
+    assert!(store.current_witness(&new_key).is_ok());
+    assert!(store.entry_witness("Dev/token", &new_key).is_err());
 }
 
 #[test]

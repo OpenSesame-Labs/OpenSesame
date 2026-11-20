@@ -59,6 +59,7 @@ pub(crate) fn confined_atomic_write(
     }
     // SAFETY: successful openat returned a new owned descriptor.
     let mut file = unsafe { File::from_raw_fd(fd) };
+    let mut renamed = false;
     let result = (|| -> Result<(), StoreError> {
         file.write_all(bytes)?;
         file.sync_all()?;
@@ -76,20 +77,13 @@ pub(crate) fn confined_atomic_write(
         {
             return Err(StoreError::Io(std::io::Error::last_os_error()));
         }
-        if let Err(error) = dir.sync_all() {
-            // Some filesystems do not support syncing a directory. The
-            // rename is still atomic for a process interruption there,
-            // though power-loss durability depends on the filesystem.
-            if !matches!(
-                error.raw_os_error(),
-                Some(libc::EINVAL) | Some(libc::EOPNOTSUPP)
-            ) {
-                return Err(StoreError::Io(error));
-            }
-        }
+        renamed = true;
+        // After rename the live path already holds the new bytes; treat directory
+        // fsync as best-effort so callers do not retry into a fork.
+        let _ = dir.sync_all();
         Ok(())
     })();
-    if result.is_err() {
+    if result.is_err() && !renamed {
         // SAFETY: deleting the temporary directory entry never follows a symlink.
         let _ = unsafe { libc::unlinkat(dir.as_raw_fd(), temp.as_ptr(), 0) };
     }

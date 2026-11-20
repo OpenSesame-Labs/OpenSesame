@@ -301,10 +301,14 @@ mod tests {
         store
             .write_first_rekeyed_witness_slot(&prepared, &new_key)
             .unwrap();
+        // Both keys recover the witness document. The new key cannot open the
+        // entry ciphertext yet, so entry_witness stays fail-closed.
         assert_eq!(
-            store.entry_witness("Dev/token", &old_key).unwrap().revision,
-            store.entry_witness("Dev/token", &new_key).unwrap().revision
+            recovered_revision(&store, &old_key),
+            recovered_revision(&store, &new_key)
         );
+        assert!(store.entry_witness("Dev/token", &old_key).is_ok());
+        assert!(store.entry_witness("Dev/token", &new_key).is_err());
     }
 
     #[test]
@@ -322,14 +326,21 @@ mod tests {
             .write_first_rekeyed_witness_slot(&next, &future_key)
             .unwrap();
         assert_eq!(
-            store
-                .entry_witness("Dev/token", &current_key)
-                .unwrap()
-                .revision,
-            store
-                .entry_witness("Dev/token", &future_key)
-                .unwrap()
-                .revision
+            recovered_revision(&store, &current_key),
+            recovered_revision(&store, &future_key)
         );
+        assert!(store.entry_witness("Dev/token", &current_key).is_err());
+        assert!(store.entry_witness("Dev/token", &future_key).is_err());
+    }
+
+    fn recovered_revision(store: &StoreRoot, key: &ItemDataKey) -> u64 {
+        store
+            .current_witness(key)
+            .unwrap()
+            .1
+            .entries
+            .get("Dev/token")
+            .expect("witness entry")
+            .revision
     }
 }

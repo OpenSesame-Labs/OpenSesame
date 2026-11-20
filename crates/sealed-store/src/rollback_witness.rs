@@ -308,13 +308,9 @@ impl StoreRoot {
                 ))
             })?;
         if !state.deleted {
-            if let Err(StoreError::Crypto(ref message)) =
-                self.verify_entry_plaintext(name, key, &state)
-            {
-                if message.contains("does not match its rollback witness") {
-                    return Err(StoreError::Crypto(message.clone()));
-                }
-            }
+            // A mismatch, a decrypt failure, and an I/O error are all unverified.
+            // Returning the witness after any of them would fail open.
+            self.verify_entry_plaintext(name, key, &state)?;
         }
         Ok(state)
     }

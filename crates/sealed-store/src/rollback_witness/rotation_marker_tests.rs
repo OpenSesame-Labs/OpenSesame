@@ -32,12 +32,14 @@ fn old_marker_is_pending_before_key_commit_even_if_second_slot_is_not_finished()
     let prepared = store.prepare_witness_rekey(&old_key).unwrap();
     store.write_rekeyed_witness(&prepared, &new_key).unwrap();
     assert!(store.entry_witness("Dev/token", &old_key).is_ok());
-    assert!(store.entry_witness("Dev/token", &new_key).is_ok());
+    assert!(store.current_witness(&new_key).is_ok());
+    assert!(store.entry_witness("Dev/token", &new_key).is_err());
 
     store.mark_rotation_pending(&prepared, &old_key).unwrap();
     assert!(store.entry_witness("Dev/token", &old_key).is_err());
     assert!(store.attachment_witness("Docs/file", &old_key).is_err());
-    assert!(store.entry_witness("Dev/token", &new_key).is_ok());
+    assert!(store.current_witness(&new_key).is_ok());
+    assert!(store.entry_witness("Dev/token", &new_key).is_err());
     assert!(store.write_rekeyed_witness(&prepared, &old_key).is_err());
     assert!(store.entry_witness("Dev/token", &old_key).is_err());
 }
