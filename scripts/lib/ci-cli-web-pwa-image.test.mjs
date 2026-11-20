@@ -13,15 +13,20 @@ const webPwaDockerfile = readFileSync(
   "utf8",
 );
 
-const ALPINE_DIGEST =
+const CLI_BOOKWORM_BUILD = /node:26-bookworm-slim@[\s\S]*AS build/;
+const CLI_ALPINE_DIGEST =
+  "node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5";
+const CLI_ALPINE_RUNTIME = new RegExp(CLI_ALPINE_DIGEST.replace("/", "\\/"));
+
+const WEBPWA_BOOKWORM_BUILD = /node:24-bookworm-slim@[\s\S]*AS build/;
+const WEBPWA_ALPINE_DIGEST =
   "node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5";
-const ALPINE_RUNTIME = new RegExp(ALPINE_DIGEST.replace("/", "\\/"));
 
 describe("cli runtime image", () => {
   it("builds on bookworm-slim and serves on digest-pinned alpine", () => {
-    expect(cliDockerfile).toMatch(/node:24-bookworm-slim@[\s\S]*AS build/);
-    expect(cliDockerfile).toMatch(ALPINE_RUNTIME);
-    const runtime = cliDockerfile.split(ALPINE_DIGEST)[1] ?? "";
+    expect(cliDockerfile).toMatch(CLI_BOOKWORM_BUILD);
+    expect(cliDockerfile).toMatch(CLI_ALPINE_RUNTIME);
+    const runtime = cliDockerfile.split(CLI_ALPINE_DIGEST)[1] ?? "";
     expect(runtime.length).toBeGreaterThan(0);
     expect(runtime).not.toMatch(/apt-get/);
     expect(runtime).toMatch(/adduser -D -u 10001 app/);
@@ -40,9 +45,10 @@ describe("cli runtime image", () => {
 
 describe("web-pwa runtime image", () => {
   it("builds on bookworm-slim and serves on digest-pinned alpine", () => {
-    expect(webPwaDockerfile).toMatch(/node:24-bookworm-slim@[\s\S]*AS build/);
+    expect(webPwaDockerfile).toMatch(WEBPWA_BOOKWORM_BUILD);
     for (const block of webPwaDockerfile.split(/(?=FROM )/)) {
-      if (!/AS runtime/.test(block) || !block.includes(ALPINE_DIGEST)) continue;
+      if (!/AS runtime/.test(block) || !block.includes(WEBPWA_ALPINE_DIGEST))
+        continue;
       expect(block).not.toMatch(/apt-get/);
       expect(block).toMatch(/adduser -D -u 10001 app/);
     }
