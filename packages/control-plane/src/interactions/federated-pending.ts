@@ -74,6 +74,21 @@ const SCRYPT_PARAMS = {
   maxmem: 64 * 1024 * 1024,
 } as const;
 
+/** Unambiguous (state, nonce) binding so concatenation cannot collide across legs. */
+function legBindingMaterial(state: string, nonce: string): Buffer {
+  const stateBytes = Buffer.from(state, "utf8");
+  const nonceBytes = Buffer.from(nonce, "utf8");
+  if (stateBytes.length > 255 || nonceBytes.length > 255) {
+    throw new Error("federated pending leg binding exceeds 255-byte field limit");
+  }
+  return Buffer.concat([
+    Buffer.from([stateBytes.length]),
+    stateBytes,
+    Buffer.from([nonceBytes.length]),
+    nonceBytes,
+  ]);
+}
+
 /** Cookie carrying `PendingFederatedAuth`, scoped to this interaction only. */
 export function pendingCookieName(uid: string): string {
   return `os.fed.${uid}`;
@@ -100,8 +115,7 @@ function verifierSealKey(secret: string, state: string, nonce: string): Buffer {
   const salt = createHash("sha256")
     .update(secret)
     .update("\0opensesame:fed-pending-verifier-seal\0")
-    .update(state)
-    .update(nonce)
+    .update(legBindingMaterial(state, nonce))
     .digest()
     .subarray(0, 16);
   return Buffer.from(
@@ -125,8 +139,7 @@ function sealVerifier(
   const key = verifierSealKey(secret, state, nonce);
   const iv = createHmac("sha256", key)
     .update("\0opensesame:fed-pending-seal-iv\0")
-    .update(state)
-    .update(nonce)
+    .update(legBindingMaterial(state, nonce))
     .digest()
     .subarray(0, 12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
@@ -147,8 +160,10 @@ function unsealVerifier(
 ): string | undefined {
   try {
     const raw = Buffer.from(sealed, "base64url");
+    if (raw.length < 28) return undefined;
     const iv = raw.subarray(0, 12);
     const tag = raw.subarray(12, 28);
+    if (tag.length !== 16) return undefined;
     const ciphertext = raw.subarray(28);
     const key = verifierSealKey(secret, state, nonce);
     const decipher = createDecipheriv("aes-256-gcm", key, iv);
