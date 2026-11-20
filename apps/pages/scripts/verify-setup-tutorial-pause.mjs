@@ -91,18 +91,64 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
   await shotFrame(page, choices);
   check(existsSync(choices), `${label} setup-choices.png written`);
   const records = [];
+  const profileHashes = [];
+  const profileFingerprints = [];
+  const newProfilePage = async () => {
+    if (harness) {
+      const opened = await harness.newPage(browser);
+      await freezeContextRandomness(opened.context);
+      return opened;
+    }
+    const context = await browser.newContext({
+      viewport: { width: 1280, height: 900 },
+    });
+    await freezeContextRandomness(context);
+    const page = await context.newPage();
+    return { context, page };
+  };
   for (const id of PROFILES) {
     const dir = profileDir(outRoot, label, id);
-    const picker = await captureProfilePicker(page, href, dir, id, check);
-    records.push({
-      build: label,
-      profile: id,
-      setupProfilePicker: digest(picker),
-    });
+    const opened = await newProfilePage();
+    try {
+      const applied = await captureProfilePicker(
+        opened.page,
+        href,
+        dir,
+        id,
+        check,
+      );
+      const hash = digest(applied.file);
+      profileHashes.push(hash);
+      profileFingerprints.push(applied.fingerprint);
+      records.push({
+        build: label,
+        profile: id,
+        setupProfileApplied: hash,
+        planFingerprint: createHash("sha256")
+          .update(applied.fingerprint)
+          .digest("hex"),
+      });
+    } finally {
+      await opened.context.close();
+    }
   }
+  const uniqueShots = new Set(profileHashes);
+  check(
+    uniqueShots.size >= 3,
+    `profile captures differ visually (${uniqueShots.size} unique of ${profileHashes.length})`,
+  );
+  check(
+    new Set(profileFingerprints).size === profileFingerprints.length,
+    `each profile leaves a distinct plan fingerprint: ${profileFingerprints.join(" · ")}`,
+  );
   if (expectAdvanced) {
     const warnDir = profileDir(outRoot, label, "minimal");
-    await captureMinimalWarning(page, warnDir, check);
+    const opened = await newProfilePage();
+    try {
+      await captureMinimalWarning(opened.page, warnDir, check, href);
+    } finally {
+      await opened.context.close();
+    }
     check(
       existsSync(path.join(warnDir, "minimal-warning-notifications.png")),
       "minimal warning shot",
