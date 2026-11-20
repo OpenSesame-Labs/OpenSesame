@@ -12,8 +12,8 @@ import {
 } from "@opensesame/app-core/tutorial/registry/goals.js";
 import { rankHelpTopics } from "@opensesame/app-core/tutorial/registry/goals-search.js";
 import {
-  type GuideRouteId,
   GUIDE_OVERLAY_ROUTES,
+  type GuideRouteId,
   guideRouteWithin,
 } from "@opensesame/app-core/tutorial/registry/routes.js";
 import { clearMountedGuideTargets } from "@opensesame/app-core/tutorial/registry/targets.js";
