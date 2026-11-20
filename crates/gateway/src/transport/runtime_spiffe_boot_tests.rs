@@ -74,6 +74,22 @@ async fn coalesced_watch_update_refuses_a_withdrawn_generation() {
 }
 
 #[test]
+fn prompt_withdrawal_before_any_generation_is_not_settled() {
+    for phase in [SourcePhase::Withdrawn, SourcePhase::Stopped] {
+        let status = status_with(phase, None);
+        assert!(
+            !spiffe_first_svid_settled(&status),
+            "{phase:?} before any generation must keep the first-SVID wait open"
+        );
+    }
+    let withdrawn = status_with(SourcePhase::Withdrawn, None);
+    assert!(
+        conclude_spiffe_first_svid(Err(WaitError::DeadlineElapsed(withdrawn))).is_err(),
+        "wait should time out, not treat early withdrawal as settled"
+    );
+}
+
+#[test]
 fn a_deadline_with_no_generation_is_identity_missing() {
     let connecting = status_with(SourcePhase::Connecting, None);
     assert!(!spiffe_first_svid_settled(&connecting));
