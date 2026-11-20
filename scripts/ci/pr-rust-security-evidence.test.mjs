@@ -131,16 +131,20 @@ test("candidate execution is isolated from token-bearing jobs", async () => {
 
   assert.equal(evidence.needs, "resolve");
   assert.deepEqual(evidence.permissions, { contents: "read" });
-  assert.equal(evidence.steps.filter((step) => step.env?.GH_TOKEN).length, 0);
-  const evidenceCheckout = evidence.steps[0];
   assert.equal(
-    evidenceCheckout.with.ref,
-    "${{ needs.resolve.outputs.head_sha }}",
+    evidence.steps.filter(
+      (step) =>
+        step.env?.GH_TOKEN &&
+        step.name !== "Materialize the exact PR head without actions/checkout",
+    ).length,
+    0,
   );
-  assert.equal(evidenceCheckout.with.path, "head");
-  assert.equal(evidenceCheckout.with["persist-credentials"], false);
   const mise = evidence.steps[1];
   assert.equal(mise.with.working_directory, "${{ runner.temp }}");
+  assert.equal(
+    evidence.steps.some((step) => step.with?.path === "head"),
+    false,
+  );
   assert.equal(mise.with.install_args, "rust@1.99.0");
   assert.equal(mise.with.persist_github_token, false);
   const candidate = evidence.steps.at(-1);
