@@ -21,6 +21,18 @@ fn sample_event(id: &str) -> BusEvent {
     )
 }
 
+#[cfg(not(feature = "jetstream"))]
+#[tokio::test]
+async fn nats_creation_reports_disabled_feature() {
+    let Err(error) = create_nats("nats://127.0.0.1:4222").await else {
+        panic!("NATS must be unavailable without the jetstream feature");
+    };
+    assert_eq!(
+        error.to_string(),
+        "opensesame-task-bus was built without the `jetstream` feature"
+    );
+}
+
 #[tokio::test]
 async fn in_memory_publish_drain_fifo() {
     let bus = InMemoryTaskBus::default();
