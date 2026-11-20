@@ -1,4 +1,4 @@
-# ADR 0223 — Fail closed on ambiguous SPIFFE snapshots
+# ADR 0227 — Fail closed on ambiguous SPIFFE snapshots
 
 - **Status:** Accepted
 - **Date:** 2026-11-16
@@ -84,6 +84,14 @@ the manager; they are not persisted across restart. A caller with an owner
 capability is trusted to provide fresh Workload API material. These checks do
 not claim hard real-time scheduling, every form of clock-jump safety, or
 unforgeable provenance for arbitrary callers of the public manager API.
+
+The source converts a UTC deadline to a relative Tokio sleep. Its prompt
+withdrawal claim assumes the wall clock does not jump forward across the
+deadline while that sleep is armed and that the task is scheduled in time.
+`SourceStatus::credential_status` independently checks the supplied current
+wall time, but the generation sink is not proven to recheck the source's
+freshness deadline on every use. This ADR does not claim a hard real-time or
+clock-jump-safe sink guarantee.
 
 The Lean model proves properties of an abstract policy, not a refinement proof
 of the SDK, the concurrent Rust source, certificate verification, or sink
