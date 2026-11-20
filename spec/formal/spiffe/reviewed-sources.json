@@ -9,15 +9,15 @@
     },
     {
       "path": "crates/spiffe-source/src/source.rs",
-      "sha256": "568f8230e33923108ff5e5089f081dad2044b800f93b46c69562bd975d6222f5",
+      "sha256": "8cfa07661a0acc8ecb2a7ca8cf88b39b4a8721060fe47450ae68c9dead156e2e",
       "base_blob": "6ff41f704f3262a8d0c3db87e1610fef483047f0",
-      "reviewed_blob": "07b5d87b8f27773c875465c1d5e1f523f4297bc9"
+      "reviewed_blob": "fc6f4f1ea27b34a7ba17744fb1d8743ba4d0d04e"
     },
     {
       "path": "crates/spiffe-source/src/source_policy.rs",
-      "sha256": "3f03a7b0a28eef755542eb761729b44df12a2efe5635c2dff3ce4da5c28695d0",
+      "sha256": "8d105cc16936393e02be2e01a354e841442076f8e9a0435aa1ba10815a55da38",
       "base_blob": null,
-      "reviewed_blob": "88d295af987e76ee7ca0fc2e91d335fba24e840b"
+      "reviewed_blob": "847c8fc28aee24ff1e0928197b70b21e17c02db0"
     },
     {
       "path": "crates/spiffe-source/src/bundles.rs",

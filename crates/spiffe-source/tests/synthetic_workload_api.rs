@@ -64,14 +64,14 @@ async fn streaming(handle: &SpiffeSourceHandle, generation: u64) -> SourceStatus
             s.phase == SourcePhase::Streaming && s.generation == Some(generation)
         })
         .await
-        .unwrap_or_else(|s| panic!("expected streaming generation {generation}, got {s:?}"))
+        .unwrap_or_else(|err| panic!("expected streaming generation {generation}: {err}"))
 }
 
 async fn withdrawn(handle: &SpiffeSourceHandle) -> SourceStatus {
     handle
         .wait_for(WAIT, |s| s.phase == SourcePhase::Withdrawn)
         .await
-        .unwrap_or_else(|s| panic!("expected withdrawn, got {s:?}"))
+        .unwrap_or_else(|err| panic!("expected withdrawn: {err}"))
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
