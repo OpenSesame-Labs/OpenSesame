@@ -100,8 +100,7 @@ export const tutorialResumeSeams: TutorialResumeSeams = {
 const resumeBindings: TutorialResumeStart[] = [];
 
 function syncResumeBinding(): void {
-  const active =
-    resumeBindings[resumeBindings.length - 1] ?? resumeUnwired;
+  const active = resumeBindings[resumeBindings.length - 1] ?? resumeUnwired;
   tutorialResumeSeams.start = active;
 }
 
