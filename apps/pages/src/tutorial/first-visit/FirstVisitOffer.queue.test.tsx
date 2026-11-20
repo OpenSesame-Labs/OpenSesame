@@ -133,6 +133,7 @@ describe("declining a first-visit offer", () => {
       screen.getByRole("button", { name: PAUSE_ALL_FOR_SESSION }),
     );
     expect(sessionTutorialsPaused()).toBe(true);
+    expect(listQueuedTutorials().length).toBeGreaterThan(1);
     cleanup();
     setGuidanceMode("auto");
     forgetSessionAnswers();

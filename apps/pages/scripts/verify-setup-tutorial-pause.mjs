@@ -110,9 +110,29 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
   }
   if (tutorial) {
     const tutDir = profileDir(outRoot, label, "default");
-    await captureTutorialPauseFlow(page, tutDir, check, href, sealLocalOnly);
+    const freshHarnessPage = harness
+      ? (b) => harness.newPage(b)
+      : async (b) => {
+          const context = await b.newContext({
+            viewport: { width: 1280, height: 900 },
+          });
+          await freezeContextRandomness(context);
+          const page = await context.newPage();
+          return { context, page };
+        };
+    await captureTutorialPauseFlow(
+      browser,
+      freshHarnessPage,
+      tutDir,
+      check,
+      href,
+      sealLocalOnly,
+    );
     for (const step of [
       "tutorial-opt-out-notifications.png",
+      "tutorial-pause-only-one.png",
+      "tutorial-pause-dismiss-x.png",
+      "tutorial-pause-all-queued.png",
       "tutorial-queue-after-reload.png",
       "tutorial-resumed-coach.png",
     ]) {
