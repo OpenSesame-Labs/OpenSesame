@@ -18,7 +18,11 @@ describe("guideSnapshotActive", () => {
     expect(guideSnapshotActive(null)).toBe(false);
     expect(guideSnapshotActive(done)).toBe(false);
     expect(
-      guideSnapshotActive({ ...done, status: "failed", error: { code: "x" } }),
+      guideSnapshotActive({
+        ...done,
+        status: "failed",
+        error: { code: "VAULT_LOCKED", detail: "vault.lock" },
+      }),
     ).toBe(false);
   });
 
