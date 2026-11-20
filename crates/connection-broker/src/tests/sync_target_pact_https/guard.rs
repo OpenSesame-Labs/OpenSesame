@@ -45,7 +45,7 @@ fn if_guard(prefix: &str, if_at: usize, dest: Option<&str>) -> bool {
     let Some(open) = condition_brace(bytes, if_at + 2) else {
         return false;
     };
-    let cond = &prefix[if_at + 2..open];
+    let cond = prefix[if_at + 2..open].trim();
     let closed = match dest {
         Some(dest) => covers_dest(cond, false, &prefix[..if_at], dest),
         None => fails_closed(cond, false),
@@ -94,6 +94,7 @@ fn eval_guard(expr: &str, negated: bool, leaf: &mut dyn FnMut(&str) -> bool) -> 
 }
 
 fn scheme_covers(expr: &str, before: &str, dest: &str) -> bool {
+    let expr = expr.trim();
     let Some(subject) = scheme_subject(expr) else {
         return false;
     };
@@ -146,7 +147,7 @@ fn scheme_at(expr: &str) -> Option<usize> {
 }
 
 fn whole_scheme_neq(expr: &str) -> bool {
-    scheme_at(expr).is_some()
+    scheme_at(expr.trim()).is_some()
 }
 
 fn last_rhs<'a>(source: &'a str, name: &str) -> Option<(&'a str, usize)> {
