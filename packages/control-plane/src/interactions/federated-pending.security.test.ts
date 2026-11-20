@@ -114,10 +114,12 @@ describe("signed federated state integrity", () => {
     );
   });
 
-  it("preserves the sealed cookie bytes for a known pending payload", () => {
+  it("round-trips a sealed-on-wire cookie with a fresh random GCM IV", () => {
     const cookie = existingSealedCookie(pending);
     expect(decodePending(cookie, secret)).toEqual(pending);
-    expect(encodePending(pending, secret, sealOnWire)).toBe(cookie);
+    const again = encodePending(pending, secret, sealOnWire);
+    expect(decodePending(again, secret)).toEqual(pending);
+    expect(again).not.toBe(cookie);
   });
 
   it("keeps a plaintext verifier on the wire by default for mixed-version rollouts", () => {

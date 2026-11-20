@@ -4,6 +4,7 @@ import {
   createHash,
   createHmac,
   hkdfSync,
+  randomBytes,
   scryptSync,
   timingSafeEqual,
 } from "node:crypto";
@@ -132,30 +133,6 @@ function verifierSealKey(secret: string, state: string, nonce: string): Buffer {
   );
 }
 
-function verifierSealIv(
-  key: Buffer,
-  secret: string,
-  state: string,
-  nonce: string,
-  verifier?: string,
-): Buffer {
-  const hmac = createHmac("sha256", key).update(
-    legBindingMaterial(state, nonce),
-  );
-  if (verifier === undefined) {
-    return hmac
-      .update("\0opensesame:fed-pending-seal-iv\0")
-      .digest()
-      .subarray(0, 12);
-  }
-  const bound = pendingVerifierBinding(verifier, state, nonce, secret);
-  return hmac
-    .update("\0opensesame:fed-pending-seal-iv-v2\0")
-    .update(bound, "utf8")
-    .digest()
-    .subarray(0, 12);
-}
-
 /** Seal the PKCE verifier for wire transport; the MAC never covers the raw verifier. */
 function sealVerifier(
   verifier: string,
@@ -164,7 +141,7 @@ function sealVerifier(
   nonce: string,
 ): string {
   const key = verifierSealKey(secret, state, nonce);
-  const iv = verifierSealIv(key, secret, state, nonce, verifier);
+  const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
   const ciphertext = Buffer.concat([
     cipher.update(verifier, "utf8"),
@@ -304,21 +281,38 @@ function authenticatedPayloadLegacy(
   return `OpenSesame:federated-pending:v3\0${base64Payload}\0${legacyInput}`;
 }
 
-function authenticatedPayloadV3(wireMac: string, legacyInput: string): string {
+function authenticatedPayloadV3(wireMac: string): string {
+  return `OpenSesame:federated-pending:v3:wire\0${wireMac}`;
+}
+
+/** Dual-field v3 MAC kept for verify-only migration from in-flight cookies. */
+function authenticatedPayloadV3Dual(
+  wireMac: string,
+  legacyInput: string,
+): string {
   return `OpenSesame:federated-pending:v3:wire\0${wireMac}\0${legacyInput}`;
 }
 
-function modernPendingSignature(
-  wireMac: string,
-  legacyInput: string,
-  secret: string,
-): string {
+function modernPendingSignature(wireMac: string, secret: string): string {
   // A distinct key prevents an old-format field from imitating a v3 message.
   const key = createHmac("sha256", secret)
     .update("OpenSesame:federated-pending:v3:key")
     .digest();
   return createHmac("sha256", key)
-    .update(authenticatedPayloadV3(wireMac, legacyInput))
+    .update(authenticatedPayloadV3(wireMac))
+    .digest("base64url");
+}
+
+function modernPendingSignatureDual(
+  wireMac: string,
+  legacyInput: string,
+  secret: string,
+): string {
+  const key = createHmac("sha256", secret)
+    .update("OpenSesame:federated-pending:v3:key")
+    .digest();
+  return createHmac("sha256", key)
+    .update(authenticatedPayloadV3Dual(wireMac, legacyInput))
     .digest("base64url");
 }
 
@@ -357,7 +351,6 @@ export function encodePending(
     "base64url",
   );
   if (!secret) return payload;
-  const legacyInput = pendingIntegrityPayload(pending, secret);
   const wireForMac = wireMacMaterial(
     wirePendingSchema.parse({
       ...body,
@@ -366,7 +359,7 @@ export function encodePending(
     pending.verifier,
     secret,
   );
-  return `${payload}.${modernPendingSignature(wireForMac, legacyInput, secret)}`;
+  return `${payload}.${modernPendingSignature(wireForMac, secret)}`;
 }
 
 /**
@@ -432,13 +425,19 @@ function verifiedPendingPayload(
   }
   const legacyInput = pendingIntegrityPayload(macPending, secret);
   const wireForMac = wireMacMaterial(data, verifier, secret);
-  const expected = modernPendingSignature(wireForMac, legacyInput, secret);
+  const expected = modernPendingSignature(wireForMac, secret);
+  const expectedDual = modernPendingSignatureDual(
+    wireForMac,
+    legacyInput,
+    secret,
+  );
   const expectedLegacy = modernPendingSignatureLegacy(
     payload,
     legacyInput,
     secret,
   );
   if (signatureMatches(supplied, expected)) return payload;
+  if (signatureMatches(supplied, expectedDual)) return payload;
   if (signatureMatches(supplied, expectedLegacy)) return payload;
   if (
     legacyEligible &&
