@@ -1,7 +1,7 @@
 {
   "version": 1,
   "reviewed_revision": "b9b09424aeaf088991a176275e91111beddfa0b8",
-  "reviewed_source_state": "Source hashes identify the reviewed ownership and signing-fence changes after the recorded base revision.",
+  "reviewed_source_state": "The source hashes identify the reviewed ownership, signing-fence and selector integration after the recorded base; they do not prove source-to-model refinement.",
   "lock_projection": {
     "root": "opensesame-spiffe-source",
     "algorithm": "cargo-lock-projection-v1-sha256",
@@ -174,7 +174,11 @@
     },
     {
       "path": "crates/gateway/src/transport/boot.rs",
-      "sha256": "9cab3c37fddfb7552b10f358d793a9cf8f63083aa2dd25c086ce59f2b5f8e1ab"
+      "sha256": "73913117e9ae7cfc203b070e1d6fa860d068655bd171fa0f72be24a13d1a3e10"
+    },
+    {
+      "path": "crates/gateway/src/transport/source_trust_selection.rs",
+      "sha256": "641e3e9fdd177f29cf62db43fd239639ef1072c842cef295995d428b515820ed"
     },
     {
       "path": "crates/gateway/src/transport/runtime.rs",
