@@ -173,7 +173,14 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
     );
   }
   if (tutorial) {
-    const tutDir = profileDir(outRoot, label, "default");
+    const tutorialSteps = [
+      "tutorial-opt-out-notifications.png",
+      "tutorial-pause-only-one.png",
+      "tutorial-pause-dismiss-x.png",
+      "tutorial-pause-all-queued.png",
+      "tutorial-queue-after-reload.png",
+      "tutorial-resumed-coach.png",
+    ];
     const freshHarnessPage = harness
       ? async (b) => {
           const opened = await harness.newPage(b);
@@ -188,25 +195,41 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
           const page = await context.newPage();
           return { context, page };
         };
-    await captureTutorialPauseFlow(
-      browser,
-      freshHarnessPage,
-      tutDir,
-      check,
-      href,
-      sealLocalOnly,
-    );
-    for (const step of [
-      "tutorial-opt-out-notifications.png",
-      "tutorial-pause-only-one.png",
-      "tutorial-pause-dismiss-x.png",
-      "tutorial-pause-all-queued.png",
-      "tutorial-queue-after-reload.png",
-      "tutorial-resumed-coach.png",
-    ]) {
-      const file = path.join(tutDir, step);
-      check(existsSync(file), `${step} exists`);
-      evidence.push({ build: label, step, sha256: digest(file) });
+    for (const id of PROFILES) {
+      const tutDir = profileDir(outRoot, label, id);
+      console.log(`  tutorial pause flow profile ${id}`);
+      await captureTutorialPauseFlow(
+        browser,
+        freshHarnessPage,
+        tutDir,
+        check,
+        href,
+        sealLocalOnly,
+        id,
+      );
+      const shotHashes = [];
+      for (const step of tutorialSteps) {
+        const file = path.join(tutDir, step);
+        check(existsSync(file), `${label}/${id}/${step} exists`);
+        const hash = digest(file);
+        shotHashes.push(hash);
+        evidence.push({
+          build: label,
+          profile: id,
+          step,
+          sha256: hash,
+        });
+      }
+      check(
+        new Set(shotHashes).size === shotHashes.length,
+        `${label}/${id} tutorial shots differ by hash (${shotHashes.length})`,
+      );
+      const onlyOne = path.join(tutDir, "tutorial-pause-only-one.png");
+      const dismissX = path.join(tutDir, "tutorial-pause-dismiss-x.png");
+      check(
+        digest(onlyOne) !== digest(dismissX),
+        `${label}/${id} pause only-one vs dismiss-x screenshots differ`,
+      );
     }
   }
   evidence.push({
