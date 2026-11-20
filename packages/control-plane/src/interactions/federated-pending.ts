@@ -80,9 +80,14 @@ const WIRE_COOKIE_FIELDS = new Set([
 ]);
 
 function wireCookieHasOnlyKnownFields(
-  parsed: Record<string, unknown>,
-): boolean {
-  return Object.keys(parsed).every((field) => WIRE_COOKIE_FIELDS.has(field));
+  parsed: unknown,
+): parsed is z.infer<typeof wirePendingSchema> {
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return false;
+  }
+  return Reflect.ownKeys(parsed).every(
+    (key) => typeof key === "string" && WIRE_COOKIE_FIELDS.has(key),
+  );
 }
 
 const SCRYPT_PARAMS = {
@@ -408,9 +413,9 @@ function verifiedPendingPayload(
   let data: z.infer<typeof wirePendingSchema>;
   let verifier: string;
   try {
-    const parsed = JSON.parse(
+    const parsed: unknown = JSON.parse(
       Buffer.from(payload, "base64url").toString("utf8"),
-    ) as Record<string, unknown>;
+    );
     if (!wireCookieHasOnlyKnownFields(parsed)) return undefined;
     const macResult = wirePendingSchema.safeParse(parsed);
     if (!macResult.success) return undefined;
@@ -478,9 +483,9 @@ export function decodePending(
     payload = verified;
   }
   try {
-    const parsed = JSON.parse(
+    const parsed: unknown = JSON.parse(
       Buffer.from(payload, "base64url").toString("utf8"),
-    ) as Record<string, unknown>;
+    );
     if (secret !== undefined && !wireCookieHasOnlyKnownFields(parsed))
       return undefined;
     const result = wirePendingSchema.safeParse(parsed);
