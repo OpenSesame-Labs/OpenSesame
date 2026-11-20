@@ -6,6 +6,13 @@
 //! error and ends), or a close (the stream ends cleanly). `shutdown` stops the
 //! server and unlinks the socket, which is what an agent restart looks like
 //! to a workload.
+//!
+//! A denial whose message contains the SPIRE phrase "no identity issued" is
+//! the phrase the `spiffe` 0.19 SDK (`WorkloadApiError::from_status`) maps to
+//! `NoIdentityIssued`. Any other `PERMISSION_DENIED` message stays
+//! `PermissionDenied`. The substring is SPIRE wording, not a SPIFFE field.
+//! Callers that need the no-identity variant must use that phrase; this fake
+//! does not invent a second matcher.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

@@ -67,7 +67,7 @@ MUTATIONS = (
     Mutation(
         "unauthenticated-becomes-outage",
         "src/source_policy.rs",
-        'if status.code() == GrpcStatusCode::Unauthenticated =>\n        {\n            ApiAction::Denied("workload_api_denied")\n        }',
+        'if status.code() == GrpcStatusCode::Unauthenticated =>\n        {\n            ApiAction::Denied("workload_api_unauthenticated")\n        }',
         "if status.code() == GrpcStatusCode::Unauthenticated =>\n        {\n            ApiAction::Outage\n        }",
         (
             vector("classify\tunauthenticated\tunauthenticated"),
