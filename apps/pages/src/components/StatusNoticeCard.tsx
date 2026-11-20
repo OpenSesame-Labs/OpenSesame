@@ -2,7 +2,7 @@ import {
   type Notice,
   dismissNotice,
 } from "@opensesame/app-core/lib/notices.js";
-import { useEffect, useRef } from "react";
+import { type RefObject, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { firstControl, landFocus } from "../lib/focus.js";
 import { CeremonyLink } from "./CeremonyLauncher.js";
@@ -78,32 +78,36 @@ function wordedPair(notice: Notice): boolean {
 function WordedActs({
   notice,
   onOpen,
+  actionsRef,
 }: {
   notice: Notice;
   onOpen: () => void;
+  actionsRef: RefObject<HTMLDivElement | null>;
 }) {
   const act = notice.act;
   const alt = notice.alt;
   if (!act || !alt) return null;
+  const runWorded = (opens: boolean | undefined, run: () => void) => {
+    const fromKeyboard =
+      actionsRef.current?.contains(document.activeElement) ?? false;
+    if (fromKeyboard) handBack = notice.id;
+    if (opens) onOpen();
+    run();
+    if (!opens) onOpen();
+  };
   return (
     <>
       <button
         type="button"
         className="btn btn--primary btn--sm choice"
-        onClick={() => {
-          if (act.opens) onOpen();
-          act.run();
-        }}
+        onClick={() => runWorded(act.opens, act.run)}
       >
         {act.label}
       </button>
       <button
         type="button"
         className="btn btn--sm choice"
-        onClick={() => {
-          if (alt.opens) onOpen();
-          alt.run();
-        }}
+        onClick={() => runWorded(alt.opens, alt.run)}
       >
         {alt.label}
       </button>
@@ -190,7 +194,7 @@ export function StatusNoticeCard({
           </IconKey>
         ) : null}
         {wordedPair(notice) ? (
-          <WordedActs notice={notice} onOpen={onOpen} />
+          <WordedActs notice={notice} onOpen={onOpen} actionsRef={actions} />
         ) : notice.act ? (
           <IconKey
             label={notice.act.label}

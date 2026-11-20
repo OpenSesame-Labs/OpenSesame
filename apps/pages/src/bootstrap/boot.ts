@@ -47,7 +47,6 @@ import {
   type ParsedRuntimeConfig,
   loadRuntimeConfig,
 } from "@opensesame/app-core/lib/runtime-config.js";
-import { rehydrateTutorialQueueNotices } from "@opensesame/app-core/lib/tutorial-queue-present.js";
 import { restorePacks } from "@opensesame/app-core/lib/type-packs/restore.js";
 import { watchVaultTypes } from "@opensesame/app-core/lib/type-packs/watch.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
@@ -77,7 +76,6 @@ export const bootSeams = {
 async function hydrateBootConfiguration(): Promise<ParsedRuntimeConfig> {
   const runtimeConfig = await loadRuntimeConfig();
   await kvHydrate([...CORE_BOOT_KEYS]);
-  rehydrateTutorialQueueNotices();
   // A configured provider revalidates its assertion while the local vault
   // opens. Unconfigured installations make no identity request.
   restoreConfiguredIdentityAtBootIfPresent();
