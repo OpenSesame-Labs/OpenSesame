@@ -11,6 +11,7 @@ import {
   mergedGuideGoalCount,
 } from "./setup-pause-goals.mjs";
 import {
+  applySetupProfileToUnlockedVault,
   captureProfileAppliedVault,
   profileMarkerKey,
 } from "./setup-profile-vault.mjs";
@@ -40,6 +41,20 @@ export async function shotFrame(page, file) {
 export async function shotPage(page, file) {
   await page.waitForTimeout(350);
   await page.screenshot({ path: file, animations: "disabled" });
+}
+
+async function shotDialog(page, file) {
+  const dialog = page.getByRole("dialog", { name: "Notifications" });
+  await dialog.waitFor({ timeout: 8_000 });
+  await page.waitForTimeout(200);
+  await dialog.screenshot({ path: file, animations: "disabled" });
+}
+
+async function pausePromptToast(page) {
+  return page
+    .locator(".toast")
+    .filter({ hasText: "Pause the others for this session?" })
+    .first();
 }
 
 export async function assertOnSetup(page, check) {
@@ -153,20 +168,15 @@ export async function openNotes(page) {
   return dialog;
 }
 
-export async function openVaultDefaultPin(page, href, sealLocalOnly) {
-  await page.goto(href, { waitUntil: "domcontentloaded" });
-  await page
-    .getByRole("button", { name: "Set up your own", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Default", exact: true }).click();
-  await page
-    .getByRole("heading", { level: 1, name: "Sign in" })
-    .waitFor({ timeout: 30_000 });
-  await sealLocalOnly(page);
-}
-
-async function exitVaultLockTutorial(page, href, sealLocalOnly) {
-  await openVaultDefaultPin(page, href, sealLocalOnly);
+async function exitVaultLockTutorial(
+  page,
+  href,
+  sealLocalOnly,
+  profileId,
+  check,
+  dir,
+) {
+  await applySetupProfileToUnlockedVault(page, href, profileId, check, dir);
   const card = await startTutorial(page, "vault.lock");
   await card.getByRole("button", { name: "Exit tutorial" }).click();
   await card.waitFor({ state: "hidden", timeout: 15_000 }).catch(() => {});
@@ -184,6 +194,7 @@ export async function captureTutorialPauseFlow(
   check,
   href,
   sealLocalOnly,
+  profileId,
 ) {
   let pauseAllCount;
   check(mergedGuideGoalCount() > 1, "merged guide goals");
@@ -196,7 +207,14 @@ export async function captureTutorialPauseFlow(
   {
     const { context, page } = await freshPage();
     try {
-      await exitVaultLockTutorial(page, href, sealLocalOnly);
+      await exitVaultLockTutorial(
+        page,
+        href,
+        sealLocalOnly,
+        profileId,
+        check,
+        dir,
+      );
       const dialog = await openNotes(page);
       await dialog
         .getByRole("button", { name: "Pause all for this session" })
@@ -207,7 +225,7 @@ export async function captureTutorialPauseFlow(
         .first()
         .waitFor({ timeout: 8_000 });
       const optOut = path.join(dir, "tutorial-opt-out-notifications.png");
-      await shotPage(page, optOut);
+      await shotDialog(page, optOut);
       check(
         (await countResumeKeys(dialog)) === 1,
         "one queued tour before pause choice",
@@ -220,7 +238,14 @@ export async function captureTutorialPauseFlow(
   {
     const { context, page } = await freshPage();
     try {
-      await exitVaultLockTutorial(page, href, sealLocalOnly);
+      await exitVaultLockTutorial(
+        page,
+        href,
+        sealLocalOnly,
+        profileId,
+        check,
+        dir,
+      );
       const dialog = await openNotes(page);
       await dialog.getByRole("button", { name: "Only this one" }).click();
       await page.waitForTimeout(500);
@@ -228,8 +253,19 @@ export async function captureTutorialPauseFlow(
         (await countResumeKeys(dialog)) === 1,
         "Only this one leaves one queued tour",
       );
+      const toast = await pausePromptToast(page);
+      check(
+        !(await toast.isVisible().catch(() => false)),
+        "Only this one clears sticky pause toast",
+      );
+      check(
+        (await dialog
+          .getByRole("button", { name: "Pause all for this session" })
+          .count()) === 0,
+        "Only this one clears tray pause prompt",
+      );
       const onlyOne = path.join(dir, "tutorial-pause-only-one.png");
-      await shotPage(page, onlyOne);
+      await shotDialog(page, onlyOne);
     } finally {
       await context.close();
     }
@@ -238,19 +274,35 @@ export async function captureTutorialPauseFlow(
   {
     const { context, page } = await freshPage();
     try {
-      await exitVaultLockTutorial(page, href, sealLocalOnly);
+      await exitVaultLockTutorial(
+        page,
+        href,
+        sealLocalOnly,
+        profileId,
+        check,
+        dir,
+      );
       const dialog = await openNotes(page);
       const pauseCard = dialog.locator(".notice-card", {
         hasText: "Pause the others",
       });
       await pauseCard.getByRole("button", { name: "Dismiss" }).click();
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(400);
       check(
         (await countResumeKeys(dialog)) === 1,
         "dismiss (X) still leaves tour queued",
       );
+      const toast = await pausePromptToast(page);
+      check(
+        await toast.isVisible().catch(() => false),
+        "dismiss (X) on tray leaves sticky pause toast visible",
+      );
+      check(
+        (await pauseCard.isVisible().catch(() => false)) === false,
+        "dismiss (X) removes tray pause card",
+      );
       const dismissX = path.join(dir, "tutorial-pause-dismiss-x.png");
-      await shotPage(page, dismissX);
+      await page.screenshot({ path: dismissX, animations: "disabled" });
     } finally {
       await context.close();
     }
@@ -259,7 +311,14 @@ export async function captureTutorialPauseFlow(
   {
     const { context, page } = await freshPage();
     try {
-      await exitVaultLockTutorial(page, href, sealLocalOnly);
+      await exitVaultLockTutorial(
+        page,
+        href,
+        sealLocalOnly,
+        profileId,
+        check,
+        dir,
+      );
       let dialog = await openNotes(page);
       await dialog
         .getByRole("button", { name: "Pause all for this session" })
