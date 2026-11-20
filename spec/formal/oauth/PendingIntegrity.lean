@@ -27,11 +27,22 @@ inductive WireVerifier where
   | plaintext
   | sealed
 
-def macUsesVerifierBinding (_wire : WireVerifier) : Bool :=
-  true
+def wireField (w : WireVerifier) : String :=
+  match w with
+  | .plaintext => "verifier"
+  | .sealed => "verifierEnc"
 
-theorem wire_encoding_does_not_change_mac_binding (a b : WireVerifier) :
-    macUsesVerifierBinding a = macUsesVerifierBinding b := by
+def macVerifierBinding (w : WireVerifier) (scryptDigest : String) : String :=
+  scryptDigest
+
+theorem wire_fields_differ_implies_distinct (a b : WireVerifier) :
+    a ≠ b → wireField a ≠ wireField b := by
+  rintro h
+  cases a <;> cases b <;> first | rfl | exact (h rfl)
+
+theorem wire_encoding_does_not_change_mac_binding (a b : WireVerifier)
+    (scryptDigest : String) :
+    macVerifierBinding a scryptDigest = macVerifierBinding b scryptDigest := by
   rfl
 
 /-- Legacy tags require a signed nonempty static-provider ID and no unsigned fields. -/

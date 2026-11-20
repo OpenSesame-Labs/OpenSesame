@@ -198,7 +198,7 @@ describe("every connector acquires a person's token", () => {
     const providerCallsBeforeCheck = [...provider.log];
     const check = await checkConnectorToken(connection.connectionId, PERSON);
     const issued = [...provider.issued, ...provider.apiKeys];
-    const fingerprints = issued.map((token) => fingerprintOf(token));
+    const fingerprints = await Promise.all(issued.map((token) => fingerprintOf(token)));
     expect(fingerprints).toContain(check.fingerprint);
     assertTokenProof({
       plan,
