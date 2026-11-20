@@ -66,54 +66,15 @@ const PATCHED = Object.freeze({
     rootDependency: "minimatch10-patched",
     override: "minimatch@^10.0.0",
   }),
-  "picomatch@2.3.2": Object.freeze({
-    advisory: "GHSA-fc5q-39xc-vjpf",
-    patch: "patches/picomatch@2.3.2.patch",
-    patchSha256:
-      "6cdab1d1d019c9d7411ac3b613f29ff438774ac3afdaee3252accbb98ab6beab",
-    tarball: "patches/vendor/picomatch-2.3.2.tgz",
-    tarballIntegrity:
-      "sha512-09gQNIEJmFp/5drn6dc1z2Q8+274lKiMYwbKVz87dpbd9c4U4m5NT8oNf33NDmFCF7vBkaBVi8BnJvCyqCJjVg==",
-    upstreamIntegrity:
-      "sha512-V7+vQEJ06Z+c5tSye8S+nHUfI51xoXIXjHQ99cQtKUkQqqO1kO/KCJUfZXuB47h/YBlDhah2H3hdUGXn8ie0oA==",
-    upstreamFileMapSha256:
-      "982a53e071734ab07133a11503b87330426d5e67610372a10a9b475bbcb5bdd1",
-    rootDependency: "picomatch-v2-patched",
-    override: "picomatch@^2",
-  }),
-  "picomatch@4.0.7": Object.freeze({
-    advisory: "GHSA-fc5q-39xc-vjpf",
-    patch: "patches/picomatch@4.0.7.patch",
-    patchSha256:
-      "fe32901ce194b0a6fdc0a67c2a0a839dddb3389d1241443dde8bde20ba28bc68",
-    tarball: "patches/vendor/picomatch-4.0.7.tgz",
-    tarballIntegrity:
-      "sha512-fbgphC5AZw9bwA8r7O9uY7AQT3ySVeRWL09JjeUkN4zWZeEj+1bCkh+AJDgIs3VjhsVEn5DfKQIFzDyskfqHYA==",
-    upstreamIntegrity:
-      "sha512-qcJu88Q2IWqJsDD529JKMdwGm/dvInW4HvQnRwiH9JtihJvzGOscDtHE3x1pBKeUOTysQ8kVmLnJ2kJu7yhcGA==",
-    upstreamFileMapSha256:
-      "f0935171c00b64fa6753c6ed10d7f32c635bb69baa09656517fb4cf9bcc366b9",
-    rootDependency: "picomatch-v4-patched",
-    override: "picomatch@^4",
-  }),
 });
 
-const PUBLISHED = Object.freeze({
-  "glob@13.0.7": Object.freeze({
-    advisory: "GHSA-3g3m-2fjr-6pw4",
-    resolved: "https://registry.npmjs.org/glob/-/glob-13.0.7.tgz",
-    integrity:
-      "sha512-wfsFgXQ8A3SEI9XGf7Nl3Y9l7ffSrGh7SUCT7vU/2CzYPep9kjxAn1S40F9OPKxAMGCVl7HtNlJhrCJUeUq83g==",
-    overrides: Object.freeze({
-      "glob@^13.0.1": "13.0.7",
-      "glob@^13.0.6": "13.0.7",
-    }),
-  }),
-});
+const PUBLISHED = Object.freeze({});
 
 const REGRESSIONS = Object.freeze({
   "scripts/security/dependency-override-upgrade.test.mjs":
     "6f9860e7a4117ae7156e9fa11490a9695970aa33f0d83e8abd87996508ad2bdb",
+  "scripts/security/glob-override-upgrade.test.mjs":
+    "0ed567bf86b1b5bd5cb24f7f7be940e849968bac3f21634c7320816f3f411de1",
   "scripts/security/removed-dependencies.test.mjs":
     "152c2f29164663c83e2992d43b66c5883693fc9c822df526d6cb650018e6eb20",
   "scripts/security/picomatch-backport.test.mjs":
