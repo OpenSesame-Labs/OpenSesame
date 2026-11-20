@@ -19,6 +19,7 @@ import type {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupportEngine } from "./engine.js";
 import { createSupportController } from "./session-controller.js";
+import { QUEUED_RESUME_ROUTE_SETTLE_MS } from "./session-queued-resume.js";
 
 const PROGRAM: GuideProgram = {
   version: GUIDE_LANG_VERSION,
@@ -304,42 +305,91 @@ describe("resumeQueuedWalkthrough", () => {
     controller.destroy();
   });
 
+  it("holds an off-route resume until route sync settles", async () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      let runs = 0;
+      const engine = stubEngine(false);
+      engine.runGuide = () => {
+        runs += 1;
+        return Promise.resolve({
+          kind: "completed",
+          goal: "settings.danger.review",
+        });
+      };
+      const controller = createSupportController({
+        loadEngine: () => Promise.resolve(engine),
+        onLock: () => () => {},
+        clearTargets: () => {},
+      });
+      controller.setRoute("/vault");
+      controller.setNavigator(() => true);
+      queueTutorial("settings.danger.review", { title: "Danger" });
+      expect(
+        controller.resumeQueuedWalkthrough(
+          "settings.danger.review",
+          "guide",
+          "/settings",
+        ),
+      ).toBe(true);
+      await Promise.resolve();
+      await Promise.resolve();
+      vi.advanceTimersByTime(QUEUED_RESUME_ROUTE_SETTLE_MS - 1);
+      expect(runs).toBe(0);
+      await controller.startGuide("other-tour", "authored");
+      expect(runs).toBe(0);
+      controller.setRoute("/settings");
+      await Promise.resolve();
+      expect(runs).toBe(1);
+      vi.advanceTimersByTime(1);
+      expect(runs).toBe(1);
+      expect(listQueuedTutorials()).toEqual([]);
+      controller.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("abandons a resume when navigation never updates the route", async () => {
-    let runs = 0;
-    const engine = stubEngine(false);
-    engine.runGuide = () => {
-      runs += 1;
-      return Promise.resolve({ kind: "completed", goal: "other-tour" });
-    };
-    const controller = createSupportController({
-      loadEngine: () => Promise.resolve(engine),
-      onLock: () => () => {},
-      clearTargets: () => {},
-    });
-    controller.setRoute("/vault");
-    controller.setNavigator(() => true);
-    queueTutorial("settings.danger.review", { title: "Danger" });
-    expect(
-      controller.resumeQueuedWalkthrough(
-        "settings.danger.review",
-        "guide",
-        "/settings",
-      ),
-    ).toBe(true);
-    await Promise.resolve();
-    await Promise.resolve();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(runs).toBe(0);
-    controller.setRoute("/settings");
-    await Promise.resolve();
-    expect(runs).toBe(0);
-    expect(listQueuedTutorials()).toEqual([
-      { goalId: "settings.danger.review" },
-    ]);
-    await controller.startGuide("other-tour", "authored");
-    expect(runs).toBe(1);
-    controller.destroy();
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      let runs = 0;
+      const engine = stubEngine(false);
+      engine.runGuide = () => {
+        runs += 1;
+        return Promise.resolve({ kind: "completed", goal: "other-tour" });
+      };
+      const controller = createSupportController({
+        loadEngine: () => Promise.resolve(engine),
+        onLock: () => () => {},
+        clearTargets: () => {},
+      });
+      controller.setRoute("/vault");
+      controller.setNavigator(() => true);
+      queueTutorial("settings.danger.review", { title: "Danger" });
+      expect(
+        controller.resumeQueuedWalkthrough(
+          "settings.danger.review",
+          "guide",
+          "/settings",
+        ),
+      ).toBe(true);
+      await Promise.resolve();
+      await Promise.resolve();
+      vi.advanceTimersByTime(QUEUED_RESUME_ROUTE_SETTLE_MS);
+      expect(runs).toBe(0);
+      controller.setRoute("/settings");
+      await Promise.resolve();
+      expect(runs).toBe(0);
+      expect(listQueuedTutorials()).toEqual([
+        { goalId: "settings.danger.review" },
+      ]);
+      await controller.startGuide("other-tour", "authored");
+      expect(runs).toBe(1);
+      controller.destroy();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("starts a resume when home arrives after the engine is ready", async () => {
@@ -403,6 +453,103 @@ describe("resumeQueuedWalkthrough", () => {
     await running;
     expect(loadGuidance().tours).toEqual(["vault.lock"]);
     expect(listQueuedTutorials()).toEqual([]);
+    controller.destroy();
+  });
+
+  it("records a completed walkthrough after lock clears the engine", async () => {
+    let resolveRun: (outcome: GuideOutcome) => void = () => {};
+    const engine = stubEngine(false);
+    engine.compileAuthored = () => ({
+      ...PROGRAM,
+      goal: "settings.danger.review",
+    });
+    const controller = createSupportController({
+      loadEngine: () => Promise.resolve(engine),
+      onLock: () => () => {},
+      clearTargets: () => {},
+    });
+    controller.setRoute("/settings");
+    queueTutorial("settings.danger.review", { title: "Danger" });
+    let started = false;
+    engine.runGuide = () => {
+      started = true;
+      return new Promise((resolve) => {
+        resolveRun = resolve;
+      });
+    };
+    const running = controller.startGuide("guide", "authored");
+    await vi.waitFor(() => expect(started).toBe(true));
+    controller.lock();
+    resolveRun({ kind: "completed", goal: "settings.danger.review" });
+    await running;
+    expect(loadGuidance().tours).toEqual(["settings.danger.review"]);
+    expect(listQueuedTutorials()).toEqual([]);
+    controller.destroy();
+  });
+
+  it("records the lock walkthrough when lock cancels the running guide", async () => {
+    let resolveRun: (outcome: GuideOutcome) => void = () => {};
+    const engine = stubEngine(false);
+    engine.compileAuthored = () => ({ ...PROGRAM, goal: "vault.lock" });
+    const controller = createSupportController({
+      loadEngine: () => Promise.resolve(engine),
+      onLock: () => () => {},
+      clearTargets: () => {},
+    });
+    controller.setRoute("/vault");
+    queueTutorial("vault.lock", { title: "Lock the vault" });
+    let started = false;
+    engine.runGuide = () => {
+      started = true;
+      return new Promise((resolve) => {
+        resolveRun = resolve;
+      });
+    };
+    engine.cancelGuide = (reason) => {
+      resolveRun({ kind: "cancelled", goal: "vault.lock", reason });
+    };
+    const running = controller.startGuide("guide", "authored");
+    await vi.waitFor(() => expect(started).toBe(true));
+    expect(loadGuidance().tours).toEqual([]);
+    controller.lock();
+    await running;
+    expect(loadGuidance().tours).toEqual(["vault.lock"]);
+    expect(listQueuedTutorials()).toEqual([]);
+    controller.destroy();
+  });
+
+  it("does not record a different tour when lock cancels it", async () => {
+    let resolveRun: (outcome: GuideOutcome) => void = () => {};
+    const engine = stubEngine(false);
+    engine.compileAuthored = () => ({
+      ...PROGRAM,
+      goal: "settings.danger.review",
+    });
+    const controller = createSupportController({
+      loadEngine: () => Promise.resolve(engine),
+      onLock: () => () => {},
+      clearTargets: () => {},
+    });
+    controller.setRoute("/settings");
+    queueTutorial("settings.danger.review", { title: "Danger" });
+    let started = false;
+    engine.runGuide = () => {
+      started = true;
+      return new Promise((resolve) => {
+        resolveRun = resolve;
+      });
+    };
+    engine.cancelGuide = (reason) => {
+      resolveRun({ kind: "cancelled", goal: "settings.danger.review", reason });
+    };
+    const running = controller.startGuide("guide", "authored");
+    await vi.waitFor(() => expect(started).toBe(true));
+    controller.lock();
+    await running;
+    expect(loadGuidance().tours).toEqual([]);
+    expect(listQueuedTutorials()).toEqual([
+      { goalId: "settings.danger.review" },
+    ]);
     controller.destroy();
   });
 });
