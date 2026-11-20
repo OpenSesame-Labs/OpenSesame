@@ -15,7 +15,7 @@ use tokio::sync::watch;
 
 use crate::config::SpiffeSourceConfig;
 use crate::sink::{ClaimedSink, GenerationSink, SharedLease};
-use crate::status::SourceStatus;
+use crate::status::{SourcePhase, SourceStatus};
 
 #[path = "source_policy.rs"]
 mod source_policy;
@@ -55,3 +55,7 @@ impl SpiffeSource {
 #[cfg(test)]
 #[path = "source_formal_tests.rs"]
 mod formal_tests;
+
+#[cfg(all(test, feature = "fake-workload-api"))]
+#[path = "source_lease_tests.rs"]
+mod lease_tests;
