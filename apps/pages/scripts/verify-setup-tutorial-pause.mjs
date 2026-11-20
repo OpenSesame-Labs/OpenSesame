@@ -92,6 +92,8 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
   check(existsSync(choices), `${label} setup-choices.png written`);
   const records = [];
   const profileMarkerKeys = [];
+  const appliedHashes = [];
+  const featuresHashes = [];
   const newProfilePage = async () => {
     if (harness) {
       const opened = await harness.newPage(browser);
@@ -121,10 +123,15 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
         `${label}/${id} setup-profile-picker.png`,
       );
       profileMarkerKeys.push(applied.markerKey);
+      const appliedHash = digest(applied.file);
+      const featuresHash = digest(applied.features);
+      appliedHashes.push(appliedHash);
+      featuresHashes.push(featuresHash);
       records.push({
         build: label,
         profile: id,
-        setupProfileApplied: digest(applied.file),
+        setupProfileApplied: appliedHash,
+        setupProfileFeatures: featuresHash,
         setupProfilePicker: digest(applied.picker),
         vaultMarkers: applied.markers,
         vaultMarkerKey: applied.markerKey,
@@ -136,6 +143,14 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
   check(
     new Set(profileMarkerKeys).size === profileMarkerKeys.length,
     `each profile leaves distinct vault DOM markers: ${profileMarkerKeys.join(" · ")}`,
+  );
+  check(
+    new Set(appliedHashes).size === appliedHashes.length,
+    `each profile vault screenshot differs (${appliedHashes.length} profiles)`,
+  );
+  check(
+    new Set(featuresHashes).size === featuresHashes.length,
+    `each profile Features screenshot differs (${featuresHashes.length} profiles)`,
   );
   for (const id of PROFILES) {
     const applied = path.join(outRoot, label, id, "setup-profile-applied.png");
