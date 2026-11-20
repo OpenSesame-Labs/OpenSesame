@@ -1,4 +1,5 @@
 import { setStatusNotice } from "@opensesame/app-core/lib/notices.js";
+import { bindTutorialResume } from "@opensesame/app-core/lib/tutorial-queue.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import {
   HELP_TOPICS,
@@ -6,7 +7,10 @@ import {
   guideGoal,
 } from "@opensesame/app-core/tutorial/registry/goals.js";
 import { rankHelpTopics } from "@opensesame/app-core/tutorial/registry/goals-search.js";
-import type { GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes.js";
+import {
+  type GuideRouteId,
+  guideRouteWithin,
+} from "@opensesame/app-core/tutorial/registry/routes.js";
 import { clearMountedGuideTargets } from "@opensesame/app-core/tutorial/registry/targets.js";
 import { webmcpSupportSeam } from "@opensesame/app-core/webmcp/tool-shared.js";
 /**
@@ -29,7 +33,10 @@ import { webmcpSupportSeam } from "@opensesame/app-core/webmcp/tool-shared.js";
  * runtime, Driver.js and the capability registry all arrive on first open.
  */
 import type { GuideGoalId, GuideProgram } from "@opensesame/guide-lang";
-import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
+import type {
+  GuideCancelReason,
+  GuideRuntimeSnapshot,
+} from "@opensesame/guide-runtime";
 import type {
   SupportAgentAvailability,
   SupportComputerStep,
@@ -58,6 +65,7 @@ import {
 import { refreshEngineAvailability } from "./refresh-engine.js";
 import { emptyView } from "./session-view.js";
 import { SupportContext } from "./support-context.js";
+import { queueTourExit } from "./tutorial-exit.js";
 import {
   GUIDE_ERROR_TEXT,
   GUIDE_REFUSED_TEXT,
@@ -142,8 +150,11 @@ export interface SupportController {
   nextStep(): void;
   backStep(): void;
   replayGuide(): void;
-  /** Leaves the tour; Escape and the close key are this. */
-  stopGuide(): void;
+  /**
+   * Leaves the tour. Escape and the close key pass no reason, which is a
+   * person's exit. A stop the product takes itself names why, and is not queued.
+   */
+  stopGuide(reason?: GuideCancelReason): void;
   /**
    * The vault locked. Drops the transcript, the model session and every
    * overlay a walkthrough drew, and resets the panel.
@@ -169,6 +180,13 @@ export function createSupportController(
   let loading: Promise<SupportEngine | null> | null = null;
   let stopGuideFeed: (() => void) | null = null;
   let navigator: ((route: GuideRouteId) => void) | null = null;
+  const unbindResume = bindTutorialResume((goalId, guide, homeRoute) => {
+    if (guideGoal(goalId) === null) return;
+    if (homeRoute !== "" && !guideRouteWithin(state.route, homeRoute)) {
+      navigator?.(homeRoute);
+    }
+    void startGuide(guide, "authored");
+  });
   let entries = 0;
   let cancelled = false;
   /** Bumped by teardown, so a load in flight cannot install a stale engine. */
@@ -375,6 +393,9 @@ export function createSupportController(
       const closing = state.guide?.message;
       if (closing) push("note", closing, []);
     }
+    if (outcome.kind === "cancelled" && outcome.reason === "user") {
+      queueTourExit(outcome.goal);
+    }
   }
 
   async function startGuide(
@@ -408,6 +429,7 @@ export function createSupportController(
     engine = null;
     loading = null;
     dependencies.clearTargets();
+    unbindResume();
     // Everything the person said, everything that answered, and every overlay
     // it drew goes with the keys.
     state = emptyView(state.route);
@@ -549,8 +571,8 @@ export function createSupportController(
     replayGuide() {
       engine?.restartGuide();
     },
-    stopGuide() {
-      engine?.cancelGuide("user");
+    stopGuide(reason: GuideCancelReason = "user") {
+      engine?.cancelGuide(reason);
     },
     lock() {
       teardown();
