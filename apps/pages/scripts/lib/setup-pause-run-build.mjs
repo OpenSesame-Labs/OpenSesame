@@ -60,7 +60,7 @@ export async function openBuildBrowser(
   return { context, page, harness, choices };
 }
 
-function newProfilePageFactory(browser, harness, devUrl) {
+function newProfilePageFactory(harness) {
   if (harness) {
     return async (b) => {
       const opened = await harness.newPage(b);
@@ -82,7 +82,7 @@ export async function captureProfileRecords(
   browser,
   { harness, devUrl, label, href, outRoot, check, digest },
 ) {
-  const newProfilePage = newProfilePageFactory(browser, harness, devUrl);
+  const newProfilePage = newProfilePageFactory(harness);
   const records = [];
   const profileMarkerKeys = [];
   const appliedHashes = [];
@@ -146,7 +146,7 @@ export async function captureAdvancedMinimalWarning(
   { harness, devUrl, expectAdvanced, label, href, outRoot, check },
 ) {
   if (!expectAdvanced) return;
-  const newProfilePage = newProfilePageFactory(browser, harness, devUrl);
+  const newProfilePage = newProfilePageFactory(harness);
   const warnDir = profileDir(outRoot, label, "minimal");
   const opened = await newProfilePage(browser);
   try {
