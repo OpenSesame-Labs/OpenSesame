@@ -174,16 +174,25 @@ export class SupportControllerCore {
     if (!loaded) return;
     this.set({ open: false });
     const outcome = await loaded.runGuide(program, origin);
+    // Lock teardown nulls `this.engine` before this await resumes. Record a
+    // finished tour first — including the lock walkthrough, whose outcome is
+    // the lock cancel itself — or the Resume row comes back after unlock.
+    const lockWalkthrough =
+      outcome.kind === "cancelled" &&
+      outcome.reason === "lock" &&
+      outcome.goal === "vault.lock";
+    if (outcome.kind === "completed" || lockWalkthrough) {
+      if (this.engine === loaded && outcome.kind === "completed") {
+        const closing = this.state.guide?.message;
+        if (closing) this.push("note", closing, []);
+      }
+      rememberTourAnswered(outcome.goal);
+      completeQueuedTutorial(outcome.goal);
+    }
     if (this.engine !== loaded) return;
     if (outcome.kind === "failed") {
       this.notifyFailure(GUIDE_ERROR_TEXT[outcome.error.code]);
       return;
-    }
-    if (outcome.kind === "completed") {
-      const closing = this.state.guide?.message;
-      if (closing) this.push("note", closing, []);
-      rememberTourAnswered(outcome.goal);
-      completeQueuedTutorial(outcome.goal);
     }
     if (outcome.kind === "cancelled" && outcome.reason === "user") {
       queueTourExit(outcome.goal);
