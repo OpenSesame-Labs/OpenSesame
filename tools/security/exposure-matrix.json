@@ -2922,14 +2922,14 @@
       "974c6ed1"
     ],
     "crates/gateway/src/transport/mod.rs": [
-      "69f4733b",
-      "850892a1",
-      "080d71b8",
-      "28f8bc04",
-      "ccb5de57",
-      "e93fa7ad",
-      "9124c48a",
-      "8c677fbd"
+      "93083feb",
+      "8574bf58",
+      "3b13d3cc",
+      "860f4dd6",
+      "4d8374b1",
+      "1f3b1c2a",
+      "0de7e8d2",
+      "ebbe6614"
     ],
     "crates/gateway/src/transport/probe.rs": [
       "281791f2",
@@ -2972,14 +2972,14 @@
       "0b777fc2"
     ],
     "crates/gateway/src/transport/runtime.rs": [
-      "9228fa01",
-      "875bfea7",
-      "ad321e38",
-      "761ae809",
-      "2f850a65",
-      "0749baec",
-      "c1b33d79",
-      "cd28d4c2"
+      "d207ee86",
+      "0f79f67f",
+      "5eccf3c0",
+      "d9eeb30a",
+      "1e128da6",
+      "c23df84b",
+      "8ff6634f",
+      "ca6028b8"
     ],
     "crates/gateway/src/transport/status.rs": [
       "3d6b1f62",
