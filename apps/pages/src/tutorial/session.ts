@@ -54,9 +54,9 @@ import {
 } from "./engine.js";
 import { refreshEngineAvailability } from "./refresh-engine.js";
 import {
+  type SupportWalkthrough,
   noteGrounding,
   walkthroughsFor,
-  type SupportWalkthrough,
 } from "./session-grounding.js";
 import { emptyView } from "./session-view.js";
 import { queueTourExit } from "./tutorial-exit.js";
