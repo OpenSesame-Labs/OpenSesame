@@ -15,14 +15,17 @@ ENV CLI_RELEASE_PACK=1 \
   VERSION=${VERSION}
 RUN npm run build -w @opensesame/cli \
   && node scripts/release/prepare-cli-release.mjs
-FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
-RUN useradd -u 10001 -m app
+# Alpine runtime: no Debian dpkg/status for OSV container scans.
+FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5
+RUN adduser -D -u 10001 app
 WORKDIR /opt/opensesame-cli
 COPY --from=build /src/packages/cli/release/ ./
 # Committed shrinkwrap for the release manifest from prepare-cli-release.mjs.
 # package-lock.json is gitignored; agent-browser's install script downloads a browser.
 COPY ops/containers/cli/npm-shrinkwrap.json ./npm-shrinkwrap.json
 RUN npm ci --omit=dev --ignore-scripts \
+  && find node_modules -name '.package-lock.json' -delete \
+  && rm -rf node_modules/@typescript node_modules/typescript \
   && chown -R app:app /opt/opensesame-cli
 ARG VERSION=0.0.0-local
 LABEL org.opencontainers.image.source="https://github.com/OpenSesame-Labs/OpenSesame" \
