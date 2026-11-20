@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import {
@@ -366,4 +366,32 @@ test("bad lock input, missing helper, and dishonest Python output cannot skip pr
     assert.match(result.stderr, /lock projection/i, kind);
     assert.deepEqual(f.commands(), []);
   }
+});
+
+test("native push executes the verified helper even if its source changes afterward", (t) => {
+  const { f } = initialize(t);
+  f.write("Cargo.lock", lock({ sdk: "e" }));
+  f.commit();
+  const lookup = spawnSync(
+    "python3",
+    ["-I", "-c", "import sys; print(sys.executable)"],
+    {
+      encoding: "utf8",
+    },
+  );
+  assert.equal(lookup.status, 0, lookup.stderr);
+  const python = lookup.stdout.trim();
+  assert.match(python, /^\/[^\r\n\0]+$/u);
+  const quotedPython = `'${python.replaceAll("'", "'\\''")}'`;
+  const shim = join(f.bin, "python3");
+  writeFileSync(
+    shim,
+    `#!/bin/sh\noriginal="$PWD/scripts/security/cargo-lock-projection.py"\nbackup="$original.race-backup"\ncp "$original" "$backup"\n: > "$0.race-observed"\nprintf '%s\\n' 'import json; print(json.dumps({"changed": False}))' > "$original"\n${quotedPython} "$@"\nresult=$?\ncat "$backup" > "$original"\nrm "$backup"\nexit "$result"\n`,
+    { mode: 0o755 },
+  );
+  const result = push(f, "HEAD", "refs/heads/main");
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(existsSync(`${shim}.race-observed`), true);
+  assert.deepEqual(f.commands(), ["run verify:spiffe"]);
+  assert.equal(f.git("status", "--porcelain"), "");
 });
