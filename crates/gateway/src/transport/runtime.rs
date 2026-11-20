@@ -40,15 +40,36 @@ use super::ManagedIdentityResolver;
 /// startup failure, not a reason to serve without one.
 pub const SPIFFE_FIRST_SVID_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// After `wait_for` returns, decide whether the listener may bind. A withdrawn
-/// source can still report `generation = Some(_)` until the sink clears it;
-/// that snapshot must not count as a bindable identity.
+/// A first SVID may bind only while the source is still serving it.
+/// [`SourcePhase::Withdrawn`] and [`SourcePhase::Stopped`] keep `generation`
+/// set (the number of the generation that ended), so a generation alone is
+/// not a usable identity.
+#[must_use]
 pub(crate) fn spiffe_first_ready_to_bind(status: &SourceStatus) -> bool {
     status.generation.is_some()
-        && !matches!(
-            status.phase,
-            SourcePhase::Withdrawn | SourcePhase::Stopped
-        )
+        && !matches!(status.phase, SourcePhase::Withdrawn | SourcePhase::Stopped)
+}
+
+/// Terminal observation for the first-SVID wait: a served generation, or a
+/// withdrawn or stopped source. The latter must refuse the bind.
+#[must_use]
+pub(crate) fn spiffe_first_svid_settled(status: &SourceStatus) -> bool {
+    spiffe_first_ready_to_bind(status)
+        || matches!(status.phase, SourcePhase::Withdrawn | SourcePhase::Stopped)
+}
+
+/// Bind only a served generation. Withdrawal, stop, a deadline with no
+/// generation, and a source task that exited are
+/// [`TransportError::IdentityMissing`].
+pub(crate) fn conclude_spiffe_first_svid(
+    ready: Result<SourceStatus, WaitError>,
+) -> Result<(), TransportError> {
+    match ready {
+        Ok(status) if spiffe_first_ready_to_bind(&status) => Ok(()),
+        Ok(_) | Err(WaitError::DeadlineElapsed(_) | WaitError::StatusTaskGone(_)) => {
+            Err(TransportError::IdentityMissing)
+        }
+    }
 }
 
 /// Everything the Host's secure listener, service admission and operator
@@ -288,7 +309,9 @@ fn load_trust(
 }
 
 /// Start the Workload API source and wait for the first SVID. The listener
-/// is bound only after a real generation exists.
+/// is bound only while a generation is being served. A generation that was
+/// observed and then withdrawn or stopped before this wait returns refuses
+/// to bind.
 async fn start_spiffe(
     listener: &ListenerConfig,
 ) -> Result<(Arc<TransportGenerations>, SpiffeSourceHandle), TransportError> {
@@ -299,18 +322,10 @@ async fn start_spiffe(
     let sink = Arc::new(TransportGenerationsSink::new(Arc::clone(&generations)));
     let handle = SpiffeSource::start(config, sink);
     let ready = handle
-        .wait_for(SPIFFE_FIRST_SVID_TIMEOUT, |status| {
-            status.generation.is_some() || status.phase == SourcePhase::Withdrawn
-        })
+        .wait_for(SPIFFE_FIRST_SVID_TIMEOUT, spiffe_first_svid_settled)
         .await;
-    match ready {
-        Ok(status) if spiffe_first_ready_to_bind(&status) => Ok((generations, handle)),
-        // Withdrawal, a deadline with no generation, and a source task that
-        // exited all refuse to bind the listener.
-        Ok(_) | Err(WaitError::DeadlineElapsed(_) | WaitError::StatusTaskGone(_)) => {
-            Err(TransportError::IdentityMissing)
-        }
-    }
+    conclude_spiffe_first_svid(ready)?;
+    Ok((generations, handle))
 }
 
 /// The trusted-ingress layer: originating-client evidence is verified against
