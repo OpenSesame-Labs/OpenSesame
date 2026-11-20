@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { GUIDE_LANG_VERSION, type GuideProgram } from "@opensesame/guide-lang";
 import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { SupportEngine } from "./engine.js";
 import { createSupportController } from "./session-controller.js";
 
@@ -22,7 +22,9 @@ const DONE: GuideRuntimeSnapshot = {
   tour: null,
 };
 
-function stubEngine(onSubscribe?: (listener: (s: GuideRuntimeSnapshot) => void) => void): SupportEngine {
+function stubEngine(
+  onSubscribe?: (listener: (s: GuideRuntimeSnapshot) => void) => void,
+): SupportEngine {
   let runCalls = 0;
   return {
     transport: "none",
