@@ -80,7 +80,10 @@ export async function sealFirstVault(
     }
     await sealPasskey.click();
     await waitForSecurityKey(page, { out, width, label, keepShots });
-    check(true, "first vault: unavailable device passkey offers Security key");
+    check(
+      await page.getByRole("tab", { name: "Security key" }).isVisible(),
+      "first vault: unavailable device passkey offers Security key",
+    );
     // Start the real cross-platform prompt, then choose PIN to cancel it as a
     // person would when no security key is available.
     await sealPasskey.click();

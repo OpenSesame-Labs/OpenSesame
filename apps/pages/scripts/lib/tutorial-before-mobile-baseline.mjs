@@ -1,25 +1,20 @@
 /** Phone setup-path baseline on pre–first-vault main (per install profile). */
 
 import path from "node:path";
-import {
-  applySetupChoice,
-  captureChoices,
-  openDoor,
-} from "./verification-checklist-setup.mjs";
+import { dismissFirstVisitOffer } from "./dismiss-first-visit.mjs";
+import { openDoor, pickSetupChoice } from "./verification-checklist-setup.mjs";
 
-/** Shell/setup coaches can sit above the choice row; step through narrate beats. */
 async function clearCoachOverlay(page) {
-  for (let i = 0; i < 12; i++) {
-    if ((await page.locator(".coach").count()) === 0) return;
-    const notNow = page.getByRole("button", { name: "Not now" });
-    if (await notNow.count()) {
-      await notNow.click({ timeout: 3_000 }).catch(() => {});
-      if ((await page.locator(".coach").count()) === 0) return;
-    }
+  for (let i = 0; i < 16; i++) {
+    if ((await page.locator(".coach__dim").count()) === 0) return;
+    await dismissFirstVisitOffer(page);
     const next = page.locator(".coach__btn--go");
-    if (!(await next.count())) return;
-    await next.click({ force: true, timeout: 3_000 }).catch(() => {});
-    await page.waitForTimeout(150);
+    if (await next.count()) {
+      await next.click({ force: true, timeout: 3_000 }).catch(() => {});
+    } else {
+      await page.keyboard.press("Escape").catch(() => {});
+    }
+    await page.waitForTimeout(200);
   }
 }
 
@@ -51,9 +46,20 @@ export async function runBeforeMobileBaseline({
       Object.defineProperty(navigator, "webdriver", { get: () => false }),
     );
     await openDoor(page, shot, record, href);
-    await captureChoices(page, shot, record);
+    await dismissFirstVisitOffer(page);
     await clearCoachOverlay(page);
-    await applySetupChoice(page, shot, record, walk.setupChoice);
+    const setupOwn = page.getByRole("button", {
+      name: "Set up your own",
+      exact: true,
+    });
+    await setupOwn.waitFor({ state: "visible", timeout: 15_000 });
+    await setupOwn.evaluate((button) => button.click());
+    await page
+      .getByRole("button", { name: walk.setupChoice, exact: true })
+      .waitFor({ timeout: 15_000 });
+    await shot("setup-choices");
+    await clearCoachOverlay(page);
+    await pickSetupChoice(page, walk.setupChoice, { shot, record });
     await page.screenshot({
       path: path.join(out, "390-before-post-setup.png"),
       animations: "disabled",
