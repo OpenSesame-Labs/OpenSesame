@@ -49,7 +49,10 @@ fn compare_tail_is_response(scanned: &str, args: &str, open: usize) -> bool {
         return false;
     };
     let tail = raw_tail.trim();
-    let name: String = tail.chars().take_while(|ch| super::is_ident_char(*ch)).collect();
+    let name: String = tail
+        .chars()
+        .take_while(|ch| super::is_ident_char(*ch))
+        .collect();
     if name.is_empty() || !tail[name.len()..].trim().is_empty() {
         return false;
     }

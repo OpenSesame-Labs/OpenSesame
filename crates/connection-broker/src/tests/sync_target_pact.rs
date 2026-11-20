@@ -79,6 +79,10 @@ fn contract_https_egress_guard_is_in_source_before_send() {
     let (sends, missing) = credentialed_send_https_gaps(&production);
     assert!(sends >= 1, "credentialed sync must send");
     assert_eq!(missing, 0, "unguarded credentialed sends: {missing}");
+    assert!(
+        super::sync_target_pact_p5::egress_sources_disable_redirects(),
+        "credentialed egress client must set redirect::Policy::none()"
+    );
     assert_no_body_read(&production);
 }
 
