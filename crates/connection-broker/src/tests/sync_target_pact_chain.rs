@@ -38,8 +38,8 @@ fn chain_method_on_response(scanned: &str, method: &str) -> bool {
 }
 
 fn chain_root_is_response(source: &str, dot: usize) -> bool {
-    const RECEIVERS: &[&str] = &["response", "res", "upstream", "http_response", "body"];
-    root_ident(source, dot).is_some_and(|name| RECEIVERS.contains(&name.as_str()))
+    root_ident(source, dot)
+        .is_some_and(|name| super::sync_target_pact_rename::tracks_response_receiver(source, dot, name))
 }
 
 fn root_ident(source: &str, mut end: usize) -> Option<String> {
@@ -311,8 +311,12 @@ fn alias_call_len(
     if name.is_empty() {
         return None;
     }
-    let after =
+    let mut after =
         strip_turbofish(&source[index + name.len()..]).unwrap_or(&source[index + name.len()..]);
+    while after.starts_with(')') {
+        after = &after[1..];
+        after = strip_turbofish(after).unwrap_or(after);
+    }
     if !after.starts_with('(') {
         return None;
     }
@@ -357,4 +361,28 @@ fn ends_with_kw(source: &str, keyword: &str) -> bool {
 
 fn leading_ident(source: &str) -> String {
     source.chars().take_while(|ch| is_ident_char(*ch)).collect()
+}
+
+/// Argument list opener for `name(…)` and `(name)(…)` alias dispatches.
+pub(crate) fn call_tail(source: &str, at: usize) -> Option<&str> {
+    let rest = &source[at..];
+    let name_len = leading_ident(rest).len();
+    if name_len == 0 {
+        return None;
+    }
+    let mut tail = rest[name_len..].trim_start();
+    if tail.starts_with('(') {
+        return Some(tail);
+    }
+    loop {
+        let Some(stripped) = tail.strip_prefix(')') else { break };
+        tail = strip_turbofish(stripped).unwrap_or(stripped).trim_start();
+        if tail.starts_with('(') {
+            return Some(tail);
+        }
+        if !tail.starts_with(')') {
+            break;
+        }
+    }
+    None
 }
