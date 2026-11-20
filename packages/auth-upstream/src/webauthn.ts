@@ -8,7 +8,7 @@ import type {
  * Requires a previously issued challenge that matches clientDataJSON.challenge.
  */
 import {
-  type AuthenticatorTransportFuture,
+  type AuthenticatorTransport,
   type GenerateAuthenticationOptionsOpts,
   generateAuthenticationOptions,
   generateRegistrationOptions,
@@ -43,7 +43,7 @@ function toBase64Url(bytes: Uint8Array): string {
     .replace(/=+$/g, "");
 }
 
-const AUTHENTICATOR_TRANSPORTS: AuthenticatorTransportFuture[] = [
+const AUTHENTICATOR_TRANSPORTS: AuthenticatorTransport[] = [
   "internal",
   "hybrid",
   "usb",
@@ -168,7 +168,7 @@ export async function issueAuthenticationChallenge(
     userVerification: "required",
   };
   if (opts?.allowCredentials && opts.allowCredentials.length > 0) {
-    const transports: AuthenticatorTransportFuture[] = [
+    const transports: AuthenticatorTransport[] = [
       "internal",
       "hybrid",
       "usb",
