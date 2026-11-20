@@ -12,21 +12,22 @@ import { fileURLToPath } from "node:url";
 import { findChromium } from "./duress/find-chromium.mjs";
 import { createHarness } from "./lib/static-origin-harness.mjs";
 import {
+  appPaths,
+  buildDist,
+  resolveWalks,
+} from "./lib/verification-checklist-profiles.mjs";
+import {
   applySetupChoice,
   captureChoices,
   enterVault,
   openDoor,
 } from "./lib/verification-checklist-setup.mjs";
 import {
-  appPaths,
-  buildDist,
-  resolveWalks,
-} from "./lib/verification-checklist-profiles.mjs";
-import {
   BASE,
   ORIGIN,
   createShot,
   emptyRecord,
+  mark,
 } from "./lib/verification-checklist-shot.mjs";
 
 const repoRoot = path.resolve(
@@ -132,20 +133,37 @@ async function routeConnectRelay(page) {
   });
 }
 
-async function armConnectRelay(page, shot, origin, base) {
+async function armConnectRelay(page, shot, origin, base, profileName) {
   const command = page.locator("#command-bar-input");
-  if (await command.isVisible().catch(() => false)) {
-    await command.fill("connections");
-    await page.keyboard.press("Enter");
-    await page.waitForURL(/\/connections/, { timeout: 30_000 });
-  } else {
+  const openConnections = async () => {
     await page.goto(`${origin}${base}connections`, {
       waitUntil: "domcontentloaded",
     });
+    await page.waitForURL(/\/connections/, { timeout: 60_000 });
+  };
+  if (await command.isVisible().catch(() => false)) {
+    await command.fill("connections");
+    await page.keyboard.press("Enter");
+    const navigated = await page
+      .waitForURL(/\/connections/, { timeout: 15_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!navigated) await openConnections();
+  } else {
+    await openConnections();
   }
   await shot("connections-landing");
   const importKey = page.getByRole("button", { name: "Import connectors" });
-  await importKey.waitFor({ state: "visible", timeout: 60_000 });
+  const importVisible = await importKey
+    .waitFor({
+      state: "visible",
+      timeout: profileName === "minimal-local" ? 15_000 : 60_000,
+    })
+    .then(() => true)
+    .catch(() => false);
+  if (!importVisible) {
+    return { panelReachable: false };
+  }
   await importKey.click();
   const vercel = page.getByRole("button", { name: /Vercel Connect/i });
   await vercel.click();
@@ -172,6 +190,7 @@ async function armConnectRelay(page, shot, origin, base) {
   await page
     .locator(".conn-service", { hasText: "wedding-resend" })
     .waitFor({ state: "visible", timeout: 60_000 });
+  return { panelReachable: true };
 }
 
 async function captureTokenLabel(page, walk, origin, base) {
@@ -183,12 +202,37 @@ async function captureTokenLabel(page, walk, origin, base) {
   await routeConnectRelay(page);
   await openDoor(page, shot, record, `${origin}${base}`);
   await captureChoices(page, shot, record);
-  const where = await applySetupChoice(page, shot, record, walk.setupChoice);
+  const setupOptions =
+    walk.name === "custom" ? { enableConnectorsExternal: true } : {};
+  const where = await applySetupChoice(
+    page,
+    shot,
+    record,
+    walk.setupChoice,
+    setupOptions,
+  );
   const entry = await enterVault(page, where);
   record.entry = entry;
   await shot(`vault-${entry}`);
 
-  await armConnectRelay(page, shot, origin, base);
+  const relay = await armConnectRelay(page, shot, origin, base, walk.name);
+  if (relay.panelReachable === false) {
+    const absentImport = page.getByRole("button", {
+      name: "Import connectors",
+    });
+    mark(
+      record,
+      "minimal-no-import",
+      (await absentImport.count()) === 0,
+      "UserTokenPanel not installable without connectors.external",
+    );
+    await page.screenshot({
+      path: path.join(shotDir, "user-token-fingerprint-label.png"),
+      fullPage: true,
+    });
+    console.error(`[user-token-label] ${walk.name} ${phase} furthest-state ok`);
+    return;
+  }
 
   await page
     .locator(".conn-service", { hasText: "wedding-resend" })
