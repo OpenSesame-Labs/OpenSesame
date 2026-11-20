@@ -324,6 +324,42 @@ mod authorized_bytes_tests {
     }
 
     #[tokio::test]
+    async fn an_upstream_error_does_not_wait_for_an_unfinished_body() {
+        use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+
+        let (broker, org, connection) = active_mock_connection().await;
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut stream, _) = listener.accept().await.unwrap();
+            let mut request = [0_u8; 4096];
+            stream.read(&mut request).await.unwrap();
+            stream
+                .write_all(b"HTTP/1.1 400 Bad Request\r\nTransfer-Encoding: chunked\r\n\r\n")
+                .await
+                .unwrap();
+            // Never finish the body. A reader of response.text() hangs here.
+            std::future::pending::<()>().await;
+        });
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            broker.authorized_bytes(
+                &org,
+                &connection,
+                &format!("http://{address}/upload"),
+                &[],
+                b"x".to_vec(),
+            ),
+        )
+        .await;
+        server.abort();
+        let error = result
+            .expect("the error body must not delay the refusal")
+            .unwrap_err();
+        assert!(error.to_string().contains("400"));
+    }
+
+    #[tokio::test]
     async fn a_connection_without_an_active_credential_cannot_upload() {
         let (_db, broker, org, integration) =
             organization_oauth_broker_with_token_url(token_server().await).await;
