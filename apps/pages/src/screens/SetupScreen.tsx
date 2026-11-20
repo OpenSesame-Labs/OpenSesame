@@ -190,7 +190,10 @@ export function SetupScreen({
       return;
     }
     if (id === "minimal") {
-      showMinimalConfirm(() => commit("minimal"));
+      showMinimalConfirm(
+        () => commit("minimal"),
+        () => commit("default"),
+      );
       return;
     }
     dismissMinimalConfirm();
