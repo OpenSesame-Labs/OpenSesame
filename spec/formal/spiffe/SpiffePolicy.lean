@@ -134,7 +134,9 @@ theorem effective_bounded_by_retention (notAfter retainUntil : Nat) :
 
 theorem expired_is_not_usable (now deadline : Nat) (h : deadline ≤ now) :
     usableAt now deadline = false := by
-  simp [usableAt, Nat.not_lt.mpr h]
+  unfold usableAt
+  simp only [decide_eq_false_iff_not]
+  exact Nat.not_lt.mpr h
 
 theorem status_expired_at_retention (now notAfter retainUntil : Nat)
     (h : retainUntil ≤ now) : usableAt now (effectiveDeadline notAfter retainUntil) = false := by
