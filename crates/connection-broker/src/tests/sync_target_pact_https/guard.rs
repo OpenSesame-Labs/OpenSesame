@@ -109,8 +109,13 @@ fn scheme_covers(expr: &str, before: &str, dest: &str) -> bool {
     let Some((rhs, end)) = last_rhs(before, &subject) else {
         return false;
     };
-    // `url = evil` between `Url::parse(url)` and this guard checks a stale copy.
-    url_parse_arg(rhs) == Some(dest) && !super::bind::shadows(&before[end..], dest)
+    // `url = evil` between `Url::parse(url)` and this guard checks a stale
+    // copy. A mutation of the parsed subject is just as stale:
+    // `parsed.set_scheme("https")` after `Url::parse(&url)` checks a value the
+    // sent `url` no longer has.
+    url_parse_arg(rhs) == Some(dest)
+        && !super::bind::shadows(&before[end..], dest)
+        && !super::bind::shadows(&before[end..], &subject)
 }
 
 fn scheme_subject(expr: &str) -> Option<String> {
@@ -248,6 +253,9 @@ fn condition_brace(bytes: &[u8], from: usize) -> Option<usize> {
 
 fn depth0_return(body: &str) -> bool {
     let bytes = body.as_bytes();
+    // Paren and bracket depth count, not only braces: a `return` token inside
+    // a macro invocation's token tree (`swallow!(return Err("x"));`) is an
+    // argument the macro may never emit, so it cannot fail-close the branch.
     let (mut depth, mut index, mut stmt) = (0i32, 0usize, 0usize);
     while index < bytes.len() {
         if let Some(len) = string_len(bytes, index) {
@@ -255,8 +263,8 @@ fn depth0_return(body: &str) -> bool {
             continue;
         }
         match bytes[index] {
-            b'{' => depth += 1,
-            b'}' => depth -= 1,
+            b'{' | b'(' | b'[' => depth += 1,
+            b'}' | b')' | b']' => depth -= 1,
             b';' if depth == 0 => stmt = index + 1,
             _ if depth == 0 && is_keyword_at(bytes, index, b"return") => {
                 if !super::closure::closure_owns(&body[stmt..index]) {

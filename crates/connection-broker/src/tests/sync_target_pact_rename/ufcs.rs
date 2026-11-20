@@ -1,7 +1,6 @@
 //! UFCS moves and `.into()` on response receivers.
 use super::super::sync_target_pact_norm::string_len;
 use super::marker::is_ident_char;
-use super::peel::receiver_before;
 
 /// `Into::into(response)`, `Body::from::<T>(response)`, and `<Type as Trait>::from`.
 pub(crate) fn ufcs_response_move(scanned: &str) -> bool {
@@ -73,11 +72,6 @@ fn angle_inner_is_response(inner: &str) -> bool {
         inner.rsplit("::").next().map(str::trim),
         Some("Response" | "Body")
     )
-}
-
-fn has_word(hay: &str, ident: &str) -> bool {
-    hay.split(|ch: char| !is_ident_char(ch))
-        .any(|part| part == ident)
 }
 
 fn ends_ident(prefix: &str, ident: &str) -> bool {

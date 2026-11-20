@@ -30,12 +30,19 @@ pub(super) fn passes_response_to_callee(scanned: &str, response_type_aliases: &[
 
 fn borrowed_response_call(scanned: &str, paren: usize, response_type_aliases: &[String]) -> bool {
     if !free_call(scanned, paren)
-        || allowed_callee(callee_name(scanned, paren).as_str())
         || request_builder_json_call(scanned, paren, response_type_aliases)
     {
         return false;
     }
-    args_borrow_response(scanned, paren)
+    let borrows = args_borrow_response(scanned, paren);
+    // The `drop` exemption covers only the actual by-value discard
+    // (`drop(response)`), where `args_borrow_response` is false. A helper that
+    // is merely named `drop` but receives `&response` / `&mut response` can
+    // read the provider body in another module, so it stays flagged.
+    if allowed_callee(callee_name(scanned, paren).as_str()) && !borrows {
+        return false;
+    }
+    borrows
 }
 
 fn request_builder_json_call(source: &str, paren: usize, response_type_aliases: &[String]) -> bool {

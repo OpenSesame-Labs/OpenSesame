@@ -2,6 +2,9 @@
 use super::super::sync_target_pact_norm::{is_keyword_at, non_code_len};
 #[path = "bind_tail.rs"]
 mod bind_tail;
+#[path = "escape.rs"]
+mod escape;
+pub(super) use escape::ownership_escape;
 
 pub(super) use super::mutate::shadows;
 pub(super) use bind_tail::{call_tail, ident_prefix, is_single_eq, stmt_end, strip_ref};
@@ -91,7 +94,7 @@ fn expr_continues(bytes: &[u8], mut at: usize) -> bool {
     is_keyword_at(bytes, at, b"else")
 }
 
-fn assigned_builder_url(prefix: &str, name: &str) -> Option<String> {
+pub(super) fn assigned_builder_url(prefix: &str, name: &str) -> Option<String> {
     let bytes = prefix.as_bytes();
     let mut scope = UrlScope::default();
     let mut index = 0usize;

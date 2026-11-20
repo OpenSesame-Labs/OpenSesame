@@ -63,6 +63,21 @@ pub(crate) fn credentialed_send_https_gaps(source: &str) -> (usize, usize) {
             index += len;
             continue;
         }
+        // A free call that receives a locally built request (`transmit(request)`)
+        // owns it: the wrapper can dispatch the credential wherever it wants,
+        // so the escape counts as a send bound to that builder's URL.
+        let Some((fn_start, _)) = innermost_span(&spans, index) else {
+            index += 1;
+            continue;
+        };
+        if let Some((len, url)) = bind::ownership_escape(&source, fn_start, index) {
+            sends += 1;
+            if !guard::guarded(&source[fn_start..index], Some(&url)) {
+                missing += 1;
+            }
+            index += len;
+            continue;
+        }
         index += 1;
     }
     (sends, missing)
@@ -86,16 +101,20 @@ fn dispatch_site(source: &str, alias_calls: &[(usize, usize)], index: usize) -> 
 }
 
 fn scheme_guarded(source: &str, spans: &[(usize, usize)], index: usize) -> bool {
-    let Some((start, _)) = spans
-        .iter()
-        .copied()
-        .filter(|(span_start, end)| *span_start < index && index < *end)
-        .min_by_key(|(span_start, end)| end - span_start)
-    else {
+    let Some((start, _)) = innermost_span(spans, index) else {
         return false;
     };
     let dest = bind::dispatch_url(source, start, index);
     guard::guarded(&source[start..index], dest.as_deref())
+}
+
+/// Smallest function span strictly containing `index`.
+fn innermost_span(spans: &[(usize, usize)], index: usize) -> Option<(usize, usize)> {
+    spans
+        .iter()
+        .copied()
+        .filter(|(span_start, end)| *span_start < index && index < *end)
+        .min_by_key(|(span_start, end)| end - span_start)
 }
 
 /// `.send(` / `::send(` / `.execute(` / `::execute(`, optional turbofish.
