@@ -325,4 +325,47 @@ mod probes {
             assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
         }
     }
+
+    /// `} else return;` never falls through: only the if-arm exit reaches the
+    /// next statement, so the stale entry URL must not bless a send that the
+    /// if-arm owns (Kimi council r2 chunk02 P1 — a braceless `else` left
+    /// `pending_else` unconsumed).
+    #[test]
+    fn kimi_council_r2_braceless_else_return_keeps_if_exit() {
+        let bless = r#"async fn f() { let request = client.get(url); if url.scheme() != "https" { return Err("x".into()); } if c1 { request = client.get(evil); } else return; request.send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(bless), (1, 1), "{bless}");
+        let same = r#"async fn f() { let request = client.get(url); if url.scheme() != "https" { return Err("x".into()); } if c1 { request = client.get(url); } else return; request.send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(same), (1, 0), "{same}");
+    }
+
+    /// `myrequest` is not `request`. This probe proves the Kimi council r2
+    /// chunk02 claim false on this code: `is_keyword_at` already enforces
+    /// the leading ident boundary, so `note_binding` cannot match the send
+    /// name inside a longer identifier and rebind it.
+    #[test]
+    fn kimi_council_r2_wider_ident_is_not_the_send_name() {
+        let kept = r#"async fn f() { let request = client.get(url); if url.scheme() != "https" { return Err("x".into()); } myrequest = client.get(other); request.send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(kept), (1, 0), "{kept}");
+    }
+
+    /// A `;` inside a comment is not a statement break: the binding's RHS
+    /// keeps the whole `if / else`, so disagreeing branch URLs still fail
+    /// closed (Kimi council r2 chunk02 — `stmt_end` skips comments like its
+    /// sibling scanners).
+    #[test]
+    fn kimi_council_r2_comment_semicolon_does_not_truncate_the_rhs() {
+        let cases = [
+            "fn f() { let request = if c { client.get(url) } // ;\n else { client.get(evil) }; request.send() }",
+            "fn f() { let request = if c { client.get(url) } /* ; */ else { client.get(evil) }; request.send() }",
+        ];
+        for sample in cases {
+            let open = sample.find('{').expect("fn body");
+            let at = sample.find(".send").expect("send");
+            assert_eq!(
+                super::super::dispatch_url(sample, open, at).as_deref(),
+                Some(""),
+                "disagreeing branches must fail closed: {sample}"
+            );
+        }
+    }
 }

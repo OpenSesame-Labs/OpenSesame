@@ -13,7 +13,7 @@ pub(super) use bind_tail::{call_tail, ident_prefix, is_single_eq, stmt_end, stri
 mod scope;
 #[path = "bind_url.rs"]
 mod url;
-use scope::{brace_kind, else_follows, merge_both, merge_partial, note_binding};
+use scope::{brace_kind, braceless_else, else_follows, merge_both, merge_partial, note_binding};
 pub(super) use url::{
     builder_url, call_inside, eq_after_name, plain_ident, skip_ascription, split_arg,
 };
@@ -240,6 +240,12 @@ impl UrlScope {
 
     fn finish_cond(&mut self, prefix: &str, close: usize, cond: Cond) {
         if cond.else_arm.is_none() && else_follows(prefix, close + 1) {
+            // A braceless `else return;` cannot fall through, so the if-arm
+            // exit is the only state that reaches the next statement: the
+            // entry URL must not survive to bless a send the if-arm owns.
+            if braceless_else(prefix, close + 1) {
+                return;
+            }
             self.pending_else = Some(PendingElse {
                 entry: cond.entry.clone(),
                 if_exit: self.layers.clone(),

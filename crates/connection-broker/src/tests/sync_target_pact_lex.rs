@@ -136,7 +136,7 @@ pub(crate) fn function_spans(bytes: &[u8]) -> Vec<(usize, usize)> {
             continue;
         }
         if is_keyword_at(bytes, index, b"fn") {
-            if let Some(open) = find_code_byte(bytes, index, b'{') {
+            if let Some(open) = fn_body_open(bytes, index) {
                 if let Some(close) = match_brace(bytes, open) {
                     spans.push((open, close));
                     index = open + 1;
@@ -147,6 +147,28 @@ pub(crate) fn function_spans(bytes: &[u8]) -> Vec<(usize, usize)> {
         index += 1;
     }
     spans
+}
+
+/// `{` that opens this `fn`'s body. A body-less declaration (`fn f();` in a
+/// trait, `fn() -> T` in a type) stops at its `;` first, so it cannot claim
+/// the next `{` in the file as its body.
+fn fn_body_open(bytes: &[u8], fn_at: usize) -> Option<usize> {
+    let (mut depth, mut index) = (0i32, fn_at);
+    while index < bytes.len() {
+        if let Some(len) = non_code_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'(' | b'[' => depth += 1,
+            b')' | b']' if depth > 0 => depth -= 1,
+            b'{' if depth == 0 => return Some(index),
+            b';' if depth == 0 => return None,
+            _ => {}
+        }
+        index += 1;
+    }
+    None
 }
 
 fn raw_string_len(bytes: &[u8]) -> Option<usize> {
@@ -338,6 +360,27 @@ mod probes {
         assert!(
             reads.is_empty(),
             "a commented region with a stray quote stays hidden: {reads:?}"
+        );
+    }
+
+    /// A body-less trait `fn f();` must not claim the next `{` in the file
+    /// as its body: the send inside a later closure keeps its function's
+    /// span, and the scheme guard that lives before the trait with it (Kimi
+    /// council r2 chunk04).
+    #[test]
+    fn kimi_council_r2_bodyless_trait_fn_keeps_function_spans() {
+        let src = "fn outer() { trait T { fn f(); } let c = || { work(); }; }";
+        let spans = super::function_spans(src.as_bytes());
+        assert_eq!(spans.len(), 1, "only outer registers a span: {spans:?}");
+        assert_eq!(
+            &src[spans[0].0..=spans[0].1],
+            "{ trait T { fn f(); } let c = || { work(); }; }"
+        );
+        let sample = r#"async fn outer() { if url.scheme() != "https" { return Err("x".into()); } trait T { fn f(); } let send_it = || { client.get(url).send().await?; }; }"#;
+        assert_eq!(
+            crate::tests::sync_target_pact_https::credentialed_send_https_gaps(sample),
+            (1, 0),
+            "{sample}"
         );
     }
 }

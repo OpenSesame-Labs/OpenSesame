@@ -1,5 +1,7 @@
 //! In-place updates that void an HTTPS guard on the sent URL.
-use super::super::sync_target_pact_norm::{find_code_byte, is_keyword_at, match_brace, string_len};
+use super::super::sync_target_pact_norm::{
+    find_code_byte, is_keyword_at, match_brace, non_code_len, string_len,
+};
 
 /// `name` is assigned or updated in place, so the checked value is not the sent one.
 /// `url = evil` is an assignment. `set_scheme`, `clone_from`, `push_str`, and any
@@ -181,11 +183,31 @@ fn cond_let_binds(source: &str, name: &str, name_at: usize) -> bool {
     let Some(eq) = super::bind::eq_after_name(bytes, name_at + name.len()) else {
         return false;
     };
-    // The first code `{` after the pattern's `=` opens the condition's block.
-    // If it never closes within this scan, the send sits inside it.
-    match find_code_byte(bytes, eq + 1, b'{') {
-        Some(open) => match_brace(bytes, open).is_some(),
-        None => false,
+    // The first code `{` after the pattern's `=` may belong to the scrutinee
+    // (`if let url = Make { .. } { … }`): a brace whose close is followed by
+    // another `{` was the scrutinee, not the condition's block. If the block
+    // never closes within this scan, the send sits inside it.
+    let Some(mut open) = find_code_byte(bytes, eq + 1, b'{') else {
+        return false;
+    };
+    while let Some(close) = match_brace(bytes, open) {
+        match next_code_at(bytes, close + 1) {
+            Some(next) if bytes[next] == b'{' => open = next,
+            _ => break,
+        }
+    }
+    match_brace(bytes, open).is_some()
+}
+
+/// Next code byte position at or after `at`: whitespace, comments, and
+/// strings are skipped.
+fn next_code_at(bytes: &[u8], mut at: usize) -> Option<usize> {
+    loop {
+        if let Some(len) = non_code_len(bytes, at) {
+            at += len;
+            continue;
+        }
+        return (at < bytes.len()).then_some(at);
     }
 }
 
@@ -341,6 +363,28 @@ mod probes {
         ];
         for sample in voided {
             assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+        }
+    }
+
+    /// A struct-literal scrutinee puts its own `{` before the condition's
+    /// block. The block is still the binding's scope: a send inside it reads
+    /// the rebound value and fails closed; a send after it keeps the guard
+    /// (Kimi council r2 chunk04).
+    #[test]
+    fn kimi_council_r2_struct_literal_scrutinee_keeps_cond_let_scope() {
+        let voided = [
+            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } if let url = Make { x: 1 } { client.get(url).send().await?; } }"#,
+            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } while let url = Make { x: 1 } { client.get(url).send().await?; } }"#,
+        ];
+        for sample in voided {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+        }
+        let kept = [
+            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } if let url = Make { x: 1 } { let _ = 1; } client.get(url).send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } if let url = evil { let _ = 1; } client.get(url).send().await?; }"#,
+        ];
+        for sample in kept {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
         }
     }
 }
