@@ -138,4 +138,34 @@ describe("resumeQueuedWalkthrough", () => {
     ]);
     controller.destroy();
   });
+
+  it("refuses startGuide while a queued resume waits on the engine", async () => {
+    let runGuideCalls = 0;
+    let resolver: (engine: SupportEngine) => void = () => {};
+    const pending = new Promise<SupportEngine>((resolve) => {
+      resolver = resolve;
+    });
+    const controller = createSupportController({
+      loadEngine: () => pending,
+      onLock: () => () => {},
+      clearTargets: () => {},
+    });
+    const engine = stubEngine(false);
+    engine.runGuide = () => {
+      runGuideCalls += 1;
+      return Promise.resolve({ kind: "completed", goal: "vault.lock" });
+    };
+    controller.setRoute("/vault");
+    queueTutorial("vault.lock", { title: "Lock the vault" });
+    expect(
+      controller.resumeQueuedWalkthrough("vault.lock", "guide", "/vault"),
+    ).toBe(true);
+    await controller.startGuide("other-tour", "authored");
+    resolver(engine);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(runGuideCalls).toBe(0);
+    expect(listQueuedTutorials()).toEqual([{ goalId: "vault.lock" }]);
+    controller.destroy();
+  });
 });
