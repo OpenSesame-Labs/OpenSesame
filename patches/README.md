@@ -124,8 +124,9 @@ local OSV data still lists releases before 14.0.2 as affected. The
 those same consumers, therefore select published `glob` 14.0.6. That release
 depends on `minimatch` 11, so those glob edges do not force the patched
 `minimatch` 10 tarball. Glob 10 and 11 stay on the patched tarballs so older
-consumers keep their matching behavior. The audit gate keeps the Glob,
-Minimatch, and Picomatch findings in its artifact while a fail-closed
+consumers keep their matching behavior. The withdrawn picomatch advisory
+GHSA-fc5q-39xc-vjpf is no longer a scanner finding. The audit gate keeps the
+four patched Glob and Minimatch findings in its artifact while a fail-closed
 attestation binds each exact tuple to every lock occurrence, published or
 reverse-reconstructed upstream source, patch and vendored tarball digest, and
 named behavior regression. It cannot classify a new advisory, version, range,
