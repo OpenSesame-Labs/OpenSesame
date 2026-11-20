@@ -513,8 +513,8 @@ impl StoreRoot {
         // has no sidecar yet. Retrying is safe if unlink is interrupted.
         let local = self.attachment_revision(name)?;
         let minimum = local.unwrap_or(0).max(state.revision);
-        if local.is_none() && !state.deleted {
-            self.open_manifest_at_witness(name, key)?;
+        if !state.deleted {
+            let _ = self.open_manifest_at_witness(name, key)?;
         }
         let revision = self.tombstone_attachment_witness(name, key, minimum)?;
         self.record_attachment_revision(name, revision)?;
