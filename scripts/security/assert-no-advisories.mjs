@@ -61,7 +61,7 @@ const REGRESSIONS = Object.freeze({
   "scripts/security/glob-override-upgrade.test.mjs":
     "21284c2b686376ca469d60626a00d7f33056d83515267f5e35eec362dd8f0520",
   "scripts/security/removed-dependencies.test.mjs":
-    "81bb996c90f72b6425db7cdbf95de8f39783b7deb8332e62b7bd507c06bf4dcf",
+    "64d2015c6b64e76b140799c7f7cd51afb2d885d92df909418b8151f14b980dd1",
   "scripts/security/picomatch-backport.test.mjs":
     "17796faf39393ae5c27e73b1771b5d1d7b22680ba9b376cb5c49cf9dde8c85b6",
   "scripts/security/patched-dependencies.mjs":
