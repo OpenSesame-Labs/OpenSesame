@@ -106,8 +106,10 @@ mod dispatch_tests {
             credentialed_send_https_gaps("async fn f() { let f = Client::execute; }"),
             (0, 0)
         );
-        let db = "async fn f() { query.execute(&self.pool).await?; }";
+        let db = "async fn f() { sqlx::query(\"select 1\").execute(&self.pool).await?; }";
         assert_eq!(credentialed_send_https_gaps(db), (0, 0));
+        let spelled = "async fn f() { let pool = request.build()?; query.execute(pool).await?; }";
+        assert_eq!(credentialed_send_https_gaps(spelled), (1, 1));
         let compacted_typed = "async fn f() { let dispatch:_=reqwest::RequestBuilder::send; dispatch(request).await?; }";
         assert_eq!(credentialed_send_https_gaps(compacted_typed), (1, 1));
         let compacted_guarded = format!(

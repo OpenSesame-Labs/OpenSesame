@@ -268,6 +268,24 @@ mod probes {
     }
 
     #[test]
+    fn p5_nested_comment_does_not_close_unit_tests() {
+        let src = "fn prod() {}\n#[cfg(test)]\nmod unit_tests {\n    /* outer /* inner */ } */\n    fn hidden() { response.bytes(); }\n}\n";
+        let production = crate::tests::sync_target_pact_scan::sync_target_production_for_scan(src);
+        assert!(!production.contains("hidden"), "{production}");
+        assert!(!production.contains("response.bytes"), "{production}");
+    }
+
+    #[test]
+    fn p5_quote_inside_block_comment_keeps_the_body_read() {
+        let sample = "/* \" */ response.text().await;";
+        let reads = crate::tests::sync_target_pact_scan::response_body_reads(sample);
+        assert!(
+            !reads.is_empty(),
+            "a quote inside a block comment must not hide response.text(): {reads:?}"
+        );
+    }
+
+    #[test]
     fn p5_compound_assign_not_let_binding_eq() {
         assert!(
             crate::tests::sync_target_pact_let::binding_name_before("url += evil").is_none(),

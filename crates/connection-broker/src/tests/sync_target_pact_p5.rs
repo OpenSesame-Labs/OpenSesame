@@ -1,6 +1,11 @@
 //! Council P5 regressions for the credentialed sync pact scanner.
 use super::sync_target_pact_https::credentialed_send_https_gaps;
-use super::sync_target_pact_scan::{response_body_reads, sync_target_production_for_scan};
+use super::sync_target_pact_scan::response_body_reads;
+
+#[path = "sync_target_pact_p5_probes.rs"]
+mod probes;
+
+pub(crate) use probes::egress_sources_disable_redirects;
 
 fn assert_read(sample: &str) {
     let reads = response_body_reads(sample);
@@ -115,6 +120,9 @@ fn p5_debug_macros_parens_brackets_and_compare() {
         r#"format!("{:?}", (response))"#,
         "dbg![response]",
         r#"format!{"{:?}", response}"#,
+        r#"format!["{:?}", response]"#,
+        "dbg!{response}",
+        "tracing::info![?response]",
         r#"format!("{:?}", a < b, response)"#,
         "let f = <reqwest::Body as From<Response>>::from;",
     ] {
@@ -124,14 +132,22 @@ fn p5_debug_macros_parens_brackets_and_compare() {
 
 #[test]
 fn p5_query_client_execute_is_a_send() {
-    let client = r#"async fn f() { let query = client; query.execute(request).await?; }"#;
-    assert_gaps(client, (1, 1));
-    let param = r#"async fn f(query: Client) { query.execute(request).await?; }"#;
-    assert_gaps(param, (1, 1));
-    let sqlx = r#"async fn f() { query.execute(&self.pool).await?; }"#;
-    assert_gaps(sqlx, (0, 0));
-    let chain = r#"async fn f() { sqlx::query("select 1").execute(&pool).await?; }"#;
-    assert_gaps(chain, (0, 0));
+    for sample in [
+        r#"async fn f() { let query = client; query.execute(request).await?; }"#,
+        r#"async fn f(query: Client) { query.execute(request).await?; }"#,
+        r#"async fn f() { let pool = request.build()?; query.execute(pool).await?; }"#,
+        r#"async fn f() { let pool = client; pool.execute(request).await?; }"#,
+        r#"async fn f() { query.execute(&self.pool).await?; }"#,
+    ] {
+        assert_gaps(sample, (1, 1));
+    }
+    for sample in [
+        r#"async fn f() { sqlx::query("select 1").execute(&pool).await?; }"#,
+        r#"async fn f() { let q = sqlx::query("select 1"); q.execute(&self.pool).await?; }"#,
+        r#"async fn f() { let q = sqlx::query("select 1"); let run = q; run.execute(&pool).await?; }"#,
+    ] {
+        assert_gaps(sample, (0, 0));
+    }
 }
 
 #[test]
@@ -213,21 +229,6 @@ fn p5_delegated_response_callee_is_a_body_read() {
 }
 
 #[test]
-#[test]
-fn p5_redirect_policy_none_in_egress_clients() {
-    for src in [
-        include_str!("../lib.rs"),
-        include_str!("../constructor.rs"),
-        include_str!("../egress_client.rs"),
-    ] {
-        assert!(
-            src.contains("redirect::Policy::none()"),
-            "credentialed egress client must disable redirects"
-        );
-    }
-}
-
-#[test]
 fn p5_tuple_and_send_response_renames_are_body_reads() {
     for sample in [
         "let (reply,) = (response,); reply.text().await",
@@ -236,6 +237,9 @@ fn p5_tuple_and_send_response_renames_are_body_reads() {
         "let reply = if flag { response } else { other }; reply.into()",
         "let leaked: reqwest::Body = response.try_into().unwrap();",
         "<Response as TryInto<Body>>::try_into(response).unwrap()",
+        "TryFrom::try_from(response)",
+        "let aliased = response; let reply = if flag { aliased } else { other }; reply.into()",
+        "let reply = client.execute(request).await?; let body: reqwest::Body = reply.into();",
     ] {
         assert_read(sample);
     }
@@ -244,7 +248,9 @@ fn p5_tuple_and_send_response_renames_are_body_reads() {
 #[test]
 fn p5_body_from_item_without_response_call_is_clear() {
     assert_clear("let make_body = reqwest::Body::from;");
+    assert_clear("let make_body = reqwest::Body::from; make_body(payload)");
     assert_read("let make_body = reqwest::Body::from; make_body(response)");
+    assert_read("let make_body = reqwest::Body::from; let payload = response; make_body(payload)");
 }
 
 #[test]
@@ -293,38 +299,4 @@ fn p5_as_str_before_send_stays_guarded() {
 fn p5_build_request_multi_arg_fails_closed() {
     let sample = r#"async fn f() { if safe.scheme() != "https" { return Err("x".into()); } let request = build_request(evil, safe); request.send().await?; }"#;
     assert_gaps(sample, (1, 1));
-}
-
-fn code_find(hay: &str, needle: &str) -> Option<usize> {
-    use super::sync_target_pact_norm::string_len;
-    let bytes = hay.as_bytes();
-    let needle = needle.as_bytes();
-    let mut index = 0usize;
-    while index + needle.len() <= bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        if &bytes[index..index + needle.len()] == needle {
-            return Some(index);
-        }
-        index += 1;
-    }
-    None
-}
-
-#[test]
-fn p5_host_str_authority_pin_precedes_send() {
-    let production = sync_target_production_for_scan(include_str!("../sync_target.rs"));
-    let host = code_find(&production, "parsed.host_str()")
-        .expect("production must pin host_str to the authority");
-    let send = code_find(&production, ".send()").expect("production must send");
-    assert!(host < send, "host_str authority pin must precede .send()");
-    assert!(
-        code_find(&production, "!= Some(authority)").is_some_and(|eq| eq > host && eq < send),
-        "host_str must be compared to authority before send"
-    );
-    let (sends, missing) = credentialed_send_https_gaps(&production);
-    assert!(sends >= 1, "credentialed sync must send");
-    assert_eq!(missing, 0, "unguarded credentialed sends: {missing}");
 }

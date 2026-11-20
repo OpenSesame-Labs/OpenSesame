@@ -11,13 +11,17 @@ pub(crate) use ufcs::{
     ufcs_response_move, ufcs_type_is_response,
 };
 
-pub(super) const RESPONSE_RECEIVER_NAMES: &[&str] = &["response", "res", "upstream", "http_response", "body"];
+pub(super) const RESPONSE_RECEIVER_NAMES: &[&str] =
+    &["response", "res", "upstream", "http_response", "body"];
 
 pub(crate) fn tracks_response_receiver(source: &str, before: usize, name: String) -> bool {
     let mut current = name;
     let prefix = &source[..before];
     for _ in 0..8 {
-        if RESPONSE_RECEIVER_NAMES.iter().any(|receiver| receiver == &current) {
+        if RESPONSE_RECEIVER_NAMES
+            .iter()
+            .any(|receiver| receiver == &current)
+        {
             return true;
         }
         if let Some(next) = bind::let_bind_rhs(prefix, &current) {

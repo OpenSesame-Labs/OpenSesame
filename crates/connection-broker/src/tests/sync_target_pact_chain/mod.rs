@@ -24,6 +24,26 @@ pub(crate) fn response_chain_consumer(scanned: &str) -> bool {
         .any(|method| chain_method_on_response(scanned, method))
 }
 
+/// `.for_each(` / `.try_next(` rooted on a credentialed response.
+pub(crate) fn call_root_is_response(source: &str, dot: usize) -> bool {
+    chain_root_is_response(source, dot)
+}
+
+/// First argument of the call opened at `open` is a response receiver.
+pub(crate) fn first_arg_is_response(source: &str, open: usize) -> bool {
+    let Some(arg) = first_arg(source, open) else {
+        return false;
+    };
+    let Some(name) = place_ident(arg) else {
+        return false;
+    };
+    let Some(rel) = arg.find(&name) else {
+        return false;
+    };
+    let at = arg.as_ptr() as usize - source.as_ptr() as usize + rel;
+    super::sync_target_pact_rename::tracks_response_receiver(source, at, name)
+}
+
 fn chain_method_on_response(scanned: &str, method: &str) -> bool {
     for suffix in ["(", "::"] {
         let marker = format!(".{method}{suffix}");
