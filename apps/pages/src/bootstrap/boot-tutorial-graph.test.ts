@@ -9,8 +9,11 @@ const bootPath = path.join(
 );
 
 describe("core boot graph", () => {
-  it("does not import the tutorial presenter before capability activation", () => {
+  it("does not static-import the tutorial presenter on the boot graph", () => {
     const src = readFileSync(bootPath, "utf8");
-    expect(src).not.toContain("tutorial-queue-present");
+    expect(src).not.toMatch(
+      /^import[^;]*tutorial-queue-present/m,
+    );
+    expect(src).toContain('import("@opensesame/app-core/lib/tutorial-queue-present.js")');
   });
 });
