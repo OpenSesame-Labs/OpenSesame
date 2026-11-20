@@ -102,8 +102,10 @@ function existingV3Cookie(value: PendingFederatedAuth): string {
 }
 
 function existingSealedCookie(value: PendingFederatedAuth): string {
-  return encodePending(value, secret);
+  return encodePending(value, secret, { sealVerifierOnWire: true });
 }
+
+const sealOnWire = { sealVerifierOnWire: true as const };
 
 describe("signed federated state integrity", () => {
   it("round-trips a signed state with its organization and upstream context", () => {
@@ -115,11 +117,19 @@ describe("signed federated state integrity", () => {
   it("preserves the sealed cookie bytes for a known pending payload", () => {
     const cookie = existingSealedCookie(pending);
     expect(decodePending(cookie, secret)).toEqual(pending);
-    expect(encodePending(pending, secret)).toBe(cookie);
+    expect(encodePending(pending, secret, sealOnWire)).toBe(cookie);
   });
 
-  it("never places a raw verifier in the signed wire payload", () => {
+  it("keeps a plaintext verifier on the wire by default for mixed-version rollouts", () => {
     const cookie = encodePending(pending, secret);
+    const payload = cookie.slice(0, cookie.lastIndexOf("."));
+    const wire = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    expect(wire.verifier).toBe(pending.verifier);
+    expect(wire).not.toHaveProperty("verifierEnc");
+  });
+
+  it("never places a raw verifier when sealVerifierOnWire is enabled", () => {
+    const cookie = encodePending(pending, secret, sealOnWire);
     const payload = cookie.slice(0, cookie.lastIndexOf("."));
     const wire = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
     expect(wire).not.toHaveProperty("verifier");
@@ -127,7 +137,7 @@ describe("signed federated state integrity", () => {
   });
 
   it("rejects a tampered verifier seal", () => {
-    const cookie = encodePending(pending, secret);
+    const cookie = encodePending(pending, secret, sealOnWire);
     const split = cookie.lastIndexOf(".");
     const wire = JSON.parse(
       Buffer.from(cookie.slice(0, split), "base64url").toString("utf8"),
@@ -138,7 +148,7 @@ describe("signed federated state integrity", () => {
   });
 
   it("rejects a mixed plaintext verifier and sealed verifierEnc", () => {
-    const cookie = encodePending(pending, secret);
+    const cookie = encodePending(pending, secret, sealOnWire);
     expect(
       decodePending(
         alterPayload(cookie, { verifier: "forged-verifier" }),
@@ -160,8 +170,8 @@ describe("signed federated state integrity", () => {
       nonce: "nonce-two",
       verifier: "verifier-two",
     };
-    const a = encodePending(pending, secret);
-    const b = encodePending(other, secret);
+    const a = encodePending(pending, secret, sealOnWire);
+    const b = encodePending(other, secret, sealOnWire);
     const splitA = a.lastIndexOf(".");
     const splitB = b.lastIndexOf(".");
     const wireA = JSON.parse(

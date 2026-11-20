@@ -13,7 +13,10 @@ describe("production federated pending cookies", () => {
       const source = readFileSync(`${root}/${rel}`, "utf8");
       expect(source).not.toMatch(/encodePending\(\s*pending\s*\)/);
       expect(source).toMatch(
-        /encodePending\([^,]+,\s*ctx\.config\.claimPepper\)/,
+        /encodePending\([^,]+,\s*ctx\.config\.claimPepper,/,
+      );
+      expect(source).toMatch(
+        /sealVerifierOnWire:\s*ctx\.config\.federatedPendingSealVerifierOnWire/,
       );
     }
   });
