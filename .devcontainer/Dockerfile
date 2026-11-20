@@ -109,27 +109,27 @@ RUN set -eu; \
   printf '%s\n' java > /etc/mise-disable-tools; \
   mkdir -p /usr/local/libexec; \
   mv /usr/local/bin/mise /usr/local/libexec/mise; \
-  cat > /usr/local/bin/mise <<'EOF'
-#!/bin/sh
-if [ -z "${MISE_DISABLE_TOOLS:-}" ] && [ -s /etc/mise-disable-tools ]; then
-  MISE_DISABLE_TOOLS=$(tr -d '[:space:]' < /etc/mise-disable-tools)
-  export MISE_DISABLE_TOOLS
-fi
-if [ -z "${JAVA_HOME:-}" ] && [ -x /usr/lib/jvm/java-17-openjdk/bin/java ]; then
-  export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
-fi
-exec /usr/local/libexec/mise "$@"
-EOF
+  printf '%s\n' \
+    '#!/bin/sh' \
+    'if [ -z "${MISE_DISABLE_TOOLS:-}" ] && [ -s /etc/mise-disable-tools ]; then' \
+    '  MISE_DISABLE_TOOLS=$(tr -d '"'"'[:space:]'"'"' < /etc/mise-disable-tools)' \
+    '  export MISE_DISABLE_TOOLS' \
+    'fi' \
+    'if [ -z "${JAVA_HOME:-}" ] && [ -x /usr/lib/jvm/java-17-openjdk/bin/java ]; then' \
+    '  export JAVA_HOME=/usr/lib/jvm/java-17-openjdk' \
+    'fi' \
+    'exec /usr/local/libexec/mise "$@"' \
+    > /usr/local/bin/mise; \
   chmod 0755 /usr/local/bin/mise; \
-  cat >> /etc/profile.d/mise.sh <<'EOF'
-if [ -x /usr/lib/jvm/java-17-openjdk/bin/java ]; then
-  export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk}"
-  case ":${PATH}:" in
-    *:"${JAVA_HOME}/bin":*) ;;
-    *) PATH="${JAVA_HOME}/bin:${PATH}" ;;
-  esac
-  export PATH
-fi
-EOF
+  printf '%s\n' \
+    'if [ -x /usr/lib/jvm/java-17-openjdk/bin/java ]; then' \
+    '  export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk}"' \
+    '  case ":${PATH}:" in' \
+    '    *:"${JAVA_HOME}/bin":*) ;;' \
+    '    *) PATH="${JAVA_HOME}/bin:${PATH}" ;;' \
+    '  esac' \
+    '  export PATH' \
+    'fi' \
+    >> /etc/profile.d/mise.sh
 
 USER vscode
