@@ -2,6 +2,8 @@
 use super::super::sync_target_pact_norm::{is_keyword_at, string_len};
 use super::{is_ident_char, strip_turbofish};
 
+pub(super) use super::mutate::shadows;
+
 pub(super) fn dispatch_url(source: &str, fn_start: usize, at: usize) -> Option<String> {
     let expr = request_expr(source, fn_start, at)?;
     if expr.is_empty() {
@@ -63,6 +65,13 @@ fn assigned_builder_url(prefix: &str, name: &str) -> Option<String> {
             continue;
         }
         if is_keyword_at(bytes, index, name.as_bytes()) {
+            if let Some((url, end)) = super::pattern::destructured_url(prefix, index, name) {
+                // `let (request,) = (client.get(evil),)` is a binding. An empty
+                // URL still closes the unresolved-destination exception.
+                found = Some(url);
+                index = end;
+                continue;
+            }
             let eq = index + name.len();
             if is_single_eq(bytes, eq) {
                 let end = stmt_end(bytes, eq + 1);
@@ -83,7 +92,7 @@ fn assigned_builder_url(prefix: &str, name: &str) -> Option<String> {
     found
 }
 
-fn builder_url(expr: &str) -> Option<&str> {
+pub(super) fn builder_url(expr: &str) -> Option<&str> {
     marked_url(expr).or_else(|| call_arg_url(expr))
 }
 
@@ -167,111 +176,7 @@ fn is_free_call(expr: &str, paren: usize) -> bool {
     start == 0 || bytes[start - 1] != b'.'
 }
 
-/// `name` is assigned or updated in place, so the checked value is not the sent one.
-/// `url = evil` is an assignment. `set_scheme`, `clone_from`, `push_str`, and any
-/// other call on that binding mutate it without `=`. `mem::swap` does too.
-pub(super) fn shadows(source: &str, name: &str) -> bool {
-    if name.is_empty() {
-        return false;
-    }
-    let bytes = source.as_bytes();
-    let mut index = 0usize;
-    while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        if is_keyword_at(bytes, index, name.as_bytes())
-            && (assigns_name(bytes, index + name.len()) || mutates_name(source, index + name.len()))
-        {
-            return true;
-        }
-        if mem_swap_touches(source, index, name) {
-            return true;
-        }
-        index += 1;
-    }
-    false
-}
-
-/// `.set_scheme(…)`, `.clone_from(…)`, `.push_str(…)`, and any other call.
-fn mutates_name(source: &str, mut at: usize) -> bool {
-    let bytes = source.as_bytes();
-    while at < bytes.len() && bytes[at].is_ascii_whitespace() {
-        at += 1;
-    }
-    if bytes.get(at) != Some(&b'.') {
-        return false;
-    }
-    at += 1;
-    if at >= bytes.len() || !super::is_ident_byte(bytes[at]) {
-        return false;
-    }
-    while at < bytes.len() && super::is_ident_byte(bytes[at]) {
-        at += 1;
-    }
-    while at < bytes.len() && bytes[at].is_ascii_whitespace() {
-        at += 1;
-    }
-    bytes.get(at) == Some(&b'(') || source[at..].starts_with("::")
-}
-
-fn mem_swap_touches(source: &str, index: usize, name: &str) -> bool {
-    const MARK: &str = "mem::swap";
-    if !source[index..].starts_with(MARK) {
-        return false;
-    }
-    let bytes = source.as_bytes();
-    if index > 0 && super::is_ident_byte(bytes[index - 1]) {
-        return false;
-    }
-    let Some(args) = call_inside(&source[index + MARK.len()..]) else {
-        return false;
-    };
-    swap_args_include(args, name)
-}
-
-fn swap_args_include(args: &str, name: &str) -> bool {
-    let bytes = args.as_bytes();
-    let (mut depth, mut index, mut start) = (0i32, 0usize, 0usize);
-    let mut hit = false;
-    while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        match bytes[index] {
-            b'(' | b'[' | b'{' | b'<' => depth += 1,
-            b')' | b']' | b'}' | b'>' if depth > 0 => depth -= 1,
-            b',' if depth == 0 => {
-                hit |= arg_is_name(&args[start..index], name);
-                start = index + 1;
-            }
-            _ => {}
-        }
-        index += 1;
-    }
-    hit || arg_is_name(&args[start..], name)
-}
-
-fn arg_is_name(arg: &str, name: &str) -> bool {
-    plain_ident(strip_ref(arg.trim())) == Some(name)
-}
-
-fn assigns_name(bytes: &[u8], mut at: usize) -> bool {
-    while at < bytes.len() && bytes[at].is_ascii_whitespace() {
-        at += 1;
-    }
-    if bytes.get(at) == Some(&b':') && bytes.get(at + 1) != Some(&b':') {
-        at = skip_ascription(bytes, at + 1);
-        while at < bytes.len() && bytes[at].is_ascii_whitespace() {
-            at += 1;
-        }
-    }
-    is_single_eq(bytes, at)
-}
-
-fn skip_ascription(bytes: &[u8], start: usize) -> usize {
+pub(super) fn skip_ascription(bytes: &[u8], start: usize) -> usize {
     let mut depth = 0i32;
     let mut index = start;
     while index < bytes.len() {
@@ -362,7 +267,7 @@ fn plain_receiver(expr: &str) -> Option<&str> {
     plain_ident(expr.strip_prefix('&').unwrap_or(expr).trim())
 }
 
-fn ident_prefix(expr: &str) -> &str {
+pub(super) fn ident_prefix(expr: &str) -> &str {
     let end = expr
         .char_indices()
         .find(|(_, ch)| !is_ident_char(*ch))
