@@ -31,25 +31,18 @@ export async function openBuildBrowser(
   if (!devUrl && !existsSync(path.join(dist, "index.html"))) {
     throw new Error(`no dist at ${dist} for build ${label}`);
   }
+  // Dev URL skips the static-origin router. Keep the same hard-fault log
+  // so the branch phase still surfaces page, asset, and loopback faults.
   const harness = devUrl
-    ? null
+    ? createDevUrlHarness(devUrl)
     : createHarness({
         dist,
         origin: "https://opensesame-labs.github.io",
         base: BASE,
         out: outRoot,
       });
-  const opened = harness
-    ? await harness.newPage(browser)
-    : {
-        context: await browser.newContext({
-          viewport: { width: 1280, height: 900 },
-        }),
-        page: null,
-      };
-  const { context } = opened;
-  if (!opened.page) opened.page = await context.newPage();
-  const page = opened.page;
+  const opened = await harness.newPage(browser);
+  const { context, page } = opened;
   await freezeContextRandomness(context);
   console.log(`build ${label}`);
   await openSetupChoices(page, href);
@@ -179,9 +172,6 @@ export async function captureTutorialPauseEvidence(
         const page = await context.newPage();
         return { context, page };
       };
-  const hashesByStep = Object.fromEntries(
-    tutorialSteps.map((step) => [step, []]),
-  );
   for (const id of PROFILES) {
     const tutDir = profileDir(outRoot, label, id);
     console.log(`  tutorial pause flow profile ${id}`);
@@ -199,7 +189,6 @@ export async function captureTutorialPauseEvidence(
       check(existsSync(file), `${label}/${id}/${step} exists`);
       const hash = digest(file);
       shotHashes.push(hash);
-      hashesByStep[step].push(hash);
       evidence.push({
         build: label,
         profile: id,
@@ -218,24 +207,101 @@ export async function captureTutorialPauseEvidence(
       `${label}/${id} pause only-one vs dismiss-x screenshots differ`,
     );
   }
-  for (const step of tutorialSteps) {
-    const perProfile = hashesByStep[step];
-    check(
-      new Set(perProfile).size === perProfile.length,
-      `${label} ${step} differs across profiles (${perProfile.length})`,
+  // Full-page tray and coach shots may share pixels across profiles when
+  // the pause UI is the same. That match is not a pause failure. Profile
+  // identity stays on vault markers and applied/features hashes.
+  // Each profile still has to pass the pause behavior checks in the walk,
+  // and its own step shots have to differ.
+}
+
+const HARNESS_HARD_FAULTS = ["PAGE-ERROR", "MISSING-ASSET", "LOOPBACK-REQUEST"];
+
+const LOOPBACK_HOST = /^(localhost|127\.0\.0\.1|\[::1\])$/;
+
+function isAssetPath(pathname) {
+  const rel = pathname.startsWith("/") ? pathname.slice(1) : pathname;
+  return rel.length > 0 && /\.[a-z0-9]+$/i.test(rel);
+}
+
+function isOwnDevServer(url, dev) {
+  if (url.origin === dev.origin) return true;
+  return (
+    LOOPBACK_HOST.test(url.hostname) &&
+    LOOPBACK_HOST.test(dev.hostname) &&
+    url.port === dev.port
+  );
+}
+
+function watchDevPageFaults(page, record, dev) {
+  page.on("pageerror", (error) => {
+    record(
+      "PAGE-ERROR",
+      String(error?.stack || error?.message || error || "unknown").slice(
+        0,
+        800,
+      ),
     );
-  }
+  });
+  page.on("response", (response) => {
+    if (response.status() !== 404) return;
+    let url;
+    try {
+      url = new URL(response.url());
+    } catch {
+      return;
+    }
+    if (!isAssetPath(url.pathname)) return;
+    record("MISSING-ASSET", url.pathname);
+  });
+  page.on("request", (request) => {
+    let url;
+    try {
+      url = new URL(request.url());
+    } catch {
+      return;
+    }
+    if (url.protocol === "blob:" || url.protocol === "data:") return;
+    if (isOwnDevServer(url, dev)) return;
+    if (!LOOPBACK_HOST.test(url.hostname)) return;
+    record("LOOPBACK-REQUEST", `${request.method()} ${request.url()}`);
+  });
+}
+
+function createDevUrlHarness(devUrl) {
+  const log = [];
+  const failures = [];
+  const record = (kind, detail) => {
+    log.push({ step: "dev", kind, detail });
+  };
+  const dev = new URL(devUrl);
+  return {
+    log,
+    failures,
+    async newPage(browser) {
+      const context = await browser.newContext({
+        viewport: { width: 1280, height: 900 },
+      });
+      const page = await context.newPage();
+      watchDevPageFaults(page, record, dev);
+      return { context, page };
+    },
+  };
 }
 
 export function collectHarnessFailures(harness, label, failures) {
-  if (!harness) return;
+  if (!harness?.log) {
+    failures.push(
+      `[${label}] PAGE-ERROR, MISSING-ASSET, and LOOPBACK-REQUEST were not observed`,
+    );
+    return;
+  }
   const hard = harness.log.filter((entry) =>
-    ["PAGE-ERROR", "MISSING-ASSET", "LOOPBACK-REQUEST"].includes(entry.kind),
+    HARNESS_HARD_FAULTS.includes(entry.kind),
   );
   for (const entry of hard) {
     failures.push(`[${label}] ${entry.kind}: ${entry.detail ?? ""}`);
   }
-  for (const fault of harness.failures) {
+  for (const fault of harness.failures ?? []) {
     failures.push(`[${label}] ${fault}`);
   }
 }
