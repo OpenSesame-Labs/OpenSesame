@@ -356,6 +356,22 @@ test3(
         }
         assert3.equal(new Minimatch("**/*.js").match("src/a.js"), true);
         if (owner !== "workbox-build") continue;
+        const invalidOption = new Minimatch("x", {
+          braceExpandMax: Number.NaN,
+        });
+        assert3.throws(
+          () =>
+            invalidOption.firstPhasePreProcess({
+              length: 1e5,
+              *[Symbol.iterator]() {
+                yield ["**", "..", "a", "b"];
+              },
+              push() {
+                throw new Error("NaN bypassed the glob-part bound");
+              },
+            }),
+          /NaN bypassed the glob-part bound/,
+        );
         assert3.equal(
           minimatch
             .defaults({ braceExpandMax: Number.NaN })
