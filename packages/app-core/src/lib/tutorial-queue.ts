@@ -260,8 +260,6 @@ export function resumeTutorialFromNotice(goalId: string): boolean {
     tutorialHomeRoute(goal),
   );
   if (!accepted) return false;
-  dequeueTutorial(goalId);
-  dropQueueNotice(goalId);
   return true;
 }
 
