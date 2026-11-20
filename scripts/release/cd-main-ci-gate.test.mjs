@@ -223,10 +223,7 @@ test("waitForMainCi admits a later successful run when an earlier one was cancel
     if (String(url).includes("/jobs"))
       return jsonResponse({ jobs: succeededJobs() });
     return jsonResponse({
-      workflow_runs: [
-        run({ id: 1, conclusion: "cancelled" }),
-        run({ id: 77 }),
-      ],
+      workflow_runs: [run({ id: 1, conclusion: "cancelled" }), run({ id: 77 })],
     });
   };
   const admitted = await waitForMainCi(
