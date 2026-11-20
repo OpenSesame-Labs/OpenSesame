@@ -98,18 +98,7 @@ const PATCHED = Object.freeze({
   }),
 });
 
-const PUBLISHED = Object.freeze({
-  "glob@13.0.7": Object.freeze({
-    advisory: "GHSA-3g3m-2fjr-6pw4",
-    resolved: "https://registry.npmjs.org/glob/-/glob-13.0.7.tgz",
-    integrity:
-      "sha512-wfsFgXQ8A3SEI9XGf7Nl3Y9l7ffSrGh7SUCT7vU/2CzYPep9kjxAn1S40F9OPKxAMGCVl7HtNlJhrCJUeUq83g==",
-    overrides: Object.freeze({
-      "glob@^13.0.1": "13.0.7",
-      "glob@^13.0.6": "13.0.7",
-    }),
-  }),
-});
+const PUBLISHED = Object.freeze({});
 
 const REGRESSIONS = Object.freeze({
   "scripts/security/dependency-override-upgrade.test.mjs":
