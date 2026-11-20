@@ -107,10 +107,14 @@ describe("locked mise bootstrap", () => {
     const pins = read(pinsRel);
     // .cursor/Dockerfile left this repo with the AI-harness dotfiles (#2538).
     const devcontainer = read(".devcontainer/Dockerfile");
-    for (const name of [
+    assert.equal(
+      dockerfileArg(devcontainer, "MISE_VERSION"),
+      pin(pins, "MISE_VERSION"),
       "MISE_VERSION",
-      "MISE_SHA256_LINUX_X64",
-      "MISE_SHA256_LINUX_ARM64",
+    );
+    for (const name of [
+      "MISE_SHA256_LINUX_X64_MUSL",
+      "MISE_SHA256_LINUX_ARM64_MUSL",
     ]) {
       const value = pin(pins, name);
       assert.equal(dockerfileArg(devcontainer, name), value, name);
@@ -118,10 +122,14 @@ describe("locked mise bootstrap", () => {
     assert.match(pin(pins, "MISE_VERSION"), /^\d+\.\d+\.\d+$/u);
     assert.match(pin(pins, "MISE_SHA256_LINUX_X64"), /^[a-f0-9]{64}$/u);
     assert.match(pin(pins, "MISE_SHA256_LINUX_ARM64"), /^[a-f0-9]{64}$/u);
+    assert.match(pin(pins, "MISE_SHA256_LINUX_X64_MUSL"), /^[a-f0-9]{64}$/u);
+    assert.match(pin(pins, "MISE_SHA256_LINUX_ARM64_MUSL"), /^[a-f0-9]{64}$/u);
     assert.notEqual(
-      pin(pins, "MISE_SHA256_LINUX_X64"),
-      pin(pins, "MISE_SHA256_LINUX_ARM64"),
+      pin(pins, "MISE_SHA256_LINUX_X64_MUSL"),
+      pin(pins, "MISE_SHA256_LINUX_ARM64_MUSL"),
     );
+    assert.match(devcontainer, /linux-x64-musl/);
+    assert.match(devcontainer, /linux-arm64-musl/);
   });
 
   it("exports the mise.toml environment to later steps, without PATH", () => {

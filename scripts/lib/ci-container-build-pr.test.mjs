@@ -141,8 +141,12 @@ describe("opensesame image metadata", () => {
     expect(docker).toMatch(
       /CMD \["curl", "-fsS", "http:\/\/127\.0\.0\.1:8787\/health\/live"\]/,
     );
-    expect(docker).toMatch(/alpine:3\.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab/);
-    expect(docker).toMatch(/apk add --no-cache ca-certificates curl dbus-libs gcompat libstdc\+\+/);
+    expect(docker).toMatch(
+      /alpine:3\.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab/,
+    );
+    expect(docker).toMatch(
+      /apk add --no-cache ca-certificates curl dbus-libs gcompat libstdc\+\+/,
+    );
     expect(spec.dockerInspect.Entrypoint).toEqual(["opensesame"]);
     expect(spec.dockerInspect.ExposedPorts).toEqual({ "8787/tcp": {} });
     expect(spec.labels["org.opencontainers.image.version"]).toBe("0.0.0-local");

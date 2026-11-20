@@ -48,17 +48,18 @@ RUN apk add --no-cache \
     pkgconf \
     python3
 
-# Pinned GitHub release tarball. Same version and linux digests as the
-# Cursor Cloud image. The digest is checked before extraction.
+# Pinned GitHub release tarball (musl build for Alpine). Same MISE_VERSION as
+# scripts/lib/mise-pins.sh; musl digests differ from glibc used on GitHub-hosted
+# runners. The digest is checked before extraction.
 ARG MISE_VERSION=2026.10.18
-ARG MISE_SHA256_LINUX_X64=0d41b60745a6273a80089c86f80d8729042d2f57f87fda70aecc7d1c3ffbd3be
-ARG MISE_SHA256_LINUX_ARM64=c5a49a47f8184f5649f3d8685b408bd72325a823f41cf618c60f3ffc303090a1
+ARG MISE_SHA256_LINUX_X64_MUSL=bb2f31a377789e85df9358f23aaadb4283e2d760cf657ca7449856f92c4230c4
+ARG MISE_SHA256_LINUX_ARM64_MUSL=88bbc1480e196c45c67194b653a08170b9e45e6573e5036f643f288eee95120e
 
 RUN set -eu; \
   arch="$(uname -m)"; \
   case "$arch" in \
-    x86_64) mise_target="linux-x64"; mise_sha="${MISE_SHA256_LINUX_X64}" ;; \
-    aarch64) mise_target="linux-arm64"; mise_sha="${MISE_SHA256_LINUX_ARM64}" ;; \
+    x86_64) mise_target="linux-x64-musl"; mise_sha="${MISE_SHA256_LINUX_X64_MUSL}" ;; \
+    aarch64) mise_target="linux-arm64-musl"; mise_sha="${MISE_SHA256_LINUX_ARM64_MUSL}" ;; \
     *) echo "unsupported mise architecture: ${arch}" >&2; exit 1 ;; \
   esac; \
   archive="mise-v${MISE_VERSION}-${mise_target}.tar.gz"; \
