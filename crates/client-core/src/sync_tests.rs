@@ -130,8 +130,8 @@ fn equal_epoch_conflicting_ciphertext_is_rejected() {
     let b = right.put_local(&key, "shared", b"from-b").unwrap();
     assert_eq!(a.epoch, b.epoch);
     assert_ne!(a.ciphertext, b.ciphertext);
-    assert!(left.apply_remote(&key, &[b.clone()]).is_err());
-    assert!(right.apply_remote(&key, &[a.clone()]).is_err());
+    assert!(left.apply_remote(&key, std::slice::from_ref(&b)).is_err());
+    assert!(right.apply_remote(&key, std::slice::from_ref(&a)).is_err());
     assert_eq!(
         open_sync_blob(&key, &left.opaque_blobs()[0]).unwrap(),
         b"from-a"
@@ -278,10 +278,7 @@ fn legacy_migration_rejects_invalid_cursor_via_validate_cursor() {
             epoch,
         };
         let bound = sync_limits::validate_cursor(&cursor).unwrap_err();
-        assert!(
-            bound.to_string().contains("invalid sync cursor"),
-            "{bound}"
-        );
+        assert!(bound.to_string().contains("invalid sync cursor"), "{bound}");
         // Empty and 129-byte device ids skip cursor deserialization. migrate()
         // admits them only through validate_cursor. The overflow epoch is the
         // same predicate, applied by snapshot.validate before reseal.
@@ -354,9 +351,7 @@ fn two_independent_legacy_migrations_apply_onto_each_other() {
     let right = SyncStore::migrate_trusted_legacy_json(&key, &legacy).unwrap();
     assert_eq!(left.opaque_blobs(), right.opaque_blobs());
     let mut reconciled = SyncStore::new("peer");
-    reconciled
-        .apply_remote(&key, &left.opaque_blobs())
-        .unwrap();
+    reconciled.apply_remote(&key, &left.opaque_blobs()).unwrap();
     reconciled
         .apply_remote(&key, &right.opaque_blobs())
         .unwrap();
@@ -383,11 +378,11 @@ fn divergent_legacy_plaintext_at_same_id_rejects_on_sync() {
     .to_string();
     let mut left = SyncStore::migrate_trusted_legacy_json(&key, &legacy_a).unwrap();
     let right = SyncStore::migrate_trusted_legacy_json(&key, &legacy_b).unwrap();
-    assert_ne!(left.opaque_blobs()[0].ciphertext, right.opaque_blobs()[0].ciphertext);
-    assert!(
-        left.apply_remote(&key, &right.opaque_blobs())
-            .is_err()
+    assert_ne!(
+        left.opaque_blobs()[0].ciphertext,
+        right.opaque_blobs()[0].ciphertext
     );
+    assert!(left.apply_remote(&key, &right.opaque_blobs()).is_err());
 }
 
 #[test]
