@@ -3,6 +3,8 @@
 //! Used by capability setup (e.g. GitHub private password-store repos) so Pages
 //! can list/create remotes after OAuth without seeing access tokens (ADR 0005/0032).
 
+use std::time::Duration;
+
 use opensesame_domain::OrganizationId;
 use opensesame_invoke_through::scrub_credential_reflection;
 use serde_json::{json, Value};
@@ -15,8 +17,11 @@ use crate::store;
 use crate::token::TokenSet;
 use crate::ConnectionBroker;
 
+#[path = "egress_client.rs"]
+mod client;
 #[path = "egress_github.rs"]
 mod github;
+use client::credentialed_client;
 use github::{map_github_repo_create_error, parse_github_repo, parse_github_repo_list};
 
 /// Characters of an upstream error body kept for diagnostics. A provider error
@@ -37,23 +42,22 @@ const RESERVED_HEADERS: &[&str] = &[
     "transfer-encoding",
 ];
 
-/// Credentialed egress travels over https. The single exception is http to
-/// loopback, which the catalog already permits for the bundled `mock`
-/// provider (see `validate_egress`) and which never leaves this machine.
-/// The per-connection allowlist (`allows_url`) only proves the URL matches
-/// the configured scheme, so this transport floor is asserted again at the
-/// point the credential is attached.
-fn require_secure_egress_url(url: &str) -> Result<()> {
-    let parsed =
-        url::Url::parse(url).map_err(|_| BrokerError::Invalid("malformed egress url".into()))?;
-    let loopback = matches!(parsed.host_str(), Some("127.0.0.1" | "localhost" | "::1"));
-    match parsed.scheme() {
-        "https" => Ok(()),
-        "http" if loopback => Ok(()),
-        _ => Err(BrokerError::Invalid(
-            "credentialed egress requires https (http is loopback-only)".into(),
-        )),
+/// Build the no-proxy, no-redirect client for one credentialed request.
+/// Catalog providers get the DNS-pinned client that resolved the approved
+/// authority once; custom providers get the operator-policy client that vets
+/// every DNS answer (ADR 0115).
+async fn credentialed_egress_client(
+    config: &crate::config::BrokerConfig,
+    provider_id: &str,
+    url: &str,
+    timeout: Duration,
+) -> Result<reqwest::Client> {
+    if provider_id.starts_with(crate::CUSTOM_PROVIDER_PREFIX) {
+        let endpoint = url::Url::parse(url)
+            .map_err(|_| BrokerError::Invalid("malformed custom provider URL".into()))?;
+        return config.custom_egress().client(&endpoint, timeout).await;
     }
+    credentialed_client(url, timeout).await
 }
 
 fn credential_header(auth: &AuthMethod, tokens: &TokenSet) -> Result<(String, String)> {
@@ -231,6 +235,14 @@ impl ConnectionBroker {
             .allows_url(url)
             .map_err(|e| BrokerError::Invalid(e.to_string()))?;
 
+        // Resolve and pin the approved authority before the credential is
+        // opened. The resulting client uses only those addresses and bypasses
+        // process proxies, so neither DNS rebinding nor a proxy can redirect
+        // the credentialed connection.
+        let client =
+            credentialed_egress_client(&self.config, &row.provider_id, url, Duration::from_secs(20))
+                .await?;
+
         let key = *self.sealing_key()?;
         let credential = store::get_credential(&self.pool, &row.id)
             .await?
@@ -243,10 +255,17 @@ impl ConnectionBroker {
             .resolve_provider(&row.organization_id, &row.provider_id)
             .await?;
 
-        let response = self
-            .http_authorized(&provider.id, &provider.auth, &tokens, method, url, body)
-            .await
-            .map_err(BrokerError::ExchangeFailed)?;
+        let response = Self::http_authorized(
+            &client,
+            &provider.id,
+            &provider.auth,
+            &tokens,
+            method,
+            url,
+            body,
+        )
+        .await
+        .map_err(BrokerError::ExchangeFailed)?;
 
         // Never echo Authorization headers or token fields from upstream.
         Ok(response)
@@ -292,6 +311,14 @@ impl ConnectionBroker {
             .allows_url(url)
             .map_err(|e| BrokerError::Invalid(e.to_string()))?;
 
+        // Resolve and pin the approved authority before the credential is
+        // opened. The resulting client uses only those addresses and bypasses
+        // process proxies, so neither DNS rebinding nor a proxy can redirect
+        // the credentialed connection.
+        let client =
+            credentialed_egress_client(&self.config, &row.provider_id, url, Duration::from_secs(60))
+                .await?;
+
         let key = *self.sealing_key()?;
         let credential = store::get_credential(&self.pool, &row.id)
             .await?
@@ -301,22 +328,7 @@ impl ConnectionBroker {
             return Err(BrokerError::NeedsReauth("access token missing".into()));
         }
 
-        require_secure_egress_url(url)?;
-        let guarded = if row.provider_id.starts_with(crate::CUSTOM_PROVIDER_PREFIX) {
-            let endpoint = url::Url::parse(url)
-                .map_err(|_| BrokerError::Invalid("malformed custom provider URL".into()))?;
-            Some(
-                self.config
-                    .custom_egress()
-                    .client(&endpoint, std::time::Duration::from_secs(60))
-                    .await?,
-            )
-        } else {
-            None
-        };
-        let mut req = guarded
-            .as_ref()
-            .unwrap_or(&self.http_bytes)
+        let mut req = client
             .post(url)
             .header("Authorization", format!("Bearer {}", tokens.access_token))
             .header("Content-Type", "application/octet-stream")
@@ -361,7 +373,7 @@ impl ConnectionBroker {
     }
 
     async fn http_authorized(
-        &self,
+        client: &reqwest::Client,
         provider_id: &str,
         auth: &AuthMethod,
         tokens: &TokenSet,
@@ -369,26 +381,10 @@ impl ConnectionBroker {
         url: &str,
         body: Option<Value>,
     ) -> std::result::Result<Value, String> {
-        require_secure_egress_url(url).map_err(|error| error.to_string())?;
         let parsed_method = method
             .parse::<reqwest::Method>()
             .map_err(|_| format!("unsupported method {method}"))?;
-        let guarded = if provider_id.starts_with(crate::CUSTOM_PROVIDER_PREFIX) {
-            let endpoint =
-                url::Url::parse(url).map_err(|_| "malformed custom provider URL".to_string())?;
-            Some(
-                self.config
-                    .custom_egress()
-                    .client(&endpoint, std::time::Duration::from_secs(60))
-                    .await
-                    .map_err(|e| e.to_string())?,
-            )
-        } else {
-            None
-        };
-        let mut request = guarded
-            .as_ref()
-            .unwrap_or(&self.http_bytes)
+        let mut request = client
             .request(parsed_method, url)
             .header("Accept", "application/json")
             .header("User-Agent", "OpenSesame-Host/0.1");
@@ -433,7 +429,7 @@ impl ConnectionBroker {
         if text.trim().is_empty() {
             return Ok(json!({}));
         }
-        serde_json::from_str(&text).map_err(|e| e.to_string())
+        serde_json::from_str(&text).map_err(|_| "upstream response was not valid JSON".to_string())
     }
 }
 
