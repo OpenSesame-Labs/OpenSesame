@@ -9,15 +9,27 @@
     },
     {
       "path": "crates/spiffe-source/src/source.rs",
-      "sha256": "8e48c7a3cd797c8c84e980caf61aeb8e3c8a3e7b18bd5fd96adf7c51a71ca826",
+      "sha256": "e6850380ee1b1a8270100202818c396ef8d58d95fd48a3800e948025dfd072a8",
       "base_blob": "6ff41f704f3262a8d0c3db87e1610fef483047f0",
-      "reviewed_blob": "4a0c0e5cd799efb2776c8862cca8f3f50e024d58"
+      "reviewed_blob": "5c7626a933bb6ebe844b7fee24354d61c8a02bb0"
     },
     {
       "path": "crates/spiffe-source/src/source_policy.rs",
       "sha256": "e1e55cc0813805f8509320ce426feb435b07b2840acaf224f21174ff4e02e220",
       "base_blob": null,
       "reviewed_blob": "afd829c49a1a50b97a6defd6a4a9a14a84ea7138"
+    },
+    {
+      "path": "crates/spiffe-source/src/source_loop.rs",
+      "sha256": "f2dbb5333fb65867db1c7e7f58decba9be5016271767b32eaad43fc6855e4eb7",
+      "base_blob": null,
+      "reviewed_blob": "c48b770f97044e61f52a033e903a009bbbda13c2"
+    },
+    {
+      "path": "crates/spiffe-source/src/source_handle.rs",
+      "sha256": "a0a06d7dd46870540d3c0b4c472c225cda912e8b2a6363ef1e1aeac4fa0dd409",
+      "base_blob": null,
+      "reviewed_blob": "d1897c9a00dffc12860f1be3c931a04ed9d29015"
     },
     {
       "path": "crates/spiffe-source/src/bundles.rs",
@@ -39,9 +51,9 @@
     },
     {
       "path": "crates/spiffe-source/src/source_formal_tests.rs",
-      "sha256": "636a24236edae45dec12c0d5a45594b35f90233b5d82d370479c0d3f1ff9401e",
+      "sha256": "4f9fba2f98553766b08b2555c694986cc423fc8a99d2ae24e3bfdefc6f7a817b",
       "base_blob": null,
-      "reviewed_blob": "fa9d1d2aa78819c1fbc88122f6b7c94c0dddbbef"
+      "reviewed_blob": "d62c2c278193183a02807578a5897972994b94af"
     },
     {
       "path": "crates/spiffe-source/src/fake/server.rs",
