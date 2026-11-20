@@ -152,7 +152,10 @@ function usePendingFirstVisit(
     return subscribeSessionTutorialsPaused(() => {
       if (!sessionTutorialsPaused()) return;
       if (asked.current === null) return;
-      asked.current = null;
+      // The engine may still be loading. stopGuide is a no-op until a guide
+      // exists, and clearing the marker here lets that startGuide run with
+      // nothing left to cancel it. The effect below stops the tour once it
+      // appears, because this session is paused.
       support.stopGuide("superseded");
     });
   }, [support]);
