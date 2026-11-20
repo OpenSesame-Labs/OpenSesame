@@ -257,6 +257,10 @@ export class SupportControllerCore {
         this.notifyFailure(GUIDE_ERROR_TEXT.GUIDE_VALIDATION_ERROR);
         return;
       }
+      if (era !== this.generation) return;
+      if (guideSnapshotActive(this.state.guide) || this.queuedResumeLoading) {
+        return;
+      }
       await this.runProgram(program, origin);
     } finally {
       if (era === this.generation) this.guideStartPending = false;
@@ -274,6 +278,10 @@ export class SupportControllerCore {
     this.engine = null;
     this.loading = null;
     this.dependencies.clearTargets();
+    this.unwatchLockActivation();
+    this.unwatchLockActivation = subscribeGuideActivation("shell.lock", () => {
+      this.noteLockWalkthroughDrove();
+    });
     this.pendingQueuedResume = null;
     this.queuedResumeLoading = false;
     this.guideStartPending = false;

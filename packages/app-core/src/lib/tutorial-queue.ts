@@ -198,7 +198,8 @@ export function queueTutorial(
   if (!ID.test(goalId) || guideGoal(goalId) === null) return false;
   const current = loadStoredGoalIds();
   if (current.includes(goalId)) return true;
-  store([...current, goalId].slice(-LIMIT));
+  if (current.length >= LIMIT) return false;
+  store([...current, goalId]);
   return true;
 }
 
@@ -221,13 +222,17 @@ export function storedQueuedGoalIds(): readonly string[] {
 /** Replace or extend the queue; keeps stored ids when contributions are unloaded. */
 export function setQueuedTutorials(goalIds: readonly string[]): void {
   const prior = loadStoredGoalIds();
-  const merged = new Set(prior);
+  const merged = [...prior];
+  const seen = new Set(prior);
   for (const goalId of goalIds) {
     if (!ID.test(goalId)) continue;
     if (guideGoal(goalId) === null && !prior.includes(goalId)) continue;
-    merged.add(goalId);
+    if (seen.has(goalId)) continue;
+    if (merged.length >= LIMIT) continue;
+    merged.push(goalId);
+    seen.add(goalId);
   }
-  store([...merged].slice(-LIMIT));
+  store(merged);
 }
 
 export function sessionTutorialsPaused(): boolean {

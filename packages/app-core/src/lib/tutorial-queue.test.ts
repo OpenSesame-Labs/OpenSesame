@@ -3,6 +3,7 @@ import { toastOf } from "./notice-toast.js";
 import { clearNotices, listNotices, setStatusNotice } from "./notices.js";
 import {
   TUTORIAL_PAUSE_NOTICE,
+  TUTORIAL_QUEUE_LIMIT,
   bindTutorialResume,
   completeQueuedTutorial,
   dequeueTutorial,
@@ -66,6 +67,19 @@ describe("tutorial queue", () => {
       expect(queueTutorial("vault.lock", { title: profile })).toBe(true);
       expect(raw?.includes(profile)).toBe(false);
     }
+  });
+
+  it("refuses a new queue entry at the stored limit without evicting", () => {
+    const stored = Array.from(
+      { length: TUTORIAL_QUEUE_LIMIT },
+      (_, i) => `z.q${String(i).padStart(2, "0")}`,
+    );
+    tutorialQueueSeams.write(JSON.stringify({ goals: stored }));
+    expect(storedQueuedGoalIds()).toHaveLength(TUTORIAL_QUEUE_LIMIT);
+    expect(queueTutorial("vault.lock", { title: "Lock the vault" })).toBe(
+      false,
+    );
+    expect(storedQueuedGoalIds()).toEqual(stored);
   });
 
   it("dequeues a stored id while its goal is not in the live registry", () => {
