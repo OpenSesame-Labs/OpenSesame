@@ -30,7 +30,9 @@ export function sameProofContract(actual, expected) {
   return (
     sameMembers(actual.proofs, expected.proofs) &&
     actual.command.length === expected.command.length &&
-    expected.command.every((item, index) => actual.command[index] === item)
+    expected.command.every((item, index) => actual.command[index] === item) &&
+    JSON.stringify(actual.lockProjection ?? null) ===
+      JSON.stringify(expected.lockProjection ?? null)
   );
 }
 
