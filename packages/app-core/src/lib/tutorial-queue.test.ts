@@ -200,9 +200,9 @@ describe("tutorial queue", () => {
   });
 
   it("does not repost resume when live queueableGoal fails on refresh", () => {
-    expect(
-      queueTutorial("vault.item.accounts", { title: "Accounts" }),
-    ).toBe(true);
+    expect(queueTutorial("vault.item.accounts", { title: "Accounts" })).toBe(
+      true,
+    );
     installTutorialQueueLibraryOptions({ holds: () => false });
     rehydrateTutorialQueueNotices();
     expect(
@@ -210,9 +210,7 @@ describe("tutorial queue", () => {
         (notice) => notice.id === "tutorial.queue.vault.item.accounts",
       ),
     ).toBe(false);
-    expect(listQueuedTutorials()).toEqual([
-      { goalId: "vault.item.accounts" },
-    ]);
+    expect(listQueuedTutorials()).toEqual([{ goalId: "vault.item.accounts" }]);
     clearNotices();
     installTutorialQueueLibraryOptions({});
   });
