@@ -123,4 +123,31 @@ mod probes {
             assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
         }
     }
+
+    /// `=` / `;` inside `//` or `/* */` are not statement breaks: the
+    /// receiver of `.send` keeps the builder expression before them.
+    #[test]
+    fn chunk02_comment_breaks_do_not_cut_the_receiver() {
+        let cases = [
+            (
+                "fn f() { client.get(url) /* x = y; z */ .send() }",
+                Some("url"),
+            ),
+            (
+                "fn f() { client.get(url) // x = y; z\n.send() }",
+                Some("url"),
+            ),
+            ("fn f() { client.get(url) /* a; b */ .send() }", Some("url")),
+            ("fn f() { client.get(url) // a;\n.send() }", Some("url")),
+        ];
+        for (sample, expected) in cases {
+            let open = sample.find('{').expect("fn body");
+            let at = sample.find(".send").expect("send");
+            assert_eq!(
+                super::super::dispatch_url(sample, open, at).as_deref(),
+                expected,
+                "{sample}"
+            );
+        }
+    }
 }
