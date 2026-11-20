@@ -218,7 +218,7 @@ export async function captureTutorialPauseFlow(
         .first()
         .waitFor({ timeout: 8_000 });
       const optOut = path.join(dir, "tutorial-opt-out-notifications.png");
-      await shotDialog(page, optOut);
+      await shotPage(page, optOut);
       check(
         (await countResumeKeys(dialog)) === 1,
         "one queued tour before pause choice",
@@ -260,7 +260,7 @@ export async function captureTutorialPauseFlow(
         "Only this one removes pause-others card",
       );
       const onlyOne = path.join(dir, "tutorial-pause-only-one.png");
-      await shotDialog(page, onlyOne);
+      await shotPage(page, onlyOne);
     } finally {
       await context.close();
     }
