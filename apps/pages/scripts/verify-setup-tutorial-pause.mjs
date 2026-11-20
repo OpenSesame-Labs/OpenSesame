@@ -111,7 +111,11 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
   if (tutorial) {
     const tutDir = profileDir(outRoot, label, "default");
     const freshHarnessPage = harness
-      ? (b) => harness.newPage(b)
+      ? async (b) => {
+          const opened = await harness.newPage(b);
+          await freezeContextRandomness(opened.context);
+          return opened;
+        }
       : async (b) => {
           const context = await b.newContext({
             viewport: { width: 1280, height: 900 },
@@ -146,6 +150,17 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
     step: "setup-choices.png",
     sha256: digest(choices),
   });
+  if (harness) {
+    const hard = harness.log.filter((entry) =>
+      ["PAGE-ERROR", "MISSING-ASSET", "LOOPBACK-REQUEST"].includes(entry.kind),
+    );
+    for (const entry of hard) {
+      failures.push(`[${label}] ${entry.kind}: ${entry.detail ?? ""}`);
+    }
+    for (const fault of harness.failures) {
+      failures.push(`[${label}] ${fault}`);
+    }
+  }
   await context.close();
   return records;
 }
