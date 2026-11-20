@@ -50,7 +50,8 @@ impl Pkce {
     }
 }
 
-/// 32 bytes of CSPRNG output; a guessable `state` is a session-fixation hole.
+/// 32 random bytes (256 bits), base64url-encoded; a guessable `state` is a
+/// session-fixation hole.
 #[must_use]
 pub fn new_state() -> String {
     CsrfToken::new_random_len(32).secret().clone()
@@ -365,8 +366,23 @@ pub async fn revoke_upstream(
     };
     let url = assert_transport_allowed(revoke_url)?;
     let provider_config = config.provider(&provider.id);
+    let guarded = if provider.id.starts_with(crate::CUSTOM_PROVIDER_PREFIX) {
+        config.custom_egress().validate_token(provider, &url)?;
+        Some(
+            config
+                .custom_egress()
+                .client(&url, std::time::Duration::from_secs(20))
+                .await?,
+        )
+    } else {
+        None
+    };
     let mut form = vec![("token".to_string(), token.to_string())];
-    let mut request = http.post(url).header("Accept", "application/json");
+    let mut request = guarded
+        .as_ref()
+        .unwrap_or(http)
+        .post(url)
+        .header("Accept", "application/json");
     match (
         *token_auth,
         provider_config.client_id,
