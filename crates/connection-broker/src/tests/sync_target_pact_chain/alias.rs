@@ -1,5 +1,5 @@
 //! Dispatch aliases: function items, reassignment, blocks, and calls.
-use super::super::sync_target_pact_norm::{function_spans, string_len};
+use super::super::sync_target_pact_norm::{function_spans, non_code_len, string_len};
 
 #[path = "alias_shadow.rs"]
 mod shadow;
@@ -155,6 +155,25 @@ pub(super) fn statement_tail(lhs: &str) -> &str {
     lhs.trim()
 }
 
+/// Whitespace and comments between a function item and its terminator.
+fn skip_item_gap(after: &str) -> &str {
+    let bytes = after.as_bytes();
+    let mut index = 0usize;
+    loop {
+        let start = index;
+        while index < bytes.len() && bytes[index].is_ascii_whitespace() {
+            index += 1;
+        }
+        if let Some(len) = non_code_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        if index == start {
+            return &after[index..];
+        }
+    }
+}
+
 fn function_item_head(source: &str, index: usize) -> Option<usize> {
     let rest = &source[index..];
     const HEADS: &[&str] = &["::execute", "::send", ".execute", ".send"];
@@ -166,7 +185,7 @@ fn function_item_head(source: &str, index: usize) -> Option<usize> {
     if after.chars().next().is_some_and(super::is_ident_char) {
         return None;
     }
-    let after = strip_turbofish(after).unwrap_or(after).trim_start();
+    let after = skip_item_gap(strip_turbofish(after).unwrap_or(after));
     if after.starts_with('(') {
         return None;
     }

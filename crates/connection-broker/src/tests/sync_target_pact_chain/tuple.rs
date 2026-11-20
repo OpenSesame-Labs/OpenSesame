@@ -22,10 +22,15 @@ fn tuple_open_and_index(source: &str, path_start: usize) -> Option<(usize, usize
     if index == 0 {
         return None;
     }
+    // `";"` and `';'` are not statement ends. Comments are not either.
+    let code = super::peel::code_mask(bytes);
     let mut depth = 0i32;
     let mut commas = 0usize;
     while index > 0 {
         index -= 1;
+        if !code[index] {
+            continue;
+        }
         match bytes[index] {
             b')' | b']' | b'}' => depth += 1,
             b'(' | b'[' | b'{' if depth > 0 => depth -= 1,
@@ -121,6 +126,37 @@ fn let_introduces_pattern(before_paren: &str) -> bool {
         return false;
     }
     ends_with_kw(rest.trim_end(), "let")
+}
+
+#[cfg(test)]
+mod probes {
+    use super::super::super::sync_target_pact_https::credentialed_send_https_gaps;
+
+    #[test]
+    fn council_p1_string_semicolon_keeps_tuple_send_alias() {
+        let hits = [
+            r#"fn f() { let (a, dispatch) = (";".into(), Path::send); dispatch(request); }"#,
+            r#"fn f() { let (a, dispatch) = (';', Path::send); dispatch(request); }"#,
+            r#"fn f() { let (a, dispatch) = ("{".into(), Path::send); dispatch(request); }"#,
+            r#"fn f() { let (a, dispatch) = ("=".into(), reqwest::RequestBuilder::send); dispatch(request); }"#,
+        ];
+        for sample in hits {
+            assert_eq!(
+                super::super::dispatch_alias_calls(sample).len(),
+                1,
+                "{sample}"
+            );
+        }
+        let bare = r#"async fn f() { let (a, dispatch) = (";".into(), Path::send); dispatch(request).await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(bare), (1, 1), "{bare}");
+        let guarded = r#"async fn f() { if parsed.scheme() != "https" { return Err("x".into()); } let (a, dispatch) = (";".into(), Path::send); dispatch(request).await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
+        let other = r#"fn f() { let (a, dispatch) = (";".into(), other); dispatch(request); }"#;
+        assert!(
+            super::super::dispatch_alias_calls(other).is_empty(),
+            "{other}"
+        );
+    }
 }
 
 pub(super) fn ends_with_kw(source: &str, keyword: &str) -> bool {

@@ -5,7 +5,7 @@
 //! consume the body even though the terminator's immediate receiver is not
 //! `response`.
 
-use super::sync_target_pact_norm::string_len;
+use super::sync_target_pact_norm::{non_code_len, string_len};
 
 /// `.collect(`, `.count(`, `.any(`, and the other stream terminators, including
 /// adapter chains, when the chain root is a credentialed response receiver.
@@ -45,18 +45,57 @@ pub(crate) fn first_arg_is_response(source: &str, open: usize) -> bool {
 }
 
 fn chain_method_on_response(scanned: &str, method: &str) -> bool {
-    for suffix in ["(", "::"] {
-        let marker = format!(".{method}{suffix}");
-        let mut offset = 0usize;
-        while let Some(rel) = scanned[offset..].find(&marker) {
-            let index = offset + rel;
-            if chain_root_is_response(scanned, index) {
-                return true;
-            }
-            offset = index + marker.len();
+    let bytes = scanned.as_bytes();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = non_code_len(bytes, index) {
+            index += len;
+            continue;
         }
+        if bytes[index] == b'.'
+            && method_after_dot(scanned, index, method)
+            && chain_root_is_response(scanned, index)
+        {
+            return true;
+        }
+        index += 1;
     }
     false
+}
+
+/// `./*c*/collect(` and `.collect::<T>(`. Comments may sit between `.` and the name.
+fn method_after_dot(source: &str, dot: usize, method: &str) -> bool {
+    let bytes = source.as_bytes();
+    let name_at = skip_noise(bytes, dot + 1);
+    let Some(rest) = source.get(name_at..) else {
+        return false;
+    };
+    if !rest.starts_with(method) {
+        return false;
+    }
+    let after = name_at + method.len();
+    if bytes.get(after).is_some_and(|byte| is_ident_byte(*byte)) {
+        return false;
+    }
+    let tail = skip_noise(bytes, after);
+    bytes.get(tail) == Some(&b'(')
+        || source
+            .get(tail..)
+            .is_some_and(|rest| rest.starts_with("::"))
+}
+
+fn skip_noise(bytes: &[u8], mut index: usize) -> usize {
+    loop {
+        if let Some(len) = non_code_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        if bytes.get(index).is_some_and(u8::is_ascii_whitespace) {
+            index += 1;
+            continue;
+        }
+        return index;
+    }
 }
 
 fn chain_root_is_response(source: &str, dot: usize) -> bool {
@@ -80,8 +119,9 @@ fn root_ident(source: &str, mut end: usize) -> Option<String> {
         let name_end = skip_turbofish_before(source, open);
         if name_end > 0 && is_ident_byte(bytes[name_end - 1]) {
             let name_start = ident_start(source, name_end);
-            if name_start > 0 && bytes[name_start - 1] == b'.' {
-                end = name_start - 1;
+            let before_name = skip_gap_back(bytes, name_start);
+            if before_name > 0 && bytes[before_name - 1] == b'.' {
+                end = before_name - 1;
                 continue;
             }
             if let Some(name) = ufcs_chain_receiver(source, name_start, open) {
@@ -98,12 +138,17 @@ fn root_ident(source: &str, mut end: usize) -> Option<String> {
     }
 }
 
-/// `?` and `.await` sit between the receiver and the next chain method.
+/// `?`, `.await`, and comments sit between the receiver and the next chain method.
 fn skip_chain_postfix(source: &str, mut end: usize) -> usize {
     let bytes = source.as_bytes();
     loop {
         while end > 0 && bytes[end - 1].is_ascii_whitespace() {
             end -= 1;
+        }
+        let skipped = skip_noise_back(bytes, end);
+        if skipped < end {
+            end = skipped;
+            continue;
         }
         if end > 0 && bytes[end - 1] == b'?' {
             end -= 1;
@@ -115,6 +160,38 @@ fn skip_chain_postfix(source: &str, mut end: usize) -> usize {
         }
         return end;
     }
+}
+
+/// Byte before `name`, skipping comments and whitespace (`./*c*/map`).
+fn skip_gap_back(bytes: &[u8], mut end: usize) -> usize {
+    loop {
+        while end > 0 && bytes[end - 1].is_ascii_whitespace() {
+            end -= 1;
+        }
+        let skipped = skip_noise_back(bytes, end);
+        if skipped < end {
+            end = skipped;
+            continue;
+        }
+        return end;
+    }
+}
+
+/// Start of a comment or string that ends at `end`, otherwise `end`.
+fn skip_noise_back(bytes: &[u8], end: usize) -> usize {
+    let mut index = 0usize;
+    while index < end {
+        if let Some(len) = non_code_len(bytes, index) {
+            let span_end = index + len;
+            if span_end >= end {
+                return index;
+            }
+            index = span_end.max(index + 1);
+            continue;
+        }
+        index += 1;
+    }
+    end
 }
 
 /// `StreamExt::map(response, …)` — the receiver is the first argument.
@@ -383,5 +460,36 @@ mod probes {
             "rows.into_iter().map(SyncTargetView::from).collect()"
         ));
         assert!(!reads("StreamExt::map(rows.clone(), |b| b).collect()"));
+    }
+
+    #[test]
+    fn council_p1_comment_between_dot_and_method_is_a_body_read() {
+        let hits = [
+            "response.map(|b| b)./*c*/collect()",
+            "response.map(|b| b)./*c*/collect::<Vec<_>>",
+            "response./*c*/map(|b| b).collect()",
+            "response.map(|b| b)?./*c*/collect()",
+            "response.map(|b| b).await./*c*/count()",
+            "response.map(|b| b)/*c*/.collect()",
+        ];
+        for sample in hits {
+            assert!(
+                super::response_chain_consumer(sample),
+                "comment must not hide a response chain: {sample}"
+            );
+            assert!(reads(sample), "{sample}");
+        }
+        let misses = [
+            "rows.map(|b| b)./*c*/collect()",
+            "rows./*c*/into_iter().collect()",
+            "\"response.map(|b| b).collect()\"",
+        ];
+        for sample in misses {
+            assert!(
+                !super::response_chain_consumer(sample),
+                "unrelated chain is not a response read: {sample}"
+            );
+            assert!(!reads(sample), "{sample}");
+        }
     }
 }

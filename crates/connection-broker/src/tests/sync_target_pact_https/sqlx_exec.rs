@@ -227,8 +227,10 @@ fn stmt_end(bytes: &[u8], start: usize) -> usize {
             continue;
         }
         match bytes[index] {
-            b'(' | b'[' | b'{' | b'<' => depth += 1,
-            b')' | b']' | b'}' | b'>' if depth > 0 => depth -= 1,
+            // `<` in `port < 443` is a comparison. Counting it as a generic
+            // skips the statement semicolon and can swallow a later `sqlx::query`.
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' if depth > 0 => depth -= 1,
             b';' if depth == 0 => return index,
             _ => {}
         }
@@ -264,4 +266,30 @@ fn skip_ws(bytes: &[u8], mut at: usize) -> usize {
 
 fn is_single_eq(bytes: &[u8], at: usize) -> bool {
     bytes.get(at) == Some(&b'=') && !matches!(bytes.get(at + 1), Some(b'=' | b'>'))
+}
+
+#[cfg(test)]
+mod probes {
+    use super::super::credentialed_send_https_gaps;
+
+    #[test]
+    fn council_p1_comparison_does_not_swallow_later_sqlx() {
+        let http = [
+            r#"async fn f() { let client = if port < 443 { pool } else { other }; let query = sqlx::query("select 1"); client.execute(request).await?; }"#,
+            r#"async fn f() { let client = if port < 443 { pool } else { other }; client.execute(request).await?; }"#,
+            r#"async fn f() { let client = if port <= 443 { pool } else { other }; let query = sqlx::query("select 1"); client.execute(request).await?; }"#,
+            r#"async fn f() { let client = if port > 0 && port < 443 { pool } else { other }; client.execute(request).await?; }"#,
+            r#"async fn f() { let query = sqlx::query("select 1"); let client = if port < 443 { query } else { query }; client.execute(&pool).await?; }"#,
+        ];
+        for sample in http {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+        }
+        let db = [
+            r#"async fn f() { let query = sqlx::query(if port < 443 { "a" } else { "b" }); query.execute(&pool).await?; }"#,
+            r#"async fn f() { let client = if port < 443 { pool } else { other }; sqlx::query("select 1").execute(&pool).await?; }"#,
+        ];
+        for sample in db {
+            assert_eq!(credentialed_send_https_gaps(sample), (0, 0), "{sample}");
+        }
+    }
 }

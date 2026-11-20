@@ -81,26 +81,54 @@ fn closure_body_at(body: &str, pipe: usize) -> Option<usize> {
 
 fn runs_to_end(body: &str) -> bool {
     let bytes = body.as_bytes();
-    let (mut depth, mut index) = (0i32, 0usize);
+    let (mut depth, mut angle, mut index) = (0i32, 0i32, 0usize);
     while index < bytes.len() {
         if let Some(len) = string_len(bytes, index) {
             index += len;
             continue;
         }
         match bytes[index] {
-            b'(' | b'[' | b'{' | b'<' => depth += 1,
-            b')' | b']' | b'}' | b'>' => {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => {
                 if depth == 0 {
                     return false;
                 }
                 depth -= 1;
             }
-            b',' | b';' if depth == 0 => return false,
+            // `x > 0` is a comparison. A `>` at angle 0 does not end the body.
+            b'<' if generic_lt(bytes, index, angle) => angle += 1,
+            b'>' if angle > 0 && bytes.get(index + 1) != Some(&b'=') => angle -= 1,
+            b',' | b';' if depth == 0 && angle == 0 => return false,
             _ => {}
         }
         index += 1;
     }
     true
+}
+
+/// Turbofish, nested generics, and `as Type<…>`. Comparison `<` stays at angle 0.
+fn generic_lt(bytes: &[u8], index: usize, angle: i32) -> bool {
+    if bytes.get(index + 1) == Some(&b'=') {
+        return false;
+    }
+    if angle > 0 || (index >= 2 && bytes[index - 1] == b':' && bytes[index - 2] == b':') {
+        return true;
+    }
+    as_type_lt(bytes, index)
+}
+
+fn as_type_lt(bytes: &[u8], index: usize) -> bool {
+    if index == 0 || !super::is_ident_byte(bytes[index - 1]) {
+        return false;
+    }
+    let mut at = index;
+    while at > 0 && super::is_ident_byte(bytes[at - 1]) {
+        at -= 1;
+    }
+    while at > 0 && bytes[at - 1].is_ascii_whitespace() {
+        at -= 1;
+    }
+    at >= 2 && &bytes[at - 2..at] == b"as" && (at == 2 || !super::is_ident_byte(bytes[at - 3]))
 }
 
 pub(super) fn trailing_name(prefix: &str) -> &str {
@@ -112,4 +140,26 @@ pub(super) fn trailing_name(prefix: &str) -> &str {
         start = index;
     }
     &prefix[start..]
+}
+
+#[cfg(test)]
+mod probes {
+    use super::super::credentialed_send_https_gaps;
+
+    #[test]
+    fn council_p1_comparison_does_not_end_closure_body() {
+        let open = [
+            r#"async fn f() { if url.scheme() != "https" { |x| x > 0 || return Err("x".into()); } client.get(url).send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { let _ = |x| x > 0 || return Err("x".into()); } client.get(url).send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { || x > 0 || return Err("x".into()); } client.get(url).send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { |x| x < 1 || return Err("x".into()); } client.get(url).send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { |x| x >= 1 || return Err("x".into()); } client.get(url).send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { |x| foo::<A, B>() || return Err("x".into()); } client.get(url).send().await?; }"#,
+        ];
+        for sample in open {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+        }
+        let kept = r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(kept), (1, 0));
+    }
 }
