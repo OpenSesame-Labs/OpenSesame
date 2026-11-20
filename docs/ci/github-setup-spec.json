@@ -8,7 +8,7 @@
   },
   "promotion_model": {
     "build_once": "cd-npm-cli.yml job stage and cd-pwa.yml job build upload the npm tree, Pages dist, and release metadata. Later jobs download those artifacts. CLI stage sets CLI_RELEASE_PACK=1 so esbuild omits sourcemaps, and prepare-cli-release deletes *.map files and excludes dist/**/*.map from the publish files list.",
-    "main_ci_gate": "Before preview jobs, cd-main-ci-gate.mjs requires a successful ci.yml push on main for the same commit with TypeScript, Rust, and Bundle budgets all success.",
+    "main_ci_gate": "Before preview jobs, cd-main-ci-gate.mjs requires a successful ci.yml push on main for the same commit with TypeScript, Rust, and Bundle budgets all success. A cancelled run for that commit is non-terminal.",
     "preview": "After main CI passes, CLI and PWA jobs validate and pack their staged npm artifacts locally without registry credentials. The GitHub Pages deployment remains independent and runs after the existing build and profile proof.",
     "preview_smoke": "The CLI proof installs the staged tarball locally with scripts disabled and checks opensesame --version. PWA preview smoke verifies the deployed Pages bytes with Hurl and captures headless Chromium screenshots; it does not claim npm registry publication.",
     "profile_proof": "cd-pwa.yml keeps its full install profile proof, staged build, Pages deployment and live Pages verification. The npm package is checked locally.",

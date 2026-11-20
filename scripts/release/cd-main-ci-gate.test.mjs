@@ -127,6 +127,39 @@ test("classifyRuns keeps a completed successful main push for this sha", () => {
   assert.equal(classified.pending, true);
 });
 
+test("classifyRuns treats a cancelled main push as non-terminal", () => {
+  const cancelledOnly = classifyRuns(
+    [run({ id: 1, conclusion: "cancelled" })],
+    sha,
+    repository,
+  );
+  assert.deepEqual(cancelledOnly.successful, []);
+  assert.equal(cancelledOnly.completedFailure, false);
+  assert.equal(cancelledOnly.pending, false);
+
+  const cancelledAndSuccess = classifyRuns(
+    [run({ id: 1, conclusion: "cancelled" }), run({ id: 2 })],
+    sha,
+    repository,
+  );
+  assert.deepEqual(
+    cancelledAndSuccess.successful.map((entry) => entry.id),
+    [2],
+  );
+  assert.equal(cancelledAndSuccess.completedFailure, false);
+  assert.equal(cancelledAndSuccess.pending, false);
+
+  for (const conclusion of ["failure", "timed_out", "action_required"]) {
+    const classified = classifyRuns(
+      [run({ id: 1, conclusion: "cancelled" }), run({ id: 3, conclusion })],
+      sha,
+      repository,
+    );
+    assert.equal(classified.completedFailure, true, conclusion);
+    assert.deepEqual(classified.successful, []);
+  }
+});
+
 test("failedChecks requires every required job to succeed", () => {
   assert.deepEqual(failedChecks(succeededJobs()), []);
   assert.match(
@@ -163,6 +196,66 @@ test("waitForMainCi admits the sha after the push run succeeds", async () => {
   });
   assert.deepEqual(admitted, { runId: "42", sha });
   assert.equal(slept, 1);
+});
+
+test("waitForMainCi keeps polling when the only matching run was cancelled", async () => {
+  let lists = 0;
+  let slept = 0;
+  const fetcher = async () => {
+    lists += 1;
+    return jsonResponse({
+      workflow_runs: [run({ conclusion: "cancelled" })],
+    });
+  };
+  await assert.rejects(
+    () =>
+      waitForMainCi(config({ attempts: 3 }), fetcher, async () => {
+        slept += 1;
+      }),
+    /did not succeed/,
+  );
+  assert.equal(lists, 3);
+  assert.equal(slept, 2);
+});
+
+test("waitForMainCi admits a later successful run when an earlier one was cancelled", async () => {
+  const fetcher = async (url) => {
+    if (String(url).includes("/jobs"))
+      return jsonResponse({ jobs: succeededJobs() });
+    return jsonResponse({
+      workflow_runs: [
+        run({ id: 1, conclusion: "cancelled" }),
+        run({ id: 77 }),
+      ],
+    });
+  };
+  const admitted = await waitForMainCi(
+    config({ attempts: 1 }),
+    fetcher,
+    async () => {
+      throw new Error("should not sleep");
+    },
+  );
+  assert.deepEqual(admitted, { runId: "77", sha });
+});
+
+test("waitForMainCi fails closed when a real failure accompanies a cancelled run", async () => {
+  let slept = 0;
+  const fetcher = async () =>
+    jsonResponse({
+      workflow_runs: [
+        run({ id: 1, conclusion: "cancelled" }),
+        run({ id: 2, conclusion: "failure" }),
+      ],
+    });
+  await assert.rejects(
+    () =>
+      waitForMainCi(config({ attempts: 3 }), fetcher, async () => {
+        slept += 1;
+      }),
+    /completed without success/,
+  );
+  assert.equal(slept, 0);
 });
 
 test("waitForMainCi fails closed when the main push completed unsuccessfully", async () => {
