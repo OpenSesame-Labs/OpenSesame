@@ -30,6 +30,13 @@ import {
   loadBrowserEngine,
 } from "./engine.js";
 import { refreshEngineAvailability } from "./refresh-engine.js";
+import type {
+  SupportController,
+  SupportEntryExtras,
+  SupportEntryKind,
+  SupportSessionDependencies,
+  SupportView,
+} from "./session.js";
 import { noteGrounding, walkthroughsFor } from "./session-grounding.js";
 import { emptyView } from "./session-view.js";
 import { queueTourExit } from "./tutorial-exit.js";
@@ -39,13 +46,6 @@ import {
   SUPPORT_ERROR_TEXT,
   UNEXPECTED_TEXT,
 } from "./ui/messages.js";
-import type {
-  SupportController,
-  SupportEntryExtras,
-  SupportEntryKind,
-  SupportSessionDependencies,
-  SupportView,
-} from "./session.js";
 
 export function createSupportController(
   dependencies: SupportSessionDependencies,
@@ -241,8 +241,21 @@ export function createSupportController(
     await runProgram(program, origin);
   }
 
-  function beginQueuedWalkthrough(goalId: string, guide: string): boolean {
+  function queuedResumeRouteOk(homeRoute: string): boolean {
+    if (homeRoute === "") return !GUIDE_OVERLAY_ROUTES.has(state.route);
+    return guideRouteWithin(state.route, homeRoute);
+  }
+
+  function beginQueuedWalkthrough(
+    goalId: string,
+    guide: string,
+    homeRoute: string,
+  ): boolean {
+    if (state.guide !== null) return false;
+    if (!queuedResumeRouteOk(homeRoute)) return false;
     const beginAuthored = (loaded: SupportEngine) => {
+      if (state.guide !== null) return false;
+      if (!queuedResumeRouteOk(homeRoute)) return false;
       const program = loaded.compileAuthored(guide);
       if (!program) {
         notifyFailure(GUIDE_ERROR_TEXT.GUIDE_VALIDATION_ERROR);
@@ -270,9 +283,9 @@ export function createSupportController(
   function flushPendingQueuedResume(): void {
     if (!pendingQueuedResume) return;
     const { goalId, guide, homeRoute } = pendingQueuedResume;
-    if (homeRoute !== "" && !guideRouteWithin(state.route, homeRoute)) return;
+    if (!queuedResumeRouteOk(homeRoute)) return;
     pendingQueuedResume = null;
-    beginQueuedWalkthrough(goalId, guide);
+    beginQueuedWalkthrough(goalId, guide, homeRoute);
   }
 
   function clearSessionForLock(): void {
@@ -341,15 +354,15 @@ export function createSupportController(
     resumeQueuedWalkthrough(goalId: string, guide: string, homeRoute: string) {
       if (guideGoal(goalId) === null) return false;
       if (GUIDE_OVERLAY_ROUTES.has(homeRoute)) return false;
-      const onHome =
-        homeRoute === "" || guideRouteWithin(state.route, homeRoute);
+      if (state.guide !== null) return false;
+      const onHome = queuedResumeRouteOk(homeRoute);
       if (!onHome) {
         if (!navigator?.(homeRoute)) return false;
         pendingQueuedResume = { goalId, guide, homeRoute };
         void ensureEngine();
         return true;
       }
-      return beginQueuedWalkthrough(goalId, guide);
+      return beginQueuedWalkthrough(goalId, guide, homeRoute);
     },
     async ask(question) {
       const gate = gateSupportAsk(question, state.thinking);

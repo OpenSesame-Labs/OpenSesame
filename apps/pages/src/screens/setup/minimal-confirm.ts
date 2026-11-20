@@ -22,13 +22,17 @@ export function dismissMinimalConfirm(): void {
 }
 
 /** Sticky toast and a matching tray notice. Dismiss leaves the choice open. */
-export function showMinimalConfirm(confirm: () => void): void {
+export function showMinimalConfirm(
+  confirm: () => void,
+  keepDefault: () => void,
+): void {
   const run = () => {
     dismissMinimalConfirm();
     confirm();
   };
   const stay = () => {
     dismissMinimalConfirm();
+    keepDefault();
   };
   showToast({
     id: MINIMAL_CONFIRM_ID,
