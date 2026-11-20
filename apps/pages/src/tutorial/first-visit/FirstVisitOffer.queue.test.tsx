@@ -95,6 +95,7 @@ describe("declining a first-visit offer", () => {
     // The shell's controller binds this. The stub does not load one.
     const unbind = bindTutorialResume((_goalId, guide) => {
       void support.startGuide(guide, "authored");
+      return true;
     });
     try {
       mount(support);
