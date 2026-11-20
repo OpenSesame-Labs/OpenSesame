@@ -195,6 +195,9 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
           const page = await context.newPage();
           return { context, page };
         };
+    const hashesByStep = Object.fromEntries(
+      tutorialSteps.map((step) => [step, []]),
+    );
     for (const id of PROFILES) {
       const tutDir = profileDir(outRoot, label, id);
       console.log(`  tutorial pause flow profile ${id}`);
@@ -213,6 +216,7 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
         check(existsSync(file), `${label}/${id}/${step} exists`);
         const hash = digest(file);
         shotHashes.push(hash);
+        hashesByStep[step].push(hash);
         evidence.push({
           build: label,
           profile: id,
@@ -229,6 +233,13 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
       check(
         digest(onlyOne) !== digest(dismissX),
         `${label}/${id} pause only-one vs dismiss-x screenshots differ`,
+      );
+    }
+    for (const step of tutorialSteps) {
+      const perProfile = hashesByStep[step];
+      check(
+        new Set(perProfile).size === perProfile.length,
+        `${label} ${step} differs across profiles (${perProfile.length})`,
       );
     }
   }
