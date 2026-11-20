@@ -67,6 +67,24 @@ const wirePendingSchema = pendingFederatedAuthSchema
     },
   );
 
+const WIRE_COOKIE_FIELDS = new Set([
+  "issuer",
+  "state",
+  "nonce",
+  "verifier",
+  "verifierEnc",
+  "kind",
+  "providerId",
+  "byoId",
+  "orgId",
+]);
+
+function wireCookieHasOnlyKnownFields(
+  parsed: Record<string, unknown>,
+): boolean {
+  return Object.keys(parsed).every((field) => WIRE_COOKIE_FIELDS.has(field));
+}
+
 const SCRYPT_PARAMS = {
   N: 32768,
   r: 8,
@@ -133,6 +151,7 @@ function verifierSealKey(secret: string, state: string, nonce: string): Buffer {
 
 function verifierSealIv(
   key: Buffer,
+  secret: string,
   state: string,
   nonce: string,
   verifier?: string,
@@ -146,9 +165,10 @@ function verifierSealIv(
       .digest()
       .subarray(0, 12);
   }
+  const bound = pendingVerifierBinding(verifier, state, nonce, secret);
   return hmac
     .update("\0opensesame:fed-pending-seal-iv-v2\0")
-    .update(verifier, "utf8")
+    .update(bound, "utf8")
     .digest()
     .subarray(0, 12);
 }
@@ -161,7 +181,7 @@ function sealVerifier(
   nonce: string,
 ): string {
   const key = verifierSealKey(secret, state, nonce);
-  const iv = verifierSealIv(key, state, nonce, verifier);
+  const iv = verifierSealIv(key, secret, state, nonce, verifier);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
   const ciphertext = Buffer.concat([
     cipher.update(verifier, "utf8"),
@@ -273,13 +293,40 @@ function pendingSignature(payload: string, secret: string): string {
   return createHmac("sha256", secret).update(payload).digest("base64url");
 }
 
-/** Bind the exact encoded payload as well as the existing verifier binding. */
-function authenticatedPayload(payload: string, legacyInput: string): string {
-  return `OpenSesame:federated-pending:v3\0${payload}\0${legacyInput}`;
+/**
+ * MAC input for v3 cookies: wire fields with scrypt `verifierBound` instead of
+ * a plaintext PKCE verifier (CodeQL js/insufficient-password-hash). The cookie
+ * still carries `verifierEnc` or rollout plaintext on the wire separately.
+ */
+function wireMacMaterial(
+  data: z.infer<typeof wirePendingSchema>,
+  verifier: string,
+  secret: string,
+): string {
+  const { verifier: _plain, ...rest } = data;
+  const verifierBound = pendingVerifierBinding(
+    verifier,
+    data.state,
+    data.nonce,
+    secret,
+  );
+  return JSON.stringify({ ...rest, verifierBound });
+}
+
+/** Legacy v3 MAC bound the base64 payload (often plaintext verifier). */
+function authenticatedPayloadLegacy(
+  base64Payload: string,
+  legacyInput: string,
+): string {
+  return `OpenSesame:federated-pending:v3\0${base64Payload}\0${legacyInput}`;
+}
+
+function authenticatedPayloadV3(wireMac: string, legacyInput: string): string {
+  return `OpenSesame:federated-pending:v3:wire\0${wireMac}\0${legacyInput}`;
 }
 
 function modernPendingSignature(
-  payload: string,
+  wireMac: string,
   legacyInput: string,
   secret: string,
 ): string {
@@ -288,7 +335,20 @@ function modernPendingSignature(
     .update("OpenSesame:federated-pending:v3:key")
     .digest();
   return createHmac("sha256", key)
-    .update(authenticatedPayload(payload, legacyInput))
+    .update(authenticatedPayloadV3(wireMac, legacyInput))
+    .digest("base64url");
+}
+
+function modernPendingSignatureLegacy(
+  base64Payload: string,
+  legacyInput: string,
+  secret: string,
+): string {
+  const key = createHmac("sha256", secret)
+    .update("OpenSesame:federated-pending:v3:key")
+    .digest();
+  return createHmac("sha256", key)
+    .update(authenticatedPayloadLegacy(base64Payload, legacyInput))
     .digest("base64url");
 }
 
@@ -315,7 +375,15 @@ export function encodePending(
   );
   if (!secret) return payload;
   const legacyInput = pendingIntegrityPayload(pending, secret);
-  return `${payload}.${modernPendingSignature(payload, legacyInput, secret)}`;
+  const wireForMac = wireMacMaterial(
+    wirePendingSchema.parse({
+      ...body,
+      verifier: pending.verifier,
+    }),
+    pending.verifier,
+    secret,
+  );
+  return `${payload}.${modernPendingSignature(wireForMac, legacyInput, secret)}`;
 }
 
 /**
@@ -337,15 +405,19 @@ function verifiedPendingPayload(
     "issuer" | "state" | "nonce" | "verifier" | "kind" | "providerId"
   >;
   let legacyEligible: boolean;
+  let data: z.infer<typeof wirePendingSchema>;
+  let verifier: string;
   try {
     const parsed = JSON.parse(
       Buffer.from(payload, "base64url").toString("utf8"),
-    );
+    ) as Record<string, unknown>;
+    if (!wireCookieHasOnlyKnownFields(parsed)) return undefined;
     const macResult = wirePendingSchema.safeParse(parsed);
     if (!macResult.success) return undefined;
-    const data = macResult.data;
-    const verifier = resolveVerifier(data, secret);
-    if (verifier === undefined) return undefined;
+    data = macResult.data;
+    const resolved = resolveVerifier(data, secret);
+    if (resolved === undefined) return undefined;
+    verifier = resolved;
     // Old signatures did not cover any field outside this set. A future
     // decoder must not give an unsigned extension security meaning.
     const legacyFields = new Set([
@@ -377,8 +449,15 @@ function verifiedPendingPayload(
     return undefined;
   }
   const legacyInput = pendingIntegrityPayload(macPending, secret);
-  const expected = modernPendingSignature(payload, legacyInput, secret);
+  const wireForMac = wireMacMaterial(data, verifier, secret);
+  const expected = modernPendingSignature(wireForMac, legacyInput, secret);
+  const expectedLegacy = modernPendingSignatureLegacy(
+    payload,
+    legacyInput,
+    secret,
+  );
   if (signatureMatches(supplied, expected)) return payload;
+  if (signatureMatches(supplied, expectedLegacy)) return payload;
   if (
     legacyEligible &&
     signatureMatches(supplied, pendingSignature(legacyInput, secret))
@@ -401,7 +480,9 @@ export function decodePending(
   try {
     const parsed = JSON.parse(
       Buffer.from(payload, "base64url").toString("utf8"),
-    );
+    ) as Record<string, unknown>;
+    if (secret !== undefined && !wireCookieHasOnlyKnownFields(parsed))
+      return undefined;
     const result = wirePendingSchema.safeParse(parsed);
     if (!result.success) return undefined;
     const data = result.data;
