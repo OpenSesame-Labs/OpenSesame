@@ -141,6 +141,7 @@ describe("opensesame image metadata", () => {
     expect(docker).toMatch(
       /CMD \["curl", "-fsS", "http:\/\/127\.0\.0\.1:8787\/health\/live"\]/,
     );
+    expect(docker).toMatch(/apt-get -y upgrade --no-install-recommends/);
     expect(spec.dockerInspect.Entrypoint).toEqual(["opensesame"]);
     expect(spec.dockerInspect.ExposedPorts).toEqual({ "8787/tcp": {} });
     expect(spec.labels["org.opencontainers.image.version"]).toBe("0.0.0-local");
