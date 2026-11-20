@@ -27,7 +27,7 @@ export function stubSupportController(
   const listeners = new Set<() => void>();
   const started: StartedGuide[] = [];
   const opened: (SupportTab | undefined)[] = [];
-  type StopGuideStub = Readonly<{ count: number; reason: GuideCancelReason }>;
+  type StopGuideStub = { count: number; reason: GuideCancelReason };
   const stops: StopGuideStub = { count: 0, reason: "user" };
   const nothing = () => undefined;
   const support: SupportController = {
