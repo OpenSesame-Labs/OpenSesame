@@ -28,10 +28,7 @@ export async function openBuildBrowser(
   browser,
   { label, dist, devUrl, href, BASE, outRoot },
 ) {
-  if (
-    !devUrl &&
-    !existsSync(path.join(dist, "index.html"))
-  ) {
+  if (!devUrl && !existsSync(path.join(dist, "index.html"))) {
     throw new Error(`no dist at ${dist} for build ${label}`);
   }
   const harness = devUrl
