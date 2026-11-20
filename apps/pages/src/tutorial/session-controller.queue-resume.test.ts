@@ -3,7 +3,6 @@
 import {
   forgetGuidanceAnswers,
   guidanceSeams,
-  loadGuidance,
 } from "@opensesame/app-core/lib/guidance.js";
 import * as notices from "@opensesame/app-core/lib/notices.js";
 import {
@@ -11,84 +10,11 @@ import {
   listQueuedTutorials,
   queueTutorial,
 } from "@opensesame/app-core/lib/tutorial-queue.js";
-import { GUIDE_LANG_VERSION, type GuideProgram } from "@opensesame/guide-lang";
-import type {
-  GuideOutcome,
-  GuideRuntimeSnapshot,
-} from "@opensesame/guide-runtime";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupportEngine } from "./engine.js";
 import { createSupportController } from "./session-controller.js";
+import { stubQueuedResumeEngine } from "./session-controller.queue-resume.test-support.js";
 import { QUEUED_RESUME_ROUTE_SETTLE_MS } from "./session-queued-resume.js";
-
-const PROGRAM: GuideProgram = {
-  version: GUIDE_LANG_VERSION,
-  goal: "vault.lock",
-  instructions: [{ kind: "end" }],
-};
-
-const RUNNING: GuideRuntimeSnapshot = {
-  status: "running",
-  goal: "vault.lock",
-  index: 0,
-  total: 1,
-  runId: 1,
-  message: null,
-  error: null,
-  tour: {
-    step: 1,
-    count: 1,
-    kind: "narrate",
-    message: "Queued.",
-    target: null,
-    side: null,
-    action: false,
-    degraded: false,
-    canBack: false,
-  },
-};
-
-function stubEngine(running: boolean): SupportEngine {
-  return {
-    transport: "none",
-    warning: null,
-    session: {
-      snapshot: () => ({
-        status: "idle",
-        messages: [],
-        program: null,
-        guideError: null,
-        grounding: null,
-        suggestedQuestions: [],
-        thoughts: null,
-        computer: [],
-        error: null,
-        generation: 0,
-      }),
-      messages: () => [],
-      subscribe: () => () => {},
-      availability: () => Promise.resolve({ kind: "ready" }),
-      ask: () => Promise.resolve(),
-      cancel: () => {},
-      clear: () => {},
-      destroy: () => {},
-    },
-    compile: () => null,
-    compileAuthored: () => ({ ...PROGRAM, goal: "vault.lock" }),
-    runGuide: () => Promise.resolve({ kind: "completed", goal: "vault.lock" }),
-    nextStep: () => {},
-    backStep: () => {},
-    restartGuide: () => {},
-    pauseGuide: () => {},
-    cancelGuide: () => {},
-    subscribeGuide: (listener) => {
-      if (running) listener(RUNNING);
-      return () => {};
-    },
-    acquire: () => Promise.resolve({ kind: "acquired" }),
-    destroy: () => {},
-  };
-}
 
 describe("resumeQueuedWalkthrough", () => {
   const originalGuidance = { ...guidanceSeams };
@@ -111,7 +37,7 @@ describe("resumeQueuedWalkthrough", () => {
 
   it("rejects route-less resumes on gate overlay routes", () => {
     const controller = createSupportController({
-      loadEngine: () => Promise.resolve(stubEngine(false)),
+      loadEngine: () => Promise.resolve(stubQueuedResumeEngine(false)),
       onLock: () => () => {},
       clearTargets: () => {},
     });
@@ -126,7 +52,7 @@ describe("resumeQueuedWalkthrough", () => {
 
   it("rejects while another walkthrough is running", async () => {
     const controller = createSupportController({
-      loadEngine: () => Promise.resolve(stubEngine(true)),
+      loadEngine: () => Promise.resolve(stubQueuedResumeEngine(true)),
       onLock: () => () => {},
       clearTargets: () => {},
     });
@@ -149,7 +75,7 @@ describe("resumeQueuedWalkthrough", () => {
 
   it("clears queued resume loading when navigation leaves the tour home route", async () => {
     let runs = 0;
-    const engine = stubEngine(false);
+    const engine = stubQueuedResumeEngine(false);
     engine.runGuide = () => {
       runs += 1;
       return Promise.resolve({ kind: "completed", goal: "other-tour" });
@@ -200,7 +126,7 @@ describe("resumeQueuedWalkthrough", () => {
       ),
     ).toBe(true);
     controller.setRoute("/vault/item");
-    resolver(stubEngine(false));
+    resolver(stubQueuedResumeEngine(false));
     await Promise.resolve();
     await Promise.resolve();
     expect(listQueuedTutorials()).toEqual([
@@ -225,7 +151,7 @@ describe("resumeQueuedWalkthrough", () => {
     expect(
       controller.resumeQueuedWalkthrough("vault.lock", "guide", "/vault"),
     ).toBe(true);
-    const engine = stubEngine(false);
+    const engine = stubQueuedResumeEngine(false);
     controller.lock();
     resolver(engine);
     await Promise.resolve();
@@ -250,7 +176,7 @@ describe("resumeQueuedWalkthrough", () => {
       onLock: () => () => {},
       clearTargets: () => {},
     });
-    const engine = stubEngine(false);
+    const engine = stubQueuedResumeEngine(false);
     engine.runGuide = () => {
       runGuideCalls += 1;
       return Promise.resolve({ kind: "completed", goal: "vault.lock" });
@@ -268,9 +194,9 @@ describe("resumeQueuedWalkthrough", () => {
     controller.destroy();
   });
 
-  it("does not start a resume after the route leaves its home", async () => {
+  it("does not start a stale resume on a later visit to its home", async () => {
     let runs = 0;
-    const engine = stubEngine(false);
+    const engine = stubQueuedResumeEngine(false);
     engine.runGuide = () => {
       runs += 1;
       return Promise.resolve({
@@ -309,7 +235,7 @@ describe("resumeQueuedWalkthrough", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
       let runs = 0;
-      const engine = stubEngine(false);
+      const engine = stubQueuedResumeEngine(false);
       engine.runGuide = () => {
         runs += 1;
         return Promise.resolve({
@@ -354,7 +280,7 @@ describe("resumeQueuedWalkthrough", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
       let runs = 0;
-      const engine = stubEngine(false);
+      const engine = stubQueuedResumeEngine(false);
       engine.runGuide = () => {
         runs += 1;
         return Promise.resolve({ kind: "completed", goal: "other-tour" });
@@ -394,7 +320,7 @@ describe("resumeQueuedWalkthrough", () => {
 
   it("starts a resume when home arrives after the engine is ready", async () => {
     let runs = 0;
-    const engine = stubEngine(false);
+    const engine = stubQueuedResumeEngine(false);
     engine.runGuide = () => {
       runs += 1;
       return Promise.resolve({
@@ -424,132 +350,6 @@ describe("resumeQueuedWalkthrough", () => {
     controller.setRoute("/settings");
     await Promise.resolve();
     expect(runs).toBe(1);
-    controller.destroy();
-  });
-
-  it("records a library walkthrough as answered when it completes", async () => {
-    let resolveRun: (outcome: GuideOutcome) => void = () => {};
-    const engine = stubEngine(false);
-    engine.compileAuthored = () => ({ ...PROGRAM, goal: "vault.lock" });
-    const controller = createSupportController({
-      loadEngine: () => Promise.resolve(engine),
-      onLock: () => () => {},
-      clearTargets: () => {},
-    });
-    controller.setRoute("/vault");
-    queueTutorial("vault.lock", { title: "Lock the vault" });
-    let started = false;
-    engine.runGuide = () => {
-      started = true;
-      return new Promise((resolve) => {
-        resolveRun = resolve;
-      });
-    };
-    const running = controller.startGuide("guide", "authored");
-    await vi.waitFor(() => expect(started).toBe(true));
-    expect(listQueuedTutorials()).toEqual([{ goalId: "vault.lock" }]);
-    expect(loadGuidance().tours).toEqual([]);
-    resolveRun({ kind: "completed", goal: "vault.lock" });
-    await running;
-    expect(loadGuidance().tours).toEqual(["vault.lock"]);
-    expect(listQueuedTutorials()).toEqual([]);
-    controller.destroy();
-  });
-
-  it("records a completed walkthrough after lock clears the engine", async () => {
-    let resolveRun: (outcome: GuideOutcome) => void = () => {};
-    const engine = stubEngine(false);
-    engine.compileAuthored = () => ({
-      ...PROGRAM,
-      goal: "settings.danger.review",
-    });
-    const controller = createSupportController({
-      loadEngine: () => Promise.resolve(engine),
-      onLock: () => () => {},
-      clearTargets: () => {},
-    });
-    controller.setRoute("/settings");
-    queueTutorial("settings.danger.review", { title: "Danger" });
-    let started = false;
-    engine.runGuide = () => {
-      started = true;
-      return new Promise((resolve) => {
-        resolveRun = resolve;
-      });
-    };
-    const running = controller.startGuide("guide", "authored");
-    await vi.waitFor(() => expect(started).toBe(true));
-    controller.lock();
-    resolveRun({ kind: "completed", goal: "settings.danger.review" });
-    await running;
-    expect(loadGuidance().tours).toEqual(["settings.danger.review"]);
-    expect(listQueuedTutorials()).toEqual([]);
-    controller.destroy();
-  });
-
-  it("records the lock walkthrough when lock cancels the running guide", async () => {
-    let resolveRun: (outcome: GuideOutcome) => void = () => {};
-    const engine = stubEngine(false);
-    engine.compileAuthored = () => ({ ...PROGRAM, goal: "vault.lock" });
-    const controller = createSupportController({
-      loadEngine: () => Promise.resolve(engine),
-      onLock: () => () => {},
-      clearTargets: () => {},
-    });
-    controller.setRoute("/vault");
-    queueTutorial("vault.lock", { title: "Lock the vault" });
-    let started = false;
-    engine.runGuide = () => {
-      started = true;
-      return new Promise((resolve) => {
-        resolveRun = resolve;
-      });
-    };
-    engine.cancelGuide = (reason) => {
-      resolveRun({ kind: "cancelled", goal: "vault.lock", reason });
-    };
-    const running = controller.startGuide("guide", "authored");
-    await vi.waitFor(() => expect(started).toBe(true));
-    expect(loadGuidance().tours).toEqual([]);
-    controller.lock();
-    await running;
-    expect(loadGuidance().tours).toEqual(["vault.lock"]);
-    expect(listQueuedTutorials()).toEqual([]);
-    controller.destroy();
-  });
-
-  it("does not record a different tour when lock cancels it", async () => {
-    let resolveRun: (outcome: GuideOutcome) => void = () => {};
-    const engine = stubEngine(false);
-    engine.compileAuthored = () => ({
-      ...PROGRAM,
-      goal: "settings.danger.review",
-    });
-    const controller = createSupportController({
-      loadEngine: () => Promise.resolve(engine),
-      onLock: () => () => {},
-      clearTargets: () => {},
-    });
-    controller.setRoute("/settings");
-    queueTutorial("settings.danger.review", { title: "Danger" });
-    let started = false;
-    engine.runGuide = () => {
-      started = true;
-      return new Promise((resolve) => {
-        resolveRun = resolve;
-      });
-    };
-    engine.cancelGuide = (reason) => {
-      resolveRun({ kind: "cancelled", goal: "settings.danger.review", reason });
-    };
-    const running = controller.startGuide("guide", "authored");
-    await vi.waitFor(() => expect(started).toBe(true));
-    controller.lock();
-    await running;
-    expect(loadGuidance().tours).toEqual([]);
-    expect(listQueuedTutorials()).toEqual([
-      { goalId: "settings.danger.review" },
-    ]);
     controller.destroy();
   });
 });
