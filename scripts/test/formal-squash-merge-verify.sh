@@ -43,9 +43,10 @@ for manifest in manifests:
         dest = scratch / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(root / rel, dest)
-# Start from origin/main's lock (the scratch worktree) and overlay branch
-# manifests. Regenerate the lock only when a manifest differs, so a branch
-# Cargo.lock is not copied over main's resolution wholesale.
+# Start from origin/main's lock (the scratch worktree). Overlay Cargo.toml
+# and Cargo.lock paths that differ from HEAD, including a lock-only diff.
+# Regenerate offline when either differs so the scratch resolution follows
+# that diff instead of keeping main's lock.
 manifest_diff = subprocess.check_output(
     ["git", "-C", str(root), "diff", "--name-only", "origin/main", "HEAD"],
     text=True,
@@ -55,11 +56,20 @@ changed_manifests = [
     for rel in manifest_diff.splitlines()
     if rel == "Cargo.toml" or rel.endswith("/Cargo.toml")
 ]
+changed_locks = [
+    rel
+    for rel in manifest_diff.splitlines()
+    if rel == "Cargo.lock" or rel.endswith("/Cargo.lock")
+]
+for rel in changed_locks:
+    dest = scratch / rel
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(root / rel, dest)
 for rel in changed_manifests:
     dest = scratch / rel
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(root / rel, dest)
-if changed_manifests:
+if changed_manifests or changed_locks:
     subprocess.run(
         ["cargo", "generate-lockfile", "--offline"],
         cwd=scratch,
