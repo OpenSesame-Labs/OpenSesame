@@ -41,6 +41,7 @@ function setupController(controller) {
     "formal-proof-push-gate.mjs",
     "formal-proof-push-gate-registry.mjs",
     "formal-proof-push-history.mjs",
+    "formal-proof-lock-history.mjs",
     "formal-proof-remote-main.mjs",
     "formal-proof-required-suites.mjs",
   ])
@@ -193,6 +194,10 @@ export function installHook(f) {
   f.write(
     "scripts/security/formal-proof-push-history.mjs",
     readFileSync(new URL("./formal-proof-push-history.mjs", import.meta.url)),
+  );
+  f.write(
+    "scripts/security/formal-proof-lock-history.mjs",
+    readFileSync(new URL("./formal-proof-lock-history.mjs", import.meta.url)),
   );
   f.write(
     "scripts/security/formal-proof-remote-main.mjs",

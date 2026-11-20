@@ -130,6 +130,7 @@ claim of exhaustive inventory or Lean coverage:
 | Federated sign-in. [Contract](../architecture/federated-signin.md). | [`federated-pending.ts`](../../packages/control-plane/src/interactions/federated-pending.ts) and [`interactions.ts`](../../packages/control-plane/src/routes/interactions.ts). | [FED-I1–I3](../../spec/formal/oauth/README.md) model signed pending-cookie binding, legacy provenance, and matching current trust. They do not prove PKCE, redirects, tokens, or protocol compliance. |
 | Interaction approval binding. [ADR 0084](../adr/0084-external-authorization-notifications.md). | [`interaction.ts`](../../packages/os-domain/src/machines/interaction.ts). | [APR-B1–B5](../../spec/formal/webauthn/README.md) model digest binding, expiry, lifecycle, and sequential consumption. WebAuthn cryptography and concurrent storage are outside the model. |
 | CLI app-integration assertion origin and presence. [CLI-WA1](#cli-wa1-cli-assertion-origin-and-presence). | [`webauthn_assertion.rs`](../../crates/cli-app-integration/src/webauthn_assertion.rs), called for registration and approval. | Unproved; separate from APR-B1–B5. |
+| Identity listener trust rotation. [Operator mTLS doc](../operators/mtls.md). | [`listener.ts`](../../packages/control-plane/src/transport/listener.ts), [`request-evidence.ts`](../../packages/control-plane/src/transport/request-evidence.ts). | [IDENTITY-TLS1](#identity-tls1-stale-transport-evidence-after-trust-rotation): **unproved**; Vitest regressions only. |
 | CLI app-integration credential registration and retries. [CLI-WA2](#cli-wa2-cli-credential-registration-and-retries). | [`register_webauthn`](../../crates/cli-app-integration/src/pairing/binding.rs). | Unproved; separate from APR-B1–B5. |
 | CLI app-integration restricted approvals. [CLI-WA3](#cli-wa3-restricted-cli-approvals). | [`ensure`](../../crates/cli-app-integration/src/lib.rs) and [`human_proof_verify`](../../crates/cli-app-integration/src/human_proof.rs). | Unproved; separate from APR-B1–B5. |
 | Interaction deadline admission. [ADR 0086](../adr/0086-wallet-native-interaction-layer.md). | [`interaction-clock.ts`](../../packages/control-plane/src/services/interaction-clock.ts) and the approval and consumption routes. | [CLOCK-1](../../spec/formal/interaction-clock/README.md) proves the sampled deadline predicate. The real-route tests cover selected pauses; commit-time expiry, atomic storage, and rollback are not proved. |
@@ -210,6 +211,25 @@ There is no formal theorem for CLI-WA2. Signed cases in
 [`webauthn_registration_tests.rs`](../../crates/cli-app-integration/src/webauthn_registration_tests.rs)
 exercise retries, rollback, replacement and re-pairing. The direct Rust harness
 result and remaining integration limits are those recorded for CLI-WA1.
+
+### IDENTITY-TLS1: stale transport evidence after trust rotation
+
+After the Identity listener reloads client CA, originating trust, or service
+bindings, established socket peer evidence and already-buffered request evidence
+must not authorize new operations. Trusted ingress must not act as the originating
+client when forwarded evidence is missing or invalid.
+
+Implementation: trust generation in
+[`listener.ts`](../../packages/control-plane/src/transport/listener.ts);
+per-request expiry in
+[`request-evidence.ts`](../../packages/control-plane/src/transport/request-evidence.ts).
+
+Formal status: **unproved**. No Lean model or registry suite covers this
+transport boundary yet.
+
+Evidence: Vitest regressions in
+[`listener-rotation.test.ts`](../../packages/control-plane/src/transport/__tests__/listener-rotation.test.ts)
+(client CA, binding, originating-trust, credential-only reload, stale replay).
 
 ### CLI-WA3: restricted CLI approvals
 
