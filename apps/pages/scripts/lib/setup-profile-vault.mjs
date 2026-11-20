@@ -363,6 +363,11 @@ export async function captureProfileAppliedVault(
       `${profileId} vault: core item types active without remediation (${JSON.stringify(rail)})`,
     );
   } else if (profileId === "custom") {
+    rail = await vaultRailMarkers(page);
+    check(
+      rail.card === 0 && rail.note === 0,
+      `custom vault: derived types off before remediation (${JSON.stringify(rail)})`,
+    );
     await enableCoreItemTypesIfOffered(page);
     rail = await vaultRailMarkers(page);
     check(

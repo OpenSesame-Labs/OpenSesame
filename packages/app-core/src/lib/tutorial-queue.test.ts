@@ -136,10 +136,15 @@ describe("tutorial queue", () => {
   });
 
   it("does not queue gate tours declined away from their gate", () => {
+    clearNotices();
     expect(noteTutorialDeclined("gate.front-door", "The front door")).toBe(
       false,
     );
     expect(listQueuedTutorials()).toEqual([]);
+    expect(
+      listNotices().some((notice) => notice.id === TUTORIAL_PAUSE_NOTICE),
+    ).toBe(true);
+    clearNotices();
   });
 
   it("queues a decline with a resume key and a pause prompt", () => {
