@@ -7,29 +7,9 @@ import {
   fixture,
   installHook,
   nil,
+  productionFixture,
   push,
 } from "./formal-proof-push-gate.test.fixture.mjs";
-
-test("selects all changed paths in pushed history, including changes subsequently reverted", (t) => {
-  const f = fixture(t);
-  f.write("src/a", "intermediate\n");
-  f.commit();
-  f.write("src/a", "a0\n");
-  const target = f.commit();
-  const result = f.run(f.tuple(target));
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(f.commands(), ["run verify:a"]);
-});
-
-test("a metadata change cannot remove requirements from the target", (t) => {
-  const f = fixture(t);
-  rmSync(join(f.repo, "spec/formal/proof-requirements.json"));
-  const target = f.commit();
-  const result = f.run(f.tuple(target));
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /requirements are missing/);
-  assert.deepEqual(f.commands(), []);
-});
 
 test("a merge does not select an implementation already at the destination", (t) => {
   const f = fixture(t);

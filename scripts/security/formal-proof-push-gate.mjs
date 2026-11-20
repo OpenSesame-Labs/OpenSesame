@@ -20,6 +20,14 @@ import {
   registryPath,
   requirementsPath,
 } from "./formal-proof-required-suites.mjs";
+import {
+  assertProjectionRunnerHistory,
+  assertRunnerHistory,
+} from "./formal-proof-runner-history.mjs";
+import {
+  RUNNER_INVENTORY_PATH,
+  validateRunnerInventoryHistory,
+} from "./formal-proof-runner-pins.mjs";
 
 export { assertProofFiles, parseRegistry };
 
@@ -321,8 +329,12 @@ export function planPush(root, refs, remote) {
     const change = changedForUpdate(root, ref, remote, getTips, getMain);
     if (!change) continue;
     const history = inspectPolicyHistory(root, change, head, git);
+    assertProjectionRunnerHistory(root, change, history, head, git);
     const lockAffected = lockAffectedSuites(root, change, history, head, git);
     const selected = selectHistoricalSuites(change, history, lockAffected);
+    if (change.changed.has(RUNNER_INVENTORY_PATH))
+      validateRunnerInventoryHistory(root, change, git);
+    if (selected.length) assertRunnerHistory(root, change, selected, head, git);
     if (!selected.length) continue;
     const existing = planned.get(change.target) ?? new Map();
     for (const suite of selected) existing.set(suite.id, suite);
