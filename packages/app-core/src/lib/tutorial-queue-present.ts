@@ -156,11 +156,13 @@ export function postTutorialPausePrompt(): void {
  * then dropped: the registry is what the notice says.
  */
 export function noteTutorialDeclined(goalId: string, title: string): boolean {
-  if (!queueableGoal(goalId)) return false;
-  if (!queueTutorial(goalId, { title })) return false;
-  postQueuedTutorialNotice(goalId);
+  let queued = false;
+  if (queueableGoal(goalId) && queueTutorial(goalId, { title })) {
+    postQueuedTutorialNotice(goalId);
+    queued = true;
+  }
   postTutorialPausePrompt();
-  return true;
+  return queued;
 }
 
 /** Tray rows for queued goals only — does not touch the session pause question. */
