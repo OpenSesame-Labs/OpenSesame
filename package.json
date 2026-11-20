@@ -160,7 +160,7 @@
     "@types/react-dom": "19.3.0",
     "@typescript/typescript6": "6.0.2",
     "@vitejs/plugin-react": "6.2.1",
-    "@vitest/coverage-v8": "4.1.12",
+    "@vitest/coverage-v8": "5.1.0",
     "better-auth": "1.7.18",
     "cve-lite-cli": "1.41.4",
     "drizzle-kit": "0.31.11",
