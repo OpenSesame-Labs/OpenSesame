@@ -147,7 +147,7 @@
     "@typescript/native": "npm:typescript@7.0.2",
     "@vitejs/plugin-react": "6.2.1",
     "aedes": "1.2.0",
-    "es-module-lexer": "2.3.2",
+    "es-module-lexer": "3.0.4",
     "fast-check": "4.10.2",
     "jsdom": "31.0.0",
     "node-turn": "file:../../patches/vendor/node-turn-0.0.6.tgz",
