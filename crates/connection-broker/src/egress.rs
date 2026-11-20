@@ -326,7 +326,7 @@ impl ConnectionBroker {
             .body(body)
             .send()
             .await
-            .map_err(|_| BrokerError::ExchangeFailed("upstream request failed".into()))?;
+            .map_err(|e| BrokerError::ExchangeFailed(e.without_url().to_string()))?;
         let status = response.status();
         if status.is_redirection() {
             // Following this would hand the bearer token to wherever the
