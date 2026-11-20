@@ -3,8 +3,8 @@
  *
  * The unit tests prove the runtime and the card; this proves the product: a
  * tutorial is started from the Support sheet's library, every step is read
- * off the page that is actually showing it, and the person gets through it
- * with nothing but Next. A step that points at a control is only a pass if
+ * off the page that is actually showing it, and follows Next and required
+ * actions. A step that points at a control is only a pass if
  * the control is lit, on screen, not covered by the card, and reachable
  * through the aperture. A step that cannot find its control is a failure
  * here, though it degrades to text for a person — a tutorial that points at
@@ -15,6 +15,12 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { PIN, waitOpen } from "./pages-journey.mjs";
 import { measureStep, stepChecks } from "./tutorial-measure.mjs";
+import {
+  measureButton,
+  measurementTools,
+  readableInstruction,
+} from "./tutorial-measure-tools.mjs";
+import { isFilterAction, pressFilterAction } from "./tutorial-page.mjs";
 
 export { stepChecks };
 
@@ -55,7 +61,8 @@ export async function listTutorials(page) {
   );
   await page.keyboard.press("Escape");
   await sheet.waitFor({ state: "detached", timeout: 5000 }).catch(() => {});
-  return rows;
+  // Featured tutorials are also listed in their regular section.
+  return [...new Map(rows.map((row) => [row.id, row])).values()];
 }
 
 export const tutorialDialog = (page) =>
@@ -64,7 +71,7 @@ export const tutorialDialog = (page) =>
 /** Starts one tutorial from the library and waits for its first card. */
 export async function startTutorial(page, id) {
   const sheet = await openLibrary(page);
-  await sheet.locator(`[data-tutorial="${id}"]`).click();
+  await sheet.locator(`[data-tutorial="${id}"]`).first().click();
   const card = tutorialDialog(page);
   await card.waitFor({ timeout: 15000 });
   return card;
@@ -117,7 +124,7 @@ async function lit(page) {
   await page.waitForFunction(
     ({ finalMs }) => {
       const root = document.querySelector(".coach");
-      if (!root || !root.getAttribute("data-coach-target")) return true;
+      if (!root?.getAttribute("data-coach-target")) return true;
       const key = `${root.getAttribute("data-coach-step")}:${root.getAttribute("data-coach-kind")}`;
       if (root.getAttribute("data-coach-degraded") !== "true") {
         window.__walkMissing = null;
@@ -146,16 +153,29 @@ async function settled(page) {
       if (!card?.classList.contains("is-placed")) return false;
       if (root.querySelector(".is-gliding")) return false;
       const ring = root.querySelector(".coach__ring");
+      const target = root.getAttribute("data-coach-target") ?? "";
+      const controls = target
+        ? [
+            ...document.querySelectorAll(
+              `[data-guide-targets~="${CSS.escape(target)}"]`,
+            ),
+          ].map((control) => control.getBoundingClientRect())
+        : [];
       const sig = [
         root.getAttribute("data-coach-step"),
         root.getAttribute("data-coach-kind"),
         JSON.stringify(card.getBoundingClientRect()),
         ring ? JSON.stringify(ring.getBoundingClientRect()) : "-",
+        JSON.stringify(controls),
+        window.visualViewport?.height ?? window.innerHeight,
       ].join("|");
       const held = window.__walkSettled;
       if (held?.sig === sig) held.frames += 1;
-      else window.__walkSettled = { sig, frames: 0 };
-      return window.__walkSettled.frames >= 4;
+      else window.__walkSettled = { sig, frames: 0, since: performance.now() };
+      return (
+        window.__walkSettled.frames >= 4 &&
+        performance.now() - window.__walkSettled.since >= 200
+      );
     },
     undefined,
     { timeout: 10000, polling: "raf" },
@@ -204,10 +224,20 @@ export async function reachedStep(page, step, timeout = 6000) {
  * control lit (or given up on past the runtime's grace) and everything still.
  */
 export async function readStep(page) {
+  await page.waitForFunction(
+    () => {
+      const coach = document.querySelector(".coach");
+      return !coach || coach.getAttribute("data-coach-status") === "waiting";
+    },
+    undefined,
+    { timeout: 15000 },
+  );
   await placed(page);
   await lit(page);
   await settled(page);
-  return page.evaluate(measureStep);
+  return page.evaluate(
+    `(${measureStep})(() => (${measurementTools})(${readableInstruction}, ${measureButton}))`,
+  );
 }
 
 /** Re-enters the first screen of the shell without reloading (which locks). */
@@ -252,17 +282,37 @@ export async function unlockIfLocked(page) {
 }
 
 /** Presses Next by mouse or by keyboard, whichever this step is owed. */
-async function pressNext(page, { info, byKeyboard, check, label }) {
+async function pressNext(
+  page,
+  { info, byKeyboard, check, label, phone, afterFilter },
+) {
   const next = page.locator(".coach__btn--go");
+  if (isFilterAction(info)) {
+    await pressFilterAction(page, { info, check, label, phone });
+    return;
+  }
   if (!byKeyboard) {
     await next.click();
     return;
   }
-  check(
-    info.focusInCard,
-    `${label}: focus is on the card, so Enter reaches Next`,
-  );
-  if (!info.focusInCard) await next.focus();
+  if (afterFilter)
+    check(
+      info.backDisabled,
+      `${label}: Back cannot return to a closed filter sheet`,
+    );
+  if (afterFilter && !info.focusInCard) {
+    await next.focus();
+    check(
+      await next.evaluate((node) => document.activeElement === node),
+      `${label}: Next can take focus after choosing a filter`,
+    );
+  } else {
+    check(
+      info.focusInCard,
+      `${label}: focus is on the card, so Enter reaches Next`,
+    );
+    if (!info.focusInCard) await next.focus();
+  }
   await page.keyboard.press("Enter");
 }
 
@@ -276,7 +326,7 @@ function checkDeclaredTotal({ id, check, shown, total }) {
 }
 
 /**
- * Press Next through a whole tutorial, checking every step. Returns the
+ * Walk the whole tutorial, checking every step. Returns the
  * ordered list of steps seen. `press` alternates mouse and keyboard so both
  * roads are walked on every tutorial. Steps are numbered 1..N with none
  * skipped, and N is what the tutorial declared (`total`, when known).
@@ -312,7 +362,15 @@ export async function walkSteps(
 
     const byKeyboard =
       press === "keyboard" || (press === "alternate" && guard % 2 === 1);
-    await pressNext(page, { info, byKeyboard, check, label });
+    const afterFilter = isFilterAction(seen.at(-2));
+    await pressNext(page, {
+      info,
+      byKeyboard,
+      check,
+      label,
+      phone,
+      afterFilter,
+    });
     if (!(await advancedFrom(page, info))) {
       check(false, `${label}: Next did not move the tutorial on`);
       return seen;

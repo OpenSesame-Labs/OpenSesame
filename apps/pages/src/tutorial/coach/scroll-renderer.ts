@@ -36,9 +36,9 @@ export function createScrollRenderer(
     // must not die because the page cannot scroll.
     if (element !== null && isFunction(element.scrollIntoView)) {
       element.scrollIntoView({
-        block: "nearest",
+        block: "center",
         inline: "nearest",
-        behavior: options.reducedMotion() ? "auto" : "smooth",
+        behavior: "auto",
       });
     }
     return Promise.resolve();

@@ -15,17 +15,11 @@ import { AUTHORED_GUIDE_LIMITS, compileGuide } from "@opensesame/guide-lang";
 import { planGuideSteps } from "@opensesame/guide-runtime";
 import { beforeAll, describe, expect, it } from "vitest";
 
-// Grok gauntlet rounds 4-5: the first-item walkthrough declared success
-// before any secret was saved. A beat's trailing wait is its `until` in
-// the compiled plan — assert at that level, not on string order: the
-// Save beat is only satisfied once the vault actually holds an item
-// (a rejected press, Cancel and Escape never make that true), and the
-// close comes
-// after a beat standing over the list the saved item appears in.
+// The guide must wait for a saved item and a real copy action before it ends.
 beforeAll(() => registerGuidePredicates());
 
 describe("the guided first item", () => {
-  it("cannot complete its Save step until the vault holds the item, then stands over the list", () => {
+  it("waits for the saved password and a copy action before finishing", () => {
     const compiled = compileGuide(
       FIRST_ITEM_GOAL.guide,
       {
@@ -44,17 +38,23 @@ describe("the guided first item", () => {
     );
     expect(saveBeat?.until).toMatchObject({
       kind: "wait",
-      subject: "state",
-      predicate: "vault.has-items",
-      expected: true,
+      subject: "target",
+      target: "item.copy-generated",
+      event: "appear",
     });
-    const listBeat = plan.beats.find((beat) => beat.target === "vault.list");
-    expect(listBeat).toBeDefined();
-    expect(listBeat?.ordinal).toBeGreaterThan(saveBeat?.ordinal ?? -1);
-    expect(listBeat?.route).toBe("/vault/list");
+    const copyBeat = plan.beats.find(
+      (beat) => beat.target === "item.copy-generated",
+    );
+    expect(copyBeat?.until).toMatchObject({
+      kind: "wait",
+      subject: "target",
+      target: "item.copy-generated",
+      event: "activate",
+    });
+    expect(copyBeat?.ordinal).toBeGreaterThan(saveBeat?.ordinal ?? -1);
     const close = plan.beats[plan.beats.length - 1];
     expect(close?.kind).toBe("close");
-    expect(close?.ordinal).toBeGreaterThan(listBeat?.ordinal ?? -1);
+    expect(close?.ordinal).toBeGreaterThan(copyBeat?.ordinal ?? -1);
   });
 
   it("opens the phone list pane before pointing at New item", () => {
