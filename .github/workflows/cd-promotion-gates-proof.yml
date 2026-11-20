@@ -16,6 +16,7 @@ on:
       - "scripts/ci/headless-browser-benchmark-support.mjs"
       - ".github/workflows/cd-npm-publish-proof.yml"
       - "scripts/release/cd-*.mjs"
+      - "scripts/release/cd-pwa-preview-smoke/**"
       - "scripts/release/npm-cd-workflows.test.mjs"
       - "scripts/release/npm-cd-workflows.promotion-gates.mjs"
       - "scripts/release/npm-local-package-smoke.mjs"
@@ -69,6 +70,9 @@ jobs:
             scripts/release/cd-preview-smoke.pages.test.mjs \
             scripts/release/cd-pwa-preview-smoke/prepare-vars.test.mjs \
             scripts/release/cd-pwa-preview-smoke/hurl-template.test.mjs \
+            scripts/release/cd-pwa-preview-smoke/live-bundle-poll.test.mjs \
+            scripts/release/cd-pwa-preview-smoke/live-bundle-poll.more.test.mjs \
+            scripts/release/cd-pwa-preview-smoke/smoke-failure-evidence.test.mjs \
             scripts/release/cd-pwa-preview-smoke/screenshot-evidence.test.mjs \
             scripts/ci/pwa-install-profile-proof.test.mjs \
             scripts/ci/cd-pwa-pages-workspace-install.test.mjs \
