@@ -50,13 +50,6 @@ async function shotDialog(page, file) {
   await dialog.screenshot({ path: file, animations: "disabled" });
 }
 
-async function pausePromptToast(page) {
-  return page
-    .locator(".toast")
-    .filter({ hasText: "Pause the others for this session?" })
-    .first();
-}
-
 export async function assertOnSetup(page, check) {
   const frame = page.locator(".setup__frame");
   const setup = await frame.isVisible().catch(() => false);
@@ -253,16 +246,18 @@ export async function captureTutorialPauseFlow(
         (await countResumeKeys(dialog)) === 1,
         "Only this one leaves one queued tour",
       );
-      const toast = await pausePromptToast(page);
-      check(
-        !(await toast.isVisible().catch(() => false)),
-        "Only this one clears sticky pause toast",
-      );
       check(
         (await dialog
           .getByRole("button", { name: "Pause all for this session" })
           .count()) === 0,
         "Only this one clears tray pause prompt",
+      );
+      const pauseOthers = dialog.locator(".notice-card", {
+        hasText: "Pause the others",
+      });
+      check(
+        (await pauseOthers.count()) === 0,
+        "Only this one removes pause-others card",
       );
       const onlyOne = path.join(dir, "tutorial-pause-only-one.png");
       await shotDialog(page, onlyOne);
@@ -292,17 +287,19 @@ export async function captureTutorialPauseFlow(
         (await countResumeKeys(dialog)) === 1,
         "dismiss (X) still leaves tour queued",
       );
-      const toast = await pausePromptToast(page);
-      check(
-        await toast.isVisible().catch(() => false),
-        "dismiss (X) on tray leaves sticky pause toast visible",
-      );
       check(
         (await pauseCard.isVisible().catch(() => false)) === false,
         "dismiss (X) removes tray pause card",
       );
+      await dialog.getByRole("button", { name: "Close", exact: true }).click();
+      await dialog.waitFor({ state: "hidden" });
+      await page.waitForTimeout(400);
       const dismissX = path.join(dir, "tutorial-pause-dismiss-x.png");
-      await page.screenshot({ path: dismissX, animations: "disabled" });
+      await shotPage(page, dismissX);
+      check(
+        (await countResumeKeys(await openNotes(page))) === 1,
+        "dismiss (X) still leaves tour queued after closing tray",
+      );
     } finally {
       await context.close();
     }
