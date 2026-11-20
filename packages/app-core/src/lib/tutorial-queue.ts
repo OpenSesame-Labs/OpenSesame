@@ -282,9 +282,12 @@ export function resumeTutorialFromNotice(goalId: string): boolean {
   return true;
 }
 
-/** Completed elsewhere — drop the queue row when the tour is finished. */
+/**
+ * Completed elsewhere — drop the queue row when the tour is finished.
+ * The contribution may already be unloaded, so this follows the stored id,
+ * not the live registry.
+ */
 export function completeQueuedTutorial(goalId: string): void {
-  if (!loadGoals().includes(goalId)) return;
   dequeueTutorial(goalId);
   dropQueueNotice(goalId);
 }
