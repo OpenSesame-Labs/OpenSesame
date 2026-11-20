@@ -37,16 +37,15 @@ async function confirmMinimal(page, dir, check, required) {
   await page.waitForTimeout(400);
   const anyway = page.getByRole("button", { name: "Use Minimal anyway" });
   try {
-    await page
-      .getByRole("button", { name: /Notifications —/ })
-      .first()
-      .waitFor({ state: "visible", timeout: 8_000 });
-    await page
-      .getByRole("button", { name: /Notifications —/ })
-      .first()
-      .click();
     const dialog = page.getByRole("dialog", { name: "Notifications" });
-    await dialog.waitFor({ timeout: 8_000 });
+    if (!(await dialog.isVisible().catch(() => false))) {
+      const trigger = page
+        .getByRole("button", { name: /Notifications —/ })
+        .first();
+      await trigger.waitFor({ state: "visible", timeout: 8_000 });
+      await trigger.click();
+      await dialog.waitFor({ timeout: 8_000 });
+    }
     const warning = path.join(dir, "setup-minimal-confirm-tray.png");
     await page
       .locator(".vault, .setup__frame, body")
@@ -61,6 +60,9 @@ async function confirmMinimal(page, dir, check, required) {
     } catch {
       // Main commits Minimal with no confirm. The advanced road must show it.
       check(!required, "Use Minimal anyway offered before Minimal commit");
+      // Without the confirm the road never commits; waiting for the vault
+      // would only burn the timeout and bury the real failure.
+      if (required) throw new Error("minimal confirm required but not offered");
     }
   }
 }
@@ -86,7 +88,10 @@ async function finishCustom(page, check) {
     .waitFor({ state: "visible", timeout: 20_000 });
   const derivedCard = page.getByTestId("capability-card-vault.derived-records");
   await derivedCard.waitFor({ state: "visible", timeout: 12_000 });
-  await derivedCard.locator(".capcard__pick").click();
+  const derivedPick = derivedCard.locator(".capcard__pick");
+  if ((await derivedPick.getAttribute("aria-pressed")) !== "true") {
+    await derivedPick.click();
+  }
   const review = page.getByRole("button", {
     name: "Save on this device",
     exact: true,

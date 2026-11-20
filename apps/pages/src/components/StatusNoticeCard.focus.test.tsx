@@ -172,7 +172,51 @@ describe("a tray card whose act works in place (ADR 0221)", () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
-  it("closes the tray after a keyboard worded choice on a page toast", () => {
+  it("hands focus back to the page card after a keyboard worded choice", () => {
+    const pause = vi.fn();
+    const only = vi.fn();
+    const onOpen = vi.fn();
+    const notice: Notice = {
+      id: "tutorial.pause.session",
+      kind: "status",
+      tone: "warn",
+      title: "Tutorials",
+      body: "Pause the others for this session?",
+      act: {
+        label: "Pause all for this session",
+        worded: true,
+        run: pause,
+      },
+      alt: { label: "Only this one", worded: true, run: only },
+      createdAt: "2026-11-18T00:00:00Z",
+    };
+    const view = render(
+      <MemoryRouter>
+        <StatusNoticeCard notice={notice} onOpen={onOpen} />
+      </MemoryRouter>,
+    );
+    const pauseKey = screen.getByRole("button", {
+      name: "Pause all for this session",
+    });
+    pauseKey.focus();
+    fireEvent.click(pauseKey);
+    // Hand-back is armed: focus stays with the card instead of the page.
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(pause).toHaveBeenCalledTimes(1);
+    view.rerender(
+      <MemoryRouter>
+        <StatusNoticeCard
+          notice={{ ...notice, act: undefined, alt: undefined }}
+          onOpen={onOpen}
+        />
+      </MemoryRouter>,
+    );
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Dismiss" }),
+    );
+  });
+
+  it("moves focus onto the page for a pointer worded choice on a page card", () => {
     const pause = vi.fn();
     const only = vi.fn();
     const onOpen = vi.fn();
@@ -200,9 +244,10 @@ describe("a tray card whose act works in place (ADR 0221)", () => {
     const pauseKey = screen.getByRole("button", {
       name: "Pause all for this session",
     });
-    pauseKey.focus();
+    // No focus first: a pointer press has no card to hand back to.
     fireEvent.click(pauseKey);
     expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(pause).toHaveBeenCalledTimes(1);
   });
 
   it("leaves focus to the page for an act that opens it", () => {
