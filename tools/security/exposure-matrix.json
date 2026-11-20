@@ -707,6 +707,7 @@
       "implementation": [
         "crates/bitwarden-server/Cargo.toml",
         "crates/bitwarden-server/src/import/account.rs",
+        "crates/bitwarden-server/src/import/account_options.rs",
         "crates/bitwarden-server/src/import/account_files.rs",
         "crates/bitwarden-server/src/import/files.rs",
         "crates/bitwarden-server/src/import/file_paths.rs",
@@ -740,7 +741,7 @@
         "crates/provider-bitwarden/tests/pinned_origin.rs",
         "crates/provider-bitwarden/tests/common/response_limit_stub.rs"
       ],
-      "review": "Privileged operator migration intentionally handles wrapped vault/private/org keys, server verifiers, API keys and TOTP/recovery material. This is local secret custody, not anonymous export. Source IDs never choose local filenames; archive child paths are opened no-follow under retained roots, regular single-link files and actual file/HTTP byte intake are bounded. SQLite archive row counts are not globally capped by this control. Credential-bearing API requests retain their selected origin; signed file downloads use the API origin or a separately user-authorized storage origin, carry no account bearer and refuse redirects. Live files use random exclusive scratch names. Non-Unix archive file bytes fail closed; see operator compatibility documentation. 2026-10-31: crates/provider-bitwarden/Cargo.toml now pins aes 0.9.2 and cbc 0.2.1 with features alloc and block-padding unchanged (cipher 0.5.2). Encrypt and decrypt still use PKCS7 via encrypt_padded_vec and decrypt_padded_vec; type-2 HMAC is checked before decryption. reqwest, response caps, and origin pinning in that manifest are unchanged. cargo test -p opensesame-provider-bitwarden passed, including response_limits (13), pinned_origin (5), crypto unit tests, and fast crypto vectors. Ignored production-KDF and regenerator tests were not run. bitwarden-server import path tests were not re-run; this diff does not change those sources. 2026-11-07: crates/bitwarden-server/Cargo.toml changes only [dev-dependencies] tokio-tungstenite 0.29.0 -> 0.30.0 (supersedes Dependabot #2514). cargo tree shows no normal-edge path to tungstenite 0.30, so the import implementation, its path confinement, byte bounds and origin pinning link nothing new; upstream 0.30 only rejects malformed Sec-WebSocket-Key on its server side and raises rand/sha1 (already in the lockfile), while the crate's own WebSocket server stays on axum's tungstenite 0.29. cargo test -p opensesame-bitwarden-server --tests passed (lib unit tests incl. import/tests.rs, account_files_tests.rs and file_paths_tests.rs: 49; import 6, import_files 3, import_orgs 3, import_paths 2, import_root_handles 1, import_sign_in 2; device_login 4 and live_sync 4 exercise the bumped client). cargo test -p opensesame-provider-bitwarden --test response_limits --test pinned_origin passed (13, 5). Ignored bw CLI oracle tests were not run. 2026-11-17: reviewed the account import, download destination validation and regressions after requiring exact scheme, host and port for each authorized attachment origin. Additional storage origins are supplied explicitly by the importer, not by the server; rejected attachments are counted as left behind. The provider suite and account_files importer tests passed, including unauthorized and authorized cross-origin cases. The external Bitwarden oracle was not run."
+      "review": "Privileged operator migration intentionally handles wrapped vault/private/org keys, server verifiers, API keys and TOTP/recovery material. This is local secret custody, not anonymous export. Source IDs never choose local filenames; archive child paths are opened no-follow under retained roots, regular single-link files and actual file/HTTP byte intake are bounded. SQLite archive row counts are not globally capped by this control. Credential-bearing API requests retain their selected origin; signed file downloads use the API origin or a separately user-authorized storage origin, carry no account bearer and refuse redirects. Live files use random exclusive scratch names. Non-Unix archive file bytes fail closed; see operator compatibility documentation. 2026-10-31: crates/provider-bitwarden/Cargo.toml now pins aes 0.9.2 and cbc 0.2.1 with features alloc and block-padding unchanged (cipher 0.5.2). Encrypt and decrypt still use PKCS7 via encrypt_padded_vec and decrypt_padded_vec; type-2 HMAC is checked before decryption. reqwest, response caps, and origin pinning in that manifest are unchanged. cargo test -p opensesame-provider-bitwarden passed, including response_limits (13), pinned_origin (5), crypto unit tests, and fast crypto vectors. Ignored production-KDF and regenerator tests were not run. bitwarden-server import path tests were not re-run; this diff does not change those sources. 2026-11-07: crates/bitwarden-server/Cargo.toml changes only [dev-dependencies] tokio-tungstenite 0.29.0 -> 0.30.0 (supersedes Dependabot #2514). cargo tree shows no normal-edge path to tungstenite 0.30, so the import implementation, its path confinement, byte bounds and origin pinning link nothing new; upstream 0.30 only rejects malformed Sec-WebSocket-Key on its server side and raises rand/sha1 (already in the lockfile), while the crate's own WebSocket server stays on axum's tungstenite 0.29. cargo test -p opensesame-bitwarden-server --tests passed (lib unit tests incl. import/tests.rs, account_files_tests.rs and file_paths_tests.rs: 49; import 6, import_files 3, import_orgs 3, import_paths 2, import_root_handles 1, import_sign_in 2; device_login 4 and live_sync 4 exercise the bumped client). cargo test -p opensesame-provider-bitwarden --test response_limits --test pinned_origin passed (13, 5). Ignored bw CLI oracle tests were not run. 2026-11-17: reviewed the account import, download destination validation and regressions after requiring exact scheme, host and port for each authorized attachment origin. Additional storage origins are supplied explicitly by the importer, not by the server; rejected attachments are counted as left behind. The provider suite and account_files importer tests passed, including unauthorized and authorized cross-origin cases. The external Bitwarden oracle was not run. 2026-11-17: reviewed live account attachment count and aggregate byte reservations, retained scratch files and bounded re-reads. Failed downloads remain charged; skipped or unreadable files are counted. The 51 server unit tests, import_files, import_paths and import_root_handles integration tests, and CLI bridge tests passed. The limits are per live import; archive row counts remain outside this control."
     },
     {
       "id": "public-signing-keys",
@@ -1872,34 +1873,44 @@
       "9854732c"
     ],
     "crates/bitwarden-server/src/import/account.rs": [
-      "ba2a7b6e",
-      "0f0536a1",
-      "542b611e",
-      "c1541238",
-      "df31e321",
-      "2ea5081e",
-      "b802a5f6",
-      "8e19cf26"
+      "8f6f4810",
+      "9b704bda",
+      "24d47486",
+      "e70664e1",
+      "951dbebf",
+      "a9029b69",
+      "fb5d534c",
+      "cb65a1da"
+    ],
+    "crates/bitwarden-server/src/import/account_options.rs": [
+      "4b73f21b",
+      "6d4fcd3f",
+      "a077f3dc",
+      "7c6a092b",
+      "605ff1fc",
+      "65cefddc",
+      "0db95fbc",
+      "97976770"
     ],
     "crates/bitwarden-server/src/import/account_files.rs": [
-      "7027714e",
-      "92d9caa5",
-      "cbe2e138",
-      "ea0d5e4a",
-      "072762a0",
-      "df2cd639",
-      "a42bc8d8",
-      "9ace43be"
+      "7d83e413",
+      "5c94d8ac",
+      "e6b7c5cc",
+      "b8882e5c",
+      "1fc451a5",
+      "28637f65",
+      "abec8554",
+      "ffd0b625"
     ],
     "crates/bitwarden-server/src/import/files.rs": [
-      "2b4a80bc",
-      "704f0234",
-      "f60c2106",
-      "dfcf8055",
-      "97651d0a",
-      "75c2c9aa",
-      "59bb285f",
-      "31ec00a0"
+      "ae4b65d0",
+      "ec2f51a1",
+      "2d3aeefa",
+      "8fa3eb47",
+      "b1e857b3",
+      "2f7d007a",
+      "4c3cca1d",
+      "69da5b02"
     ],
     "crates/bitwarden-server/src/import/file_paths.rs": [
       "60acc95d",
@@ -1912,14 +1923,14 @@
       "f58f92b4"
     ],
     "crates/bitwarden-server/src/import/mod.rs": [
-      "22495664",
-      "566be86c",
-      "2df84e6e",
-      "5da7ca12",
-      "df70f42d",
-      "919992a3",
-      "9f313a80",
-      "2d5e80cb"
+      "aaf4ae46",
+      "060e2da5",
+      "bf6adc46",
+      "546f398c",
+      "d50e1abd",
+      "3a94603d",
+      "d8db9a43",
+      "9adfdc6e"
     ],
     "crates/bitwarden-server/src/import/shared.rs": [
       "58fc1fdb",
@@ -2002,14 +2013,14 @@
       "aaabe63d"
     ],
     "crates/bitwarden-server/src/import/account_files_tests.rs": [
-      "343d25a1",
-      "04643afe",
-      "3b43d878",
-      "3e65ad69",
-      "4de17493",
-      "9870ad53",
-      "c4421047",
-      "0003c14c"
+      "9c594e5f",
+      "cbc3aba1",
+      "2cdabfdf",
+      "2dc26573",
+      "6e439ce0",
+      "ef756177",
+      "8a959e46",
+      "5a936e9a"
     ],
     "crates/bitwarden-server/src/import/file_paths_tests.rs": [
       "202e3bdb",

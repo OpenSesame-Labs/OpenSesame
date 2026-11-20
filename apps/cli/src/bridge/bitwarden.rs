@@ -68,6 +68,12 @@ pub enum ImportSource {
         /// Additional trusted attachment storage origin (repeatable).
         #[arg(long = "attachment-origin")]
         attachment_origins: Vec<String>,
+        /// Maximum personal attachments to attempt (default: 512).
+        #[arg(long = "max-attachments")]
+        max_attachments: Option<usize>,
+        /// Maximum total attachment bytes to download (default: 2147483648).
+        #[arg(long = "max-attachment-bytes")]
+        max_attachment_bytes: Option<usize>,
         #[command(flatten)]
         target: Target,
     },
@@ -101,7 +107,7 @@ mod imp {
     use anyhow::Context as _;
     use opensesame_bitwarden_server::hashing::HashRegistry;
     use opensesame_bitwarden_server::import::account::{
-        self, AccountRequest, Answer, Ask, Challenge,
+        self, AccountRequest, Answer, Ask, AttachmentLimits, Challenge,
     };
     use opensesame_bitwarden_server::import::{
         self, vaultwarden, AccountReport, SharedReport, Source, WriteOptions, Written,
@@ -251,10 +257,13 @@ mod imp {
                 server,
                 email,
                 attachment_origins,
+                max_attachments,
+                max_attachment_bytes,
                 target,
             } => {
                 let password = Zeroizing::new(prompt_secret_hidden("Master password")?);
-                let source = account::read_with_download_origins(
+                let defaults = AttachmentLimits::default();
+                let source = account::read_with_options(
                     &AccountRequest {
                         server_url: &server,
                         email: &email,
@@ -263,6 +272,10 @@ mod imp {
                     &HashRegistry::default(),
                     &mut Terminal,
                     &attachment_origins,
+                    AttachmentLimits {
+                        max_count: max_attachments.unwrap_or(defaults.max_count),
+                        max_total_bytes: max_attachment_bytes.unwrap_or(defaults.max_total_bytes),
+                    },
                 )
                 .await?;
                 drop(password);

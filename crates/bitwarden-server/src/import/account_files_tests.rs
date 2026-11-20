@@ -32,6 +32,7 @@ async fn attachment_ids_cannot_choose_paths_or_overwrite_prior_downloads() {
     let sentinel = work.path().join("outside");
     std::fs::write(&sentinel, b"unchanged").unwrap();
     let user = crate::import::tests::user();
+    let mut budget = AttachmentBudget::new(AttachmentLimits::default());
     for id in [
         "../outside",
         "..\\outside",
@@ -40,25 +41,59 @@ async fn attachment_ids_cannot_choose_paths_or_overwrite_prior_downloads() {
         "%2e%2e%2foutside",
     ] {
         let attachment = json!({"id": id, "fileName": ENC});
-        assert!(fetch(&api, "token", "cipher", &attachment, &user, &scratch)
-            .await
-            .is_none());
+        assert!(fetch(
+            &api,
+            "token",
+            "cipher",
+            &attachment,
+            &user,
+            &scratch,
+            &mut budget
+        )
+        .await
+        .is_none());
     }
     let absolute = json!({"id": sentinel.to_str().unwrap(), "fileName": ENC});
-    assert!(fetch(&api, "token", "cipher", &absolute, &user, &scratch)
-        .await
-        .is_none());
+    assert!(fetch(
+        &api,
+        "token",
+        "cipher",
+        &absolute,
+        &user,
+        &scratch,
+        &mut budget
+    )
+    .await
+    .is_none());
     let good = json!({"id": "file-id", "fileName": ENC});
-    assert!(fetch(&api, "token", "../cipher", &good, &user, &scratch)
-        .await
-        .is_none());
-    let one = fetch(&api, "token", "cipher", &good, &user, &scratch)
+    assert!(fetch(
+        &api,
+        "token",
+        "../cipher",
+        &good,
+        &user,
+        &scratch,
+        &mut budget
+    )
+    .await
+    .is_none());
+    let one = fetch(&api, "token", "cipher", &good, &user, &scratch, &mut budget)
         .await
         .unwrap();
-    let two = fetch(&api, "token", "cipher", &good, &user, &scratch)
+    let two = fetch(&api, "token", "cipher", &good, &user, &scratch, &mut budget)
         .await
         .unwrap();
-    let (FileSource::Disk(first), FileSource::Disk(second)) = (one.source, two.source) else {
+    assert_eq!(one.source.read().unwrap(), b"downloaded ciphertext");
+    if let FileSource::Downloaded { path, .. } = &one.source {
+        std::fs::write(path, b"changed to a different size").unwrap();
+        assert!(one.source.read().is_none());
+        std::fs::write(path, b"downloaded ciphertext").unwrap();
+    } else {
+        unreachable!();
+    }
+    let (FileSource::Downloaded { path: first, .. }, FileSource::Downloaded { path: second, .. }) =
+        (one.source, two.source)
+    else {
         unreachable!();
     };
     assert_ne!(first, second);
@@ -117,6 +152,7 @@ async fn external_attachment_storage_requires_person_authorization() {
             &user,
             scratch.path(),
             &mut left,
+            AttachmentLimits::default(),
         )
         .await;
         assert_eq!(arriving.len(), usize::from(authorized));
@@ -130,4 +166,105 @@ async fn external_attachment_storage_requires_person_authorization() {
     }
     api_task.abort();
     storage_task.abort();
+}
+
+#[tokio::test]
+async fn attachment_count_and_bytes_bound_downloads_and_scratch() {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let base = format!("http://{}", listener.local_addr().unwrap());
+    let url = format!("{base}/download");
+    let visits = Arc::new(AtomicUsize::new(0));
+    let observed = Arc::clone(&visits);
+    let router = Router::new()
+        .route(
+            "/download",
+            get(move || {
+                let observed = Arc::clone(&observed);
+                async move {
+                    observed.fetch_add(1, Ordering::SeqCst);
+                    "four"
+                }
+            }),
+        )
+        .fallback(get(move || {
+            let url = url.clone();
+            async move { Json(json!({"url": url})) }
+        }));
+    let server = tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+    let api = Client::new(
+        Endpoints::from_server_url(&base).unwrap(),
+        DeviceIdentity::default(),
+    )
+    .unwrap();
+    let sync = json!({"ciphers": [{"id": "cipher", "attachments": [
+        {"id":"a", "fileName":ENC}, {"id":"b", "fileName":ENC},
+        {"id":"c", "fileName":ENC}, {"id":"d", "fileName":ENC},
+        {"id":"e", "fileName":ENC}
+    ]}, {"attachments": [{"id":"orphan", "fileName":ENC}]}]});
+    let user = crate::import::tests::user();
+    for (limits, expected_visits, failed, skipped) in [
+        (
+            AttachmentLimits {
+                max_count: 2,
+                max_total_bytes: 100,
+            },
+            2,
+            0,
+            3,
+        ),
+        (
+            AttachmentLimits {
+                max_count: 5,
+                max_total_bytes: 10,
+            },
+            3,
+            1,
+            2,
+        ),
+        (
+            AttachmentLimits {
+                max_count: 5,
+                max_total_bytes: 0,
+            },
+            0,
+            0,
+            5,
+        ),
+    ] {
+        visits.store(0, Ordering::SeqCst);
+        let scratch = tempfile::tempdir().unwrap();
+        let mut left = LeftBehind::new();
+        let arriving = attachments(
+            &api,
+            "token",
+            &sync,
+            &user,
+            scratch.path(),
+            &mut left,
+            limits,
+        )
+        .await;
+        assert_eq!(visits.load(Ordering::SeqCst), expected_visits);
+        assert_eq!(arriving.len(), 2.min(expected_visits));
+        assert_eq!(left.get("attachments whose item is unreadable"), Some(&1));
+        assert_eq!(
+            left.get("attachments that could not be downloaded")
+                .copied()
+                .unwrap_or(0),
+            failed
+        );
+        assert_eq!(
+            left.get("attachments skipped due to import limits")
+                .copied()
+                .unwrap_or(0),
+            skipped
+        );
+        let scratch_bytes: u64 = std::fs::read_dir(scratch.path())
+            .unwrap()
+            .map(|entry| entry.unwrap().metadata().unwrap().len())
+            .sum();
+        assert_eq!(scratch_bytes, u64::try_from(arriving.len() * 4).unwrap());
+        assert!(scratch_bytes <= u64::try_from(limits.max_total_bytes).unwrap());
+    }
+    server.abort();
 }
