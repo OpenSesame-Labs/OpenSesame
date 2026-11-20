@@ -9,9 +9,9 @@
     },
     {
       "path": "crates/spiffe-source/src/source.rs",
-      "sha256": "3c17f1f47dc3375370ff392b5113ad2a608e9e193161ed2bc5b0e4588f5dccce",
+      "sha256": "251235688e458eaa9c6c7007f3e7723f018dc9ee7fbd640b9110a29c5615600a",
       "base_blob": "6ff41f704f3262a8d0c3db87e1610fef483047f0",
-      "reviewed_blob": "e93e39e4c8d83d7df91e62f8473c4d23d3efe0d6"
+      "reviewed_blob": "56606a15e968279267c0ad5959e51e0b2db4585c"
     },
     {
       "path": "crates/spiffe-source/src/source_policy.rs",

@@ -15,12 +15,13 @@ for rel in \
   spec/formal/required-theorem-command.lean \
   spec/formal/authority \
   spec/formal/dpop \
-  spec/formal/spiffe; do
+  spec/formal/spiffe \
+  spec/formal/source-lifetime; do
   rm -rf "$SCRATCH/$rel"
   cp -a "$ROOT/$rel" "$SCRATCH/$rel"
 done
 python3 - "$ROOT" "$SCRATCH" <<'PY'
-import json, shutil, subprocess, sys
+import json, os, shutil, subprocess, sys
 from pathlib import Path
 
 root, scratch = map(Path, sys.argv[1:3])
@@ -28,6 +29,7 @@ manifests = [
     scratch / "spec/formal/authority/coverage.json",
     scratch / "spec/formal/dpop/coverage.json",
     scratch / "spec/formal/spiffe/coverage.json",
+    scratch / "spec/formal/source-lifetime/coverage.json",
 ]
 seen = set()
 for manifest in manifests:
@@ -60,7 +62,12 @@ for rel in changed_manifests:
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(root / rel, dest)
 if changed_manifests:
-    subprocess.run(["cargo", "generate-lockfile"], cwd=scratch, check=True)
+    subprocess.run(
+        ["cargo", "generate-lockfile", "--offline"],
+        cwd=scratch,
+        check=True,
+        env={**os.environ, "CARGO_NET_OFFLINE": "true"},
+    )
 scratch_pkg = scratch / "package.json"
 root_pkg = root / "package.json"
 if scratch_pkg.exists() and root_pkg.exists():
@@ -71,6 +78,7 @@ if scratch_pkg.exists() and root_pkg.exists():
         "verify:authority-formal",
         "verify:dpop-formal",
         "verify:spiffe-formal",
+        "verify:source-lifetime-formal",
     ):
         if key in root_scripts:
             scripts[key] = root_scripts[key]
@@ -87,6 +95,7 @@ PY
 python3 "$SCRATCH/spec/formal/authority/check-drift.py"
 python3 "$SCRATCH/spec/formal/dpop/check_drift.py"
 python3 "$SCRATCH/spec/formal/spiffe/check-drift.py"
+python3 "$SCRATCH/spec/formal/source-lifetime/check-drift.py"
 run_spiffe_skip_lean_integration() {
   (
     cd "$SCRATCH"

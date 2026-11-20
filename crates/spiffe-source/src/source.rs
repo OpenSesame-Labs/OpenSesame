@@ -256,14 +256,26 @@ impl Loop {
         let monotonic_now = std::time::Instant::now();
         let now = Utc::now();
         let max_stale = self.config.max_stale();
-        let retain = self
-            .active
-            .as_ref()
-            .map(|a| retention_deadline(a.not_after, Some((now, max_stale))));
+        let prior = self.status.borrow();
+        let outage_since = prior.outage_since.unwrap_or(now);
+        let retain = self.active.as_ref().map(|a| {
+            if matches!(prior.phase, SourcePhase::Outage) {
+                prior
+                    .retain_until
+                    .unwrap_or_else(|| retention_deadline(a.not_after, Some((outage_since, max_stale))))
+            } else {
+                retention_deadline(a.not_after, Some((now, max_stale)))
+            }
+        });
+        drop(prior);
         if let Some(deadline) = retain {
-            if monotonic_now
-                .checked_add(max_stale)
-                .is_none_or(|bound| self.sink.0.tighten(deadline, bound).is_err())
+            let already_outage = matches!(self.status.borrow().phase, SourcePhase::Outage);
+            let prior_deadline = self.status.borrow().retain_until;
+            let tighten = !already_outage || prior_deadline != Some(deadline);
+            if tighten
+                && monotonic_now
+                    .checked_add(max_stale)
+                    .is_none_or(|bound| self.sink.0.tighten(deadline, bound).is_err())
             {
                 self.withdraw(
                     TransportError::SourceUnsupported,

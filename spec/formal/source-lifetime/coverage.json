@@ -54,7 +54,7 @@
     },
     {
       "path": "crates/transport-security/src/guard.rs",
-      "sha256": "9090fc88fbb92ab3c3fb2dfa244af1d1587fa43b267530d3d0806d332e0565d8"
+      "sha256": "e6dd79ed1141562e105ea2150d83ab67c4b175cc86e49965a1681f7c2d335a64"
     },
     {
       "path": "crates/transport-security/src/listener.rs",
@@ -90,7 +90,7 @@
     },
     {
       "path": "crates/spiffe-source/src/source.rs",
-      "sha256": "3c17f1f47dc3375370ff392b5113ad2a608e9e193161ed2bc5b0e4588f5dccce"
+      "sha256": "251235688e458eaa9c6c7007f3e7723f018dc9ee7fbd640b9110a29c5615600a"
     },
     {
       "path": "crates/spiffe-source/src/source_handle.rs",
@@ -150,7 +150,7 @@
     },
     {
       "path": "crates/gateway/src/routes/mod.rs",
-      "sha256": "0f134c3eba8b3d79216ae2d4e2d60acb79da7bb647a3aa494f05fb21a21658ef"
+      "sha256": "7daae5482877e363f056c33a5370bbd5afb69e80a66919c6e006078ba101332b"
     },
     {
       "path": "crates/gateway/src/transport/mod.rs",
@@ -194,11 +194,11 @@
     },
     {
       "path": "crates/gateway/src/routes/est_freshness.rs",
-      "sha256": "6f0ab8622f86714478dde33cade85c00979c3892b52d9190fe8f132bacb3875a"
+      "sha256": "34714a67bb85f6bbd7a198469aeef083bec2fe26378c34579db307e4e5598990"
     },
     {
       "path": "crates/gateway/src/transport_lifecycle/trust_activate.rs",
-      "sha256": "2c19969e524a7f5e18b25fc57cca290ced425de9798a486290719cbdbc7ddd49"
+      "sha256": "07d3faf0491b92d2b5cd954d0a0707c316bc807a7d0d2e10d8c8de8dcbb84dd9"
     },
     {
       "path": "crates/gateway/src/transport_lifecycle/trust_store.rs",
@@ -242,7 +242,7 @@
     },
     {
       "path": "crates/gateway/src/transport_lifecycle/trust_generation_tests.rs",
-      "sha256": "4d8e926038e3b5c8547db09caceb4b5aee5c25d278d42c038ec552fd4bdc913c"
+      "sha256": "87835fc7119ad728fe2c4c366fe9913322d8d5704d24b889a2846071a5bfe911"
     },
     {
       "path": "crates/gateway/src/routes/est_server_tests.rs",
@@ -254,7 +254,7 @@
     },
     {
       "path": "crates/gateway/src/routes/est_certificate_freshness_tests.rs",
-      "sha256": "3c208e0a21e79722cf5eef0d161bc169029a9e41a7ac598cc17284b2bb1d80b4"
+      "sha256": "b5467c138c699a82e5fe3118b02a29787d9c6f070ecc703f5cc30a92c9fd6a35"
     },
     {
       "path": "crates/transport-security/tests/source_lifetime_formal.rs",
