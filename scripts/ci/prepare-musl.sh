@@ -72,18 +72,23 @@ specs="$musl_root/sysroot/usr/lib/$triplet/musl-gcc.specs"
 test -f "$specs"
 test -f "$musl_root/sysroot/usr/include/$triplet/stdio.h"
 test -f "$musl_root/sysroot/usr/lib/$triplet/libc.a"
-test -f "$musl_root/sysroot/lib/ld-musl-x86_64.so.1"
-python3 - "$specs" "$musl_root/sysroot" "$triplet" <<'PY'
+# Noble ships ld-musl under /lib; resolute's musl 1.2.5 records it under /usr/lib.
+ld_musl="$musl_root/sysroot/lib/ld-musl-x86_64.so.1"
+if [[ ! -e "$ld_musl" ]]; then
+  ld_musl="$musl_root/sysroot/usr/lib/ld-musl-x86_64.so.1"
+fi
+test -f "$ld_musl"
+python3 - "$specs" "$musl_root/sysroot" "$triplet" "$ld_musl" <<'PY'
 from pathlib import Path
 import sys
-specs, sysroot, triplet = sys.argv[1:]
+specs, sysroot, triplet, ld_musl = sys.argv[1:]
 path = Path(specs)
 text = path.read_text()
 text = text.replace(f"/usr/include/{triplet}", f"{sysroot}/usr/include/{triplet}")
 text = text.replace(f"/usr/lib/{triplet}", f"{sysroot}/usr/lib/{triplet}")
 text = text.replace(
     "-dynamic-linker /lib/ld-musl-x86_64.so.1",
-    f"-dynamic-linker {sysroot}/lib/ld-musl-x86_64.so.1",
+    f"-dynamic-linker {ld_musl}",
 )
 if " /usr/include/" in text or " /usr/lib/" in text or "-dynamic-linker /lib/" in text:
     raise SystemExit("musl specs still point at the system root")
