@@ -208,6 +208,7 @@ describe("heavy auxiliary suites are CD concerns", () => {
       "cd-npm-publish-proof.yml",
       "cd-promotion-gates-proof.yml",
       "cd-pwa-profile-proof.yml",
+      "cd-pwa-stranded-dispatch.yml",
       "cd-pwa.yml",
       "ci-advisory.yml",
       "ci-grok-commits.yml",
