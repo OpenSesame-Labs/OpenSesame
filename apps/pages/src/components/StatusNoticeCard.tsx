@@ -79,10 +79,12 @@ function WordedActs({
   notice,
   onOpen,
   actionsRef,
+  inFlow,
 }: {
   notice: Notice;
   onOpen: () => void;
   actionsRef: RefObject<HTMLDivElement | null>;
+  inFlow: boolean;
 }) {
   const act = notice.act;
   const alt = notice.alt;
@@ -93,7 +95,14 @@ function WordedActs({
     if (fromKeyboard) handBack = notice.id;
     if (opens) onOpen();
     run();
-    if (!opens) onOpen();
+    if (opens) return;
+    if (inFlow) {
+      if (fromKeyboard) {
+        landFocus(firstControl(actionsRef.current));
+      }
+      return;
+    }
+    onOpen();
   };
   return (
     <>
@@ -194,7 +203,12 @@ export function StatusNoticeCard({
           </IconKey>
         ) : null}
         {wordedPair(notice) ? (
-          <WordedActs notice={notice} onOpen={onOpen} actionsRef={actions} />
+          <WordedActs
+            notice={notice}
+            onOpen={onOpen}
+            actionsRef={actions}
+            inFlow={inFlow}
+          />
         ) : notice.act ? (
           <IconKey
             label={notice.act.label}
