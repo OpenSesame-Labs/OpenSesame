@@ -10,7 +10,6 @@ import shutil
 import subprocess
 import sys
 import tarfile
-import tempfile
 
 ROOT = Path(__file__).resolve().parents[3]
 FORMAL = "transport::spiffe_domain_formal_tests::lean_vectors_match_real_spiffe_service_admission"
@@ -31,17 +30,20 @@ def scratch_path(base: Path, name: str) -> Path:
 
 
 def run(command: list[str], cwd: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(command, cwd=cwd, env=env, text=True, capture_output=True, timeout=600, check=False)
+    raw = env.get("OPENSESAME_FORMAL_SCRATCH_LOCK_FD")
+    fds = () if raw is None else (int(raw),)
+    return subprocess.run(command, cwd=cwd, env=env, text=True, capture_output=True, timeout=600,
+                          check=False, pass_fds=fds)
 
 
-def archive(destination: Path) -> None:
+def archive(destination: Path, fds: tuple[int, ...] = ()) -> None:
     staged = subprocess.run(["git", "diff", "--cached", "--quiet", "--"], cwd=ROOT, check=False)
     if staged.returncode == 1:
         raise RuntimeError("scratch controls require an empty index")
     if staged.returncode != 0:
         raise RuntimeError("could not inspect the Git index")
     proc = subprocess.Popen(["git", "archive", "--format=tar", "HEAD"], cwd=ROOT,
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, pass_fds=fds)
     assert proc.stdout is not None and proc.stderr is not None
     try:
         with tarfile.open(fileobj=proc.stdout, mode="r|") as source:
@@ -98,11 +100,17 @@ def require_failure(result: subprocess.CompletedProcess[str], name: str, diagnos
 
 def main() -> None:
     env = os.environ.copy() | {"CARGO_INCREMENTAL": "0", "CARGO_NET_OFFLINE": "true"}
+    env.pop("OPENSESAME_FORMAL_SCRATCH_LOCK_FD", None)
     lean = env.get("OPENSESAME_LEAN_BIN", "lean")
     if shutil.which("cargo") is None or shutil.which(lean) is None:
         raise RuntimeError("activate the pinned Rust and Lean toolchains first")
     require_pass(run([sys.executable, "-I", str(ROOT / "spec/formal/spiffe-peer-domain/test_snapshot.py")], ROOT, env),
                  "scratch snapshot controls")
+    require_pass(run([sys.executable, "-I", "spec/formal/spiffe-peer-domain/check-drift.py"], ROOT, env),
+                 "reviewed live baseline")
+    live_helper = ROOT / "scripts/security/formal-cargo-isolation.py"
+    lifecycle = {"__name__": "formal_cargo_isolation", "__file__": str(live_helper)}
+    exec(compile(live_helper.read_bytes(), str(live_helper), "exec", dont_inherit=True), lifecycle)
     targets = [
         Path("crates/transport-security/src/bounded.rs"),
         Path("crates/domain/src/transport/attest.rs"),
@@ -114,9 +122,20 @@ def main() -> None:
     ]
     live = {name: hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in targets}
     try:
-        with tempfile.TemporaryDirectory(prefix="opensesame-peer-domain-negative-") as directory:
-            scratch = Path(directory)
-            archive(scratch)
+        with lifecycle["scratch_checkout"](ROOT) as lease:
+            scratch = lease.path
+            env["OPENSESAME_FORMAL_SCRATCH_LOCK_FD"] = str(lease.lock_fd)
+            archive(scratch, (lease.lock_fd,))
+            require_pass(run([sys.executable, "-I", "spec/formal/spiffe-peer-domain/check-drift.py"],
+                             scratch, env), "reviewed scratch baseline")
+            wrapper = subprocess.check_output(
+                [sys.executable, "-I", str(scratch / "scripts/security/formal-cargo-isolation.py"), str(scratch)],
+                text=True, pass_fds=(lease.lock_fd,),
+            ).strip()
+            env |= {"RUSTC_WRAPPER": "", "RUSTC_WORKSPACE_WRAPPER": wrapper}
+            helper_path = scratch / "scripts/security/formal-cargo-isolation.py"
+            helper = {"__name__": "formal_cargo_isolation", "__file__": str(helper_path)}
+            exec(compile(helper_path.read_bytes(), str(helper_path), "exec", dont_inherit=True), helper)
             require_pass(run(["bash", "spec/formal/spiffe-peer-domain/verify.sh"], scratch, env), "unmodified suite")
             result = run(["bash", "spec/formal/check-axioms.sh", lean,
                           str(scratch / "spec/formal/spiffe-peer-domain/SpiffePeerDomain.lean")], scratch, env)
@@ -168,23 +187,33 @@ def main() -> None:
                 if ignored:
                     command.append("--ignored")
                 command.append("--exact")
-                try:
-                    target.write_text(original.replace(before, after, 1))
-                    require_failure(run(command, scratch, test_env), name, diagnostic, label)
-                finally:
-                    target.write_text(original)
+                with helper["mutated_coverage"](
+                    scratch, Path("spec/formal/spiffe-peer-domain/coverage.json"), path,
+                    before, after, Path("spec/formal/spiffe-peer-domain/check-drift.py"),
+                    env=env,
+                ):
+                    result = helper["checked_cargo"](
+                        scratch, test_env, [package], Path("spec/formal/spiffe-peer-domain/check-drift.py"),
+                        command[1:],
+                    )
+                    require_failure(result, name, diagnostic, label)
             vectors.write_text("")
-            empty = run(["cargo", "test", "--locked", "-p", "opensesame-domain", "--lib", FORMAL,
-                         "--", "--ignored", "--exact"], scratch, test_env)
+            empty = helper["checked_cargo"](
+                scratch, test_env, ["opensesame-domain"], Path("spec/formal/spiffe-peer-domain/check-drift.py"),
+                ["test", "--locked", "-p", "opensesame-domain", "--lib", FORMAL, "--", "--ignored", "--exact"],
+            )
             require_failure(empty, FORMAL, "incomplete formal selector matrix", "empty selector vectors")
-            fake_bin = scratch / "fake-bin"
-            fake_bin.mkdir()
-            fake = fake_bin / "cargo"
-            fake.write_text("#!/bin/sh\nprintf 'running 0 tests\\n\\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out\\n'\n")
-            fake.chmod(0o755)
-            zero_env = env | {"PATH": f"{fake_bin}{os.pathsep}{env['PATH']}"}
-            zero = run(["bash", "spec/formal/spiffe-peer-domain/verify.sh"], scratch, zero_env)
-            if zero.returncode == 0 or "did not run and pass" not in zero.stderr:
+            with helper["mutated_coverage"](
+                scratch, Path("spec/formal/spiffe-peer-domain/coverage.json"),
+                Path("crates/domain/src/transport/spiffe_domain_formal_tests.rs"),
+                "fn lean_vectors_match_real_spiffe_service_admission() {",
+                "fn renamed_spiffe_peer_correspondence() {",
+                Path("spec/formal/spiffe-peer-domain/check-drift.py"),
+                env=env,
+            ):
+                zero = run(["bash", "spec/formal/spiffe-peer-domain/verify.sh"], scratch, env)
+            if (zero.returncode == 0 or "did not run and pass" not in zero.stderr or
+                    "test result: ok. 0 passed; 0 failed; 0 ignored;" not in zero.stdout):
                 raise RuntimeError(f"zero-test result not rejected\n{zero.stdout}\n{zero.stderr}")
             print("zero-test runner result: rejected", flush=True)
             require_pass(run(["bash", "spec/formal/spiffe-peer-domain/verify.sh"], scratch, env), "restored suite")

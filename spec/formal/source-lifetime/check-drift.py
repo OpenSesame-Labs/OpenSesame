@@ -9,6 +9,18 @@ import stat
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
+TARGETS = {
+    "crates/domain/Cargo.toml": {"package": "opensesame-domain", "lib": ("opensesame_domain", "src/lib.rs")},
+    "crates/transport-security/Cargo.toml": {
+        "package": "opensesame-transport-security", "lib": ("opensesame_transport_security", "src/lib.rs"),
+        "test": {name: f"tests/{name}.rs" for name in (
+            "source_lifetime_formal", "signing_fence_races", "source_lifetime_tls12", "source_lifetime", "source_lifetime_edges",
+        )},
+    },
+    "crates/spiffe-source/Cargo.toml": {"package": "opensesame-spiffe-source", "lib": ("opensesame_spiffe_source", "src/lib.rs")},
+    "crates/storage/Cargo.toml": {"package": "opensesame-storage", "lib": ("opensesame_storage", "src/lib.rs")},
+    "crates/gateway/Cargo.toml": {"package": "opensesame-gateway", "lib": ("opensesame_gateway", "src/lib.rs")},
+}
 PATHS = [
     "crates/domain/Cargo.toml",
     "crates/domain/src/lib.rs",
@@ -86,6 +98,8 @@ PATHS = [
     "crates/transport-security/tests/source_lifetime_edges.rs",
     "crates/transport-security/tests/common/mod.rs",
     "crates/spiffe-source/src/source_lease_tests.rs",
+    "scripts/security/formal-cargo-isolation.py",
+    "scripts/security/formal-cargo-freshness.py",
 ]
 OPTIONAL_PATHS = [
     "crates/domain/build.rs",
@@ -130,13 +144,20 @@ def main():
                 not re.fullmatch(r"[0-9a-f]{40}", str(coverage.get("reviewed_revision", ""))) or
                 [entry.get("path") for entry in entries] != PATHS):
             raise ValueError("invalid reviewed source manifest")
+        verified = {}
         for entry in entries:
-            if hashlib.sha256(regular_path(entry["path"]).read_bytes()).hexdigest() != entry["sha256"]:
+            source = regular_path(entry["path"]).read_bytes()
+            if hashlib.sha256(source).hexdigest() != entry["sha256"]:
                 raise ValueError(f"review source drift: {entry['path']}")
+            verified[entry["path"]] = source
         optional = coverage["optional_sources"]
         if ([entry.get("path") for entry in optional] != OPTIONAL_PATHS or
                 any(optional_hash(entry["path"]) != entry["sha256"] for entry in optional)):
             raise ValueError("review optional source/build-script drift")
+        helper_name = "scripts/security/formal-cargo-isolation.py"
+        scope = {"__name__": "reviewed_cargo_isolation", "__file__": str(ROOT / helper_name)}
+        exec(compile(verified[helper_name], scope["__file__"], "exec", dont_inherit=True), scope)
+        scope["check_cargo_targets"](ROOT, TARGETS, set(verified))
         helper = regular_path("scripts/security/cargo-lock-projection.py")
         spec = importlib.util.spec_from_file_location("cargo_lock_projection", helper)
         if spec is None or spec.loader is None:

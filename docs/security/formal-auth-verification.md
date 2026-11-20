@@ -116,6 +116,57 @@ registered closure, toolchain or Cargo configuration integrity, or the behavior
 of dependencies and build scripts. Each suite must document and review those
 limits separately; the projection is a drift selector, not a Lean refinement
 proof.
+
+The Rust suites also independently list the Cargo library, binary, and named
+integration-test targets they actually exercise. Before Cargo runs, the drift
+check requires each selected name and source path to match that inventory and
+its covered hash, rejects unsupported target attributes, and refuses local
+build scripts or custom build paths for those packages. Unrelated inactive
+targets are outside this inventory. The current push selector maps reviewed
+crate manifests as whole files, however, so even an unrelated edit to one of
+those manifests can select the suite. Changes to an unrelated inactive target
+source are not selected merely because that target exists.
+
+These target checks do not independently discover Rust modules, `include!`
+inputs, or macro expansion. Reviewing a covered source change must also review
+its wiring and update the implementation mappings for any newly relevant
+source; a matching target path and source hash alone do not establish that the
+transitive source inventory is complete.
+
+The authority, SPIFFE, source-lifetime, source-trust-selection and peer-domain
+Rust runners guard against Cargo reusing artifacts built from another worktree.
+They assign a reviewed workspace wrapper to the canonical checkout path, clear
+`RUSTC_WRAPPER` for proof subprocesses, and check the pinned inputs before and
+after execution. A freshness preflight touches the declared local target roots,
+including path dependencies outside the Cargo workspace, and requires active
+local artifacts to be freshly compiled in the current proof session before the
+test or program runs. It checks the resulting artifacts and runs the input
+check again after nonzero exits and caught interruptions; a hard kill cannot
+run that final check. The authority harness has its own Cargo workspace and
+uses a private temporary target directory.
+
+Mutation controls use a stable private scratch checkout for each live checkout
+and hold its exclusive lock through the compiler and descendants. Cleanup only
+removes the registered directory while holding that lock; if an interrupted
+child still holds it, a later run waits and can retire the checkout. Explicit
+cleanup uses `python3 -I scripts/security/formal-cargo-isolation.py --clean-scratch <checkout>`.
+A permanently surviving descendant can therefore block later controls
+indefinitely. A hard kill immediately before a staging
+directory is registered can leave an empty private directory; interruption
+during registration or wrapper creation can also leave small private temporary
+files. Repeated hard kills can accumulate these remnants, which contain no
+checked-out source or compiled artifacts. A hard
+kill of an authority run can leave its private temporary target until removed.
+
+These checks assume a trusted Cargo and Rust toolchain, reviewed runner and
+Cargo configuration, and no concurrent uncooperative changes to the source or
+target cache during a proof. The scratch lock requires supported POSIX locking
+and no-replace rename behavior; unsupported systems fail closed. The lock and
+artifact checks provide runtime evidence about the selected builds; they do not
+prove that Rust refines the Lean model. Runner and Cargo configuration changes
+are execution metadata, and must be protected separately rather than selecting
+these implementation-filtered proofs by themselves.
+
 The shared Lean checker rejects unapproved axiom
 declarations and theorem dependencies; `propext` and `Quot.sound` are permitted
 Lean built-ins. See [the hook instructions](../../scripts/README.md).

@@ -1,7 +1,7 @@
 {
   "version": 2,
   "reviewed_revision": "66d79b7cfa4d8304499541ff3794033ea72c5bc6",
-  "reviewed_source_state": "The covered domain sources and root Cargo inputs match reviewed_revision. The standalone authority harness inputs were reviewed at ac8236c9b2d1236fec5dc4593390724ff17e6f6d; the recorded projections are computed from those same root Cargo inputs.",
+  "reviewed_source_state": "The covered domain sources and root Cargo inputs match reviewed_revision. The standalone authority harness inputs were reviewed at ac8236c9b2d1236fec5dc4593390724ff17e6f6d; the recorded projections are computed from those same root Cargo inputs. The compiler-isolation helpers were reviewed separately; their hashes identify the reviewed helper bytes.",
   "sources": [
     {
       "path": "crates/domain/Cargo.toml",
@@ -310,6 +310,18 @@
     {
       "path": "spec/formal/authority/Cargo.lock",
       "sha256": "577e0c29fdb0dd65cf8da4eab723b568df91179f9f35d863ccb96fd5335c9552"
+    },
+    {
+      "path": "spec/formal/authority/conformance.rs",
+      "sha256": "5b4e0c4778699a3d1c2ae442d43d340131d70eaac137ad738e5ba3af33ec8876"
+    },
+    {
+      "path": "scripts/security/formal-cargo-isolation.py",
+      "sha256": "f0d313d9895adc193afc26ae954b90bceb94deda66da239199c527eaf628eeda"
+    },
+    {
+      "path": "scripts/security/formal-cargo-freshness.py",
+      "sha256": "246565be88eb0c64a17a8c2551906c06698d07a0df76b69aea7f27e7aa63bf5c"
     }
   ],
   "lock_projection": {

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "reviewed_revision": "88ca3c30e1354a57b9a04d8f7875dcb00d25d57a",
-  "reviewed_source_state": "Source hashes identify the reviewed peer-domain integration after the recorded base; they do not prove source-to-model refinement.",
+  "reviewed_source_state": "Source hashes identify the reviewed peer-domain integration after the recorded base; they do not prove source-to-model refinement. The compiler-isolation helpers were reviewed separately.",
   "lock_projection": {
     "root": "opensesame-gateway",
     "algorithm": "cargo-lock-projection-v1-sha256",
@@ -327,6 +327,14 @@
     {
       "path": "scripts/security/cargo-workspace-multipackage.py",
       "sha256": "1515b332397956cb59038aa4595aec26afd6c82cb9fa71a07a7d9a0668007075"
+    },
+    {
+      "path": "scripts/security/formal-cargo-isolation.py",
+      "sha256": "f0d313d9895adc193afc26ae954b90bceb94deda66da239199c527eaf628eeda"
+    },
+    {
+      "path": "scripts/security/formal-cargo-freshness.py",
+      "sha256": "246565be88eb0c64a17a8c2551906c06698d07a0df76b69aea7f27e7aa63bf5c"
     },
     {
       "path": "crates/a2h/Cargo.toml",

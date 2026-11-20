@@ -47,8 +47,8 @@ checks its reviewed source bytes and Cargo configuration before executing Cargo.
 The push hook assumes trusted execution metadata until its separate
 runner-integrity guard is installed.
 
-Cargo can reuse a compiled artifact from another worktree when both share a
-target directory, including an artifact built from a scratch mutation. Until
-the separate cache-isolation change is installed, use distinct Cargo target
-directories for live proofs and scratch controls. Source drift checks do not
-detect a stale or cross-worktree compiled artifact.
+The runner uses the shared [Cargo freshness and scratch isolation
+checks](../../../docs/security/formal-auth-verification.md) to prevent reuse of
+another worktree's local artifacts under the documented toolchain and
+concurrent-write assumptions. Source drift checks alone do not detect stale
+compiled artifacts.
