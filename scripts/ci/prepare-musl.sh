@@ -36,25 +36,34 @@ apt_options=(
 APT_CONFIG="$musl_root/apt.conf" apt-get "${apt_options[@]}" update
 # Download the same package set `install --no-install-recommends musl-tools`
 # would resolve (musl-tools depends on musl-dev, which depends on musl).
-# `apt-get download` writes into the current directory. On Ubuntu 26.04
-# (resolute) runners apt may exit nonzero after fetching the debs; continue
-# when the archives are present (same hermetic extract path as prepare-dbus).
+# `apt-get download` usually writes into the current directory. On Ubuntu 26.04
+# (resolute) runners apt may exit nonzero and leave archives under the sandbox
+# cache instead of cwd — collect from both locations (same hermetic extract).
+download_status=0
 (
   cd "$musl_root/packages"
   set +e
   APT_CONFIG="$musl_root/apt.conf" apt-get "${apt_options[@]}" download musl musl-dev musl-tools
   download_status=$?
   set -e
-  shopt -s nullglob
-  musl_debs=(./*.deb)
-  shopt -u nullglob
-  if ((${#musl_debs[@]} == 0)); then
-    printf 'prepare-musl.sh: apt-get download failed (%s) and wrote no .deb\n' \
-      "$download_status" >&2
-    exit 1
-  fi
-)
-for musl_archive in "$musl_root/packages/"*.deb; do
+) || true
+if ! compgen -G "$musl_root/packages/*.deb" >/dev/null \
+  && ! compgen -G "$musl_root/cache/archives/*.deb" >/dev/null; then
+  set +e
+  APT_CONFIG="$musl_root/apt.conf" apt-get "${apt_options[@]}" \
+    install --download-only --no-install-recommends -y musl-tools
+  download_status=$?
+  set -e
+fi
+shopt -s nullglob
+musl_archives=("$musl_root/packages"/*.deb "$musl_root/cache/archives"/*.deb)
+shopt -u nullglob
+if ((${#musl_archives[@]} == 0)); then
+  printf 'prepare-musl.sh: musl .deb missing under packages/ and cache/archives (apt exit %s)\n' \
+    "$download_status" >&2
+  exit 1
+fi
+for musl_archive in "${musl_archives[@]}"; do
   dpkg-deb --extract "$musl_archive" "$musl_root/sysroot"
 done
 
