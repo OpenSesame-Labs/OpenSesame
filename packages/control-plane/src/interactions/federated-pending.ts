@@ -69,6 +69,20 @@ const wirePendingSchema = pendingFederatedAuthSchema
     },
   );
 
+/** Strict wire JSON at the cookie decode boundary; rejects unknown fields via schema. */
+function decodeWirePendingJson(
+  jsonUtf8: string,
+): z.infer<typeof wirePendingSchema> | undefined {
+  let wireJson: unknown;
+  try {
+    wireJson = JSON.parse(jsonUtf8);
+  } catch {
+    return undefined;
+  }
+  const parsed = wirePendingSchema.safeParse(wireJson);
+  return parsed.success ? parsed.data : undefined;
+}
+
 const SCRYPT_PARAMS = {
   N: 32768,
   r: 8,
@@ -334,7 +348,11 @@ function signatureMatches(supplied: Buffer, expected: string): boolean {
   return supplied.length === bytes.length && timingSafeEqual(supplied, bytes);
 }
 
-/** When false (default), the wire JSON keeps a plaintext verifier for mixed-version rollouts. */
+/**
+ * A present pepper always seals the PKCE verifier as `verifierEnc`.
+ * `sealVerifierOnWire: false` is the explicit rollout-off shape used by tests
+ * and by `OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER=false`.
+ */
 export type FederatedPendingEncodeOptions = {
   sealVerifierOnWire?: boolean;
 };
@@ -344,7 +362,8 @@ export function encodePending(
   secret?: string,
   options?: FederatedPendingEncodeOptions,
 ): string {
-  const sealVerifierOnWire = options?.sealVerifierOnWire === true;
+  // Omit or true seals. Only an explicit false writes a plaintext verifier.
+  const sealVerifierOnWire = options?.sealVerifierOnWire !== false;
   const body =
     secret && sealVerifierOnWire ? wirePendingBody(pending, secret) : pending;
   const payload = Buffer.from(JSON.stringify(body), "utf8").toString(
@@ -384,12 +403,11 @@ function verifiedPendingPayload(
   let data: z.infer<typeof wirePendingSchema>;
   let verifier: string;
   try {
-    const parsed: unknown = JSON.parse(
+    const wireData = decodeWirePendingJson(
       Buffer.from(payload, "base64url").toString("utf8"),
     );
-    const macResult = wirePendingSchema.safeParse(parsed);
-    if (!macResult.success) return undefined;
-    data = macResult.data;
+    if (wireData === undefined) return undefined;
+    data = wireData;
     const resolved = resolveVerifier(data, secret);
     if (resolved === undefined) return undefined;
     verifier = resolved;
@@ -459,12 +477,10 @@ export function decodePending(
     payload = verified;
   }
   try {
-    const parsed: unknown = JSON.parse(
+    const data = decodeWirePendingJson(
       Buffer.from(payload, "base64url").toString("utf8"),
     );
-    const result = wirePendingSchema.safeParse(parsed);
-    if (!result.success) return undefined;
-    const data = result.data;
+    if (data === undefined) return undefined;
     const verifier = resolveVerifier(data, secret);
     if (verifier === undefined) return undefined;
     // Rebuilt field by field rather than handed back whole: an absent v2 field
