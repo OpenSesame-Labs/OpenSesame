@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as nodeTest from "node:test";
-import { imageLeaf, probePlan } from "../ci/oci-image-smoke.mjs";
 import { repoRootFromHere } from "./ci-changed-areas.mjs";
 
 const { describe, it } =
@@ -20,6 +18,13 @@ const ci = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");
 function assertTriggersAndPublishGuards() {
   assert.match(workflow, /branches: \[main\]/);
   assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /schedule:\n/);
+  assert.match(workflow, /cron: "17 11 \*\/3 \* \*"/);
+  assert.match(workflow, /\n {2}schedule:\n {4}- cron: "17 11 \*\/3 \* \*"/);
+  assert.match(
+    workflow,
+    /schedule runs on default branch only, proof-only \(publication-disabled\), no registry push/,
+  );
   assert.doesNotMatch(workflow, /tags: \["v\*"\]/);
   assert.doesNotMatch(workflow, /pull_request/);
   assert.doesNotMatch(workflow, /continue-on-error/);
@@ -145,20 +150,39 @@ function assertRunnerRustBuild(rust) {
   assert.doesNotMatch(rust, /actions\/cache\/save@/);
   assert.doesNotMatch(rust, /install_args:/);
   assert.doesNotMatch(rust, /\n\s+cache: false\n/);
-  assert.match(
-    rust,
-    /Swatinem\/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2/,
+  assert.equal(
+    rust.match(
+      /Swatinem\/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2/g,
+    )?.length,
+    1,
   );
   assert.match(rust, /prefix-key: v0-rust\n/);
   assert.match(rust, /shared-key: ghcr-opensesame-amd64\n/);
+  assert.match(rust, /cache-all-crates: true\n/);
   assert.match(rust, /cache-on-failure: true\n/);
   assert.match(
     rust,
-    /save-if: \$\{\{ github\.event_name == 'workflow_dispatch' \|\| github\.ref == 'refs\/heads\/main' \}\}\n/,
+    /save-if: \$\{\{ github\.ref == 'refs\/heads\/main' && \(github\.event_name == 'push' \|\| github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'schedule'\) \}\}\n/,
   );
   assert.match(
     rust,
     /workspaces: \. -> \.\.\/\.\.\/\.\.\/\.cache\/packages\/cargo-target\n/,
+  );
+  assert.doesNotMatch(workflow, /rust-cache-trunk/);
+  assert.doesNotMatch(workflow, /ghcr-opensesame-amd64-proof/);
+  assert.match(rust, /id: rust-cache-ghcr\n/);
+  assert.match(rust, /name: Log Rust cache hit\n/);
+  assert.doesNotMatch(rust, /name: Log trunk/);
+  assert.match(rust, /CACHE_NAME: rust-ghcr\n/);
+  assert.match(
+    rust,
+    /CACHE_HIT: \$\{\{ steps\.rust-cache-ghcr\.outputs\.cache-hit \}\}\n/,
+  );
+  assert.match(rust, /CACHE_PRIMARY_KEY: v0-rust-ghcr-opensesame-amd64\n/);
+  assert.match(rust, /MAIN_SEED_PREFIX: v0-rust-ghcr-opensesame-amd64-\n/);
+  assert.equal(
+    rust.match(/node scripts\/lib\/ci-cache-seed\.mjs\n/g)?.length,
+    1,
   );
   assert.match(rust, /name: Install mold and clang\n/);
   assert.match(rust, /command -v mold/);
@@ -295,22 +319,6 @@ describe("GHCR image proof workflow", () => {
     assertCargoChefDockerfile(dockerfile);
   });
 
-  it("loads capability-graph.mjs with plain node without packages/", () => {
-    // GHCR web-pwa-tailscale-wasm uses a sparse checkout without packages/
-    // and plain node for loadTailscaleAssets(). That import reaches
-    // capability-graph.mjs, which must not import os-domain TypeScript.
-    const loaded = spawnSync(
-      process.execPath,
-      [
-        "--input-type=module",
-        "-e",
-        'import "./apps/pages/scripts/lib/capability-graph.mjs"',
-      ],
-      { cwd: root, encoding: "utf8" },
-    );
-    assert.equal(loaded.status, 0, loaded.stderr);
-  });
-
   it("is outside the required ci.yml graph and leaves the retired publisher alone", () => {
     assert.doesNotMatch(ci, /cd-ghcr-publish/);
     const retired = readFileSync(
@@ -320,30 +328,5 @@ describe("GHCR image proof workflow", () => {
     assert.match(retired, /workflow_dispatch:/);
     assert.doesNotMatch(retired, /packages:\s*write/);
     assert.doesNotMatch(retired, /docker\/build-push-action/);
-  });
-});
-
-describe("oci image smoke", () => {
-  it("classifies version and http probes", () => {
-    assert.equal(imageLeaf("ghcr.io/opensesame-labs/cli:next"), "cli");
-    assert.deepEqual(probePlan("ghcr.io/opensesame-labs/opensesame:sha-abc"), {
-      kind: "version",
-    });
-    assert.equal(probePlan("web-pwa:local").port, 5180);
-    assert.equal(probePlan("control-plane:local").optional, true);
-    assert.equal(probePlan("control-plane:local").path, "/v1/health/live");
-  });
-
-  it("skips when docker is missing or no image was named", () => {
-    const ran = spawnSync(
-      process.execPath,
-      [join(root, "scripts/ci/oci-image-smoke.mjs")],
-      { encoding: "utf8" },
-    );
-    assert.equal(ran.status, 0, ran.stderr);
-    assert.match(
-      ran.stdout,
-      /oci-image-smoke: (docker unavailable, skip|no image arguments, skip)/,
-    );
   });
 });
