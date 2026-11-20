@@ -38,8 +38,13 @@ fn visible_url(layers: &[UrlBinding]) -> Option<&str> {
     layers.last().map(|binding| binding.url.as_str())
 }
 
-pub(super) fn else_follows(source: &str, mut at: usize) -> bool {
-    let bytes = source.as_bytes();
+pub(super) fn else_follows(source: &str, at: usize) -> bool {
+    else_at(source.as_bytes(), at).is_some()
+}
+
+/// Position of the `else` keyword at or after `at`, skipping whitespace,
+/// comments, and strings.
+fn else_at(bytes: &[u8], mut at: usize) -> Option<usize> {
     loop {
         if let Some(len) = non_code_len(bytes, at) {
             at += len;
@@ -49,7 +54,33 @@ pub(super) fn else_follows(source: &str, mut at: usize) -> bool {
             at += 1;
             continue;
         }
-        return is_keyword_at(bytes, at, b"else");
+        return is_keyword_at(bytes, at, b"else").then_some(at);
+    }
+}
+
+/// `else` with neither a block nor an `if` after it: `else return;` cannot
+/// fall through, so the if-arm exit is the only live state after it.
+pub(super) fn braceless_else(source: &str, at: usize) -> bool {
+    let bytes = source.as_bytes();
+    let Some(keyword_at) = else_at(bytes, at) else {
+        return false;
+    };
+    let mut after = keyword_at + "else".len();
+    loop {
+        if let Some(len) = non_code_len(bytes, after) {
+            after += len;
+            continue;
+        }
+        if bytes.get(after).is_some_and(u8::is_ascii_whitespace) {
+            after += 1;
+            continue;
+        }
+        break;
+    }
+    match bytes.get(after) {
+        Some(b'{') => false,
+        Some(_) => !is_keyword_at(bytes, after, b"if"),
+        None => true,
     }
 }
 

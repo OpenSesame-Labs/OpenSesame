@@ -157,13 +157,37 @@ fn let_rhs<'a>(prefix: &'a str, name: &str) -> Option<&'a str> {
             _ => {}
         }
         if is_keyword_at(bytes, index, b"let") {
-            push_named_let(&mut stack, prefix, index, name, depth);
+            // An `if let` / `while let` condition binds only inside its
+            // block, so it leaves the stack together with that block instead
+            // of replacing the enclosing binding.
+            let live = if cond_let_head(bytes, index) {
+                depth + 1
+            } else {
+                depth
+            };
+            push_named_let(&mut stack, prefix, index, name, live);
         }
         index += 1;
     }
     stack
         .last()
         .map(|&(_, start, end)| prefix[start..end].trim())
+}
+
+/// `let` preceded by `if` or `while`: the binding lives only inside the
+/// condition's block.
+fn cond_let_head(bytes: &[u8], let_at: usize) -> bool {
+    let mut at = let_at;
+    while at > 0 && bytes[at - 1].is_ascii_whitespace() {
+        at -= 1;
+    }
+    ["if", "while"].iter().any(|head| {
+        let head = head.as_bytes();
+        let Some(start) = at.checked_sub(head.len()) else {
+            return false;
+        };
+        &bytes[start..at] == head && (start == 0 || !is_ident_byte(bytes[start - 1]))
+    })
 }
 
 fn push_named_let(

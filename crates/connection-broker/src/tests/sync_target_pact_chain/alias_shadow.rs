@@ -225,4 +225,43 @@ mod probes {
             "{leaked}"
         );
     }
+
+    /// Kimi council r2 chunk01: `innermost_span` compiles and picks the
+    /// smallest enclosing function, so an alias established in one function
+    /// neither feeds nor hides a same-named call in another — and this
+    /// probe's `dispatch_alias_calls` import resolves (compile + behavior).
+    #[test]
+    fn kimi_council_r2_innermost_span_scopes_aliases_per_function() {
+        let foreign =
+            "fn a() { let dispatch = Path::send; }\nfn b() { let dispatch = other; dispatch(request); }";
+        assert!(
+            dispatch_alias_calls(foreign).is_empty(),
+            "another function's other-valued alias must not dispatch: {foreign}"
+        );
+        let nested = "fn outer() { let dispatch = other; fn inner() { let dispatch = Path::send; dispatch(request); } }";
+        assert_eq!(
+            dispatch_alias_calls(nested).len(),
+            1,
+            "the innermost fn owns the alias: {nested}"
+        );
+    }
+
+    /// Kimi council r2 chunk01: a block-tail alias forward works with the
+    /// value ident spaced away from the closing brace — `{ stmts; dispatch }`
+    /// — not only when the ident abuts the `;` / `}`.
+    #[test]
+    fn kimi_council_r2_block_tail_forward_survives_a_space() {
+        for sample in [
+            "fn f() { let dispatch = Path::send; let call = { dispatch }; call(request); }",
+            "fn f() { let dispatch = Path::send; let call = { let _ = 1; dispatch }; call(request); }",
+            "fn f() { let dispatch = Path::send; call = { let _ = 1; dispatch }; call(request); }",
+            "fn f() { let dispatch = Path::send; let call = { dispatch /* c */ }; call(request); }",
+        ] {
+            assert_eq!(
+                dispatch_alias_calls(sample).len(),
+                1,
+                "spaced block-tail forward must count the call: {sample}"
+            );
+        }
+    }
 }

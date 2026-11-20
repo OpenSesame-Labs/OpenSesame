@@ -1,5 +1,5 @@
 //! Call tails and statement boundaries for bind analysis.
-use super::super::super::sync_target_pact_norm::string_len;
+use super::super::super::sync_target_pact_norm::non_code_len;
 use super::super::{is_ident_char, strip_turbofish};
 
 pub(in super::super) fn ident_prefix(expr: &str) -> &str {
@@ -66,7 +66,9 @@ fn leading_ident(source: &str) -> &str {
 pub(in super::super) fn stmt_end(bytes: &[u8], start: usize) -> usize {
     let (mut depth, mut index) = (0i32, start);
     while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
+        // Strings, character literals, and comments are not code: a `;`
+        // inside `// ;` or `/* ; */` must not end the statement early.
+        if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }

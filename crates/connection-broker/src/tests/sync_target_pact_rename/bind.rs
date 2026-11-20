@@ -297,4 +297,40 @@ mod probes {
             );
         }
     }
+
+    /// Compound assignments mutate, they do not rebind — and this code
+    /// already cannot confuse them: the binding scan's cursor stops on the
+    /// operator's first byte (`+` of `+=`), which is not `=`, so
+    /// `is_single_eq` rejects it before the prev-byte check could matter.
+    /// This probe proves the Kimi council r2 chunk05 claim false and pins
+    /// the behavior: `reply += chunk` keeps the tracked response, a plain
+    /// `=` still replaces it.
+    #[test]
+    fn kimi_council_r2_compound_assign_keeps_prior_binding() {
+        let kept = [
+            "let reply = response; reply += chunk; reply.into()",
+            "let reply = response; reply |= chunk; reply.into()",
+            "let reply = response; reply &= chunk; reply.into()",
+            "let reply = response; reply -= chunk; reply.into()",
+            "let reply = response; reply *= chunk; reply.into()",
+            "let reply = response; reply /= chunk; reply.into()",
+            "let reply = response; reply %= chunk; reply.into()",
+            "let reply = response; reply ^= chunk; reply.into()",
+            "let reply = response; reply <<= bits; reply.into()",
+            "let reply = response; reply >>= bits; reply.into()",
+        ];
+        for sample in kept {
+            assert!(
+                reads(sample),
+                "compound assign keeps the response: {sample}"
+            );
+        }
+        let misses = [
+            "let reply = response; reply = chunk; reply.into()",
+            "let reply = other; reply.into()",
+        ];
+        for sample in misses {
+            assert!(!reads(sample), "a plain rebind still replaces: {sample}");
+        }
+    }
 }

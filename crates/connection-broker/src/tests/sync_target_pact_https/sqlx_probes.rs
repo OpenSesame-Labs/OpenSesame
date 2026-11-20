@@ -77,4 +77,25 @@ mod probes {
             assert_eq!(credentialed_send_https_gaps(sample), (0, 0), "{sample}");
         }
     }
+
+    /// An `if let` / `while let` condition binding lives only inside its
+    /// block. It must not reclassify a later `execute` on the outer binding
+    /// as a database call (Kimi council r2 chunk04).
+    #[test]
+    fn kimi_council_r2_cond_let_binding_does_not_outlive_its_block() {
+        let http = [
+            r#"async fn f() { let query = client; if let query = sqlx::query("select 1") { let _ = 1; } query.execute(request).await?; }"#,
+            r#"async fn f() { let query = client; while let query = sqlx::query("select 1") { break; } query.execute(request).await?; }"#,
+        ];
+        for sample in http {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+        }
+        let db = [
+            r#"async fn f() { if let query = sqlx::query("select 1") { query.execute(&pool).await?; } }"#,
+            r#"async fn f() { let query = sqlx::query("select 1"); query.execute(&pool).await?; }"#,
+        ];
+        for sample in db {
+            assert_eq!(credentialed_send_https_gaps(sample), (0, 0), "{sample}");
+        }
+    }
 }

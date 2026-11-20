@@ -89,8 +89,10 @@ fn alias_forward_let(
     if name.is_empty() {
         return None;
     }
-    let mut after = &source[index + name.len()..];
-    after = strip_turbofish(after).unwrap_or(after);
+    // Whitespace and comments before the value's terminator are not part of
+    // it: `{ stmts; dispatch }` forwards the alias like `dispatch}` does.
+    let mut after = skip_item_gap(&source[index + name.len()..]);
+    after = strip_turbofish(after).map(skip_item_gap).unwrap_or(after);
     if after.starts_with('(') {
         return None;
     }
