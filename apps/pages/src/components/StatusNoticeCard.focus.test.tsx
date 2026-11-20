@@ -104,21 +104,25 @@ describe("a tray card whose act works in place (ADR 0221)", () => {
   it("draws a worded pair as choice keys", () => {
     const pause = vi.fn();
     const only = vi.fn();
+    const onOpen = vi.fn();
     render(
-      card({
-        id: "tutorial.pause.session",
-        kind: "status",
-        tone: "warn",
-        title: "Tutorials",
-        body: "Pause the others for this session?",
-        act: {
-          label: "Pause all for this session",
-          worded: true,
-          run: pause,
+      card(
+        {
+          id: "tutorial.pause.session",
+          kind: "status",
+          tone: "warn",
+          title: "Tutorials",
+          body: "Pause the others for this session?",
+          act: {
+            label: "Pause all for this session",
+            worded: true,
+            run: pause,
+          },
+          alt: { label: "Only this one", worded: true, run: only },
+          createdAt: "2026-11-18T00:00:00Z",
         },
-        alt: { label: "Only this one", worded: true, run: only },
-        createdAt: "2026-11-18T00:00:00Z",
-      }),
+        onOpen,
+      ),
     );
     const pauseKey = screen.getByRole("button", {
       name: "Pause all for this session",
@@ -128,6 +132,8 @@ describe("a tray card whose act works in place (ADR 0221)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Only this one" }));
     expect(pause).toHaveBeenCalledTimes(1);
     expect(only).toHaveBeenCalledTimes(1);
+    // A choice that works in place does not close the sheet around it.
+    expect(onOpen).not.toHaveBeenCalled();
   });
 
   it("lands focus on the tray Close key after a keyboard worded choice", async () => {
@@ -172,29 +178,26 @@ describe("a tray card whose act works in place (ADR 0221)", () => {
     expect(onOpen).not.toHaveBeenCalled();
   });
 
-  it("closes the tray after a keyboard worded choice on a page toast", () => {
+  it("hands focus back on a page toast without closing the sheet", () => {
     const pause = vi.fn();
-    const only = vi.fn();
     const onOpen = vi.fn();
-    render(
+    const notice: Notice = {
+      id: "tutorial.pause.session",
+      kind: "status",
+      tone: "warn",
+      title: "Tutorials",
+      body: "Pause the others for this session?",
+      act: {
+        label: "Pause all for this session",
+        worded: true,
+        run: pause,
+      },
+      alt: { label: "Only this one", worded: true, run: () => {} },
+      createdAt: "2026-11-18T00:00:00Z",
+    };
+    const view = render(
       <MemoryRouter>
-        <StatusNoticeCard
-          notice={{
-            id: "tutorial.pause.session",
-            kind: "status",
-            tone: "warn",
-            title: "Tutorials",
-            body: "Pause the others for this session?",
-            act: {
-              label: "Pause all for this session",
-              worded: true,
-              run: pause,
-            },
-            alt: { label: "Only this one", worded: true, run: only },
-            createdAt: "2026-11-18T00:00:00Z",
-          }}
-          onOpen={onOpen}
-        />
+        <StatusNoticeCard notice={notice} onOpen={onOpen} />
       </MemoryRouter>,
     );
     const pauseKey = screen.getByRole("button", {
@@ -202,7 +205,21 @@ describe("a tray card whose act works in place (ADR 0221)", () => {
     });
     pauseKey.focus();
     fireEvent.click(pauseKey);
-    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(pause).toHaveBeenCalledTimes(1);
+    // The choice works in place. Closing the sheet here would unmount the
+    // card the hand-back is armed for, so onOpen stays untouched.
+    expect(onOpen).not.toHaveBeenCalled();
+    view.rerender(
+      <MemoryRouter>
+        <StatusNoticeCard
+          notice={{ ...notice, act: undefined, alt: undefined }}
+          onOpen={onOpen}
+        />
+      </MemoryRouter>,
+    );
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Dismiss" }),
+    );
   });
 
   it("leaves focus to the page for an act that opens it", () => {

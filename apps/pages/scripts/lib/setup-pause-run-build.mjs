@@ -43,14 +43,20 @@ export async function openBuildBrowser(
       });
   const opened = await harness.newPage(browser);
   const { context, page } = opened;
-  await freezeContextRandomness(context);
-  console.log(`build ${label}`);
-  await openSetupChoices(page, href);
-  const shared = path.join(outRoot, label);
-  mkdirSync(shared, { recursive: true });
-  const choices = path.join(shared, "setup-choices.png");
-  await shotFrame(page, choices);
-  return { context, page, harness, choices };
+  try {
+    await freezeContextRandomness(context);
+    console.log(`build ${label}`);
+    await openSetupChoices(page, href);
+    const shared = path.join(outRoot, label);
+    mkdirSync(shared, { recursive: true });
+    const choices = path.join(shared, "setup-choices.png");
+    await shotFrame(page, choices);
+    return { context, page, harness, choices };
+  } catch (error) {
+    // A timeout or hard fault must not leak the Playwright context behind it.
+    await context.close().catch(() => {});
+    throw error;
+  }
 }
 
 function newProfilePageFactory(harness) {
@@ -321,40 +327,45 @@ export async function runBuildPhase(
     BASE,
     outRoot,
   });
-  await assertOnSetup(page, check);
-  await assertRoads(page, check, expectAdvanced);
-  check(existsSync(choices), `${label} setup-choices.png written`);
-  const records = await captureProfileRecords(browser, {
-    harness,
-    devUrl,
-    label,
-    href,
-    outRoot,
-    check,
-    digest,
-  });
-  await captureAdvancedMinimalWarning(browser, {
-    harness,
-    devUrl,
-    expectAdvanced,
-    label,
-    href,
-    outRoot,
-    check,
-  });
-  if (tutorial) {
-    await captureTutorialPauseEvidence(
-      browser,
-      { harness, devUrl, label, href, outRoot, check, digest },
-      evidence,
-    );
+  try {
+    await assertOnSetup(page, check);
+    await assertRoads(page, check, expectAdvanced);
+    check(existsSync(choices), `${label} setup-choices.png written`);
+    const records = await captureProfileRecords(browser, {
+      harness,
+      devUrl,
+      label,
+      href,
+      outRoot,
+      check,
+      digest,
+    });
+    await captureAdvancedMinimalWarning(browser, {
+      harness,
+      devUrl,
+      expectAdvanced,
+      label,
+      href,
+      outRoot,
+      check,
+    });
+    if (tutorial) {
+      await captureTutorialPauseEvidence(
+        browser,
+        { harness, devUrl, label, href, outRoot, check, digest },
+        evidence,
+      );
+    }
+    evidence.push({
+      build: label,
+      step: "setup-choices.png",
+      sha256: digest(choices),
+    });
+    return records;
+  } finally {
+    // A timeout or thrown check still owes its hard-fault report and its
+    // browser context back before the phase lets go of them.
+    collectHarnessFailures(harness, label, failures);
+    await context.close().catch(() => {});
   }
-  evidence.push({
-    build: label,
-    step: "setup-choices.png",
-    sha256: digest(choices),
-  });
-  collectHarnessFailures(harness, label, failures);
-  await context.close();
-  return records;
 }

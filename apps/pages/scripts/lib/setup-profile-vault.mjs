@@ -33,36 +33,55 @@ async function shotFrame(page, file) {
   await frame.screenshot({ path: file, animations: "disabled" });
 }
 
+/**
+ * The advanced road asks once before it commits Minimal; main does not ask.
+ * A required ask that never shows fails here instead of falling through
+ * `commitSetupRoadChoice` as if the road had been chosen.
+ */
+function confirmOffered(check, required, where) {
+  check(!required, "Use Minimal anyway offered before Minimal commit");
+  if (required) {
+    throw new Error(`Use Minimal anyway not offered: ${where}`);
+  }
+}
+
 async function confirmMinimal(page, dir, check, required) {
   await page.waitForTimeout(400);
-  const anyway = page.getByRole("button", { name: "Use Minimal anyway" });
-  try {
-    await page
+  const dialog = page.getByRole("dialog", { name: "Notifications" });
+  // The confirm tray can already be open — a warn notice no other surface
+  // could show opens the sheet by itself — so this never clicks the
+  // Notifications bell on top of an open tray.
+  if (!(await dialog.isVisible().catch(() => false))) {
+    const toggle = page
       .getByRole("button", { name: /Notifications —/ })
-      .first()
-      .waitFor({ state: "visible", timeout: 8_000 });
-    await page
-      .getByRole("button", { name: /Notifications —/ })
-      .first()
-      .click();
-    const dialog = page.getByRole("dialog", { name: "Notifications" });
-    await dialog.waitFor({ timeout: 8_000 });
-    const warning = path.join(dir, "setup-minimal-confirm-tray.png");
-    await page
-      .locator(".vault, .setup__frame, body")
-      .first()
-      .screenshot({ path: warning, animations: "disabled" })
-      .catch(() => page.screenshot({ path: warning, animations: "disabled" }));
-    await dialog.getByRole("button", { name: "Use Minimal anyway" }).click();
-  } catch {
-    try {
-      await anyway.first().waitFor({ state: "visible", timeout: 4_000 });
-      await anyway.first().click();
-    } catch {
-      // Main commits Minimal with no confirm. The advanced road must show it.
-      check(!required, "Use Minimal anyway offered before Minimal commit");
+      .first();
+    const offered = await toggle
+      .waitFor({ state: "visible", timeout: 8_000 })
+      .then(() => true)
+      .catch(() => false);
+    if (!offered) {
+      confirmOffered(check, required, "the Notifications bell never showed");
+      return;
     }
+    await toggle.click();
+    await dialog.waitFor({ timeout: 8_000 });
   }
+  const anyway = dialog.getByRole("button", { name: "Use Minimal anyway" });
+  const confirmed = await anyway
+    .waitFor({ state: "visible", timeout: 8_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!confirmed) {
+    confirmOffered(check, required, "the confirm tray showed no way in");
+    return;
+  }
+  const warning = path.join(dir, "setup-minimal-confirm-tray.png");
+  await page
+    .locator(".vault, .setup__frame, body")
+    .first()
+    .screenshot({ path: warning, animations: "disabled" })
+    .catch(() => page.screenshot({ path: warning, animations: "disabled" }));
+  await anyway.click();
 }
 
 async function finishCustom(page, check) {
@@ -86,7 +105,12 @@ async function finishCustom(page, check) {
     .waitFor({ state: "visible", timeout: 20_000 });
   const derivedCard = page.getByTestId("capability-card-vault.derived-records");
   await derivedCard.waitFor({ state: "visible", timeout: 12_000 });
-  await derivedCard.locator(".capcard__pick").click();
+  // `.capcard__pick` is an aria-pressed toggle: clicking a card that is
+  // already picked would unselect it and lose the derived-records choice.
+  const derivedPick = derivedCard.locator(".capcard__pick");
+  if ((await derivedPick.getAttribute("aria-pressed")) !== "true") {
+    await derivedPick.click();
+  }
   const review = page.getByRole("button", {
     name: "Save on this device",
     exact: true,
