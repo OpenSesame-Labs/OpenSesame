@@ -59,7 +59,10 @@ its source blobs must be present locally. Fetch the reviewed history if they
 are missing. The hashes detect drift. They do not prove the review or the model
 is correct.
 The pre-push hook selects registered suites when their mapped implementation
-files occur in the commits being pushed, including changes later reverted. It
+files occur in the commits being pushed, including changes later reverted. For
+a suite with a registered Cargo.lock projection, it also selects changes to the
+reviewed dependency graph; lockfile-only graph selection conservatively includes
+inactive optional, development, and target-specific packages. It
 reads historical policy as data and checks each registry or requirements change
 against the requirements in that commit. Earlier registry history from before
 the requirements file existed is included in selection. If a changed path had
@@ -134,6 +137,7 @@ claim of exhaustive inventory or Lean coverage:
 | DPoP replay cache. RFC 9449. | [`replay.rs`](../../crates/proof/src/replay.rs). | [DPOP-R1](../../spec/formal/dpop/README.md) models the single-process cache under stated clock and atomicity assumptions; full DPoP validation is not proved. |
 | Grant delegation and replacement. [ADR 0036](../adr/0036-coverage-guided-fuzz-and-bounded-proofs.md). | [`grant.rs`](../../crates/domain/src/grant.rs) and its validators. | [AUTH-D1–D6](../../spec/formal/authority/README.md) model selected attenuation checks. Caller authentication, all constraint dimensions, and concurrent behavior are outside the model. A separate Kani harness checks a bounded interval case. |
 | Host API relay organization tenant isolation. [ADR 0046](../adr/0046-relayed-execution-and-authorization-inbox.md). | [`caller_scope`](../../crates/gateway/src/routes/relay_scope.rs) scopes inspection and denial in [`relay.rs`](../../crates/gateway/src/routes/relay.rs). | **RELAY-T1** is **unproved**. Sessions use their authenticated organization; operators use the bootstrap organization. Cross-organization inspection and denial return `not_found`. Disabled execution and result routes return 501 after authentication without disclosing tenant records. [`relay_tenant_tests.rs`](../../crates/gateway/src/routes/relay_tenant_tests.rs) exercises the boundary; the relay route suite passed before the latest main integration, and there is no Lean suite. |
+| SPIFFE identity and trust withdrawal. [ADR 0132](../adr/0132-optional-mtls-and-workload-identity.md), [ADR 0223](../adr/0223-spiffe-withdrawal-under-ambiguous-snapshots.md). | [`source.rs`](../../crates/spiffe-source/src/source.rs), [`source_policy.rs`](../../crates/spiffe-source/src/source_policy.rs), and [`outage.rs`](../../crates/spiffe-source/src/outage.rs). | The [withdrawal model](../../spec/formal/spiffe/README.md) covers selected denial, trust-reduction, and outage-deadline decisions. It does not prove SDK behavior for arbitrary responses, implementation refinement, certificate verification, or hard real-time sink withdrawal. |
 
 **RELAY-F1 — relay execution fails closed (unproved).** Until a holder can
 re-authorize at the effect boundary, the Host must not accept new relay work,
