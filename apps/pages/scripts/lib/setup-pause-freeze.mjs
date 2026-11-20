@@ -11,9 +11,10 @@ export const SETUP_PAUSE_INIT = `
   };
   const native = window.matchMedia.bind(window);
   window.matchMedia = (query) => {
-    if (String(query).includes("prefers-reduced-motion")) {
+    const text = String(query);
+    if (text.includes("prefers-reduced-motion")) {
       return {
-        matches: true,
+        matches: /prefers-reduced-motion:\\s*reduce\\b/.test(text),
         media: query,
         addEventListener() {},
         removeEventListener() {},
