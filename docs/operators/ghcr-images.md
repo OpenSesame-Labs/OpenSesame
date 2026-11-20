@@ -9,8 +9,11 @@ only, so a cold build stays under the cap. A manifest
 job publishes the shared tag from those platform images. Layer cache is GitHub Actions
 (`type=gha`, `mode=max`), scoped by matrix id so rows do not clobber each
 other. A cold cache on the first publish can still miss the 10 minute cap.
-Retry with `workflow_dispatch` after that attempt has filled the cache. Do
-not raise the timeout to get a cold build through.
+`control-plane` installs production dependencies only, keyed on the npm
+manifests alone, so a cold build pays for one `npm ci --omit=dev` and every
+later run — including a feature-branch `workflow_dispatch` whose lockfile
+matches main — reuses the warm dependency layers instead of rebuilding and
+re-exporting them. Do not raise the timeout to get a cold build through.
 
 Every image runs as uid `10001`, carries the same OCI labels (`source`,
 `version` from the `VERSION` build-arg, `licenses=MIT`, `title`, and
@@ -53,7 +56,10 @@ A matrix row whose Dockerfile is absent on that revision is skipped. Builds and
 proof jobs have a ten-minute cap. The `cli` and `control-plane` matrix covers
 amd64 and arm64 on native runners; `opensesame` and `web-pwa` are amd64 only.
 Each build retains its per-image GitHub Actions layer cache. A cold run may miss
-the cap; a manual proof retry can reuse the cache.
+the cap; a manual proof retry can reuse the cache. The `control-plane` layers
+that carry `node_modules` are keyed on the npm manifests, so retries and
+feature-branch dispatches skip its dependency install when the lockfile is
+unchanged.
 
 ## Vulnerability scanning
 
@@ -126,7 +132,16 @@ is `linux/amd64` only.
 ## `control-plane`
 
 The Identity API is started with `node --import tsx` on the workspace
-sources. A networked bind (`OPENSESAME_CONTROL_PLANE_HOST=0.0.0.0` and
+sources. The build stays inside the ten-minute proof cap on cold and warm
+cache by shape, not by timeout: it installs production dependencies only (no
+dev toolchain stage), and the `manifests` stage prunes the context to what
+`npm ci` reads — root manifests, `patches`, and every workspace
+`package.json` — before `npm ci --omit=dev` runs. Sources are copied after
+that install, so the dependency layers are keyed on the manifests and a
+branch whose lockfile matches main reuses main's warm layers instead of
+rebuilding and re-exporting `node_modules`.
+
+A networked bind (`OPENSESAME_CONTROL_PLANE_HOST=0.0.0.0` and
 `OPENSESAME_ALLOW_NONLOCAL=1` are set in the image) is production exposure.
 The process refuses to boot until the operator sets:
 
@@ -148,6 +163,8 @@ present. The image does not embed a pepper, a token, or a database URL.
 `opensesame` compiles with `--target runtime`. The Dockerfile default is
 `runtime-from-prebuilt`, which the proof workflow builds from
 `ops/compose/prebuilt/opensesame` (mode 0755) and does not run cargo.
+That binary is `x86_64-unknown-linux-musl`. The Alpine runtime does not
+install a glibc compatibility layer.
 
 ```bash
 docker build -f ops/compose/Dockerfile --target runtime -t opensesame:local .
