@@ -50,14 +50,6 @@ export function SupportGate(): ReactElement {
     [controller],
   );
 
-  useEffect(
-    () =>
-      controller.bindTutorialResume((goalId, guide, homeRoute) =>
-        controller.resumeQueuedWalkthrough(goalId, guide, homeRoute),
-      ),
-    [controller],
-  );
-
   useEffect(() => {
     controller.setRoute(route ?? GATE_ROUTE);
   }, [controller, route]);
