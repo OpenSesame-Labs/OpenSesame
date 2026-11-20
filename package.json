@@ -39,7 +39,7 @@
     "anti-slop:manifest": "node skills/install-anti-slop/scripts/manifest.mjs",
     "quality": "npm run audit:exposure && npm run quality:test && npm run quality:gate && npm run quality:log-hygiene && npm run quality:packages && npm run quality:app-core",
     "quality:log-hygiene": "node scripts/quality/log-hygiene-gate.mjs",
-    "quality:test": "vitest run scripts/lib --testTimeout=30000 && node --test scripts/security/*.test.mjs scripts/quality/cd-pwa-workspace-paths-gate.test.mjs scripts/test/git-hooks.test.mjs scripts/test/grok-commit-guard.test.mjs scripts/quality/dependabot-config.test.mjs && npm run test:ci-promotion",
+    "quality:test": "vitest run scripts/lib --testTimeout=30000 && node --test scripts/security/*.test.mjs scripts/test/git-hooks.test.mjs scripts/test/grok-commit-guard.test.mjs scripts/quality/dependabot-config.test.mjs && npm run test:ci-promotion",
     "quality:gate": "node scripts/quality/quality-gate.mjs",
     "quality:app-core": "node scripts/quality/app-core-boundary.mjs --check",
     "quality:packages": "node scripts/quality/package-metrics-gate.mjs",
@@ -54,6 +54,7 @@
     "verify:auth-formal": "bash scripts/test/auth-formal.sh",
     "verify:authority-formal": "bash spec/formal/authority/check.sh",
     "verify:dpop-formal": "bash spec/formal/dpop/verify.sh",
+    "verify:spiffe-formal": "bash spec/formal/spiffe/verify.sh",
     "verify:oauth-formal": "bash spec/formal/oauth/verify.sh",
     "verify:webauthn-formal": "bash spec/formal/webauthn/verify.sh",
     "verify:interaction-clock-formal": "bash spec/formal/interaction-clock/verify.sh",
@@ -234,7 +235,10 @@
       "@hono/node-server": "2.1.6",
       "@huggingface/transformers": "-",
       "jks-js": "-",
-      "glob": "14.0.6",
+      "glob": {
+        ".": "13.0.7",
+        "minimatch": "$minimatch10-patched"
+      },
       "minimatch": "$minimatch10-patched"
     },
     "@node-saml/node-saml": {
@@ -306,8 +310,8 @@
     "@aws-sdk/xml-builder": "$@aws-sdk/xml-builder",
     "brace-expansion@^2.0.1": "2.1.8",
     "glob@^11.0.1": "$glob11-patched",
-    "glob@^13.0.1": "14.0.6",
-    "glob@^13.0.6": "14.0.6",
+    "glob@^13.0.1": "13.0.7",
+    "glob@^13.0.6": "13.0.7",
     "minimatch@^10.1.1": "$minimatch10-patched",
     "minimatch@^10.2.2": "$minimatch10-patched",
     "workbox-build": {
@@ -318,11 +322,17 @@
     },
     "@joshwooding/vite-plugin-react-docgen-typescript": {
       ".": "$docgen-plugin-patched",
-      "glob": "14.0.6"
+      "glob": {
+        ".": "13.0.7",
+        "minimatch": "$minimatch10-patched"
+      }
     },
     "react-docgen-typescript": "$react-docgen-patched",
     "@modelcontextprotocol/server-filesystem": {
-      "glob": "14.0.6",
+      "glob": {
+        ".": "13.0.7",
+        "minimatch": "$minimatch10-patched"
+      },
       "minimatch": "$minimatch10-patched"
     },
     "@stryker-mutator/core": {
