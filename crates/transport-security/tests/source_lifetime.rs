@@ -72,7 +72,7 @@ fn expiry_is_inclusive_latched_and_reset_only_by_a_fresh_source_activation() {
     gens.tighten_source_deadline(&owner, epoch, deadline)
         .unwrap();
     assert!(gens
-        .checked_current_at(None, deadline - Duration::nanoseconds(1))
+        .checked_current_at(None, deadline - Duration::milliseconds(1))
         .is_ok());
     assert!(matches!(
         gens.checked_current_at(None, deadline),

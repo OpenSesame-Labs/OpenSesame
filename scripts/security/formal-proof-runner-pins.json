@@ -21,6 +21,7 @@
       "scripts/security/formal-proof-runner-pins.json",
       "scripts/lib/json-boundary.mjs",
       "spec/formal/check-axioms.sh",
+      "spec/formal/check-axioms.test.mjs",
       "spec/formal/required-theorem-command.lean"
     ]
   ],
@@ -67,6 +68,22 @@
       "spec/formal/webauthn/vitest.config.ts",
       "spec/formal/webauthn/negative-controls.py",
       "spec/formal/webauthn/required-theorems.lean"
+    ],
+    [],
+    []
+  ],
+  [
+    "suite",
+    "interaction-clock",
+    "verify:interaction-clock-formal",
+    [
+      "spec/formal/interaction-clock/verify.sh",
+      "spec/formal/interaction-clock/vitest.config.ts",
+      "spec/formal/interaction-clock/check-report.mjs",
+      "spec/formal/interaction-clock/check-drift.mjs",
+      "spec/formal/interaction-clock/negative-controls.py",
+      "packages/control-plane/src/__tests__/interaction-settlement-clock.security.test.ts",
+      "spec/formal/interaction-clock/required-theorems.lean"
     ],
     [],
     []

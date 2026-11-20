@@ -40,6 +40,8 @@ chain and SVID decisions as Boolean inputs; the vector correspondence covers
 only the service-binding portion. The forwarding theorem is an abstract
 identity function, with the production preservation path exercised separately
 by tests. The durable history of source domains remains a different problem.
+The relay profile's directory-operation allowlist (ADR 0226) is outside this
+model; the relay binding regressions cover that separate behavior.
 
 Run `python3 -I spec/formal/spiffe-peer-domain/test_drift.py` for scratch
 workspace-projection, build-script, and forged-bytecode controls. The suite
