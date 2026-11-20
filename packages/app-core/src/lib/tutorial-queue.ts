@@ -189,7 +189,10 @@ export function tutorialQueueNoticeId(goalId: string): string {
   return `tutorial.queue.${goalId}`;
 }
 
-/** Remember a registry goal. Already queued is success. Titles are not kept. */
+/**
+ * Remember a registry goal. Already queued is success; a full queue refuses
+ * rather than evicting the oldest. Titles are not kept.
+ */
 export function queueTutorial(
   goalId: string,
   meta: TutorialQueueMeta,
@@ -198,7 +201,8 @@ export function queueTutorial(
   if (!ID.test(goalId) || guideGoal(goalId) === null) return false;
   const current = loadStoredGoalIds();
   if (current.includes(goalId)) return true;
-  store([...current, goalId].slice(-LIMIT));
+  if (current.length >= LIMIT) return false;
+  store([...current, goalId]);
   return true;
 }
 
@@ -218,16 +222,21 @@ export function storedQueuedGoalIds(): readonly string[] {
   return loadStoredGoalIds();
 }
 
-/** Replace or extend the queue; keeps stored ids when contributions are unloaded. */
+/**
+ * Replace or extend the queue; keeps stored ids when contributions are
+ * unloaded. At the limit, ids not already stored are refused rather than
+ * evicting the oldest.
+ */
 export function setQueuedTutorials(goalIds: readonly string[]): void {
   const prior = loadStoredGoalIds();
   const merged = new Set(prior);
   for (const goalId of goalIds) {
     if (!ID.test(goalId)) continue;
     if (guideGoal(goalId) === null && !prior.includes(goalId)) continue;
+    if (merged.size >= LIMIT && !merged.has(goalId)) continue;
     merged.add(goalId);
   }
-  store([...merged].slice(-LIMIT));
+  store([...merged]);
 }
 
 export function sessionTutorialsPaused(): boolean {
