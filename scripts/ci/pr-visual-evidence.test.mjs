@@ -129,18 +129,22 @@ test("the manually dispatched workflow keeps PR execution away from credentials"
   const checkouts = steps.filter((step) =>
     step.uses?.startsWith("actions/checkout@"),
   );
-  assert.equal(checkouts.length, 2);
+  assert.equal(checkouts.length, 1);
   assert.deepEqual(
     checkouts.map((step) => [
       step.with.path,
       step.with.ref,
       step.with["persist-credentials"],
+      step.with["allow-unsafe-pr-checkout"],
     ]),
-    [
-      ["base", "${{ github.sha }}", false],
-      ["head", "${{ steps.resolve.outputs.head_sha }}", false],
-    ],
+    [["base", "${{ github.sha }}", false, false]],
   );
+  const materialize = steps.find(
+    (step) => step.name === "Materialize the exact PR head after trusted setup",
+  );
+  assert.ok(materialize);
+  assert.match(materialize.run, /pr-visual-materialize-head\.sh/u);
+  assert.equal(materialize.env.PR_VISUAL_HEAD_SHA, "${{ steps.resolve.outputs.head_sha }}");
   const tokenSteps = steps.filter((step) => step.env?.GH_TOKEN);
   assert.deepEqual(
     tokenSteps.map((step) => step.name),
