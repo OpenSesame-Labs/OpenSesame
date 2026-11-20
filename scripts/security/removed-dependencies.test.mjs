@@ -204,12 +204,7 @@ test3(
       ).resolve("glob");
       const workboxMatcher = createRequire2(workboxGlob).resolve("minimatch");
       const { braceExpand: workboxBraceExpand } = require2(workboxMatcher);
-      assert3.deepEqual(
-        workboxBraceExpand("{0..10000}.txt")
-          .filter((name) => name === "10000.txt")
-          .sort(),
-        ["10000.txt"],
-      );
+      assert3.equal(workboxBraceExpand("{1..100001}.txt").length, 100000);
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
