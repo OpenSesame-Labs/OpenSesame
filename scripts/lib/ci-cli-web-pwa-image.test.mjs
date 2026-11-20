@@ -18,9 +18,9 @@ const CLI_ALPINE_DIGEST =
   "node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5";
 const CLI_ALPINE_RUNTIME = new RegExp(CLI_ALPINE_DIGEST.replace("/", "\\/"));
 
-const WEBPWA_BOOKWORM_BUILD = /node:24-bookworm-slim@[\s\S]*AS build/;
+const WEBPWA_BOOKWORM_BUILD = /node:26-bookworm-slim@[\s\S]*AS build/;
 const WEBPWA_ALPINE_DIGEST =
-  "node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5";
+  "node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5";
 
 describe("cli runtime image", () => {
   it("builds on bookworm-slim and serves on digest-pinned alpine", () => {
