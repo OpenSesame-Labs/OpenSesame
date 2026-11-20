@@ -76,7 +76,9 @@ export const bootSeams = {
 async function hydrateBootConfiguration(): Promise<ParsedRuntimeConfig> {
   const runtimeConfig = await loadRuntimeConfig();
   await kvHydrate([...CORE_BOOT_KEYS]);
-  const { rehydrateTutorialQueueNotices } = await import("@opensesame/app-core/lib/tutorial-queue-present.js");
+  const { rehydrateTutorialQueueNotices } = await import(
+    "@opensesame/app-core/lib/tutorial-queue-present.js"
+  );
   rehydrateTutorialQueueNotices();
   // A configured provider revalidates its assertion while the local vault
   // opens. Unconfigured installations make no identity request.
