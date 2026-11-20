@@ -136,7 +136,9 @@ describe("signed federated state integrity", () => {
     const wire = wireJson(cookie);
     expect(wire).not.toHaveProperty("verifier");
     expect(wire.verifierEnc).toEqual(expect.any(String));
-    expect(encodePending(pending, secret, sealOnWire)).toBe(cookie);
+    const again = encodePending(pending, secret, sealOnWire);
+    expect(decodePending(again, secret)).toEqual(pending);
+    expect(again).not.toBe(cookie);
     expect(decodePending(cookie, secret)).toEqual(pending);
   });
 
