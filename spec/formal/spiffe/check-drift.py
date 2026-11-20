@@ -18,6 +18,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 
@@ -36,6 +37,39 @@ ALGORITHM = "cargo-lock-projection-v1-sha256"
 ATTESTATION_RE = re.compile(r"spec/formal/spiffe/reviewed-sources(?:-[a-z0-9-]+)?\.json\Z")
 BLOB_RE = re.compile(r"[0-9a-f]{40}\Z")
 SHA_RE = re.compile(r"[0-9a-f]{64}\Z")
+# Absent unless a reviewed coverage entry names them. Appearance is drift.
+UNREVIEWED_BUILD_SCRIPTS = (
+    "crates/spiffe-source/build.rs",
+)
+
+
+def regular_file(name: str) -> Path:
+    path = Path(name)
+    if path.is_absolute() or str(path) != name or any(part in (".", "..") for part in path.parts):
+        raise ValueError(f"invalid covered path: {name}")
+    current = ROOT
+    for index, part in enumerate(path.parts):
+        current = current / part
+        last = index == len(path.parts) - 1
+        try:
+            mode = current.lstat().st_mode
+        except FileNotFoundError as exc:
+            raise ValueError(f"missing covered path: {name}") from exc
+        if not (stat.S_ISREG(mode) if last else stat.S_ISDIR(mode)):
+            raise ValueError(f"covered path is not a regular file or directory: {name}")
+    return current
+
+
+def reject_unreviewed_build_scripts(covered: set[str]) -> None:
+    for name in UNREVIEWED_BUILD_SCRIPTS:
+        if name in covered:
+            continue
+        candidate = ROOT / name
+        try:
+            candidate.lstat()
+        except FileNotFoundError:
+            continue
+        raise ValueError("review optional source/build-script drift")
 
 
 def sdk_projection(graph):
@@ -118,7 +152,7 @@ def verify_sources(coverage: dict, revision: str) -> None:
         expected = item["sha256"]
         if not isinstance(path, str) or SHA_RE.fullmatch(str(expected)) is None:
             raise ValueError(f"malformed covered source entry for {path!r}")
-        work = hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
+        work = hashlib.sha256(regular_file(path).read_bytes()).hexdigest()
         if work != expected:
             raise ValueError(f"review source drift: {path}")
         reviewed = hashlib.sha256(blob_bytes(item["reviewed_blob"])).hexdigest()
@@ -146,6 +180,13 @@ def main():
         if coverage.get("version") != 2 or not re.fullmatch(r"[0-9a-f]{40}", revision):
             raise ValueError("invalid coverage manifest")
         assert_reviewed_revision_on_main(ROOT, revision, "spiffe-formal")
+        sources = coverage.get("sources")
+        covered = {
+            item.get("path")
+            for item in sources
+            if isinstance(item, dict)
+        } if isinstance(sources, list) else set()
+        reject_unreviewed_build_scripts(covered)
         verify_sources(coverage, revision)
         graph = projection.read_lock(ROOT / "Cargo.lock")
         verify_lock(coverage, graph, (ROOT / "crates/spiffe-source/src/lib.rs").read_text())
