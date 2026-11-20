@@ -37,7 +37,9 @@ pub(super) fn skip_comment(bytes: &[u8], start: usize) -> usize {
     if bytes.get(start + 1) == Some(&b'/') {
         return skip_line_comment(bytes, start);
     }
-    skip_block_comment_flat(bytes, start)
+    // `non_code_len` uses this path. A flat end would treat
+    // `/* /* */ let dispatch = innocent; */` as a real rebind.
+    skip_block_comment_nested(bytes, start)
 }
 
 fn skip_line_comment(bytes: &[u8], start: usize) -> usize {
@@ -48,7 +50,8 @@ fn skip_line_comment(bytes: &[u8], start: usize) -> usize {
     index
 }
 
-/// Rust block comments do not nest; the first `*/` ends the comment.
+/// First `*/` ends the span. Not used by `non_code_len`: Rust block comments
+/// nest, so text after an inner `*/` is still inside the outer comment.
 /// Strings are not lexed inside `/* */`, so `"` does not hide the closer.
 pub(crate) fn skip_block_comment_flat(bytes: &[u8], start: usize) -> usize {
     let mut index = start + 2;
@@ -244,15 +247,14 @@ pub(super) fn is_ident_char(ch: char) -> bool {
 
 #[cfg(test)]
 mod probes {
-    use super::{skip_block_comment_flat, skip_block_comment_nested};
+    use super::{skip_block_comment_flat, skip_block_comment_nested, skip_comment};
     use crate::tests::sync_target_pact_let::typed_let_name_before_path;
 
     #[test]
-    fn p5_block_comment_does_not_nest() {
+    fn p5_block_comment_noise_uses_nested_skip() {
         let bytes = br#"/* outer /* inner */ still */.text()"#;
-        let flat = skip_block_comment_flat(bytes, 0);
-        assert_eq!(&bytes[flat..], b" still */.text()");
         let nested = skip_block_comment_nested(bytes, 0);
+        assert_eq!(skip_comment(bytes, 0), nested);
         assert_eq!(&bytes[nested..], b".text()");
     }
 
