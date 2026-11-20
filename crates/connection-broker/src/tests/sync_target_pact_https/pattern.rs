@@ -11,20 +11,8 @@ pub(super) fn destructured_url(
     name_at: usize,
     name: &str,
 ) -> Option<(String, usize)> {
-    let (open, element) = tuple_pattern_open(prefix, name_at)?;
-    let close = matching_close(prefix, open)?;
-    let inside = &prefix[open + 1..close];
-    let elem = tuple_parts(inside)
-        .get(element)
-        .copied()?
-        .trim()
-        .to_string();
-    if !pattern_binds(&elem, name) {
-        return None;
-    }
-    if !let_pattern_intro(&prefix[..open]) {
-        return None;
-    }
+    let (open, close) = let_tuple_around(prefix, name_at)?;
+    let path = bind_path(&prefix[open + 1..close], name)?;
     let bytes = prefix.as_bytes();
     let mut at = close + 1;
     while at < bytes.len() && bytes[at].is_ascii_whitespace() {
@@ -40,10 +28,63 @@ pub(super) fn destructured_url(
         return None;
     }
     let end = super::bind::stmt_end(bytes, at + 1);
-    let rhs = prefix[at + 1..end].trim();
-    let piece = rhs_element(rhs, element);
+    let piece = descend_rhs(prefix[at + 1..end].trim(), &path);
     let url = super::bind::builder_url(piece).unwrap_or("").to_string();
     Some((url, end))
+}
+
+/// Outermost `let` tuple that contains `name_at`, including `((request,),)`.
+fn let_tuple_around(source: &str, name_at: usize) -> Option<(usize, usize)> {
+    let (mut open, _) = tuple_pattern_open(source, name_at)?;
+    loop {
+        let close = matching_close(source, open)?;
+        if let_pattern_intro(&source[..open]) {
+            return Some((open, close));
+        }
+        let (outer, _) = tuple_pattern_open(source, open)?;
+        if outer >= open {
+            return None;
+        }
+        open = outer;
+    }
+}
+
+fn bind_path(inside: &str, name: &str) -> Option<Vec<usize>> {
+    for (index, part) in tuple_parts(inside).into_iter().enumerate() {
+        if part.is_empty() {
+            continue;
+        }
+        if direct_binds(part, name) {
+            return Some(vec![index]);
+        }
+        let Some(inner) = whole_tuple(part) else {
+            continue;
+        };
+        let Some(mut rest) = bind_path(inner, name) else {
+            continue;
+        };
+        rest.insert(0, index);
+        return Some(rest);
+    }
+    None
+}
+
+fn descend_rhs<'a>(rhs: &'a str, path: &[usize]) -> &'a str {
+    let mut piece = rhs.trim();
+    for (depth, index) in path.iter().copied().enumerate() {
+        let Some(inside) = rhs_tuple(piece) else {
+            return if depth == 0 { piece } else { "" };
+        };
+        piece = tuple_parts(inside).get(index).copied().unwrap_or("").trim();
+    }
+    piece
+}
+
+fn rhs_tuple(rhs: &str) -> Option<&str> {
+    if !rhs.starts_with('(') {
+        return None;
+    }
+    super::bind::call_inside(rhs)
 }
 
 fn tuple_pattern_open(source: &str, name_at: usize) -> Option<(usize, usize)> {
@@ -123,20 +164,6 @@ pub(super) fn whole_tuple(lhs: &str) -> Option<&str> {
         .then_some(inside)
 }
 
-fn rhs_element(rhs: &str, element: usize) -> &str {
-    let Some(inside) = rhs
-        .strip_prefix('(')
-        .and_then(|_| super::bind::call_inside(rhs))
-    else {
-        return rhs;
-    };
-    tuple_parts(inside)
-        .get(element)
-        .copied()
-        .unwrap_or("")
-        .trim()
-}
-
 pub(super) fn tuple_parts(inside: &str) -> Vec<&str> {
     let bytes = inside.as_bytes();
     let (mut depth, mut index, mut start) = (0i32, 0usize, 0usize);
@@ -162,7 +189,26 @@ pub(super) fn tuple_parts(inside: &str) -> Vec<&str> {
 }
 
 pub(super) fn pattern_binds(elem: &str, name: &str) -> bool {
-    let mut elem = elem.trim();
+    let elem = strip_binding_kw(elem.trim());
+    if let Some(inside) = whole_tuple(elem) {
+        return tuple_parts(inside)
+            .iter()
+            .any(|part| !part.is_empty() && pattern_binds(part, name));
+    }
+    direct_binds(elem, name)
+}
+
+fn direct_binds(elem: &str, name: &str) -> bool {
+    let elem = strip_binding_kw(elem);
+    let ident = super::bind::ident_prefix(elem);
+    if ident != name {
+        return false;
+    }
+    let rest = elem[ident.len()..].trim_start();
+    rest.is_empty() || rest.starts_with(':')
+}
+
+fn strip_binding_kw(mut elem: &str) -> &str {
     for _ in 0..3 {
         let mut stripped = false;
         for kw in ["mut", "ref"] {
@@ -175,12 +221,7 @@ pub(super) fn pattern_binds(elem: &str, name: &str) -> bool {
             break;
         }
     }
-    let ident = super::bind::ident_prefix(elem);
-    if ident != name {
-        return false;
-    }
-    let rest = elem[ident.len()..].trim_start();
-    rest.is_empty() || rest.starts_with(':')
+    elem
 }
 
 pub(super) fn strip_prefix_kw<'a>(source: &'a str, keyword: &str) -> Option<&'a str> {
@@ -189,4 +230,17 @@ pub(super) fn strip_prefix_kw<'a>(source: &'a str, keyword: &str) -> Option<&'a 
         .next()
         .is_none_or(|ch| !is_ident_char(ch))
         .then(|| rest.trim_start())
+}
+
+#[cfg(test)]
+mod probes {
+    use super::super::credentialed_send_https_gaps;
+
+    #[test]
+    fn p5_nested_tuple_request_binding() {
+        let decoy = r#"async fn f() { if safe.scheme() != "https" { return Err("x".into()); } let ((request,),) = ((client.get(evil),),); request.send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(decoy), (1, 1), "{decoy}");
+        let kept = r#"async fn f() { let ((request,),) = ((client.get(url),),); if url.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(kept), (1, 0), "{kept}");
+    }
 }

@@ -174,6 +174,10 @@ fn assigns_name(bytes: &[u8], mut at: usize) -> bool {
     while at < bytes.len() && bytes[at].is_ascii_whitespace() {
         at += 1;
     }
+    // `url += evil` replaces the checked value. `==` is not an assignment.
+    if bytes.get(at) == Some(&b'+') && bytes.get(at + 1) == Some(&b'=') {
+        return true;
+    }
     if bytes.get(at) == Some(&b':') && bytes.get(at + 1) != Some(&b':') {
         at = super::bind::skip_ascription(bytes, at + 1);
         while at < bytes.len() && bytes[at].is_ascii_whitespace() {
@@ -181,4 +185,21 @@ fn assigns_name(bytes: &[u8], mut at: usize) -> bool {
         }
     }
     super::bind::is_single_eq(bytes, at)
+}
+
+#[cfg(test)]
+mod probes {
+    use super::super::credentialed_send_https_gaps;
+
+    #[test]
+    fn p5_url_add_assign_and_nested_tuple_shadow() {
+        let add = r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } url += evil; client.get(url).send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(add), (1, 1), "{add}");
+        let nested = r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } ((url,),) = ((evil,),); client.get(url).send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(nested), (1, 1), "{nested}");
+        let kept = r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(kept), (1, 0), "{kept}");
+        let quoted = r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } let _ = "url += evil"; client.get(url).send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(quoted), (1, 0), "{quoted}");
+    }
 }
