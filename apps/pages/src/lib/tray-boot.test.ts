@@ -127,7 +127,7 @@ describe("bootTrayNotices", () => {
 
   it("suppresses queued tutorial rows until the vault is unlocked", async () => {
     const listeners = new Set<() => void>();
-    let contributionListener: (() => void) | null = null;
+    const contributionListeners = new Set<() => void>();
     let status: VaultState["status"] = "locked";
     vi.spyOn(vaultStore, "getSnapshot").mockImplementation(
       () =>
@@ -142,7 +142,7 @@ describe("bootTrayNotices", () => {
     });
     vi.spyOn(contributions, "subscribeContributions").mockImplementation(
       (listener) => {
-        contributionListener = listener;
+        contributionListeners.add(listener);
         return () => {};
       },
     );
@@ -171,7 +171,8 @@ describe("bootTrayNotices", () => {
       title: "Danger",
       body: "Queued.",
     });
-    contributionListener?.();
+    expect(contributionListeners.size).toBeGreaterThan(0);
+    for (const listener of contributionListeners) listener();
     expect(
       listNotices().some(
         (notice) => notice.id === "tutorial.queue.settings.danger.review",
@@ -257,7 +258,7 @@ describe("bootTrayNotices", () => {
   });
 
   it("refreshes the queue gate when connector roads change", async () => {
-    let roadListener: (() => void) | null = null;
+    const roadListeners = new Set<() => void>();
     let status: VaultState["status"] = "unlocked";
     vi.spyOn(vaultStore, "getSnapshot").mockImplementation(
       () =>
@@ -267,7 +268,7 @@ describe("bootTrayNotices", () => {
     vi.spyOn(vaultStore, "subscribe").mockImplementation(() => () => {});
     vi.spyOn(connectRoads, "subscribeConnectRoads").mockImplementation(
       (listener) => {
-        roadListener = listener;
+        roadListeners.add(listener);
         return () => {};
       },
     );
@@ -276,16 +277,16 @@ describe("bootTrayNotices", () => {
     const rehydrate = vi.spyOn(present, "rehydrateTutorialQueueNotices");
     bootTrayNotices();
     await vi.waitFor(() => expect(rehydrate).toHaveBeenCalled());
-    expect(roadListener).not.toBeNull();
+    expect(roadListeners.size).toBeGreaterThan(0);
     const refreshAfterBoot = refresh.mock.calls.length;
     const gateAfterBoot = gate.mock.calls.length;
 
-    roadListener?.();
+    for (const listener of roadListeners) listener();
     expect(gate.mock.calls.length).toBe(gateAfterBoot + 1);
     expect(refresh.mock.calls.length).toBe(refreshAfterBoot + 1);
 
     status = "locked";
-    roadListener?.();
+    for (const listener of roadListeners) listener();
     expect(gate.mock.calls.length).toBe(gateAfterBoot + 2);
     expect(refresh.mock.calls.length).toBe(refreshAfterBoot + 1);
     expect(
