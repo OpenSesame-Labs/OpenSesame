@@ -15,9 +15,9 @@
     },
     {
       "path": "crates/spiffe-source/src/source_policy.rs",
-      "sha256": "d18cca3a33f674fed7ed291d24dd6aa72d9fceed2beb6e8b10db01038aa1f7a0",
+      "sha256": "3f03a7b0a28eef755542eb761729b44df12a2efe5635c2dff3ce4da5c28695d0",
       "base_blob": null,
-      "reviewed_blob": "19921609c771e0cceea4f94fd89459770c98b8a0"
+      "reviewed_blob": "88d295af987e76ee7ca0fc2e91d335fba24e840b"
     },
     {
       "path": "crates/spiffe-source/src/bundles.rs",
