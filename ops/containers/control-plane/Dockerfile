@@ -10,14 +10,40 @@ RUN apt-get update \
 WORKDIR /src
 COPY . .
 RUN npm ci --ignore-scripts
-FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
-RUN useradd -u 10001 -m app
+FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS runtime-deps
 WORKDIR /src
-COPY --from=build --chown=10001:10001 /src/package.json /src/package-lock.json ./
-COPY --from=build --chown=10001:10001 /src/node_modules ./node_modules
-COPY --from=build --chown=10001:10001 /src/packages ./packages
-COPY --from=build --chown=10001:10001 /src/tools ./tools
-COPY --from=build --chown=10001:10001 /src/tsconfig.base.json ./tsconfig.base.json
+COPY --from=build /src/package.json /src/package-lock.json ./
+COPY --from=build /src/packages ./packages
+COPY --from=build /src/apps ./apps
+COPY --from=build /src/examples ./examples
+COPY --from=build /src/tests/redteam ./tests/redteam
+COPY --from=build /src/tests/visual-contract ./tests/visual-contract
+COPY --from=build /src/tests/fuzz/jazzer ./tests/fuzz/jazzer
+COPY --from=build /src/tools/mock-upstream-idp ./tools/mock-upstream-idp
+COPY --from=build /src/tools/oxlint/anti-slop ./tools/oxlint/anti-slop
+COPY --from=build /src/tsconfig.base.json ./tsconfig.base.json
+# Production runtime only: no dev toolchains or nested lockfiles in node_modules.
+RUN npm ci --omit=dev --ignore-scripts \
+  && npm install --no-save --ignore-scripts tsx@4.23.15 \
+  && find node_modules -name '.package-lock.json' -delete \
+  && rm -rf node_modules/@typescript node_modules/typescript
+FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
+RUN apt-get update \
+  && apt-get -y upgrade --no-install-recommends \
+  && rm -rf /var/lib/apt/lists/* \
+  && useradd -u 10001 -m app
+WORKDIR /src
+COPY --from=runtime-deps --chown=10001:10001 /src/package.json /src/package-lock.json ./
+COPY --from=runtime-deps --chown=10001:10001 /src/node_modules ./node_modules
+COPY --from=runtime-deps --chown=10001:10001 /src/packages ./packages
+COPY --from=runtime-deps --chown=10001:10001 /src/apps ./apps
+COPY --from=runtime-deps --chown=10001:10001 /src/examples ./examples
+COPY --from=runtime-deps --chown=10001:10001 /src/tests/redteam ./tests/redteam
+COPY --from=runtime-deps --chown=10001:10001 /src/tests/visual-contract ./tests/visual-contract
+COPY --from=runtime-deps --chown=10001:10001 /src/tests/fuzz/jazzer ./tests/fuzz/jazzer
+COPY --from=runtime-deps --chown=10001:10001 /src/tools/mock-upstream-idp ./tools/mock-upstream-idp
+COPY --from=runtime-deps --chown=10001:10001 /src/tools/oxlint/anti-slop ./tools/oxlint/anti-slop
+COPY --from=runtime-deps --chown=10001:10001 /src/tsconfig.base.json ./tsconfig.base.json
 ARG VERSION=0.0.0-local
 LABEL org.opencontainers.image.source="https://github.com/OpenSesame-Labs/OpenSesame" \
   org.opencontainers.image.version="${VERSION}" \
