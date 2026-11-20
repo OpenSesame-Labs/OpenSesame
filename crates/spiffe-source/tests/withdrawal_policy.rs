@@ -173,6 +173,7 @@ async fn denial_opening_a_reconnected_stream_withdraws(denial: Status, code: &st
     let handle = SpiffeSource::start(config(&api, Duration::from_secs(30)), sink.clone());
     streaming(&handle, 1).await;
 
+    api.close_streams();
     api.deny_on_reconnect(denial);
     let status = withdrawn_promptly(&handle).await;
     assert_eq!(status.last_error.as_deref(), Some(code));
