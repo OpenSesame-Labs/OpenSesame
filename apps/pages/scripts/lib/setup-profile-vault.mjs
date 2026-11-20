@@ -4,12 +4,14 @@
 
 import { existsSync } from "node:fs";
 import path from "node:path";
+import { awaitCapabilitySections, capabilityOnSwitch } from "./always-on.mjs";
 import {
-  awaitCapabilitySections,
-  capabilityOnSwitch,
-} from "./always-on.mjs";
-import { openSettingsCategory, sealLocalOnly, waitOpen } from "./pages-journey.mjs";
+  openSettingsCategory,
+  sealLocalOnly,
+  waitOpen,
+} from "./pages-journey.mjs";
 import { visibleClick } from "./verification-checklist-shot.mjs";
+
 async function openSetupChoices(page, href) {
   await page.goto(href, { waitUntil: "domcontentloaded" });
   await page
@@ -29,7 +31,7 @@ async function shotFrame(page, file) {
   await frame.screenshot({ path: file, animations: "disabled" });
 }
 
-async function confirmMinimal(page, dir, check) {
+async function confirmMinimal(page, dir) {
   await page.waitForTimeout(400);
   const anyway = page.getByRole("button", { name: "Use Minimal anyway" });
   try {
@@ -82,7 +84,10 @@ async function finishCustom(page, check) {
   const outcome = page.getByTestId("capability-outcome");
   await outcome.waitFor({ state: "visible", timeout: 25_000 });
   const text = await outcome.innerText();
-  check(/applied|durable|session/i.test(text), `custom ceremony applied: ${text}`);
+  check(
+    /applied|durable|session/i.test(text),
+    `custom ceremony applied: ${text}`,
+  );
   const skipped = await visibleClick(page, "button", "Skip all", 12_000);
   if (!skipped) await visibleClick(page, "button", "Close", 8_000);
 }
@@ -148,10 +153,12 @@ export async function vaultFeatureMarkers(page) {
 }
 
 export async function vaultRailMarkers(page) {
-  const enableCore = await page.getByRole("button", {
-    name: "Turn on passwords, cards and notes",
-    exact: true,
-  }).count();
+  const enableCore = await page
+    .getByRole("button", {
+      name: "Turn on passwords, cards and notes",
+      exact: true,
+    })
+    .count();
   const account = await page.locator('a[href$="/vault?f=account"]').count();
   const card = await page.locator('a[href$="/vault?f=card"]').count();
   const note = await page.locator('a[href$="/vault?f=note"]').count();
@@ -190,7 +197,6 @@ export function assertProfileVaultDom(profileId, markers, check) {
     liveSessions,
     browserLocalIam,
     accessAuthority,
-    identityFederation,
     derivedTypes,
   } = markers;
   if (profileId === "minimal") {
@@ -228,10 +234,7 @@ export function assertProfileVaultDom(profileId, markers, check) {
     return;
   }
   if (profileId === "full") {
-    check(
-      itemFilters >= 5,
-      `full vault: full item-type rail (${itemFilters})`,
-    );
+    check(itemFilters >= 5, `full vault: full item-type rail (${itemFilters})`);
     check(
       onSwitchCount >= 18,
       `full vault: broad feature approval (${onSwitchCount} switches on)`,
@@ -279,7 +282,7 @@ export async function captureProfileAppliedVault(
           ? "Custom"
           : "Full";
   await page.getByRole("button", { name: choice, exact: true }).click();
-  if (profileId === "minimal") await confirmMinimal(page, dir, check);
+  if (profileId === "minimal") await confirmMinimal(page, dir);
   if (profileId === "custom") await finishCustom(page, check);
 
   const landed = await waitPastSetup(page);
