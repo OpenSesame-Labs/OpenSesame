@@ -1,8 +1,7 @@
 //! Explicit migration from an independently verified version-one checkpoint.
 
 use super::{
-    attachments, commit_marker::CommitMarker, commitment_unbound, normalize, Witness, SLOT_ONE,
-    SLOT_TWO,
+    attachments, commit_marker::CommitMarker, commitment_unbound, normalize, SLOT_ONE, SLOT_TWO,
 };
 use crate::{ItemDataKey, StoreError, StoreRoot};
 
@@ -59,14 +58,17 @@ impl StoreRoot {
         store_id: &str,
     ) -> Result<(), StoreError> {
         let (root, directory) = self.witness_directory(store_id)?;
-        let candidates: Vec<Witness> = [SLOT_ONE, SLOT_TWO]
-            .into_iter()
-            .filter_map(|slot| {
-                self.read_witness_slot(&root, &directory.join(slot), store_id, key)
-                    .ok()
-                    .flatten()
-            })
-            .collect();
+        let mut candidates = Vec::new();
+        for slot in [SLOT_ONE, SLOT_TWO] {
+            // Only an absent slot is empty. A slot that exists but cannot be
+            // read must abort the migration instead of silently selecting a
+            // candidate from a lower epoch.
+            if let Some(witness) =
+                self.read_witness_slot(&root, &directory.join(slot), store_id, key)?
+            {
+                candidates.push(witness);
+            }
+        }
         let legacy = candidates
             .iter()
             .filter(|candidate| candidate.version == 1)

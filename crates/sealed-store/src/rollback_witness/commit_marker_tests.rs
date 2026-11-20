@@ -237,6 +237,31 @@ fn migration_preserves_a_sole_legacy_slot_even_when_parity_disagrees() {
 }
 
 #[test]
+fn markerless_migration_fails_closed_when_a_witness_slot_is_unreadable() {
+    let (_dir, store, key) = seeded();
+    let (id, legacy) = make_legacy(&store, &key);
+    // Stage a newer legacy witness in the successor slot, then seal it under a
+    // different key as an interrupted rekey leaves behind. The unreadable slot
+    // must abort the migration instead of silently migrating from the older
+    // legacy witness that remains readable.
+    let mut newer = legacy.clone();
+    newer.epoch += 1;
+    let successor = slot_for(newer.epoch);
+    let wrong_key = ItemDataKey::generate();
+    let sealed = seal_osseal_in(
+        COLLECTION,
+        &serde_json::to_vec(&newer).unwrap(),
+        &wrong_key,
+        &id,
+        newer.epoch,
+    )
+    .unwrap();
+    store.write_witness_slot(&id, successor, &sealed).unwrap();
+    assert!(store.migrate_rollback_anchor(&key).is_err());
+    assert!(store.read_commit_marker(&id, &key).unwrap().is_none());
+}
+
+#[test]
 fn rekey_retains_the_old_marker_until_the_new_slot_is_committed() {
     let (_dir, store, old_key) = seeded();
     let new_key = ItemDataKey::generate();
