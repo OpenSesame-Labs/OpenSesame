@@ -169,6 +169,26 @@ describe("declining a first-visit offer", () => {
     expect(stops.count).toBe(0);
   });
 
+  it("clears an offer already on screen when tutorials may not speak", () => {
+    const { support } = stubSupportController("/settings/danger");
+    mount(support);
+    settle();
+    expect(within(seat).getByRole("complementary")).toBeTruthy();
+    act(() => {
+      setSessionTutorialsPaused(true);
+    });
+    expect(within(seat).queryByRole("complementary")).toBeNull();
+    act(() => {
+      setSessionTutorialsPaused(false);
+    });
+    settle();
+    expect(within(seat).getByRole("complementary")).toBeTruthy();
+    act(() => {
+      setGuidanceMode("off");
+    });
+    expect(within(seat).queryByRole("complementary")).toBeNull();
+  });
+
   it("says nothing while this session is paused or guidance is off", () => {
     setSessionTutorialsPaused(true);
     setGuidanceMode("auto");
