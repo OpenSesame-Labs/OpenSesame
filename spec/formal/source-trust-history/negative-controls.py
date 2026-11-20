@@ -104,7 +104,7 @@ CONTROLS = (
         "startup drops durable names before PEM transition",
         "crates/gateway/src/transport/source_history/coordinator.rs",
         ".seed_source_history(1, &history.names())", ".seed_source_history(1, &BTreeSet::new())", GATEWAY,
-        "transport::source_history::coordinator::integration_tests::initialized_host_retains_source_names_across_restart_and_pem_transition",
+        "transport::source_history::coordinator::integration_tests::attested_history_blocks_pem_collision_after_reopen",
         "a PEM bundle cannot take a previously source-owned name",
     ),
     Control(

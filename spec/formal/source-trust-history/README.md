@@ -1,11 +1,11 @@
 # Host source-trust history specification
 
-This suite is registered in the pre-push policy on this branch. An earlier
-integration passed the Lean model and 76 Linux tests in 16 groups, including
-the offline operator action and a real Host startup. The lint-corrected source
-still needs the full suite rerun, source mutation controls, and the final
-pre-push invocation. No live database migration or initialization has been
-performed.
+This suite is registered in the pre-push policy on this branch. The integrated
+Lean model and 76 Linux tests in 16 groups passed on commit `b1016221`,
+including the offline operator action and a real Host startup. A focused PEM
+collision witness was added afterward; the full suite and final pre-push
+invocation still need to be rerun with it. No live database migration or
+initialization has been performed.
 
 ## Security requirements and evidence
 
@@ -22,11 +22,11 @@ performed.
 
 The 25 theorem signatures and proposition types are pinned in
 [`required-theorems.lean`](required-theorems.lean); definitions are in
-[`SourceTrustHistory.lean`](SourceTrustHistory.lean). Before the final lint
-changes, the integrated runner checked 25 theorem signatures, 21 finite
-correspondence cases, and 76 Linux tests in 16 groups, including the
-process-level lease and Host startup cases. The lint-corrected source needs a
-rerun; Windows-only refusal cases remain unrun.
+[`SourceTrustHistory.lean`](SourceTrustHistory.lean). On `b1016221`, the
+integrated runner checked 25 theorem signatures, 21 finite correspondence
+cases, and 76 Linux tests in 16 groups, including process-level lease and Host
+startup cases. The added focused PEM witness passed separately; the complete
+suite needs a rerun with it. Windows-only refusal cases remain unrun.
 Lean proves the stated abstract properties, not refinement of all Rust or
 SQLite executions. A storage receipt is a trusted model input, not a Lean
 proof of disk persistence. The finite tests, a lease, and a theorem are
@@ -123,8 +123,8 @@ refresh are eventually consistent.
 theorem signatures and allowed axioms and emits finite traces. `verify.sh`
 checks those traces and named real-code tests with pinned local Lean and Rust
 toolchains. It also runs the runtime, offline CLI, and real Host-process startup
-tests. The integrated Linux run passed after the freshness-helper integration,
-but must be repeated after the later lint changes.
+tests. The integrated Linux run passed on `b1016221` after the lint changes,
+but must be repeated after adding the focused PEM witness.
 The Cargo freshness check preserves the caller's Cargo network policy.
 When offline mode is selected, it refuses an environment whose required
 dependencies are not cached. It also refuses a repository-local standalone
@@ -139,23 +139,28 @@ source, configuration or target-cache mutation between checks. It does not
 establish that older proof suites already pin every Cargo configuration input.
 The common helper's interrupted-build and same-path replacement regressions
 passed separately.
-`python3 -I spec/formal/source-trust-history/negative-controls.py` is a draft
+`python3 -I spec/formal/source-trust-history/negative-controls.py` is a
 scratch-copy mutation runner. It leases a worktree-specific scratch location,
 authenticates the baseline coverage, binds
 exactly one declared source replacement to a temporary coverage record, and
 requires the targeted test to pass before and after while the mutant fails at
-the specified assertion. Its eleven implementation mutations have not yet been
-executed or independently reviewed. This scratch runner explicitly selects
-offline Cargo and therefore needs its dependencies cached in advance.
+the specified assertion. The first eight implementation mutations and restored
+baselines passed on `b1016221`. The ninth initially failed at an earlier
+assertion; after adding a focused PEM witness, the final three controls used the
+same scratch and witness functions and passed with restored baselines. The
+production implementation did not change between those runs. This is split
+evidence rather than one uninterrupted run on the updated tree; independent
+review remains pending. The scratch runner explicitly selects offline Cargo
+and therefore needs its dependencies cached in advance.
 One private checkout per worktree can remain after a run; the next lease
 cleans it only after outstanding lock holders have exited.
 Pass `--drift-only` to run just the source, migration-module grammar and
 inventory, Cargo-target, and build-script drift controls without invoking Cargo.
 
-Before this can be shipped, run the negative controls and the real change-filtered
-pre-push invocation on the stacked implementation, and verify the staged exposure
-matrix. The registry, requirements, independent minimum, and affected source
-mappings include this suite. Native-Git tests cover selection for implementation
+Before this can be shipped, rerun the full history suite and the real change-filtered
+pre-push invocation on the updated tree. The staged exposure matrix has passed.
+The registry, requirements, independent minimum, and affected source mappings
+include this suite. Native-Git tests cover selection for implementation
 changes, including reverted pushed changes, while proof-only changes do not run
 suites. Registering files or observing passing finite tests does not itself
 establish implementation-to-model refinement.

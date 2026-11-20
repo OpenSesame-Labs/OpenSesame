@@ -265,7 +265,7 @@
     },
     {
       "path": "crates/gateway/src/transport/source_history/integration_tests.rs",
-      "sha256": "ad96b8f5488352fa5263e149bad352c198073e63fef8244b0c8ecb6d0f8cbbfa"
+      "sha256": "0e7b4f2b0b9950e38973fb6ca9725a27ca7f7b3d741eb070b7e5f736472c7260"
     },
     {
       "path": "crates/gateway/src/transport_lifecycle/trust_history_tests.rs",
@@ -385,11 +385,11 @@
     },
     {
       "path": "spec/formal/source-trust-history/verify.sh",
-      "sha256": "e2fa315a0c1068739394b1ac0126982081cf966062c76ab0e445f64770ada495"
+      "sha256": "c94e0ccf9fc34e539d49d9f6c92bbc754bbcf1a92456ce2b76b4a2cdc0c56f39"
     },
     {
       "path": "spec/formal/source-trust-history/negative-controls.py",
-      "sha256": "1ef636fe1f031bdd0d4f341179e9da059a919cf75aafffded5c61e22590aaa20"
+      "sha256": "0b72ccdf1185949476bba90281a50ea344609162e7b739607a33ab055da605ef"
     },
     {
       "path": "spec/formal/required-theorem-command.lean",

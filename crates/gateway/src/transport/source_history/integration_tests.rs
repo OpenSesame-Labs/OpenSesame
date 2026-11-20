@@ -231,6 +231,27 @@ async fn initialized_host_retains_source_names_across_restart_and_pem_transition
     api.shutdown().await;
 }
 
+#[tokio::test]
+async fn attested_history_blocks_pem_collision_after_reopen() {
+    let dir = tempfile::tempdir().unwrap();
+    let url = format!("sqlite:{}?mode=rwc", dir.path().join("host.db").display());
+    let db = opensesame_storage::Db::connect_sqlite(&url).await.unwrap();
+    let document = br#"{"owner":"host-tls","actor":"operator","change_ref":"upgrade","names":["partner.test"]}"#;
+    crate::transport::source_history::coordinator::initialize_host_history(
+        &url,
+        document.to_vec(),
+        true,
+    )
+    .await
+    .unwrap();
+    db.pool().close().await;
+    drop(db);
+
+    let reopened = opensesame_storage::Db::connect_sqlite(&url).await.unwrap();
+    let (pem, managed, resolver, bindings_only) = history_configs(dir.path());
+    exercise_local_sources(&reopened, pem, managed, &resolver, bindings_only).await;
+}
+
 async fn exercise_source_restart(
     db: Db,
     url: &str,
