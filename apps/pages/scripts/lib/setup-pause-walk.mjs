@@ -211,7 +211,10 @@ async function capturePauseOnlyOne(page, href, profileId, check, dir) {
   const pauseOthers = dialog.locator(".notice-card", {
     hasText: "Pause the others",
   });
-  check((await pauseOthers.count()) === 0, "Only this one removes pause-others card");
+  check(
+    (await pauseOthers.count()) === 0,
+    "Only this one removes pause-others card",
+  );
   await shotPage(page, path.join(dir, "tutorial-pause-only-one.png"));
 }
 
