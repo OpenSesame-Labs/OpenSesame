@@ -103,8 +103,9 @@ export interface ControlPlaneConfig {
   interactionAutoContinue: boolean;
   /**
    * When true, federated pending cookies carry only `verifierEnc` on the wire.
-   * Default off so older control-plane replicas that lack unseal logic can still
-   * complete in-flight sign-ins during rollout (`OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER`).
+   * Default on (`OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER`). An explicit
+   * `false` keeps a plaintext verifier for a replica that cannot unseal yet.
+   * Merge after QA confirms the fleet can unseal.
    */
   federatedPendingSealVerifierOnWire: boolean;
   /** Give a local provisional principal one owner workspace for the bundled Host. */
@@ -331,7 +332,8 @@ export function loadConfig(
     interactionAutoContinue: truthyDefaultOn(
       env.OPENSESAME_INTERACTION_AUTO_CONTINUE,
     ),
-    federatedPendingSealVerifierOnWire: truthy(
+    // Default ON. Only an explicit `false`/`0` leaves the plaintext verifier.
+    federatedPendingSealVerifierOnWire: truthyDefaultOn(
       env.OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER,
     ),
     // Pages (and Host device sessions) need an organization claim. Local/dev
