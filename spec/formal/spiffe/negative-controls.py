@@ -66,10 +66,10 @@ MUTATIONS = (
     Mutation(
         "unauthenticated-becomes-outage",
         "src/source_policy.rs",
-        'if status.code() == GrpcStatusCode::Unauthenticated =>\n        {\n            ApiAction::Denied("workload_api_denied")\n        }',
+        'if status.code() == GrpcStatusCode::Unauthenticated =>\n        {\n            ApiAction::Denied("workload_api_unauthenticated")\n        }',
         "if status.code() == GrpcStatusCode::Unauthenticated =>\n        {\n            ApiAction::Outage\n        }",
         (
-            vector("classify\tunauthenticated\tpermission_denied"),
+            vector("classify\tunauthenticated\tunauthenticated"),
             integration("withdrawal_policy", "unauthenticated_on_reconnect_withdraws_the_active_generation", "expected prompt withdrawal"),
         ),
     ),
