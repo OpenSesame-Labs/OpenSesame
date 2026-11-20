@@ -329,9 +329,14 @@ fn tuple_piece_ident(
     path: &[usize],
 ) -> Option<(String, usize)> {
     let piece = descend_tuple_rhs(inside, path);
-    let found = plain_name(piece)?;
-    let rel = piece.find(found.as_str())?;
-    Some((found, base + slice_offset(rhs, piece) + rel))
+    // A missed path returns a static `""`, which is not a subslice of `rhs`.
+    // A real element keeps its leading ident, same as `let reply = response.clone()`.
+    if piece.is_empty() {
+        return None;
+    }
+    let rel = slice_offset(rhs, piece);
+    let (name, at) = rhs_ident(piece, 0)?;
+    Some((name, base + rel + at))
 }
 
 /// The RHS tuple interior. Peel one `(...)` only: `unwrap_value` also drops a
@@ -496,4 +501,40 @@ fn skip_type(bytes: &[u8], start: usize) -> usize {
         index += 1;
     }
     index
+}
+
+#[cfg(test)]
+mod probes {
+    use crate::tests::sync_target_pact_scan::response_body_reads;
+
+    fn reads(sample: &str) -> bool {
+        !response_body_reads(sample).is_empty()
+    }
+
+    #[test]
+    fn council_p1_tuple_clone_keeps_leading_ident() {
+        let hits = [
+            "let (reply,) = (response.clone(),); reply.into()",
+            "let (reply,) = (response.by_ref(),); reply.into()",
+            "let ((reply,),) = ((response.clone(),),); reply.into()",
+            "let (mut reply,) = (response.clone(),); reply.into()",
+            "let reply = response.clone(); reply.into()",
+        ];
+        for sample in hits {
+            assert!(
+                reads(sample),
+                "tuple element keeps the leading ident: {sample}"
+            );
+        }
+        let misses = [
+            "let (reply,) = (status.clone(),); reply.into()",
+            "let (reply,) = (status,); reply.into()",
+        ];
+        for sample in misses {
+            assert!(
+                !reads(sample),
+                "unrelated tuple element is not a body read: {sample}"
+            );
+        }
+    }
 }

@@ -153,31 +153,70 @@ pub(super) fn is_ident_char(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || ch == '_'
 }
 
-/// Remove `request.json(&…)` / `request.json::<T>(&…)` call syntax only.
+/// Drop each real `request.json(&…)` / `request.json::<T>(&…)` call, arguments
+/// included. `.json` inside a string stays. Deleting only `.json(&` would leave
+/// `payload)` and close an enclosing call before a later argument.
 fn without_request_builder_json(compact: &str) -> String {
+    let bytes = compact.as_bytes();
     let mut out = String::with_capacity(compact.len());
-    let mut rest = compact;
-    while let Some(index) = rest.find(".json") {
-        let receiver_is_request = ident_before(&rest[..index]) == "request";
-        out.push_str(&rest[..index]);
-        let after = &rest[index + ".json".len()..];
-        if receiver_is_request {
-            if let Some(kept) = after_request_builder_json(after) {
-                rest = kept;
-                continue;
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = super::sync_target_pact_norm::string_len(bytes, index) {
+            out.push_str(&compact[index..index + len]);
+            index += len;
+            continue;
+        }
+        if compact[index..].starts_with(".json") {
+            let after = &compact[index + ".json".len()..];
+            if ident_before(&compact[..index]) == "request" {
+                if let Some(kept) = after_request_builder_json(after) {
+                    index = compact.len() - kept.len();
+                    continue;
+                }
             }
         }
-        out.push_str(".json");
-        rest = after;
+        let ch = compact[index..].chars().next().unwrap();
+        out.push(ch);
+        index += ch.len_utf8();
     }
-    out.push_str(rest);
     out
 }
 
-/// Source following `RequestBuilder::json`'s `(&` argument, if `after` is that call.
+/// Source after the whole `request.json(&…)` call, when `after` is that call.
 fn after_request_builder_json(after: &str) -> Option<&str> {
-    let after = strip_compact_turbofish(after).unwrap_or(after);
-    after.strip_prefix("(&")
+    let call = strip_compact_turbofish(after).unwrap_or(after);
+    if !call.starts_with("(&") {
+        return None;
+    }
+    let close = match_call_paren(call)?;
+    Some(&call[close + 1..])
+}
+
+fn match_call_paren(call: &str) -> Option<usize> {
+    let bytes = call.as_bytes();
+    if bytes.first() != Some(&b'(') {
+        return None;
+    }
+    let mut depth = 0i32;
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = super::sync_target_pact_norm::string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(index);
+                }
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    None
 }
 
 pub(super) fn strip_compact_turbofish(after: &str) -> Option<&str> {
@@ -196,6 +235,45 @@ pub(super) fn strip_compact_turbofish(after: &str) -> Option<&str> {
         }
     }
     None
+}
+
+#[cfg(test)]
+mod probes {
+    use super::response_body_reads;
+
+    fn reads(sample: &str) -> bool {
+        !response_body_reads(sample).is_empty()
+    }
+
+    #[test]
+    fn council_p1_request_json_keeps_later_arguments() {
+        let hits = [
+            "helper(request.json(&payload), &response)",
+            "helper(request.json::<T>(&payload), &response)",
+            "helper(request.json(&foo(1)), &response)",
+            "outer(request.json(&inner), \"x\", &response)",
+            "helper(\"request.json(&payload\", &response)",
+        ];
+        for sample in hits {
+            assert!(
+                reads(sample),
+                "builder json must not hide a later response argument: {sample}"
+            );
+        }
+        let misses = [
+            "request.json(&payload)",
+            "request = request.json(&body);",
+            "let _ = self.request.json(&body);",
+            "request.json::<serde_json::Value>(&body)",
+            "helper(request.json(&payload), status)",
+        ];
+        for sample in misses {
+            assert!(
+                !reads(sample),
+                "builder json alone is not a body read: {sample}"
+            );
+        }
+    }
 }
 
 pub(super) fn ident_before(prefix: &str) -> String {
