@@ -286,6 +286,12 @@ export function dismissNotice(id: string): void {
   if (id === "tutorial.pause.session" || id.startsWith("tutorial.queue.")) {
     hideToast(id);
   }
+  if (id.startsWith("tutorial.queue.")) {
+    const goalId = id.slice("tutorial.queue.".length);
+    void import("./tutorial-queue.js").then(({ dequeueTutorial }) => {
+      dequeueTutorial(goalId);
+    });
+  }
 }
 
 export function clearNotices(): void {
