@@ -50,7 +50,9 @@ impl StoreRoot {
             return self.open_manifest_at_witness(name, key);
         }
         drop(lock);
-        let _lock = crate::store_lock::StoreLock::for_sealing(&self.path, name, key)?;
+        // The revision map is shared across attachments; serialize backfill with the
+        // same exclusive lock attachment GC and listing use.
+        let _lock = crate::store_lock::StoreLock::key_file_edit(&self.path)?;
         let state = self.attachment_entry_state(name, key)?;
         if state.deleted {
             return Err(StoreError::NotFound(name.into()));
