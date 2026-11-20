@@ -103,10 +103,11 @@ function WordedActs({
   const runWorded = (opens: boolean | undefined, run: () => void) => {
     const fromKeyboard =
       actionsRef.current?.contains(document.activeElement) ?? false;
-    // An opening choice moves focus onto the page. A tray choice lands on
-    // Close. Arming hand-back on either path pulls focus back onto this
-    // card once its act disappears.
-    if (fromKeyboard && !opens && !wordedTray) handBack = notice.id;
+    // An opening choice closes the sheet with it and focus moves onto the
+    // page. A tray choice lands on Close. A choice that works in place
+    // keeps this card, so a key press hands focus back onto it once its
+    // act disappears — never together with onOpen(), which closes the
+    // sheet the armed hand-back still needs mounted.
     let trayClose: HTMLButtonElement | null = null;
     if (!opens && wordedTray && fromKeyboard) {
       const dialog = actionsRef.current?.closest('[role="dialog"]');
@@ -115,14 +116,14 @@ function WordedActs({
           'button[aria-label="Close"]',
         ) ?? null;
     }
-    if (opens) onOpen();
-    run();
-    if (opens) return;
-    if (wordedTray) {
-      if (trayClose) queueMicrotask(() => landFocus(trayClose));
+    if (opens) {
+      onOpen();
+      run();
       return;
     }
-    onOpen();
+    if (fromKeyboard && !wordedTray) handBack = notice.id;
+    run();
+    if (wordedTray && trayClose) queueMicrotask(() => landFocus(trayClose));
   };
   return (
     <>
