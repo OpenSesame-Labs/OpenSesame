@@ -23,6 +23,8 @@ export type QueuedResumeHost = {
   getPending: () => PendingQueuedResume | null;
   setPending: (value: PendingQueuedResume | null) => void;
   guideRunning: () => boolean;
+  queuedResumeLoading: () => boolean;
+  setQueuedResumeLoading: (loading: boolean) => void;
   notifyFailure: (body: string) => void;
   runAuthoredProgram: (loaded: SupportEngine, guide: string) => boolean;
 };
@@ -39,7 +41,7 @@ export function createQueuedResumeHandlers(host: QueuedResumeHost) {
     guide: string,
     homeRoute: string,
   ): boolean {
-    if (host.guideRunning()) return false;
+    if (host.guideRunning() || host.queuedResumeLoading()) return false;
     if (!queuedResumeRouteOk(homeRoute)) return false;
     const beginAuthored = (loaded: SupportEngine) => {
       if (host.guideRunning()) return false;
@@ -53,12 +55,15 @@ export function createQueuedResumeHandlers(host: QueuedResumeHost) {
       if (!beginAuthored(engine)) return false;
       return true;
     }
+    host.setQueuedResumeLoading(true);
     void host.ensureEngine().then((loaded) => {
       if (!loaded) {
         host.notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
         return;
       }
       beginAuthored(loaded);
+    }).finally(() => {
+      host.setQueuedResumeLoading(false);
     });
     return true;
   }
@@ -79,12 +84,15 @@ export function createQueuedResumeHandlers(host: QueuedResumeHost) {
   ): boolean {
     if (guideGoal(goalId) === null) return false;
     if (GUIDE_OVERLAY_ROUTES.has(homeRoute)) return false;
-    if (host.guideRunning()) return false;
+    if (host.guideRunning() || host.queuedResumeLoading()) return false;
     const onHome = queuedResumeRouteOk(homeRoute);
     if (!onHome) {
       if (!host.getNavigator()?.(homeRoute)) return false;
       host.setPending({ goalId, guide, homeRoute });
-      void host.ensureEngine();
+      host.setQueuedResumeLoading(true);
+      void host.ensureEngine().finally(() => {
+        host.setQueuedResumeLoading(false);
+      });
       return true;
     }
     return beginQueuedWalkthrough(goalId, guide, homeRoute);
