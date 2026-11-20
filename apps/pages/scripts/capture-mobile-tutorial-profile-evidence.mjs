@@ -14,7 +14,7 @@
  *   npm run capture:mobile-tutorial-profiles -w @opensesame/pages
  *
  * Output lands in
- * `/cursor/stores/bot/sweep/council/pr-2773-shots-<head8>/<phase>/<profile>/`
+ * `/cursor/stores/bot/sweep/council/pr-<pr>-shots-<head8>/<phase>/<profile>/`
  * where `<head8>` is the built tree's `git rev-parse --short=8 HEAD` — the
  * merge commit for the default `after` phase, main's head for `before`.
  *
@@ -92,9 +92,10 @@ const head = execFileSync(
     encoding: "utf8",
   },
 ).trim();
+const prLabel = process.env.MOBILE_TUTORIAL_PR ?? "2878";
 const outRoot =
   process.env.MOBILE_TUTORIAL_OUT ??
-  path.join("/cursor/stores/bot/sweep/council", `pr-2773-shots-${head}`);
+  path.join("/cursor/stores/bot/sweep/council", `pr-${prLabel}-shots-${head}`);
 const outDir = path.join(outRoot, phase);
 
 const discovery = findChromium();
@@ -128,20 +129,27 @@ function profileDigest(dir) {
 }
 
 const workspaceRoot = path.resolve(defaultPagesRoot, "../..");
-if (phase === "before" && path.resolve(tree) !== path.resolve(workspaceRoot)) {
-  process.env.NODE_PATH = [
-    path.join(workspaceRoot, "node_modules"),
-    process.env.NODE_PATH ?? "",
-  ]
-    .filter(Boolean)
-    .join(path.delimiter);
-}
+const beforeSpawnEnv =
+  phase === "before" && path.resolve(tree) !== path.resolve(workspaceRoot)
+    ? {
+        NODE_PATH: [
+          path.join(workspaceRoot, "node_modules"),
+          process.env.NODE_PATH ?? "",
+        ]
+          .filter(Boolean)
+          .join(path.delimiter),
+      }
+    : {};
 
 const browser = await chromium.launch({
   executablePath: discovery.path,
   headless: true,
 });
 const walks = resolveWalks(profilesDir);
+if (walks.length === 0) {
+  console.error("[mobile-tutorial] no capability profile walks resolved");
+  process.exit(1);
+}
 const built = new Set();
 const manifests = [];
 const failures = [];
@@ -158,6 +166,7 @@ for (const walk of walks) {
   // default and custom share the stock build; a buildKey already built in
   // this run is reused rather than rebuilt.
   const reuseBuild = built.has(walk.buildKey);
+  const skipWasSet = process.env.VERIFY_SKIP_BUILD === "1";
   if (reuseBuild) process.env.VERIFY_SKIP_BUILD = "1";
   try {
     buildDist({
@@ -165,9 +174,13 @@ for (const walk of walks) {
       scriptsDir,
       outDir: dist,
       capabilityProfile: walk.capabilityProfile,
+      spawnEnv: beforeSpawnEnv,
     });
   } finally {
-    if (reuseBuild) delete process.env.VERIFY_SKIP_BUILD;
+    if (reuseBuild) {
+      if (skipWasSet) process.env.VERIFY_SKIP_BUILD = "1";
+      else delete process.env.VERIFY_SKIP_BUILD;
+    }
   }
   built.add(walk.buildKey);
   delete process.env.TUTORIALS_KEYBOARD_VIEWPORT;
@@ -218,6 +231,7 @@ for (const walk of walks) {
         phone: true,
         out: profileOut,
         keepShots: true,
+        setupChoice: walk.setupChoice,
       });
     }
   } finally {

@@ -14,9 +14,15 @@ import {
   revisitPepper,
   saveAndCopyPassword,
 } from "./tutorial-pepper.mjs";
+import { pickSetupChoice } from "./verification-checklist-setup.mjs";
 import { readStep, startTutorial } from "./tutorial-walk.mjs";
 
-export async function runFirstVaultPass({ newPage, width, ...options }) {
+export async function runFirstVaultPass({
+  newPage,
+  width,
+  setupChoice = "Default",
+  ...options
+}) {
   for (const protection of ["passkey", "fallback", "pin-only"]) {
     const { page, context } = await newPage(width);
     try {
@@ -25,6 +31,7 @@ export async function runFirstVaultPass({ newPage, width, ...options }) {
         context,
         width,
         protection,
+        setupChoice,
         ...options,
       });
     } catch (error) {
@@ -49,6 +56,7 @@ async function firstVaultPass({
   width,
   keepShots,
   protection,
+  setupChoice,
 }) {
   await context.addInitScript(() =>
     Object.defineProperty(navigator, "webdriver", { get: () => false }),
@@ -101,9 +109,12 @@ async function enterVault(
   );
   if (phone && page.viewportSize().width <= 390)
     await checkZoomViewport(page, check);
-  else await page.getByRole("button", { name: "Set up your own" }).click();
-  await step("setup.default", 2);
-  await page.getByRole("button", { name: "Default", exact: true }).click();
+  else
+    await page
+      .getByRole("button", { name: "Set up your own", exact: true })
+      .evaluate((button) => button.click());
+  await step(`setup.${setupChoice.toLowerCase()}`, 2);
+  await pickSetupChoice(page, setupChoice);
   await step("unlock.local-only", 3);
   await page.getByRole("button", { name: "Use without an account" }).click();
   await step("unlock.seal-actions", 4);
