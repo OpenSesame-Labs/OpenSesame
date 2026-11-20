@@ -192,7 +192,7 @@ async function captureTokenLabel(page, walk, origin, base) {
 
   await page
     .locator(".conn-service", { hasText: "wedding-resend" })
-    .getByRole("link", { name: "Open" })
+    .getByRole("link", { name: /Settings/ })
     .click();
   await page.waitForURL(/\/connections\/resend\/scl_evidence/, {
     timeout: 60_000,
