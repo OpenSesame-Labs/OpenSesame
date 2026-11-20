@@ -91,7 +91,7 @@ export const tutorialQueueSeams = {
   sessionSet: sessionSetDefault,
 };
 
-type TutorialResumeSeams = Readonly<{ start: TutorialResumeStart }>;
+type TutorialResumeSeams = { start: TutorialResumeStart };
 
 export const tutorialResumeSeams: TutorialResumeSeams = {
   start: resumeUnwired,
