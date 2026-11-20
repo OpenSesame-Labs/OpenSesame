@@ -11,6 +11,7 @@ export function FailureNotice({
   message,
   tone = "err",
   occurrence,
+  clearOnUnmount,
 }: {
   id: string;
   title: string;
@@ -18,7 +19,8 @@ export function FailureNotice({
   tone?: "warn" | "err";
   /** A value whose identity changes with each new failure (see the hook). */
   occurrence?: unknown;
+  clearOnUnmount?: boolean;
 }) {
-  useFailureNotice(id, title, message, tone, { occurrence });
+  useFailureNotice(id, title, message, tone, { occurrence, clearOnUnmount });
   return null;
 }

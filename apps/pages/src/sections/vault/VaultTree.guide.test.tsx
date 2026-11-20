@@ -6,9 +6,9 @@ import type { Folder, VaultItem } from "@opensesame/vault-core";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { VaultTree, vaultTreeSeams } from "./VaultTree.js";
 import { makeAccount } from "./account.test-support.js";
 import { makeNote } from "./section-items.test-support.js";
+import { VaultTree, vaultTreeSeams } from "./VaultTree.js";
 import type { VaultTreeActions } from "./vault-menu.js";
 
 Object.assign(vaultTreeSeams, {
@@ -73,8 +73,8 @@ describe("vault tree guide", () => {
       [work, home],
     );
     const tree = screen.getByRole("tree", { name: "Vault items" });
-    const workRow = screen.getByRole("treeitem", { name: /^Work / });
-    const homeRow = screen.getByRole("treeitem", { name: /^Home / });
+    const workRow = screen.getByRole("treeitem", { name: /^Work\b/ });
+    const homeRow = screen.getByRole("treeitem", { name: /^Home\b/ });
     const guides = tree.querySelectorAll(".vtree__kids");
     expect(guides).toHaveLength(2);
 
@@ -98,9 +98,9 @@ describe("vault tree guide", () => {
   it("drops a folder's guide when the folder is collapsed", () => {
     draw([makeNote({ id: "b", name: "Beta", folderId: work.id })], [work]);
     expect(document.querySelector(".vtree__kids")).not.toBeNull();
-    fireEvent.click(screen.getByRole("treeitem", { name: /^Work / }));
+    fireEvent.click(screen.getByRole("treeitem", { name: /^Work\b/ }));
     expect(document.querySelector(".vtree__kids")).toBeNull();
-    expect(screen.getByRole("treeitem", { name: /^Work / })).toBeTruthy();
+    expect(screen.getByRole("treeitem", { name: /^Work\b/ })).toBeTruthy();
   });
 
   it("draws no guide when nothing is nested", () => {

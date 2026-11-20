@@ -19,6 +19,7 @@ import type {
 import { mergedGuideTargets } from "./catalog.js";
 import { inDevelopment } from "./dev.js";
 import { type GuideRouteId, scopeApplies } from "./routes.js";
+import { isPointable, visibleTargetRect } from "./visible-target.js";
 
 export type GuideTargetDescriptor = {
   readonly id: GuideTargetId;
@@ -32,6 +33,8 @@ export type GuideTargetDescriptor = {
   readonly routes: readonly GuideRouteId[];
   /** The ADR-0065 capability this control exercises, when it exercises one. */
   readonly capabilityId: string | null;
+  /** A private state marker for authored guides; never include it in model context. */
+  readonly authoredOnly?: boolean;
 };
 
 type MountedTarget = {
@@ -120,12 +123,7 @@ function fireActivation(id: GuideTargetId): void {
   for (const listener of [...listeners]) listener();
 }
 
-/**
- * Report that the person activated `id` by a road that is not a click or a
- * key on its element: a control chosen by a drag (the Add button's slide to
- * Import or Export). Only a target mounted with `activation: "manual"` should
- * be reported this way; like the passive listeners it observes and does nothing.
- */
+/** Report a completed action for a target mounted with manual activation. */
 export function reportGuideActivation(id: GuideTargetId): void {
   fireActivation(id);
 }
@@ -133,9 +131,8 @@ export function reportGuideActivation(id: GuideTargetId): void {
 export type MountOptions = Readonly<{
   /**
    * How the element is activated. `click` (the default) is a click or Enter /
-   * Space on it. `manual` is a control that is not activated by either — its
-   * own code reports it with `reportGuideActivation` — so a tap on the element
-   * that does something else cannot complete a step that waits for the drag.
+   * Space on it. With `manual`, the control reports a completed action through
+   * `reportGuideActivation`, including actions that can fail or use a drag.
    */
   activation?: "click" | "manual";
 }>;
@@ -221,34 +218,6 @@ export function isKnownGuideTarget(id: GuideTargetId): boolean {
   return declared().has(id);
 }
 
-/**
- * Whether a mounted element can actually be pointed at.
- *
- * Several controls exist twice — the vault filters are chips on a phone and
- * rail rows on a desktop — and only one copy can hold a target, because an id
- * binds to exactly one element. The other copy is still in the document, just
- * hidden by a media query, so registration alone would tell a model that an
- * invisible control is available and let it highlight a zero-box element.
- *
- * The check walks the ancestor chain for `display: none` / `visibility:
- * hidden` rather than measuring a box: layout is what jsdom does not have, and
- * a rule that behaved differently under test than in a browser would be worse
- * than no rule. A style the cascade never applied reads as visible, which is
- * the honest answer for a document that was never laid out.
- */
-function isPointable(element: HTMLElement): boolean {
-  if (!element.isConnected) return false;
-  const view = element.ownerDocument.defaultView;
-  if (!view) return true;
-  let node: HTMLElement | null = element;
-  while (node) {
-    const style = view.getComputedStyle(node);
-    if (style.display === "none" || style.visibility === "hidden") return false;
-    node = node.parentElement;
-  }
-  return true;
-}
-
 export function isMountedGuideTarget(id: GuideTargetId): boolean {
   return resolveGuideTargetElement(id) !== null;
 }
@@ -262,10 +231,13 @@ export function resolveGuideTargetElement(
   id: GuideTargetId,
 ): HTMLElement | null {
   const candidates = mounted.get(id) ?? [];
+  let scrollable: HTMLElement | null = null;
   for (const candidate of candidates) {
-    if (isPointable(candidate.element)) return candidate.element;
+    if (!isPointable(candidate.element)) continue;
+    if (visibleTargetRect(candidate.element)) return candidate.element;
+    scrollable ??= candidate.element;
   }
-  return null;
+  return scrollable;
 }
 
 export function guideTargetDescriptor(
@@ -309,6 +281,7 @@ export function describeGuideTargets(
 ): readonly SupportTargetDescription[] {
   const out: SupportTargetDescription[] = [];
   for (const descriptor of mergedGuideTargets()) {
+    if (descriptor.authoredOnly) continue;
     if (!scopeApplies(descriptor.routes, route)) continue;
     out.push({
       id: descriptor.id,
@@ -376,7 +349,12 @@ export function observeGuideTarget(
         if (satisfied()) finish();
       };
       mountListeners.add(check);
+      // A mounted control can become visible after its ref is bound, for
+      // example when a pane finishes its entrance animation. That does not
+      // register another ref, so recheck pointability while this wait is live.
+      const timer = globalThis.setInterval(check, 100);
       stop = () => {
+        globalThis.clearInterval(timer);
         mountListeners.delete(check);
         signal.removeEventListener("abort", onAbort);
       };

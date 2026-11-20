@@ -242,7 +242,7 @@ it("starts the inline offer without leaving GitHub", async () => {
     name: "Set up GitHub walkthrough",
   });
   await journey.user.click(
-    within(offer).getByRole("button", { name: "Show me" }),
+    within(offer).getByRole("button", { name: "Start tutorial" }),
   );
   await tutorialCard();
   await waitFor(() =>

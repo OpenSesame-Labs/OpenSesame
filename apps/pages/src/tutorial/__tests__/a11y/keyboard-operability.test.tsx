@@ -15,7 +15,7 @@ import {
   fakeAgentAnswering,
   fakeAgentHanging,
 } from "@opensesame/support-agent";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -130,7 +130,7 @@ describe("keyboard operability", () => {
 
   it("searches the written help and starts a walkthrough with keys only", async () => {
     const user = userEvent.setup();
-    mountSupport({
+    const harness = mountSupport({
       agent: fakeAgentAlwaysUnavailable("no_local_model"),
       transport: "none",
     });
@@ -159,17 +159,37 @@ describe("keyboard operability", () => {
     const next = await screen.findByRole("button", { name: /^Next/ });
     await waitFor(() => expect(document.activeElement).toBe(next));
     await user.keyboard("{Enter}");
-    // The control the second step points at is not drawn in this harness. Next
-    // while the card waits for it only stops the waiting: the step is then
-    // shown as text, and one more Enter moves on.
+    // The control is absent in this harness. Advance the fake clock through
+    // its appearance grace period, then continue with the text-only step.
+    await waitFor(() =>
+      expect(
+        document.querySelector(".coach")?.getAttribute("data-coach-step"),
+      ).toBe("2"),
+    );
+    for (
+      let i = 0;
+      i < 3 &&
+      document.querySelector(".coach")?.getAttribute("data-coach-status") !==
+        "waiting";
+      i++
+    ) {
+      await waitFor(() =>
+        expect(harness.pendingGuideTimers()).toBeGreaterThan(0),
+      );
+      await act(async () => harness.advanceGuideClock(6000));
+    }
+    await waitFor(() =>
+      expect(
+        document.querySelector(".coach")?.getAttribute("data-coach-status"),
+      ).toBe("waiting"),
+    );
+    expect(await screen.findByText(/not on screen/)).toBeTruthy();
     const second = await screen.findByRole("button", { name: /^Next/ });
     await waitFor(() => expect(document.activeElement).toBe(second));
     await user.keyboard("{Enter}");
-    expect(await screen.findByText(/not on screen/)).toBeTruthy();
-    const third = await screen.findByRole("button", { name: /^Next/ });
-    await waitFor(() => expect(document.activeElement).toBe(third));
-    await user.keyboard("{Enter}");
-    expect(await screen.findByText("This is Vault health.")).toBeTruthy();
+    expect(
+      await screen.findByText("Open an item to update its password."),
+    ).toBeTruthy();
     const done = await screen.findByRole("button", { name: /^Done/ });
     await waitFor(() => expect(document.activeElement).toBe(done));
     await user.keyboard("{Enter}");
