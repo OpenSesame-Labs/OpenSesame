@@ -31,7 +31,7 @@ describe("buildTutorialGateOptions", () => {
     vi.spyOn(vaultStore, "getSnapshot").mockReturnValue({
       status: "locked",
       guest: false,
-      tomb: null,
+      tomb: "personal",
     } as ReturnType<typeof vaultStore.getSnapshot>);
     buildTutorialGateOptions();
     expect(identitySpy).toHaveBeenCalled();
