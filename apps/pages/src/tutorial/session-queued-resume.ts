@@ -19,6 +19,7 @@ export type QueuedResumeHost = {
   getState: () => SupportView;
   getEngine: () => SupportEngine | null;
   ensureEngine: () => Promise<SupportEngine | null>;
+  loadGeneration: () => number;
   getNavigator: () => ((route: GuideRouteId) => boolean) | null;
   getPending: () => PendingQueuedResume | null;
   setPending: (value: PendingQueuedResume | null) => void;
@@ -56,9 +57,11 @@ export function createQueuedResumeHandlers(host: QueuedResumeHost) {
       return true;
     }
     host.setQueuedResumeLoading(true);
+    const era = host.loadGeneration();
     void host
       .ensureEngine()
       .then((loaded) => {
+        if (host.loadGeneration() !== era) return;
         if (!loaded) {
           host.notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
           return;
@@ -66,7 +69,9 @@ export function createQueuedResumeHandlers(host: QueuedResumeHost) {
         beginAuthored(loaded);
       })
       .finally(() => {
-        host.setQueuedResumeLoading(false);
+        if (host.loadGeneration() === era) {
+          host.setQueuedResumeLoading(false);
+        }
       });
     return true;
   }
