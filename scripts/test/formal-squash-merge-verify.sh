@@ -78,10 +78,11 @@ if scratch_pkg.exists() and root_pkg.exists():
 PY
 (
   cd "$SCRATCH"
-  git config user.name "formal-squash-verify"
-  git config user.email "formal-squash-verify@example.invalid"
+  # Identity is per invocation. `git config` here writes the shared repo
+  # config and would replace the caller's name and email.
   git add -A
-  git commit -qm "squash-sim: formal stack on origin/main"
+  git -c user.name="formal-squash-verify" -c user.email="formal-squash-verify@example.invalid" \
+    commit -qm "squash-sim: formal stack on origin/main"
 )
 python3 "$SCRATCH/spec/formal/authority/check-drift.py"
 python3 "$SCRATCH/spec/formal/dpop/check_drift.py"
