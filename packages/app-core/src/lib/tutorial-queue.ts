@@ -83,9 +83,9 @@ export const tutorialQueueSeams = {
   sessionSet: sessionSetDefault,
 };
 
-export const tutorialResumeSeams: { start: TutorialResumeStart } = {
+export const tutorialResumeSeams = {
   start: resumeUnwired,
-};
+} satisfies { start: TutorialResumeStart };
 
 /** Install the support controller's resume. The returned function detaches it. */
 export function bindTutorialResume(start: TutorialResumeStart): () => void {
