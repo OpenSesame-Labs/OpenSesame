@@ -7,7 +7,7 @@ import {
 } from "@opensesame/app-core/tutorial/registry/routes.js";
 import type { SupportEngine } from "./engine.js";
 import type { SupportView } from "./session.js";
-import { GUIDE_ERROR_TEXT, SUPPORT_ERROR_TEXT } from "./ui/messages.js";
+import { SUPPORT_ERROR_TEXT } from "./ui/messages.js";
 
 export type PendingQueuedResume = {
   goalId: string;
@@ -56,15 +56,18 @@ export function createQueuedResumeHandlers(host: QueuedResumeHost) {
       return true;
     }
     host.setQueuedResumeLoading(true);
-    void host.ensureEngine().then((loaded) => {
-      if (!loaded) {
-        host.notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
-        return;
-      }
-      beginAuthored(loaded);
-    }).finally(() => {
-      host.setQueuedResumeLoading(false);
-    });
+    void host
+      .ensureEngine()
+      .then((loaded) => {
+        if (!loaded) {
+          host.notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
+          return;
+        }
+        beginAuthored(loaded);
+      })
+      .finally(() => {
+        host.setQueuedResumeLoading(false);
+      });
     return true;
   }
 
