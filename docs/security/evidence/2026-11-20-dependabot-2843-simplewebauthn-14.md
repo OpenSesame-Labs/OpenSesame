@@ -1,6 +1,6 @@
 # Dependabot #2843 — @simplewebauthn/server 13.3.2 → 14.1.0 (PR #2859)
 
-Date: 2026-11-20. Branch: `cursor/dependabot-2843-simplewebauthn-dd2c`, head `133e6536d0fb55a1b72f313b4d89ed9028247494` (Dependabot #2843). This note records the source review behind the council follow-up on chunks 02/03/06. It contains no secrets, tokens, or credential material.
+Date: 2026-11-20. Branch: `cursor/dependabot-2843-simplewebauthn-dd2c`, head `133e6536d0fb55a1b72f313b4d89ed9028247494` (Dependabot #2843). This note records the source review behind the council follow-up on chunks 02/03/06, extended after the council hold with chunks 05/07 at head `9eec25e09d032b9cbf10875526d0461c512baf24`. It contains no secrets, tokens, or credential material.
 
 ## What changed
 
@@ -23,7 +23,7 @@ Date: 2026-11-20. Branch: `cursor/dependabot-2843-simplewebauthn-dd2c`, head `13
 - Result-shape reads (`registrationInfo.credential.{id,publicKey,counter}`, `authenticationInfo.newCounter`) are unchanged in 14.1.0 and confirmed by the strict typecheck below.
 - The challenge/UV policy is untouched: `userVerification: "required"`, transports `internal`/`hybrid`/`usb` preserved; no auth-option weakening in the diff.
 
-**Exposure matrix (chunk 06).** Against the merge-base `e308d4a7`, the only reviewed source whose fingerprint changed is `packages/auth-upstream/package.json`. The recorded digest `c0685744…46176c` was verified to equal the SHA-256 of the file's current bytes, so the binding is the real content hash of the reviewed manifest edit (one dependency line), not a refresh to silence the gate. The fingerprint update landed in the same commit (`4521fc9d`) that performed the v14 type adaptation, i.e. source review and matrix update were staged together per the change-a-protected-boundary workflow in `docs/security/exposure-matrix.md`. The manifest edit itself was reviewed: single-line version bump of a reviewed dependency, no new exposure surface, no scripts/install hooks.
+**Exposure matrix (chunk 06).** Against the merge-base `e308d4a7`, the only reviewed source whose fingerprint changed is `packages/auth-upstream/package.json`. The recorded digest `c0685744…46176c` was verified to equal the SHA-256 of the file's current bytes, so the binding is the real content hash of the reviewed manifest edit (one dependency line), not a refresh to silence the gate. The fingerprint update landed in the same commit (`4521fc9d` on the `-signed` line, rebased here as `cf380af2d`) that performed the v14 type adaptation, i.e. source review and matrix update were staged together per the change-a-protected-boundary workflow in `docs/security/exposure-matrix.md`. The manifest edit itself was reviewed: single-line version bump of a reviewed dependency, no new exposure surface, no scripts/install hooks.
 
 ## Verification (all exit 0, run at head `133e6536d`)
 
@@ -35,6 +35,29 @@ npx vitest run packages/auth-upstream  # Test Files 17 passed (17), Tests 106 pa
 ```
 
 `npm audit` reports 9 moderate advisories from the existing dependency tree; none are introduced by this bump (they predate it on main and are out of scope for this slice).
+
+## Council hold — chunks 05 & 07 (closed at head `9eec25e09`, 2026-11-20)
+
+**Chunk 05 — v14 call-site compile + test evidence.** `packages/auth-upstream/src/webauthn.ts` compiles against the installed 14.1.0 type surface: it imports `AuthenticatorTransport` (the v14 name), and a repo grep finds zero remaining `AuthenticatorTransportFuture` occurrences under `packages/` or `apps/`. Verification at head `9eec25e09`, every command exit 0:
+
+```text
+mise run deps                                        # fingerprinted npm ci: 1940 packages added
+npm run typecheck                                    # turbo: 73 tasks successful, 73 total
+npx tsc -p tsconfig.json --noEmit                    # in packages/auth-upstream: fresh uncached compile of the SWA call sites, exit 0
+npm test -w @opensesame/auth-upstream                # Test Files 17 passed (17), Tests 106 passed (106)
+node --test --test-name-pattern="the lockfile installs every copy" scripts/security/patched-dependencies.test.mjs  # 1 passed
+```
+
+Lockfile sync: root `package.json` and `packages/auth-upstream/package.json` both pin `@simplewebauthn/server` 14.1.0; `package-lock.json` resolves a single `node_modules/@simplewebauthn/server` at 14.1.0 (plus nested `@peculiar/x509` 2.2.0), and those are the bytes `mise run deps` installed (the installed package self-reports 14.1.0). Manifest, lockfile, and installed tree are in sync.
+
+**Chunk 07 — exposure-matrix rotation provenance.** The `packages/auth-upstream/package.json` fingerprint rotated because the file's bytes changed (the dependency bump), not by a blind refresh:
+
+- On `origin/main` (`7431eec66`) the matrix records `a90e5ac0…69d2bc21`; that equals the SHA-256 of main's `packages/auth-upstream/package.json` (SWA 13.3.2): `git show origin/main:packages/auth-upstream/package.json | sha256sum`.
+- On this branch the matrix records `c0685744…c146176c`; that equals the SHA-256 of the current bumped manifest (SWA 14.1.0): `sha256sum packages/auth-upstream/package.json`.
+- The rotation landed in `cf380af2d`, the same commit that performed the 13.3.2 → 14.1.0 bump and the v14 type adaptation, and it touches only that one source entry — the other four auth-upstream bindings (`src/browser.ts`, `src/passkey-verification.ts`, `src/simplewebauthn.ts`, `src/__tests__/webauthn.test.ts`) are byte-identical to main's matrix entries.
+- `npm run audit:exposure` at head: `exposure matrix: CLEAN (working tree; 20 surfaces, 671 reviewed sources)`, exit 0.
+
+For completeness: `packages/auth-upstream/src/webauthn.ts` is not itself a matrix-reviewed source, so the v14 type rename in it required no fingerprint update; the auth-upstream surface binding (`tools/security/exposure-matrix.json:1052-1055`) is unchanged from main.
 
 ## Limits
 
