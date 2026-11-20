@@ -40,11 +40,14 @@ ENV RUSTUP_HOME=/opt/mise/rustup
 ENV BASH_ENV=/etc/profile.d/mise.sh
 ENV PATH=/opt/mise/shims:/home/vscode/.local/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
+# gcompat + libstdc++ run glibc-linked mise toolchains (node, go, temurin, hurl).
 RUN apk add --no-cache \
     build-base \
     ca-certificates \
     curl \
+    gcompat \
     git \
+    libstdc++ \
     pkgconf \
     python3
 
