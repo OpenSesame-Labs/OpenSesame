@@ -100,6 +100,12 @@ export interface ControlPlaneConfig {
    * only removes a click the relying party already made.
    */
   interactionAutoContinue: boolean;
+  /**
+   * When true, federated pending cookies carry only `verifierEnc` on the wire.
+   * Default off so older control-plane replicas that lack unseal logic can still
+   * complete in-flight sign-ins during rollout (`OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER`).
+   */
+  federatedPendingSealVerifierOnWire: boolean;
   /** Give a local provisional principal one owner workspace for the bundled Host. */
   bootstrapPersonalOrganization: boolean;
   isProduction: boolean;
@@ -324,6 +330,9 @@ export function loadConfig(
     // deployment back into rendering its own picker for a hinted sign-in.
     interactionAutoContinue: truthyDefaultOn(
       env.OPENSESAME_INTERACTION_AUTO_CONTINUE,
+    ),
+    federatedPendingSealVerifierOnWire: truthy(
+      env.OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER,
     ),
     // Pages (and Host device sessions) need an organization claim. Local/dev
     // stacks mint a personal workspace with the provisional principal — do not
