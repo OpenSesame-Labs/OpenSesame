@@ -6,7 +6,8 @@ import {
 } from "@opensesame/app-core/lib/tutorial-queue.js";
 import { GUIDE_LANG_VERSION, type GuideProgram } from "@opensesame/guide-lang";
 import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
-import { afterEach, describe, expect, it } from "vitest";
+import * as notices from "@opensesame/app-core/lib/notices.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SupportEngine } from "./engine.js";
 import { createSupportController } from "./session-controller.js";
 
@@ -149,6 +150,36 @@ describe("resumeQueuedWalkthrough", () => {
     expect(listQueuedTutorials()).toEqual([
       { goalId: "settings.danger.review" },
     ]);
+    controller.destroy();
+  });
+
+  it("does not post agent unavailable when lock cancels a pending engine load", async () => {
+    let resolver: (engine: SupportEngine) => void = () => {};
+    const pending = new Promise<SupportEngine>((resolve) => {
+      resolver = resolve;
+    });
+    const noticeSpy = vi.spyOn(notices, "setStatusNotice");
+    const controller = createSupportController({
+      loadEngine: () => pending,
+      onLock: () => () => {},
+      clearTargets: () => {},
+    });
+    controller.setRoute("/vault");
+    queueTutorial("vault.lock", { title: "Lock the vault" });
+    expect(
+      controller.resumeQueuedWalkthrough("vault.lock", "guide", "/vault"),
+    ).toBe(true);
+    const engine = stubEngine(false);
+    controller.lock();
+    resolver(engine);
+    await Promise.resolve();
+    await Promise.resolve();
+    const failureNotices = noticeSpy.mock.calls.filter(
+      ([notice]) => notice.id === "support.failure",
+    );
+    expect(failureNotices).toEqual([]);
+    expect(listQueuedTutorials()).toEqual([{ goalId: "vault.lock" }]);
+    noticeSpy.mockRestore();
     controller.destroy();
   });
 
