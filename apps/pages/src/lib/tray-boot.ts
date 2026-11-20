@@ -1,5 +1,6 @@
 import { atRestReady } from "@opensesame/app-core/lib/at-rest/key.js";
 import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js";
+import { subscribeConnectRoads } from "@opensesame/app-core/lib/connect-roads.js";
 import { subscribeContributions } from "@opensesame/app-core/lib/contributions.js";
 import {
   installTrayNoticePersistence,
@@ -77,6 +78,13 @@ export function bootTrayNotices(): void {
     publishQueuedTutorialTray();
   });
   compositionStore.subscribe(() => {
+    syncTutorialQueueGate();
+    publishQueuedTutorialTray();
+  });
+  // connectors.external publishes contributions before pagesOpen, then only
+  // notifyConnectRoads(). The queue gate reads connectorTile, so that epoch
+  // has to rebuild it too.
+  subscribeConnectRoads(() => {
     syncTutorialQueueGate();
     publishQueuedTutorialTray();
   });
