@@ -143,7 +143,7 @@ function loadGoals(): readonly string[] {
   return goals;
 }
 
-function dropQueueNotice(goalId: string): void {
+export function dropQueueNotice(goalId: string): void {
   const id = tutorialQueueNoticeId(goalId);
   dismissNotice(id);
   hideToast(id);
