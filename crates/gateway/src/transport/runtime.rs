@@ -22,7 +22,7 @@ use opensesame_ingress_evidence::{
 };
 use opensesame_spiffe_source::sink::TransportGenerationsSink;
 use opensesame_spiffe_source::{
-    SourcePhase, SpiffeSource, SpiffeSourceConfig, SpiffeSourceHandle, WaitError,
+    SourcePhase, SourceStatus, SpiffeSource, SpiffeSourceConfig, SpiffeSourceHandle, WaitError,
 };
 use opensesame_storage::Db;
 use opensesame_transport_security::env::{NativeIdentitySpec, NativeTrustSpec};
@@ -39,6 +39,17 @@ use super::ManagedIdentityResolver;
 /// before refusing to start. A `spiffe` identity that never arrives is a
 /// startup failure, not a reason to serve without one.
 pub const SPIFFE_FIRST_SVID_TIMEOUT: Duration = Duration::from_secs(30);
+
+/// After `wait_for` returns, decide whether the listener may bind. A withdrawn
+/// source can still report `generation = Some(_)` until the sink clears it;
+/// that snapshot must not count as a bindable identity.
+pub(crate) fn spiffe_first_ready_to_bind(status: &SourceStatus) -> bool {
+    status.generation.is_some()
+        && !matches!(
+            status.phase,
+            SourcePhase::Withdrawn | SourcePhase::Stopped
+        )
+}
 
 /// Everything the Host's secure listener, service admission and operator
 /// routes read.
@@ -293,7 +304,7 @@ async fn start_spiffe(
         })
         .await;
     match ready {
-        Ok(status) if status.generation.is_some() => Ok((generations, handle)),
+        Ok(status) if spiffe_first_ready_to_bind(&status) => Ok((generations, handle)),
         // Withdrawal, a deadline with no generation, and a source task that
         // exited all refuse to bind the listener.
         Ok(_) | Err(WaitError::DeadlineElapsed(_) | WaitError::StatusTaskGone(_)) => {
