@@ -111,6 +111,7 @@ export function SetupScreen({
 }) {
   const finishRef = useGuideTarget<HTMLButtonElement>("setup.finish");
   const [finishing, setFinishing] = useState(false);
+  useEffect(() => () => dismissMinimalConfirm(), []);
   const contributed = setupScreenDependencies.useSetupPanels();
   const STEPS: readonly SetupPanel[] = [
     {
