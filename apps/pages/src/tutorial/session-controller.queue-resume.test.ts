@@ -147,8 +147,14 @@ describe("resumeQueuedWalkthrough", () => {
   });
 
   it("clears queued resume loading when navigation leaves the tour home route", async () => {
+    let runs = 0;
+    const engine = stubEngine(false);
+    engine.runGuide = () => {
+      runs += 1;
+      return Promise.resolve({ kind: "completed", goal: "other-tour" });
+    };
     const controller = createSupportController({
-      loadEngine: () => Promise.resolve(stubEngine(false)),
+      loadEngine: () => Promise.resolve(engine),
       onLock: () => () => {},
       clearTargets: () => {},
     });
@@ -165,6 +171,7 @@ describe("resumeQueuedWalkthrough", () => {
     controller.setRoute("/vault/item");
     await Promise.resolve();
     await controller.startGuide("other-tour", "authored");
+    expect(runs).toBe(1);
     expect(listQueuedTutorials()).toEqual([
       { goalId: "settings.danger.review" },
     ]);
@@ -294,6 +301,44 @@ describe("resumeQueuedWalkthrough", () => {
     expect(listQueuedTutorials()).toEqual([
       { goalId: "settings.danger.review" },
     ]);
+    controller.destroy();
+  });
+
+  it("abandons a resume when navigation never updates the route", async () => {
+    let runs = 0;
+    const engine = stubEngine(false);
+    engine.runGuide = () => {
+      runs += 1;
+      return Promise.resolve({ kind: "completed", goal: "other-tour" });
+    };
+    const controller = createSupportController({
+      loadEngine: () => Promise.resolve(engine),
+      onLock: () => () => {},
+      clearTargets: () => {},
+    });
+    controller.setRoute("/vault");
+    controller.setNavigator(() => true);
+    queueTutorial("settings.danger.review", { title: "Danger" });
+    expect(
+      controller.resumeQueuedWalkthrough(
+        "settings.danger.review",
+        "guide",
+        "/settings",
+      ),
+    ).toBe(true);
+    await Promise.resolve();
+    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(runs).toBe(0);
+    controller.setRoute("/settings");
+    await Promise.resolve();
+    expect(runs).toBe(0);
+    expect(listQueuedTutorials()).toEqual([
+      { goalId: "settings.danger.review" },
+    ]);
+    await controller.startGuide("other-tour", "authored");
+    expect(runs).toBe(1);
     controller.destroy();
   });
 
