@@ -14,13 +14,80 @@ import { test } from "node:test";
 import {
   fixture,
   installHook,
+  nil,
   productionFixture,
   push,
 } from "./formal-proof-push-gate.test.fixture.mjs";
+import { pushDestination } from "./formal-proof-remote-main.mjs";
 import {
   RUNNER_INVENTORY_PATH,
   loadRunnerInventory,
 } from "./formal-proof-runner-pins.mjs";
+
+test("an exact destination that names a remote fails closed", () => {
+  const git = (_root, args) => {
+    assert.deepEqual(args, ["remote"]);
+    return Buffer.from("origin\n");
+  };
+  assert.throws(
+    () => pushDestination("/unused", "origin", git, true),
+    /ambiguous push destination/i,
+  );
+});
+
+test("fetch-side history cannot suppress proofs for a separate push URL", (t) => {
+  const f = fixture(t);
+  installHook(f);
+  const pushRemote = join(f.dir, "push.git");
+  f.git("init", "--bare", "-q", pushRemote);
+  f.git(
+    "-c",
+    "core.hooksPath=/dev/null",
+    "push",
+    "-q",
+    pushRemote,
+    "HEAD:refs/heads/main",
+  );
+  f.write("src/a", "present on the fetch remote only\n");
+  const target = f.commit();
+  f.git(
+    "-c",
+    "core.hooksPath=/dev/null",
+    "push",
+    "-q",
+    f.remote,
+    "HEAD:refs/heads/already",
+  );
+  f.git("remote", "set-url", "--push", "origin", pushRemote);
+  const required = push(f, "HEAD", "refs/heads/new", "9");
+  assert.notEqual(required.status, 0);
+  assert.match(required.stderr, /suite a failed/);
+  assert.deepEqual(f.commands(), ["run verify:a"]);
+  rmSync(f.log, { force: true });
+  const direct = f.run(f.tuple(target, nil, "refs/heads/new"), {
+    FORMAL_TEST_STATUS: "9",
+  });
+  assert.notEqual(direct.status, 0);
+  assert.match(direct.stderr, /suite a failed/);
+  assert.deepEqual(f.commands(), ["run verify:a"]);
+  f.git(
+    "-c",
+    "core.hooksPath=/dev/null",
+    "push",
+    "-q",
+    pushRemote,
+    "HEAD:refs/heads/already",
+  );
+  rmSync(f.log, { force: true });
+  const covered = push(f, "HEAD", "refs/heads/other", "9");
+  assert.equal(covered.status, 0, covered.stderr);
+  assert.match(covered.stdout, /no mapped implementation changes/);
+  assert.deepEqual(f.commands(), []);
+  f.git("remote", "set-url", "--add", "--push", "origin", f.remote);
+  const ambiguous = f.run(f.tuple(target, nil, "refs/heads/new"));
+  assert.notEqual(ambiguous.status, 0);
+  assert.match(ambiguous.stderr, /multiple push destinations/i);
+});
 
 test("unchanged tracked Cargo metadata permits a mapped implementation push", (t) => {
   const f = productionFixture(t, "authority", (fixture) => {
