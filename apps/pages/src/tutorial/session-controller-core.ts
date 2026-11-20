@@ -3,6 +3,7 @@ import { completeQueuedTutorial } from "@opensesame/app-core/lib/tutorial-queue.
 import type { GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes.js";
 import type { GuideProgram } from "@opensesame/guide-lang";
 import type { GuideOrigin, SupportEngine, SupportHost } from "./engine.js";
+import { guideSnapshotActive } from "./guide-snapshot-active.js";
 import { refreshEngineAvailability } from "./refresh-engine.js";
 import type {
   SupportEntryExtras,
@@ -15,7 +16,6 @@ import {
   createQueuedResumeHandlers,
 } from "./session-queued-resume.js";
 import { emptyView } from "./session-view.js";
-import { guideSnapshotActive } from "./guide-snapshot-active.js";
 import { queueTourExit } from "./tutorial-exit.js";
 import {
   GUIDE_ERROR_TEXT,

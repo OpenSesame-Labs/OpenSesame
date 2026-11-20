@@ -1,5 +1,5 @@
-import * as identity from "@opensesame/app-core/lib/identity.js";
 import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js";
+import * as identity from "@opensesame/app-core/lib/identity.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { describe, expect, it, vi } from "vitest";
 
