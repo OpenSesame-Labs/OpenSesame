@@ -156,8 +156,12 @@ cleans it only after outstanding lock holders have exited.
 Pass `--drift-only` to run just the source, migration-module grammar and
 inventory, Cargo-target, and build-script drift controls without invoking Cargo.
 
-A [hosted change-filtered pre-push run](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/44190148761) completed all six selected suites on source `0f964aa7` plus a temporary CI workflow, including the history suite and live NATS tests. The earlier local run had stopped under process exhaustion. Repeat the complete pre-push after restacking onto current main, and complete independent review. The staged exposure
-matrix has passed.
+The [hosted pre-push run](https://github.com/OpenSesame-Labs/OpenSesame/actions/runs/44190148761)
+completed all six selected suites on source `0f964aa7` plus a temporary CI
+workflow, including the history suite and live NATS tests. The earlier local run
+had stopped under process exhaustion. Repeat the complete pre-push after
+restacking onto current main, and complete independent review. The staged
+exposure matrix has passed.
 The registry, requirements, independent minimum, and affected source mappings
 include this suite. Native-Git tests cover selection for implementation
 changes, including reverted pushed changes, while proof-only changes do not run
