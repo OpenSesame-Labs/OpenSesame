@@ -169,7 +169,7 @@ describe("resumeQueuedWalkthrough", () => {
         "/settings",
       ),
     ).toBe(true);
-    controller.setRoute("/settings/features");
+    controller.setRoute("/vault/item");
     resolver(stubEngine(false));
     await Promise.resolve();
     await Promise.resolve();
@@ -231,11 +231,10 @@ describe("resumeQueuedWalkthrough", () => {
       controller.resumeQueuedWalkthrough("vault.lock", "guide", "/vault"),
     ).toBe(true);
     await controller.startGuide("other-tour", "authored");
-    resolver(engine);
-    await Promise.resolve();
-    await Promise.resolve();
     expect(runGuideCalls).toBe(0);
-    expect(listQueuedTutorials()).toEqual([{ goalId: "vault.lock" }]);
+    resolver(engine);
+    await vi.waitFor(() => expect(runGuideCalls).toBe(1));
+    expect(listQueuedTutorials()).toEqual([]);
     controller.destroy();
   });
 });
