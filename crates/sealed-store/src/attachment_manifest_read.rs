@@ -22,6 +22,9 @@ impl StoreRoot {
         if state.deleted {
             return Err(StoreError::NotFound(name.into()));
         }
+        if let Some(local) = self.attachment_revision(name)? {
+            Self::ensure_attachment_sidecar_matches_witness(local, state.revision)?;
+        }
         let (manifest, _) = self.open_manifest_at_witness(name, key)?;
         if self.attachment_revision(name)?.is_none() {
             self.record_attachment_revision(name, state.revision)?;
@@ -42,14 +45,9 @@ impl StoreRoot {
         if state.deleted {
             return Err(StoreError::NotFound(name.into()));
         }
-        let result = self.open_manifest_at_witness(name, key)?;
         if let Some(local) = self.attachment_revision(name)? {
-            if local < state.revision {
-                return Err(StoreError::Crypto(
-                    "attachment revision sidecar is behind outside witness".into(),
-                ));
-            }
-            return Ok(result);
+            Self::ensure_attachment_sidecar_matches_witness(local, state.revision)?;
+            return self.open_manifest_at_witness(name, key);
         }
         drop(lock);
         let _lock = crate::store_lock::StoreLock::for_sealing(&self.path, name, key)?;
@@ -57,10 +55,28 @@ impl StoreRoot {
         if state.deleted {
             return Err(StoreError::NotFound(name.into()));
         }
+        if let Some(local) = self.attachment_revision(name)? {
+            Self::ensure_attachment_sidecar_matches_witness(local, state.revision)?;
+        }
         let result = self.open_manifest_at_witness(name, key)?;
         if self.attachment_revision(name)?.is_none() {
             self.record_attachment_revision(name, state.revision)?;
         }
         Ok(result)
+    }
+
+    fn ensure_attachment_sidecar_matches_witness(
+        local: u64,
+        witnessed: u64,
+    ) -> Result<(), StoreError> {
+        if local == witnessed {
+            return Ok(());
+        }
+        let msg = if local < witnessed {
+            "attachment revision sidecar is behind outside witness"
+        } else {
+            "attachment revision sidecar is ahead of outside witness"
+        };
+        Err(StoreError::Crypto(msg.into()))
     }
 }
