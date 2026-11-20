@@ -67,6 +67,12 @@ async function main() {
   mkdirSync(outRoot, { recursive: true });
   const mainDist =
     process.env.SETUP_PAUSE_MAIN_DIST ?? (devUrl ? "" : mainPagesDist());
+  if (devUrl && !mainDist) {
+    check(
+      false,
+      "SETUP_PAUSE_DEV_URL requires SETUP_PAUSE_MAIN_DIST or omit dev URL for full main+branch evidence",
+    );
+  }
   const discovery = findChromium();
   if (!discovery.path) throw new Error("no chromium");
   const browser = await chromium.launch({
