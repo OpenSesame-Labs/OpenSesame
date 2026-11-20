@@ -1,9 +1,12 @@
 //! Lexical normalization for the credentialed sync pact scanner.
 //! Comments and raw `r#` prefixes are stripped without looking inside strings.
-//! `r#use` is rewritten to `raw_use` so it stays an identifier: dropping `r#`
-//! would turn it into the keyword `use`, and the import strip would delete
-//! through the next `;` (including `response.text()`). A `use` path with no
-//! `as` still aliases its last segment.
+//! A raw ident that is a keyword is rewritten to `raw_<word>` (`r#use` becomes
+//! `raw_use`, `r#return` becomes `raw_return`). Dropping only `r#` would leave
+//! the keyword: `#` is not an identifier byte, so `r#return` still matches
+//! `return` and a host-pin `if` body counts as returning. `r#use` would also
+//! become `use`, and the import strip would delete through the next `;`
+//! (including `response.text()`). A `use` path with no `as` still aliases its
+//! last segment.
 
 #[path = "sync_target_pact_lex.rs"]
 mod lex;
@@ -50,8 +53,9 @@ fn rewrite(source: &str, noise: bool) -> String {
         }
         if noise && raw_ident_at(source, index) {
             let ident = ident_at(&source[index + 2..]);
-            if ident == "use" {
-                out.push_str("raw_use");
+            if raw_keyword(ident) {
+                out.push_str("raw_");
+                out.push_str(ident);
                 index += 2 + ident.len();
                 continue;
             }
@@ -97,6 +101,65 @@ fn raw_ident_at(source: &str, index: usize) -> bool {
         .chars()
         .next()
         .is_some_and(is_ident_char)
+}
+
+/// Keywords that can appear as `r#keyword`. Keeping the bare word would make
+/// the scanners treat an identifier as syntax.
+fn raw_keyword(ident: &str) -> bool {
+    matches!(
+        ident,
+        "as" | "async"
+            | "await"
+            | "break"
+            | "const"
+            | "continue"
+            | "crate"
+            | "dyn"
+            | "else"
+            | "enum"
+            | "extern"
+            | "false"
+            | "fn"
+            | "for"
+            | "gen"
+            | "if"
+            | "impl"
+            | "in"
+            | "let"
+            | "loop"
+            | "match"
+            | "mod"
+            | "move"
+            | "mut"
+            | "pub"
+            | "ref"
+            | "return"
+            | "self"
+            | "Self"
+            | "static"
+            | "struct"
+            | "super"
+            | "trait"
+            | "true"
+            | "type"
+            | "unsafe"
+            | "use"
+            | "where"
+            | "while"
+            | "abstract"
+            | "become"
+            | "box"
+            | "do"
+            | "final"
+            | "macro"
+            | "override"
+            | "priv"
+            | "try"
+            | "typeof"
+            | "unsized"
+            | "virtual"
+            | "yield"
+    )
 }
 
 fn ident_at(source: &str) -> &str {
@@ -272,6 +335,24 @@ mod probes {
 
     fn reads(sample: &str) -> bool {
         !response_body_reads(sample).is_empty()
+    }
+
+    #[test]
+    fn raw_keyword_idents_stay_idents() {
+        let out = super::strip_noise("let r#return = 1; let r#use = 2; let r#if = 3; r#text");
+        assert!(out.contains("raw_return"), "{out}");
+        assert!(out.contains("raw_use"), "{out}");
+        assert!(out.contains("raw_if"), "{out}");
+        assert!(out.contains("text"), "{out}");
+        assert!(!out.contains("r#"), "{out}");
+        let bytes = out.as_bytes();
+        let mut index = 0usize;
+        while index < bytes.len() {
+            assert!(!super::is_keyword_at(bytes, index, b"return"), "{out}");
+            assert!(!super::is_keyword_at(bytes, index, b"use"), "{out}");
+            assert!(!super::is_keyword_at(bytes, index, b"if"), "{out}");
+            index += 1;
+        }
     }
 
     #[test]

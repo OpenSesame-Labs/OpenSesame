@@ -63,7 +63,7 @@ fn binding_hit(prefix: &str, bytes: &[u8], index: usize, name: &str) -> Option<F
             at,
         });
     }
-    if is_keyword_at(bytes, index, name.as_bytes()) {
+    if is_keyword_at(bytes, index, name.as_bytes()) && !field_place(bytes, index) {
         let (bound, at) = assign_rhs(prefix, bytes, index + name.len())?;
         return Some(FoundBind {
             is_let: false,
@@ -72,6 +72,18 @@ fn binding_hit(prefix: &str, bytes: &[u8], index: usize, name: &str) -> Option<F
         });
     }
     None
+}
+
+/// `self.reply = status` and `Type::reply = status` are not local rebinds.
+fn field_place(bytes: &[u8], index: usize) -> bool {
+    let mut at = index;
+    while at > 0 && bytes[at - 1].is_ascii_whitespace() {
+        at -= 1;
+    }
+    if at > 0 && bytes[at - 1] == b'.' {
+        return true;
+    }
+    at >= 2 && bytes[at - 1] == b':' && bytes[at - 2] == b':'
 }
 
 fn push_hit(stack: &mut Vec<BindHit>, depth: i32, hit: FoundBind) {
@@ -503,6 +515,232 @@ fn skip_type(bytes: &[u8], start: usize) -> usize {
     index
 }
 
+/// A parameter of `name` after `after` whose body contains the end of `prefix`.
+/// `Some(true)` when that param's type is `Response`. `Some(false)` when a
+/// later param shadows the `let` with a different type. `None` when no such
+/// param is in scope at the use.
+pub(super) fn param_shadows_let(prefix: &str, name: &str, after: usize) -> Option<bool> {
+    if name.is_empty() || after > prefix.len() {
+        return None;
+    }
+    let bytes = prefix.as_bytes();
+    let code = code_mask(bytes);
+    let use_at = prefix.len();
+    let mut index = after;
+    let mut found = None;
+    while index < use_at {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        if is_keyword_at(bytes, index, name.as_bytes()) {
+            if let Some(is_response) = covering_param(prefix, &code, name, index, use_at) {
+                found = Some(is_response);
+            }
+            index += name.len();
+            continue;
+        }
+        index += 1;
+    }
+    found
+}
+
+fn covering_param(
+    prefix: &str,
+    code: &[bool],
+    name: &str,
+    name_at: usize,
+    use_at: usize,
+) -> Option<bool> {
+    if !param_slot(prefix, name_at) {
+        return None;
+    }
+    let bytes = prefix.as_bytes();
+    let at = skip_ws(bytes, name_at + name.len());
+    let is_response = if bytes.get(at) == Some(&b':') && bytes.get(at + 1) != Some(&b':') {
+        let end = skip_type(bytes, at + 1);
+        type_is_response(&prefix[at + 1..end])
+    } else if matches!(bytes.get(at), Some(b'|' | b',' | b')')) {
+        false
+    } else {
+        return None;
+    };
+    let open = param_list_open(bytes, code, name_at)?;
+    let covers = if bytes[open] == b'|' {
+        closure_covers(prefix, open, name_at, use_at)
+    } else {
+        fn_covers(prefix, open, name_at, use_at)
+    };
+    covers.then_some(is_response)
+}
+
+fn code_mask(bytes: &[u8]) -> Vec<bool> {
+    let mut code = vec![true; bytes.len()];
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            let end = (index + len).min(bytes.len());
+            for slot in &mut code[index..end] {
+                *slot = false;
+            }
+            index = end.max(index + 1);
+            continue;
+        }
+        index += 1;
+    }
+    code
+}
+
+fn param_list_open(bytes: &[u8], code: &[bool], name_at: usize) -> Option<usize> {
+    let mut depth = 0i32;
+    let mut index = name_at;
+    while index > 0 {
+        index -= 1;
+        if !code.get(index).copied().unwrap_or(false) {
+            continue;
+        }
+        match bytes[index] {
+            b')' | b']' | b'}' => depth += 1,
+            b'(' | b'[' if depth > 0 => depth -= 1,
+            b'{' if depth > 0 => depth -= 1,
+            b'{' | b';' if depth == 0 => return None,
+            b'(' | b'|' if depth == 0 => return Some(index),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn closure_covers(prefix: &str, pipe_open: usize, name_at: usize, use_at: usize) -> bool {
+    let bytes = prefix.as_bytes();
+    let Some(close) = matching_pipe(bytes, pipe_open) else {
+        return false;
+    };
+    if close <= name_at || use_at <= close {
+        return false;
+    }
+    let mut index = close + 1;
+    while index < bytes.len() && bytes[index].is_ascii_whitespace() {
+        index += 1;
+    }
+    if bytes.get(index) == Some(&b'{') {
+        return brace_covers(bytes, index, use_at);
+    }
+    braceless_covers(bytes, close + 1, use_at)
+}
+
+fn matching_pipe(bytes: &[u8], open: usize) -> Option<usize> {
+    if bytes.get(open) != Some(&b'|') {
+        return None;
+    }
+    let mut depth = 0i32;
+    let mut index = open + 1;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' if depth > 0 => depth -= 1,
+            b'|' if depth == 0 => return Some(index),
+            _ => {}
+        }
+        index += 1;
+    }
+    None
+}
+
+fn fn_covers(prefix: &str, paren_open: usize, name_at: usize, use_at: usize) -> bool {
+    let bytes = prefix.as_bytes();
+    let Some(rel) = match_delim(&prefix[paren_open..], b'(', b')') else {
+        return false;
+    };
+    let close = paren_open + rel;
+    if name_at <= paren_open || name_at >= close {
+        return false;
+    }
+    let Some(brace) = fn_body_open(bytes, close + 1) else {
+        return false;
+    };
+    brace_covers(bytes, brace, use_at)
+}
+
+fn fn_body_open(bytes: &[u8], mut index: usize) -> Option<usize> {
+    let mut depth = 0i32;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'(' | b'[' | b'<' => depth += 1,
+            b')' | b']' | b'>' if depth > 0 => depth -= 1,
+            b'{' if depth == 0 => return Some(index),
+            b';' if depth == 0 => return None,
+            _ => {}
+        }
+        index += 1;
+    }
+    None
+}
+
+fn brace_covers(bytes: &[u8], brace: usize, use_at: usize) -> bool {
+    if use_at <= brace {
+        return false;
+    }
+    let mut depth = 0i32;
+    let mut index = brace;
+    while index < use_at.min(bytes.len()) {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    return false;
+                }
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    depth > 0
+}
+
+fn braceless_covers(bytes: &[u8], body: usize, use_at: usize) -> bool {
+    if use_at < body {
+        return false;
+    }
+    let (mut depth, mut angle, mut index) = (0i32, 0i32, body);
+    while index < use_at.min(bytes.len()) {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => {
+                if depth == 0 {
+                    return false;
+                }
+                depth -= 1;
+            }
+            b'<' if depth == 0 && bytes.get(index + 1) != Some(&b'=') => angle += 1,
+            b'>' if depth == 0 && angle > 0 && bytes.get(index + 1) != Some(&b'=') => {
+                angle -= 1;
+            }
+            b',' | b';' if depth == 0 && angle == 0 => return false,
+            _ => {}
+        }
+        index += 1;
+    }
+    true
+}
+
 #[cfg(test)]
 mod probes {
     use crate::tests::sync_target_pact_scan::response_body_reads;
@@ -534,6 +772,64 @@ mod probes {
             assert!(
                 !reads(sample),
                 "unrelated tuple element is not a body read: {sample}"
+            );
+        }
+    }
+
+    #[test]
+    fn council_r3_field_assign_does_not_rebind_local() {
+        let hits = [
+            "let reply = response; self.reply = status; reply.into()",
+            "let reply = response; self . reply = status; reply.into()",
+            "let reply = response; Type::reply = status; reply.into()",
+            "let mut reply = other; reply = response; reply.into()",
+        ];
+        for sample in hits {
+            assert!(reads(sample), "local reply stays the response: {sample}");
+        }
+        let misses = [
+            "let reply = status; self.reply = response; reply.into()",
+            "let reply = status; obj.reply = response; reply.into()",
+            "let reply = status; Type::reply = response; reply.into()",
+        ];
+        for sample in misses {
+            assert!(
+                !reads(sample),
+                "field assign must not rebind the local: {sample}"
+            );
+        }
+    }
+
+    #[test]
+    fn council_r3_later_param_shadows_let() {
+        let hits = [
+            "let reply = status; |reply: Response| reply.into()",
+            "let reply = status; |mut reply: Response| reply.into()",
+            "let reply = status; fn steal(reply: Response) { reply.into() }",
+            "let reply = status; fn steal(mut reply: reqwest::Response) { reply.into() }",
+            "let reply = status; fn steal(reply: http::Response<Body>) { reply.into() }",
+            "let reply = response; |x| reply.into()",
+            "let reply = response; reply.into()",
+        ];
+        for sample in hits {
+            assert!(
+                reads(sample),
+                "param or live binding must stay a body read: {sample}"
+            );
+        }
+        let misses = [
+            "fn steal(reply: Response) { let reply = status; reply.into() }",
+            "let reply = status; |reply: Response| { let _ = reply; }; reply.into()",
+            "let reply = status; fn steal(reply: Response) { let _ = reply; } reply.into()",
+            "let reply = response; |reply: Status| reply.into()",
+            "let reply = response; fn steal(reply: Status) { reply.into() }",
+            "let reply = status; |reply| reply.into()",
+            "let reply = status; reply.into()",
+        ];
+        for sample in misses {
+            assert!(
+                !reads(sample),
+                "shadowed or unrelated reply is not a body read: {sample}"
             );
         }
     }

@@ -1,5 +1,5 @@
 //! Host pin, redirect policy, and stream-receiver probes.
-use super::super::sync_target_pact_https::credentialed_send_https_gaps;
+use super::super::sync_target_pact_https::{closure_owns, credentialed_send_https_gaps};
 use super::super::sync_target_pact_norm::{
     function_spans, is_keyword_at, match_brace, non_code_len, strip_noise,
 };
@@ -283,6 +283,7 @@ fn if_body_returns(body: &str) -> bool {
     let bytes = body.as_bytes();
     let mut depth = 0i32;
     let mut index = 0usize;
+    let mut stmt = 0usize;
     while index < bytes.len() {
         if let Some(len) = non_code_len(bytes, index) {
             index += len;
@@ -291,7 +292,13 @@ fn if_body_returns(body: &str) -> bool {
         match bytes[index] {
             b'{' | b'(' | b'[' => depth += 1,
             b'}' | b')' | b']' if depth > 0 => depth -= 1,
-            _ if depth == 0 && is_keyword_at(bytes, index, b"return") => return true,
+            b';' if depth == 0 => stmt = index + 1,
+            // `|| return` and `|x| return` leave the closure, not the pin.
+            _ if depth == 0 && is_keyword_at(bytes, index, b"return") => {
+                if !closure_owns(&body[stmt..index]) {
+                    return true;
+                }
+            }
             _ => {}
         }
         index += 1;
@@ -361,6 +368,34 @@ fn p5_host_pin_ignores_comments_strings_and_other_functions() {
     assert!(!host_pin_guards_send(other), "{other}");
     let live = r#"async fn f() { if parsed.host_str() != Some(authority) { return Err("x".into()); } request.send().await?; }"#;
     assert!(host_pin_guards_send(live), "{live}");
+}
+
+#[test]
+fn council_r3_closure_return_and_raw_return_do_not_pin() {
+    let open = [
+        r#"async fn f() { if parsed.host_str() != Some(authority) { || return Err("x".into()); } request.send().await?; }"#,
+        r#"async fn f() { if parsed.host_str() != Some(authority) { let _ = || return Err("x".into()); } request.send().await?; }"#,
+        r#"async fn f() { if parsed.host_str() != Some(authority) { move |x| return Err(x); } request.send().await?; }"#,
+        r#"async fn f() { if parsed.host_str() != Some(authority) { |x| x > 0 || return Err("x".into()); } request.send().await?; }"#,
+        r#"async fn f() { if parsed.host_str() != Some(authority) { let r#return = 1; } request.send().await?; }"#,
+    ];
+    for sample in open {
+        assert!(
+            !host_pin_guards_send(sample),
+            "closure or raw ident must not count as the pin returning: {sample}"
+        );
+    }
+    let kept = [
+        r#"async fn f() { if parsed.host_str() != Some(authority) { return Err("x".into()); } request.send().await?; }"#,
+        r#"async fn f() { if parsed.host_str() != Some(authority) { let _ = || 1; return Err("x".into()); } request.send().await?; }"#,
+        r#"async fn f() { if parsed.host_str() != Some(authority) { flag || return Err("x".into()); } request.send().await?; }"#,
+    ];
+    for sample in kept {
+        assert!(
+            host_pin_guards_send(sample),
+            "a real return still pins the send: {sample}"
+        );
+    }
 }
 
 #[test]

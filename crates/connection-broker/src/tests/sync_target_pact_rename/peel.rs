@@ -88,17 +88,34 @@ pub(super) fn unwrap_value(expr: &str) -> &str {
 }
 
 fn peel_block(expr: &str) -> &str {
-    if !expr.starts_with('{') {
+    let head = unsafe_block(expr);
+    if !head.starts_with('{') {
         return expr;
     }
-    let Some(close) = match_delim(expr, b'{', b'}') else {
+    let Some(close) = match_delim(head, b'{', b'}') else {
         return expr;
     };
-    let after = expr[close + 1..].trim_start();
+    let after = head[close + 1..].trim_start();
     if !(after.is_empty() || matches!(after.chars().next(), Some(';' | '.' | ')' | ',' | ']'))) {
         return expr;
     }
-    stmt_tail(&expr[1..close])
+    stmt_tail(&head[1..close])
+}
+
+/// `unsafe { response }` is a block. The keyword is not the value.
+fn unsafe_block(expr: &str) -> &str {
+    let Some(rest) = expr.strip_prefix("unsafe") else {
+        return expr;
+    };
+    if rest.chars().next().is_some_and(is_ident_char) {
+        return expr;
+    }
+    let rest = rest.trim_start();
+    if rest.starts_with('{') {
+        rest
+    } else {
+        expr
+    }
 }
 
 fn stmt_tail(inner: &str) -> &str {
@@ -238,6 +255,31 @@ mod probes {
             assert!(
                 !reads(sample),
                 "unrelated chain is not a body read: {sample}"
+            );
+        }
+    }
+
+    #[test]
+    fn council_r3_unsafe_block_tail_is_the_value() {
+        let hits = [
+            "let reply = unsafe { response }; reply.into()",
+            "let reply = unsafe{response}; reply.into()",
+            "let reply = unsafe { unsafe { response } }; reply.into()",
+            "let reply = unsafe { let _ = 1; response }; reply.into()",
+            "let reply = unsafe { let _ = \";\"; response }; reply.into()",
+            "let reply = (unsafe { response }); reply.into()",
+        ];
+        for sample in hits {
+            assert!(reads(sample), "unsafe block tail is the value: {sample}");
+        }
+        let misses = [
+            "let reply = unsafe { status }; reply.into()",
+            "let reply = unsafe_block { response }; reply.into()",
+        ];
+        for sample in misses {
+            assert!(
+                !reads(sample),
+                "unrelated unsafe tail is not a body read: {sample}"
             );
         }
     }

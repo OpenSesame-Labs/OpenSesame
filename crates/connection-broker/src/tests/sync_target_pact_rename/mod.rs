@@ -32,6 +32,10 @@ pub(crate) fn tracks_response_receiver(source: &str, before: usize, name: String
         if at >= limit {
             return false;
         }
+        // `let reply = status` must not hide a later `|reply: Response|`.
+        if let Some(is_response) = bind::param_shadows_let(prefix, &current, at) {
+            return is_response;
+        }
         current = next;
         limit = at;
     }
