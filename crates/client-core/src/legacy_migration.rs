@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 use zeroize::Zeroizing;
 
 use crate::{
-    open, sync_limits, CiphertextSyncSnapshot, ClientCoreError, DeviceKey, PersistedStore,
-    SyncBlob, SyncCursor, SyncStore, sync_auth, MAX_SYNC_ID_BYTES,
+    open, sync_auth, sync_limits, CiphertextSyncSnapshot, ClientCoreError, DeviceKey,
+    PersistedStore, SyncBlob, SyncCursor, SyncStore, MAX_SYNC_ID_BYTES,
 };
 
 impl SyncStore {
