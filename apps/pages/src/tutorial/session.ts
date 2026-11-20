@@ -7,7 +7,6 @@ import {
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import {
   HELP_TOPICS,
-  type HelpTopic,
   guideGoal,
 } from "@opensesame/app-core/tutorial/registry/goals.js";
 import { rankHelpTopics } from "@opensesame/app-core/tutorial/registry/goals-search.js";
@@ -17,7 +16,6 @@ import {
   guideRouteWithin,
 } from "@opensesame/app-core/tutorial/registry/routes.js";
 import { clearMountedGuideTargets } from "@opensesame/app-core/tutorial/registry/targets.js";
-import { webmcpSupportSeam } from "@opensesame/app-core/webmcp/tool-shared.js";
 /**
  * The composition root for in-product support.
  *
@@ -37,7 +35,7 @@ import { webmcpSupportSeam } from "@opensesame/app-core/webmcp/tool-shared.js";
  * boot bundle one button and this state machine; the agent adapters, the guide
  * runtime, Driver.js and the capability registry all arrive on first open.
  */
-import type { GuideGoalId, GuideProgram } from "@opensesame/guide-lang";
+import type { GuideProgram } from "@opensesame/guide-lang";
 import type {
   GuideCancelReason,
   GuideRuntimeSnapshot,
@@ -45,20 +43,7 @@ import type {
 import type {
   SupportAgentAvailability,
   SupportComputerStep,
-  SupportSessionSnapshot,
 } from "@opensesame/support-agent";
-import {
-  type ReactElement,
-  type ReactNode,
-  createContext,
-  createElement,
-  useCallback,
-  useContext,
-  useEffect,
-  useState,
-  useSyncExternalStore,
-} from "react";
-import { useVault } from "../lib/vault/hooks.js";
 import { gateSupportAsk } from "./ask-guard.js";
 import {
   type GuideOrigin,
@@ -68,20 +53,19 @@ import {
   loadBrowserEngine,
 } from "./engine.js";
 import { refreshEngineAvailability } from "./refresh-engine.js";
+import {
+  noteGrounding,
+  walkthroughsFor,
+  type SupportWalkthrough,
+} from "./session-grounding.js";
 import { emptyView } from "./session-view.js";
-import { SupportContext } from "./support-context.js";
 import { queueTourExit } from "./tutorial-exit.js";
 import {
   GUIDE_ERROR_TEXT,
   GUIDE_REFUSED_TEXT,
-  NOTHING_WRITTEN_TEXT,
   SUPPORT_ERROR_TEXT,
   UNEXPECTED_TEXT,
-  UNVERIFIED_TEXT,
-  citedHelpText,
-  writtenHelpSaysText,
 } from "./ui/messages.js";
-import { useSupportRouteSync } from "./use-support-route.js";
 
 export type {
   GuideOrigin,
@@ -91,12 +75,8 @@ export type {
   SupportTransport,
 } from "./engine.js";
 export { loadBrowserEngine } from "./engine.js";
+export type { SupportWalkthrough } from "./session-grounding.js";
 export type SupportEntryKind = "question" | "answer" | "note";
-/** An authored walkthrough offered beside a line, by registry id only. */
-export type SupportWalkthrough = {
-  readonly goal: GuideGoalId;
-  readonly title: string;
-};
 /** What an answer or note carries besides its text; every member optional. */
 export type SupportEntryExtras = {
   readonly thoughts?: string | null;
@@ -251,61 +231,6 @@ export function createSupportController(
         },
       ],
     });
-  }
-
-  /** The authored walkthroughs behind a set of help topics, deduplicated. */
-  function walkthroughsFor(
-    topics: readonly { readonly goal: string | null }[],
-  ): readonly SupportWalkthrough[] {
-    const out: SupportWalkthrough[] = [];
-    for (const topic of topics) {
-      if (topic.goal === null) continue;
-      const named = guideGoal(topic.goal);
-      if (!named || out.some((held) => held.goal === named.id)) continue;
-      out.push({ goal: named.id, title: named.title });
-    }
-    return out;
-  }
-
-  /**
-   * What the person is told about where an answer came from — the one place
-   * the written help overrides a model rather than merely informing it.
-   *
-   * A reply that cites written help is labelled with what it cited, and the
-   * walkthroughs behind those entries are offered. A reply that cites nothing
-   * while the written help confidently covers the question gets the written
-   * answer put beside it, because a procedure the help graph does not contain
-   * is exactly the kind of answer ADR 0088 says the graph corrects. A reply
-   * that cites nothing and matches nothing is marked unverified rather than
-   * hidden: the person asked, and an honest label beats silence.
-   */
-  function noteGrounding(
-    question: string,
-    grounding: SupportSessionSnapshot["grounding"],
-  ): void {
-    if (grounding?.kind === "cited") {
-      push(
-        "note",
-        citedHelpText(grounding.help.map((entry) => entry.title)),
-        [],
-        { walkthroughs: walkthroughsFor(grounding.help) },
-      );
-      return;
-    }
-    const best: HelpTopic | null =
-      rankHelpTopics(question, state.route).find((entry) => entry.strong)
-        ?.topic ?? null;
-    if (best !== null) {
-      push("note", writtenHelpSaysText(best.title, best.answer), [], {
-        walkthroughs: walkthroughsFor([best]),
-      });
-      return;
-    }
-    push(
-      "note",
-      grounding?.kind === "none" ? NOTHING_WRITTEN_TEXT : UNVERIFIED_TEXT,
-      [],
-    );
   }
 
   const host: SupportHost = {
@@ -597,7 +522,7 @@ export function createSupportController(
       // did not run — never as the codes it failed with, and never as the text.
       if (snapshot.guideError) notifyFailure(GUIDE_REFUSED_TEXT);
       if (last && last.role === "assistant") {
-        noteGrounding(text, snapshot.grounding);
+        noteGrounding(push, state.route, text, snapshot.grounding);
       }
       if (snapshot.program) await runProgram(snapshot.program, "model");
     },
@@ -667,99 +592,10 @@ export const supportSessionSeams: SupportSessionDependencies = {
   clearTargets: clearMountedGuideTargets,
 };
 
-export const SupportRouteOverrideContext = createContext<
-  (route: GuideRouteId | null) => void
->(() => {});
-
-/**
- * Screens that are not a URL — unlock, setup, the broker popup — declare
- * themselves so page context names the ceremony the person is actually in,
- * not the path the router still holds.
- */
-export function useSupportRoute(route: GuideRouteId): void {
-  const setOverride = useContext(SupportRouteOverrideContext);
-  useEffect(() => {
-    setOverride(route);
-    return () => setOverride(null);
-  }, [route, setOverride]);
-}
-
-/**
- * Written with `createElement` rather than JSX so the composition root stays a
- * `.ts` file: it wires the feature together, it does not draw anything.
- */
-export function SupportProvider({
-  children,
-}: {
-  children?: ReactNode;
-}): ReactElement {
-  const [controller] = useState(() =>
-    createSupportController(supportSessionSeams),
-  );
-  const [override, setOverride] = useState<GuideRouteId | null>(null);
-  const setRouteOverride = useCallback((route: GuideRouteId | null) => {
-    setOverride(route);
-  }, []);
-
-  useEffect(() => () => controller.destroy(), [controller]);
-
-  // Subscribed here rather than at construction: the controller then has no
-  // side effect of its own, so React creating and discarding one (as it does
-  // in StrictMode) cannot leave a handler behind holding this session's keys.
-  useEffect(
-    () => supportSessionSeams.onLock(() => controller.lock()),
-    [controller],
-  );
-
-  useEffect(
-    () =>
-      controller.bindTutorialResume((goalId, guide, homeRoute) =>
-        controller.resumeQueuedWalkthrough(goalId, guide, homeRoute),
-      ),
-    [controller],
-  );
-
-  useSupportRouteSync(controller, override);
-
-  // WebMCP guidance tools bind only while unlocked (no help on title/unlock).
-  const { status: vaultStatus } = useVault();
-  useEffect(() => {
-    if (vaultStatus !== "unlocked") return;
-    const previous = { ...webmcpSupportSeam };
-    Object.assign(webmcpSupportSeam, {
-      openSupport: (topic: string | null) => {
-        // A named topic is an answer to read: land on Ask, not Tutorials.
-        controller.open(topic ? "ask" : undefined);
-        const authored = HELP_TOPICS.find((entry) => entry.id === topic);
-        if (authored) {
-          controller.answerFromAuthoredHelp(authored.title, authored.answer);
-        }
-      },
-      startGuide: (goal: string) => {
-        const named = guideGoal(goal);
-        if (named) void controller.startGuide(named.guide, "authored");
-      },
-    });
-    return () => {
-      Object.assign(webmcpSupportSeam, previous);
-    };
-  }, [controller, vaultStatus]);
-
-  return createElement(
-    SupportRouteOverrideContext.Provider,
-    { value: setRouteOverride },
-    createElement(SupportContext.Provider, { value: controller }, children),
-  );
-}
-
-export type SupportAccess = {
-  readonly view: SupportView;
-  readonly support: SupportController;
-};
-
-export function useSupport(): SupportAccess {
-  const controller = useContext(SupportContext);
-  if (!controller) throw new Error("support_provider_missing");
-  const view = useSyncExternalStore(controller.subscribe, controller.view);
-  return { view, support: controller };
-}
+export {
+  type SupportAccess,
+  SupportProvider,
+  SupportRouteOverrideContext,
+  useSupport,
+  useSupportRoute,
+} from "./session-provider.js";
