@@ -29,6 +29,10 @@ export const RESUME_WALKTHROUGH = "Resume walkthrough";
 export const PAUSE_ALL_FOR_SESSION = "Pause all for this session";
 export const ONLY_THIS_TUTORIAL = "Only this one";
 
+type QueuedTutorialNoticeOptions = Readonly<{ toast?: boolean }>;
+
+const TRAY_ONLY_NOTICE: QueuedTutorialNoticeOptions = { toast: false };
+
 function dismissPausePrompt(): void {
   hideToast(TUTORIAL_PAUSE_NOTICE);
   dismissNotice(TUTORIAL_PAUSE_NOTICE);
@@ -61,7 +65,7 @@ export function queueUnansweredWalkthroughs(): number {
   const accepted = pending.slice(0, room);
   setQueuedTutorials([...existing, ...accepted]);
   for (const goalId of accepted) {
-    postQueuedTutorialNotice(goalId, { toast: false });
+    postQueuedTutorialNotice(goalId, TRAY_ONLY_NOTICE);
   }
   return accepted.length;
 }
@@ -69,7 +73,7 @@ export function queueUnansweredWalkthroughs(): number {
 /** The tray row and, unless `toast` is false, the matching page toast. */
 export function postQueuedTutorialNotice(
   goalId: string,
-  options: { toast?: boolean } = {},
+  options: QueuedTutorialNoticeOptions = {},
 ): void {
   const goal = guideGoal(goalId);
   if (goal === null) return;
