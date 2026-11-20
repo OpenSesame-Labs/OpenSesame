@@ -25,7 +25,7 @@
   },
   "dependencies": {
     "@opensesame/os-domain": "*",
-    "oidc-provider": "9.13.3"
+    "oidc-provider": "9.14.0"
   },
   "devDependencies": {
     "@opensesame/testing": "*",

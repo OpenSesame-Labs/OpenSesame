@@ -16,11 +16,11 @@
     "test:e2e": "playwright test"
   },
   "dependencies": {
-    "@ai-sdk/openai-compatible": "2.0.90",
-    "agent-browser": "0.41.2",
+    "@ai-sdk/openai-compatible": "2.0.93",
+    "agent-browser": "0.43.0",
     "@opensesame/os-domain": "*",
     "@opensesame/vault-core": "*",
-    "ai": "7.0.163",
+    "ai": "7.0.171",
     "zod": "4.6.7"
   },
   "devDependencies": {
