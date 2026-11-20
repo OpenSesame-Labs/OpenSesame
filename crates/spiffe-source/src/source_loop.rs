@@ -213,7 +213,12 @@ impl Loop {
                 .is_ok_and(|incoming| incoming.contains_all(&active.bundles))
         });
         if safe_to_retain {
-            self.update(|s| s.last_error = Some(code.to_owned()));
+            // With no retained generation a previous withdrawal reason (e.g.
+            // `trust_reduced`) already stands for this candidate; the refusal
+            // code only documents a live retain, never re-labels a withdraw.
+            if self.active.is_some() {
+                self.update(|s| s.last_error = Some(code.to_owned()));
+            }
         } else {
             self.withdraw(TransportError::TrustUnknown, Some("trust_reduced"));
         }

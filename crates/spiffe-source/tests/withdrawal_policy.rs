@@ -31,15 +31,26 @@ async fn an_empty_snapshot_withdraws_the_only_identity_then_recovers() {
         Some(SinkEvent::Withdrawn(TransportError::IdentityMissing))
     );
 
-    // An invalid later update must not make a withdrawn generation appear live.
+    // An invalid later update must not make a withdrawn generation appear live
+    // nor re-label the standing withdrawal reason: with nothing retained, the
+    // refusal code documents no live generation.
     let mut spec =
         opensesame_spiffe_source::fake::SvidSpec::conforming(GW, Duration::from_mins(10));
     spec.eku = opensesame_spiffe_source::fake::Eku::ServerOnly;
     api.push_snapshot(snapshot(&td, &[&td.issue(&spec)]));
+    let relabelled = handle
+        .wait_for(Duration::from_secs(3), |s| {
+            s.last_error.as_deref() == Some("svid_profile")
+        })
+        .await;
+    assert!(
+        relabelled.is_err(),
+        "refusal code must not re-label a standing withdrawal"
+    );
     let status = handle
-        .wait_for(WAIT, |s| s.last_error.as_deref() == Some("svid_profile"))
+        .wait_for(WAIT, |s| s.last_error.as_deref() == Some("svid_not_issued"))
         .await
-        .unwrap();
+        .expect("svid_not_issued still stands");
     assert_eq!(status.phase, SourcePhase::Withdrawn);
     assert_eq!(
         status.credential_status(opensesame_time::Utc::now()),
