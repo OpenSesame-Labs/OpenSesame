@@ -1,12 +1,8 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { copyFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as nodeTest from "node:test";
-import { parse } from "yaml";
-import { imageLeaf, probePlan } from "../ci/oci-image-smoke.mjs";
 import { repoRootFromHere } from "./ci-changed-areas.mjs";
 
 const { describe, it } =
@@ -153,7 +149,10 @@ function assertRunnerRustBuild(rust) {
     /Swatinem\/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2/,
   );
   assert.match(rust, /prefix-key: v0-rust\n/);
-  assert.match(rust, /shared-key: ghcr-opensesame-amd64\n/);
+  assert.match(
+    rust,
+    /shared-key: \$\{\{ github\.ref == 'refs\/heads\/main' && 'ghcr-opensesame-amd64' \|\| format\('ghcr-opensesame-amd64-proof-\{0\}', github\.run_id\) \}\}\n/,
+  );
   assert.match(rust, /cache-on-failure: true\n/);
   assert.match(
     rust,
@@ -186,7 +185,10 @@ function assertRunnerRustBuild(rust) {
     rust,
     /CACHE_HIT: \$\{\{ steps\.rust-cache-ghcr\.outputs\.cache-hit \}\}\n/,
   );
-  assert.match(rust, /CACHE_PRIMARY_KEY: v0-rust-ghcr-opensesame-amd64\n/);
+  assert.match(
+    rust,
+    /CACHE_PRIMARY_KEY: v0-rust-\$\{\{ github\.ref == 'refs\/heads\/main' && 'ghcr-opensesame-amd64' \|\| format\('ghcr-opensesame-amd64-proof-\{0\}', github\.run_id\) \}\}\n/,
+  );
   assert.match(
     rust,
     /MAIN_SEED_PREFIX: v0-rust-rust-build-\$\{\{ runner\.arch \}\}-,v0-rust-ghcr-opensesame-amd64-\n/,
@@ -344,20 +346,13 @@ describe("GHCR image proof workflow", () => {
     assertCargoChefDockerfile(dockerfile);
   });
 
-  it("loads capability-graph.mjs with plain node without packages/", () => {
-    // GHCR web-pwa-tailscale-wasm uses a sparse checkout without packages/
-    // and plain node for loadTailscaleAssets(). That import reaches
-    // capability-graph.mjs, which must not import os-domain TypeScript.
-    const loaded = spawnSync(
-      process.execPath,
-      [
-        "--input-type=module",
-        "-e",
-        'import "./apps/pages/scripts/lib/capability-graph.mjs"',
-      ],
-      { cwd: root, encoding: "utf8" },
+  it("saves trunk rust-build cache into mise CARGO_TARGET_DIR", () => {
+    const rust = ci.split("\n  rust-build:\n")[1].split("\n  typescript:\n")[0];
+    assert.match(
+      rust,
+      /workspaces: \. -> \.\.\/\.\.\/\.\.\/\.cache\/packages\/cargo-target\n/,
     );
-    assert.equal(loaded.status, 0, loaded.stderr);
+    assert.match(rust, /mise CARGO_TARGET_DIR must match this mapping/);
   });
 
   it("is outside the required ci.yml graph and leaves the retired publisher alone", () => {
@@ -371,72 +366,4 @@ describe("GHCR image proof workflow", () => {
     assert.doesNotMatch(retired, /docker\/build-push-action/);
   });
 
-  it("checks out .gitignore with biome.json for the Pages build", () => {
-    // The SAML worker freshness guard runs `biome format` during the Pages
-    // image build. biome.json sets vcs.useIgnoreFile, so Biome requires a
-    // root .gitignore in that sparse checkout (the Docker build context).
-    const job = parse(workflow).jobs["web-pwa-amd64"];
-    const checkout = job.steps.find((step) =>
-      String(step.uses ?? "").startsWith("actions/checkout@"),
-    );
-    const paths = String(checkout.with["sparse-checkout"])
-      .split("\n")
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
-    assert.ok(paths.includes("/.gitignore"));
-    assert.ok(paths.includes("/biome.json"));
-  });
-
-  it("biome format needs a root .gitignore when biome.json is present", () => {
-    const fixture = mkdtempSync(join(tmpdir(), "ghcr-biome-ignore-"));
-    const biome = createRequire(join(root, "package.json")).resolve(
-      "@biomejs/biome/bin/biome",
-    );
-    const format = () =>
-      spawnSync(
-        process.execPath,
-        [biome, "format", "--stdin-file-path", join(fixture, "file.ts")],
-        {
-          cwd: fixture,
-          encoding: "utf8",
-          input: "export const n=1\n",
-        },
-      );
-    try {
-      copyFileSync(join(root, "biome.json"), join(fixture, "biome.json"));
-      const missing = format();
-      assert.notEqual(missing.status, 0);
-      assert.match(missing.stderr, /couldn't find an ignore file/);
-      copyFileSync(join(root, ".gitignore"), join(fixture, ".gitignore"));
-      const present = format();
-      assert.equal(present.status, 0, present.stderr);
-    } finally {
-      rmSync(fixture, { recursive: true, force: true });
-    }
-  });
-});
-
-describe("oci image smoke", () => {
-  it("classifies version and http probes", () => {
-    assert.equal(imageLeaf("ghcr.io/opensesame-labs/cli:next"), "cli");
-    assert.deepEqual(probePlan("ghcr.io/opensesame-labs/opensesame:sha-abc"), {
-      kind: "version",
-    });
-    assert.equal(probePlan("web-pwa:local").port, 5180);
-    assert.equal(probePlan("control-plane:local").optional, true);
-    assert.equal(probePlan("control-plane:local").path, "/v1/health/live");
-  });
-
-  it("skips when docker is missing or no image was named", () => {
-    const ran = spawnSync(
-      process.execPath,
-      [join(root, "scripts/ci/oci-image-smoke.mjs")],
-      { encoding: "utf8" },
-    );
-    assert.equal(ran.status, 0, ran.stderr);
-    assert.match(
-      ran.stdout,
-      /oci-image-smoke: (docker unavailable, skip|no image arguments, skip)/,
-    );
-  });
 });

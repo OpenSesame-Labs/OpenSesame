@@ -138,6 +138,8 @@ jobs:
           save-if: false
           workspaces: . -> ../../../.cache/packages/cargo-target
       # Save on workflow_dispatch and on push to main. Tag pushes restore only.
+      # refs/heads/main keeps ghcr-opensesame-amd64. Any other ref uses a
+      # run-scoped key so a branch proof cannot replace the main blob.
       # cache-on-failure saves this shared key when the build fails.
       # cache-all-crates keeps dependency crates. The registry is reusable
       # when the trunk target cache has already warmed those deps.
@@ -145,7 +147,7 @@ jobs:
         id: rust-cache-ghcr
         with:
           prefix-key: v0-rust
-          shared-key: ghcr-opensesame-amd64
+          shared-key: ${{ github.ref == 'refs/heads/main' && 'ghcr-opensesame-amd64' || format('ghcr-opensesame-amd64-proof-{0}', github.run_id) }}
           cache-all-crates: true
           cache-on-failure: true
           save-if: ${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
@@ -154,7 +156,7 @@ jobs:
         env:
           CACHE_NAME: rust-ghcr
           CACHE_HIT: ${{ steps.rust-cache-ghcr.outputs.cache-hit }}
-          CACHE_PRIMARY_KEY: v0-rust-ghcr-opensesame-amd64
+          CACHE_PRIMARY_KEY: v0-rust-${{ github.ref == 'refs/heads/main' && 'ghcr-opensesame-amd64' || format('ghcr-opensesame-amd64-proof-{0}', github.run_id) }}
           MAIN_SEED_PREFIX: v0-rust-rust-build-${{ runner.arch }}-,v0-rust-ghcr-opensesame-amd64-
         run: |
           export CACHE_PROBE_DIR="${HOME}/.cargo/registry/cache"
