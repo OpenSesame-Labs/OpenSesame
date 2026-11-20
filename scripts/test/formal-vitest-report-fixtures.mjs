@@ -121,8 +121,16 @@ function authFixture() {
   return finishFixture(vectors, [fileResult(file.auth, tests)]);
 }
 
+function securityCase(fullName) {
+  const group = "signed federated state integrity";
+  const prefix = `${group} `;
+  if (fullName.startsWith(prefix))
+    return assertion(fullName.slice(prefix.length), [group]);
+  return assertion(fullName);
+}
+
 function oauthFixture() {
-  const legacy = rows([bits, bits, bits, bits], "legacy", 1);
+  const legacy = rows([bits, bits, bits, bits, bits], "legacy", 1);
   const provenance = rows(
     [
       ["0", "1", "2"],
@@ -139,7 +147,7 @@ function oauthFixture() {
   ];
   tests.push(
     ...legacy.map((row) =>
-      assertion(`legacy provenance ${row.slice(0, 5).join(" ")}`),
+      assertion(`legacy provenance ${row.slice(0, 6).join(" ")}`),
     ),
   );
   tests.push(
@@ -147,14 +155,9 @@ function oauthFixture() {
       assertion(`current provenance ${row.slice(0, 5).join(" ")}`),
     ),
   );
-  const group = ["signed federated state integrity"];
   const security = [
-    assertion(
-      "round-trips a signed state with its organization and upstream context",
-      group,
-    ),
-  ];
-  security.push(
+    "signed federated state integrity round-trips a signed state with its organization and upstream context",
+    "signed federated state integrity preserves the v3 cookie format already emitted by main",
     ...[
       "issuer",
       "state",
@@ -164,29 +167,23 @@ function oauthFixture() {
       "providerId",
       "byoId",
       "orgId",
-    ].map((field) => assertion(`rejects a changed ${field}`, group)),
-  );
-  security.push(
-    assertion(
-      "authenticates new fields even before the decoder uses them",
-      group,
+    ].map(
+      (field) => `signed federated state integrity rejects a changed ${field}`,
     ),
-  );
-  security.push(
-    assertion(
-      "accepts a legacy signature only when no unsigned provenance is present",
-      group,
+    "signed federated state integrity authenticates new fields even before the decoder uses them",
+    "signed federated state integrity accepts a legacy signature only when no unsigned provenance is present",
+    "signed federated state integrity accepts legacy static provenance only with a signed nonempty provider",
+    ...["orgId", "byoId"].map(
+      (field) =>
+        `signed federated state integrity rejects a legacy ${field} cookie after its unsigned owner is stripped`,
     ),
-  );
-  security.push(
-    assertion(
-      "normalizes absent legacy kind and provider to their old MAC defaults",
-      group,
+    ...["orgId", "byoId"].map(
+      (field) =>
+        `refuses a stripped legacy ${field} callback before trust lookup or exchange`,
     ),
-  );
-  security.push(
-    assertion("refuses a changed trust owner at the exchange's own lookup"),
-  );
+    "binds OAuth2 callbacks to the same static OAuth2 provider",
+    "refuses a changed trust owner at the exchange's own lookup",
+  ].map(securityCase);
   return finishFixture(
     [...legacy, ...provenance],
     [fileResult(file.oauth, tests), fileResult(file.security, security)],
@@ -198,6 +195,7 @@ function webauthnFixture() {
     [
       approvalKinds,
       approvalStates,
+      ["invalid", "valid"],
       ["invalid", "past", "equal", "future"],
       digest,
       ["empty", "a", "b", "other"],
@@ -214,7 +212,7 @@ function webauthnFixture() {
   const tests = names.map((name) => assertion(name, ancestor));
   tests.push(
     ...vectors.map((row) =>
-      assertion(`approval ${row.slice(0, 6).join(" ")}`, ancestor),
+      assertion(`approval ${row.slice(0, 7).join(" ")}`, ancestor),
     ),
   );
   return finishFixture(vectors, [fileResult(file.webauthn, tests)]);

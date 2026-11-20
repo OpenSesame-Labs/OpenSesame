@@ -65,8 +65,8 @@ for (const suite of ["auth", "oauth", "webauthn"]) {
       suite === "auth"
         ? { principal: [2], session: [7], project: [5, 6, 7, 8] }
         : suite === "oauth"
-          ? { legacy: [5], provenance: [5] }
-          : { approval: [6] };
+          ? { legacy: [6], provenance: [5] }
+          : { approval: [7] };
     for (const [group, indexes] of Object.entries(positions)) {
       for (const index of indexes) {
         const lines = vectors.trimEnd().split("\n");
