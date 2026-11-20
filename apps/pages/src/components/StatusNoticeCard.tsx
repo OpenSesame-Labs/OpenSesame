@@ -75,6 +75,17 @@ function wordedPair(notice: Notice): boolean {
   return notice.act?.worded === true && notice.alt?.worded === true;
 }
 
+function runStoredAct(
+  act: NonNullable<Notice["act"]>,
+  noticeId: string,
+  fromKeyboard: boolean,
+  onOpen: () => void,
+): void {
+  if (act.opens) onOpen();
+  else if (fromKeyboard) handBack = noticeId;
+  act.run();
+}
+
 function WordedActs({
   notice,
   onOpen,
@@ -176,6 +187,16 @@ export function StatusNoticeCard({
   const dismissTitle = dismissContext ?? notice.title;
   const navigate = useNavigate();
   const actions = useRef<HTMLDivElement>(null);
+  const act = notice.act;
+  const pressAct = () => {
+    if (!act) return;
+    runStoredAct(
+      act,
+      notice.id,
+      actions.current?.contains(document.activeElement) ?? false,
+      onOpen,
+    );
+  };
   // Once the act's key is gone, and only if nothing else took focus
   // meanwhile, focus lands on the first key the card still has.
   useEffect(() => {
@@ -219,21 +240,19 @@ export function StatusNoticeCard({
             actionsRef={actions}
             wordedTray={wordedTray}
           />
-        ) : notice.act ? (
-          <IconKey
-            label={notice.act.label}
-            small
-            onClick={() => {
-              if (notice.act?.opens) onOpen();
-              else if (actions.current?.contains(document.activeElement)) {
-                handBack = notice.id;
-              }
-              notice.act?.run();
-            }}
+        ) : act?.worded === true ? (
+          <button
+            type="button"
+            className="btn btn--primary btn--sm choice"
+            onClick={pressAct}
           >
-            <ActIcon icon={notice.act.icon} />
+            {act.label}
+          </button>
+        ) : act ? (
+          <IconKey label={act.label} small onClick={pressAct}>
+            <ActIcon icon={act.icon} />
             {inFlow ? (
-              <span className="notice-action-label">{notice.act.label}</span>
+              <span className="notice-action-label">{act.label}</span>
             ) : null}
           </IconKey>
         ) : null}
