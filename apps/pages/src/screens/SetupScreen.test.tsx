@@ -322,6 +322,9 @@ describe("where the keyboard lands", () => {
     const lead = screen.getByRole("button", { name: /^Default$/ });
     expect(document.activeElement).toBe(lead);
     expect(lead.className).toContain("road--lead");
+    const minimal = screen.getByRole("button", { name: /^Minimal$/ });
+    expect(minimal.className).toContain("road--advanced");
+    expect(document.activeElement).not.toBe(minimal);
     // Default is first in the document, so it is first for Tab and a reader.
     expect(
       screen
