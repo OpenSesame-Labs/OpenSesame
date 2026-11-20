@@ -15,7 +15,7 @@ The workspace is where code is written before anything reviews it. A compromised
 
 | Recommendation | Here | Status |
 |---|---|---|
-| Minimal, trusted, pinned base image | `mcr.microsoft.com/devcontainers/rust` pinned by digest; Dependabot proposes digest updates | Enforced |
+| Minimal, trusted, pinned base image | `mcr.microsoft.com/devcontainers/base` (Debian trixie) pinned by digest; toolchain via mise only; Dependabot proposes digest updates | Enforced |
 | Run as a non-root user | `containerUser` and `remoteUser` are `vscode` | Enforced |
 | Drop Linux capabilities | `--cap-drop=ALL`, none added back | Enforced |
 | Prevent privilege escalation | `--security-opt=no-new-privileges`. `sudo` is also forbidden by [AGENTS.md](../../AGENTS.md) | Enforced |
