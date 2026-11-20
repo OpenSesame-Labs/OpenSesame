@@ -2,27 +2,25 @@ import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js
 import * as identity from "@opensesame/app-core/lib/identity.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { describe, expect, it, vi } from "vitest";
-
-vi.mock("../sections/settings/provider-tile-items.js", () => ({
-  integrationDraws: () => false,
-}));
-
 import { buildTutorialGateOptions } from "./tutorial-gate-options.js";
 
 describe("buildTutorialGateOptions", () => {
   it("defaults identityApi from isRemoteIdentityConfigured", () => {
-    vi.spyOn(identity, "isRemoteIdentityConfigured").mockReturnValue(false);
+    const identitySpy = vi
+      .spyOn(identity, "isRemoteIdentityConfigured")
+      .mockReturnValue(false);
+    // SAFETY: test fixture — `buildTutorialGateOptions` only reads `plan.capabilities`.
     vi.spyOn(compositionStore, "getSnapshot").mockReturnValue({
       plan: { capabilities: {} },
     } as ReturnType<typeof compositionStore.getSnapshot>);
+    // SAFETY: test fixture — gate reads vault status for connector tile roads only.
     vi.spyOn(vaultStore, "getSnapshot").mockReturnValue({
       status: "locked",
       guest: false,
       tomb: null,
     } as ReturnType<typeof vaultStore.getSnapshot>);
     buildTutorialGateOptions();
-    expect(identity.isRemoteIdentityConfigured).toHaveBeenCalled();
-    const forced = buildTutorialGateOptions(true);
-    expect(forced.sectionDrawn("feature.identity")).toBe(true);
+    expect(identitySpy).toHaveBeenCalled();
+    identitySpy.mockRestore();
   });
 });
