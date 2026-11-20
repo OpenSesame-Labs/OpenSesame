@@ -3,10 +3,14 @@
 # dispatch must not bypass that qualification by rebuilding and pushing images.
 # Restore publication only through qualified digest-bound OCI promotion and a
 # separately protected container-release credential and registry package ACL.
+# schedule runs on default branch only, proof-only (publication-disabled), no registry push.
+# The cron refreshes ghcr-opensesame-amd64 before the 7-day GitHub Actions cache TTL.
 name: GHCR image build proof
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: "0 11 */5 * *"  # every 5 days, 11:00 UTC — keeps warm-cache under 7-day TTL
   push:
     branches: [main]
     paths:
@@ -125,48 +129,27 @@ jobs:
       # rust-cache v2 joins `workspaces` `$target` onto the workspace root, so
       # the target is the relative path from $GITHUB_WORKSPACE
       # ($HOME/work/<owner>/<repo>) to that directory.
-      # ci.yml rust-build saves shared-key rust-build-<arch> into that target.
-      # save-if false restores the trunk key without replacing it on publish.
-      # A miss on the GHCR key below is a cold release compile (~9m) that
-      # exceeds this job's 10 minute limit.
-      - name: Restore trunk Rust compile cache
-        id: rust-cache-trunk
-        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
-        with:
-          prefix-key: v0-rust
-          shared-key: rust-build-${{ runner.arch }}
-          save-if: false
-          workspaces: . -> ../../../.cache/packages/cargo-target
-      # Save on workflow_dispatch and on push to main. Tag pushes restore only.
-      # refs/heads/main keeps ghcr-opensesame-amd64. Any other ref uses a
-      # run-scoped key so a branch proof cannot replace the main blob.
+      # Save ghcr-opensesame-amd64 only on main, and only for push,
+      # workflow_dispatch, and schedule. A branch workflow_dispatch restores
+      # the key and does not save, so it cannot replace the shared blob.
       # cache-on-failure saves this shared key when the build fails.
-      # cache-all-crates keeps dependency crates. The registry is reusable
-      # when the trunk target cache has already warmed those deps.
+      # cache-all-crates keeps dependency crates. The schedule refreshes the
+      # key before the 7-day GitHub Actions cache TTL.
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         id: rust-cache-ghcr
         with:
           prefix-key: v0-rust
-          shared-key: ${{ github.ref == 'refs/heads/main' && 'ghcr-opensesame-amd64' || format('ghcr-opensesame-amd64-proof-{0}', github.run_id) }}
+          shared-key: ghcr-opensesame-amd64
           cache-all-crates: true
           cache-on-failure: true
-          save-if: ${{ github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
+          save-if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') }}
           workspaces: . -> ../../../.cache/packages/cargo-target
       - name: Log Rust cache hit
         env:
           CACHE_NAME: rust-ghcr
           CACHE_HIT: ${{ steps.rust-cache-ghcr.outputs.cache-hit }}
-          CACHE_PRIMARY_KEY: v0-rust-${{ github.ref == 'refs/heads/main' && 'ghcr-opensesame-amd64' || format('ghcr-opensesame-amd64-proof-{0}', github.run_id) }}
-          MAIN_SEED_PREFIX: v0-rust-rust-build-${{ runner.arch }}-,v0-rust-ghcr-opensesame-amd64-
-        run: |
-          export CACHE_PROBE_DIR="${HOME}/.cargo/registry/cache"
-          node scripts/lib/ci-cache-seed.mjs
-      - name: Log trunk Rust cache restore
-        env:
-          CACHE_NAME: rust-trunk
-          CACHE_HIT: ${{ steps.rust-cache-trunk.outputs.cache-hit }}
-          CACHE_PRIMARY_KEY: v0-rust-rust-build-${{ runner.arch }}
-          MAIN_SEED_PREFIX: v0-rust-rust-build-${{ runner.arch }}-
+          CACHE_PRIMARY_KEY: v0-rust-ghcr-opensesame-amd64
+          MAIN_SEED_PREFIX: v0-rust-ghcr-opensesame-amd64-
         run: |
           export CACHE_PROBE_DIR="${HOME}/.cargo/registry/cache"
           node scripts/lib/ci-cache-seed.mjs

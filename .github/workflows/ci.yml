@@ -483,8 +483,6 @@ jobs:
           shared-key: ${{ github.job }}-${{ runner.arch }}
           lookup-only: ${{ env.TRUSTED_CACHE_SAVE != 'true' }}
           save-if: ${{ env.TRUSTED_CACHE_SAVE == 'true' && matrix.shard == 0 }}
-          # mise CARGO_TARGET_DIR must match this mapping.
-          workspaces: . -> ../../../.cache/packages/cargo-target
       - name: Log Rust cache hit
         env:
           CACHE_NAME: rust

@@ -18,6 +18,11 @@ const ci = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");
 function assertTriggersAndPublishGuards() {
   assert.match(workflow, /branches: \[main\]/);
   assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /\n {2}schedule:\n {4}- cron: "0 11 \*\/5 \* \*"/);
+  assert.match(
+    workflow,
+    /schedule runs on default branch only, proof-only \(publication-disabled\), no registry push/,
+  );
   assert.doesNotMatch(workflow, /tags: \["v\*"\]/);
   assert.doesNotMatch(workflow, /pull_request/);
   assert.doesNotMatch(workflow, /continue-on-error/);
@@ -143,72 +148,39 @@ function assertRunnerRustBuild(rust) {
   assert.doesNotMatch(rust, /actions\/cache\/save@/);
   assert.doesNotMatch(rust, /install_args:/);
   assert.doesNotMatch(rust, /\n\s+cache: false\n/);
-  assert.match(
-    rust,
-    /Swatinem\/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2/,
+  assert.equal(
+    rust.match(
+      /Swatinem\/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2/g,
+    )?.length,
+    1,
   );
   assert.match(rust, /prefix-key: v0-rust\n/);
-  assert.match(
-    rust,
-    /shared-key: \$\{\{ github\.ref == 'refs\/heads\/main' && 'ghcr-opensesame-amd64' \|\| format\('ghcr-opensesame-amd64-proof-\{0\}', github\.run_id\) \}\}\n/,
-  );
+  assert.match(rust, /shared-key: ghcr-opensesame-amd64\n/);
+  assert.match(rust, /cache-all-crates: true\n/);
   assert.match(rust, /cache-on-failure: true\n/);
   assert.match(
     rust,
-    /save-if: \$\{\{ github\.event_name == 'workflow_dispatch' \|\| github\.ref == 'refs\/heads\/main' \}\}\n/,
+    /save-if: \$\{\{ github\.ref == 'refs\/heads\/main' && \(github\.event_name == 'push' \|\| github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'schedule'\) \}\}\n/,
   );
   assert.match(
     rust,
     /workspaces: \. -> \.\.\/\.\.\/\.\.\/\.cache\/packages\/cargo-target\n/,
   );
-  assert.match(rust, /name: Restore trunk Rust compile cache\n/);
-  assert.match(rust, /id: rust-cache-trunk\n/);
-  assert.match(rust, /shared-key: rust-build-\$\{\{ runner\.arch \}\}\n/);
-  assert.doesNotMatch(
-    rust,
-    /name: Restore trunk Rust compile cache[\s\S]*?lookup-only:/,
-  );
-  assert.match(
-    rust,
-    /name: Restore trunk Rust compile cache[\s\S]*save-if: false\n/,
-  );
+  assert.doesNotMatch(workflow, /rust-cache-trunk/);
+  assert.doesNotMatch(workflow, /ghcr-opensesame-amd64-proof/);
   assert.match(rust, /id: rust-cache-ghcr\n/);
-  assert.match(rust, /cache-all-crates: true\n/);
-  assert.match(
-    rust,
-    /name: Restore trunk Rust compile cache[\s\S]*shared-key: rust-build-\$\{\{ runner\.arch \}\}[\s\S]*save-if: false[\s\S]*id: rust-cache-ghcr[\s\S]*cache-all-crates: true[\s\S]*name: Log Rust cache hit[\s\S]*name: Log trunk Rust cache restore[\s\S]*name: Install mold and clang\n/,
-  );
   assert.match(rust, /name: Log Rust cache hit\n/);
+  assert.doesNotMatch(rust, /name: Log trunk/);
   assert.match(rust, /CACHE_NAME: rust-ghcr\n/);
   assert.match(
     rust,
     /CACHE_HIT: \$\{\{ steps\.rust-cache-ghcr\.outputs\.cache-hit \}\}\n/,
   );
-  assert.match(
-    rust,
-    /CACHE_PRIMARY_KEY: v0-rust-\$\{\{ github\.ref == 'refs\/heads\/main' && 'ghcr-opensesame-amd64' \|\| format\('ghcr-opensesame-amd64-proof-\{0\}', github\.run_id\) \}\}\n/,
-  );
-  assert.match(
-    rust,
-    /MAIN_SEED_PREFIX: v0-rust-rust-build-\$\{\{ runner\.arch \}\}-,v0-rust-ghcr-opensesame-amd64-\n/,
-  );
-  assert.match(rust, /name: Log trunk Rust cache restore\n/);
-  assert.match(rust, /CACHE_NAME: rust-trunk\n/);
-  assert.match(
-    rust,
-    /CACHE_HIT: \$\{\{ steps\.rust-cache-trunk\.outputs\.cache-hit \}\}\n/,
-  );
-  assert.match(
-    rust,
-    /CACHE_PRIMARY_KEY: v0-rust-rust-build-\$\{\{ runner\.arch \}\}\n/,
-  );
-  assert.match(
-    rust,
-    /MAIN_SEED_PREFIX: v0-rust-rust-build-\$\{\{ runner\.arch \}\}-\n/,
-  );
+  assert.match(rust, /CACHE_PRIMARY_KEY: v0-rust-ghcr-opensesame-amd64\n/);
+  assert.match(rust, /MAIN_SEED_PREFIX: v0-rust-ghcr-opensesame-amd64-\n/);
   assert.equal(
     rust.match(/node scripts\/lib\/ci-cache-seed\.mjs\n/g)?.length,
-    2,
+    1,
   );
   assert.match(rust, /name: Install mold and clang\n/);
   assert.match(rust, /command -v mold/);
@@ -343,15 +315,6 @@ describe("GHCR image proof workflow", () => {
       "utf8",
     );
     assertCargoChefDockerfile(dockerfile);
-  });
-
-  it("saves trunk rust-build cache into mise CARGO_TARGET_DIR", () => {
-    const rust = ci.split("\n  rust-build:\n")[1].split("\n  typescript:\n")[0];
-    assert.match(
-      rust,
-      /workspaces: \. -> \.\.\/\.\.\/\.\.\/\.cache\/packages\/cargo-target\n/,
-    );
-    assert.match(rust, /mise CARGO_TARGET_DIR must match this mapping/);
   });
 
   it("is outside the required ci.yml graph and leaves the retired publisher alone", () => {
