@@ -8,7 +8,7 @@
 #
 # ghcr.io/devcontainers-extra/features/mise is not used. Its gh-release asset
 # filter matches both the glibc and musl tarballs for one mise version.
-FROM mcr.microsoft.com/devcontainers/rust:2.1.6-trixie@sha256:c2ef122297b39608e9db2181a355f9cda0cfb856405d14920c519c3200a2ff95
+FROM mcr.microsoft.com/devcontainers/rust:2.1.6-trixie@sha256:764d6ace50e90c0c7f9667375d87e36360d5fbefa5ba7d45701ad0b502cc7d98
 
 USER root
 
