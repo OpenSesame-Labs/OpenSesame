@@ -25,28 +25,34 @@ apt_options=(
   -c "$musl_root/apt.conf"
   -o "Dir::State::lists=$musl_root/lists"
   -o "Dir::Cache=$musl_root/cache"
-  -o "Dir::Cache::archives=$musl_root/packages"
   -o "Dir::Log=$musl_root/log"
   -o "Dir::Etc::parts=$musl_root/conf.d"
   -o "APT::Sandbox::User=$(id -un)"
-  -o "Debug::NoLocking=1"
   -o "APT::Get::AllowUnauthenticated=false"
   -o "Acquire::AllowInsecureRepositories=false"
 )
 # The runner's configured sources and trusted keyrings still authenticate
 # Release metadata and package hashes. System apt hooks are not executed.
-# `update` only populates the sandboxed lists; Download-Only guards against
-# any implicit package operation.
-APT_CONFIG="$musl_root/apt.conf" apt-get "${apt_options[@]}" \
-  -o "APT::Get::Download-Only=true" update
+APT_CONFIG="$musl_root/apt.conf" apt-get "${apt_options[@]}" update
 # Download the same package set `install --no-install-recommends musl-tools`
 # would resolve (musl-tools depends on musl-dev, which depends on musl).
-# `apt-get download` writes into the current directory. Do not pass
-# APT::Get::Download-Only here: `download` fetches but exits nonzero under
-# Download-Only on Ubuntu 26.04 (resolute) runners.
+# `apt-get download` writes into the current directory. On Ubuntu 26.04
+# (resolute) runners apt may exit nonzero after fetching the debs; continue
+# when the archives are present (same hermetic extract path as prepare-dbus).
 (
   cd "$musl_root/packages"
+  set +e
   APT_CONFIG="$musl_root/apt.conf" apt-get "${apt_options[@]}" download musl musl-dev musl-tools
+  download_status=$?
+  set -e
+  shopt -s nullglob
+  musl_debs=(./*.deb)
+  shopt -u nullglob
+  if ((${#musl_debs[@]} == 0)); then
+    printf 'prepare-musl.sh: apt-get download failed (%s) and wrote no .deb\n' \
+      "$download_status" >&2
+    exit 1
+  fi
 )
 for musl_archive in "$musl_root/packages/"*.deb; do
   dpkg-deb --extract "$musl_archive" "$musl_root/sysroot"
