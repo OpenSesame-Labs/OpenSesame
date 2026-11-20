@@ -122,7 +122,10 @@ function WordedActs({
       if (trayClose) queueMicrotask(() => landFocus(trayClose));
       return;
     }
-    onOpen();
+    // A keyboard press armed hand-back: the card this act leaves behind takes
+    // focus back, so focus must not move onto the page. Only a pointer press
+    // has no card to return to and moves on like an opening act.
+    if (!fromKeyboard) onOpen();
   };
   return (
     <>
