@@ -22,6 +22,8 @@ export type SessionAskDeps = {
   set: (patch: Partial<SupportView>) => void;
   view: () => SupportView;
   ensureEngine: () => Promise<SupportEngine | null>;
+  /** Generation captured around `ensureEngine`, so a lock can drop the ask. */
+  loadGeneration: () => number;
   engine: () => SupportEngine | null;
   cancelled: {
     get: () => boolean;
@@ -97,8 +99,12 @@ export function createSessionAskMethods(deps: SessionAskDeps) {
     const gate = gateSupportAsk(question, state.thinking);
     if (gate.kind === "skip") return;
     const { text } = gate;
+    const era = deps.loadGeneration();
     deps.push("question", text, []);
     const loaded = await deps.ensureEngine();
+    // Lock cleared this session while the engine was loading. The question
+    // went with it; do not write an answer or a failure onto the empty one.
+    if (deps.loadGeneration() !== era) return;
     if (!loaded) {
       if (pushAuthoredAnswer(deps, text, state.route)) return;
       deps.notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);

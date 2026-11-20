@@ -144,11 +144,33 @@ describe("tutorial queue", () => {
     queueTutorial("vault.lock", { title: "Lock the vault" });
     expect(resumeTutorialFromNotice("vault.lock")).toBe(true);
     expect(inner).toEqual(["inner"]);
+    expect(listQueuedTutorials()).toEqual([]);
     unbindOuter();
+    queueTutorial("vault.lock", { title: "Lock the vault" });
     expect(resumeTutorialFromNotice("vault.lock")).toBe(true);
     expect(inner).toEqual(["inner", "inner"]);
+    expect(listQueuedTutorials()).toEqual([]);
     unbindInner();
+    queueTutorial("vault.lock", { title: "Lock the vault" });
     expect(resumeTutorialFromNotice("vault.lock")).toBe(false);
+    expect(listQueuedTutorials()).toEqual([{ goalId: "vault.lock" }]);
+  });
+
+  it("drops the notice when resume succeeds without the binder completing the queue", () => {
+    const unbind = bindTutorialResume(() => true);
+    queueTutorial("vault.lock", { title: "Lock the vault" });
+    setStatusNotice({
+      id: "tutorial.queue.vault.lock",
+      tone: "info",
+      title: "Lock the vault",
+      body: "Queued.",
+    });
+    expect(resumeTutorialFromNotice("vault.lock")).toBe(true);
+    expect(listQueuedTutorials()).toEqual([]);
+    expect(
+      listNotices().some((notice) => notice.id === "tutorial.queue.vault.lock"),
+    ).toBe(false);
+    unbind();
   });
 
   it("resumes from the notice onto the tour's home route", () => {
