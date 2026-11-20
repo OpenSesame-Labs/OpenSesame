@@ -58,7 +58,7 @@ fn binding_is_sqlx(prefix: &str, name: &str) -> bool {
         let Some(rhs) = let_rhs(prefix, &current) else {
             return false;
         };
-        if has_sqlx_query(rhs) {
+        if initializer_is_sqlx(rhs) {
             return true;
         }
         let Some(next) = sole_ident(rhs) else {
@@ -70,6 +70,66 @@ fn binding_is_sqlx(prefix: &str, name: &str) -> bool {
         current = next.to_string();
     }
     false
+}
+
+/// The binding's value is a SQLx query. `wrap(sqlx::query(…))` only mentions
+/// SQLx inside the wrapper, so the bound value is still an HTTP client.
+fn initializer_is_sqlx(expr: &str) -> bool {
+    sqlx_query_at(query_head(expr.trim()), 0)
+}
+
+fn query_head(mut expr: &str) -> &str {
+    loop {
+        expr = expr.trim_start();
+        if let Some(rest) = strip_leading_ref(expr) {
+            expr = rest;
+            continue;
+        }
+        let Some(inner) = grouped_query(expr) else {
+            return expr;
+        };
+        expr = inner;
+    }
+}
+
+fn strip_leading_ref(expr: &str) -> Option<&str> {
+    if let Some(rest) = expr.strip_prefix("&mut") {
+        if rest.chars().next().is_none_or(|ch| !is_ident_char(ch)) {
+            return Some(rest);
+        }
+    }
+    expr.strip_prefix('&')
+}
+
+/// `(sqlx::query(…)).bind(…)` is still that query. A call that merely contains
+/// one is not a group: its `(` is not peeled.
+fn grouped_query(expr: &str) -> Option<&str> {
+    let rest = expr.strip_prefix('(')?;
+    let bytes = rest.as_bytes();
+    let mut depth = 1i32;
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    let tail = rest[index + 1..].trim_start();
+                    if tail.is_empty() || tail.starts_with(['.', '?']) {
+                        return Some(rest[..index].trim());
+                    }
+                    return None;
+                }
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    None
 }
 
 /// Visible `let name` at the end of `prefix`. A binding inside a finished
@@ -287,6 +347,27 @@ mod probes {
         let db = [
             r#"async fn f() { let query = sqlx::query(if port < 443 { "a" } else { "b" }); query.execute(&pool).await?; }"#,
             r#"async fn f() { let client = if port < 443 { pool } else { other }; sqlx::query("select 1").execute(&pool).await?; }"#,
+        ];
+        for sample in db {
+            assert_eq!(credentialed_send_https_gaps(sample), (0, 0), "{sample}");
+        }
+    }
+
+    #[test]
+    fn chunk02_wrapper_around_sqlx_is_still_a_send() {
+        let http = [
+            r#"async fn f() { let client = wrap(sqlx::query("s")); client.execute(request).await?; }"#,
+            r#"async fn f() { let client = wrap(sqlx::query("s")).ready(); client.execute(request).await?; }"#,
+            r#"async fn f() { let query = sqlx::query("select 1"); let client = wrap(query); client.execute(request).await?; }"#,
+        ];
+        for sample in http {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+        }
+        let db = [
+            r#"async fn f() { let query = sqlx::query("select 1"); query.execute(&pool).await?; }"#,
+            r#"async fn f() { let query = sqlx::query("select 1").bind(1); query.execute(&pool).await?; }"#,
+            r#"async fn f() { let query = sqlx::query("select 1"); let client = query; client.execute(&pool).await?; }"#,
+            r#"async fn f() { let query = (sqlx::query("select 1")); query.execute(&pool).await?; }"#,
         ];
         for sample in db {
             assert_eq!(credentialed_send_https_gaps(sample), (0, 0), "{sample}");

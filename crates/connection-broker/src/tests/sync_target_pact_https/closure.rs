@@ -81,23 +81,41 @@ fn closure_body_at(body: &str, pipe: usize) -> Option<usize> {
 
 fn runs_to_end(body: &str) -> bool {
     let bytes = body.as_bytes();
-    let (mut depth, mut angle, mut index) = (0i32, 0i32, 0usize);
+    // `brace` counts `{…}` only. `>` inside a const-generic block (`{1 > 0}`)
+    // is a comparison. Treating it as the turbofish closer drops `angle`, so
+    // the comma in `::<{1 > 0}, T>` looks like the end of the closure and a
+    // later `return` counts as the function guard.
+    let (mut depth, mut brace, mut angle, mut index) = (0i32, 0i32, 0i32, 0usize);
     while index < bytes.len() {
         if let Some(len) = string_len(bytes, index) {
             index += len;
             continue;
         }
         match bytes[index] {
-            b'(' | b'[' | b'{' => depth += 1,
-            b')' | b']' | b'}' => {
+            b'(' | b'[' => depth += 1,
+            b'{' => {
+                depth += 1;
+                brace += 1;
+            }
+            b')' | b']' => {
                 if depth == 0 {
                     return false;
                 }
                 depth -= 1;
             }
+            b'}' => {
+                if depth == 0 {
+                    return false;
+                }
+                depth -= 1;
+                brace = brace.saturating_sub(1);
+            }
             // `x > 0` is a comparison. A `>` at angle 0 does not end the body.
-            b'<' if generic_lt(bytes, index, angle) => angle += 1,
-            b'>' if angle > 0 && bytes.get(index + 1) != Some(&b'=') => angle -= 1,
+            // Neither does `>` / `<` while a const-generic block is open.
+            b'<' if brace == 0 && generic_lt(bytes, index, angle) => angle += 1,
+            b'>' if brace == 0 && angle > 0 && bytes.get(index + 1) != Some(&b'=') => {
+                angle -= 1;
+            }
             b',' | b';' if depth == 0 && angle == 0 => return false,
             _ => {}
         }
@@ -155,6 +173,25 @@ mod probes {
             r#"async fn f() { if url.scheme() != "https" { |x| x < 1 || return Err("x".into()); } client.get(url).send().await?; }"#,
             r#"async fn f() { if url.scheme() != "https" { |x| x >= 1 || return Err("x".into()); } client.get(url).send().await?; }"#,
             r#"async fn f() { if url.scheme() != "https" { |x| foo::<A, B>() || return Err("x".into()); } client.get(url).send().await?; }"#,
+        ];
+        for sample in open {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+        }
+        let kept = r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(kept), (1, 0));
+    }
+
+    #[test]
+    fn chunk02_const_generic_gt_does_not_end_closure() {
+        // `{1 > 0}` sits inside the turbofish. That `>` is a comparison, so the
+        // comma before `B` is still inside `::<…>` and the `return` stays in
+        // the closure.
+        let open = [
+            r#"async fn f() { if url.scheme() != "https" { |x| foo::<{1 > 0}, B>() || return Err("x".into()); } client.get(url).send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { |x| foo::<{1 >> 0}, B>() || return Err("x".into()); } client.get(url).send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { |x| foo::<{1 >= 0}, B>() || return Err("x".into()); } client.get(url).send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { |x| foo::<{1 < 0}, B>() || return Err("x".into()); } client.get(url).send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { |x| foo::<Bar<{1 > 0}>, T>() || return Err("x".into()); } client.get(url).send().await?; }"#,
         ];
         for sample in open {
             assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
