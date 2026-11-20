@@ -51,32 +51,17 @@ const PATCHED = Object.freeze({
     rootDependency: "minimatch9-patched",
     override: "minimatch@^9.0.4",
   }),
-  "minimatch@10.2.6": Object.freeze({
-    advisory: "GHSA-g3hv-75wg-m249",
-    patch: "patches/minimatch@10.2.6.patch",
-    patchSha256:
-      "452a220a534c4c5710255d2b7fe887a9181b67f88099dc947aeea317fb60fae4",
-    tarball: "patches/vendor/minimatch-10.2.6.tgz",
-    tarballIntegrity:
-      "sha512-SuE6pnNXkITu0Lwx5c7CQkUgdVOAKZu5XXz/aIwj7va3yLowz006UR2Pj7QytM4HQoutG8hR5VT3Vo7L3MBJPQ==",
-    upstreamIntegrity:
-      "sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==",
-    upstreamFileMapSha256:
-      "ec7dedd81a230e32846519e0d9eb00f9336ddafda12d003a471d396ed734e7e3",
-    rootDependency: "minimatch10-patched",
-    override: "minimatch@^10.0.0",
-  }),
 });
 
 const PUBLISHED = Object.freeze({});
 
 const REGRESSIONS = Object.freeze({
   "scripts/security/dependency-override-upgrade.test.mjs":
-    "6f9860e7a4117ae7156e9fa11490a9695970aa33f0d83e8abd87996508ad2bdb",
+    "6164b37b6f93d0392fa80e13c3cd4cf8fc116f7e943d20db47dd7ff67da0f667",
   "scripts/security/glob-override-upgrade.test.mjs":
-    "0ed567bf86b1b5bd5cb24f7f7be940e849968bac3f21634c7320816f3f411de1",
+    "21284c2b686376ca469d60626a00d7f33056d83515267f5e35eec362dd8f0520",
   "scripts/security/removed-dependencies.test.mjs":
-    "152c2f29164663c83e2992d43b66c5883693fc9c822df526d6cb650018e6eb20",
+    "de34402775410bdae5509d69bd7e7ca8d9f3fca9111b307700f3317b6424c275",
   "scripts/security/picomatch-backport.test.mjs":
     "17796faf39393ae5c27e73b1771b5d1d7b22680ba9b376cb5c49cf9dde8c85b6",
   "scripts/security/patched-dependencies.mjs":

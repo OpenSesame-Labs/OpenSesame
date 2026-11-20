@@ -57,7 +57,7 @@ var patches = {
   "glob@10.5.0": "patches/glob@10.5.0.patch",
   "glob@11.1.0": "patches/glob@11.1.0.patch",
   "minimatch@9.0.9": "patches/minimatch@9.0.9.patch",
-  "minimatch@10.2.6": "patches/minimatch@10.2.6.patch",
+  "minimatch@11.0.9": "patches/minimatch@11.0.9.patch",
   "@joshwooding/vite-plugin-react-docgen-typescript@0.7.0":
     "patches/@joshwooding__vite-plugin-react-docgen-typescript@0.7.0.patch",
   "react-docgen-typescript@2.4.0":

@@ -58,9 +58,9 @@ test("glob 13 ranges resolve to published glob 14 and leave four patched tuples"
       "file:patches/vendor/minimatch-9.0.9.tgz",
     ],
     [
-      "node_modules/minimatch10-patched",
-      "10.2.6",
-      "file:patches/vendor/minimatch-10.2.6.tgz",
+      "node_modules/minimatch11-patched",
+      "11.0.9",
+      "file:patches/vendor/minimatch-11.0.9.tgz",
     ],
   ];
   for (const [path, version, resolved] of patched) {
