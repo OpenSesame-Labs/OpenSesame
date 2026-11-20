@@ -61,13 +61,13 @@ export type ToastMessage = Readonly<{
 export type ToastChoice = Readonly<{ label: string; run: () => void }>;
 
 export function toastOf(notice: Notice): ToastMessage {
-  const echo: ToastMessage = {
-    id: notice.id,
-    tone: notice.tone ?? "info",
-    title: notice.title,
-    body: notice.body,
-    ...(notice.open !== undefined ? { open: notice.open } : {}),
-  };
+  const id = notice.id;
+  const tone = notice.tone ?? "info";
+  const { title, body, open } = notice;
+  const echo: ToastMessage =
+    open === undefined
+      ? { id, tone, title, body }
+      : { id, tone, title, body, open };
   const { act } = notice;
   if (act?.worded !== true) return echo;
   // A recommendation's act is the answer to its card, so the echo carries it
