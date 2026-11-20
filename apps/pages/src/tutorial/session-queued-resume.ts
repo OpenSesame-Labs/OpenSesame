@@ -99,6 +99,16 @@ export function createQueuedResumeHandlers(host: QueuedResumeHost) {
       host.setPending({ goalId, guide, homeRoute });
       const era = host.loadGeneration();
       const armedRoute = host.getState().route;
+      const abandonIfHomeNeverLanded = () => {
+        if (host.loadGeneration() !== era) return;
+        const pending = host.getPending();
+        if (pending?.goalId !== goalId || pending.homeRoute !== homeRoute) {
+          return;
+        }
+        if (queuedResumeRouteOk(homeRoute)) return;
+        host.setPending(null);
+        host.setQueuedResumeLoading(false);
+      };
       void host
         .ensureEngine()
         .then((loaded) => {
@@ -125,13 +135,16 @@ export function createQueuedResumeHandlers(host: QueuedResumeHost) {
             return;
           }
           if (queuedResumeRouteOk(homeRoute)) return;
-          // Still off the tour's home. Release the reservation. Pending stays
-          // only while the route has not moved, so the home arrival can start
-          // it; a different route abandons it in the flush above.
+          // Preload finished off the tour's home. A redirect or wander has
+          // already moved the route: drop the reservation now. If the route
+          // never moved, give the navigation one turn to commit. When that
+          // turn still misses home, abandon pending and release loading so a
+          // later unrelated visit cannot start this walkthrough.
           if (host.getState().route !== armedRoute) {
-            host.setPending(null);
+            abandonIfHomeNeverLanded();
+            return;
           }
-          host.setQueuedResumeLoading(false);
+          setTimeout(abandonIfHomeNeverLanded, 0);
         });
       return true;
     }

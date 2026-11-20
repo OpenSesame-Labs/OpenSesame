@@ -16,6 +16,7 @@ import { loadGuidance } from "./guidance.js";
 import { hideToast, showToast } from "./notice-toast.js";
 import {
   dismissNotice,
+  listNotices,
   removeStatusNotice,
   setStatusNotice,
 } from "./notices.js";
@@ -194,6 +195,14 @@ export function noteTutorialDeclined(goalId: string, title: string): boolean {
 
 /** Tray rows for queued goals only — does not touch the session pause question. */
 export function refreshQueuedTutorialTrayNotices(): void {
+  const live = new Set(listQueuedTutorials().map((item) => item.goalId));
+  // Restored rows for an unloaded contribution are not in the live queue.
+  // Hide them without dequeuing, so the durable id survives until it registers.
+  const stale = listNotices()
+    .filter((notice) => notice.id.startsWith("tutorial.queue."))
+    .map((notice) => notice.id.slice("tutorial.queue.".length))
+    .filter((goalId) => !live.has(goalId));
+  for (const goalId of stale) suppressQueueNoticePresentation(goalId);
   for (const item of listQueuedTutorials()) {
     const goal = guideGoal(item.goalId);
     if (goal === null) continue;
