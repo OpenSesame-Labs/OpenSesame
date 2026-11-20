@@ -9,6 +9,7 @@ import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
 import {
   TUTORIAL_PAUSE_NOTICE,
   bindTutorialResume,
+  completeQueuedTutorial,
   dequeueTutorial,
   listQueuedTutorials,
   sessionTutorialsPaused,
@@ -93,8 +94,9 @@ describe("declining a first-visit offer", () => {
   it("queues the tour and asks whether to pause the session", () => {
     const { support, started } = stubSupportController("/settings/danger");
     // The shell's controller binds this. The stub does not load one.
-    const unbind = bindTutorialResume((_goalId, guide) => {
+    const unbind = bindTutorialResume((goalId, guide) => {
       void support.startGuide(guide, "authored");
+      completeQueuedTutorial(goalId);
       return true;
     });
     try {
