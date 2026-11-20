@@ -52,6 +52,7 @@ pub(crate) fn response_body_reads(source: &str) -> Vec<&'static str> {
         || stream_consumption_reads(&scanned)
         || delegated_body_reader(&scanned)
         || alias_reader(&scanned, &alias_calls, &alias_modules)
+        || renamed_response_into(&scanned)
     {
         hits.push("::text;");
     }
@@ -100,6 +101,29 @@ fn unit_tests_header_at(source: &str) -> Option<usize> {
         index += 1;
     }
     None
+}
+
+fn renamed_response_into(scanned: &str) -> bool {
+    let mut offset = 0usize;
+    while let Some(rel) = scanned[offset..].find(".into()") {
+        let index = offset + rel;
+        let name: String = scanned[..index]
+            .trim_end()
+            .chars()
+            .rev()
+            .take_while(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
+            .collect::<String>()
+            .chars()
+            .rev()
+            .collect();
+        if !name.is_empty()
+            && super::sync_target_pact_rename::tracks_response_receiver(scanned, index, name)
+        {
+            return true;
+        }
+        offset = index + ".into()".len();
+    }
+    false
 }
 
 fn alias_reader(scanned: &str, calls: &[String], modules: &[String]) -> bool {
