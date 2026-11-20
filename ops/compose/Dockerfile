@@ -11,15 +11,22 @@
 # committed. Leave it out of .dockerignore so the context still contains it.
 FROM rust:1.99.0-bookworm@sha256:114c7a4425406451c2866b6aafe69fe29b1b298832db1277d411ac73c82d04d6 AS chef
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends libdbus-1-dev pkg-config mold \
+  && apt-get install -y --no-install-recommends libdbus-1-dev pkg-config musl-tools \
   && rm -rf /var/lib/apt/lists/* \
   && cargo install cargo-chef --locked
 WORKDIR /src
 COPY rust-toolchain.toml rust-toolchain.toml
+# rust-toolchain.toml selects 1.99.0. Add the musl standard library on that toolchain.
+RUN rustup target add x86_64-unknown-linux-musl
 
 ENV CARGO_PROFILE_RELEASE_LTO=false
 ENV CARGO_PROFILE_RELEASE_CODEGEN_UNITS=32
-ENV RUSTFLAGS="-C link-arg=-fuse-ld=mold"
+# C dependencies (AWS-LC, vendored libdbus, bundled SQLite) are compiled with
+# musl-gcc. The same driver links the musl target. mold stays on the gnu
+# target; its linker flag breaks this link. These variables are set before COPY . .
+# so cargo-chef cook sees them; .cargo/config.toml arrives with the source.
+ENV CC_x86_64_unknown_linux_musl=musl-gcc \
+  CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_LINKER=musl-gcc
 
 FROM chef AS planner
 COPY . .
@@ -33,23 +40,22 @@ ARG OPENSESAME_FEATURES=""
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
   --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
   --mount=type=cache,target=/src/target,sharing=locked \
-  cargo chef cook --release --recipe-path recipe.json -p opensesame-cli --features "${OPENSESAME_FEATURES}"
+  cargo chef cook --release --recipe-path recipe.json -p opensesame-cli --features "${OPENSESAME_FEATURES}" --target x86_64-unknown-linux-musl
 COPY . .
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
   --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
   --mount=type=cache,target=/src/target,sharing=locked \
-  cargo build --release -p opensesame-cli --features "${OPENSESAME_FEATURES}" \
-  && install -m 0755 target/release/opensesame /usr/local/bin/opensesame
+  cargo build --release -p opensesame-cli --features "${OPENSESAME_FEATURES}" --target x86_64-unknown-linux-musl \
+  && install -m 0755 target/x86_64-unknown-linux-musl/release/opensesame /usr/local/bin/opensesame
 
 # Packages, user, and state dir for both runtime targets. No binary yet, so
 # the prebuilt target does not depend on the chef compile.
-# Alpine 3.22 (musl). The GHCR binary is linked on the Ubuntu 24.04 runner
-# (glibc) and the bookworm chef binary is glibc too. gcompat and libstdc++
-# run those binaries. libdbus is compiled into the binary (dbus crate
-# `vendored` feature, static). Alpine dbus-libs is musl and is not installed:
-# it cannot satisfy a glibc-linked binary, and this binary does not need it.
+# Alpine 3.22. Both binaries are x86_64-unknown-linux-musl (static), so this
+# stage does not install a glibc compatibility layer or libstdc++. libdbus is
+# compiled into the binary (dbus crate `vendored` feature, static). Alpine
+# dbus-libs is not installed: this binary does not need it.
 FROM alpine:3.22@sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f AS alpine-runtime
-RUN apk add --no-cache ca-certificates curl gcompat libstdc++ \
+RUN apk add --no-cache ca-certificates curl \
   && adduser -D -u 10001 app \
   && mkdir -p /var/lib/opensesame \
   && chown 10001:10001 /var/lib/opensesame
