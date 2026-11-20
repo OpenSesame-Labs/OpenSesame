@@ -293,7 +293,9 @@ impl Loop {
                         s.not_after = Some(generation.not_after);
                         s.updated_at = Some(now);
                         s.outage_since = None;
-                        s.retain_until = Some(generation.not_after);
+                        // A live generation carries no outage ceiling: the
+                        // stale bound of the outage it ended must not bind it.
+                        s.retain_until = None;
                         s.last_error = None;
                         s.snapshots = s.snapshots.saturating_add(1);
                     });

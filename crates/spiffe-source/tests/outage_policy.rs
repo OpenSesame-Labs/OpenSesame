@@ -6,7 +6,7 @@ mod policy;
 
 use std::time::Duration;
 
-use opensesame_domain::TransportError;
+use opensesame_domain::{CredentialStatus, TransportError};
 use opensesame_spiffe_source::fake::{FakeTrustDomain, FakeWorkloadApi};
 use opensesame_spiffe_source::sink::recording::{RecordingSink, SinkEvent};
 use opensesame_spiffe_source::{
@@ -219,6 +219,103 @@ async fn stalled_rpc_opening_cannot_extend_the_outage_deadline() {
         Some(SinkEvent::Withdrawn(TransportError::EvidenceExpired))
     );
     handle.stop().await;
+    api.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_fresh_generation_after_reconnect_sheds_the_stale_outage_ceiling() {
+    let api = FakeWorkloadApi::start();
+    let td = FakeTrustDomain::new(TD);
+    let gateway = td.issue_svid(GW, Duration::from_mins(10));
+    api.push_snapshot(snapshot(&td, &[&gateway]));
+    let sink = RecordingSink::shared();
+    let handle = SpiffeSource::start(
+        slow_reconnect(
+            &api,
+            Duration::from_millis(2500),
+            Duration::from_millis(800),
+        ),
+        sink.clone(),
+    );
+    streaming(&handle, 1).await;
+
+    // The outage arms a tight freshness bound far inside the certificate.
+    api.close_streams();
+    let (since, stale_bound) = opened_outage(&handle).await;
+    let not_after = handle.current().not_after.expect("first expiry");
+    assert!(since < stale_bound);
+    assert!(stale_bound < not_after);
+
+    // The agent returns before the bound with a freshly issued SVID whose
+    // own expiry is far beyond the stale outage ceiling.
+    let rotated = td.issue_svid(GW, Duration::from_mins(60));
+    api.push_snapshot(snapshot(&td, &[&rotated]));
+    let recovered = streaming(&handle, 2).await;
+
+    // The live generation carries no outage ceiling: `credential_status`
+    // stays Configured past the stale bound and expires only at the new
+    // SVID's real `not_after`.
+    assert_eq!(recovered.retain_until, None);
+    assert_eq!(recovered.outage_since, None);
+    let fresh_not_after = recovered.not_after.expect("fresh expiry");
+    assert!(stale_bound < fresh_not_after);
+    assert!(matches!(
+        recovered.credential_status(stale_bound + opensesame_time::Duration::minutes(1)),
+        CredentialStatus::Configured { generation: 2, .. }
+    ));
+    assert_eq!(
+        recovered.credential_status(fresh_not_after),
+        CredentialStatus::Expired { generation: 2 }
+    );
+    assert!(matches!(
+        sink.last(),
+        Some(SinkEvent::Activated { number: 2, spiffe_id, thumbprint, .. })
+            if *spiffe_id == *GW && *thumbprint == rotated.leaf_thumbprint_sha256
+    ));
+    handle.stop().await;
+    api.shutdown().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn stalling_holds_both_rpc_openings_and_resuming_lets_new_openings_through() {
+    let api = FakeWorkloadApi::start();
+    let td = FakeTrustDomain::new(TD);
+    let gateway = td.issue_svid(GW, Duration::from_mins(10));
+    api.push_snapshot(snapshot(&td, &[&gateway]));
+    let client = spiffe::WorkloadApiClient::connect(spiffe::transport::Endpoint::Unix(
+        api.socket_path().to_path_buf(),
+    ))
+    .await
+    .expect("connect to the fake");
+
+    // The stall holds the stream-opening RPCs the Workload API defines, not
+    // just the SVID stream the source opens, and both held openings count.
+    api.stall_on_reconnect();
+    assert!(
+        tokio::time::timeout(Duration::from_millis(200), client.fetch_x509_bundles())
+            .await
+            .is_err(),
+        "FetchX509Bundles must be held while stalled"
+    );
+    assert!(
+        tokio::time::timeout(Duration::from_millis(200), client.fetch_x509_svid())
+            .await
+            .is_err(),
+        "FetchX509SVID must be held while stalled"
+    );
+    assert_eq!(api.stalled_opens(), 2, "both held openings must count");
+
+    api.resume_new_streams();
+    let bundles = tokio::time::timeout(Duration::from_secs(2), client.fetch_x509_bundles())
+        .await
+        .expect("an open after resume must answer")
+        .expect("bundle fetch must succeed");
+    assert!(
+        bundles
+            .get(&spiffe::TrustDomain::new(TD).expect("trust domain"))
+            .is_some(),
+        "the resumed open must deliver the trust domain bundle"
+    );
     api.shutdown().await;
 }
 
