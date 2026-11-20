@@ -1,15 +1,9 @@
 import { createHash, hkdfSync, randomBytes, randomUUID } from "node:crypto";
 import {
-  type MagicLinkMetadata,
   type UpstreamAuthBundle,
   createUpstreamAuth,
 } from "@opensesame/auth-upstream";
-import {
-  type BoundaryValue,
-  type ProvisionalSession,
-  isString,
-  overlapCast,
-} from "@opensesame/os-domain";
+import type { ProvisionalSession } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
 import {
   ProvisionalMintRefusedError,
@@ -21,6 +15,7 @@ import { ensurePersonalOnAuthenticatedSession } from "../routes/projects.js";
 import { normalizeEmail } from "./email-normalization.js";
 import { attachVerifiedExternalIdentity } from "./identity-link.js";
 import { settleVerifiedOwner } from "./identity-principal-fence.js";
+import { magicLinkUrl } from "./magic-link-return.js";
 
 export { normalizeEmail } from "./email-normalization.js";
 
@@ -86,7 +81,7 @@ export class BetterAuthBridgeError extends Error {
  * The metadata key carrying the interaction the request started from, so the
  * link built in `sendMagicLink` can land back inside that interaction.
  */
-export const MAGIC_LINK_INTERACTION_KEY = "interactionUid";
+export { MAGIC_LINK_INTERACTION_KEY } from "./magic-link-return.js";
 
 /** Session scope for an email-verified admission: identical to every other leg. */
 const PROVISIONAL_ACTIONS = [
@@ -128,27 +123,6 @@ function betterAuthSecret(ctx: AppContext): string {
       32,
     ),
   ).toString("base64url");
-}
-
-function magicLinkUrl(
-  ctx: AppContext,
-  token: string,
-  metadata: MagicLinkMetadata | undefined,
-): string {
-  const base = stripTrailingSlashes(ctx.config.publicUrl);
-  // SAFETY: metadata is whatever the request handed `signInMagicLink`; the
-  // JSON boundary is exactly what `isString` is the guard for.
-  const claimed: BoundaryValue = overlapCast(
-    metadata?.[MAGIC_LINK_INTERACTION_KEY],
-  );
-  const uid = isString(claimed) ? claimed : undefined;
-  const query = `?token=${encodeURIComponent(token)}`;
-  // Two landing places, one token. A link started from the hosted login page
-  // resumes that interaction; a link started by a first-party client (Pages,
-  // the console) lands on the API route that answers with a bearer.
-  return uid
-    ? `${base}/interaction/${encodeURIComponent(uid)}/federated/email/verify${query}`
-    : `${base}/v1/auth/magic-link/complete${query}`;
 }
 
 function magicLinkText(url: string, ttlMinutes: number): string {

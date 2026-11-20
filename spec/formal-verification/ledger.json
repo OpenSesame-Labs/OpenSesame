@@ -2,6 +2,36 @@
   "schemaVersion": 1,
   "behaviors": [
     {
+      "id": "verifier-bound-magic-link-return",
+      "claim": "A first-party magic-link bearer is returned only after a single-use server exchange matches the initiating tab's verifier, state and callback origin, then rechecks the callback caller's captured session-ownership fence before adoption; merely opening either emailed link does not consume its proof.",
+      "implementation": [
+        "packages/control-plane/src/routes/auth-upstream.ts",
+        "packages/control-plane/src/routes/interactions-email.ts",
+        "packages/control-plane/src/services/magic-link-exchange.ts",
+        "packages/control-plane/src/services/magic-link-return.ts",
+        "packages/app-core/src/lib/magic-link-client.ts",
+        "packages/app-core/src/lib/federation.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "property-test",
+          "path": "packages/control-plane/src/__tests__/magic-link-exchange.test.ts",
+          "scope": "Concurrent durable-store regressions exercise atomic single use, verifier/state/origin binding, expiry, encrypted records, and send-budget isolation."
+        },
+        {
+          "kind": "example-test",
+          "path": "packages/control-plane/src/__tests__/magic-link-first-party.test.ts",
+          "scope": "HTTP regressions cover inert scanner GETs, explicit confirmation, callback refusal, wrong-verifier burn, and bearer-free redirects."
+        },
+        {
+          "kind": "example-test",
+          "path": "packages/app-core/src/lib/magic-link-client.test.ts",
+          "scope": "The production client regressions cover committed tab-local verifier custody, failed-resend preservation, state matching, exchange, local replay refusal, and refusal when the captured ownership fence changes during exchange."
+        }
+      ],
+      "limits": "There is no mechanized refinement proof for the browser/server protocol. Tests and exposure bindings do not protect a compromised mailbox or browser, a scanner that submits forms, or availability after a proof is deliberately spent."
+    },
+    {
       "id": "connector-mode-choice",
       "claim": "A locked or unavailable connector mode cannot change the selected method; an available unlocked selection takes effect.",
       "implementation": [

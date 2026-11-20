@@ -32,6 +32,7 @@ import type { AppContext } from "../context.js";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
 import { serializeKeyed } from "../serialize.js";
+import { chargeAuthenticationMagicLinkBudget } from "../services/magic-link-budget.js";
 import { createAuthenticationApplication } from "../services/verified-admin.js";
 import { consumePublicBudget } from "./authentication-budget.js";
 import { authenticatedPrincipalId } from "./organizations.js";
@@ -91,14 +92,6 @@ async function managedApplication(
     : undefined;
 }
 
-/**
- * Serialize read-modify-write on one application row.
- *
- * The key ring is a list on the row, so two concurrent API-key operations each
- * reading the same snapshot would have the last writer silently restore the
- * other's deleted or locked key. Rotation replaces the whole ring and is the
- * sharpest case: a concurrent key creation must not vanish.
- */
 function withApplicationLock<T>(
   ctx: AppContext,
   applicationId: string,
@@ -671,6 +664,12 @@ authenticationServiceRoutes.post("/backend/magic-links/send", async (c) => {
     c.req.header("authorization"),
   );
   if (!application) return c.json({ error: "unauthorized" }, 401);
+  const sendAllowed = await chargeAuthenticationMagicLinkBudget(
+    ctx,
+    application.id,
+    parsed.data.emailAddress,
+  );
+  if (!sendAllowed) return c.json({ error: "rate_limited" }, 429);
   const template = parsed.data.urlTemplate.replace("$TOKEN", "placeholder");
   if (!application.origins.includes(new URL(template).origin)) {
     return c.json({ error: "origin_not_allowed" }, 403);

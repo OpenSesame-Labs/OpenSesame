@@ -1,7 +1,12 @@
 import type { BoundaryValue } from "@opensesame/os-domain";
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { configureHost } from "../host.js";
+import { createMemoryStorage } from "../memory-storage.js";
+import { sessionStore } from "../ports.js";
+import { createTestHost } from "../test-host.js";
 import { deviceIdentitySeams } from "./device-identity.js";
+import { federationSeams } from "./federation.js";
 import { identitySeams } from "./identity.js";
 import {
   brokeredOrgUpstream,
@@ -31,6 +36,11 @@ function jsonOnce(body: BoundaryValue, status = 200): ReturnType<typeof vi.fn> {
 }
 
 beforeEach(() => {
+  configureHost(
+    createTestHost({
+      storage: { session: createMemoryStorage() },
+    }),
+  );
   identitySeams.identityBase = () => BASE;
   deviceIdentitySeams.remoteIdentityApi = () => BASE;
 });
@@ -182,21 +192,61 @@ describe("workEmailDomain", () => {
 describe("requestEmailMagicLink", () => {
   it("posts the address to the Identity API's magic-link route", async () => {
     const fetchMock = jsonOnce({ status: true });
-    await requestEmailMagicLink("ada@example.com");
+    await expect(requestEmailMagicLink("ada@example.com")).resolves.toBe(
+      "sent",
+    );
     const [url, init] = fetchMock.mock.calls[0] ?? [];
-    expect(url).toBe(`${BASE}/v1/auth/sign-in/magic-link`);
-    expect(JSON.parse(String(init?.body))).toMatchObject({
+    expect(url).toBe(`${BASE}/v1/auth/magic-link/v1/sign-in`);
+    const body = JSON.parse(String(init?.body));
+    expect(body).toMatchObject({
       email: "ada@example.com",
+      callbackURL: "http://localhost:3000/",
     });
-    // The token IS the credential on the way back; no cookie rides along.
+    expect(body.codeChallenge).toMatch(/^[A-Za-z0-9_-]{43}$/u);
+    expect(body.state).toMatch(/^[A-Za-z0-9_-]{32}$/u);
+    // The verifier stays in this tab; no cookie rides with the request.
     expect(init?.credentials).toBe("omit");
   });
 
-  it("says so plainly when the deployment has no email sign-in", async () => {
+  it("uses the hosted PKCE flow when Identity predates the versioned route", async () => {
     jsonOnce({ error: "not_found" }, 404);
-    await expect(requestEmailMagicLink("ada@example.com")).rejects.toThrow(
-      /not available/,
+    const begin = vi.spyOn(federationSeams, "beginSignIn").mockResolvedValue();
+    await expect(requestEmailMagicLink("ada@example.com")).resolves.toBe(
+      "redirecting",
     );
+    expect(begin).toHaveBeenCalledWith(brokeredRealmUpstream(), {});
+    expect(
+      sessionStore().getItem("opensesame.magic-link.pending.v1"),
+    ).toBeNull();
+  });
+
+  it("does not downgrade on other Identity failures", async () => {
+    jsonOnce({ error: "unavailable" }, 503);
+    const begin = vi.spyOn(federationSeams, "beginSignIn").mockResolvedValue();
+    await expect(requestEmailMagicLink("ada@example.com")).rejects.toThrow(
+      /503/,
+    );
+    expect(begin).not.toHaveBeenCalled();
+  });
+
+  it("does not start a fallback after the connected Identity changes", async () => {
+    let reply: (response: Response) => void = () => {};
+    const fetchMock = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          reply = resolve;
+        }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const begin = vi.spyOn(federationSeams, "beginSignIn").mockResolvedValue();
+    const request = requestEmailMagicLink("ada@example.com");
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    deviceIdentitySeams.remoteIdentityApi = () => "https://other.example.test";
+    reply(
+      new Response(JSON.stringify({ error: "not_found" }), { status: 404 }),
+    );
+    await expect(request).rejects.toThrow(/Sign-in changed/);
+    expect(begin).not.toHaveBeenCalled();
   });
 
   it("refuses to send when no Identity API is configured", async () => {
