@@ -22,7 +22,7 @@ fn request_expr<'a>(source: &'a str, fn_start: usize, at: usize) -> Option<&'a s
     let args = if rest.starts_with(".execute") || rest.starts_with("::") {
         head_args(rest)?
     } else {
-        let tail = super::super::sync_target_pact_chain::call_tail(source, at)?;
+        let tail = call_tail(source, at)?;
         call_inside(tail)?
     };
     let arg = split_arg(args, false);
@@ -206,6 +206,39 @@ pub(super) fn is_single_eq(bytes: &[u8], index: usize) -> bool {
             index.checked_sub(1).and_then(|prev| bytes.get(prev)),
             Some(b'=' | b'!' | b'<' | b'>')
         )
+}
+
+/// Argument list opener for `name(…)` and `(name)(…)` alias dispatches.
+pub(super) fn call_tail(source: &str, at: usize) -> Option<&str> {
+    let rest = &source[at..];
+    let name_len = leading_ident(rest).len();
+    if name_len == 0 {
+        return None;
+    }
+    let mut tail = rest[name_len..].trim_start();
+    if tail.starts_with('(') {
+        return Some(tail);
+    }
+    loop {
+        let Some(stripped) = tail.strip_prefix(')') else { break };
+        tail = strip_turbofish(stripped).unwrap_or(stripped).trim_start();
+        if tail.starts_with('(') {
+            return Some(tail);
+        }
+        if !tail.starts_with(')') {
+            break;
+        }
+    }
+    None
+}
+
+fn leading_ident(source: &str) -> &str {
+    let end = source
+        .char_indices()
+        .find(|(_, ch)| !is_ident_char(*ch))
+        .map(|(index, _)| index)
+        .unwrap_or(source.len());
+    &source[..end]
 }
 
 pub(super) fn stmt_end(bytes: &[u8], start: usize) -> usize {

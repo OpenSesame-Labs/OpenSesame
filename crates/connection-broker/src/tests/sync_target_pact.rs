@@ -327,6 +327,18 @@ fn contract_request_builder_json_is_not_a_body_read() {
 }
 
 #[test]
+fn contract_response_into_and_headers_are_body_reads() {
+    for sample in [
+        "let leaked = response.into();",
+        "let body: reqwest::Body = res.into();",
+        "response.headers().get(\"X-Secret\")",
+        "res.headers().iter().next()",
+    ] {
+        assert_body_read(sample);
+    }
+}
+
+#[test]
 fn contract_comments_and_raw_idents_are_body_reads() {
     for sample in [
         "response./* read body */text().await",
