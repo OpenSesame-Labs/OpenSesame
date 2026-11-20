@@ -43,17 +43,23 @@ function digest(file) {
   return createHash("sha256").update(readFileSync(file)).digest("hex");
 }
 
-const buildOptions = () => ({
-  devUrl,
-  href,
-  BASE,
-  outRoot,
-});
+const staticHref = `${ORIGIN}${BASE}`;
 
 async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
+  const phaseDevUrl = label === "branch" ? devUrl : "";
+  const href = phaseDevUrl || staticHref;
   return runBuildPhase(
     browser,
-    { label, dist, expectAdvanced, tutorial, ...buildOptions() },
+    {
+      label,
+      dist,
+      expectAdvanced,
+      tutorial,
+      devUrl: phaseDevUrl,
+      href,
+      BASE,
+      outRoot,
+    },
     { check, digest, evidence, failures },
   );
 }
