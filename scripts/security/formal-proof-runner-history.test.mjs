@@ -54,6 +54,26 @@ test("every registered suite has an existing, matching runner inventory", () => 
   );
 });
 
+test("interaction clock runner obligations cannot be removed", () => {
+  const suite = JSON.parse(
+    readFileSync(new URL("../../spec/formal/proof-registry.json", import.meta.url), "utf8"),
+  ).suites.find((entry) => entry.id === "interaction-clock");
+  const clock = PINNED_FORMAL_RUNNERS["interaction-clock"];
+  for (const path of clock.files) {
+    const suites = {
+      ...PINNED_FORMAL_RUNNERS,
+      "interaction-clock": {
+        ...clock,
+        files: clock.files.filter((file) => file !== path),
+      },
+    };
+    assert.throws(
+      () => validateRunnerMinimums({ shared: SHARED_FORMAL_RUNNERS, suites }, [suite]),
+      /required files for interaction-clock/,
+    );
+  }
+});
+
 function changeScript(f, name, value) {
   const doc = JSON.parse(readFileSync(join(f.repo, "package.json"), "utf8"));
   doc.scripts[name] = value;

@@ -39,6 +39,7 @@ export const MINIMUM_SHARED_RUNNERS = Object.freeze([
   RUNNER_INVENTORY_PATH,
   "scripts/lib/json-boundary.mjs",
   "spec/formal/check-axioms.sh",
+  "spec/formal/check-axioms.test.mjs",
   "spec/formal/required-theorem-command.lean",
 ]);
 const cargoRunners = [
@@ -83,6 +84,14 @@ const suiteMinimums = {
     "scripts/test/formal-vitest-report.mjs",
     "spec/formal/webauthn/vitest.config.ts",
     "spec/formal/webauthn/negative-controls.py",
+  ],
+  "interaction-clock": [
+    "spec/formal/interaction-clock/verify.sh",
+    "spec/formal/interaction-clock/vitest.config.ts",
+    "spec/formal/interaction-clock/check-report.mjs",
+    "spec/formal/interaction-clock/check-drift.mjs",
+    "spec/formal/interaction-clock/negative-controls.py",
+    "packages/control-plane/src/__tests__/interaction-settlement-clock.security.test.ts",
   ],
   authority: [
     "spec/formal/authority/check.sh",

@@ -132,6 +132,47 @@ function prepareMovingMain(f) {
   return { advertised, newer };
 }
 
+test("an existing push uses the destination main policy, not the fetch remote", (t) => {
+  const f = fixture(t);
+  installHook(f);
+  const fetchRemote = f.remote;
+  const pushRemote = join(f.dir, "push-policy.git");
+  f.git("init", "--bare", "-q", pushRemote);
+  for (const ref of ["main", "stale"])
+    f.git(
+      "-c",
+      "core.hooksPath=/dev/null",
+      "push",
+      "-q",
+      pushRemote,
+      `HEAD:refs/heads/${ref}`,
+    );
+  f.remote = pushRemote;
+  const { advertised } = prepareMovingMain(f);
+  f.remote = fetchRemote;
+  f.git("remote", "set-url", "--push", "origin", pushRemote);
+  const previous = f.git("rev-parse", "HEAD");
+  f.write("src/other", "stale implementation\n");
+  const target = f.commit();
+  const result = push(f, "HEAD", "refs/heads/stale");
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /removes required formal proof mapping a: src\/other/,
+  );
+  const direct = f.run(f.tuple(target, previous, "refs/heads/stale"));
+  assert.notEqual(direct.status, 0);
+  assert.match(
+    direct.stderr,
+    /removes required formal proof mapping a: src\/other/,
+  );
+  assert.equal(
+    spawnSync("git", ["cat-file", "-e", advertised], { cwd: f.repo }).status,
+    0,
+  );
+  assert.deepEqual(f.commands(), []);
+});
+
 function pushWhileMainMoves(f, newer) {
   const realGit = execFileSync("which", ["git"], { encoding: "utf8" }).trim();
   writeFileSync(

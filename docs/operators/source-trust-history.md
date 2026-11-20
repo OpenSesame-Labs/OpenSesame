@@ -1,8 +1,7 @@
 # Host source-trust history
 
-This workflow is a **prototype pending independent review and a complete
-pre-push run**. It records
-every trust-profile name the Host has accepted from its workload identity
+This workflow is a **prototype pending independent review and revalidation
+after restacking**. It records every trust-profile name the Host has accepted from its workload identity
 source, so a later local bundle in the Host's generation manager cannot claim
 a previously source-owned name. A configured Host transport requires the
 record even after a switch to PEM or managed identity, or when only service
