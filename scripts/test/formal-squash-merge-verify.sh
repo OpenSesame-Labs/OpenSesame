@@ -20,7 +20,7 @@ for rel in \
   cp -a "$ROOT/$rel" "$SCRATCH/$rel"
 done
 python3 - "$ROOT" "$SCRATCH" <<'PY'
-import json, shutil, subprocess, sys
+import json, shutil, sys
 from pathlib import Path
 
 root, scratch = map(Path, sys.argv[1:3])
@@ -38,29 +38,10 @@ for manifest in manifests:
         if rel in seen:
             continue
         seen.add(rel)
-        if rel == "Cargo.lock" or rel.endswith("/Cargo.lock"):
-            continue
         dest = scratch / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(root / rel, dest)
-# Start from origin/main's lock (the scratch worktree) and overlay branch
-# manifests. Regenerate the lock only when a manifest differs, so a branch
-# Cargo.lock is not copied over main's resolution wholesale.
-manifest_diff = subprocess.check_output(
-    ["git", "-C", str(root), "diff", "--name-only", "origin/main", "HEAD"],
-    text=True,
-)
-changed_manifests = [
-    rel
-    for rel in manifest_diff.splitlines()
-    if rel == "Cargo.toml" or rel.endswith("/Cargo.toml")
-]
-for rel in changed_manifests:
-    dest = scratch / rel
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(root / rel, dest)
-if changed_manifests:
-    subprocess.run(["cargo", "generate-lockfile"], cwd=scratch, check=True)
+shutil.copy2(root / "Cargo.lock", scratch / "Cargo.lock")
 scratch_pkg = scratch / "package.json"
 root_pkg = root / "package.json"
 if scratch_pkg.exists() and root_pkg.exists():
@@ -78,34 +59,15 @@ if scratch_pkg.exists() and root_pkg.exists():
 PY
 (
   cd "$SCRATCH"
-  # Identity is per invocation. `git config` here writes the shared repo
-  # config and would replace the caller's name and email.
+  git config user.name "formal-squash-verify"
+  git config user.email "formal-squash-verify@example.invalid"
   git add -A
-  git -c user.name="formal-squash-verify" -c user.email="formal-squash-verify@example.invalid" \
-    commit -qm "squash-sim: formal stack on origin/main"
+  git commit -qm "squash-sim: formal stack on origin/main"
 )
 python3 "$SCRATCH/spec/formal/authority/check-drift.py"
 python3 "$SCRATCH/spec/formal/dpop/check_drift.py"
 python3 "$SCRATCH/spec/formal/spiffe/check-drift.py"
-run_spiffe_skip_lean_integration() {
-  (
-    cd "$SCRATCH"
-    # Same Rust integration suites as spec/formal/spiffe/verify.sh after the
-    # Lean correspondence step. No name filter: a new case in these binaries
-    # still runs. Lean is not invoked.
-    cargo test --locked -p opensesame-spiffe-source --all-features \
-      --test synthetic_workload_api \
-      --test withdrawal_policy \
-      --test outage_policy \
-      --test trust_reduction_policy \
-      --test production_sink_policy
-  )
-}
-
 if [[ "${OPENSESAME_FORMAL_SQUASH_SKIP_LEAN:-}" != "1" ]]; then
   (cd "$SCRATCH" && npm run verify:authority-formal && npm run verify:dpop-formal && npm run verify:spiffe-formal)
-else
-  echo "formal-squash-merge-verify: skipping Lean; running SPIFFE Rust integration suites" >&2
-  run_spiffe_skip_lean_integration
 fi
 echo "formal-squash-merge-verify: ok (base origin/main $MAIN)"

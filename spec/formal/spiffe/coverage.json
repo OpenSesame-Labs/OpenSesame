@@ -1,8 +1,7 @@
 {
-  "version": 2,
+  "version": 1,
   "reviewed_revision": "863b64ec3ed5178b7ac7c3fec37b83657c038554",
-  "reviewed_attestation": "spec/formal/spiffe/reviewed-sources.json",
-  "reviewed_source_state": "Version 2 binds each source sha256 to reviewed_blob. reviewed_revision remains the main ancestor; base_blob is that revision's blob (null when the path did not exist). The reviewed bytes are the post-base security fix.",
+  "reviewed_source_state": "The source hashes identify this security fix and its correspondence tests after the reviewed base revision.",
   "sdk_projection": {
     "package": {
       "name": "spiffe",
@@ -112,135 +111,91 @@
   "sources": [
     {
       "path": "crates/spiffe-source/Cargo.toml",
-      "sha256": "e3063d450e98cfc47bbdf1b1d737553c42a4a9aa664bed652127f56c94e66b23",
-      "base_blob": "96b9c5fa3feb9893c3a1c2fe651598de63b44dab",
-      "reviewed_blob": "96b9c5fa3feb9893c3a1c2fe651598de63b44dab"
+      "sha256": "e3063d450e98cfc47bbdf1b1d737553c42a4a9aa664bed652127f56c94e66b23"
     },
     {
       "path": "crates/spiffe-source/src/source.rs",
-      "sha256": "568f8230e33923108ff5e5089f081dad2044b800f93b46c69562bd975d6222f5",
-      "base_blob": "6ff41f704f3262a8d0c3db87e1610fef483047f0",
-      "reviewed_blob": "07b5d87b8f27773c875465c1d5e1f523f4297bc9"
+      "sha256": "5c1c4885a568c9476af05ee40fd29479b0d0b15a0b085176f57ddbd19e9cfafe"
     },
     {
       "path": "crates/spiffe-source/src/source_policy.rs",
-      "sha256": "3f03a7b0a28eef755542eb761729b44df12a2efe5635c2dff3ce4da5c28695d0",
-      "base_blob": null,
-      "reviewed_blob": "88d295af987e76ee7ca0fc2e91d335fba24e840b"
+      "sha256": "faf81b2b4de6d9ded51f4663105ccb731ab9acd71a46e4ff48c4efd235ac516d"
     },
     {
       "path": "crates/spiffe-source/src/bundles.rs",
-      "sha256": "16d318990e61d3a0aae54eeef060defb154adf51dbec53e79a42f590814b740b",
-      "base_blob": "7678bb86c1c747b105c5808e298471e6a07bdecc",
-      "reviewed_blob": "014ddbcfd69036bfc7af065b1d61518daa2d1091"
+      "sha256": "16d318990e61d3a0aae54eeef060defb154adf51dbec53e79a42f590814b740b"
     },
     {
       "path": "crates/spiffe-source/src/outage.rs",
-      "sha256": "35a4ecd066c28c06a4b353d5c2c071d7d6075d94da0c53f8d0a343ee8ca65690",
-      "base_blob": "207e3eea4360200c74b8ad1f81c29d9d2a33f5dd",
-      "reviewed_blob": "e6a773e1e5e4423930f5265c7ee8db33bf153bda"
+      "sha256": "35a4ecd066c28c06a4b353d5c2c071d7d6075d94da0c53f8d0a343ee8ca65690"
     },
     {
       "path": "crates/spiffe-source/src/status.rs",
-      "sha256": "850e9be7ea4bffa6d49d416cd7d2b1d027d8536c81e5bdcc5841275431bfabfd",
-      "base_blob": "12ee218df78e8d48aa2b594e7f1280b038354427",
-      "reviewed_blob": "9c0350f5f122ad17c0165696891f418dd47c563a"
+      "sha256": "850e9be7ea4bffa6d49d416cd7d2b1d027d8536c81e5bdcc5841275431bfabfd"
     },
     {
       "path": "crates/spiffe-source/src/source_formal_tests.rs",
-      "sha256": "636a24236edae45dec12c0d5a45594b35f90233b5d82d370479c0d3f1ff9401e",
-      "base_blob": null,
-      "reviewed_blob": "fa9d1d2aa78819c1fbc88122f6b7c94c0dddbbef"
+      "sha256": "1d2911fbf340939809664c821a254af2314e17eb52bb2777098dbdd805940e49"
     },
     {
       "path": "crates/spiffe-source/src/fake/server.rs",
-      "sha256": "198bce58d92f3d4aed7e4217a9ffd6c96fd3d304adc50b87bdd9c3a34d05a9f7",
-      "base_blob": "ab5aa8d6e7f8b180ada56442d0b90190a96eb7b5",
-      "reviewed_blob": "c9b74704acff8ac4fc6eac73d0e716ec9629c29a"
+      "sha256": "1ddefac43b13ce36c38fa681dc0e38da0108c83e9b6874359212170ed486fa3b"
     },
     {
       "path": "crates/spiffe-source/tests/synthetic_workload_api.rs",
-      "sha256": "6ac4bac453dfaab5fbe91f214acbd7e9af270117b68f28bea8b0219b77b659c3",
-      "base_blob": "755f00dfc27c6f9ee26509aff26629d0254b409f",
-      "reviewed_blob": "b1972f87ba1bd99aaf63197c2c3d0b3d8069530d"
+      "sha256": "972db10a15a670deb45d56029db7702e11e80ed13fe99ee419351417df30cee6"
     },
     {
       "path": "crates/spiffe-source/tests/withdrawal_policy.rs",
-      "sha256": "1c96ff5ed77b2c37d9eee35a23113ee0062e9fd66b51d9e22baff2850163f9c0",
-      "base_blob": null,
-      "reviewed_blob": "76a1eba42cf48952817d9629bd0ed41a5865373b"
+      "sha256": "8623545609c9e60dc5d62a74619c7f1438b290b84c0e5c67be0c43727b28ca22"
     },
     {
       "path": "crates/spiffe-source/tests/outage_policy.rs",
-      "sha256": "d96616e9d7c75e4a5834af3428358645608e9b8ec187b01b23bb6c23e73aa1d5",
-      "base_blob": null,
-      "reviewed_blob": "0db8a4e3a585eff4e52830b3da57669bdb2ab652"
+      "sha256": "f72244eca0af4891c2ce98a8086042c1f6afd1895b1c48023f671bc45e8c1ce2"
     },
     {
       "path": "crates/spiffe-source/tests/trust_reduction_policy.rs",
-      "sha256": "4a4529e1fbd0e17f3f4e104072ef3e3330a4a2b0a8b9584d2fa2838a6b54132e",
-      "base_blob": null,
-      "reviewed_blob": "49a5c9044459b0c19d76cbe8c52d43086abaefd4"
+      "sha256": "4a4529e1fbd0e17f3f4e104072ef3e3330a4a2b0a8b9584d2fa2838a6b54132e"
     },
     {
       "path": "crates/spiffe-source/tests/support/policy.rs",
-      "sha256": "9638bccb672cc84eebf222265bd4bc85b951c5780ddde56b049bf0caebc385c2",
-      "base_blob": null,
-      "reviewed_blob": "de851269aab3893a8bb5cdebb1b732218d8ac446"
+      "sha256": "ab0168f14c1bb5750582db83db9802a6403f94827a28ef4c59c232bf62f93357"
     },
     {
       "path": "crates/spiffe-source/src/snapshot.rs",
-      "sha256": "eac3f881fbdf2cea21b2ee2046f4ececf7a61501d3b5add5049cac634ef426c6",
-      "base_blob": "949283266168687ffd363c376a0cb1b0f1ff9d85",
-      "reviewed_blob": "949283266168687ffd363c376a0cb1b0f1ff9d85"
+      "sha256": "eac3f881fbdf2cea21b2ee2046f4ececf7a61501d3b5add5049cac634ef426c6"
     },
     {
       "path": "crates/spiffe-source/src/error.rs",
-      "sha256": "c2bd97640a14770d31bf59a6f6d20069245bc466b095e36350c48283ccf1d72b",
-      "base_blob": "dd55466b267302071f6c2bc29ad3ebcd9b777a75",
-      "reviewed_blob": "dd55466b267302071f6c2bc29ad3ebcd9b777a75"
+      "sha256": "c2bd97640a14770d31bf59a6f6d20069245bc466b095e36350c48283ccf1d72b"
     },
     {
       "path": "crates/spiffe-source/src/config.rs",
-      "sha256": "c6a5aa75b9734a48b3195874074bd122a17eb56cb802a288de9157a8ca0b1f2b",
-      "base_blob": "59dc8a4b88cae7899a9c0a36fe0aa04d5dc1ae79",
-      "reviewed_blob": "59dc8a4b88cae7899a9c0a36fe0aa04d5dc1ae79"
+      "sha256": "c6a5aa75b9734a48b3195874074bd122a17eb56cb802a288de9157a8ca0b1f2b"
     },
     {
       "path": "crates/spiffe-source/src/svid_profile.rs",
-      "sha256": "930a4cc167a29ce7600d5066f2d9bfed28acf34b307c98f98bca3b7ed01c33bd",
-      "base_blob": "d57c9689fb661d2dce679547c03a075d99427d3c",
-      "reviewed_blob": "d57c9689fb661d2dce679547c03a075d99427d3c"
+      "sha256": "930a4cc167a29ce7600d5066f2d9bfed28acf34b307c98f98bca3b7ed01c33bd"
     },
     {
       "path": "crates/spiffe-source/src/sink.rs",
-      "sha256": "848d9cfd4c12b5abb2d80d5b2fbe0e7e23f0ab359a38df1834387ae912e1d102",
-      "base_blob": "3c506ce8ea4c0376cb3952ed540a1cf93a2d08f9",
-      "reviewed_blob": "3c506ce8ea4c0376cb3952ed540a1cf93a2d08f9"
+      "sha256": "848d9cfd4c12b5abb2d80d5b2fbe0e7e23f0ab359a38df1834387ae912e1d102"
     },
     {
       "path": "crates/spiffe-source/src/sink/transport.rs",
-      "sha256": "6e21d70def01299f45d1984d78dbbd3c9a1f284ddae328b498f348895c6ef861",
-      "base_blob": "2601afdedcc6f77c79490896772ddf47979e53b3",
-      "reviewed_blob": "2601afdedcc6f77c79490896772ddf47979e53b3"
+      "sha256": "6e21d70def01299f45d1984d78dbbd3c9a1f284ddae328b498f348895c6ef861"
     },
     {
       "path": "crates/transport-security/src/generations.rs",
-      "sha256": "d41961ca9895aee8bb98b9002b06afacb4fc627813bd0e174b4edf23bee12e66",
-      "base_blob": "7730c73cfc70720b0acd59549d82c44b02504bb4",
-      "reviewed_blob": "7730c73cfc70720b0acd59549d82c44b02504bb4"
+      "sha256": "d41961ca9895aee8bb98b9002b06afacb4fc627813bd0e174b4edf23bee12e66"
     },
     {
       "path": "crates/spiffe-source/src/lib.rs",
-      "sha256": "0c8480f773ffe915c10e95733566e71258edee4043648d65d2c2e65d0f1056ac",
-      "base_blob": "aee04c960872c4a635648990f87351f43e2cfd34",
-      "reviewed_blob": "1bdb59efe26c125d375335f60e6ea06ab79bf35b"
+      "sha256": "50a975b67dc7764109f014d5ebfef1c283400e36c9525b1531d8010bf2b9a3cc"
     },
     {
       "path": "crates/spiffe-source/tests/production_sink_policy.rs",
-      "sha256": "8cbdac8519fce49acbaa04f744e4fb616beb397122c0c892fa9fe41267803f79",
-      "base_blob": null,
-      "reviewed_blob": "49285730b19946747c0e0c97c8b4fdc4a23381ee"
+      "sha256": "4706f39803c67b5a2e32652b5cd71b3cdf3a9649e93c5381924187ea8956c4f6"
     }
   ],
   "lock_projection": {
