@@ -115,7 +115,13 @@ fn tuple_lhs_binds(before_eq: &str, name: &str) -> bool {
     while index > 0 {
         index -= 1;
         match bytes[index] {
-            b')' | b']' | b'}' => depth += 1,
+            b')' | b']' => depth += 1,
+            // A finished block is the previous statement, not this LHS.
+            b'}' if depth == 0 => {
+                start = index + 1;
+                break;
+            }
+            b'}' => depth += 1,
             b'(' | b'[' | b'{' if depth > 0 => depth -= 1,
             b';' | b'{' if depth == 0 => {
                 start = index + 1;
@@ -256,6 +262,25 @@ mod probes {
         assert_eq!(credentialed_send_https_gaps(kept), (1, 0), "{kept}");
         let quoted = r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } let _ = "url += evil"; client.get(url).send().await?; }"#;
         assert_eq!(credentialed_send_https_gaps(quoted), (1, 0), "{quoted}");
+    }
+
+    /// `(url,) = …` right after a `}`-terminated guard block must void the
+    /// HTTPS guard on the guard side: the backward scan stops at the finished
+    /// block, so the LHS is parsed as a tuple rather than swallowed into the
+    /// preceding statement. Asserted through `shadows` directly — the
+    /// end-to-end gap count alone would be masked by dest-side pattern
+    /// tracking at the send.
+    #[test]
+    fn chunk04_tuple_lhs_after_guard_block_voids_guard_side() {
+        let voided = r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } (url,) = (evil,); client.get(url).send().await?; }"#;
+        assert!(super::shadows(voided, "url"), "{voided}");
+        assert_eq!(credentialed_send_https_gaps(voided), (1, 1), "{voided}");
+        let nested = r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } ((url,),) = ((evil,),); client.get(url).send().await?; }"#;
+        assert!(super::shadows(nested, "url"), "{nested}");
+        let kept = r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } if let (url,) = (evil,) { let _ = 1; } client.get(url).send().await?; }"#;
+        assert!(!super::shadows(kept, "url"), "{kept}");
+        let untouched = r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#;
+        assert!(!super::shadows(untouched, "url"), "{untouched}");
     }
 
     /// `if let` / `while let` bind `url` only inside the condition's block,
