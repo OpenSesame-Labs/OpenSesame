@@ -163,6 +163,52 @@ function assertRunnerRustBuild(rust) {
     rust,
     /workspaces: \. -> \.\.\/\.\.\/\.\.\/\.cache\/packages\/cargo-target\n/,
   );
+  assert.match(rust, /name: Restore trunk Rust compile cache\n/);
+  assert.match(rust, /id: rust-cache-trunk\n/);
+  assert.match(rust, /shared-key: rust-build-\$\{\{ runner\.arch \}\}\n/);
+  assert.doesNotMatch(
+    rust,
+    /name: Restore trunk Rust compile cache[\s\S]*?lookup-only:/,
+  );
+  assert.match(
+    rust,
+    /name: Restore trunk Rust compile cache[\s\S]*save-if: false\n/,
+  );
+  assert.match(rust, /id: rust-cache-ghcr\n/);
+  assert.match(rust, /cache-all-crates: true\n/);
+  assert.match(
+    rust,
+    /name: Restore trunk Rust compile cache[\s\S]*shared-key: rust-build-\$\{\{ runner\.arch \}\}[\s\S]*save-if: false[\s\S]*id: rust-cache-ghcr[\s\S]*cache-all-crates: true[\s\S]*name: Log Rust cache hit[\s\S]*name: Log trunk Rust cache restore[\s\S]*name: Install mold and clang\n/,
+  );
+  assert.match(rust, /name: Log Rust cache hit\n/);
+  assert.match(rust, /CACHE_NAME: rust-ghcr\n/);
+  assert.match(
+    rust,
+    /CACHE_HIT: \$\{\{ steps\.rust-cache-ghcr\.outputs\.cache-hit \}\}\n/,
+  );
+  assert.match(rust, /CACHE_PRIMARY_KEY: v0-rust-ghcr-opensesame-amd64\n/);
+  assert.match(
+    rust,
+    /MAIN_SEED_PREFIX: v0-rust-rust-build-\$\{\{ runner\.arch \}\}-,v0-rust-ghcr-opensesame-amd64-\n/,
+  );
+  assert.match(rust, /name: Log trunk Rust cache restore\n/);
+  assert.match(rust, /CACHE_NAME: rust-trunk\n/);
+  assert.match(
+    rust,
+    /CACHE_HIT: \$\{\{ steps\.rust-cache-trunk\.outputs\.cache-hit \}\}\n/,
+  );
+  assert.match(
+    rust,
+    /CACHE_PRIMARY_KEY: v0-rust-rust-build-\$\{\{ runner\.arch \}\}\n/,
+  );
+  assert.match(
+    rust,
+    /MAIN_SEED_PREFIX: v0-rust-rust-build-\$\{\{ runner\.arch \}\}-\n/,
+  );
+  assert.equal(
+    rust.match(/node scripts\/lib\/ci-cache-seed\.mjs\n/g)?.length,
+    2,
+  );
   assert.match(rust, /name: Install mold and clang\n/);
   assert.match(rust, /command -v mold/);
   assert.match(rust, /command -v clang/);
