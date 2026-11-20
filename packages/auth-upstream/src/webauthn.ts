@@ -288,7 +288,7 @@ export async function verifyRegistrationAttestation(
   const challenge = clientData.challenge;
   if (!challenge || !isString(challenge)) return null;
   const issued = await store.consume(challenge);
-  if (!issued || issued.purpose !== "registration") return null;
+  if (issued?.purpose !== "registration") return null;
   if (issued.principalId !== expectedPrincipalId) return null;
 
   try {
