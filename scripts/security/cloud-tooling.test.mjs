@@ -161,3 +161,29 @@ test("scheduled native auditing fails closed on the real production graph after 
   );
   assert.doesNotMatch(deep, /npm run audit:osv[^\n]*\|\|/);
 });
+
+test("patched dependency verification installs locked npm deps immediately before comparing tarballs", () => {
+  const workflow = parseYaml(
+    readFileSync(join(root, ".github/workflows/security.yml"), "utf8"),
+  );
+  const job = workflow.jobs["patched-dependencies"];
+  assert.deepEqual(job.permissions, { contents: "read" });
+  assert.equal(job.if, undefined);
+  const verify = job.steps.findIndex(
+    (step) =>
+      step.name === "Rebuild each tarball from the registry and compare",
+  );
+  assert.ok(verify > 0);
+  const install = verify - 1;
+  assert.match(String(job.steps[install].run), /npm ci --ignore-scripts/);
+  assert.equal(
+    job.steps[install].run,
+    "npm ci --ignore-scripts --no-audit --no-fund",
+  );
+  assert.match(
+    String(job.steps[verify].run),
+    /^node scripts\/security\/patched-dependencies\.mjs verify\n/,
+  );
+  assert.doesNotMatch(String(job.steps[verify].run), /verify-offline/);
+  assert.equal(job.steps[verify]["continue-on-error"], undefined);
+});
