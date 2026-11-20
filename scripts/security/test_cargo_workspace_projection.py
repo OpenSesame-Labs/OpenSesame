@@ -49,6 +49,24 @@ class WorkspaceProjectionTest(unittest.TestCase):
         workspace["workspace"]["dependencies"]["target-alias"]["version"] = "2"
         self.assertNotEqual(self.project(workspace, package), baseline)
 
+    def test_legacy_dependency_table_spellings_and_duplicates(self):
+        package = copy.deepcopy(self.package)
+        package["dev_dependencies"] = package.pop("dev-dependencies")
+        package["target"] = {"cfg(unix)": {"build_dependencies": {"serde": {"workspace": True}}}}
+        baseline = self.project(self.workspace, package)
+        self.assertIn("proptest", baseline["workspace"]["dependencies"])
+        self.assertIn("serde", baseline["workspace"]["dependencies"])
+        workspace = copy.deepcopy(self.workspace)
+        workspace["workspace"]["dependencies"]["serde"]["features"].append("rc")
+        self.assertNotEqual(self.project(workspace, package), baseline)
+        package["dev-dependencies"] = {}
+        with self.assertRaisesRegex(projection.ProjectionError, "duplicate dependency table"):
+            self.project(workspace, package)
+        del package["dev-dependencies"]
+        package["target"]["cfg(unix)"]["build-dependencies"] = {}
+        with self.assertRaisesRegex(projection.ProjectionError, "duplicate dependency table"):
+            self.project(workspace, package)
+
     def test_member_selection_and_unsupported_patterns(self):
         baseline = self.project()
         unrelated = copy.deepcopy(self.workspace)

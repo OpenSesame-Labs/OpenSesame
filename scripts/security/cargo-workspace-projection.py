@@ -37,7 +37,10 @@ _DEPENDENCY_FIELDS = {
 }
 _STRING_FIELDS = {"version", "registry", "registry-index", "path", "git", "branch", "tag", "rev", "package", "target"}
 _BOOL_FIELDS = {"default-features", "optional", "workspace", "public", "lib"}
-_DEP_TABLES = ("dependencies", "dev-dependencies", "build-dependencies")
+_DEP_TABLES = (
+    "dependencies", "dev-dependencies", "build-dependencies",
+    "dev_dependencies", "build_dependencies",
+)
 
 
 class ProjectionError(ValueError):
@@ -86,6 +89,10 @@ def _inherited_dependencies(package):
     for target, value in _table(targets, "target").items():
         sections.append((f"target.{target}", _table(value, f"target.{target}")))
     for label, section in sections:
+        for modern, legacy in (("dev-dependencies", "dev_dependencies"),
+                               ("build-dependencies", "build_dependencies")):
+            if modern in section and legacy in section:
+                raise ProjectionError(f"{label} has duplicate dependency table forms")
         for name in _DEP_TABLES:
             for key, value in _table(section.get(name, {}), f"{label}.{name}").items():
                 if not isinstance(key, str) or not _NAME.fullmatch(key):
