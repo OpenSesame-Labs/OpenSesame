@@ -3,30 +3,95 @@ use super::super::sync_target_pact_norm::{is_keyword_at, string_len};
 use super::marker::{find_marker, is_ident_byte, is_ident_char};
 use super::peel::{match_delim, strip_ref, trailing_ident, unwrap_parens, unwrap_value};
 
-pub(super) fn let_bind_rhs(prefix: &str, name: &str) -> Option<String> {
+struct BindHit {
+    depth: i32,
+    name: String,
+    at: usize,
+}
+
+/// Visible binding of `name` and the source position of its RHS ident.
+/// A `let` inside a finished block does not stay visible. The position lets
+/// the next hop ignore a later shadow of that RHS.
+pub(super) fn let_bind_rhs(prefix: &str, name: &str) -> Option<(String, usize)> {
     let bytes = prefix.as_bytes();
     let mut index = 0usize;
-    let mut found = None;
+    let mut depth = 0i32;
+    let mut stack: Vec<BindHit> = Vec::new();
     while index < bytes.len() {
         if let Some(len) = string_len(bytes, index) {
             index += len;
             continue;
         }
-        if is_keyword_at(bytes, index, b"let") {
-            if let Some(rhs) = let_named_rhs(prefix, bytes, index, name) {
-                found = Some(rhs);
+        match bytes[index] {
+            b'{' => {
+                depth += 1;
+                index += 1;
+                continue;
             }
-        } else if is_keyword_at(bytes, index, name.as_bytes()) {
-            if let Some(rhs) = assign_rhs(prefix, bytes, index + name.len()) {
-                found = Some(rhs);
+            b'}' => {
+                if depth > 0 {
+                    depth -= 1;
+                }
+                while stack.last().is_some_and(|hit| hit.depth > depth) {
+                    stack.pop();
+                }
+                index += 1;
+                continue;
             }
+            _ => {}
+        }
+        if let Some(hit) = binding_hit(prefix, bytes, index, name) {
+            push_hit(&mut stack, depth, hit);
         }
         index += 1;
     }
-    found
+    stack.last().map(|hit| (hit.name.clone(), hit.at))
 }
 
-fn let_named_rhs(prefix: &str, bytes: &[u8], index: usize, name: &str) -> Option<String> {
+struct FoundBind {
+    is_let: bool,
+    name: String,
+    at: usize,
+}
+
+fn binding_hit(prefix: &str, bytes: &[u8], index: usize, name: &str) -> Option<FoundBind> {
+    if is_keyword_at(bytes, index, b"let") {
+        let (bound, at) = let_named_rhs(prefix, bytes, index, name)?;
+        return Some(FoundBind {
+            is_let: true,
+            name: bound,
+            at,
+        });
+    }
+    if is_keyword_at(bytes, index, name.as_bytes()) {
+        let (bound, at) = assign_rhs(prefix, bytes, index + name.len())?;
+        return Some(FoundBind {
+            is_let: false,
+            name: bound,
+            at,
+        });
+    }
+    None
+}
+
+fn push_hit(stack: &mut Vec<BindHit>, depth: i32, hit: FoundBind) {
+    if !hit.is_let {
+        if let Some(top) = stack.last_mut() {
+            top.name = hit.name;
+            top.at = hit.at;
+            return;
+        }
+    } else if stack.last().is_some_and(|top| top.depth == depth) {
+        stack.pop();
+    }
+    stack.push(BindHit {
+        depth,
+        name: hit.name,
+        at: hit.at,
+    });
+}
+
+fn let_named_rhs(prefix: &str, bytes: &[u8], index: usize, name: &str) -> Option<(String, usize)> {
     let mut at = skip_ws(bytes, index + 3);
     if is_keyword_at(bytes, at, b"mut") {
         at = skip_ws(bytes, at + 3);
@@ -45,7 +110,7 @@ fn let_named_rhs(prefix: &str, bytes: &[u8], index: usize, name: &str) -> Option
     rhs_ident(prefix, skip_ws(bytes, at + 1))
 }
 
-fn assign_rhs(prefix: &str, bytes: &[u8], at: usize) -> Option<String> {
+fn assign_rhs(prefix: &str, bytes: &[u8], at: usize) -> Option<(String, usize)> {
     let at = skip_ws(bytes, at);
     if !is_single_eq(bytes, at) {
         return None;
@@ -156,21 +221,22 @@ fn strip_mut_kw(ty: &str) -> &str {
     ty
 }
 
-fn rhs_ident(source: &str, at: usize) -> Option<String> {
+fn rhs_ident(source: &str, at: usize) -> Option<(String, usize)> {
     let raw = source.get(at..)?;
     let lead = raw.len() - raw.trim_start().len();
     let trimmed = &raw[lead..];
     let expr = strip_ref(unwrap_value(trimmed));
     let expr_at = at + lead + slice_offset(trimmed, expr);
     if matches!(read_ident_at(expr, 0).as_deref(), Some("if" | "match")) {
-        if let Some(name) = branch_response(source, expr, expr_at) {
-            return Some(name);
+        if let Some(found) = branch_response(source, expr, expr_at) {
+            return Some(found);
         }
     }
     if credentialed_send_expr(expr) {
-        return Some("response".to_string());
+        return Some(("response".to_string(), expr_at));
     }
-    read_ident_at(expr, 0)
+    let name = read_ident_at(expr, 0)?;
+    Some((name, expr_at))
 }
 
 fn slice_offset(outer: &str, inner: &str) -> usize {
@@ -178,7 +244,7 @@ fn slice_offset(outer: &str, inner: &str) -> usize {
 }
 
 /// An `if` / `match` initializer aliases the response when any branch value does.
-fn branch_response(source: &str, expr: &str, expr_at: usize) -> Option<String> {
+fn branch_response(source: &str, expr: &str, expr_at: usize) -> Option<(String, usize)> {
     let bytes = expr.as_bytes();
     let mut index = 0usize;
     while index < bytes.len() {
@@ -196,7 +262,7 @@ fn branch_response(source: &str, expr: &str, expr_at: usize) -> Option<String> {
         }
         let name = &expr[start..index];
         if tracks_branch_ident(source, expr_at + start, name) {
-            return Some(name.to_string());
+            return Some((name.to_string(), expr_at + start));
         }
     }
     None
@@ -225,7 +291,12 @@ fn send_marker(expr: &str, marker: &str) -> bool {
     })
 }
 
-fn let_tuple_named_rhs(prefix: &str, bytes: &[u8], pat_open: usize, name: &str) -> Option<String> {
+fn let_tuple_named_rhs(
+    prefix: &str,
+    bytes: &[u8],
+    pat_open: usize,
+    name: &str,
+) -> Option<(String, usize)> {
     let pattern_close = match_delim(&prefix[pat_open..], b'(', b')')?;
     let pattern = &prefix[pat_open + 1..pat_open + pattern_close];
     if !tuple_pattern_binds(pattern, name) {
@@ -239,53 +310,85 @@ fn let_tuple_named_rhs(prefix: &str, bytes: &[u8], pat_open: usize, name: &str) 
         return None;
     }
     let rhs_at = skip_ws(bytes, at + 1);
-    let rhs = prefix.get(rhs_at..)?.trim_start();
+    let rhs_raw = prefix.get(rhs_at..)?;
+    let lead = rhs_raw.len() - rhs_raw.trim_start().len();
+    let rhs = &rhs_raw[lead..];
+    let base = rhs_at + lead;
     if let Some(inside) = unwrap_tuple_rhs(rhs) {
         if let Some(path) = tuple_bind_path(pattern, name) {
-            return plain_name(descend_tuple_rhs(inside, &path));
+            return tuple_piece_ident(rhs, base, inside, &path);
         }
     }
     rhs_ident(prefix, rhs_at)
 }
 
+fn tuple_piece_ident(
+    rhs: &str,
+    base: usize,
+    inside: &str,
+    path: &[usize],
+) -> Option<(String, usize)> {
+    let piece = descend_tuple_rhs(inside, path);
+    let found = plain_name(piece)?;
+    let rel = piece.find(found.as_str())?;
+    Some((found, base + slice_offset(rhs, piece) + rel))
+}
+
+/// The RHS tuple interior. Peel one `(...)` only: `unwrap_value` also drops a
+/// paren when `;` follows, which shortens `((response,),)` before the path walk.
 fn unwrap_tuple_rhs(rhs: &str) -> Option<&str> {
-    let rhs = unwrap_value(rhs);
-    match_delim(rhs, b'(', b')').map(|close| rhs[1..close].trim())
+    let rhs = strip_ref(rhs.trim());
+    let close = match_delim(rhs, b'(', b')')?;
+    Some(rhs[1..close].trim())
 }
 
 fn tuple_bind_path(pattern: &str, name: &str) -> Option<Vec<usize>> {
-    let inside = pattern.trim();
-    let inside = inside
-        .strip_prefix('(')
-        .and_then(|rest| rest.strip_suffix(')'))
-        .unwrap_or(inside);
+    let inside = wrapped_tuple(pattern.trim()).unwrap_or(pattern.trim());
     for (index, part) in tuple_split(inside).into_iter().enumerate() {
-        if tuple_pattern_binds(part, name) {
+        if part.is_empty() {
+            continue;
+        }
+        if direct_tuple_bind(part, name) {
             return Some(vec![index]);
         }
-        let nested = part
-            .trim()
-            .strip_prefix('(')
-            .and_then(|rest| rest.strip_suffix(')'));
-        if let Some(inner) = nested {
-            if let Some(mut path) = tuple_bind_path(inner, name) {
-                path.insert(0, index);
-                return Some(path);
-            }
+        let Some(inner) = wrapped_tuple(strip_binding_mods(part.trim())) else {
+            continue;
+        };
+        if let Some(mut path) = tuple_bind_path(inner, name) {
+            path.insert(0, index);
+            return Some(path);
         }
     }
     None
 }
 
+/// `inside` is already the tuple interior. Each path index selects an element;
+/// a nested index unwraps that element first.
 fn descend_tuple_rhs<'a>(inside: &'a str, path: &[usize]) -> &'a str {
     let mut piece = inside.trim();
-    for &index in path {
-        let Some(next) = unwrap_tuple_rhs(piece) else {
+    for (step, &index) in path.iter().enumerate() {
+        let Some(next) = tuple_split(piece).get(index).copied() else {
             return "";
         };
-        piece = tuple_split(next).get(index).copied().unwrap_or("").trim();
+        piece = next.trim();
+        if step + 1 == path.len() {
+            break;
+        }
+        let Some(inner) = wrapped_tuple(piece) else {
+            return "";
+        };
+        piece = inner.trim();
     }
     piece
+}
+
+fn wrapped_tuple(expr: &str) -> Option<&str> {
+    let expr = expr.trim();
+    let close = match_delim(expr, b'(', b')')?;
+    expr[close + 1..]
+        .trim()
+        .is_empty()
+        .then(|| expr[1..close].trim())
 }
 
 fn tuple_split(inside: &str) -> Vec<&str> {
@@ -313,18 +416,46 @@ fn tuple_split(inside: &str) -> Vec<&str> {
 }
 
 fn tuple_pattern_binds(elem: &str, name: &str) -> bool {
-    let elem = elem.trim();
-    let elem = elem.strip_prefix("mut ").unwrap_or(elem).trim();
-    if let Some(inner) = elem
-        .strip_prefix('(')
-        .and_then(|rest| rest.strip_suffix(')'))
-    {
-        return tuple_split(inner)
-            .iter()
-            .any(|part| !part.is_empty() && tuple_pattern_binds(part, name));
+    direct_tuple_bind(elem, name) || tuple_bind_path(elem, name).is_some()
+}
+
+/// `(reply,)` and `((reply,),)` bind `reply`. A trailing comma is not part of the name.
+fn direct_tuple_bind(part: &str, name: &str) -> bool {
+    let part = strip_binding_mods(part.trim());
+    if part.is_empty() || part.starts_with('(') {
+        return false;
     }
-    read_ident_at(elem, 0).as_deref() == Some(name) && elem[name.len()..].trim().is_empty()
-        || elem.starts_with(name) && elem[name.len()..].trim_start().starts_with(':')
+    let Some(ident) = read_ident_at(part, 0) else {
+        return false;
+    };
+    if ident != name {
+        return false;
+    }
+    let rest = part[ident.len()..].trim_start();
+    rest.is_empty() || rest.starts_with(':')
+}
+
+fn strip_binding_mods(mut elem: &str) -> &str {
+    loop {
+        let trimmed = elem.trim_start();
+        if let Some(rest) = strip_one_mod(trimmed, "ref") {
+            elem = rest;
+            continue;
+        }
+        if let Some(rest) = strip_one_mod(trimmed, "mut") {
+            elem = rest;
+            continue;
+        }
+        return trimmed;
+    }
+}
+
+fn strip_one_mod<'a>(elem: &'a str, keyword: &str) -> Option<&'a str> {
+    let rest = elem.strip_prefix(keyword)?;
+    if rest.chars().next().is_some_and(is_ident_char) {
+        return None;
+    }
+    Some(rest.trim_start())
 }
 
 pub(crate) fn plain_name(expr: &str) -> Option<String> {

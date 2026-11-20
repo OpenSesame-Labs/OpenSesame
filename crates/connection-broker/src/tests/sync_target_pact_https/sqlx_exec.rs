@@ -16,8 +16,40 @@ pub(super) fn receiver_is_sqlx(source: &str, execute_at: usize) -> bool {
     !name.is_empty() && binding_is_sqlx(&source[..execute_at], &name)
 }
 
+/// `sqlx::query` / `sqlx::Query` as a path, not a substring of `not_sqlx::query`.
 fn has_sqlx_query(expr: &str) -> bool {
-    expr.contains("sqlx::query") || expr.contains("sqlx::Query")
+    let bytes = expr.as_bytes();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        if sqlx_query_at(expr, index) {
+            return true;
+        }
+        index += 1;
+    }
+    false
+}
+
+fn sqlx_query_at(expr: &str, index: usize) -> bool {
+    let bytes = expr.as_bytes();
+    if index > 0 && is_ident_byte(bytes[index - 1]) {
+        return false;
+    }
+    let Some(after) = expr[index..].strip_prefix("sqlx::") else {
+        return false;
+    };
+    let name = if after.starts_with("query") {
+        "query"
+    } else if after.starts_with("Query") {
+        "Query"
+    } else {
+        return false;
+    };
+    let end = index + "sqlx::".len() + name.len();
+    bytes.get(end).is_none_or(|byte| !is_ident_byte(*byte))
 }
 
 fn binding_is_sqlx(prefix: &str, name: &str) -> bool {
@@ -40,26 +72,75 @@ fn binding_is_sqlx(prefix: &str, name: &str) -> bool {
     false
 }
 
+/// Visible `let name` at the end of `prefix`. A binding inside a finished
+/// block or function does not count.
 fn let_rhs<'a>(prefix: &'a str, name: &str) -> Option<&'a str> {
     let bytes = prefix.as_bytes();
     let mut index = 0usize;
-    let mut found = None;
+    let mut depth = 0i32;
+    let mut stack: Vec<(i32, usize, usize)> = Vec::new();
     while index < bytes.len() {
         if let Some(len) = string_len(bytes, index) {
             index += len;
             continue;
         }
-        if is_keyword_at(bytes, index, b"let") {
-            if let Some(rhs) = named_rhs(prefix, index, name) {
-                found = Some(rhs);
+        match bytes[index] {
+            b'{' => {
+                depth += 1;
+                index += 1;
+                continue;
             }
+            b'}' => {
+                if depth > 0 {
+                    depth -= 1;
+                }
+                while stack.last().is_some_and(|(live, _, _)| *live > depth) {
+                    stack.pop();
+                }
+                index += 1;
+                continue;
+            }
+            _ => {}
+        }
+        if is_keyword_at(bytes, index, b"let") {
+            push_named_let(&mut stack, prefix, index, name, depth);
         }
         index += 1;
     }
-    found
+    stack
+        .last()
+        .map(|&(_, start, end)| prefix[start..end].trim())
 }
 
-fn named_rhs<'a>(prefix: &'a str, let_at: usize, name: &str) -> Option<&'a str> {
+fn push_named_let(
+    stack: &mut Vec<(i32, usize, usize)>,
+    prefix: &str,
+    index: usize,
+    name: &str,
+    depth: i32,
+) {
+    let Some(span) = named_rhs_span(prefix, index, name) else {
+        return;
+    };
+    if stack.last().is_some_and(|(live, _, _)| *live == depth) {
+        stack.pop();
+    }
+    stack.push((depth, span.0, span.1));
+}
+
+fn named_rhs_span(prefix: &str, let_at: usize, name: &str) -> Option<(usize, usize)> {
+    let (start, end) = named_rhs_bounds(prefix, let_at, name)?;
+    let raw = &prefix[start..end];
+    let trimmed = raw.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let lead = raw.len() - raw.trim_start().len();
+    let at = start + lead;
+    Some((at, at + trimmed.len()))
+}
+
+fn named_rhs_bounds(prefix: &str, let_at: usize, name: &str) -> Option<(usize, usize)> {
     let bytes = prefix.as_bytes();
     let mut at = skip_ws(bytes, let_at + 3);
     if is_keyword_at(bytes, at, b"mut") {
@@ -80,8 +161,7 @@ fn named_rhs<'a>(prefix: &'a str, let_at: usize, name: &str) -> Option<&'a str> 
         return None;
     }
     let rhs_at = skip_ws(bytes, at + 1);
-    let end = stmt_end(bytes, rhs_at);
-    Some(prefix[rhs_at..end].trim())
+    Some((rhs_at, stmt_end(bytes, rhs_at)))
 }
 
 fn statement_receiver(source: &str, end: usize) -> &str {
@@ -92,7 +172,13 @@ fn statement_receiver(source: &str, end: usize) -> &str {
     while index > 0 {
         index -= 1;
         match bytes[index] {
-            b')' | b']' | b'}' => depth += 1,
+            b')' | b']' => depth += 1,
+            // A finished block is the previous statement, not this receiver.
+            b'}' if depth == 0 => {
+                start = index + 1;
+                break;
+            }
+            b'}' => depth += 1,
             b'(' | b'[' | b'{' if depth == 0 => {
                 start = index + 1;
                 break;

@@ -83,28 +83,292 @@ fn expr_continues(bytes: &[u8], mut at: usize) -> bool {
 
 fn assigned_builder_url(prefix: &str, name: &str) -> Option<String> {
     let bytes = prefix.as_bytes();
+    let mut scope = UrlScope::default();
     let mut index = 0usize;
-    let mut found = None;
     while index < bytes.len() {
         if let Some(len) = string_len(bytes, index) {
             index += len;
             continue;
         }
-        if let Some(end) = note_name_binding(prefix, index, name, &mut found) {
-            index = end;
+        index = scope.on_byte(prefix, name, index);
+    }
+    scope.visible()
+}
+
+#[derive(Clone)]
+struct UrlBinding {
+    depth: i32,
+    url: String,
+}
+
+struct PendingElse {
+    entry: Vec<UrlBinding>,
+    if_exit: Vec<UrlBinding>,
+}
+
+struct Cond {
+    depth: i32,
+    entry: Vec<UrlBinding>,
+    else_arm: Option<Vec<UrlBinding>>,
+}
+
+#[derive(Default)]
+struct UrlScope {
+    depth: i32,
+    layers: Vec<UrlBinding>,
+    conds: Vec<Cond>,
+    pending_else: Option<PendingElse>,
+}
+
+enum BraceKind {
+    Block,
+    Branch,
+    Else,
+    ElseIf,
+}
+
+impl UrlScope {
+    fn visible(&self) -> Option<String> {
+        self.layers.last().map(|binding| binding.url.clone())
+    }
+
+    fn on_byte(&mut self, prefix: &str, name: &str, index: usize) -> usize {
+        match prefix.as_bytes()[index] {
+            b'{' => self.open_brace(prefix, index),
+            b'}' => self.close_brace(prefix, index),
+            _ => self.on_binding(prefix, name, index),
+        }
+    }
+
+    fn open_brace(&mut self, prefix: &str, index: usize) -> usize {
+        let body = self.depth + 1;
+        match brace_kind(prefix, index) {
+            BraceKind::Else => self.push_else(body),
+            BraceKind::ElseIf => self.push_else_if(body),
+            BraceKind::Branch => {
+                self.drop_pending_else();
+                self.push_branch(body);
+            }
+            BraceKind::Block => self.drop_pending_else(),
+        }
+        self.depth = body;
+        index + 1
+    }
+
+    fn push_else(&mut self, body: i32) {
+        let Some(pending) = self.pending_else.take() else {
+            return;
+        };
+        self.conds.push(Cond {
+            depth: body,
+            entry: pending.entry,
+            else_arm: Some(pending.if_exit),
+        });
+    }
+
+    fn push_else_if(&mut self, body: i32) {
+        // `else if` does not cover the skipped arm. Fail closed unless the
+        // preceding arm left the same URL the entry already had.
+        if let Some(pending) = self.pending_else.take() {
+            self.layers = merge_partial(&pending.entry, &pending.if_exit);
+        }
+        self.push_branch(body);
+    }
+
+    fn push_branch(&mut self, body: i32) {
+        self.conds.push(Cond {
+            depth: body,
+            entry: self.layers.clone(),
+            else_arm: None,
+        });
+    }
+
+    fn drop_pending_else(&mut self) {
+        if let Some(pending) = self.pending_else.take() {
+            self.layers = merge_partial(&pending.entry, &pending.if_exit);
+        }
+    }
+
+    fn close_brace(&mut self, prefix: &str, index: usize) -> usize {
+        if self.depth > 0 {
+            self.depth -= 1;
+        }
+        self.layers.retain(|binding| binding.depth <= self.depth);
+        while self
+            .conds
+            .last()
+            .is_some_and(|cond| cond.depth > self.depth)
+        {
+            let cond = self.conds.pop().expect("cond");
+            self.finish_cond(prefix, index, cond);
+        }
+        index + 1
+    }
+
+    fn finish_cond(&mut self, prefix: &str, close: usize, cond: Cond) {
+        if cond.else_arm.is_none() && else_follows(prefix, close + 1) {
+            self.pending_else = Some(PendingElse {
+                entry: cond.entry.clone(),
+                if_exit: self.layers.clone(),
+            });
+            self.layers = cond.entry;
+            return;
+        }
+        self.layers = match cond.else_arm {
+            Some(if_exit) => merge_both(&cond.entry, &if_exit, &self.layers),
+            None => merge_partial(&cond.entry, &self.layers),
+        };
+    }
+
+    fn on_binding(&mut self, prefix: &str, name: &str, index: usize) -> usize {
+        let Some(noted) = note_binding(prefix, index, name, self.visible().as_deref()) else {
+            return index + 1;
+        };
+        self.place(noted.is_let, noted.url);
+        noted.end.max(index + 1)
+    }
+
+    fn place(&mut self, is_let: bool, url: String) {
+        if is_let {
+            if self
+                .layers
+                .last()
+                .is_some_and(|binding| binding.depth == self.depth)
+            {
+                self.layers.pop();
+            }
+            self.layers.push(UrlBinding {
+                depth: self.depth,
+                url,
+            });
+            return;
+        }
+        if let Some(binding) = self.layers.last_mut() {
+            binding.url = url;
+            return;
+        }
+        self.layers.push(UrlBinding {
+            depth: self.depth,
+            url,
+        });
+    }
+}
+
+fn merge_partial(entry: &[UrlBinding], branch: &[UrlBinding]) -> Vec<UrlBinding> {
+    if visible_url(entry) == visible_url(branch) {
+        return branch.to_vec();
+    }
+    fail_closed(entry)
+}
+
+fn merge_both(entry: &[UrlBinding], left: &[UrlBinding], right: &[UrlBinding]) -> Vec<UrlBinding> {
+    if visible_url(left) == visible_url(right) {
+        return right.to_vec();
+    }
+    fail_closed(entry)
+}
+
+fn fail_closed(entry: &[UrlBinding]) -> Vec<UrlBinding> {
+    let mut out = entry.to_vec();
+    if let Some(binding) = out.last_mut() {
+        binding.url.clear();
+        return out;
+    }
+    out.push(UrlBinding {
+        depth: 0,
+        url: String::new(),
+    });
+    out
+}
+
+fn visible_url(layers: &[UrlBinding]) -> Option<&str> {
+    layers.last().map(|binding| binding.url.as_str())
+}
+
+fn else_follows(source: &str, mut at: usize) -> bool {
+    let bytes = source.as_bytes();
+    while at < bytes.len() && bytes[at].is_ascii_whitespace() {
+        at += 1;
+    }
+    is_keyword_at(bytes, at, b"else")
+}
+
+fn brace_kind(source: &str, brace: usize) -> BraceKind {
+    let bytes = source.as_bytes();
+    let mut at = brace;
+    while at > 0 && bytes[at - 1].is_ascii_whitespace() {
+        at -= 1;
+    }
+    if at >= 2 && bytes[at - 2] == b'=' && bytes[at - 1] == b'>' {
+        return BraceKind::Branch;
+    }
+    let header = &source[header_start(source, at)..at];
+    match first_header_keyword(header) {
+        Some("else") if header_has_keyword(header, "if") => BraceKind::ElseIf,
+        Some("else") => BraceKind::Else,
+        Some("if" | "while" | "for" | "loop" | "match") => BraceKind::Branch,
+        _ => BraceKind::Block,
+    }
+}
+
+fn header_start(source: &str, end: usize) -> usize {
+    let bytes = source.as_bytes();
+    let mut at = end;
+    let mut depth = 0i32;
+    while at > 0 {
+        at -= 1;
+        match bytes[at] {
+            b')' | b']' => depth += 1,
+            b'(' | b'[' if depth > 0 => depth -= 1,
+            b';' | b'{' | b'}' if depth == 0 => return at + 1,
+            _ => {}
+        }
+    }
+    0
+}
+
+fn first_header_keyword(header: &str) -> Option<&str> {
+    const KEYS: &[&str] = &["else", "if", "while", "for", "loop", "match"];
+    let bytes = header.as_bytes();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
             continue;
+        }
+        for key in KEYS {
+            if is_keyword_at(bytes, index, key.as_bytes()) {
+                return Some(*key);
+            }
         }
         index += 1;
     }
-    found
+    None
 }
 
-fn note_name_binding(
-    prefix: &str,
-    index: usize,
-    name: &str,
-    found: &mut Option<String>,
-) -> Option<usize> {
+fn header_has_keyword(header: &str, keyword: &str) -> bool {
+    let bytes = header.as_bytes();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        if is_keyword_at(bytes, index, keyword.as_bytes()) {
+            return true;
+        }
+        index += 1;
+    }
+    false
+}
+
+struct Noted {
+    url: String,
+    end: usize,
+    is_let: bool,
+}
+
+fn note_binding(prefix: &str, index: usize, name: &str, previous: Option<&str>) -> Option<Noted> {
     let bytes = prefix.as_bytes();
     if !is_keyword_at(bytes, index, name.as_bytes()) {
         return None;
@@ -112,26 +376,66 @@ fn note_name_binding(
     if let Some((url, end)) = super::pattern::destructured_url(prefix, index, name) {
         // `let (request,) = (client.get(evil),)` is a binding. An empty
         // URL still closes the unresolved-destination exception.
-        *found = Some(url);
-        return Some(end.max(index + 1));
+        return Some(Noted {
+            url,
+            end: end.max(index + 1),
+            is_let: true,
+        });
     }
     let eq = eq_after_name(bytes, index + name.len())?;
     let end = stmt_end(bytes, eq + 1);
-    apply_assigned_rhs(prefix, name, eq, end, found);
-    Some(end.max(index + 1))
+    let url = rhs_url(prefix, name, eq, end, previous)?;
+    Some(Noted {
+        url,
+        end: end.max(index + 1),
+        is_let: binding_introduced_by_let(prefix, index),
+    })
 }
 
-fn apply_assigned_rhs(prefix: &str, name: &str, eq: usize, end: usize, found: &mut Option<String>) {
+fn rhs_url(
+    prefix: &str,
+    name: &str,
+    eq: usize,
+    end: usize,
+    previous: Option<&str>,
+) -> Option<String> {
     let rhs = &prefix[eq + 1..end];
     if let Some(url) = builder_url(rhs) {
-        *found = Some(url.to_string());
-        return;
+        return Some(url.to_string());
     }
     // `request = other` supersedes a prior URL. `request = request.json(&body)`
     // keeps it: the chain root is still that binding.
-    if ident_prefix(rhs.trim()) != name {
-        *found = Some(String::new());
+    if ident_prefix(rhs.trim()) == name {
+        return previous.map(str::to_string);
     }
+    Some(String::new())
+}
+
+fn binding_introduced_by_let(prefix: &str, name_at: usize) -> bool {
+    let before = strip_trailing_mut(prefix[..name_at].trim_end());
+    ends_with_keyword(before, "let")
+}
+
+fn strip_trailing_mut(before: &str) -> &str {
+    let Some(rest) = before.strip_suffix("mut") else {
+        return before;
+    };
+    if rest
+        .chars()
+        .next_back()
+        .is_some_and(|ch| super::is_ident_char(ch))
+    {
+        return before;
+    }
+    rest.trim_end()
+}
+
+fn ends_with_keyword(source: &str, keyword: &str) -> bool {
+    source.strip_suffix(keyword).is_some_and(|rest| {
+        rest.chars()
+            .next_back()
+            .is_none_or(|ch| !super::is_ident_char(ch))
+    })
 }
 
 /// `=` after `name`, skipping a type ascription (`let request: T =`).
