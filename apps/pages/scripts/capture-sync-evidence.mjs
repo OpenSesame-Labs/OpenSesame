@@ -31,11 +31,12 @@ import { tailscaleServeDrive } from "./lib/tailscale-serve-drive.mjs";
 const origin = "https://opensesame-labs.github.io";
 const base = "/OpenSesame/";
 const repo = fileURLToPath(new URL("../../..", import.meta.url));
+import {
+  SHOP_PASSWORD,
+  SHOP_PWNED_RANGE_PREFIX,
+} from "./capture-sync-evidence-shop-fixture.mjs";
+
 const [mode, side, rawArg, outArg] = process.argv.slice(2);
-const SHOP_PASSWORD = "a long unique passphrase for the shop";
-// Pwned Passwords range prefix for SHOP_PASSWORD (SHA-1 k-anonymity); precomputed
-// so evidence scripts never hash credential-class material at runtime.
-const SHOP_PWNED_RANGE_PREFIX = "D9623";
 const WIDTHS = {
   desktop: { viewport: { width: 1280, height: 900 } },
   phone: phoneContext({ width: 390, height: 844 }),
