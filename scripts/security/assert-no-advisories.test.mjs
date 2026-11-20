@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { isString } from "../lib/json-boundary.mjs";
 import { attestRepairedFindings } from "./assert-no-advisories.mjs";
 
 const gate = fileURLToPath(
@@ -177,6 +178,7 @@ const fixtureFiles = [
   "patches/vendor/minimatch-9.0.9.tgz",
   "patches/vendor/minimatch-10.2.6.tgz",
   "scripts/security/dependency-override-upgrade.test.mjs",
+  "scripts/security/glob-override-upgrade.test.mjs",
   "scripts/security/removed-dependencies.test.mjs",
   "scripts/security/picomatch-backport.test.mjs",
   "scripts/security/patched-dependencies.mjs",
@@ -205,7 +207,7 @@ function writeJson(path, value) {
 }
 
 function lockPackageName(location, entry) {
-  if (typeof entry?.name === "string") return entry.name;
+  if (isString(entry?.name)) return entry.name;
   const marker = "node_modules/";
   const at = location.lastIndexOf(marker);
   return at === -1 ? undefined : location.slice(at + marker.length);

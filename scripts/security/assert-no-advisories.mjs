@@ -72,7 +72,9 @@ const PUBLISHED = Object.freeze({});
 
 const REGRESSIONS = Object.freeze({
   "scripts/security/dependency-override-upgrade.test.mjs":
-    "fd8b040a43e3a767eaee3bfd8db798beafbc0ca2154f1deeb207d3f77fdb207f",
+    "6f9860e7a4117ae7156e9fa11490a9695970aa33f0d83e8abd87996508ad2bdb",
+  "scripts/security/glob-override-upgrade.test.mjs":
+    "d28f2205036e9db3777506e7cddc3f26be05be0850a7272d71d6597e93ddaa54",
   "scripts/security/removed-dependencies.test.mjs":
     "152c2f29164663c83e2992d43b66c5883693fc9c822df526d6cb650018e6eb20",
   "scripts/security/picomatch-backport.test.mjs":
