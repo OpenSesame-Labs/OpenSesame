@@ -1,8 +1,22 @@
 import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js";
 import * as identity from "@opensesame/app-core/lib/identity.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
-import { describe, expect, it, vi } from "vitest";
+import {
+  provideGuideDeviceForm,
+  provideGuideInstallOffer,
+  provideGuideSupportModelPicks,
+  resetGuideVaultAnnouncerForTest,
+} from "@opensesame/app-core/tutorial/registry/predicates.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildTutorialGateOptions } from "./tutorial-gate-options.js";
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  provideGuideInstallOffer(() => false);
+  provideGuideDeviceForm(() => ({ narrow: false, keys: true }));
+  provideGuideSupportModelPicks(() => false);
+  resetGuideVaultAnnouncerForTest();
+});
 
 describe("buildTutorialGateOptions", () => {
   it("defaults identityApi from isRemoteIdentityConfigured", () => {
@@ -21,6 +35,5 @@ describe("buildTutorialGateOptions", () => {
     } as ReturnType<typeof vaultStore.getSnapshot>);
     buildTutorialGateOptions();
     expect(identitySpy).toHaveBeenCalled();
-    identitySpy.mockRestore();
   });
 });

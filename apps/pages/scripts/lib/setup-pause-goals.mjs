@@ -19,9 +19,16 @@ export function mergedGuideGoalCount() {
       "-e",
       "import { guideGoalIds } from './packages/app-core/src/tutorial/registry/goals.ts'; console.log(guideGoalIds().length)",
     ],
-    { cwd: root, encoding: "utf8" },
+    {
+      cwd: root,
+      encoding: "utf8",
+      env: { ...process.env, FORCE_COLOR: "0", NO_COLOR: "1" },
+    },
   );
-  cached = Number.parseInt(out.trim(), 10);
+  // tsx paints a number when FORCE_COLOR is set; the count is the digits.
+  const ansi = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "g");
+  const plain = out.replace(ansi, "");
+  cached = Number.parseInt(plain.trim(), 10);
   if (!Number.isFinite(cached) || cached < 2) {
     throw new Error(`unexpected merged guide goal count: ${out}`);
   }
