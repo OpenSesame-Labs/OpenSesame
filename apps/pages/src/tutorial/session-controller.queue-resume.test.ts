@@ -6,8 +6,8 @@ import {
 } from "@opensesame/app-core/lib/tutorial-queue.js";
 import { GUIDE_LANG_VERSION, type GuideProgram } from "@opensesame/guide-lang";
 import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
-import type { SupportEngine } from "./engine.js";
 import { afterEach, describe, expect, it } from "vitest";
+import type { SupportEngine } from "./engine.js";
 import { createSupportController } from "./session-controller.js";
 
 const PROGRAM: GuideProgram = {
@@ -51,8 +51,7 @@ function stubEngine(running: boolean): SupportEngine {
     },
     compile: () => null,
     compileAuthored: () => ({ ...PROGRAM, goal: "vault.lock" }),
-    runGuide: () =>
-      Promise.resolve({ kind: "completed", goal: "vault.lock" }),
+    runGuide: () => Promise.resolve({ kind: "completed", goal: "vault.lock" }),
     nextStep: () => {},
     backStep: () => {},
     restartGuide: () => {},
@@ -80,9 +79,9 @@ describe("resumeQueuedWalkthrough", () => {
     });
     controller.setRoute("/unlock");
     queueTutorial("vault.lock", { title: "Lock the vault" });
-    expect(
-      controller.resumeQueuedWalkthrough("vault.lock", "guide", ""),
-    ).toBe(false);
+    expect(controller.resumeQueuedWalkthrough("vault.lock", "guide", "")).toBe(
+      false,
+    );
     expect(listQueuedTutorials()).toEqual([{ goalId: "vault.lock" }]);
     controller.destroy();
   });
