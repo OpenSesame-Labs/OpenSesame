@@ -69,27 +69,18 @@ const wirePendingSchema = pendingFederatedAuthSchema
     },
   );
 
-const WIRE_COOKIE_FIELDS = new Set([
-  "issuer",
-  "state",
-  "nonce",
-  "verifier",
-  "verifierEnc",
-  "kind",
-  "providerId",
-  "byoId",
-  "orgId",
-]);
-
-function wireCookieHasOnlyKnownFields(
-  parsed: unknown,
-): parsed is z.infer<typeof wirePendingSchema> {
-  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-    return false;
+/** Strict wire JSON at the cookie decode boundary; rejects unknown fields via schema. */
+function decodeWirePendingJson(
+  jsonUtf8: string,
+): z.infer<typeof wirePendingSchema> | undefined {
+  let wireJson: unknown;
+  try {
+    wireJson = JSON.parse(jsonUtf8);
+  } catch {
+    return undefined;
   }
-  return Reflect.ownKeys(parsed).every(
-    (key) => typeof key === "string" && WIRE_COOKIE_FIELDS.has(key),
-  );
+  const parsed = wirePendingSchema.safeParse(wireJson);
+  return parsed.success ? parsed.data : undefined;
 }
 
 const SCRYPT_PARAMS = {
@@ -412,13 +403,11 @@ function verifiedPendingPayload(
   let data: z.infer<typeof wirePendingSchema>;
   let verifier: string;
   try {
-    const parsed: unknown = JSON.parse(
+    const wireData = decodeWirePendingJson(
       Buffer.from(payload, "base64url").toString("utf8"),
     );
-    if (!wireCookieHasOnlyKnownFields(parsed)) return undefined;
-    const macResult = wirePendingSchema.safeParse(parsed);
-    if (!macResult.success) return undefined;
-    data = macResult.data;
+    if (wireData === undefined) return undefined;
+    data = wireData;
     const resolved = resolveVerifier(data, secret);
     if (resolved === undefined) return undefined;
     verifier = resolved;
@@ -488,14 +477,10 @@ export function decodePending(
     payload = verified;
   }
   try {
-    const parsed: unknown = JSON.parse(
+    const data = decodeWirePendingJson(
       Buffer.from(payload, "base64url").toString("utf8"),
     );
-    if (secret !== undefined && !wireCookieHasOnlyKnownFields(parsed))
-      return undefined;
-    const result = wirePendingSchema.safeParse(parsed);
-    if (!result.success) return undefined;
-    const data = result.data;
+    if (data === undefined) return undefined;
     const verifier = resolveVerifier(data, secret);
     if (verifier === undefined) return undefined;
     // Rebuilt field by field rather than handed back whole: an absent v2 field
