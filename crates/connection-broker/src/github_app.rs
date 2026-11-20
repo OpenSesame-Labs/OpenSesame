@@ -193,22 +193,32 @@ pub async fn convert_manifest_code(
     convert_manifest_code_at(http, GITHUB_APP_MANIFEST_CONVERSIONS, code).await
 }
 
+fn manifest_conversion_url(base: &str, code: &str) -> Result<url::Url> {
+    let code = code.trim();
+    if code.is_empty()
+        || code.len() > 2048
+        || code == "."
+        || code == ".."
+        || code.chars().any(char::is_control)
+    {
+        return Err(BrokerError::Invalid("invalid manifest code".into()));
+    }
+    let mut url = url::Url::parse(base)
+        .map_err(|_| BrokerError::Invalid("invalid manifest conversion URL".into()))?;
+    url.path_segments_mut()
+        .map_err(|_| BrokerError::Invalid("invalid manifest conversion URL".into()))?
+        .pop_if_empty()
+        .push(code)
+        .push("conversions");
+    Ok(url)
+}
+
 pub(crate) async fn convert_manifest_code_at(
     http: &reqwest::Client,
     endpoint: &str,
     code: &str,
 ) -> Result<GithubAppCredentials> {
-    let code = code.trim();
-    if code.is_empty() {
-        return Err(BrokerError::Invalid("manifest code is required".into()));
-    }
-    let mut url = url::Url::parse(endpoint)
-        .map_err(|_| BrokerError::Invalid("invalid GitHub App conversion endpoint".into()))?;
-    url.path_segments_mut()
-        .map_err(|_| BrokerError::Invalid("invalid GitHub App conversion endpoint".into()))?
-        .pop_if_empty()
-        .push(code)
-        .push("conversions");
+    let url = manifest_conversion_url(endpoint, code)?;
     let mut res = http
         .post(url)
         .header("Accept", "application/vnd.github+json")
@@ -216,9 +226,7 @@ pub(crate) async fn convert_manifest_code_at(
         .header("X-GitHub-Api-Version", "2022-11-28")
         .send()
         .await
-        .map_err(|_| {
-            BrokerError::ExchangeFailed("GitHub App manifest conversion request failed".into())
-        })?;
+        .map_err(|e| BrokerError::ExchangeFailed(e.without_url().to_string()))?;
     let status = res.status();
     if !(200..300).contains(&status.as_u16()) {
         return Err(BrokerError::ExchangeFailed(format!(
@@ -244,6 +252,10 @@ pub(crate) async fn convert_manifest_code_at(
     serde_json::from_slice(&body)
         .map_err(|_| BrokerError::ExchangeFailed("invalid GitHub App conversion response".into()))
 }
+
+#[cfg(test)]
+#[path = "github_app_security_tests.rs"]
+mod security_tests;
 
 #[cfg(test)]
 mod tests {
