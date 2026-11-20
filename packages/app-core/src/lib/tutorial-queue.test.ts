@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { toastOf } from "./notice-toast.js";
-import { clearNotices, listNotices } from "./notices.js";
+import { clearNotices, listNotices, setStatusNotice } from "./notices.js";
 import {
   TUTORIAL_PAUSE_NOTICE,
   bindTutorialResume,
@@ -24,6 +24,7 @@ import {
   installTutorialQueueLibraryOptions,
   noteTutorialDeclined,
   postQueuedTutorialNotice,
+  refreshQueuedTutorialTrayNotices,
   rehydrateTutorialQueueNotices,
 } from "./tutorial-queue-present.js";
 
@@ -236,6 +237,32 @@ describe("tutorial queue", () => {
     expect(JSON.parse(raw ?? "{}").goals).toContain("vault.item.accounts");
     installTutorialQueueLibraryOptions({});
     unbind();
+  });
+
+  it("suppresses a restored tray row whose goal is not in the live queue", () => {
+    installTutorialQueueLibraryOptions({});
+    tutorialQueueSeams.write(
+      JSON.stringify({ goals: ["feature.unloaded", "vault.lock"] }),
+    );
+    setStatusNotice({
+      id: "tutorial.queue.feature.unloaded",
+      tone: "info",
+      title: "Unloaded",
+      body: "Queued.",
+    });
+    refreshQueuedTutorialTrayNotices();
+    expect(
+      listNotices().some(
+        (notice) => notice.id === "tutorial.queue.feature.unloaded",
+      ),
+    ).toBe(false);
+    expect(
+      listNotices().some((notice) => notice.id === "tutorial.queue.vault.lock"),
+    ).toBe(true);
+    expect(listQueuedTutorials()).toEqual([{ goalId: "vault.lock" }]);
+    expect(storedQueuedGoalIds()).toEqual(
+      expect.arrayContaining(["feature.unloaded", "vault.lock"]),
+    );
   });
 
   it("does not repost resume when live queueableGoal fails on refresh", () => {
