@@ -238,6 +238,7 @@ export class SupportControllerCore {
       getState: () => this.state,
       getEngine: () => this.engine,
       ensureEngine: () => this.ensureEngine(),
+      loadGeneration: () => this.generation,
       getNavigator: () => this.navigator,
       getPending: () => this.pendingQueuedResume,
       setPending: (value) => {
