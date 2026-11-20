@@ -27,14 +27,14 @@ import { phoneContext } from "./lib/mobile-contract.mjs";
 import { sealWithPin } from "./lib/pages-journey.mjs";
 import { createHarness } from "./lib/static-origin-harness.mjs";
 import { tailscaleServeDrive } from "./lib/tailscale-serve-drive.mjs";
-
-const origin = "https://opensesame-labs.github.io";
-const base = "/OpenSesame/";
-const repo = fileURLToPath(new URL("../../..", import.meta.url));
 import {
   SHOP_PASSWORD,
   SHOP_PWNED_RANGE_PREFIX,
 } from "./capture-sync-evidence-shop-fixture.mjs";
+
+const origin = "https://opensesame-labs.github.io";
+const base = "/OpenSesame/";
+const repo = fileURLToPath(new URL("../../..", import.meta.url));
 
 const [mode, side, rawArg, outArg] = process.argv.slice(2);
 const WIDTHS = {
