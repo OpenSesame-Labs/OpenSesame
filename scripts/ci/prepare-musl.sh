@@ -37,7 +37,14 @@ apt_options=(
 # The runner's configured sources and trusted keyrings still authenticate
 # Release metadata and package hashes. System apt hooks are not executed.
 APT_CONFIG="$musl_root/apt.conf" apt-get "${apt_options[@]}" update
-APT_CONFIG="$musl_root/apt.conf" apt-get "${apt_options[@]}" install -y --no-install-recommends musl-tools
+# Download the same package set `install --no-install-recommends musl-tools`
+# would resolve (musl-tools depends on musl-dev, which depends on musl).
+# `apt-get download` writes into the current directory; `install` exits
+# nonzero in APT::Get::Download-Only mode.
+(
+  cd "$musl_root/packages"
+  APT_CONFIG="$musl_root/apt.conf" apt-get "${apt_options[@]}" download musl musl-dev musl-tools
+)
 for musl_archive in "$musl_root/packages/"*.deb; do
   dpkg-deb --extract "$musl_archive" "$musl_root/sysroot"
 done
