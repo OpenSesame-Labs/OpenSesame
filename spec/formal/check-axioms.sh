@@ -15,7 +15,7 @@ case "${model##*/}" in
   PendingIntegrity.lean) suite=oauth; required_count=14 ;;
   ApprovalBinding.lean) suite=webauthn; required_count=12 ;;
   InteractionClock.lean) suite=interaction-clock; required_count=9 ;;
-  SpiffePolicy.lean) suite=spiffe; required_count=21 ;;
+  SpiffePolicy.lean) suite=spiffe; required_count=25 ;;
   *) echo "unknown formal model: $model" >&2; exit 1 ;;
 esac
 obligations="$root/spec/formal/$suite/required-theorems.lean"

@@ -2,6 +2,7 @@
 """Demonstrate that the real SPIFFE checks reject isolated Rust mutants."""
 from dataclasses import dataclass
 import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
@@ -210,6 +211,30 @@ def archive_workspace(destination: Path) -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / relative, target)
 
+    mise_toml = destination / "mise.toml"
+    if mise_toml.exists() and shutil.which("mise") is not None:
+        subprocess.run(["mise", "trust", str(mise_toml)], cwd=destination, check=False)
+    reviewed_revision = json.loads(
+        (destination / "spec/formal/spiffe/coverage.json").read_text()
+    )["reviewed_revision"]
+    origin_url = subprocess.check_output(
+        ["git", "-C", str(ROOT), "remote", "get-url", "origin"],
+        text=True,
+    ).strip()
+    subprocess.run(["git", "init", "-q"], cwd=destination, check=True)
+    subprocess.run(["git", "remote", "add", "origin", origin_url], cwd=destination, check=True)
+    subprocess.run(
+        ["git", "fetch", "-q", "--depth", "1", "origin", reviewed_revision],
+        cwd=destination,
+        check=True,
+    )
+    cargo_config = destination / ".cargo" / "config.toml"
+    cargo_config.parent.mkdir(parents=True, exist_ok=True)
+    cargo_config.write_text('[build]\ntarget-dir = "target"\n')
+    scratch_mise = destination / "mise.toml"
+    if scratch_mise.exists():
+        scratch_mise.rename(destination / "mise.toml.negative-controls-off")
+
 
 def assert_caught(mutation: Mutation, witness: Witness, *, scratch: Path, env: dict[str, str]) -> None:
     if witness.arguments == ("verify",):
@@ -251,6 +276,8 @@ def main() -> None:
     env = os.environ.copy()
     env["CARGO_INCREMENTAL"] = "0"
     env["CARGO_NET_OFFLINE"] = "true"
+    env["OPENSESAME_SPIFFE_NEGATIVE_CONTROLS"] = "1"
+    env.pop("CARGO_TARGET_DIR", None)
     original_hashes = live_fingerprint()
     try:
         with tempfile.TemporaryDirectory(prefix="opensesame-spiffe-negative-") as directory:
