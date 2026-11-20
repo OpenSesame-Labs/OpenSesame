@@ -167,6 +167,12 @@ prove that Rust refines the Lean model. Runner and Cargo configuration changes
 are execution metadata, and must be protected separately rather than selecting
 these implementation-filtered proofs by themselves.
 
+The Rust drift checks load their Cargo projection helpers only after checking
+the helper bytes against the suite's coverage record. The authority check also
+isolates the workspace helper's nested lock-projection import. This detects
+helper drift when that record is trusted; changing both requires review of the
+runner metadata and is not ruled out by a hash alone.
+
 The shared Lean checker rejects unapproved axiom
 declarations and theorem dependencies; `propext` and `Quot.sound` are permitted
 Lean built-ins. See [the hook instructions](../../scripts/README.md).

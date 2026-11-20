@@ -100,6 +100,7 @@ PATHS = [
     "crates/spiffe-source/src/source_lease_tests.rs",
     "scripts/security/formal-cargo-isolation.py",
     "scripts/security/formal-cargo-freshness.py",
+    "scripts/security/cargo-lock-projection.py",
 ]
 OPTIONAL_PATHS = [
     "crates/domain/build.rs",
@@ -158,13 +159,14 @@ def main():
         scope = {"__name__": "reviewed_cargo_isolation", "__file__": str(ROOT / helper_name)}
         exec(compile(verified[helper_name], scope["__file__"], "exec", dont_inherit=True), scope)
         scope["check_cargo_targets"](ROOT, TARGETS, set(verified))
-        helper = regular_path("scripts/security/cargo-lock-projection.py")
+        helper_name = "scripts/security/cargo-lock-projection.py"
+        helper = regular_path(helper_name)
         spec = importlib.util.spec_from_file_location("cargo_lock_projection", helper)
         if spec is None or spec.loader is None:
             raise ValueError("lock projection helper unavailable")
         projection = importlib.util.module_from_spec(spec)
         sys.modules[spec.name] = projection
-        exec(compile(helper.read_bytes(), str(helper), "exec", dont_inherit=True), projection.__dict__)
+        exec(compile(verified[helper_name], str(helper), "exec", dont_inherit=True), projection.__dict__)
         recorded = coverage["lock_projection"]
         if (recorded.get("root") != "opensesame-spiffe-source" or
                 recorded.get("algorithm") != "cargo-lock-projection-v1-sha256"):

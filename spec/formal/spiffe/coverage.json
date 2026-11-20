@@ -1,7 +1,7 @@
 {
   "version": 1,
   "reviewed_revision": "88ca3c30e1354a57b9a04d8f7875dcb00d25d57a",
-  "reviewed_source_state": "Source hashes identify the reviewed peer-domain integration after the recorded base; they do not prove source-to-model refinement. The compiler-isolation helpers were reviewed separately.",
+  "reviewed_source_state": "Source hashes identify the reviewed peer-domain integration after the recorded base; they do not prove source-to-model refinement. The compiler-isolation and projection helpers were reviewed separately.",
   "sdk_projection": {
     "package": {
       "name": "spiffe",
@@ -236,6 +236,10 @@
     {
       "path": "scripts/security/formal-cargo-isolation.py",
       "sha256": "f0d313d9895adc193afc26ae954b90bceb94deda66da239199c527eaf628eeda"
+    },
+    {
+      "path": "scripts/security/cargo-lock-projection.py",
+      "sha256": "85ebc3052f5be51de19f50af0b131d3e0a02496259ed5d59d209ed797ef79b6a"
     }
   ],
   "lock_projection": {

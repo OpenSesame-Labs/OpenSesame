@@ -6,18 +6,9 @@ from pathlib import Path
 import re
 import stat
 import sys
+import tempfile
 
 root = Path(__file__).resolve().parents[3]
-helper = root / "scripts/security/cargo-workspace-projection.py"
-for path in (root / "scripts", root / "scripts/security", helper):
-    if not (stat.S_ISREG(path.lstat().st_mode) if path == helper else stat.S_ISDIR(path.lstat().st_mode)):
-        raise SystemExit("authority-formal: projection helper path is not regular")
-spec = importlib.util.spec_from_file_location("cargo_workspace_projection", helper)
-if spec is None or spec.loader is None:
-    raise SystemExit("authority-formal: workspace projection helper is unavailable")
-projection = importlib.util.module_from_spec(spec)
-sys.modules[spec.name] = projection
-exec(compile(helper.read_bytes(), str(helper), "exec", dont_inherit=True), projection.__dict__)
 
 paths = [
     "crates/domain/Cargo.toml",
@@ -100,6 +91,8 @@ paths = [
     "spec/formal/authority/conformance.rs",
     "scripts/security/formal-cargo-isolation.py",
     "scripts/security/formal-cargo-freshness.py",
+    "scripts/security/cargo-lock-projection.py",
+    "scripts/security/cargo-workspace-projection.py",
 ]
 root_package = "opensesame-domain"
 TARGETS = {
@@ -114,6 +107,25 @@ crate_root_wiring_digest = "8b3f3bc845cc0ca24b75080aaf5c0143cb938104a9873801fbc5
 # A build script can read or generate additional, otherwise unmapped sources.
 # Enabling one requires a separately reviewed verifier and coverage extension.
 reviewed_build_script_sha256 = None
+
+
+def load_projection(verified):
+    # The workspace helper imports its sibling. Give it only the two byte
+    # arrays already checked against coverage, without ambient bytecode.
+    with tempfile.TemporaryDirectory(prefix="opensesame-authority-helpers-") as directory:
+        isolated = Path(directory)
+        for name in ("cargo-lock-projection.py", "cargo-workspace-projection.py"):
+            (isolated / name).write_bytes(verified[f"scripts/security/{name}"])
+        helper = isolated / "cargo-workspace-projection.py"
+        spec = importlib.util.spec_from_file_location("cargo_workspace_projection", helper)
+        if spec is None or spec.loader is None:
+            raise ValueError("workspace projection helper is unavailable")
+        sys.dont_write_bytecode = True
+        projection = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = projection
+        exec(compile(verified["scripts/security/cargo-workspace-projection.py"],
+                     str(helper), "exec", dont_inherit=True), projection.__dict__)
+        return projection
 
 
 def crate_root_tokens(source):
@@ -247,6 +259,7 @@ def verify(manifest):
     scope = {"__name__": "reviewed_cargo_isolation", "__file__": str(root / helper_name)}
     exec(compile(verified[helper_name], scope["__file__"], "exec", dont_inherit=True), scope)
     scope["check_cargo_targets"](root, TARGETS, set(verified))
+    projection = load_projection(verified)
     check_crate_paths(projection.read_toml(root / "crates/domain/Cargo.toml"))
     check_module_wiring((root / "crates/domain/src/lib.rs").read_text())
     graph = projection.lock_projection.read_lock(root / "Cargo.lock")
@@ -277,7 +290,7 @@ def main():
     try:
         manifest = json.loads((root / "spec/formal/authority/coverage.json").read_text())
         verify(manifest)
-    except (OSError, ValueError, KeyError, TypeError, projection.lock_projection.LockError) as exc:
+    except (OSError, ValueError, KeyError, TypeError) as exc:
         raise SystemExit(f"authority-formal: {exc}; review the model before updating coverage.json") from exc
     print(f"authority-formal: covered sources and Cargo inputs match reviewed revision {manifest['reviewed_revision']}")
 
