@@ -1,7 +1,9 @@
 //! Visible dispatch alias at a call site.
 //!
-//! A later `let` or assignment shadows an earlier send alias. The establishing
-//! `let` does not shadow its own call, and a comment cannot fake a rebind.
+//! A later `let` or assignment shadows an earlier send alias until that binding
+//! ends. A `let` inside a block does not kill the outer alias after the block.
+//! The establishing `let` does not shadow its own call, and a comment cannot
+//! fake a rebind — including the alias name inside a `let (` pattern.
 
 use super::super::super::sync_target_pact_norm::{is_keyword_at, non_code_len, skip_until_semi};
 use super::{path_prefix_start, statement_tail, value_eq, DispatchAlias};
@@ -15,17 +17,36 @@ pub(super) fn alias_shadowed(source: &str, alias: &DispatchAlias, call: usize) -
     if is_keyword_at(bytes, index, b"let") || establishing_let(source, index) {
         index = skip_until_semi(bytes, index);
     }
+    let mut depth = 0i32;
+    // Depths of `let` shadows still in scope. An assignment sticks only when
+    // it targets the alias itself, not a block-local shadow.
+    let mut let_depths: Vec<i32> = Vec::new();
+    let mut assigned = false;
     while index < call {
         if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }
-        if rebind_at(source, bytes, index, &alias.name) {
-            return true;
+        match bytes[index] {
+            b'{' => depth += 1,
+            b'}' if depth > 0 => {
+                depth -= 1;
+                while let_depths.last().is_some_and(|live| *live > depth) {
+                    let_depths.pop();
+                }
+            }
+            _ if rebind_at(source, bytes, index, &alias.name) => {
+                if is_keyword_at(bytes, index, b"let") {
+                    let_depths.push(depth);
+                } else if let_depths.is_empty() {
+                    assigned = true;
+                }
+            }
+            _ => {}
         }
         index += 1;
     }
-    false
+    assigned || !let_depths.is_empty()
 }
 
 /// `let name = …::send` introduces the alias. A `let` inside that initializer
@@ -108,8 +129,19 @@ fn let_pattern_close(bytes: &[u8], open: usize) -> Option<usize> {
     None
 }
 
+/// `name` as a pattern ident. A comment or string inside `let (` is not a rebind.
 fn pattern_contains_name(pattern: &str, name: &str) -> bool {
-    pattern
-        .split(|ch: char| !super::super::is_ident_char(ch))
-        .any(|part| part == name)
+    let bytes = pattern.as_bytes();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = non_code_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        if is_keyword_at(bytes, index, name.as_bytes()) {
+            return true;
+        }
+        index += 1;
+    }
+    false
 }

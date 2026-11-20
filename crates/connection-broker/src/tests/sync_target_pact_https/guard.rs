@@ -112,8 +112,8 @@ fn scheme_subject(expr: &str) -> Option<String> {
     let at = scheme_at(expr)?;
     let bytes = expr.as_bytes();
     if at > 0 && bytes[at - 1] == b'.' {
-        let name = super::closure::trailing_name(&expr[..at - 1]);
-        return (!name.is_empty()).then(|| name.to_string());
+        // `config.url.scheme()` is not a guard for the plain binding `url`.
+        return plain_scheme_receiver(&expr[..at - 1]);
     }
     if at >= 2 && &bytes[at - 2..at] == b"::" {
         let mut rest = &expr[at + "scheme".len()..];
@@ -124,6 +124,44 @@ fn scheme_subject(expr: &str) -> Option<String> {
         return plain_ident(arg).map(str::to_string);
     }
     None
+}
+
+fn plain_scheme_receiver(recv: &str) -> Option<String> {
+    let mut recv = recv.trim();
+    while let Some(inner) = paren_wrap(recv) {
+        recv = inner.trim();
+    }
+    super::bind::plain_ident(peel_ref(recv)).map(str::to_string)
+}
+
+fn paren_wrap(expr: &str) -> Option<&str> {
+    let expr = expr.trim();
+    let rest = expr.strip_prefix('(')?;
+    let after = super::after_paren(rest)?;
+    if !after.trim().is_empty() {
+        return None;
+    }
+    Some(rest[..rest.len() - after.len() - 1].trim())
+}
+
+fn peel_ref(mut recv: &str) -> &str {
+    loop {
+        if let Some(rest) = recv.strip_prefix("&mut") {
+            if rest
+                .chars()
+                .next()
+                .is_none_or(|ch| !super::is_ident_char(ch))
+            {
+                recv = rest.trim_start();
+                continue;
+            }
+        }
+        if let Some(rest) = recv.strip_prefix('&') {
+            recv = rest.trim_start();
+            continue;
+        }
+        return recv;
+    }
 }
 
 fn scheme_at(expr: &str) -> Option<usize> {
@@ -182,19 +220,23 @@ fn url_parse_arg(rhs: &str) -> Option<&str> {
             index += len;
             continue;
         }
-        if rhs[index..].starts_with("Url::parse(")
-            && (index == 0 || !is_ident_byte(bytes[index - 1]))
-        {
-            if let Some(inner) = args_of(&rhs[index + "Url::parse".len()..]) {
-                let arg = strip_ref(first_arg(inner));
-                if plain_ident(arg).is_some() {
-                    found = Some(arg);
-                }
-            }
+        if url_parse_at(rhs, index) {
+            found = plain_parse_arg(&rhs[index..]).or(found);
         }
         index += 1;
     }
     found
+}
+
+fn url_parse_at(rhs: &str, index: usize) -> bool {
+    let bytes = rhs.as_bytes();
+    rhs[index..].starts_with("Url::parse(") && (index == 0 || !is_ident_byte(bytes[index - 1]))
+}
+
+fn plain_parse_arg(at_parse: &str) -> Option<&str> {
+    let inner = args_of(&at_parse["Url::parse".len()..])?;
+    let arg = strip_ref(first_arg(inner));
+    plain_ident(arg).is_some().then_some(arg)
 }
 
 fn peel(expr: &str) -> &str {

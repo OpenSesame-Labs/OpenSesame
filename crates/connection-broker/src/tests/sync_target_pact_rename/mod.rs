@@ -16,7 +16,7 @@ pub(super) const RESPONSE_RECEIVER_NAMES: &[&str] =
 
 pub(crate) fn tracks_response_receiver(source: &str, before: usize, name: String) -> bool {
     let mut current = name;
-    let prefix = &source[..before];
+    let mut limit = before;
     for _ in 0..8 {
         if RESPONSE_RECEIVER_NAMES
             .iter()
@@ -24,11 +24,16 @@ pub(crate) fn tracks_response_receiver(source: &str, before: usize, name: String
         {
             return true;
         }
-        if let Some(next) = bind::let_bind_rhs(prefix, &current) {
-            current = next;
-            continue;
+        let prefix = &source[..limit];
+        let Some((next, at)) = bind::let_bind_rhs(prefix, &current) else {
+            return bind::param_is_response(prefix, &current);
+        };
+        // A hop that does not move earlier would re-read the same binding.
+        if at >= limit {
+            return false;
         }
-        return bind::param_is_response(prefix, &current);
+        current = next;
+        limit = at;
     }
     false
 }

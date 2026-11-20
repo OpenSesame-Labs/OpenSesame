@@ -63,9 +63,10 @@ fn receiver_is_request(prefix: &str) -> bool {
 }
 
 fn type_prefix_before_call(source: &str, paren: usize) -> &str {
-    let name = super::ident_before(&source[..paren]);
-    let end = paren.saturating_sub(name.len());
-    source[..end].trim_end().trim_end_matches(':')
+    let Some((start, _)) = call_name_at(source, paren) else {
+        return source[..paren].trim_end().trim_end_matches(':');
+    };
+    source[..start].trim_end().trim_end_matches(':')
 }
 
 fn allowed_callee(name: &str) -> bool {
@@ -73,16 +74,63 @@ fn allowed_callee(name: &str) -> bool {
 }
 
 fn free_call(source: &str, paren: usize) -> bool {
-    let name = callee_name(source, paren);
-    if name.is_empty() || paren < name.len() {
+    let Some((start, _)) = call_name_at(source, paren) else {
         return false;
-    }
-    let start = paren - name.len();
+    };
     start == 0 || source.as_bytes().get(start - 1) != Some(&b'.')
 }
 
 fn callee_name(source: &str, paren: usize) -> String {
-    super::ident_before(&source[..paren])
+    call_name_at(source, paren)
+        .map(|(_, name)| name)
+        .unwrap_or_default()
+}
+
+/// Ident of the callee, skipping a trailing turbofish (`helper::<T>(…)`).
+fn call_name_at(source: &str, paren: usize) -> Option<(usize, String)> {
+    let head = strip_turbofish_tail(source[..paren].trim_end());
+    let name = super::ident_before(head);
+    if name.is_empty() {
+        return None;
+    }
+    Some((head.len() - name.len(), name))
+}
+
+fn strip_turbofish_tail(prefix: &str) -> &str {
+    let trimmed = prefix.trim_end();
+    let bytes = trimmed.as_bytes();
+    if bytes.last() != Some(&b'>') {
+        return trimmed;
+    }
+    let Some(lt) = matching_lt(bytes) else {
+        return trimmed;
+    };
+    turbofish_before(trimmed, lt)
+}
+
+fn matching_lt(bytes: &[u8]) -> Option<usize> {
+    let mut depth = 0i32;
+    let mut index = bytes.len();
+    while index > 0 {
+        index -= 1;
+        depth += i32::from(bytes[index] == b'>');
+        if bytes[index] != b'<' {
+            continue;
+        }
+        depth -= 1;
+        if depth == 0 {
+            return Some(index);
+        }
+    }
+    None
+}
+
+fn turbofish_before(trimmed: &str, lt: usize) -> &str {
+    let before = trimmed[..lt].trim_end();
+    match before.strip_suffix("::") {
+        Some(rest) => rest.trim_end(),
+        None => trimmed,
+    }
 }
 
 fn args_borrow_response(source: &str, paren: usize) -> bool {

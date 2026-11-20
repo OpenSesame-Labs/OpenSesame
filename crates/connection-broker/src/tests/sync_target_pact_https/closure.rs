@@ -31,8 +31,29 @@ fn pipe_is_closure(body: &str, pipe: usize) -> bool {
         return true;
     }
     let prev = bytes[at - 1];
+    // `||` / `&&` are not closures, but `|x|` after them is: `flag || |x| return`.
+    // Compacted source glues `|| |x|` into `|||x|`, so the closure pipe is the
+    // third pipe in that run. A pipe after `&` is the same shape for `&&`.
+    if prev == b'&' {
+        return true;
+    }
+    if prev == b'|' && logic_or_closure(bytes, pipe, at) {
+        return true;
+    }
     matches!(prev, b'=' | b'(' | b'{' | b',' | b';' | b'[')
         || matches!(trailing_name(&body[..at]), "move" | "async")
+}
+
+/// Closure parameter pipe after `||`, not the operator's own second `|`.
+fn logic_or_closure(bytes: &[u8], pipe: usize, prev_at: usize) -> bool {
+    if prev_at < pipe {
+        return prev_at > 0 && bytes[prev_at - 1] == b'|';
+    }
+    let mut start = pipe;
+    while start > 0 && bytes[start - 1] == b'|' {
+        start -= 1;
+    }
+    pipe - start == 2
 }
 
 fn closure_body_at(body: &str, pipe: usize) -> Option<usize> {
