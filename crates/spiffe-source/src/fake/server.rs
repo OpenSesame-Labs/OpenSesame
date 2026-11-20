@@ -57,6 +57,13 @@ impl Service {
             |denial| denial.clone(),
         )
     }
+
+    async fn stall_if_armed(&self) {
+        if self.stall_new_streams.load(Ordering::SeqCst) {
+            self.stalled_opens.fetch_add(1, Ordering::SeqCst);
+            std::future::pending::<()>().await;
+        }
+    }
 }
 
 /// Handle to a running fake.
@@ -206,6 +213,12 @@ impl FakeWorkloadApi {
         self.close_streams();
     }
 
+    /// Answer RPC openings again; openings already held stay held.
+    pub fn resume_new_streams(&self) {
+        let stall = &self.service.stall_new_streams;
+        stall.store(false, Ordering::SeqCst);
+    }
+
     /// Number of RPC openings intentionally held open.
     #[must_use]
     pub fn stalled_opens(&self) -> u32 {
@@ -317,10 +330,7 @@ impl SpiffeWorkloadApi for Service {
         request: Request<X509svidRequest>,
     ) -> Result<Response<Self::FetchX509SVIDStream>, Status> {
         require_security_header(&request)?;
-        if self.stall_new_streams.load(Ordering::SeqCst) {
-            self.stalled_opens.fetch_add(1, Ordering::SeqCst);
-            std::future::pending::<()>().await;
-        }
+        self.stall_if_armed().await;
         let initial = self.state.lock().ok().and_then(|s| s.clone());
         let Some(initial) = initial else {
             return Err(self.service_denial());
@@ -359,6 +369,7 @@ impl SpiffeWorkloadApi for Service {
         request: Request<X509BundlesRequest>,
     ) -> Result<Response<Self::FetchX509BundlesStream>, Status> {
         require_security_header(&request)?;
+        self.stall_if_armed().await;
         let initial = self.state.lock().ok().and_then(|s| s.clone());
         let Some(initial) = initial else {
             return Err(self.service_denial());
