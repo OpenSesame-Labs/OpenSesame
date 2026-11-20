@@ -23,9 +23,8 @@ const DONE: GuideRuntimeSnapshot = {
 };
 
 function stubEngine(
-  onSubscribe?: (listener: (s: GuideRuntimeSnapshot) => void) => void,
+  runGuide: () => Promise<{ kind: "completed"; goal: string }>,
 ): SupportEngine {
-  let runCalls = 0;
   return {
     transport: "none",
     warning: null,
@@ -52,31 +51,28 @@ function stubEngine(
     },
     compile: () => null,
     compileAuthored: () => ({ ...PROGRAM, goal: "vault.lock" }),
-    runGuide: () => {
-      runCalls += 1;
-      return Promise.resolve({ kind: "completed", goal: "vault.lock" });
-    },
+    runGuide,
     nextStep: () => {},
     backStep: () => {},
     restartGuide: () => {},
     pauseGuide: () => {},
     cancelGuide: () => {},
     subscribeGuide: (listener) => {
-      onSubscribe?.(listener);
       listener(DONE);
       return () => {};
     },
     acquire: () => Promise.resolve({ kind: "acquired" }),
     destroy: () => {},
-    get runCalls() {
-      return runCalls;
-    },
-  } as SupportEngine & { runCalls: number };
+  };
 }
 
 describe("startGuide after a terminal snapshot", () => {
   it("starts another tour when the previous run left status done", async () => {
-    const engine = stubEngine();
+    let runCalls = 0;
+    const engine = stubEngine(() => {
+      runCalls += 1;
+      return Promise.resolve({ kind: "completed", goal: "vault.lock" });
+    });
     const controller = createSupportController({
       loadEngine: () => Promise.resolve(engine),
       onLock: () => () => {},
@@ -87,7 +83,7 @@ describe("startGuide after a terminal snapshot", () => {
     expect(controller.view().guide?.status).toBe("done");
     await controller.startGuide("vault.lock", "authored");
     await Promise.resolve();
-    expect((engine as SupportEngine & { runCalls: number }).runCalls).toBe(1);
+    expect(runCalls).toBe(1);
     controller.destroy();
   });
 });
