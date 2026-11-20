@@ -5,6 +5,7 @@ import {
 import { INTEGRATIONS } from "@opensesame/app-core/lib/capabilities/integrations.js";
 import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js";
 import { connectorTile } from "@opensesame/app-core/lib/connect-roads.js";
+import { isRemoteIdentityConfigured } from "@opensesame/app-core/lib/identity.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import type { LibraryOptions } from "@opensesame/app-core/tutorial/registry/areas.js";
 import {
@@ -20,7 +21,9 @@ import { installPanelDraws } from "./install-panel.js";
 import { finePointerNow, narrowNow } from "./use-narrow.js";
 
 /** Same offer gate as the Ask and Tutorials tabs, without React hooks. */
-export function buildTutorialGateOptions(identityApi = true): LibraryOptions {
+export function buildTutorialGateOptions(
+  identityApi = isRemoteIdentityConfigured(),
+): LibraryOptions {
   const plan = compositionStore.getSnapshot().plan;
   const { status, guest, tomb } = vaultStore.getSnapshot();
   const sealedVault = status === "unlocked" && !guest && Boolean(tomb);

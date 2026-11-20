@@ -116,29 +116,28 @@ export function bindTutorialResume(start: TutorialResumeStart): () => void {
   };
 }
 
-function readGoals(value: BoundaryValue | undefined): string[] {
+function readStoredIds(value: BoundaryValue | undefined): string[] {
   if (!Array.isArray(value)) return [];
   const ids: string[] = [];
   for (const entry of value) {
     if (!isString(entry) || !ID.test(entry) || ids.includes(entry)) continue;
-    if (guideGoal(entry) === null) continue;
     ids.push(entry);
   }
   return ids.slice(-LIMIT);
 }
 
-function parseQueue(raw: string | null): readonly string[] {
+function parseStoredGoalIds(raw: string | null): readonly string[] {
   if (!raw) return [];
   try {
     const parsed: BoundaryValue = JSON.parse(raw);
     if (!isJsonObject(parsed)) return [];
-    return readGoals(parsed.goals);
+    return readStoredIds(parsed.goals);
   } catch {
     return [];
   }
 }
 
-function loadGoals(): readonly string[] {
+function loadStoredGoalIds(): readonly string[] {
   let raw: string | null = null;
   try {
     raw = tutorialQueueSeams.read();
@@ -146,9 +145,14 @@ function loadGoals(): readonly string[] {
     raw = null;
   }
   if (cache !== null && cache.raw === raw) return cache.goals;
-  const goals = parseQueue(raw);
+  const goals = parseStoredGoalIds(raw);
   cache = { raw, goals };
   return goals;
+}
+
+/** Goals the live registry still exposes — presentation and resume only. */
+function loadGoals(): readonly string[] {
+  return loadStoredGoalIds().filter((goalId) => guideGoal(goalId) !== null);
 }
 
 export function dropQueueNotice(goalId: string): void {
@@ -158,7 +162,7 @@ export function dropQueueNotice(goalId: string): void {
 }
 
 function store(goals: readonly string[]): void {
-  const previous = loadGoals();
+  const previous = loadStoredGoalIds();
   const raw = JSON.stringify({ goals });
   cache = { raw, goals };
   try {
@@ -192,14 +196,15 @@ export function queueTutorial(
 ): boolean {
   if (meta.title.length > TITLE_LIMIT) return false;
   if (!ID.test(goalId) || guideGoal(goalId) === null) return false;
-  const current = loadGoals();
+  const current = loadStoredGoalIds();
   if (current.includes(goalId)) return true;
   store([...current, goalId].slice(-LIMIT));
   return true;
 }
 
 export function dequeueTutorial(goalId: string): void {
-  const current = loadGoals();
+  if (!ID.test(goalId)) return;
+  const current = loadStoredGoalIds();
   if (!current.includes(goalId)) return;
   store(current.filter((id) => id !== goalId));
 }
