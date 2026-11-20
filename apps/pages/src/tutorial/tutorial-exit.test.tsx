@@ -176,7 +176,11 @@ describe("leaving a tour", () => {
       "@opensesame/app-core/lib/tutorial-queue.js"
     );
     queueTutorial("settings.danger.review", { title: "Tour Settings: Danger" });
+    const unbind = controller.bindTutorialResume((goalId, guide, homeRoute) =>
+      controller.resumeQueuedWalkthrough(goalId, guide, homeRoute),
+    );
     expect(resumeTutorialFromNotice("settings.danger.review")).toBe(true);
+    unbind();
     await home.whenRunning;
     expect(navigated).toEqual(["/settings"]);
     expect(
