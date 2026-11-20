@@ -1,5 +1,6 @@
 //! The connection loop: stream snapshots from the Workload API, reduce each
-//! to a generation, activate or withdraw, and bound what survives an outage.
+//! to a generation, prepare and persist its trust history, activate or
+//! withdraw, and bound what survives an outage.
 //!
 //! Snapshot semantics: every message **replaces** the prior state. A message
 //! without the configured SVID, or without its trust domain's bundle, is an
@@ -8,7 +9,7 @@
 //! configured identity or trust. A parsed candidate rejected by the profile or
 //! sink retains the previous generation only when every old anchor is present
 //! in the new trust view, and only within its existing time bounds. Explicit
-//! permission or authentication denial is `ApiAction::Denied`. This loop maps
+//! permission or authentication denial is `ApiAction::Denied`; the loop maps
 //! that to immediate generation withdrawal with `TransportError::IdentityMissing`
 //! and the denial's status code. An empty Workload API response is the same
 //! `ApiAction::Withdraw` as an empty SVID list. A transport error or
@@ -16,7 +17,6 @@
 //! expiry or the outage freshness limit. Reconnection uses bounded, jittered
 //! backoff; there is no fallback identity.
 
-use std::sync::Arc;
 use std::time::Duration;
 
 use futures::StreamExt as _;
@@ -30,13 +30,19 @@ use super::source_policy::{classify_api_failure, ApiAction};
 use crate::config::SpiffeSourceConfig;
 use crate::error::SpiffeSourceError;
 use crate::outage::{bounded_deadline, retention_deadline, Backoff};
-use crate::sink::GenerationSink;
-use crate::snapshot::{SvidGeneration, TrustDomainBundles};
+use crate::sink::ClaimedSink;
+use crate::snapshot::TrustDomainBundles;
 use crate::status::{SourcePhase, SourceStatus};
+
+#[path = "source_history_flow.rs"]
+mod source_history_flow;
+use source_history_flow::{
+    sleep_until_monotonic, wait_for_history, Completion, PendingSnapshot, Preparation,
+};
 
 pub(super) struct Loop {
     config: SpiffeSourceConfig,
-    sink: Arc<dyn GenerationSink>,
+    sink: ClaimedSink,
     status: watch::Sender<SourceStatus>,
     stop: watch::Receiver<bool>,
     backoff: Backoff,
@@ -44,13 +50,15 @@ pub(super) struct Loop {
 }
 
 /// The generation currently handed to the sink.
-struct Active {
-    not_after: DateTime<Utc>,
-    bundles: TrustDomainBundles,
+pub(super) struct Active {
+    pub(super) not_after: DateTime<Utc>,
+    pub(super) bundles: TrustDomainBundles,
+    pub(super) monotonic_deadline: std::time::Instant,
 }
 
 enum StreamEnd {
     Stop,
+    HistoryRetry,
     Broken(SpiffeSourceError),
     Withdrawn(TransportError, &'static str),
     Expired,
@@ -59,7 +67,7 @@ enum StreamEnd {
 impl Loop {
     pub(super) fn new(
         config: SpiffeSourceConfig,
-        sink: Arc<dyn GenerationSink>,
+        sink: ClaimedSink,
         status: watch::Sender<SourceStatus>,
         stop: watch::Receiver<bool>,
     ) -> Self {
@@ -81,6 +89,7 @@ impl Loop {
             }
             match self.connect_and_stream().await {
                 StreamEnd::Stop => break,
+                StreamEnd::HistoryRetry => {}
                 StreamEnd::Broken(err) => self.on_outage(&err),
                 StreamEnd::Withdrawn(reason, code) => self.withdraw(reason, Some(code)),
                 StreamEnd::Expired => self.withdraw(TransportError::EvidenceExpired, None),
@@ -125,21 +134,56 @@ impl Loop {
         self.update(|s| {
             s.connections = s.connections.saturating_add(1);
         });
+        let mut pending: Option<Box<PendingSnapshot>> = None;
         loop {
             let expiry = self.active_deadline();
+            let write_expiry = pending.as_ref().map(|snapshot| snapshot.wait_until);
             tokio::select! {
                 biased;
                 _ = self.stop.changed() => return StreamEnd::Stop,
                 () = sleep_until(expiry) => {
-                    self.withdraw(TransportError::EvidenceExpired, None);
-                }
-                item = stream.next() => match item {
-                    Some(Ok(ctx)) => self.apply(&ctx),
-                    Some(Err(error)) => {
-                        return Self::end_action(classify_api_failure(&error), "stream");
+                    let had_pending = pending.take().is_some();
+                    self.withdraw(
+                        TransportError::EvidenceExpired,
+                        had_pending.then_some("history_write_timeout"),
+                    );
+                    if had_pending {
+                        return StreamEnd::HistoryRetry;
                     }
-                    None => return StreamEnd::Broken(SpiffeSourceError::Transport("closed".into())),
-                },
+                }
+                () = sleep_until_monotonic(write_expiry) => {
+                    drop(pending.take());
+                    self.withdraw(TransportError::EvidenceExpired, Some("history_write_timeout"));
+                    return StreamEnd::HistoryRetry;
+                }
+                item = stream.next() => {
+                    // Any observed newer event supersedes the candidate. A
+                    // detached old DB operation may reserve extra names but
+                    // can no longer activate its snapshot.
+                    drop(pending.take());
+                    match item {
+                        Some(Ok(ctx)) => match self.prepare_snapshot(&ctx) {
+                            Preparation::Candidate(snapshot) => pending = Some(snapshot),
+                            Preparation::Ignore => {}
+                            Preparation::Retry => return StreamEnd::HistoryRetry,
+                        },
+                        Some(Err(error)) => return Self::end_action(classify_api_failure(&error), "stream"),
+                        None => return StreamEnd::Broken(SpiffeSourceError::Transport("closed".into())),
+                    }
+                }
+                result = wait_for_history(&mut pending) => {
+                    if let Some(completed) = pending.take() {
+                        if matches!(
+                            self.finish_snapshot(&completed, result.is_ok()),
+                            Completion::Retry
+                        ) {
+                            return StreamEnd::HistoryRetry;
+                        }
+                    } else {
+                        self.withdraw(TransportError::SourceUnsupported, Some("history_state_invalid"));
+                        return StreamEnd::Withdrawn(TransportError::SourceUnsupported, "history_state_invalid");
+                    }
+                }
             }
         }
     }
@@ -163,44 +207,7 @@ impl Loop {
             .map(|active| bounded_deadline(active.not_after, self.status.borrow().retain_until))
     }
 
-    fn apply(&mut self, ctx: &X509Context) {
-        let now = Utc::now();
-        match SvidGeneration::select(ctx, &self.config, now) {
-            Ok(generation) => match self.sink.activate(&generation) {
-                Ok(number) => {
-                    self.backoff.reset();
-                    self.active = Some(Active {
-                        not_after: generation.not_after,
-                        bundles: generation.bundles.clone(),
-                    });
-                    self.update(|s| {
-                        s.phase = SourcePhase::Streaming;
-                        s.generation = Some(number);
-                        s.not_after = Some(generation.not_after);
-                        s.updated_at = Some(now);
-                        s.outage_since = None;
-                        // A live generation carries no outage ceiling: the
-                        // stale bound of the outage it ended must not bind it.
-                        s.retain_until = None;
-                        s.last_error = None;
-                        s.snapshots = s.snapshots.saturating_add(1);
-                    });
-                }
-                Err(refused) => {
-                    self.retain_or_withdraw(ctx, refused.code());
-                }
-            },
-            Err(err) if err.is_withdrawal() => {
-                let code = err.code().to_owned();
-                self.withdraw(err.to_transport_error(), Some(&code));
-            }
-            Err(err) => {
-                self.retain_or_withdraw(ctx, err.code());
-            }
-        }
-    }
-
-    fn retain_or_withdraw(&mut self, ctx: &X509Context, code: &str) {
+    pub(super) fn retain_or_withdraw(&mut self, ctx: &X509Context, code: &str) {
         let safe_to_retain = self.active.as_ref().is_none_or(|active| {
             TrustDomainBundles::from_context(ctx)
                 .is_ok_and(|incoming| incoming.contains_all(&active.bundles))
@@ -213,12 +220,32 @@ impl Loop {
     }
 
     fn on_outage(&mut self, err: &SpiffeSourceError) {
+        let monotonic_now = std::time::Instant::now();
         let now = Utc::now();
         let max_stale = self.config.max_stale();
         let retain = self
             .active
             .as_ref()
             .map(|a| retention_deadline(a.not_after, Some((now, max_stale))));
+        if let Some(deadline) = retain {
+            let Some(bound) = monotonic_now.checked_add(max_stale) else {
+                self.withdraw(
+                    TransportError::SourceUnsupported,
+                    Some("source_ownership_lost"),
+                );
+                return;
+            };
+            if self.sink.0.tighten(deadline, bound).is_err() {
+                self.withdraw(
+                    TransportError::SourceUnsupported,
+                    Some("source_ownership_lost"),
+                );
+                return;
+            }
+            if let Some(active) = self.active.as_mut() {
+                active.monotonic_deadline = active.monotonic_deadline.min(bound);
+            }
+        }
         let code = err.code().to_owned();
         let phase = if retain.is_some() {
             SourcePhase::Outage
@@ -262,7 +289,7 @@ impl Loop {
     fn withdraw(&mut self, reason: TransportError, reported: Option<&str>) {
         let code = reported.map_or_else(|| reason.code().to_owned(), ToOwned::to_owned);
         if self.active.take().is_some() {
-            self.sink.withdraw(reason);
+            let _ = self.sink.0.withdraw(reason);
         }
         self.update(|s| {
             if s.generation.is_some() && s.phase != SourcePhase::Withdrawn {

@@ -309,7 +309,7 @@
     },
     {
       "path": "spec/formal/authority/Cargo.lock",
-      "sha256": "577e0c29fdb0dd65cf8da4eab723b568df91179f9f35d863ccb96fd5335c9552"
+      "sha256": "04a7bdbcd1a3e0b28a74c9f73b994441f844a10af4e0dc25d03a8f993bd4a765"
     },
     {
       "path": "spec/formal/authority/conformance.rs",
@@ -335,7 +335,7 @@
   "lock_projection": {
     "root": "opensesame-domain",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "eb029c2ea41f7b0b7631e15bd1f82df620fc5a812a9c07e0cdd96c6be2031655"
+    "sha256": "786961109b512bbc4b8f44b9de42aef2b0d1b96be38c3b24caa482d2d179a440"
   },
   "workspace_projection": {
     "root": "opensesame-domain",
