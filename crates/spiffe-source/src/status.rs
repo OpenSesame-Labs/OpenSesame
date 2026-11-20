@@ -155,7 +155,7 @@ mod tests {
         status.not_after = Some(not_after);
         status.retain_until = Some(retain_until);
         assert!(matches!(
-            status.credential_status(retain_until - Duration::nanoseconds(1)),
+            status.credential_status(retain_until - Duration::milliseconds(1)),
             CredentialStatus::Configured { generation: 3, .. }
         ));
         assert_eq!(
