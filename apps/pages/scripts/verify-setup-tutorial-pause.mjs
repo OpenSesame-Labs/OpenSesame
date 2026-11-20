@@ -22,7 +22,6 @@ import { runBuildPhase } from "./lib/setup-pause-run-build.mjs";
 const devUrl = process.env.SETUP_PAUSE_DEV_URL ?? "";
 const ORIGIN = devUrl ? "" : "https://opensesame-labs.github.io";
 const BASE = process.env.VITE_BASE ?? "/OpenSesame/";
-const href = devUrl || `${ORIGIN}${BASE}`;
 const outRoot =
   process.env.SETUP_PROFILE_OUT ?? "/opt/cursor/artifacts/setup-profiles";
 const here = fileURLToPath(new URL(".", import.meta.url));
