@@ -1,17 +1,20 @@
 //! HTTPS guard for credentialed sync dispatch.
 //!
-//! A dispatch is a call (`.send(…)`, `::send(…)`, `.execute(…)`, `::execute(…)`)
-//! or a later call through `let f = …::send` / `let f = Client::execute`.
-//! Each site must sit after an `if` in the same function whose condition is
-//! true for non-https (`scheme() != "https"` or `.ne("https")`). `!` flips
-//! that term and binds tighter than `&&` / `||`. The body must `return`.
-//! A bare comparison, `assert!`, and the error text are not that guard.
+//! A dispatch is `.send` / `::send` / `.execute` / `::execute`, or a later call
+//! through `let f = …::send`. The guarding `if` must `return` from that
+//! function (not from a closure) when the dispatched URL is not https.
+//! `&&` / `||` split before unary `!`. A guard on a different URL does not count.
 
-use super::sync_target_pact_norm::{compact_source, is_keyword_at, string_len, strip_noise};
+mod bind;
+mod guard;
+
+use super::sync_target_pact_norm::string_len;
 
 /// `(sends, missing)` for credentialed dispatch sites.
 pub(crate) fn credentialed_send_https_gaps(source: &str) -> (usize, usize) {
-    let source = compact_source(&strip_noise(source));
+    let source = super::sync_target_pact_norm::compact_source(
+        &super::sync_target_pact_norm::strip_noise(source),
+    );
     let bytes = source.as_bytes();
     let spans = super::sync_target_pact_norm::function_spans(bytes);
     let alias_calls = super::sync_target_pact_chain::dispatch_alias_calls(&source);
@@ -39,6 +42,7 @@ pub(crate) fn credentialed_send_https_gaps(source: &str) -> (usize, usize) {
     }
     (sends, missing)
 }
+
 fn dispatch_site(source: &str, alias_calls: &[(usize, usize)], index: usize) -> Option<usize> {
     dispatch_len(&source[index..]).or_else(|| {
         alias_calls
@@ -47,14 +51,20 @@ fn dispatch_site(source: &str, alias_calls: &[(usize, usize)], index: usize) -> 
             .map(|(_, len)| *len)
     })
 }
+
 fn scheme_guarded(source: &str, spans: &[(usize, usize)], index: usize) -> bool {
-    spans
+    let Some((start, _)) = spans
         .iter()
         .copied()
-        .filter(|(start, end)| *start < index && index < *end)
-        .min_by_key(|(start, end)| end - start)
-        .is_some_and(|(start, _)| https_scheme_guard(&source[start..index]))
+        .filter(|(span_start, end)| *span_start < index && index < *end)
+        .min_by_key(|(span_start, end)| end - span_start)
+    else {
+        return false;
+    };
+    let dest = bind::dispatch_url(source, start, index);
+    guard::guarded(&source[start..index], dest.as_deref())
 }
+
 /// `.send(` / `::send(` / `.execute(` / `::execute(`, optional turbofish.
 fn dispatch_len(rest: &str) -> Option<usize> {
     const HEADS: &[&str] = &["::execute", "::send", ".execute", ".send"];
@@ -63,179 +73,26 @@ fn dispatch_len(rest: &str) -> Option<usize> {
     let after = strip_turbofish(after).unwrap_or(after);
     after.starts_with('(').then_some(head.len())
 }
-fn https_scheme_guard(prefix: &str) -> bool {
-    let bytes = prefix.as_bytes();
-    let mut index = 0usize;
-    while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        if is_keyword_at(bytes, index, b"if") && if_rejects_non_https(prefix, index) {
-            return true;
-        }
-        index += 1;
-    }
-    false
-}
-/// `if scheme() != "https" { return … }`. Negated `!(scheme() != "https")` does not.
-fn if_rejects_non_https(prefix: &str, if_at: usize) -> bool {
-    let bytes = prefix.as_bytes();
-    let cond_from = if_at + 2;
-    let Some(open) = condition_brace(bytes, cond_from) else {
-        return false;
-    };
-    if !fails_closed(&prefix[cond_from..open], false) {
-        return false;
-    }
-    let Some(close) = super::sync_target_pact_norm::match_brace(bytes, open) else {
-        return false;
-    };
-    depth0_return(&prefix[open + 1..close])
-}
 
-fn fails_closed(expr: &str, negated: bool) -> bool {
-    let expr = peel(expr);
-    // `||` / `&&` bind looser than unary `!`, so split them before flipping.
-    if let Some((left, right)) = split_top(expr, "||") {
-        let (lhs, rhs) = (fails_closed(left, negated), fails_closed(right, negated));
-        return if negated { lhs && rhs } else { lhs || rhs };
-    }
-    if let Some((left, right)) = split_top(expr, "&&") {
-        let (lhs, rhs) = (fails_closed(left, negated), fails_closed(right, negated));
-        return if negated { lhs || rhs } else { lhs && rhs };
-    }
-    if expr.starts_with('!') && !expr.starts_with("!=") {
-        return fails_closed(peel(&expr[1..]), !negated);
-    }
-    !negated && whole_scheme_neq(expr)
-}
-fn peel(expr: &str) -> &str {
-    if let Some(rest) = expr.strip_prefix('(') {
-        if let Some(after) = after_paren(rest) {
-            if after.is_empty() {
-                return peel(&expr[1..expr.len() - 1]);
+pub(super) fn strip_turbofish(after: &str) -> Option<&str> {
+    let after = after.strip_prefix("::")?.strip_prefix('<')?;
+    let mut depth = 1i32;
+    for (index, ch) in after.char_indices() {
+        match ch {
+            '<' => depth += 1,
+            '>' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&after[index + ch.len_utf8()..]);
+                }
             }
-        }
-    }
-    expr
-}
-fn split_top<'a>(expr: &'a str, op: &str) -> Option<(&'a str, &'a str)> {
-    let bytes = expr.as_bytes();
-    let mut index = 0usize;
-    let mut depth = 0i32;
-    while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        depth += match bytes[index] {
-            b'(' | b'[' | b'{' => 1,
-            b')' | b']' | b'}' => -1,
-            _ => 0,
-        };
-        if depth == 0 && expr[index..].starts_with(op) {
-            return Some((&expr[..index], &expr[index + op.len()..]));
-        }
-        index += 1;
-    }
-    None
-}
-fn whole_scheme_neq(expr: &str) -> bool {
-    let bytes = expr.as_bytes();
-    let mut index = 0usize;
-    while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        if let Some(end) = scheme_neq_end(expr, index) {
-            let prefix = &expr[..index];
-            return end == expr.len() && !prefix.bytes().any(|b| matches!(b, b'!' | b'&' | b'|'));
-        }
-        index += 1;
-    }
-    false
-}
-fn condition_brace(bytes: &[u8], from: usize) -> Option<usize> {
-    let mut paren = 0i32;
-    let mut index = from;
-    while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        match bytes[index] {
-            b'(' => paren += 1,
-            b')' => paren -= 1,
-            b'{' if paren == 0 => return Some(index),
-            b';' if paren == 0 => return None,
             _ => {}
         }
-        index += 1;
     }
     None
-}
-fn depth0_return(body: &str) -> bool {
-    let bytes = body.as_bytes();
-    let mut depth = 0i32;
-    let mut index = 0usize;
-    while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        match bytes[index] {
-            b'{' => depth += 1,
-            b'}' => depth -= 1,
-            _ if depth == 0 && is_keyword_at(bytes, index, b"return") => return true,
-            _ => {}
-        }
-        index += 1;
-    }
-    false
 }
 
-fn scheme_neq_end(source: &str, index: usize) -> Option<usize> {
-    if !ident_at(source.as_bytes(), index, b"scheme") {
-        return None;
-    }
-    let mut rest = &source[index + "scheme".len()..];
-    if let Some(stripped) = strip_turbofish(rest) {
-        rest = stripped;
-    }
-    rest = rest.strip_prefix('(')?;
-    rest = after_paren(rest)?;
-    let trimmed = rest.trim_start_matches(')');
-    let extra = rest.len() - trimmed.len();
-    let consumed = https_cmp_len(trimmed)?;
-    Some(source.len() - rest.len() + extra + consumed)
-}
-fn https_cmp_len(tail: &str) -> Option<usize> {
-    let rest = tail
-        .strip_prefix("!=")
-        .or_else(|| tail.strip_prefix(".ne"))?;
-    let op = tail.len() - rest.len();
-    let body = rest.trim_start_matches('(');
-    if !body.starts_with("\"https\"") {
-        return None;
-    }
-    let mut end = op + (rest.len() - body.len()) + "\"https\"".len();
-    let mut open = rest.len() - body.len();
-    while open > 0 && tail.as_bytes().get(end) == Some(&b')') {
-        end += 1;
-        open -= 1;
-    }
-    Some(end)
-}
-fn ident_at(bytes: &[u8], index: usize, ident: &[u8]) -> bool {
-    let end = index + ident.len();
-    end <= bytes.len()
-        && &bytes[index..end] == ident
-        && (index == 0 || !is_ident_byte(bytes[index - 1]))
-        && (end == bytes.len() || !is_ident_byte(bytes[end]))
-}
-fn after_paren(source: &str) -> Option<&str> {
+pub(super) fn after_paren(source: &str) -> Option<&str> {
     let bytes = source.as_bytes();
     let mut depth = 1i32;
     let mut index = 0usize;
@@ -258,25 +115,21 @@ fn after_paren(source: &str) -> Option<&str> {
     }
     None
 }
-fn strip_turbofish(after: &str) -> Option<&str> {
-    let after = after.strip_prefix("::")?.strip_prefix('<')?;
-    let mut depth = 1i32;
-    for (index, ch) in after.char_indices() {
-        match ch {
-            '<' => depth += 1,
-            '>' => {
-                depth -= 1;
-                if depth == 0 {
-                    return Some(&after[index + ch.len_utf8()..]);
-                }
-            }
-            _ => {}
-        }
-    }
-    None
+
+pub(super) fn ident_at(bytes: &[u8], index: usize, ident: &[u8]) -> bool {
+    let end = index + ident.len();
+    end <= bytes.len()
+        && &bytes[index..end] == ident
+        && (index == 0 || !is_ident_byte(bytes[index - 1]))
+        && (end == bytes.len() || !is_ident_byte(bytes[end]))
 }
-fn is_ident_byte(byte: u8) -> bool {
+
+pub(super) fn is_ident_byte(byte: u8) -> bool {
     byte.is_ascii_alphanumeric() || byte == b'_'
+}
+
+pub(super) fn is_ident_char(ch: char) -> bool {
+    ch.is_ascii_alphanumeric() || ch == '_'
 }
 
 #[cfg(test)]
@@ -359,6 +212,7 @@ mod dispatch_tests {
             r#"if parsed.scheme() != "https" && allow_plain { return Err("x".into()); }"#,
             r#"if !allow && !(parsed.scheme() != "https") { return Err("x".into()); }"#,
             r#"if !(parsed.scheme() != "https") || allow_plain { return Err("x".into()); }"#,
+            r#"if !flag && !(parsed.scheme() != "https") { return Err("x".into()); }"#,
         ];
         for guard in not_guards {
             let source = format!("async fn f() {{ {guard}\n request.send().await?; }}");
@@ -396,5 +250,57 @@ mod dispatch_tests {
             );
             assert_eq!(credentialed_send_https_gaps(&source), (2, 1), "{literal}");
         }
+    }
+
+    #[test]
+    fn negated_flag_and_scheme_is_not_an_https_guard() {
+        let source = r#"async fn f() { if !flag && !(parsed.scheme() != "https") { return Err("x".into()); } request.send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(source), (1, 1));
+    }
+
+    #[test]
+    fn closure_local_return_is_not_an_https_guard() {
+        for body in [
+            "let reject = || return;",
+            "let reject = |cx| return;",
+            "let reject = async move || return;",
+            "let reject = || { return; };",
+            "let reject = move || return Err(\"x\".into());",
+        ] {
+            let source = format!(
+                "async fn f() {{ if parsed.scheme() != \"https\" {{ {body} }} request.send().await?; }}"
+            );
+            assert_eq!(credentialed_send_https_gaps(&source), (1, 1), "{body}");
+        }
+        let kept = "async fn f() { if parsed.scheme() != \"https\" { let reject = || return; return Err(\"x\".into()); } request.send().await?; }";
+        assert_eq!(credentialed_send_https_gaps(kept), (1, 0));
+        let logical = "async fn f() { if parsed.scheme() != \"https\" { let x = flag || return Err(\"x\".into()); } request.send().await?; }";
+        assert_eq!(credentialed_send_https_gaps(logical), (1, 0));
+    }
+
+    #[test]
+    fn parenthesized_dispatch_alias_is_a_send() {
+        let bare = "async fn f() { let dispatch = RequestBuilder::send; (dispatch)(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(bare), (1, 1));
+        let nested = "async fn f() { let dispatch = Client::execute; ((dispatch))(&client, request); }";
+        assert_eq!(credentialed_send_https_gaps(nested), (1, 1));
+        let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let dispatch = RequestBuilder::send; (dispatch)(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(guarded), (1, 0));
+        let fish = "async fn f() { let dispatch = RequestBuilder::send; (dispatch)::<()>(request); }";
+        assert_eq!(credentialed_send_https_gaps(fish), (1, 1));
+    }
+
+    #[test]
+    fn https_guard_must_bind_the_dispatched_url() {
+        let mismatch = "async fn f() { if checked.scheme() != \"https\" { return Err(\"x\".into()); } let request = client.request(method, other); request.send().await?; }";
+        assert_eq!(credentialed_send_https_gaps(mismatch), (1, 1));
+        let parsed_other = "async fn f() { let checked = url::Url::parse(safe).unwrap(); if checked.scheme() != \"https\" { return Err(\"x\".into()); } let request = client.get(other); request.send().await?; }";
+        assert_eq!(credentialed_send_https_gaps(parsed_other), (1, 1));
+        let same = "async fn f() { let parsed = url::Url::parse(url).map_err(|e| e.to_string())?; if parsed.scheme() != \"https\" { return Err(\"sync egress requires https\".into()); } let mut request = self.http.request(parsed_method, url).header(\"A\", \"B\"); request = request.json(&body); request.send().await?; }";
+        assert_eq!(credentialed_send_https_gaps(same), (1, 0));
+        let direct = "async fn f() { if url.scheme() != \"https\" { return Err(\"x\".into()); } client.request(method, url).send().await?; }";
+        assert_eq!(credentialed_send_https_gaps(direct), (1, 0));
+        let ufcs = "async fn f() { let parsed = Url::parse(&url).unwrap(); if Url::scheme(&parsed) != \"https\" { return Err(\"x\".into()); } Client::get(&client, url).send().await?; }";
+        assert_eq!(credentialed_send_https_gaps(ufcs), (1, 0));
     }
 }
