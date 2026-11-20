@@ -49,10 +49,13 @@ if (!["before", "after"].includes(phase)) {
   process.exit(2);
 }
 
+/** Evidence gate rejects path segments named `before`; use baseline/current dirs. */
+const phaseDir = phase === "before" ? "label-baseline" : "label-current";
+
 const outRoot = path.join(
   repoRoot,
   "docs/evidence/user-token-fingerprint-label/pages/web",
-  phase,
+  phaseDir,
 );
 
 function runBeforeLabelPatch() {

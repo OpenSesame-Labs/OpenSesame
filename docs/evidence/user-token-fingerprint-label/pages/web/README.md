@@ -1,6 +1,6 @@
 # User token fingerprint label (PR #2823)
 
-Playwright evidence for `UserTokenPanel` token proof label: **before** shows `sha256:0123456789ab…` (pre-change), **after** shows `scrypt:0123456789ab…`.
+Playwright evidence for `UserTokenPanel` token proof label: **label-baseline** (capture `--phase before`) shows `sha256:0123456789ab…`, **label-current** (`--phase after`) shows `scrypt:0123456789ab…`.
 
 Script: `apps/pages/scripts/capture-user-token-fingerprint-label.mjs` (four checklist profiles).
 
@@ -11,7 +11,7 @@ Script: `apps/pages/scripts/capture-user-token-fingerprint-label.mjs` (four chec
 | `custom` | Yes | Custom ceremony applies `connectors.external` via capabilities consent before Skip all. |
 | `full` | Yes | Full fixture enables external connectors. |
 
-Artifacts: `pages/web/{before,after}/<profile>/user-token-fingerprint-label.png` (plus checklist step PNGs in each folder).
+Artifacts: `pages/web/{label-baseline,label-current}/<profile>/user-token-fingerprint-label.png` (plus checklist step PNGs in each folder).
 
 Run:
 
