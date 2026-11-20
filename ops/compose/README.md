@@ -7,9 +7,10 @@ deployable server/workload surfaces use this image.
 Build the in-image compile (`runtime`). The default target is
 `runtime-from-prebuilt`, which GHCR publish uses: it copies
 `ops/compose/prebuilt/opensesame` (mode 0755) and does not run cargo.
-Both targets inherit `debian-runtime`, Debian trixie (glibc 2.41), so a
-binary linked on the Ubuntu 24.04 runner (glibc 2.39) and the bookworm chef
-binary both run.
+Both targets inherit `alpine-runtime`, Alpine 3.22. The GHCR binary is linked
+on the Ubuntu 24.04 runner (glibc) and the bookworm chef binary is glibc too.
+`gcompat` and `libstdc++` run them. libdbus is statically linked (`vendored`
+on the dbus crate), so the image does not install musl `dbus-libs`.
 
 ```bash
 docker build -f ops/compose/Dockerfile --target runtime -t opensesame:local .

@@ -40,8 +40,10 @@ ENV RUSTUP_HOME=/opt/mise/rustup
 ENV BASH_ENV=/etc/profile.d/mise.sh
 ENV PATH=/opt/mise/shims:/home/vscode/.local/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-# gcompat + libstdc++ run glibc-linked mise artifacts (go, hurl). Node/Java musl
-# builds are pinned in mise.lock (unofficial Node + Temurin alpine-linux JDK).
+# gcompat + libstdc++ run glibc-linked mise artifacts (go, hurl).
+# Node musl pins: official nodejs.org linux-x64-musl, unofficial-builds
+# linux-arm64-musl. Temurin publishes an Alpine JDK for x64 only. Apple
+# Silicon installs openjdk17 from apk and skips mise's java tool.
 RUN apk add --no-cache \
     build-base \
     ca-certificates \
@@ -77,5 +79,57 @@ RUN set -eu; \
   mise --version; \
   mkdir -p /opt/mise; \
   chown -R vscode:vscode /opt/mise
+
+# Temurin publishes no Alpine/musl aarch64 JDK, so mise.lock has no
+# linux-arm64-musl Java asset. On Apple Silicon, install Alpine openjdk17
+# before `mise install --locked` and skip mise's java tool. Without that
+# skip, locked install fails closed on the missing asset. linux-x64 keeps
+# the Temurin Alpine JDK.
+ARG TARGETARCH
+RUN set -eu; \
+  arch="${TARGETARCH:-}"; \
+  if [ -z "$arch" ]; then \
+    case "$(uname -m)" in \
+      aarch64|arm64) arch=arm64 ;; \
+      *) arch=amd64 ;; \
+    esac; \
+  fi; \
+  if [ "$arch" != "arm64" ]; then \
+    exit 0; \
+  fi; \
+  apk add --no-cache openjdk17; \
+  jdk=/usr/lib/jvm/java-17-openjdk; \
+  test -x "$jdk/bin/java"; \
+  ln -sfn "$jdk" /usr/lib/jvm/default-jvm; \
+  for cmd in java javac jar javadoc jlink keytool; do \
+    if [ -x "$jdk/bin/$cmd" ]; then \
+      ln -sfn "$jdk/bin/$cmd" "/usr/local/bin/$cmd"; \
+    fi; \
+  done; \
+  printf '%s\n' java > /etc/mise-disable-tools; \
+  mkdir -p /usr/local/libexec; \
+  mv /usr/local/bin/mise /usr/local/libexec/mise; \
+  cat > /usr/local/bin/mise <<'EOF'
+#!/bin/sh
+if [ -z "${MISE_DISABLE_TOOLS:-}" ] && [ -s /etc/mise-disable-tools ]; then
+  MISE_DISABLE_TOOLS=$(tr -d '[:space:]' < /etc/mise-disable-tools)
+  export MISE_DISABLE_TOOLS
+fi
+if [ -z "${JAVA_HOME:-}" ] && [ -x /usr/lib/jvm/java-17-openjdk/bin/java ]; then
+  export JAVA_HOME=/usr/lib/jvm/java-17-openjdk
+fi
+exec /usr/local/libexec/mise "$@"
+EOF
+  chmod 0755 /usr/local/bin/mise; \
+  cat >> /etc/profile.d/mise.sh <<'EOF'
+if [ -x /usr/lib/jvm/java-17-openjdk/bin/java ]; then
+  export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk}"
+  case ":${PATH}:" in
+    *:"${JAVA_HOME}/bin":*) ;;
+    *) PATH="${JAVA_HOME}/bin:${PATH}" ;;
+  esac
+  export PATH
+fi
+EOF
 
 USER vscode

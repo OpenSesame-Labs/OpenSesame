@@ -1,7 +1,7 @@
 # The one native binary. Every native role is a subcommand of it:
 # `opensesame host run` (Host API), `opensesame worker run`, `opensesame daemon run`.
 #
-# Two targets share the debian runtime below. Only the binary source differs.
+# Two targets share the Alpine runtime below. Only the binary source differs.
 # `runtime` is the local path. It keeps the full cargo-chef plan and compile:
 #   docker build -f ops/compose/Dockerfile --target runtime -t opensesame:local .
 # `runtime-from-prebuilt` is the default target (the last stage). GHCR publish
@@ -43,10 +43,13 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 
 # Packages, user, and state dir for both runtime targets. No binary yet, so
 # the prebuilt target does not depend on the chef compile.
-# Debian trixie (glibc 2.41). The GHCR binary is linked on the Ubuntu 24.04
-# runner (glibc 2.39). The bookworm chef binary from `runtime` also runs here.
-FROM alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab AS alpine-runtime
-RUN apk add --no-cache ca-certificates curl dbus-libs gcompat libstdc++ \
+# Alpine 3.22 (musl). The GHCR binary is linked on the Ubuntu 24.04 runner
+# (glibc) and the bookworm chef binary is glibc too. gcompat and libstdc++
+# run those binaries. libdbus is compiled into the binary (dbus crate
+# `vendored` feature, static). Alpine dbus-libs is musl and is not installed:
+# it cannot satisfy a glibc-linked binary, and this binary does not need it.
+FROM alpine:3.22@sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f AS alpine-runtime
+RUN apk add --no-cache ca-certificates curl gcompat libstdc++ \
   && adduser -D -u 10001 app \
   && mkdir -p /var/lib/opensesame \
   && chown 10001:10001 /var/lib/opensesame

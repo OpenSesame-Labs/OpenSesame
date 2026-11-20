@@ -93,9 +93,8 @@ url = "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0
 checksum = "sha256:3808d1d15e3ec6bd5b84057fb5d84c33d8a1536a258146bcea2e603fc726e08e"
 url = "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20.1%2B1/OpenJDK17U-jdk_x64_linux_hotspot_17.0.20.1_1.tar.gz"
 
-[tools.java."platforms.linux-arm64-musl"]
-checksum = "sha256:457b57af8f9c93ec39080bb8c764f559dc8c89a6da1a39d718a400b7890d3e41"
-url = "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20.1%2B1/OpenJDK17U-jdk_aarch64_linux_hotspot_17.0.20.1_1.tar.gz"
+# linux-arm64-musl is omitted. Adoptium publishes no Temurin Alpine/musl
+# aarch64 JDK. Apple Silicon devcontainers use apk openjdk17 instead.
 
 [tools.java."platforms.linux-x64-musl"]
 checksum = "sha256:0c4fcdefa2737ccd66e049245fdb9dc431f91796182141204cd5f8192cb288e6"
@@ -131,8 +130,8 @@ checksum = "sha256:70afd250a927fbc32f3d95a58597efdf14aa8ad194e894268f9b8309a2dab
 url = "https://unofficial-builds.nodejs.org/download/release/v24.22.2/node-v24.22.2-linux-arm64-musl.tar.gz"
 
 [tools.node."platforms.linux-x64-musl"]
-checksum = "sha256:867e322d67294e9c405f10cae5d70ed2e4940bb367fa47dbcb5151c9899d7c04"
-url = "https://unofficial-builds.nodejs.org/download/release/v24.22.2/node-v24.22.2-linux-x64-musl.tar.gz"
+checksum = "sha256:11ebd16c8d7819c0675211225505273d7aea305a8dd85a9c0aeb1fbec2343320"
+url = "https://nodejs.org/dist/v24.22.2/node-v24.22.2-linux-x64-musl.tar.gz"
 
 [tools.node."platforms.macos-arm64"]
 checksum = "sha256:aa9549349e47dffaa42dcf95d6e06ade8c4bdafc980979883b88767670df385a"
