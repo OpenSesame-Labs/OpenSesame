@@ -397,7 +397,7 @@
     },
     {
       "path": "spec/formal/check-axioms.sh",
-      "sha256": "09af77ff4628334b9c0b90041a99487bf94eeac8876510976dd08cdce7406e68"
+      "sha256": "15ac775a5e741dcaa6183a2ef52747e2a8561d46f606fcacc2e6035db3148a17"
     },
     {
       "path": "crates/storage/migrations/0001_init.sql",
