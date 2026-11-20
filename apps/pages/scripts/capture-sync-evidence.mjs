@@ -55,8 +55,7 @@ function fixtures(dir) {
   );
   return {
     "https://api.pwnedpasswords.com/range/5BAA6": pwned,
-    [`https://api.pwnedpasswords.com/range/${SHOP_PWNED_RANGE_PREFIX}`]:
-      shop,
+    [`https://api.pwnedpasswords.com/range/${SHOP_PWNED_RANGE_PREFIX}`]: shop,
     "https://api.2fa.directory/v3/totp.json": list,
   };
 }

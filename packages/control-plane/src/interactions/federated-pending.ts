@@ -60,9 +60,12 @@ const wirePendingSchema = pendingFederatedAuthSchema
     verifier: z.string().optional(),
     verifierEnc: z.string().optional(),
   })
-  .refine((data) => data.verifier !== undefined || data.verifierEnc !== undefined, {
-    message: "verifier field required",
-  });
+  .refine(
+    (data) => data.verifier !== undefined || data.verifierEnc !== undefined,
+    {
+      message: "verifier field required",
+    },
+  );
 
 const SCRYPT_PARAMS = {
   N: 32768,
@@ -93,11 +96,7 @@ function pendingVerifierBinding(
   return scryptSync(verifier, salt, 32, SCRYPT_PARAMS).toString("base64url");
 }
 
-function verifierSealKey(
-  secret: string,
-  state: string,
-  nonce: string,
-): Buffer {
+function verifierSealKey(secret: string, state: string, nonce: string): Buffer {
   const salt = createHash("sha256")
     .update(secret)
     .update("\0opensesame:fed-pending-verifier-seal\0")
@@ -154,9 +153,10 @@ function unsealVerifier(
     const key = verifierSealKey(secret, state, nonce);
     const decipher = createDecipheriv("aes-256-gcm", key, iv);
     decipher.setAuthTag(tag);
-    return Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString(
-      "utf8",
-    );
+    return Buffer.concat([
+      decipher.update(ciphertext),
+      decipher.final(),
+    ]).toString("utf8");
   } catch {
     return undefined;
   }
@@ -181,7 +181,8 @@ function resolveVerifier(
   const hasSealed = data.verifierEnc !== undefined;
   if (hasPlain && hasSealed) return undefined;
   if (hasSealed) {
-    if (secret === undefined) return undefined;
+    if (secret === undefined || data.verifierEnc === undefined)
+      return undefined;
     return unsealVerifier(data.verifierEnc, secret, data.state, data.nonce);
   }
   if (hasPlain) return data.verifier;

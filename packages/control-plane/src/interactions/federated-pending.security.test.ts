@@ -121,9 +121,7 @@ describe("signed federated state integrity", () => {
   it("never places a raw verifier in the signed wire payload", () => {
     const cookie = encodePending(pending, secret);
     const payload = cookie.slice(0, cookie.lastIndexOf("."));
-    const wire = JSON.parse(
-      Buffer.from(payload, "base64url").toString("utf8"),
-    );
+    const wire = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
     expect(wire).not.toHaveProperty("verifier");
     expect(wire.verifierEnc).toEqual(expect.any(String));
   });
@@ -142,7 +140,10 @@ describe("signed federated state integrity", () => {
   it("rejects a mixed plaintext verifier and sealed verifierEnc", () => {
     const cookie = encodePending(pending, secret);
     expect(
-      decodePending(alterPayload(cookie, { verifier: "forged-verifier" }), secret),
+      decodePending(
+        alterPayload(cookie, { verifier: "forged-verifier" }),
+        secret,
+      ),
     ).toBeUndefined();
   });
 
