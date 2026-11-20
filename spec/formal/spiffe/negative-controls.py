@@ -214,23 +214,34 @@ def archive_workspace(destination: Path) -> None:
     mise_toml = destination / "mise.toml"
     if mise_toml.exists() and shutil.which("mise") is not None:
         subprocess.run(["mise", "trust", str(mise_toml)], cwd=destination, check=False)
-    reviewed_revision = json.loads(
-        (destination / "spec/formal/spiffe/coverage.json").read_text()
-    )["reviewed_revision"]
     origin_url = subprocess.check_output(
         ["git", "-C", str(ROOT), "remote", "get-url", "origin"],
         text=True,
     ).strip()
+    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     subprocess.run(["git", "init", "-q"], cwd=destination, check=True)
     subprocess.run(["git", "remote", "add", "origin", origin_url], cwd=destination, check=True)
     subprocess.run(
-        ["git", "fetch", "-q", "--depth", "1", "origin", reviewed_revision],
+        [
+            "git",
+            "fetch",
+            "-q",
+            "origin",
+            f"refs/heads/main:refs/remotes/origin/main",
+            head,
+        ],
         cwd=destination,
         check=True,
     )
     cargo_config = destination / ".cargo" / "config.toml"
     cargo_config.parent.mkdir(parents=True, exist_ok=True)
-    cargo_config.write_text('[build]\ntarget-dir = "target"\n')
+    if cargo_config.exists():
+        body = cargo_config.read_text()
+        if "target-dir" not in body:
+            body = body.rstrip() + "\n\n[build]\ntarget-dir = \"target\"\n"
+            cargo_config.write_text(body)
+    else:
+        cargo_config.write_text('[build]\ntarget-dir = "target"\n')
     scratch_mise = destination / "mise.toml"
     if scratch_mise.exists():
         scratch_mise.rename(destination / "mise.toml.negative-controls-off")
@@ -276,7 +287,6 @@ def main() -> None:
     env = os.environ.copy()
     env["CARGO_INCREMENTAL"] = "0"
     env["CARGO_NET_OFFLINE"] = "true"
-    env["OPENSESAME_SPIFFE_NEGATIVE_CONTROLS"] = "1"
     env.pop("CARGO_TARGET_DIR", None)
     original_hashes = live_fingerprint()
     try:
