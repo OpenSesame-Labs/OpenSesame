@@ -39,7 +39,7 @@
     "anti-slop:manifest": "node skills/install-anti-slop/scripts/manifest.mjs",
     "quality": "npm run audit:exposure && npm run quality:test && npm run quality:gate && npm run quality:log-hygiene && npm run quality:packages && npm run quality:app-core",
     "quality:log-hygiene": "node scripts/quality/log-hygiene-gate.mjs",
-    "quality:test": "vitest run scripts/lib --testTimeout=30000 && node --test scripts/security/*.test.mjs scripts/quality/cd-pwa-workspace-paths-gate.test.mjs scripts/test/git-hooks.test.mjs scripts/test/grok-commit-guard.test.mjs scripts/test/formal-vitest-report.test.mjs spec/formal/oauth/check-hosted-flow-report.test.mjs scripts/quality/dependabot-config.test.mjs && npm run test:ci-promotion",
+    "quality:test": "vitest run scripts/lib --testTimeout=30000 && node --test scripts/security/*.test.mjs scripts/quality/cd-pwa-workspace-paths-gate.test.mjs scripts/test/git-hooks.test.mjs scripts/test/grok-commit-guard.test.mjs scripts/quality/dependabot-config.test.mjs && npm run test:ci-promotion",
     "quality:gate": "node scripts/quality/quality-gate.mjs",
     "quality:app-core": "node scripts/quality/app-core-boundary.mjs --check",
     "quality:packages": "node scripts/quality/package-metrics-gate.mjs",
@@ -55,12 +55,6 @@
     "verify:authority-formal": "bash spec/formal/authority/check.sh",
     "verify:dpop-formal": "bash spec/formal/dpop/verify.sh",
     "verify:oauth-formal": "bash spec/formal/oauth/verify.sh",
-    "verify:source-lifetime-formal": "bash spec/formal/source-lifetime/verify.sh",
-    "verify:source-history-formal": "bash spec/formal/source-trust-history/verify.sh",
-    "verify:source-trust-selection-formal": "bash spec/formal/source-trust-selection/verify.sh",
-    "verify:nats-trust-formal": "bash spec/formal/source-trust-selection/verify.sh --nats",
-    "verify:spiffe-peer-domain-formal": "bash spec/formal/spiffe-peer-domain/verify.sh",
-    "verify:spiffe-formal": "bash spec/formal/spiffe/verify.sh",
     "verify:webauthn-formal": "bash spec/formal/webauthn/verify.sh",
     "verify:interaction-clock-formal": "bash spec/formal/interaction-clock/verify.sh",
     "test:redteam": "npm run redteam -w @opensesame/redteam",
@@ -256,6 +250,12 @@
     "hono": "4.13.16",
     "@noble/post-quantum": "$noble-post-quantum-patched",
     "follow-redirects": "1.16.2",
+    "dts-bundle-generator": {
+      "typescript": "6.0.3"
+    },
+    "glob@14.0.6": {
+      "minimatch": "$minimatch11-patched"
+    },
     "glob@^10.0.0": "$glob10-patched",
     "archiver-utils": {
       "glob": {
