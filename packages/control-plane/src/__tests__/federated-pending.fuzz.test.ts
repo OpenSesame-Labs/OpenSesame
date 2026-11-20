@@ -41,6 +41,18 @@ function makeRng(seed: number): () => number {
 const FIELDS = ["issuer", "state", "nonce", "verifier"] as const;
 /** v2 provenance (C3). Optional by contract — a v1 cookie must still decode. */
 const OPTIONAL_FIELDS = ["providerId", "byoId", "orgId"] as const;
+const WIRE_PENDING_KEYS = new Set([
+  "issuer",
+  "state",
+  "nonce",
+  "verifier",
+  "verifierEnc",
+  "kind",
+  "providerId",
+  "byoId",
+  "orgId",
+]);
+
 const pendingSchema = z.object({
   issuer: z.string(),
   state: z.string(),
@@ -146,8 +158,12 @@ describe("FUZZ — decodePending survives arbitrary cookie bytes", () => {
       const decoded = decodePending(raw);
       expect(decoded === undefined || isWellFormed(decoded)).toBe(true);
 
-      // The contract is exact: every field present AND a string, or nothing.
-      const shouldDecode = pendingSchema.safeParse(candidate).success;
+      // The contract is exact: known keys only, every field present AND a string.
+      const onlyKnownKeys = Object.keys(candidate).every((key) =>
+        WIRE_PENDING_KEYS.has(key),
+      );
+      const shouldDecode =
+        onlyKnownKeys && pendingSchema.safeParse(candidate).success;
       expect(decoded !== undefined).toBe(shouldDecode);
     }
   });
