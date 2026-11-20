@@ -1,4 +1,5 @@
 import { atRestReady } from "@opensesame/app-core/lib/at-rest/key.js";
+import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js";
 import { subscribeContributions } from "@opensesame/app-core/lib/contributions.js";
 import {
   installTrayNoticePersistence,
@@ -32,6 +33,10 @@ export function bootTrayNotices(): void {
   // Optional tutorial goals register after this module runs; re-notice the queue
   // when contributions change so restored ids gain resume keys.
   subscribeContributions(() => {
+    syncTutorialQueueGate();
+    refreshQueuedTutorialTrayNotices();
+  });
+  compositionStore.subscribe(() => {
     syncTutorialQueueGate();
     refreshQueuedTutorialTrayNotices();
   });
