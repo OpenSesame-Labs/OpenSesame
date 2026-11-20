@@ -8,6 +8,7 @@
 
 import { goalOffered } from "../tutorial/registry/areas.js";
 import { guideGoal, guideGoalIds } from "../tutorial/registry/goals.js";
+import { GUIDE_OVERLAY_ROUTES } from "../tutorial/registry/routes.js";
 import { loadGuidance } from "./guidance.js";
 import { hideToast, showToast } from "./notice-toast.js";
 import { dismissNotice, setStatusNotice } from "./notices.js";
@@ -42,7 +43,13 @@ function queueableGoal(goalId: string): boolean {
   const goal = guideGoal(goalId);
   if (goal === null) return false;
   const home = tutorialHomeRoute(goal);
-  if (home.startsWith("/setup")) return false;
+  if (GUIDE_OVERLAY_ROUTES.has(home)) return false;
+  if (
+    goal.routes.length > 0 &&
+    goal.routes.every((route) => GUIDE_OVERLAY_ROUTES.has(route))
+  ) {
+    return false;
+  }
   return goalOffered(goal, {});
 }
 
@@ -143,6 +150,7 @@ export function postTutorialPausePrompt(): void {
  * then dropped: the registry is what the notice says.
  */
 export function noteTutorialDeclined(goalId: string, title: string): boolean {
+  if (!queueableGoal(goalId)) return false;
   if (!queueTutorial(goalId, { title })) return false;
   postQueuedTutorialNotice(goalId);
   postTutorialPausePrompt();
