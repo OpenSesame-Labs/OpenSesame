@@ -30,17 +30,20 @@ apt_options=(
   -o "Dir::Etc::parts=$musl_root/conf.d"
   -o "APT::Sandbox::User=$(id -un)"
   -o "Debug::NoLocking=1"
-  -o "APT::Get::Download-Only=true"
   -o "APT::Get::AllowUnauthenticated=false"
   -o "Acquire::AllowInsecureRepositories=false"
 )
 # The runner's configured sources and trusted keyrings still authenticate
 # Release metadata and package hashes. System apt hooks are not executed.
-APT_CONFIG="$musl_root/apt.conf" apt-get "${apt_options[@]}" update
+# `update` only populates the sandboxed lists; Download-Only guards against
+# any implicit package operation.
+APT_CONFIG="$musl_root/apt.conf" apt-get "${apt_options[@]}" \
+  -o "APT::Get::Download-Only=true" update
 # Download the same package set `install --no-install-recommends musl-tools`
 # would resolve (musl-tools depends on musl-dev, which depends on musl).
-# `apt-get download` writes into the current directory; `install` exits
-# nonzero in APT::Get::Download-Only mode.
+# `apt-get download` writes into the current directory. Do not pass
+# APT::Get::Download-Only here: `download` fetches but exits nonzero under
+# Download-Only on Ubuntu 26.04 (resolute) runners.
 (
   cd "$musl_root/packages"
   APT_CONFIG="$musl_root/apt.conf" apt-get "${apt_options[@]}" download musl musl-dev musl-tools
