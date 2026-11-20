@@ -1,5 +1,4 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as nodeTest from "node:test";
@@ -365,5 +364,4 @@ describe("GHCR image proof workflow", () => {
     assert.doesNotMatch(retired, /packages:\s*write/);
     assert.doesNotMatch(retired, /docker\/build-push-action/);
   });
-
 });
