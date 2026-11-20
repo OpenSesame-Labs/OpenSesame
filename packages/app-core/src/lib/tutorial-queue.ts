@@ -224,7 +224,11 @@ export function setSessionTutorialsPaused(paused: boolean): void {
  * this again, so the flag survives there and a reload lets tours speak.
  */
 export function forgetSessionTutorialPause(): void {
-  setSessionTutorialsPaused(false);
+  const wasPaused = tutorialQueueSeams.sessionGet() === "1";
+  tutorialQueueSeams.sessionSet(null);
+  if (wasPaused) {
+    for (const listener of [...pauseListeners]) listener();
+  }
 }
 
 export function subscribeSessionTutorialsPaused(
