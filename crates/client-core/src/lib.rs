@@ -348,6 +348,12 @@ impl SyncStore {
             b"OpenSesame sync store key v2",
         ));
         store.apply_remote(key, &p.blobs)?;
+        if store.key_guard.is_none() {
+            store.remember_key(blake3::keyed_hash(
+                key.as_bytes(),
+                b"OpenSesame sync store key v2",
+            ));
+        }
         if p.cursor.epoch < store.cursor.epoch || p.cursor.epoch > i64::MAX as u64 {
             return Err(ClientCoreError::Persist(
                 "invalid authenticated cursor epoch".into(),
