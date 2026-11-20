@@ -7,6 +7,7 @@
 
 use opensesame_domain::TransportError;
 use opensesame_spiffe_source::{SourcePhase, SourceStatus, WaitError};
+use opensesame_time::{Duration, Utc};
 
 use super::runtime::{
     conclude_spiffe_first_svid, spiffe_first_ready_to_bind, spiffe_first_svid_settled,
@@ -16,6 +17,9 @@ fn status_with(phase: SourcePhase, generation: Option<u64>) -> SourceStatus {
     let mut status = SourceStatus::initial("spiffe://example.test/opensesame/gateway");
     status.phase = phase;
     status.generation = generation;
+    if generation.is_some() {
+        status.not_after = Some(Utc::now() + Duration::hours(1));
+    }
     status
 }
 
@@ -42,6 +46,35 @@ fn a_stopped_source_with_a_generation_is_identity_missing() {
     assert!(spiffe_first_svid_settled(&stopped));
     assert_eq!(
         conclude_spiffe_first_svid(Ok(stopped)).expect_err("stopped source must not bind"),
+        TransportError::IdentityMissing
+    );
+}
+
+#[test]
+fn a_generation_at_its_effective_deadline_is_not_ready() {
+    let boundary = Utc::now();
+
+    let mut at_retention = status_with(SourcePhase::Streaming, Some(2));
+    at_retention.retain_until = Some(boundary);
+    at_retention.not_after = Some(boundary + Duration::hours(1));
+    assert!(
+        !spiffe_first_ready_to_bind(&at_retention),
+        "retain_until equality must not bind"
+    );
+    assert_eq!(
+        conclude_spiffe_first_svid(Ok(at_retention)).expect_err("retain_until equality"),
+        TransportError::IdentityMissing
+    );
+
+    let mut at_certificate = status_with(SourcePhase::Streaming, Some(3));
+    at_certificate.not_after = Some(boundary);
+    at_certificate.retain_until = Some(boundary + Duration::hours(1));
+    assert!(
+        !spiffe_first_ready_to_bind(&at_certificate),
+        "not_after equality must not bind"
+    );
+    assert_eq!(
+        conclude_spiffe_first_svid(Ok(at_certificate)).expect_err("not_after equality"),
         TransportError::IdentityMissing
     );
 }
