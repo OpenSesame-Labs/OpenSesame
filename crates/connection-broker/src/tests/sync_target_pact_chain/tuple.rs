@@ -4,7 +4,7 @@ pub(super) fn tuple_binding_name(source: &str, head: usize) -> Option<String> {
     let (open, element) = tuple_open_and_index(source, path_start)?;
     let eq = super::peel::eq_before(source.as_bytes(), open)?;
     let tail = super::alias::statement_tail(&source[..eq]);
-    let paren = tail.find('(')?;
+    let paren = first_code_byte(tail, b'(')?;
     if !let_introduces_pattern(&tail[..paren]) {
         return None;
     }
@@ -44,16 +44,24 @@ fn tuple_open_and_index(source: &str, path_start: usize) -> Option<(usize, usize
 }
 
 fn paren_inside(at_paren: &str) -> Option<&str> {
-    let bytes = at_paren.strip_prefix('(')?.as_bytes();
-    let mut depth = 1i32;
+    let bytes = at_paren.as_bytes();
+    if bytes.first() != Some(&b'(') {
+        return None;
+    }
+    let code = super::peel::code_mask(bytes);
+    let mut depth = 0i32;
     let mut index = 0usize;
     while index < bytes.len() {
+        if !code[index] {
+            index += 1;
+            continue;
+        }
         match bytes[index] {
             b'(' => depth += 1,
             b')' => {
                 depth -= 1;
                 if depth == 0 {
-                    return Some(&at_paren[1..index + 1]);
+                    return Some(&at_paren[1..index]);
                 }
             }
             _ => {}
@@ -65,9 +73,14 @@ fn paren_inside(at_paren: &str) -> Option<&str> {
 
 fn tuple_elements(inside: &str) -> Vec<&str> {
     let bytes = inside.as_bytes();
+    let code = super::peel::code_mask(bytes);
     let (mut depth, mut index, mut start) = (0i32, 0usize, 0usize);
     let mut out = Vec::new();
     while index < bytes.len() {
+        if !code[index] {
+            index += 1;
+            continue;
+        }
         match bytes[index] {
             b'(' | b'[' | b'{' | b'<' => depth += 1,
             b')' | b']' | b'}' | b'>' if depth > 0 => depth -= 1,
@@ -83,15 +96,25 @@ fn tuple_elements(inside: &str) -> Vec<&str> {
     out
 }
 
+/// First `target` byte that is not inside a string or comment.
+fn first_code_byte(source: &str, target: u8) -> Option<usize> {
+    let bytes = source.as_bytes();
+    let code = super::peel::code_mask(bytes);
+    bytes
+        .iter()
+        .enumerate()
+        .position(|(index, byte)| code[index] && *byte == target)
+}
+
 fn pattern_name(elem: &str) -> Option<String> {
-    let mut elem = elem.trim();
+    let mut elem = trim_code_ends(elem);
     if let Some(rest) = strip_kw(elem, "mut") {
-        elem = rest;
+        elem = trim_code_ends(rest);
     }
     if let Some(rest) = strip_kw(elem, "ref") {
-        elem = rest;
+        elem = trim_code_ends(rest);
         if let Some(rest) = strip_kw(elem, "mut") {
-            elem = rest;
+            elem = trim_code_ends(rest);
         }
     }
     let name: String = elem
@@ -101,7 +124,7 @@ fn pattern_name(elem: &str) -> Option<String> {
     if name.is_empty() || name == "_" {
         return None;
     }
-    let rest = elem[name.len()..].trim_start();
+    let rest = trim_code_ends(elem[name.len()..].trim_start());
     (rest.is_empty() || rest.starts_with(':')).then_some(name)
 }
 
@@ -113,9 +136,9 @@ fn strip_kw<'a>(source: &'a str, keyword: &str) -> Option<&'a str> {
         .then(|| rest.trim_start())
 }
 
-/// `let (name,)` or `}let (name,)` after a previous block. `mut` may sit between.
+/// `let (name,)` or `let /* c */ mut (name,)`. Comments are not code.
 fn let_introduces_pattern(before_paren: &str) -> bool {
-    let before = before_paren.trim_end();
+    let before = trim_code_end(before_paren);
     if ends_with_kw(before, "let") {
         return true;
     }
@@ -125,7 +148,32 @@ fn let_introduces_pattern(before_paren: &str) -> bool {
     if rest.chars().next_back().is_some_and(super::is_ident_char) {
         return false;
     }
-    ends_with_kw(rest.trim_end(), "let")
+    ends_with_kw(trim_code_end(rest), "let")
+}
+
+fn trim_code_end(source: &str) -> &str {
+    let (end, _) = code_ends(source);
+    &source[..end]
+}
+
+fn trim_code_ends(source: &str) -> &str {
+    let (end, start) = code_ends(source);
+    &source[start..end]
+}
+
+/// `(end, start)` of the code span, skipping whitespace and comments at both ends.
+fn code_ends(source: &str) -> (usize, usize) {
+    let bytes = source.as_bytes();
+    let code = super::peel::code_mask(bytes);
+    let mut start = 0usize;
+    let mut end = bytes.len();
+    while start < end && (bytes[start].is_ascii_whitespace() || !code[start]) {
+        start += 1;
+    }
+    while end > start && (bytes[end - 1].is_ascii_whitespace() || !code[end - 1]) {
+        end -= 1;
+    }
+    (end, start)
 }
 
 #[cfg(test)]
@@ -156,6 +204,43 @@ mod probes {
             super::super::dispatch_alias_calls(other).is_empty(),
             "{other}"
         );
+    }
+
+    #[test]
+    fn chunk01_comment_in_tuple_pattern_keeps_send_alias() {
+        let hits = [
+            "fn f() { let /* c */ (dispatch,) = (Path::send,); dispatch(request); }",
+            "fn f() { let // c\n (dispatch,) = (Path::send,); dispatch(request); }",
+            "fn f() { let /* c */ mut /* d */ (dispatch,) = (Path::send,); dispatch(request); }",
+            "fn f() { let /* ( */ (dispatch,) = (Path::send,); dispatch(request); }",
+            "fn f() { let (dispatch /* ) */,) = (Path::send,); dispatch(request); }",
+            "fn f() { let (/* ) */ dispatch,) = (Path::send,); dispatch(request); }",
+            "fn f() { let (/* , */ dispatch,) = (Path::send,); dispatch(request); }",
+            "fn f() { if cond { a; } let /* c */ (dispatch,) = (Path::send,); dispatch(request); }",
+        ];
+        for sample in hits {
+            assert_eq!(
+                super::super::dispatch_alias_calls(sample).len(),
+                1,
+                "{sample}"
+            );
+        }
+        let bare =
+            "async fn f() { let /* c */ (dispatch,) = (Path::send,); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(bare), (1, 1), "{bare}");
+        let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let (dispatch /* ) */,) = (Path::send,); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
+        let misses = [
+            "fn f() { let /* c */ (n,) = (Path::send,); dispatch(request); }",
+            "fn f() { let (/* ) */ n,) = (Path::send,); dispatch(request); }",
+            "fn f() { let /* dispatch */ (n,) = (Path::send,); dispatch(request); }",
+        ];
+        for sample in misses {
+            assert!(
+                super::super::dispatch_alias_calls(sample).is_empty(),
+                "{sample}"
+            );
+        }
     }
 }
 

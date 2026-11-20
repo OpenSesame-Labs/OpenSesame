@@ -62,4 +62,49 @@ mod probes {
             assert_eq!(credentialed_send_https_gaps(sample), expected, "{sample}");
         }
     }
+
+    /// `//` and `/* */` between `}` and `else` are still an else. A scheme
+    /// check on one arm must not bless a send that can still use the other.
+    #[test]
+    fn chunk01_comment_before_else_stays_conditional() {
+        let cases = [
+            (
+                "fn f() { if cond { request = client.get(evil); } // note\nelse { request = client.get(url); } request.send() }",
+                Some(""),
+            ),
+            (
+                "fn f() { if cond { request = client.get(evil); } /* c */ else { request = client.get(url); } request.send() }",
+                Some(""),
+            ),
+            (
+                "fn f() { if cond { request = client.get(evil); } /* if */ else { request = client.get(url); } request.send() }",
+                Some(""),
+            ),
+            (
+                "fn f() { if cond { request = client.get(url); } /* c */ else { request = client.get(url); } request.send() }",
+                Some("url"),
+            ),
+            (
+                "fn f() { if cond { request = client.get(url); } // else\nrequest = client.get(evil); request.send() }",
+                Some("evil"),
+            ),
+            (
+                "fn f() { if cond { request = client.get(evil); } /* else */ { request = client.get(url); } request.send() }",
+                Some("url"),
+            ),
+        ];
+        for (sample, expected) in cases {
+            let open = sample.find('{').expect("fn body");
+            let at = sample.find(".send").expect("send");
+            assert_eq!(
+                super::super::dispatch_url(sample, open, at).as_deref(),
+                expected,
+                "{sample}"
+            );
+        }
+        let bless = "async fn f() { if cond { request = client.get(evil); } /* c */ else { request = client.get(url); } if url.scheme() != \"https\" { return Err(\"x\".into()); } request.send().await?; }";
+        assert_eq!(credentialed_send_https_gaps(bless), (1, 1), "{bless}");
+        let same = "async fn f() { if cond { request = client.get(url); } // note\nelse { request = client.get(url); } if url.scheme() != \"https\" { return Err(\"x\".into()); } request.send().await?; }";
+        assert_eq!(credentialed_send_https_gaps(same), (1, 0), "{same}");
+    }
 }
