@@ -41,8 +41,7 @@ impl SourceOwner {
 #[derive(Debug)]
 struct Fence {
     owner: SourceOwner,
-    /// The transport number assigned to the source's last accepted snapshot.
-    /// Ordinary trust updates preserve this epoch even if their number changes.
+    /// Last accepted transport number; ordinary trust updates preserve this epoch.
     epoch: u64,
     /// None means the source has claimed the slot but has not activated.
     deadline: Option<DateTime<Utc>>,

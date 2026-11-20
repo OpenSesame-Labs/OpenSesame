@@ -19,6 +19,11 @@ import {
   registry,
 } from "./formal-proof-push-gate.test.fixture.mjs";
 
+const proofRequirements = new URL(
+  "../../spec/formal/proof-requirements.json",
+  import.meta.url,
+);
+
 test("rejects malformed refs and registry without executing Git or proofs", () => {
   const oid = "a".repeat(40);
   for (const input of [
@@ -188,11 +193,7 @@ test("fetches previously unknown remote tips to compare a new branch accurately"
 });
 
 test("native push selects the independent NATS suite only for mapped history", (t) => {
-  const required = JSON.parse(
-    readFileSync(
-      new URL("../../spec/formal/proof-requirements.json", import.meta.url),
-    ),
-  );
+  const required = JSON.parse(readFileSync(proofRequirements));
   const nats = "crates/task-bus/src/nats_connect.rs";
   const gateway = "crates/gateway/src/transport/source_trust_selection.rs";
   const bounded = "crates/transport-security/src/bounded.rs";
@@ -249,37 +250,35 @@ test("native push selects the independent NATS suite only for mapped history", (
     f.commit();
     const result = push(f, "HEAD", "refs/heads/main");
     assert.equal(result.status, 0, `${operation}: ${result.stderr}`);
-    let selected = [];
-    if (operation === "gateway")
-      selected = [
+    const selectionByOperation = {
+      gateway: [
         "source-lifetime",
         "source-trust-selection",
         "spiffe-peer-domain",
-      ];
-    if (operation === "shared-bounded")
-      selected = [
+      ],
+      "shared-bounded": [
         "source-trust-selection",
         "spiffe-peer-domain",
         "nats-trust-rotation",
-      ];
-    if (operation === "shared-client")
-      selected = [
+      ],
+      "shared-client": [
         "source-lifetime",
         "source-trust-selection",
         "spiffe-peer-domain",
         "nats-trust-rotation",
-      ];
-    if (operation === "shared-lib")
-      selected = [
+      ],
+      "shared-lib": [
         "spiffe",
         "source-lifetime",
         "source-trust-selection",
         "spiffe-peer-domain",
         "nats-trust-rotation",
         "source-history",
-      ];
-    if (["nats", "reverted"].includes(operation))
-      selected = ["nats-trust-rotation"];
+      ],
+      nats: ["nats-trust-rotation"],
+      reverted: ["nats-trust-rotation"],
+    };
+    const selected = selectionByOperation[operation] ?? [];
     assert.deepEqual(
       f.commands(),
       selected.map(

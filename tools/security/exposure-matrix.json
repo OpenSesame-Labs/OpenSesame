@@ -2927,14 +2927,14 @@
       "d49fa90d"
     ],
     "crates/gateway/src/config.rs": [
-      "4c58e95b",
-      "a3471dd0",
-      "2df38b07",
-      "16e6bf53",
-      "35e64b9e",
-      "e154936b",
-      "d1710188",
-      "4b81e7b6"
+      "7732beba",
+      "4593fc00",
+      "e2c7cc5f",
+      "c38d87d5",
+      "94771c7a",
+      "98f3de0a",
+      "d2efa186",
+      "0d887a47"
     ],
     "crates/gateway/src/config_listener_tests.rs": [
       "af16ae93",
@@ -3207,14 +3207,14 @@
       "a9a37fce"
     ],
     "crates/gateway/src/transport/test_support.rs": [
-      "37882a8e",
-      "d18219ed",
-      "f5f5d399",
-      "fc230eb9",
-      "d4f6bd91",
-      "7d8eda4c",
-      "5f5dc0ac",
-      "e5ecf321"
+      "d7084b75",
+      "682ee7d4",
+      "bb5ff3a6",
+      "1b7fc31c",
+      "308bf6e5",
+      "fbfbcab7",
+      "69028291",
+      "a2a7f218"
     ],
     "crates/storage/migrations/0057_est_passphrase_budget.sql": [
       "9efda976",
@@ -6817,14 +6817,14 @@
       "a23325a7"
     ],
     "crates/gateway/src/app_state.rs": [
-      "34dce58b",
-      "e53b456f",
-      "ff2dbfaf",
-      "f5ef1cf5",
-      "c2336c07",
-      "d130c0fc",
-      "1634e2a1",
-      "091d45f2"
+      "05cab6d9",
+      "42fa31d7",
+      "a812bef8",
+      "3ef026d2",
+      "abfd1bea",
+      "e0573035",
+      "2739e904",
+      "348c5911"
     ],
     "crates/gateway/src/testkit/mod.rs": [
       "18d8967d",
@@ -7337,14 +7337,14 @@
       "ca31101f"
     ],
     "crates/transport-security/src/source_lifetime.rs": [
-      "c180e8c9",
-      "6ccf81e1",
-      "97337674",
-      "044aea24",
-      "9748d560",
-      "a1757caf",
-      "5642d447",
-      "922959bb"
+      "3f6cd17b",
+      "0ffd8373",
+      "ef9067f6",
+      "6c30f1a3",
+      "3f2d8570",
+      "fe9918aa",
+      "44d804a9",
+      "3deee613"
     ],
     "crates/transport-security/src/source_lifetime_tests.rs": [
       "b4ae3455",
@@ -7847,14 +7847,14 @@
       "8b63ebd8"
     ],
     "crates/gateway/src/transport/source_history/integration_tests.rs": [
-      "0e7b4f2b",
-      "0b9950e3",
-      "8973fb6c",
-      "a9725a27",
-      "ca7f7b3d",
-      "741eb070",
-      "b7e5f736",
-      "472c7260"
+      "96eb078b",
+      "852a06f1",
+      "471a0dfc",
+      "9be6a267",
+      "41449fa6",
+      "c5956fa6",
+      "53b870ca",
+      "853a8941"
     ],
     "crates/gateway/src/transport/source_history/tests.rs": [
       "3e2c3f91",

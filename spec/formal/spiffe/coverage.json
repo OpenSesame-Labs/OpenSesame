@@ -207,7 +207,7 @@
     },
     {
       "path": "crates/transport-security/src/source_lifetime.rs",
-      "sha256": "c180e8c96ccf81e197337674044aea249748d560a1757caf5642d447922959bb"
+      "sha256": "3f6cd17b0ffd8373ef9067f66c30f1a33f2d8570fe9918aa44d804a93deee613"
     },
     {
       "path": "crates/transport-security/src/source_history_activation.rs",
