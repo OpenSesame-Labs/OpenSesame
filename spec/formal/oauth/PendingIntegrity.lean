@@ -35,10 +35,9 @@ def wireField (w : WireVerifier) : String :=
 def macVerifierBinding (w : WireVerifier) (scryptDigest : String) : String :=
   scryptDigest
 
-theorem wire_fields_differ_implies_distinct (a b : WireVerifier) :
-    a ≠ b → wireField a ≠ wireField b := by
-  rintro h
-  cases a <;> cases b <;> first | rfl | exact (h rfl)
+theorem wire_fields_differ_implies_distinct (a b : WireVerifier) (h : a ≠ b) :
+    wireField a ≠ wireField b := by
+  cases a <;> cases b <;> first | rfl | exact absurd rfl h
 
 theorem wire_encoding_does_not_change_mac_binding (a b : WireVerifier)
     (scryptDigest : String) :
