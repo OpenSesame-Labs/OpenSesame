@@ -31,7 +31,6 @@ const repairedTuples = [
   ["GHSA-3g3m-2fjr-6pw4", "glob", "10.5.0"],
   ["GHSA-3g3m-2fjr-6pw4", "glob", "11.1.0"],
   ["GHSA-g3hv-75wg-m249", "minimatch", "9.0.9"],
-  ["GHSA-g3hv-75wg-m249", "minimatch", "10.2.6"],
 ];
 function repairedFindings(directory = root) {
   return repairedTuples.map(([id, packageName, version]) => ({
@@ -122,7 +121,7 @@ test("the exact repaired advisory tuples pass their complete attestation", () =>
     );
     assert.ifError(result.error);
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /4 exact repaired findings attested/);
+    assert.match(result.stdout, /3 exact repaired findings attested/);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -172,11 +171,9 @@ const fixtureFiles = [
   "patches/glob@10.5.0.patch",
   "patches/glob@11.1.0.patch",
   "patches/minimatch@9.0.9.patch",
-  "patches/minimatch@10.2.6.patch",
   "patches/vendor/glob-10.5.0.tgz",
   "patches/vendor/glob-11.1.0.tgz",
   "patches/vendor/minimatch-9.0.9.tgz",
-  "patches/vendor/minimatch-10.2.6.tgz",
   "scripts/security/dependency-override-upgrade.test.mjs",
   "scripts/security/glob-override-upgrade.test.mjs",
   "scripts/security/removed-dependencies.test.mjs",

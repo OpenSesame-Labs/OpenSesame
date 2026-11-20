@@ -65,7 +65,7 @@ jobs:
           node scripts/security/patched-dependencies.mjs verify glob@10.5.0
           node scripts/security/patched-dependencies.mjs verify glob@11.1.0
           node scripts/security/patched-dependencies.mjs verify minimatch@9.0.9
-          node scripts/security/patched-dependencies.mjs verify minimatch@10.2.6
+          node scripts/security/patched-dependencies.mjs verify minimatch@11.0.9
           node --test \
             --test-name-pattern="the lockfile installs every copy" \
             scripts/security/patched-dependencies.test.mjs

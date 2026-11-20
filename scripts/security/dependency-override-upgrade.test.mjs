@@ -274,7 +274,19 @@ function originalLine(file, needle) {
 test3(
   "backported glob and minimatch source maps show the changed guard",
   () => {
-    for (const consumer of ["archiver-utils", "workbox-build"]) {
+    const cases = [
+      {
+        consumer: "archiver-utils",
+        matcherNeedle: "globParts.length <= 1000",
+        matcherPattern: /globParts\.length <= 1000/,
+      },
+      {
+        consumer: "workbox-build",
+        matcherNeedle: "globParts.length >= braceExpandMax",
+        matcherPattern: /globParts\.length >= braceExpandMax/,
+      },
+    ];
+    for (const { consumer, matcherNeedle, matcherPattern } of cases) {
       const local = createRequire3(
         join3(root3, "node_modules", consumer, "package.json"),
       );
@@ -286,10 +298,7 @@ test3(
         const walker = join3(globRoot, "dist", format, "walker.js");
         const index = join3(matcherRoot, "dist", format, "index.js");
         assert3.match(originalLine(walker, "return cb()"), /return cb\(\)/);
-        assert3.match(
-          originalLine(index, "globParts.length <= 1000"),
-          /globParts\.length <= 1000/,
-        );
+        assert3.match(originalLine(index, matcherNeedle), matcherPattern);
       }
     }
   },
