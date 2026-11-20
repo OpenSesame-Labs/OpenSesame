@@ -19,7 +19,7 @@ overrides:
   zod: 4.6.6
   ip-address: 10.7.4
   '@aws-sdk/xml-builder': file:../patches/vendor/aws-sdk-xml-builder-3.972.42.tgz
-  hono: 4.13.16
+  hono: npm:hono@4.13.16
   '@hono/node-server': 2.1.6
 
 importers:
@@ -237,7 +237,7 @@ packages:
     resolution: {integrity: sha512-p/KH9MnfNcsm3sR6x4lNgm5j+QN4Et8srKredl9DZfXiyZ1UQ3aQ2YVpFLbqktYN5JI+DB+VZFKM2PqE5hLKjQ==}
     engines: {node: '>=20'}
     peerDependencies:
-      hono: 4.13.16
+      hono: ^4 || ^5.0.0-0
 
   '@isaacs/fs-minipass@4.0.1':
     resolution: {integrity: sha512-wgm9Ehl2jpeqP3zw/7mo3kRHFp5MEDhqAdwy1fTGkHAwnkGOVsgpvQhL8B5n1qlb01jV3n/bI0ZfZp5lWA1k4w==}
