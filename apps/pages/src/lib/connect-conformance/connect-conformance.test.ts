@@ -11,7 +11,6 @@
  * `CONNECT_CONFORMANCE_OUT=<file>` writes the per-connector results as
  * evidence.
  */
-import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { applyConnectCallbackBase } from "@opensesame/app-core/lib/connect-callback.js";
 import type { DraftState } from "@opensesame/app-core/lib/connect-draft.js";
@@ -27,6 +26,7 @@ import {
   checkConnectorToken,
   createConfiguredConnector,
 } from "@opensesame/app-core/lib/vercel-connect-manage.js";
+import { fingerprintOf } from "../../../server/token-fingerprint.mjs";
 import { setVercelConnectAuth } from "@opensesame/app-core/lib/vercel-connect.js";
 import {
   type JsonValue,
@@ -198,11 +198,7 @@ describe("every connector acquires a person's token", () => {
     const providerCallsBeforeCheck = [...provider.log];
     const check = await checkConnectorToken(connection.connectionId, PERSON);
     const issued = [...provider.issued, ...provider.apiKeys];
-    // A truncated SHA-256 fingerprint, only to recognise the same token
-    // without logging it — not password storage or verification.
-    const fingerprints = issued.map((token) =>
-      createHash("sha256").update(token).digest("hex").slice(0, 12),
-    );
+    const fingerprints = issued.map((token) => fingerprintOf(token));
     expect(fingerprints).toContain(check.fingerprint);
     assertTokenProof({
       plan,

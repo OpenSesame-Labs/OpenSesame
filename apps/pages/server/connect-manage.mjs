@@ -11,8 +11,8 @@
  * the relay.
  */
 
-import { createHash } from "node:crypto";
 import { isJsonObject, isString, readString } from "./json-boundary.mjs";
+import { fingerprintOf } from "./token-fingerprint.mjs";
 
 export {
   boundedJson,
@@ -136,6 +136,4 @@ export function scopesOf(payload) {
     : [];
 }
 
-export function fingerprintOf(token) {
-  return createHash("sha256").update(token, "utf8").digest("hex").slice(0, 12);
-}
+export { fingerprintOf };
