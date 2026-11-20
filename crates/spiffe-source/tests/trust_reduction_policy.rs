@@ -76,6 +76,55 @@ async fn refused_activation_with_removed_anchor_withdraws() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn refused_profile_after_trust_reduction_keeps_withdrawal_reason() {
+    let api = FakeWorkloadApi::start();
+    let td = FakeTrustDomain::new(TD);
+    let foreign_a = FakeTrustDomain::new("partner.test");
+    let foreign_b = FakeTrustDomain::new("partner.test");
+    let gateway = td.issue_svid(GW, Duration::from_mins(10));
+    let initial_bundle = [foreign_a.bundle_der(), foreign_b.bundle_der()].concat();
+    api.push_snapshot(federated_snapshot(&td, &gateway, Some(initial_bundle)));
+    let sink = RecordingSink::shared();
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink.clone()).unwrap();
+    streaming(&handle, 1).await;
+
+    // A refused activation on a reduced-trust snapshot withdraws with the
+    // authoritative `trust_reduced` reason and retains nothing.
+    sink.reject_activations(Some(TransportError::KeyPairMismatch));
+    let reduced_bundle = foreign_a.bundle_der();
+    api.push_snapshot(federated_snapshot(&td, &gateway, Some(reduced_bundle.clone())));
+    let status = withdrawn_promptly(&handle).await;
+    assert_eq!(status.last_error.as_deref(), Some("trust_reduced"));
+    assert_eq!(
+        sink.last(),
+        Some(SinkEvent::Withdrawn(TransportError::TrustUnknown))
+    );
+
+    // A later profile-rejected candidate has no retained generation, so its
+    // refusal code must not re-label the standing trust-reduction withdrawal.
+    let mut spec =
+        opensesame_spiffe_source::fake::SvidSpec::conforming(GW, Duration::from_mins(10));
+    spec.eku = opensesame_spiffe_source::fake::Eku::ServerOnly;
+    let rejected = td.issue(&spec);
+    api.push_snapshot(federated_snapshot(&td, &rejected, Some(reduced_bundle)));
+    let relabelled = handle
+        .wait_for(Duration::from_secs(3), |s| {
+            s.last_error.as_deref() == Some("svid_profile")
+        })
+        .await;
+    assert!(
+        relabelled.is_err(),
+        "refusal code must not re-label a trust-reduced withdrawal"
+    );
+    let status = handle
+        .wait_for(WAIT, |s| s.last_error.as_deref() == Some("trust_reduced"))
+        .await
+        .expect("trust_reduced still stands");
+    assert_eq!(status.phase, SourcePhase::Withdrawn);
+    handle.stop().await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn rejected_profile_with_added_trust_retains_the_previous_generation() {
     let api = FakeWorkloadApi::start();
     let td = FakeTrustDomain::new(TD);
