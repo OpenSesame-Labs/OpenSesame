@@ -82,10 +82,7 @@ test("readBoundedBody caps arrayBuffer reads at the CDN body deadline", async ()
     headers: new Headers(),
     arrayBuffer: () =>
       new Promise((resolve) => {
-        setTimeout(
-          () => resolve(new TextEncoder().encode("x").buffer),
-          50,
-        );
+        setTimeout(() => resolve(new TextEncoder().encode("x").buffer), 50);
       }),
   };
   await assert.rejects(

@@ -51,12 +51,7 @@ function assertWithinByteCap(size, distRelative) {
   }
 }
 
-async function readArrayBufferBody(
-  response,
-  distRelative,
-  readEndsAt,
-  now,
-) {
+async function readArrayBufferBody(response, distRelative, readEndsAt, now) {
   const remaining = Math.max(1, readEndsAt - now());
   let timer;
   try {
