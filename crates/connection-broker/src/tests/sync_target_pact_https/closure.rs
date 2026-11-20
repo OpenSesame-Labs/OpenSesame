@@ -111,9 +111,14 @@ fn runs_to_end(body: &str) -> bool {
                 brace = brace.saturating_sub(1);
             }
             // `x > 0` is a comparison. A `>` at angle 0 does not end the body.
-            // Neither does `>` / `<` while a const-generic block is open.
+            // Neither does `>` / `<` while a const-generic block is open, nor
+            // the `>` of a `->` return type (`fn() -> R`) inside the turbofish.
             b'<' if brace == 0 && generic_lt(bytes, index, angle) => angle += 1,
-            b'>' if brace == 0 && angle > 0 && bytes.get(index + 1) != Some(&b'=') => {
+            b'>' if brace == 0
+                && angle > 0
+                && bytes.get(index + 1) != Some(&b'=')
+                && bytes.get(index.wrapping_sub(1)) != Some(&b'-') =>
+            {
                 angle -= 1;
             }
             b',' | b';' if depth == 0 && angle == 0 => return false,
@@ -192,6 +197,23 @@ mod probes {
             r#"async fn f() { if url.scheme() != "https" { |x| foo::<{1 >= 0}, B>() || return Err("x".into()); } client.get(url).send().await?; }"#,
             r#"async fn f() { if url.scheme() != "https" { |x| foo::<{1 < 0}, B>() || return Err("x".into()); } client.get(url).send().await?; }"#,
             r#"async fn f() { if url.scheme() != "https" { |x| foo::<Bar<{1 > 0}>, T>() || return Err("x".into()); } client.get(url).send().await?; }"#,
+        ];
+        for sample in open {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+        }
+        let kept = r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(kept), (1, 0));
+    }
+
+    #[test]
+    fn chunk02_fn_ptr_return_arrow_does_not_close_turbofish() {
+        // `fn() -> R` inside the turbofish: the `>` of `->` is not the closer,
+        // so the comma after `R` is still inside `::<…>` and the `return` stays
+        // in the closure.
+        let open = [
+            r#"async fn f() { if url.scheme() != "https" { |x| foo::<fn() -> R>() || return Err("x".into()); } client.get(url).send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { |x| foo::<fn() -> R, B>() || return Err("x".into()); } client.get(url).send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { |x| foo::<fn() -> R, fn(A) -> B>() || return Err("x".into()); } client.get(url).send().await?; }"#,
         ];
         for sample in open {
             assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
