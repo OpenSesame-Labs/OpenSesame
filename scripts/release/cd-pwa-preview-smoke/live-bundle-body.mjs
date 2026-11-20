@@ -21,8 +21,10 @@ function declaredLength(response) {
 async function readStreamChunk(reader, distRelative, chunkTimeoutMs) {
   let timer;
   try {
+    const readPromise = reader.read();
+    readPromise.catch(() => undefined);
     return await Promise.race([
-      reader.read(),
+      readPromise,
       new Promise((_, reject) => {
         timer = setTimeout(
           () => reject(new Error("body read timed out")),
@@ -55,8 +57,10 @@ async function readArrayBufferBody(response, distRelative, readEndsAt, now) {
   const remaining = Math.max(1, readEndsAt - now());
   let timer;
   try {
+    const bodyPromise = response.arrayBuffer();
+    bodyPromise.catch(() => undefined);
     const raw = await Promise.race([
-      response.arrayBuffer(),
+      bodyPromise,
       new Promise((_, reject) => {
         timer = setTimeout(
           () => reject(new Error("body read timed out")),
