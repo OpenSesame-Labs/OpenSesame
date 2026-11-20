@@ -1,6 +1,6 @@
 //! `let`/`=` bindings and tuple patterns.
 use super::super::sync_target_pact_norm::{is_keyword_at, string_len};
-use super::marker::{find_marker, is_ident_byte, is_ident_char};
+use super::marker::{code_marker, find_marker, is_ident_byte, is_ident_char};
 use super::peel::{match_delim, strip_ref, trailing_ident, unwrap_parens, unwrap_value};
 
 struct BindHit {
@@ -290,7 +290,7 @@ fn tracks_branch_ident(source: &str, at: usize, name: &str) -> bool {
 fn credentialed_send_expr(expr: &str) -> bool {
     send_marker(expr, ".send")
         || send_marker(expr, "::send")
-        || (!expr.contains("sqlx::")
+        || (!code_marker(expr, "sqlx::")
             && (send_marker(expr, ".execute") || send_marker(expr, "::execute")))
 }
 

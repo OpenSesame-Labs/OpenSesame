@@ -245,6 +245,18 @@ pub(super) fn is_ident_char(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || ch == '_'
 }
 
+/// Whether deleting a whitespace gap between `prev` and `next` would weld two
+/// tokens into one the scanners misread: `/` `*` would open a block comment
+/// over the rest of the function, and `&` `&` / `|` `|` would read as the
+/// `&&` / `||` the HTTPS guard splits on. Identifier pairs keep their space.
+pub(super) fn gap_welds_tokens(prev: Option<char>, next: Option<char>) -> bool {
+    let (Some(prev), Some(next)) = (prev, next) else {
+        return false;
+    };
+    (is_ident_char(prev) && is_ident_char(next))
+        || matches!((prev, next), ('/', '/' | '*') | ('&', '&') | ('|', '|'))
+}
+
 #[cfg(test)]
 mod probes {
     use super::{skip_block_comment_flat, skip_block_comment_nested, skip_comment};
