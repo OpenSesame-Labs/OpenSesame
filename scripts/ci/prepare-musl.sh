@@ -40,13 +40,13 @@ APT_CONFIG="$musl_root/apt.conf" apt-get "${apt_options[@]}" update
 # (resolute) runners apt may exit nonzero and leave archives under the sandbox
 # cache instead of cwd — collect from both locations (same hermetic extract).
 download_status=0
+set +e
 (
   cd "$musl_root/packages"
-  set +e
   APT_CONFIG="$musl_root/apt.conf" apt-get "${apt_options[@]}" download musl musl-dev musl-tools
-  download_status=$?
-  set -e
-) || true
+)
+download_status=$?
+set -e
 if ! compgen -G "$musl_root/packages/*.deb" >/dev/null \
   && ! compgen -G "$musl_root/cache/archives/*.deb" >/dev/null; then
   set +e
