@@ -8,6 +8,14 @@ import type { SupportEngine } from "./engine.js";
 import type { SupportView } from "./session.js";
 import { SUPPORT_ERROR_TEXT } from "./ui/messages.js";
 
+/**
+ * How long an off-route Resume may wait for the router to commit its home.
+ * A suspended or lazily composed screen can take longer than one timer turn;
+ * abandoning sooner drops the reservation before `useSupportRouteSync` reports
+ * the destination. Past this, home did not land and the reservation is released.
+ */
+export const QUEUED_RESUME_ROUTE_SETTLE_MS = 5_000;
+
 export type PendingQueuedResume = {
   goalId: string;
   guide: string;
@@ -30,10 +38,45 @@ export type QueuedResumeHost = {
 };
 
 export function createQueuedResumeHandlers(host: QueuedResumeHost) {
+  let routeSettleTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function clearRouteSettleTimer(): void {
+    if (routeSettleTimer === null) return;
+    clearTimeout(routeSettleTimer);
+    routeSettleTimer = null;
+  }
+
   function queuedResumeRouteOk(homeRoute: string): boolean {
     const state = host.getState();
     if (homeRoute === "") return !GUIDE_OVERLAY_ROUTES.has(state.route);
     return guideRouteWithin(state.route, homeRoute);
+  }
+
+  function releaseQueuedResume(): void {
+    clearRouteSettleTimer();
+    host.setPending(null);
+    host.setQueuedResumeLoading(false);
+  }
+
+  /**
+   * Start the reserved tour once its home is the live route and the engine is
+   * installed. Loading stays raised across that handoff so another guide cannot
+   * start between preload and the route commit.
+   */
+  function commitPendingQueuedResume(): void {
+    const pending = host.getPending();
+    if (!pending) return;
+    const { guide, homeRoute } = pending;
+    if (!queuedResumeRouteOk(homeRoute) || host.guideRunning()) {
+      releaseQueuedResume();
+      return;
+    }
+    const loaded = host.getEngine();
+    if (!loaded) return;
+    clearRouteSettleTimer();
+    host.setPending(null);
+    host.runAuthoredProgram(loaded, guide);
+    host.setQueuedResumeLoading(false);
   }
 
   function beginQueuedWalkthrough(guide: string, homeRoute: string): boolean {
@@ -70,18 +113,7 @@ export function createQueuedResumeHandlers(host: QueuedResumeHost) {
   }
 
   function flushPendingQueuedResume(): void {
-    const pending = host.getPending();
-    if (!pending) return;
-    const { guide, homeRoute } = pending;
-    if (!queuedResumeRouteOk(homeRoute)) {
-      // Home was never reached. A later visit must not start this resume.
-      host.setPending(null);
-      host.setQueuedResumeLoading(false);
-      return;
-    }
-    host.setPending(null);
-    host.setQueuedResumeLoading(false);
-    beginQueuedWalkthrough(guide, homeRoute);
+    commitPendingQueuedResume();
   }
 
   function resumeQueuedWalkthrough(
@@ -98,54 +130,33 @@ export function createQueuedResumeHandlers(host: QueuedResumeHost) {
       host.setQueuedResumeLoading(true);
       host.setPending({ goalId, guide, homeRoute });
       const era = host.loadGeneration();
-      const armedRoute = host.getState().route;
-      const abandonIfHomeNeverLanded = () => {
-        if (host.loadGeneration() !== era) return;
+      const stillThisResume = () => {
+        if (host.loadGeneration() !== era) return false;
         const pending = host.getPending();
-        if (pending?.goalId !== goalId || pending.homeRoute !== homeRoute) {
+        return pending?.goalId === goalId && pending.homeRoute === homeRoute;
+      };
+      clearRouteSettleTimer();
+      routeSettleTimer = setTimeout(() => {
+        routeSettleTimer = null;
+        if (!stillThisResume()) return;
+        // Home committed: the route listener starts the tour. A miss here
+        // means navigation never landed, so the reservation must not stick.
+        if (queuedResumeRouteOk(homeRoute)) return;
+        releaseQueuedResume();
+      }, QUEUED_RESUME_ROUTE_SETTLE_MS);
+      void host.ensureEngine().then((loaded) => {
+        if (!stillThisResume()) return;
+        if (!loaded) {
+          releaseQueuedResume();
+          host.notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
           return;
         }
-        if (queuedResumeRouteOk(homeRoute)) return;
-        host.setPending(null);
-        host.setQueuedResumeLoading(false);
-      };
-      void host
-        .ensureEngine()
-        .then((loaded) => {
-          if (host.loadGeneration() !== era) return;
-          const pending = host.getPending();
-          if (pending?.goalId !== goalId || pending.homeRoute !== homeRoute) {
-            return;
-          }
-          if (!loaded) {
-            host.setPending(null);
-            host.setQueuedResumeLoading(false);
-            host.notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
-            return;
-          }
-          if (!queuedResumeRouteOk(homeRoute)) return;
-          host.setPending(null);
-          host.setQueuedResumeLoading(false);
-          beginQueuedWalkthrough(guide, homeRoute);
-        })
-        .finally(() => {
-          if (host.loadGeneration() !== era) return;
-          const pending = host.getPending();
-          if (pending?.goalId !== goalId || pending.homeRoute !== homeRoute) {
-            return;
-          }
-          if (queuedResumeRouteOk(homeRoute)) return;
-          // Preload finished off the tour's home. A redirect or wander has
-          // already moved the route: drop the reservation now. If the route
-          // never moved, give the navigation one turn to commit. When that
-          // turn still misses home, abandon pending and release loading so a
-          // later unrelated visit cannot start this walkthrough.
-          if (host.getState().route !== armedRoute) {
-            abandonIfHomeNeverLanded();
-            return;
-          }
-          setTimeout(abandonIfHomeNeverLanded, 0);
-        });
+        // Route sync may still be in flight. Starting only when home is
+        // already committed keeps loading raised until then, so another guide
+        // cannot take the gap between preload and the route commit.
+        if (!queuedResumeRouteOk(homeRoute)) return;
+        commitPendingQueuedResume();
+      });
       return true;
     }
     return beginQueuedWalkthrough(guide, homeRoute);
