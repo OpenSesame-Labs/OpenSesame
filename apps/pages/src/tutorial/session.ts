@@ -1,5 +1,9 @@
 import { setStatusNotice } from "@opensesame/app-core/lib/notices.js";
-import { bindTutorialResume } from "@opensesame/app-core/lib/tutorial-queue.js";
+import {
+  type TutorialResumeStart,
+  bindTutorialResume,
+  completeQueuedTutorial,
+} from "@opensesame/app-core/lib/tutorial-queue.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import {
   HELP_TOPICS,
@@ -161,6 +165,12 @@ export interface SupportController {
    */
   lock(): void;
   destroy(): void;
+  bindTutorialResume(start: TutorialResumeStart): () => void;
+  resumeQueuedWalkthrough(
+    goalId: string,
+    guide: string,
+    homeRoute: string,
+  ): boolean;
 }
 
 export type SupportSessionDependencies = {
@@ -180,13 +190,7 @@ export function createSupportController(
   let loading: Promise<SupportEngine | null> | null = null;
   let stopGuideFeed: (() => void) | null = null;
   let navigator: ((route: GuideRouteId) => void) | null = null;
-  const unbindResume = bindTutorialResume((goalId, guide, homeRoute) => {
-    if (guideGoal(goalId) === null) return;
-    if (homeRoute !== "" && !guideRouteWithin(state.route, homeRoute)) {
-      navigator?.(homeRoute);
-    }
-    void startGuide(guide, "authored");
-  });
+  let unbindResume: (() => void) | null = null;
   let entries = 0;
   let cancelled = false;
   /** Bumped by teardown, so a load in flight cannot install a stale engine. */
@@ -392,6 +396,7 @@ export function createSupportController(
     if (outcome.kind === "completed") {
       const closing = state.guide?.message;
       if (closing) push("note", closing, []);
+      completeQueuedTutorial(outcome.goal);
     }
     if (outcome.kind === "cancelled" && outcome.reason === "user") {
       queueTourExit(outcome.goal);
@@ -429,7 +434,7 @@ export function createSupportController(
     engine = null;
     loading = null;
     dependencies.clearTargets();
-    unbindResume();
+    unbindResume?.();
     // Everything the person said, everything that answered, and every overlay
     // it drew goes with the keys.
     state = emptyView(state.route);
@@ -463,6 +468,25 @@ export function createSupportController(
     },
     setNavigator(next) {
       navigator = next;
+    },
+    bindTutorialResume(start: TutorialResumeStart) {
+      unbindResume?.();
+      unbindResume = bindTutorialResume(start);
+      return () => {
+        if (unbindResume) {
+          unbindResume();
+          unbindResume = null;
+        }
+      };
+    },
+    resumeQueuedWalkthrough(goalId: string, guide: string, homeRoute: string) {
+      if (guideGoal(goalId) === null) return false;
+      if (homeRoute !== "" && !guideRouteWithin(state.route, homeRoute)) {
+        if (!navigator) return false;
+        navigator(homeRoute);
+      }
+      void startGuide(guide, "authored");
+      return true;
     },
     async ask(question) {
       const gate = gateSupportAsk(question, state.thinking);
@@ -633,6 +657,14 @@ export function SupportProvider({
   // in StrictMode) cannot leave a handler behind holding this session's keys.
   useEffect(
     () => supportSessionSeams.onLock(() => controller.lock()),
+    [controller],
+  );
+
+  useEffect(
+    () =>
+      controller.bindTutorialResume((goalId, guide, homeRoute) =>
+        controller.resumeQueuedWalkthrough(goalId, guide, homeRoute),
+      ),
     [controller],
   );
 
