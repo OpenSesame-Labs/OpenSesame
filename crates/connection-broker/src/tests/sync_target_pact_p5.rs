@@ -265,14 +265,36 @@ fn p5_build_request_multi_arg_fails_closed() {
     assert_gaps(sample, (1, 1));
 }
 
+fn code_find(hay: &str, needle: &str) -> Option<usize> {
+    use super::sync_target_pact_norm::string_len;
+    let bytes = hay.as_bytes();
+    let needle = needle.as_bytes();
+    let mut index = 0usize;
+    while index + needle.len() <= bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        if &bytes[index..index + needle.len()] == needle {
+            return Some(index);
+        }
+        index += 1;
+    }
+    None
+}
+
 #[test]
 fn p5_host_str_authority_pin_precedes_send() {
     let production = sync_target_production_for_scan(include_str!("../sync_target.rs"));
-    let host = production
-        .find("parsed.host_str() != Some(authority)")
+    let host = code_find(&production, "parsed.host_str()")
         .expect("production must pin host_str to the authority");
-    let send = production.find(".send()").expect("production must send");
+    let send = code_find(&production, ".send()").expect("production must send");
     assert!(host < send, "host_str authority pin must precede .send()");
+    assert!(
+        code_find(&production, "!= Some(authority)")
+            .is_some_and(|eq| eq > host && eq < send),
+        "host_str must be compared to authority before send"
+    );
     let (sends, missing) = credentialed_send_https_gaps(&production);
     assert!(sends >= 1, "credentialed sync must send");
     assert_eq!(missing, 0, "unguarded credentialed sends: {missing}");
