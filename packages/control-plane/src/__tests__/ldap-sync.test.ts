@@ -16,10 +16,9 @@ import { hopUrl } from "./upstream-hop.js";
  * Directory sync — the pull twin of SCIM push (D17), against a real directory.
  *
  * The whole point of a sync is what it does to people who are no longer there,
- * so the leaver case is the one that matters: membership gone AND every
- * session that membership authorized gone with it, through the same helper
- * SCIM deprovisioning calls. A test that only asserted the membership row
- * would pass while a deprovisioned employee stayed signed in.
+ * so the leaver case is the one that matters: tenant authority disappears,
+ * while the principal-wide Identity session remains valid for unrelated
+ * tenants and personal work.
  */
 
 type Started = Awaited<ReturnType<typeof startServer>>;
@@ -262,7 +261,7 @@ describe("LDAP directory sync", () => {
     ).toBeDefined();
   });
 
-  it("deactivates a leaver and revokes the sessions that membership authorized", async () => {
+  it("deactivates a leaver without globally logging out the principal", async () => {
     const dan = await signIn("dan", danPassword);
     const ctx = started.ctx;
 
@@ -283,12 +282,12 @@ describe("LDAP directory sync", () => {
     expect(
       await ctx.stores.organizationMemberships.find(ORG_ID, dan.principalId),
     ).toBeUndefined();
-    // And the session goes with the membership — the difference between a
-    // deprovisioning and a note in a table.
+    // Identity sessions are principal-wide; the removed tenant's live
+    // membership checks and Host revocation remove only its authority.
     const after = await fetch(`${base}/v1/principals/me`, {
       headers: { authorization: `Bearer ${dan.accessToken}` },
     });
-    expect(after.status).toBe(401);
+    expect(after.status).toBe(200);
 
     const events = await ctx.repos.auditEvents.list({ limit: 500 });
     expect(

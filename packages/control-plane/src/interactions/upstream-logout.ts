@@ -1,5 +1,10 @@
 import { appendAuditEvent } from "@opensesame/audit";
 import type { AppContext } from "../context.js";
+import {
+  advancePrincipalSessionEpoch,
+  advancePrincipalSessionEpochOn,
+  withPrincipalSessionBoundary,
+} from "../repos/principal-session-boundary.js";
 import { revokeSessionTokens } from "../repos/session-storage.js";
 
 const REVOCABLE_IDENTITY_KINDS = [
@@ -40,32 +45,46 @@ export async function revokeSessionsForIdentity(
   }
   if (principalIds.size === 0) return 0;
 
-  const now = ctx.clock();
   let revoked = 0;
-  const sessions = await ctx.stores.provisionalSessions.entries();
-  for (const [, session] of sessions) {
-    const sessionId = session.id;
-    if (!principalIds.has(session.principalId)) continue;
-    if (session.revokedAt) continue;
-    await ctx.stores.provisionalSessions.set(sessionId, {
-      ...session,
-      revokedAt: now,
-    });
-    await revokeSessionTokens(ctx.stores, sessionId);
-    revoked += 1;
-    await appendAuditEvent(ctx.repos.auditEvents, {
-      eventType: "principal.provisional_revoked",
-      outcome: "succeeded",
-      principalId: session.principalId,
-      sessionId,
-      correlationId: `upstream-logout-${sessionId}`,
-      actorType: "system",
-      metadata: {
-        action: "principal.provisional_revoke",
-        issuer,
-        via: "upstream_logout",
+  for (const principalId of principalIds) {
+    const revokedSessions = await withPrincipalSessionBoundary(
+      ctx.stores,
+      principalId,
+      "revoke",
+      async (stores, database) => {
+        if (database)
+          await advancePrincipalSessionEpochOn(database, principalId);
+        else await advancePrincipalSessionEpoch(stores, principalId);
+        const sessionIds: string[] = [];
+        const now = ctx.clock();
+        for (const [, session] of await stores.provisionalSessions.entries()) {
+          if (session.principalId !== principalId || session.revokedAt)
+            continue;
+          await stores.provisionalSessions.set(session.id, {
+            ...session,
+            revokedAt: now,
+          });
+          await revokeSessionTokens(stores, session.id);
+          sessionIds.push(session.id);
+        }
+        return sessionIds;
       },
-    });
+    );
+    revoked += revokedSessions.length;
+    for (const sessionId of revokedSessions)
+      await appendAuditEvent(ctx.repos.auditEvents, {
+        eventType: "principal.provisional_revoked",
+        outcome: "succeeded",
+        principalId,
+        sessionId,
+        correlationId: `upstream-logout-${sessionId}`,
+        actorType: "system",
+        metadata: {
+          action: "principal.provisional_revoke",
+          issuer,
+          via: "upstream_logout",
+        },
+      });
   }
   return revoked;
 }

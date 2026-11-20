@@ -1,3 +1,4 @@
+import type { Named } from "@gdp-ts/core";
 import { appendAuditEvent } from "@opensesame/audit";
 import type {
   Organization,
@@ -5,6 +6,14 @@ import type {
   OrganizationRole,
 } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
+import type { OrganizationId } from "../lib/ids.js";
+import type { OrgOwner } from "../proofs/org-owner.js";
+import {
+  advancePrincipalSessionEpoch,
+  advancePrincipalSessionEpochOn,
+  withPrincipalSessionBoundary,
+} from "../repos/principal-session-boundary.js";
+import { removeOrganizationMembership } from "../services/org-admin.js";
 
 export async function getMembership(
   ctx: AppContext,
@@ -39,6 +48,98 @@ export async function serializeMembershipMutation<T>(
       ctx.stores.organizationMembershipMutations.delete(organizationId);
     }
   }
+}
+
+export type OrganizationRevocationInput = {
+  organizationId: string;
+  principalId: string;
+  correlationId: string;
+  reason: string;
+  advanceEpochWithoutMembership?: boolean;
+};
+
+export type OrganizationRevocationResult = {
+  membershipRemoved: boolean;
+};
+
+/** Drop organization authority and fence stale minting without global logout. */
+async function revokeSerializedOrganizationMembership(
+  ctx: AppContext,
+  input: OrganizationRevocationInput,
+  removeMembership?: (ctx: AppContext) => Promise<boolean>,
+): Promise<OrganizationRevocationResult> {
+  const result = await withPrincipalSessionBoundary(
+    ctx.stores,
+    input.principalId,
+    "revoke",
+    async (stores, database) => {
+      const transactionContext = { ...ctx, stores };
+      const membershipRemoved = removeMembership
+        ? await removeMembership(transactionContext)
+        : await stores.organizationMemberships.remove(
+            input.organizationId,
+            input.principalId,
+          );
+      if (membershipRemoved || input.advanceEpochWithoutMembership) {
+        if (database)
+          await advancePrincipalSessionEpochOn(database, input.principalId);
+        else await advancePrincipalSessionEpoch(stores, input.principalId);
+      }
+      return { membershipRemoved };
+    },
+  );
+  return result;
+}
+
+async function auditOrganizationMembershipRevocation(
+  ctx: AppContext,
+  input: OrganizationRevocationInput,
+): Promise<void> {
+  await appendAuditEvent(ctx.repos.auditEvents, {
+    eventType: "organization.member_revoked",
+    outcome: "succeeded",
+    principalId: input.principalId,
+    organizationId: input.organizationId,
+    correlationId: input.correlationId,
+    metadata: {
+      action: "organization.member.revoke",
+      reason: input.reason,
+    },
+  });
+}
+
+/** System path: always acquire organization authority before principal authority. */
+export async function revokeOrganizationMembership(
+  ctx: AppContext,
+  input: OrganizationRevocationInput,
+): Promise<OrganizationRevocationResult> {
+  const result = await serializeMembershipMutation(
+    ctx,
+    input.organizationId,
+    () => revokeSerializedOrganizationMembership(ctx, input),
+  );
+  await auditOrganizationMembershipRevocation(ctx, input);
+  return result;
+}
+
+/** Owner path: bind the owner proof to the organization being removed from. */
+export function revokeOwnedOrganizationMembership<A, O>(
+  ctx: AppContext,
+  org: Named<O, OrganizationId>,
+  proof: OrgOwner<A, O>,
+  input: Omit<OrganizationRevocationInput, "organizationId">,
+): Promise<OrganizationRevocationResult> {
+  return revokeSerializedOrganizationMembership(
+    ctx,
+    { ...input, organizationId: org.value },
+    (transactionContext) =>
+      removeOrganizationMembership(
+        transactionContext,
+        org,
+        proof,
+        input.principalId,
+      ),
+  );
 }
 
 export type JitJoinInput = {

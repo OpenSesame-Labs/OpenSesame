@@ -8,6 +8,7 @@ import {
   oidcPayloads,
   openOidcRow,
   sealOidcRow,
+  withPostgresTransactionContext,
 } from "@opensesame/database";
 import {
   type BoundaryValue,
@@ -37,6 +38,28 @@ export class DurableMap<T> {
       throw new Error("Invalid internal state namespace");
     if (!Number.isSafeInteger(capacity) || capacity < 1 || capacity > 10_000)
       throw new Error("Invalid security store capacity");
+  }
+
+  /** Bind this protected namespace to a caller-owned database transaction. */
+  onDatabase(db: Database): DurableMap<T> {
+    return new DurableMap(
+      db,
+      this.model,
+      this.secretKeys,
+      this.ttlMs,
+      this.capacity,
+      this.sealer,
+    );
+  }
+
+  /** Run work in one transaction on the database that owns this namespace. */
+  transaction<TValue>(run: (db: Database) => Promise<TValue>): Promise<TValue> {
+    return this.db.transaction((tx) => {
+      const database: Database = overlapCast(tx);
+      return withPostgresTransactionContext(this.db, database, () =>
+        run(database),
+      );
+    });
   }
 
   private legacyId(key: string) {

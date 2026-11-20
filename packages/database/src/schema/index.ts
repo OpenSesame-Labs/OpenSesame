@@ -48,6 +48,9 @@ export const principals = pgTable(
       mode: "date",
     }),
     version: integer("version").notNull().default(1),
+    sessionAuthorityVersion: integer("session_authority_version")
+      .notNull()
+      .default(0),
     ...timestamps,
   },
   (t) => [
@@ -62,11 +65,7 @@ export const principals = pgTable(
   ],
 );
 
-/**
- * External identities.
- * Unique on (kind, issuer, tenant, subject) — tenant coalesced to '' for uniqueness.
- * NO unique constraint on email.
- */
+/** External identities are tuple-unique; email deliberately is not unique. */
 export const externalIdentities = pgTable(
   "external_identities",
   {
