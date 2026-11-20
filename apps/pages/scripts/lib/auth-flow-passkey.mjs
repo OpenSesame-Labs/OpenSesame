@@ -48,16 +48,16 @@ export async function sealFirstVault(
   );
   if (protection !== "pin-only") {
     await checkTutorialNextBlocked(page, check, next);
+    const passkeyTab = page.getByRole("tab", { name: "Passkey" });
+    await passkeyTab.waitFor({ state: "visible", timeout: 30_000 });
     check(
-      (await page
-        .getByRole("tab", { name: "Passkey" })
-        .getAttribute("aria-selected")) === "true",
+      (await passkeyTab.getAttribute("aria-selected")) === "true",
       `${protection} first vault: passkey leads the seal`,
     );
+    const deviceTab = page.getByRole("tab", { name: "This device" });
+    await deviceTab.waitFor({ state: "visible", timeout: 30_000 });
     check(
-      (await page
-        .getByRole("tab", { name: "This device" })
-        .getAttribute("aria-selected")) === "true",
+      (await deviceTab.getAttribute("aria-selected")) === "true",
       `${protection} first vault: This device is the default passkey road`,
     );
     const sealPasskey = page.getByRole("button", {
@@ -188,7 +188,16 @@ export async function sealFirstVault(
   await step("unlock.seal", 8, 16);
   if (phone && page.viewportSize().width <= 320)
     await checkLateSealScroll(page, step, check);
-  await page.locator(".coach__btn--go").click();
+  // The seal step is an action step, so its Next is aria-disabled — a person
+  // can still press it, and the card ignores the press. Playwright refuses to
+  // click an aria-disabled key, so deliver the press the way the browser does
+  // and prove both that the tour stayed on the seal and the screen did too.
+  await next.evaluate((button) => button.click());
+  check(
+    (await page.locator('.coach[data-coach-target="unlock.seal"]').count()) ===
+      1,
+    "first vault: a pressed Next cannot skip sealing the PIN vault",
+  );
   check(
     await page.getByRole("heading", { name: "Seal this device" }).isVisible(),
     "first vault: Next cannot skip sealing the PIN vault",
