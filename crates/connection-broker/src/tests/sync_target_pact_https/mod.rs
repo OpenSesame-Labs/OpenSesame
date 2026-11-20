@@ -50,6 +50,8 @@ fn credentialed_dispatch_site(source: &str, index: usize) -> bool {
     if !rest.starts_with(".execute") {
         return true;
     }
+    // sqlx `query.execute(&self.pool)` is not an HTTP send. Every other
+    // receiver counts, including `self.http.clone()`, `(&client)`, and `http_client`.
     let name: String = source[..index]
         .trim_end()
         .chars()
@@ -59,10 +61,7 @@ fn credentialed_dispatch_site(source: &str, index: usize) -> bool {
         .chars()
         .rev()
         .collect();
-    matches!(
-        name.as_str(),
-        "client" | "request" | "req" | "builder" | "http"
-    )
+    name != "query"
 }
 
 fn dispatch_site(source: &str, alias_calls: &[(usize, usize)], index: usize) -> Option<usize> {

@@ -22,6 +22,62 @@ fn is_response_name(name: &str) -> bool {
     RESPONSE_RECEIVERS.iter().any(|receiver| receiver == &name)
 }
 
+/// `Into::into(response)` and `Body::from(response)` move the provider body.
+pub(crate) fn ufcs_response_move(scanned: &str) -> bool {
+    ["::into(", "::from("]
+        .into_iter()
+        .any(|marker| marker_moves_response(scanned, marker))
+}
+
+fn marker_moves_response(source: &str, marker: &str) -> bool {
+    let mut offset = 0usize;
+    while let Some(rel) = source[offset..].find(marker) {
+        let paren = offset + rel + marker.len() - 1;
+        if args_track_response(source, paren) {
+            return true;
+        }
+        offset = paren + 1;
+    }
+    false
+}
+
+fn args_track_response(source: &str, paren: usize) -> bool {
+    let bytes = source.as_bytes();
+    if bytes.get(paren) != Some(&b'(') {
+        return false;
+    }
+    let mut depth = 1i32;
+    let mut index = paren + 1;
+    while index < bytes.len() && depth > 0 {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'(' => depth += 1,
+            b')' => depth -= 1,
+            byte if depth > 0 && is_ident_byte(byte) => {
+                let start = index;
+                while index < bytes.len() && is_ident_byte(bytes[index]) {
+                    index += 1;
+                }
+                let name = &source[start..index];
+                if tracks_response_receiver(source, start, name.to_string()) {
+                    return true;
+                }
+                continue;
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    false
+}
+
+fn is_ident_byte(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || byte == b'_'
+}
+
 /// `.into()` whose receiver is a response, including `(response).into()`.
 pub(crate) fn response_into_read(scanned: &str) -> bool {
     let mut offset = 0usize;

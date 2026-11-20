@@ -69,8 +69,9 @@ fn assigned_builder_url(prefix: &str, name: &str) -> Option<String> {
                 let rhs = &prefix[eq + 1..end];
                 if let Some(url) = builder_url(rhs) {
                     found = Some(url.to_string());
-                } else if free_call(rhs) {
-                    // A call whose URL is not a plain ident cannot prove the guard.
+                } else if ident_prefix(rhs.trim()) != name {
+                    // `request = other` supersedes a prior URL. `request = request.json(&body)`
+                    // keeps it: the chain root is still that binding.
                     found = Some(String::new());
                 }
                 index = end;
@@ -105,7 +106,8 @@ fn marked_url(expr: &str) -> Option<&str> {
     ];
     let bytes = expr.as_bytes();
     let mut index = 0usize;
-    let mut found = None;
+    // `Some(None)` is an unproven URL (`url.clone()`, `url,`). The last mark wins.
+    let mut found: Option<Option<&str>> = None;
     while index < bytes.len() {
         if let Some(len) = string_len(bytes, index) {
             index += len;
@@ -117,15 +119,17 @@ fn marked_url(expr: &str) -> Option<&str> {
             .find(|mark| expr[index..].starts_with(mark))
         {
             let at_paren = index + mark.len() - 1;
-            if let Some(inner) = call_inside(&expr[at_paren..]) {
-                if let Some(url) = plain_ident(strip_ref(split_arg(inner, false))) {
-                    found = Some(url);
-                }
-            }
+            let url = call_inside(&expr[at_paren..])
+                .and_then(|inner| plain_ident(strip_ref(split_arg(inner, false))));
+            found = Some(url);
         }
         index += 1;
     }
-    found
+    match found {
+        Some(Some(url)) => Some(url),
+        Some(None) => Some(""),
+        None => None,
+    }
 }
 
 /// Last plain-ident argument of a free function call (`build_request(other)`).
@@ -151,22 +155,6 @@ fn call_arg_url(expr: &str) -> Option<&str> {
     found
 }
 
-fn free_call(expr: &str) -> bool {
-    let bytes = expr.as_bytes();
-    let mut index = 0usize;
-    while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        if bytes[index] == b'(' && is_free_call(expr, index) {
-            return true;
-        }
-        index += 1;
-    }
-    false
-}
-
 fn is_free_call(expr: &str, paren: usize) -> bool {
     let bytes = expr.as_bytes();
     if paren == 0 || !super::is_ident_byte(bytes[paren - 1]) {
@@ -179,28 +167,20 @@ fn is_free_call(expr: &str, paren: usize) -> bool {
     start == 0 || bytes[start - 1] != b'.'
 }
 
-/// `name` is assigned at brace depth 0 after the guard, so the checked value is not the sent one.
+/// `name` is assigned at any brace depth, so the checked value is not the sent one.
 pub(super) fn shadows(source: &str, name: &str) -> bool {
     if name.is_empty() {
         return false;
     }
     let bytes = source.as_bytes();
-    let mut depth = 0i32;
     let mut index = 0usize;
     while index < bytes.len() {
         if let Some(len) = string_len(bytes, index) {
             index += len;
             continue;
         }
-        match bytes[index] {
-            b'{' => depth += 1,
-            b'}' => depth -= 1,
-            _ if depth == 0 && is_keyword_at(bytes, index, name.as_bytes()) => {
-                if assigns_name(bytes, index + name.len()) {
-                    return true;
-                }
-            }
-            _ => {}
+        if is_keyword_at(bytes, index, name.as_bytes()) && assigns_name(bytes, index + name.len()) {
+            return true;
         }
         index += 1;
     }
@@ -328,7 +308,7 @@ pub(super) fn strip_ref(arg: &str) -> &str {
 
 pub(super) fn is_single_eq(bytes: &[u8], index: usize) -> bool {
     bytes.get(index) == Some(&b'=')
-        && bytes.get(index + 1) != Some(&b'=')
+        && !matches!(bytes.get(index + 1), Some(b'=' | b'>'))
         && !matches!(
             index.checked_sub(1).and_then(|prev| bytes.get(prev)),
             Some(b'=' | b'!' | b'<' | b'>')
