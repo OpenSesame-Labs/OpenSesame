@@ -334,12 +334,11 @@ async function capturePauseAllReload(page, href, profileId, check, dir) {
   await page.waitForTimeout(2500);
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  // Exact name skips "Unlock vault". `.visible()` keeps a hidden PIN
-  // earlier in the DOM from winning this wait over the lock button.
-  const lock = page.getByRole("button", {
-    name: "Lock vault",
-    exact: true,
-  });
+  // Exact name skips "Unlock vault". `.visible()` on both keeps a hidden
+  // control earlier in the DOM from winning this wait over the shown one.
+  const lock = page
+    .getByRole("button", { name: "Lock vault", exact: true })
+    .visible();
   const pin = page.getByLabel("PIN", { exact: true }).visible();
   await lock.or(pin).first().waitFor({ state: "visible", timeout: 30_000 });
   if (await pin.isVisible().catch(() => false)) await unlockWithPin(page);
