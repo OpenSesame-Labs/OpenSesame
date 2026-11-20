@@ -7,7 +7,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { TextDecoder } from "node:util";
 import { isJsonObject } from "../lib/json-boundary.mjs";
 import { PINNED_FORMAL_SUITES } from "./formal-proof-pinned-suites.mjs";
@@ -15,6 +15,7 @@ import { PINNED_FORMAL_SUITES } from "./formal-proof-pinned-suites.mjs";
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const oidPattern = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
 const helperPath = "scripts/security/cargo-lock-projection.py";
+const manifestHelperPath = "scripts/security/cargo-workspace-projection.py";
 
 function blob(root, revision, path, git) {
   const entry = decoder.decode(
@@ -31,11 +32,11 @@ function blob(root, revision, path, git) {
   return { oid: match[2], data: git(root, ["cat-file", "blob", match[2]]) };
 }
 
-function trustedHelper(root, head, git) {
+function trustedHelper(root, head, git, path = helperPath) {
   if (!head)
     throw new Error("Formal lock projection requires a committed HEAD");
   let current = root;
-  const parts = helperPath.split("/");
+  const parts = path.split("/");
   for (const [index, part] of parts.entries()) {
     current = resolve(current, part);
     let valid = false;
@@ -50,7 +51,7 @@ function trustedHelper(root, head, git) {
         "Formal lock projection helper is missing or not a regular file",
       );
   }
-  if (!readFileSync(current).equals(blob(root, head, helperPath, git).data))
+  if (!readFileSync(current).equals(blob(root, head, path, git).data))
     throw new Error(
       "Formal lock projection helper differs from committed HEAD",
     );
@@ -62,7 +63,9 @@ function candidates(history) {
   for (const snapshot of history.snapshots)
     for (const policy of [snapshot.registry, snapshot.requirements])
       suites.push(...(policy?.suites ?? []));
-  return suites.filter((suite) => suite.lockProjection);
+  return suites.filter(
+    (suite) => suite.lockProjection || suite.manifestProjection,
+  );
 }
 
 function revisionsAndParents(root, change, path, git) {
@@ -114,7 +117,7 @@ function revisionsAndParents(root, change, path, git) {
   return result;
 }
 
-function comparator(root, helper, dir, git) {
+function comparator(root, helpers, dir, git) {
   const blobs = new Map();
   const paths = new Map();
   const comparisons = new Map();
@@ -131,20 +134,37 @@ function comparator(root, helper, dir, git) {
     }
     return paths.get(oid);
   };
-  return (beforeRevision, afterRevision, descriptor) => {
+  return (beforeRevision, afterRevision, descriptor, kind) => {
     const before = readBlob(beforeRevision, descriptor.path);
     const after = readBlob(afterRevision, descriptor.path);
+    const inputs =
+      kind === "manifest"
+        ? [
+            before,
+            readBlob(beforeRevision, descriptor.package),
+            readBlob(beforeRevision, descriptor.lock),
+            after,
+            readBlob(afterRevision, descriptor.package),
+            readBlob(afterRevision, descriptor.lock),
+          ]
+        : [before, after];
     const key = JSON.stringify([
-      before.oid,
-      after.oid,
+      kind,
+      ...inputs.map((input) => input.oid),
       descriptor.root,
       descriptor.dependency ?? null,
+      descriptor.package ?? null,
     ]);
     if (comparisons.has(key)) return comparisons.get(key);
-    const args = ["-I", helper, "--allow-absent", "--root", descriptor.root];
-    if (descriptor.dependency !== undefined)
-      args.push("--dependency", descriptor.dependency);
-    args.push(materialize(before), materialize(after));
+    const args = ["-I", helpers.get(kind), "--root", descriptor.root];
+    if (kind === "manifest")
+      args.push("--package-dir", dirname(descriptor.package));
+    else {
+      args.push("--allow-absent");
+      if (descriptor.dependency !== undefined)
+        args.push("--dependency", descriptor.dependency);
+    }
+    args.push(...inputs.map(materialize));
     const result = spawnSync("python3", args, {
       cwd: root,
       encoding: "utf8",
@@ -171,7 +191,15 @@ function comparator(root, helper, dir, git) {
   };
 }
 
-function descriptorChanged(root, change, descriptor, histories, compare, git) {
+function descriptorChanged(
+  root,
+  change,
+  descriptor,
+  kind,
+  histories,
+  compare,
+  git,
+) {
   if (!histories.has(descriptor.path))
     histories.set(
       descriptor.path,
@@ -179,14 +207,15 @@ function descriptorChanged(root, change, descriptor, histories, compare, git) {
     );
   let changed = false;
   if (change.destination)
-    changed = compare(change.destination, change.target, descriptor) || changed;
+    changed =
+      compare(change.destination, change.target, descriptor, kind) || changed;
   for (const [revision, parents] of histories.get(descriptor.path)) {
     if (!parents.length)
       throw new Error(
         "Formal lock projection cannot compare a root commit without a parent",
       );
     const parentChanges = parents.map((parent) =>
-      compare(parent, revision, descriptor),
+      compare(parent, revision, descriptor, kind),
     );
     // A merge that inherits one parent's closure introduces no new resolution.
     if (parentChanges.every(Boolean)) changed = true;
@@ -195,30 +224,62 @@ function descriptorChanged(root, change, descriptor, histories, compare, git) {
 }
 
 export function lockAffectedSuites(root, change, history, head, git) {
-  const suites = candidates(history).filter((suite) =>
-    change.changed.has(suite.lockProjection.path),
+  const descriptors = candidates(history).flatMap((suite) =>
+    [
+      ["lock", suite.lockProjection],
+      ["manifest", suite.manifestProjection],
+    ]
+      .filter(
+        ([, descriptor]) => descriptor && change.changed.has(descriptor.path),
+      )
+      .map(([kind, descriptor]) => ({ id: suite.id, kind, descriptor })),
   );
-  if (!suites.length) return new Set();
-  const helper = trustedHelper(root, head, git);
+  if (!descriptors.length) return new Set();
+  const helpers = new Map();
+  for (const { kind } of descriptors) {
+    if (!helpers.has(kind)) {
+      // The manifest helper imports the shared lock graph parser.
+      if (kind === "manifest") trustedHelper(root, head, git, helperPath);
+      helpers.set(
+        kind,
+        trustedHelper(
+          root,
+          head,
+          git,
+          kind === "manifest" ? manifestHelperPath : helperPath,
+        ),
+      );
+    }
+  }
   const dir = mkdtempSync(join(tmpdir(), "formal-lock-"));
   try {
-    const compare = comparator(root, helper, dir, git);
+    const compare = comparator(root, helpers, dir, git);
     const histories = new Map();
     const decisions = new Map();
     const affected = new Set();
-    for (const suite of suites) {
-      const descriptor = suite.lockProjection;
+    for (const { id, kind, descriptor } of descriptors) {
       const key = JSON.stringify([
+        kind,
         descriptor.path,
         descriptor.root,
         descriptor.dependency ?? null,
+        descriptor.package ?? null,
+        descriptor.lock ?? null,
       ]);
       if (!decisions.has(key))
         decisions.set(
           key,
-          descriptorChanged(root, change, descriptor, histories, compare, git),
+          descriptorChanged(
+            root,
+            change,
+            descriptor,
+            kind,
+            histories,
+            compare,
+            git,
+          ),
         );
-      if (decisions.get(key)) affected.add(suite.id);
+      if (decisions.get(key)) affected.add(id);
     }
     return affected;
   } finally {

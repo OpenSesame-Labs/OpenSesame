@@ -198,6 +198,7 @@ export function installHook(f) {
   for (const name of [
     "formal-proof-lock-history.mjs",
     "cargo-lock-projection.py",
+    "cargo-workspace-projection.py",
   ])
     f.write(
       `scripts/security/${name}`,

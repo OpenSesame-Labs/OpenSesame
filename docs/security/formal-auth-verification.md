@@ -63,6 +63,11 @@ files occur in the commits being pushed, including changes later reverted. For
 a suite with a registered Cargo.lock projection, it also selects changes to the
 reviewed dependency graph; lockfile-only graph selection conservatively includes
 inactive optional, development, and target-specific packages. It
+also selects authority for changes to its inherited Cargo workspace inputs and
+relevant package overrides; its bounded projection and exclusions are described
+in the [authority model](../../spec/formal/authority/README.md). The proof
+harness uses a separate lockfile and does not claim complete graph equality with
+the production workspace. The gate
 reads historical policy as data and checks each registry or requirements change
 against the requirements in that commit. Earlier registry history from before
 the requirements file existed is included in selection. If a changed path had

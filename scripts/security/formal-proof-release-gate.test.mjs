@@ -242,6 +242,33 @@ test("the pinned SPIFFE and source-lifetime lock projections cannot be weakened"
     }
   }
 });
+test("the pinned authority manifest and lock projections cannot be removed or narrowed", (t) => {
+  for (const kind of [
+    "remove-manifest",
+    "manifest-root",
+    "manifest-package",
+    "manifest-lock",
+    "remove-lock",
+    "lock-root",
+  ]) {
+    const f = fixture(t);
+    const altered = structuredClone(REQUIREMENTS);
+    const suite = altered.suites.find((entry) => entry.id === "authority");
+    if (kind === "remove-manifest") delete suite.manifestProjection;
+    if (kind === "manifest-root") suite.manifestProjection.root = "other";
+    if (kind === "manifest-package")
+      suite.manifestProjection.package = "crates/other/Cargo.toml";
+    if (kind === "manifest-lock") suite.manifestProjection.lock = "other.lock";
+    if (kind === "remove-lock") delete suite.lockProjection;
+    if (kind === "lock-root") suite.lockProjection.root = "other";
+    for (const name of ["proof-registry.json", "proof-requirements.json"])
+      writeFileSync(join(f.dir, "spec/formal", name), JSON.stringify(altered));
+    const result = f.run();
+    assert.notEqual(result.status, 0, kind);
+    assert.match(result.stderr, /required|mapping|proof|invalid/i);
+    assert.deepEqual(f.commands(), []);
+  }
+});
 test("release qualification propagates a suite failure", (t) => {
   const f = fixture(t);
   writeFileSync(join(f.dir, "bin/npm"), "#!/bin/sh\nexit 9\n", { mode: 0o755 });
