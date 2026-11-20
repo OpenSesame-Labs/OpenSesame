@@ -41,6 +41,15 @@ fn challenge_is_s256_of_the_verifier() {
     assert_ne!(Pkce::challenge_for("some-other-verifier"), pkce.challenge);
 }
 
+/// RFC 7636 Appendix B known-answer vector.
+#[test]
+fn challenge_matches_the_rfc_7636_example() {
+    assert_eq!(
+        Pkce::challenge_for("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"),
+        "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+    );
+}
+
 #[test]
 fn state_is_unguessable_and_unique() {
     let a = new_state();
