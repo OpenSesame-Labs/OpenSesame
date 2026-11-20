@@ -16,6 +16,7 @@ import {
 import { maybeSessionStore } from "../ports.js";
 import type { GuideGoalDescriptor } from "../tutorial/registry/goal-types.js";
 import { guideGoal } from "../tutorial/registry/goals.js";
+import { subscribeContributions } from "./contributions.js";
 import { kvGet, kvSet, kvSetDurable } from "./kv.js";
 import { hideToast } from "./notice-toast.js";
 import { dismissNotice } from "./notices.js";
@@ -41,12 +42,17 @@ export type TutorialResumeStart = (
   goalId: string,
   guide: string,
   homeRoute: string,
-) => void;
+) => boolean;
 
 type PauseListener = () => void;
 
 const pauseListeners = new Set<PauseListener>();
 let cache: { raw: string | null; goals: readonly string[] } | null = null;
+
+// Optional tutorial goals register after first read; invalidate so parse reruns.
+subscribeContributions(() => {
+  cache = null;
+});
 
 function sessionGetDefault(): string | null {
   try {
@@ -67,7 +73,9 @@ function sessionSetDefault(value: string | null): void {
   }
 }
 
-function resumeUnwired(): void {}
+function resumeUnwired(): boolean {
+  return false;
+}
 
 function writeQueue(value: string): void {
   kvSet(TUTORIAL_QUEUE_KEY, value);
@@ -83,9 +91,9 @@ export const tutorialQueueSeams = {
   sessionSet: sessionSetDefault,
 };
 
-export const tutorialResumeSeams = {
+export const tutorialResumeSeams: { start: TutorialResumeStart } = {
   start: resumeUnwired,
-} satisfies { start: TutorialResumeStart };
+};
 
 /** Install the support controller's resume. The returned function detaches it. */
 export function bindTutorialResume(start: TutorialResumeStart): () => void {
@@ -133,13 +141,23 @@ function loadGoals(): readonly string[] {
   return goals;
 }
 
+function dropQueueNotice(goalId: string): void {
+  const id = tutorialQueueNoticeId(goalId);
+  dismissNotice(id);
+  hideToast(id);
+}
+
 function store(goals: readonly string[]): void {
+  const previous = loadGoals();
   const raw = JSON.stringify({ goals });
   cache = { raw, goals };
   try {
     tutorialQueueSeams.write(raw);
   } catch {
     // A browser that cannot keep the queue offers the tour from the library.
+  }
+  for (const goalId of previous) {
+    if (!goals.includes(goalId)) dropQueueNotice(goalId);
   }
 }
 
@@ -230,10 +248,20 @@ export function tutorialsMaySpeak(mode: string, paused: boolean): boolean {
 export function resumeTutorialFromNotice(goalId: string): boolean {
   const goal = guideGoal(goalId);
   if (goal === null || !loadGoals().includes(goalId)) return false;
+  const accepted = tutorialResumeSeams.start(
+    goal.id,
+    goal.guide,
+    tutorialHomeRoute(goal),
+  );
+  if (!accepted) return false;
   dequeueTutorial(goalId);
-  const id = tutorialQueueNoticeId(goalId);
-  dismissNotice(id);
-  hideToast(id);
-  tutorialResumeSeams.start(goal.id, goal.guide, tutorialHomeRoute(goal));
+  dropQueueNotice(goalId);
   return true;
+}
+
+/** Completed elsewhere — drop the queue row when the tour is finished. */
+export function completeQueuedTutorial(goalId: string): void {
+  if (!loadGoals().includes(goalId)) return;
+  dequeueTutorial(goalId);
+  dropQueueNotice(goalId);
 }

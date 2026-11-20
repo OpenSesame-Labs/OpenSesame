@@ -67,6 +67,7 @@ describe("tutorial pause formal replay", () => {
     let home = "";
     const unbind = bindTutorialResume((_goalId, _guide, homeRoute) => {
       home = homeRoute;
+      return true;
     });
     expect(resumeTutorialFromNotice("settings.danger.review")).toBe(true);
     expect(home).toBe("/settings");
