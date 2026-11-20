@@ -10,6 +10,10 @@ import {
   TUTORIAL_QUEUE_LIMIT,
   mergedGuideGoalCount,
 } from "./setup-pause-goals.mjs";
+import {
+  captureProfileAppliedVault,
+  profileMarkerKey,
+} from "./setup-profile-vault.mjs";
 import { startTutorial, tutorialDialog } from "./tutorial-walk.mjs";
 
 export async function openSetupChoices(page, href) {
@@ -90,106 +94,26 @@ export function profileDir(root, build, profileId) {
   return dir;
 }
 
-async function profilePlanFingerprint(page, profileId) {
-  if (profileId === "custom") {
-    const tab = page.getByRole("tab", { selected: true });
-    return `custom:${(await tab.innerText()).trim()}`;
-  }
-  const kinds = await page
-    .locator("[id^='setup-config-']")
-    .allInnerTexts()
-    .catch(() => []);
-  if (kinds.length > 0) {
-    return `${profileId}:picker:${kinds.join("|")}`;
-  }
-  const title = await page
-    .getByRole("heading", { level: 1 })
-    .innerText()
-    .catch(() => "");
-  const frameVisible = await page
+/** Choose a road, seal vault, assert profile DOM, capture unlocked vault. */
+export async function captureProfilePicker(page, href, dir, profileId, check) {
+  const result = await captureProfileAppliedVault(
+    page,
+    href,
+    dir,
+    profileId,
+    check,
+  );
+  const setupVisible = await page
     .locator(".setup__frame")
     .isVisible()
     .catch(() => false);
-  return `${profileId}:${title}:${frameVisible}`;
-}
-
-function roadLabel(profileId) {
-  if (profileId === "minimal") return "Minimal";
-  if (profileId === "default") return "Default";
-  if (profileId === "custom") return "Custom";
-  return "Full";
-}
-
-async function waitForPlanApplied(page, profileId, check) {
-  if (profileId === "custom") {
-    const tab = page.getByRole("tab", { name: /^capabilities$/i });
-    await tab.waitFor({ timeout: 20_000 });
-    check(await tab.isVisible(), "custom opens the capability ceremony");
-    return;
-  }
-  await page
-    .getByRole("heading", { level: 1, name: "Sign in" })
-    .waitFor({ timeout: 45_000 });
-  check(
-    await page.getByRole("heading", { level: 1, name: "Sign in" }).isVisible(),
-    `${profileId} applied and reached sign-in`,
-  );
-}
-
-/** Choose a road, apply the plan (including Minimal confirm), capture proof. */
-export async function captureProfilePicker(page, href, dir, profileId, check) {
-  await openSetupChoices(page, href);
-  await assertOnSetup(page, check);
-  const choice = roadLabel(profileId);
-  await page.getByRole("button", { name: choice, exact: true }).click();
-  if (profileId === "minimal") {
-    await page.waitForTimeout(400);
-    const warning = path.join(dir, "setup-minimal-confirm-tray.png");
-    const anyway = page.getByRole("button", { name: "Use Minimal anyway" });
-    try {
-      await page
-        .getByRole("button", { name: /Notifications —/ })
-        .first()
-        .waitFor({ state: "visible", timeout: 8_000 });
-      await page
-        .getByRole("button", { name: /Notifications —/ })
-        .first()
-        .click();
-      const dialog = page.getByRole("dialog", { name: "Notifications" });
-      await dialog.waitFor({ timeout: 8_000 });
-      await shotPage(page, warning);
-      await dialog.getByRole("button", { name: "Use Minimal anyway" }).click();
-    } catch {
-      try {
-        await anyway.first().waitFor({ state: "visible", timeout: 4_000 });
-        await anyway.first().click();
-      } catch {
-        // Older main-line builds commit Minimal without the extra confirm step.
-      }
-    }
-  }
-  await waitForPlanApplied(page, profileId, check);
-  const file = path.join(dir, "setup-profile-applied.png");
-  if (profileId === "custom") {
-    await shotFrame(page, file);
-    const tab = page.getByRole("tab", { selected: true });
-    const tabText = (await tab.innerText()).trim();
-    check(
-      /capabilities/i.test(tabText),
-      `${profileId} ceremony names capabilities`,
-    );
-  } else {
-    await shotPage(page, file);
-  }
-  check(
-    !(await page
-      .locator(".setup__frame")
-      .isVisible()
-      .catch(() => false)) || profileId === "custom",
-    `${profileId} left the picker after apply`,
-  );
-  const fingerprint = await profilePlanFingerprint(page, profileId);
-  return { file, fingerprint };
+  check(!setupVisible, `${profileId} left setup on unlocked vault`);
+  return {
+    file: result.file,
+    picker: result.picker,
+    markers: result.markers,
+    markerKey: profileMarkerKey(result.markers),
+  };
 }
 
 export async function captureMinimalWarning(page, dir, check, href) {
