@@ -7,7 +7,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { TextDecoder } from "node:util";
 import { isJsonObject } from "../lib/json-boundary.mjs";
 import {
@@ -60,11 +60,12 @@ function trustedHelper(root, head, git, path = helperPath) {
         "Formal lock projection helper is missing or not a regular file",
       );
   }
-  if (!readFileSync(current).equals(blob(root, head, path, git).data))
+  const source = readFileSync(current);
+  if (!source.equals(blob(root, head, path, git).data))
     throw new Error(
       "Formal lock projection helper differs from committed HEAD",
     );
-  return current;
+  return source;
 }
 
 function candidates(history) {
@@ -235,20 +236,25 @@ function descriptorTouches(kind, descriptor, changed) {
   );
 }
 
-function projectionHelpers(root, head, git, descriptors) {
+function projectionHelpers(root, head, git, descriptors, dir) {
   const helpers = new Map();
+  const copies = new Map();
+  const verifiedCopy = (path) => {
+    if (!copies.has(path)) {
+      const source = trustedHelper(root, head, git, path);
+      const target = join(dir, basename(path));
+      writeFileSync(target, source, { mode: 0o600, flag: "wx" });
+      copies.set(path, target);
+    }
+    return copies.get(path);
+  };
   for (const { kind, descriptor } of descriptors) {
     if (!helpers.has(kind)) {
       // The manifest helper imports the shared lock graph parser.
-      if (kind === "manifest") trustedHelper(root, head, git, helperPath);
+      if (kind === "manifest") verifiedCopy(helperPath);
       helpers.set(
         kind,
-        trustedHelper(
-          root,
-          head,
-          git,
-          kind === "manifest" ? manifestHelperPath : helperPath,
-        ),
+        verifiedCopy(kind === "manifest" ? manifestHelperPath : helperPath),
       );
     }
     if (
@@ -256,10 +262,7 @@ function projectionHelpers(root, head, git, descriptors) {
       descriptor.manifests &&
       !helpers.has("multipackage")
     )
-      helpers.set(
-        "multipackage",
-        trustedHelper(root, head, git, multiHelperPath),
-      );
+      helpers.set("multipackage", verifiedCopy(multiHelperPath));
   }
   return helpers;
 }
@@ -281,9 +284,9 @@ export function lockAffectedSuites(root, change, history, head, git) {
       .map(([kind, descriptor]) => ({ id: suite.id, kind, descriptor })),
   );
   if (!descriptors.length) return new Set();
-  const helpers = projectionHelpers(root, head, git, descriptors);
   const dir = mkdtempSync(join(tmpdir(), "formal-lock-"));
   try {
+    const helpers = projectionHelpers(root, head, git, descriptors, dir);
     const compare = comparator(root, helpers, dir, git);
     const histories = new Map();
     const decisions = new Map();

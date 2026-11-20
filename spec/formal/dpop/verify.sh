@@ -17,7 +17,7 @@ if ! command -v "$rustc_bin" >/dev/null 2>&1; then
   echo "dpop-formal: the repository's Rust compiler is required" >&2
   exit 1
 fi
-rust_version="$(python3 -c 'import sys,tomllib; print(tomllib.load(open(sys.argv[1], "rb"))["toolchain"]["channel"])' "$root/rust-toolchain.toml")"
+rust_version="$(python3 -I -c 'import sys,tomllib; print(tomllib.load(open(sys.argv[1], "rb"))["toolchain"]["channel"])' "$root/rust-toolchain.toml")"
 if [[ "$("$rustc_bin" --version)" != "rustc $rust_version "* ]]; then
   echo "dpop-formal: expected rustc $rust_version" >&2
   exit 1
@@ -33,10 +33,10 @@ source="$root/crates/proof/src/replay.rs"
 harness="$root/spec/formal/dpop/replay_conformance.rs"
 DPOP_REPLAY_SOURCE="$source" "$rustc_bin" --edition=2021 "$harness" -o "$tmp/conformance"
 "$tmp/conformance" "$tmp/vectors.tsv"
-python3 "$root/spec/formal/dpop/check_drift.py"
+python3 -I "$root/spec/formal/dpop/check_drift.py"
 
 if [[ "${1:-}" == "--negative-controls" ]]; then
-  python3 "$root/spec/formal/dpop/mutate.py" "$source" "$tmp"
+  python3 -I "$root/spec/formal/dpop/mutate.py" "$source" "$tmp"
   for mutation in expiry-boundary proof-window duplicate-check capacity-check empty-jti oversized-jti; do
     DPOP_REPLAY_SOURCE="$tmp/$mutation.rs" "$rustc_bin" --edition=2021 "$harness" -o "$tmp/mutant"
     if "$tmp/mutant" "$tmp/vectors.tsv" > "$tmp/$mutation.log" 2>&1; then

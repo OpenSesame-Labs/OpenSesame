@@ -11,7 +11,7 @@ trap 'rm -rf "$scratch"' EXIT
 cd "$root/spec/formal/source-lifetime"
 bash "$root/spec/formal/check-axioms.sh" "$lean_bin" "$root/spec/formal/source-lifetime/SourceLifetime.lean" > "$scratch/vectors"
 cd "$root"
-python3 spec/formal/source-lifetime/check-drift.py
+python3 -I spec/formal/source-lifetime/check-drift.py
 required="lean_vectors_match_source_owned_generation_manager"
 OPENSESAME_SOURCE_LIFETIME_VECTORS="$scratch/vectors" \
   cargo test --locked -p opensesame-transport-security --all-features \
@@ -124,4 +124,4 @@ for name in \
     exit 1
   fi
 done
-python3 spec/formal/source-lifetime/check-drift.py
+python3 -I spec/formal/source-lifetime/check-drift.py

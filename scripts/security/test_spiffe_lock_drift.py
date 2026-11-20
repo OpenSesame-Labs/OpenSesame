@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SPEC = importlib.util.spec_from_file_location("spiffe_lock_drift", ROOT / "spec/formal/spiffe/check-drift.py")
 module = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = module
-SPEC.loader.exec_module(module)
+exec(compile(Path(SPEC.origin).read_bytes(), SPEC.origin, "exec", dont_inherit=True), module.__dict__)
 
 
 class SpiffeLockDriftTests(unittest.TestCase):

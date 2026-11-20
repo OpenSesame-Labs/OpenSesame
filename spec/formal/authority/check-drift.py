@@ -9,12 +9,15 @@ import sys
 
 root = Path(__file__).resolve().parents[3]
 helper = root / "scripts/security/cargo-workspace-projection.py"
+for path in (root / "scripts", root / "scripts/security", helper):
+    if not (stat.S_ISREG(path.lstat().st_mode) if path == helper else stat.S_ISDIR(path.lstat().st_mode)):
+        raise SystemExit("authority-formal: projection helper path is not regular")
 spec = importlib.util.spec_from_file_location("cargo_workspace_projection", helper)
 if spec is None or spec.loader is None:
     raise SystemExit("authority-formal: workspace projection helper is unavailable")
 projection = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = projection
-spec.loader.exec_module(projection)
+exec(compile(helper.read_bytes(), str(helper), "exec", dont_inherit=True), projection.__dict__)
 
 paths = [
     "crates/domain/Cargo.toml",
