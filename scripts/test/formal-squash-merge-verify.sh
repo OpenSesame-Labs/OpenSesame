@@ -15,7 +15,8 @@ for rel in \
   spec/formal/required-theorem-command.lean \
   spec/formal/authority \
   spec/formal/dpop \
-  spec/formal/spiffe; do
+  spec/formal/spiffe \
+  spec/formal/source-lifetime; do
   rm -rf "$SCRATCH/$rel"
   cp -a "$ROOT/$rel" "$SCRATCH/$rel"
 done
@@ -28,6 +29,7 @@ manifests = [
     scratch / "spec/formal/authority/coverage.json",
     scratch / "spec/formal/dpop/coverage.json",
     scratch / "spec/formal/spiffe/coverage.json",
+    scratch / "spec/formal/source-lifetime/coverage.json",
 ]
 seen = set()
 for manifest in manifests:
@@ -71,6 +73,7 @@ if scratch_pkg.exists() and root_pkg.exists():
         "verify:authority-formal",
         "verify:dpop-formal",
         "verify:spiffe-formal",
+        "verify:source-lifetime-formal",
     ):
         if key in root_scripts:
             scripts[key] = root_scripts[key]
@@ -87,6 +90,7 @@ PY
 python3 "$SCRATCH/spec/formal/authority/check-drift.py"
 python3 "$SCRATCH/spec/formal/dpop/check_drift.py"
 python3 "$SCRATCH/spec/formal/spiffe/check-drift.py"
+python3 "$SCRATCH/spec/formal/source-lifetime/check-drift.py"
 run_spiffe_skip_lean_integration() {
   (
     cd "$SCRATCH"

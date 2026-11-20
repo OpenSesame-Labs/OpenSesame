@@ -6,9 +6,12 @@ import json
 from pathlib import Path
 import re
 import stat
+import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "scripts" / "security"))
+from formal_coverage_drift import assert_reviewed_revision_on_main  # noqa: E402
 PATHS = [
     "crates/domain/Cargo.toml",
     "crates/domain/src/lib.rs",
@@ -117,10 +120,12 @@ def main():
     try:
         coverage = json.loads((ROOT / "spec/formal/source-lifetime/coverage.json").read_text())
         entries = coverage["sources"]
+        revision = str(coverage.get("reviewed_revision", ""))
         if (coverage.get("version") != 1 or
-                not re.fullmatch(r"[0-9a-f]{40}", str(coverage.get("reviewed_revision", ""))) or
+                not re.fullmatch(r"[0-9a-f]{40}", revision) or
                 [entry.get("path") for entry in entries] != PATHS):
             raise ValueError("invalid reviewed source manifest")
+        assert_reviewed_revision_on_main(ROOT, revision, "source-lifetime-formal")
         for entry in entries:
             if hashlib.sha256(regular_path(entry["path"]).read_bytes()).hexdigest() != entry["sha256"]:
                 raise ValueError(f"review source drift: {entry['path']}")
