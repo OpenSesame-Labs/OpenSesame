@@ -59,6 +59,23 @@ Lockfile sync: root `package.json` and `packages/auth-upstream/package.json` bot
 
 For completeness: `packages/auth-upstream/src/webauthn.ts` is not itself a matrix-reviewed source, so the v14 type rename in it required no fingerprint update; the auth-upstream surface binding (`tools/security/exposure-matrix.json:1052-1055`) is unchanged from main.
 
+## Council hold r6 — chunks 01 & 05 (closed 2026-11-20)
+
+**Chunk 01 — closure walker hardening.** The browser-entry import walker no longer matches a bare regex over raw source. It is a comment/string-aware scanner (`extractModuleSpecifiers` in `apps/pages/scripts/webauthn-browser-entry.mjs`): it tokenizes each closure file, so `import`-looking text inside comments or string literals cannot widen the pinned closure or starve it into stale pins. The walker stays static-only by contract — dynamic `import()` and template-literal specifiers are ignored and are verified absent from the pinned `@simplewebauthn/server@14.1.0` closure. The recomputed closure is byte-identical to the previous 76-file set, which proves the generation, metadata, and service pins are reachable through real code imports of `verifyRegistrationResponse` (it imports `getDefaultSupportedAlgorithmIDs` from `generateRegistrationOptions.js` and the metadata/MDS chain for attestation verification), not regex artifacts. The pins table equals exactly that closure plus `package.json` and the `esm/index.js` barrel guard. A regression test in `apps/pages/scripts/webauthn-browser-entry.test.mjs` pins the scanner against comment, string, template, and dynamic-import impostors.
+
+**Chunk 05 — manifest/lockfile commit coherence.** The initial `build(deps): bump @simplewebauthn/server from 13.3.2 to 14.1.0` commit (`a575dd7a7` on the unsigned line, `d9eafe3ce` on the signed line) carries both the root `package.json` bump and the complete `package-lock.json` SWA delta (version pin, integrity hash, and the new transitive `@peculiar/asn1-*`, nested `@peculiar/x509`, and `reflect-metadata` entries). No commit after the bump touches any SWA or SWA-transitive lockfile entry: the only later lockfile deltas are the `dts-bundle-generator`/`minimatch` override dedupe. A per-commit reviewer therefore sees the manifest and lockfile move together, and the cumulative per-file council chunks (package.json in chunk 05, package-lock.json in chunk 04) describe one coherent change.
+
+Verification at head `2e5744ba0`, every command exit 0:
+
+```text
+mise run deps                                                                       # dependencies: current lockfile already installed
+npm run typecheck                                                                   # turbo: 73 tasks successful
+npm run lint                                                                        # exit 0 (one pre-existing optional-chain warning in control-plane, not this diff)
+npm run audit:exposure                                                              # exposure matrix: CLEAN (working tree; 20 surfaces, 671 reviewed sources)
+npm test -w @opensesame/pages -- webauthn-browser-entry                             # see run log
+node --test --test-name-pattern="the lockfile installs every copy" scripts/security/patched-dependencies.test.mjs  # 1 passed
+```
+
 ## Limits
 
 This is a dependency-slice review: it covers the manifest/lockfile diff, SWA call-site API fit, browser-entry pins, and the exposure-matrix binding. It does not re-review upstream SWA 14 verification internals (origin/RP-ID binding, attestation parsing) beyond the type-level and test evidence above, and it is not a full `npm run verify` run.
