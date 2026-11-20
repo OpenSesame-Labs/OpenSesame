@@ -7,18 +7,33 @@ use opensesame_human_vault::root_protection::{
 };
 use opensesame_human_vault::ItemDataKey;
 
-use crate::envelope::{open_osseal, seal_osseal};
+use crate::envelope::{open_osseal_for_path, seal_osseal};
 use crate::git::auto_commit;
-use crate::path::{confined_read, confined_remove, confined_write, logical_to_relative};
+use crate::path::{
+    confined_atomic_write, confined_read, confined_remove, confined_write, logical_to_relative,
+};
 use crate::recipients::Recipients;
 use crate::store_lock::StoreLock;
 use crate::{age_fmt, gpg, Entry, StoreError, StoreRoot};
 
 #[path = "store_entry_operations.rs"]
 mod entry_operations;
+pub use entry_operations::list_names;
+#[path = "store_legacy.rs"]
+mod legacy_migration;
+#[path = "store_recovery.rs"]
+mod recovery;
 
 const KEY_FILE: &str = ".opensesame-key";
 const REVISION_FILE: &str = ".opensesame-revisions.json";
+
+#[path = "store_revision.rs"]
+mod revision_state;
+#[path = "store_foreign_fallback.rs"]
+mod foreign_fallback;
+pub(crate) use revision_state::{
+    normalize_revisions, revision_for, revision_identity, set_revision,
+};
 
 // Commit subjects name the operation, never the entry. A backup remote holds
 // the whole history, so an entry name in a commit subject publishes the folder
@@ -87,16 +102,17 @@ impl StoreRoot {
         if !path.exists() {
             return Ok(BTreeMap::new());
         }
-        serde_json::from_slice(&confined_read(&self.path, Path::new(REVISION_FILE))?)
-            .map_err(|e| StoreError::Crypto(format!("invalid revision state: {e}")))
+        let raw = serde_json::from_slice(&confined_read(&self.path, Path::new(REVISION_FILE))?)
+            .map_err(|e| StoreError::Crypto(format!("invalid revision state: {e}")))?;
+        Ok(normalize_revisions(raw))
     }
 
     pub(crate) fn record_revision(&self, name: &str, revision: u64) -> Result<(), StoreError> {
         let mut revisions = self.revisions()?;
-        revisions.insert(name.to_string(), revision);
+        set_revision(&mut revisions, name, revision)?;
         let bytes = serde_json::to_vec(&revisions)
             .map_err(|e| StoreError::Crypto(format!("revision state: {e}")))?;
-        confined_write(&self.path, Path::new(REVISION_FILE), &bytes)?;
+        confined_atomic_write(&self.path, Path::new(REVISION_FILE), &bytes)?;
         Ok(())
     }
 
@@ -156,10 +172,7 @@ impl StoreRoot {
     ///
     /// Returns an error when validation or the underlying operation fails.
     pub fn insert(&self, name: &str, entry: &Entry, key: &ItemDataKey) -> Result<(), StoreError> {
-        if self.find_existing(name).is_ok() {
-            return Err(StoreError::AlreadyExists(name.into()));
-        }
-        self.write_entry(name, entry, key, None)?;
+        self.write_entry_with_optional_key(name, entry, Some(key), None, true)?;
         auto_commit(&self.path, COMMIT_ADD)?;
         Ok(())
     }
@@ -192,7 +205,7 @@ impl StoreRoot {
     ) -> Result<(), StoreError> {
         let existing = self.find_existing(name).ok();
         let keep_format = existing.as_ref().map(|(_, h)| *h);
-        self.write_entry_with_optional_key(name, entry, key, keep_format)?;
+        self.write_entry_with_optional_key(name, entry, key, keep_format, false)?;
         let msg = if existing.is_some() {
             COMMIT_EDIT
         } else {
@@ -222,7 +235,7 @@ impl StoreRoot {
         key: &ItemDataKey,
         format: Option<FormatHint>,
     ) -> Result<(), StoreError> {
-        self.write_entry_with_optional_key(name, entry, Some(key), format)
+        self.write_entry_with_optional_key(name, entry, Some(key), format, false)
     }
 
     fn write_entry_with_optional_key(
@@ -231,6 +244,7 @@ impl StoreRoot {
         entry: &Entry,
         key: Option<&ItemDataKey>,
         format: Option<FormatHint>,
+        create_only: bool,
     ) -> Result<(), StoreError> {
         let format = format.unwrap_or_else(|| self.preferred_write_format());
         if format == FormatHint::Osseal && key.is_none() {
@@ -238,15 +252,27 @@ impl StoreRoot {
         }
         // Held until the ciphertext is on disk: see `store_lock`.
         let _lock = StoreLock::for_writing(&self.path, name, key)?;
+        if create_only && self.find_existing(name).is_ok() {
+            return Err(StoreError::AlreadyExists(name.into()));
+        }
         let plaintext = entry.render().into_bytes();
         match format {
             FormatHint::Osseal => {
                 let key = key.ok_or_else(|| StoreError::NotInitialized(self.path.clone()))?;
                 let rel = Self::entry_relative(name, "osseal")?;
                 let path = self.path.join(&rel);
-                let revision = self.next_entry_revision(name, &path, key)?;
+                let revision = self.next_entry_revision_after(
+                    name,
+                    &path,
+                    key,
+                    0,
+                    Some(&plaintext),
+                    false,
+                )?;
                 let blob = seal_osseal(&plaintext, key, name, revision)?;
-                confined_write(&self.path, &rel, &blob)?;
+                // Keep the preceding ciphertext whole if a write stops after
+                // advancing the counter; it can then be explicitly recovered.
+                confined_atomic_write(&self.path, &rel, &blob)?;
             }
             FormatHint::Gpg => {
                 let rel = Self::entry_relative(name, "gpg")?;
@@ -309,49 +335,70 @@ impl StoreRoot {
         let rel = path
             .strip_prefix(&self.path)
             .map_err(|_| StoreError::InvalidPath("path escapes store root".into()))?;
-        let (plaintext, rebind_key) = match hint {
+        let plaintext = match hint {
             FormatHint::Osseal => {
                 let key = key.ok_or_else(|| StoreError::NotInitialized(self.path.clone()))?;
+                let lock = StoreLock::shared(&self.path)?;
                 let witness = self.entry_witness(name, key)?;
                 if witness.deleted {
                     return Err(StoreError::NotFound(name.into()));
                 }
-                let expected = (witness.revision > 0).then_some(witness.revision);
-                let opened = open_osseal(&confined_read(&self.path, rel)?, key, name, expected)?;
-                (opened.plaintext, opened.legacy.then_some(key))
+                let opened = open_osseal_for_path(
+                    &confined_read(&self.path, rel)?,
+                    key,
+                    name,
+                    Some(witness.revision),
+                )?;
+                Self::verify_entry_plaintext_opened(&witness, &opened.plaintext)?;
+                if self.revision(name)?.is_some() {
+                    opened.plaintext
+                } else {
+                    drop(lock);
+                    let _lock = StoreLock::for_sealing(&self.path, name, key)?;
+                    let witness = self.entry_witness(name, key)?;
+                    if witness.deleted {
+                        return Err(StoreError::NotFound(name.into()));
+                    }
+                    let reopened = open_osseal_for_path(
+                        &confined_read(&self.path, rel)?,
+                        key,
+                        name,
+                        Some(witness.revision),
+                    )?;
+                    Self::verify_entry_plaintext_opened(&witness, &reopened.plaintext)?;
+                    if self.revision(name)?.is_none() {
+                        self.record_revision(name, witness.revision)?;
+                    }
+                    reopened.plaintext
+                }
             }
-            FormatHint::Gpg => (gpg::decrypt_gpg(&confined_read(&self.path, rel)?)?, None),
+            FormatHint::Gpg => {
+                if let Some(key) = key {
+                    self.allow_foreign_format_fallback(name, key)?;
+                }
+                gpg::decrypt_gpg(&confined_read(&self.path, rel)?)?
+            }
             FormatHint::Age => {
+                if let Some(key) = key {
+                    self.allow_foreign_format_fallback(name, key)?;
+                }
                 let id = age_identity.ok_or_else(|| {
                     StoreError::Age("OPENSESAME_AGE_IDENTITY required for .age entries".into())
                 })?;
-                (
-                    age_fmt::decrypt_age(&confined_read(&self.path, rel)?, id)?,
-                    None,
-                )
+                age_fmt::decrypt_age(&confined_read(&self.path, rel)?, id)?
             }
         };
         let text =
             String::from_utf8(plaintext).map_err(|e| StoreError::Crypto(format!("utf8: {e}")))?;
         let entry = Entry::parse(&text);
-        if let Some(key) = rebind_key {
-            self.write_entry(name, &entry, key, Some(FormatHint::Osseal))?;
-            auto_commit(&self.path, COMMIT_REBIND)?;
-        }
         Ok(entry)
     }
-}
-
-/// List entries for connector-host without unlocking (names only).
-///
-/// # Errors
-///
-/// Returns an error when validation or the underlying operation fails.
-pub fn list_names(store_dir: &Path, prefix: &str) -> Result<Vec<String>, StoreError> {
-    let root = StoreRoot::open(store_dir)?;
-    root.ls(prefix)
 }
 
 #[cfg(test)]
 #[path = "store_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "store_revision_tests.rs"]
+mod revision_tests;

@@ -2,6 +2,10 @@ use std::path::{Component, Path, PathBuf};
 
 use crate::StoreError;
 
+#[path = "path_atomic.rs"]
+mod atomic;
+pub(crate) use atomic::confined_atomic_write;
+
 #[cfg(unix)]
 mod confined {
     use std::ffi::CString;
@@ -39,7 +43,11 @@ mod confined {
         Ok(unsafe { File::from_raw_fd(fd) })
     }
 
-    fn open_parent(root: &Path, rel: &Path, create: bool) -> Result<(File, CString), StoreError> {
+    pub(super) fn open_parent(
+        root: &Path,
+        rel: &Path,
+        create: bool,
+    ) -> Result<(File, CString), StoreError> {
         let mut dir = std::fs::OpenOptions::new()
             .read(true)
             .custom_flags(libc::O_DIRECTORY | libc::O_NOFOLLOW | libc::O_CLOEXEC)
@@ -114,6 +122,13 @@ mod confined {
     }
 
     pub fn read(root: &Path, rel: &Path) -> Result<Vec<u8>, StoreError> {
+        let mut file = open_read(root, rel)?;
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes)?;
+        Ok(bytes)
+    }
+
+    pub(super) fn open_read(root: &Path, rel: &Path) -> Result<File, StoreError> {
         let (dir, name) = open_parent(root, rel, false)?;
         // SAFETY: valid directory fd/component; O_NOFOLLOW blocks a final symlink.
         let fd = unsafe {
@@ -127,10 +142,7 @@ mod confined {
             return Err(StoreError::Io(std::io::Error::last_os_error()));
         }
         // SAFETY: successful openat returns a new owned descriptor.
-        let mut file = unsafe { File::from_raw_fd(fd) };
-        let mut bytes = Vec::new();
-        file.read_to_end(&mut bytes)?;
-        Ok(bytes)
+        Ok(unsafe { File::from_raw_fd(fd) })
     }
 
     pub fn remove(root: &Path, rel: &Path) -> Result<(), StoreError> {
@@ -210,16 +222,13 @@ mod confined_windows {
         .map_err(StoreError::Io)?;
         Ok((directory, name))
     }
-
     pub fn write(root: &Path, rel: &Path, bytes: &[u8]) -> Result<(), StoreError> {
         let (directory, name) = parent_and_name(root, rel, true)?;
         atomic_write(&directory, name, bytes).map_err(StoreError::Io)
     }
-
     pub fn replace(root: &Path, rel: &Path, bytes: &[u8]) -> Result<(), StoreError> {
         write(root, rel, bytes)
     }
-
     pub fn read(root: &Path, rel: &Path) -> Result<Vec<u8>, StoreError> {
         let (directory, name) = parent_and_name(root, rel, false)?;
         let held =
@@ -227,7 +236,6 @@ mod confined_windows {
                 .map_err(StoreError::Io)?;
         Ok(held.bytes().to_vec())
     }
-
     pub fn remove(root: &Path, rel: &Path) -> Result<(), StoreError> {
         let (directory, name) = parent_and_name(root, rel, false)?;
         remove_confined_file(&directory, name).map_err(StoreError::Io)
@@ -239,7 +247,6 @@ pub(crate) use confined_windows::{
     read as confined_read, remove as confined_remove, replace as confined_replace,
     write as confined_write,
 };
-
 #[cfg(not(any(unix, windows)))]
 fn unsupported_confined<T>() -> Result<T, StoreError> {
     Err(StoreError::InvalidPath(
