@@ -10,6 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findChromium } from "./duress/find-chromium.mjs";
+import { unlockWithPin } from "./lib/pages-journey.mjs";
 import { createHarness } from "./lib/static-origin-harness.mjs";
 import {
   applySetupChoice,
@@ -134,11 +135,16 @@ async function routeConnectRelay(page) {
 
 async function armConnectRelay(page, shot, origin, base) {
   const command = page.locator("#command-bar-input");
+  let onConnections = false;
   if (await command.isVisible().catch(() => false)) {
     await command.fill("connections");
     await page.keyboard.press("Enter");
-    await page.waitForURL(/\/connections/, { timeout: 90_000 });
-  } else {
+    onConnections = await page
+      .waitForURL(/\/connections/, { timeout: 20_000 })
+      .then(() => true)
+      .catch(() => false);
+  }
+  if (!onConnections) {
     await page.goto(`${origin}${base}connections`, {
       waitUntil: "domcontentloaded",
     });
@@ -183,10 +189,22 @@ async function captureTokenLabel(page, walk, origin, base) {
   await routeConnectRelay(page);
   await openDoor(page, shot, record, `${origin}${base}`);
   await captureChoices(page, shot, record);
-  const where = await applySetupChoice(page, shot, record, walk.setupChoice);
+      const setup =
+        walk.name === "custom" || walk.name === "minimal-local"
+          ? "Default"
+          : walk.setupChoice;
+      const where = await applySetupChoice(page, shot, record, setup);
   const entry = await enterVault(page, where);
   record.entry = entry;
   await shot(`vault-${entry}`);
+  const locked = await page
+    .getByLabel("PIN", { exact: true })
+    .isVisible()
+    .catch(() => false);
+  if (locked) {
+    await unlockWithPin(page);
+    await shot("vault-unlocked");
+  }
 
   await armConnectRelay(page, shot, origin, base);
 
@@ -229,9 +247,10 @@ async function main() {
     const walks = resolveWalks(profilesDir, only);
     const dists = new Map();
     function buildKeyFor(walk) {
-      // minimal-local omits connectors.external; stock build keeps the walk
-      // reachable while setup choice stays Minimal (checklist matrix).
-      return walk.name === "minimal-local" ? "stock" : walk.buildKey;
+      return walk.buildKey;
+    }
+    function capabilityFor(walk) {
+      return walk.capabilityProfile;
     }
     for (const walk of buildsNeeded(walks)) {
       const key = buildKeyFor(walk);
@@ -244,8 +263,7 @@ async function main() {
         appRoot,
         scriptsDir,
         outDir,
-        capabilityProfile:
-          walk.name === "minimal-local" ? null : walk.capabilityProfile,
+        capabilityProfile: capabilityFor(walk),
         viteEnv: CONNECT_VITE,
       });
       dists.set(key, outDir);
