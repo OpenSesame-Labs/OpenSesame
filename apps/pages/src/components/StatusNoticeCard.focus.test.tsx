@@ -219,4 +219,73 @@ describe("a tray card whose act works in place (ADR 0221)", () => {
     view.rerender(card(answered));
     expect(document.activeElement).toBe(document.body);
   });
+
+  it("does not hand focus back after a keyboard worded choice that opens", () => {
+    const onOpen = vi.fn();
+    const open = vi.fn();
+    const notice: Notice = {
+      id: "tutorial.queue.vault.lock",
+      kind: "status",
+      tone: "info",
+      title: "Lock the vault",
+      body: "Queued.",
+      act: {
+        label: "Open settings",
+        worded: true,
+        opens: true,
+        run: open,
+      },
+      alt: { label: "Stay here", worded: true, run: () => {} },
+      createdAt: "2026-11-19T00:00:00Z",
+    };
+    const view = render(card(notice, onOpen));
+    const key = screen.getByRole("button", { name: "Open settings" });
+    key.focus();
+    fireEvent.click(key);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(open).toHaveBeenCalledTimes(1);
+    view.rerender(card({ ...notice, act: undefined, alt: undefined }, onOpen));
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it("does not hand focus back after a keyboard worded tray choice", () => {
+    const onOpen = vi.fn();
+    const pause = vi.fn();
+    const notice: Notice = {
+      id: "tutorial.pause.session.no-close",
+      kind: "status",
+      tone: "warn",
+      title: "Tutorials",
+      body: "Pause the others for this session?",
+      act: {
+        label: "Pause all for this session",
+        worded: true,
+        run: pause,
+      },
+      alt: { label: "Only this one", worded: true, run: () => {} },
+      createdAt: "2026-11-18T00:00:00Z",
+    };
+    const view = render(
+      <MemoryRouter>
+        <StatusNoticeCard notice={notice} onOpen={onOpen} wordedTray />
+      </MemoryRouter>,
+    );
+    const pauseKey = screen.getByRole("button", {
+      name: "Pause all for this session",
+    });
+    pauseKey.focus();
+    fireEvent.click(pauseKey);
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(pause).toHaveBeenCalledTimes(1);
+    view.rerender(
+      <MemoryRouter>
+        <StatusNoticeCard
+          notice={{ ...notice, act: undefined, alt: undefined }}
+          onOpen={onOpen}
+          wordedTray
+        />
+      </MemoryRouter>,
+    );
+    expect(document.activeElement).toBe(document.body);
+  });
 });
