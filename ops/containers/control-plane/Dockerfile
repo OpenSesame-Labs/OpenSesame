@@ -3,14 +3,14 @@
 #   docker build -f ops/containers/control-plane/Dockerfile -t control-plane:local .
 # CI publishes linux/amd64. arm64: docker buildx build --platform linux/amd64,linux/arm64
 # The process stays stopped until the operator env in the README is set.
-FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS build
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS build
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates git python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY . .
 RUN npm ci --ignore-scripts
-FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS runtime-deps
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS runtime-deps
 WORKDIR /src
 COPY --from=build /src/package.json /src/package-lock.json ./
 COPY --from=build /src/packages ./packages
@@ -28,7 +28,7 @@ RUN npm ci --omit=dev --ignore-scripts \
   && npm install --no-save --ignore-scripts tsx@4.23.15 \
   && find node_modules -name '.package-lock.json' -delete \
   && rm -rf node_modules/@typescript node_modules/typescript
-FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
+FROM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1
 RUN apt-get update \
   && apt-get -y upgrade --no-install-recommends \
   && rm -rf /var/lib/apt/lists/* \
