@@ -1,0 +1,272 @@
+{
+  "version": 1,
+  "reviewed_revision": "94260f7078fb3b9a4f42658a2eab702c358c6042",
+  "reviewed_source_state": "Source hashes identify the reviewed source-history integration after this base; they do not prove Rust refinement.",
+  "sdk_projection": {
+    "package": {
+      "name": "spiffe",
+      "version": "0.19.0",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "checksum": "bb3330f98f1b0c56c42e8d25f4793b242ffd2df57cb21d0cfdd8dfc24cc444b8"
+    },
+    "direct_dependencies": [
+      {
+        "name": "arc-swap",
+        "version": "1.9.3",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "380962b3d93b99642e50b9febf72c071e97e8b32d86eae9cf4ef582bb960ae6e"
+      },
+      {
+        "name": "fastrand",
+        "version": "2.5.0",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "da7c62ceae207dd37ea5b845da6a0696c799f85e97da1ab5b7910be3c1c80223"
+      },
+      {
+        "name": "futures",
+        "version": "0.3.34",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "9a31d2a3fbaaeb2af2368bbdd904aa8e812d3c04a1ee10d3171f52d556e5d0a3"
+      },
+      {
+        "name": "hyper-util",
+        "version": "0.1.21",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "ddc03d96684f9226b8a787cdb71488417b53ab5ea8fdb1dac946cb9431cc8bff"
+      },
+      {
+        "name": "pkcs8",
+        "version": "0.11.0",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "451913da69c775a56034ea8d9003d27ee8948e12443eae7c038ba100a4f21cb7"
+      },
+      {
+        "name": "prost",
+        "version": "0.14.4",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "528ac67416ff8646872a3c02cad9cc4ee5dc9f9540c9b10771855c95cb2e5ae1"
+      },
+      {
+        "name": "prost-types",
+        "version": "0.14.4",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "f94967dc7688f3054c7fac87473ffae4cc4c3904800e2d9f5b857246d8963b0a"
+      },
+      {
+        "name": "thiserror",
+        "version": "2.0.21",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "09e52cb86a36cede5cb101bf8908837b3e4c6e5e59fe7fd85c23fb56200d189e"
+      },
+      {
+        "name": "tokio",
+        "version": "1.54.1",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "b52fd3255258d26fac7264ab5a76b53c13367136dc011d3d6ad4f8ed070396a3"
+      },
+      {
+        "name": "tokio-util",
+        "version": "0.7.20",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "e464cf451ba96ebfc6f9b6542f17ee8b8956e33f1e40d9690624e59d7a7f8a4b"
+      },
+      {
+        "name": "tonic",
+        "version": "0.14.9",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "e2cdfc673aabd30fe8fee92e65837b644c37c5d47f0f97ae6d5e0f1237d15e1b"
+      },
+      {
+        "name": "tonic-prost",
+        "version": "0.14.9",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "eba464054e2226f182a34489b8b079bf4c6e3e7ab5fd7fc30e024f24aa92a484"
+      },
+      {
+        "name": "tower",
+        "version": "0.5.3",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "ebe5ef63511595f1344e2d5cfa636d973292adc0eec1f0ad45fae9f0851ab1d4"
+      },
+      {
+        "name": "url",
+        "version": "2.5.8",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "ff67a8a4397373c3ef660812acab3268222035010ab8680ec4215f38ba3d0eed"
+      },
+      {
+        "name": "x509-parser",
+        "version": "0.18.1",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "d43b0f71ce057da06bc0851b23ee24f3f86190b07203dd8f567d0b706a185202"
+      },
+      {
+        "name": "zeroize",
+        "version": "1.9.1",
+        "source": "registry+https://github.com/rust-lang/crates.io-index",
+        "checksum": "e13084392c5e4bc371903e2935a5eaeed24905a7511356b883835e18a78f6879"
+      }
+    ]
+  },
+  "sources": [
+    {
+      "path": "crates/spiffe-source/Cargo.toml",
+      "sha256": "1d2f4e9b12d224c03ffd5a15d412ccd8681fa920a56d4360b121f9bbe6eab5a3"
+    },
+    {
+      "path": "crates/spiffe-source/src/source.rs",
+      "sha256": "3425ff54d43d7d3a218385af1b662fd4f8da644a7f3c1e423c41a809e59f8466"
+    },
+    {
+      "path": "crates/spiffe-source/src/source_history_flow.rs",
+      "sha256": "ed64cbda5e27776bc2a83c755bb3fae0ed7686c4251e69dd0ccd17c15ea5c70c"
+    },
+    {
+      "path": "crates/spiffe-source/src/source_policy.rs",
+      "sha256": "faf81b2b4de6d9ded51f4663105ccb731ab9acd71a46e4ff48c4efd235ac516d"
+    },
+    {
+      "path": "crates/spiffe-source/src/bundles.rs",
+      "sha256": "16d318990e61d3a0aae54eeef060defb154adf51dbec53e79a42f590814b740b"
+    },
+    {
+      "path": "crates/spiffe-source/src/outage.rs",
+      "sha256": "35a4ecd066c28c06a4b353d5c2c071d7d6075d94da0c53f8d0a343ee8ca65690"
+    },
+    {
+      "path": "crates/spiffe-source/src/status.rs",
+      "sha256": "40ca61fdbfc75663ffa2c0ae3a47b4d6399e285ff542ad8eedaa8bfdca4eb6ea"
+    },
+    {
+      "path": "crates/spiffe-source/src/source_formal_tests.rs",
+      "sha256": "1d2911fbf340939809664c821a254af2314e17eb52bb2777098dbdd805940e49"
+    },
+    {
+      "path": "crates/spiffe-source/src/fake/server.rs",
+      "sha256": "1ddefac43b13ce36c38fa681dc0e38da0108c83e9b6874359212170ed486fa3b"
+    },
+    {
+      "path": "crates/spiffe-source/tests/synthetic_workload_api.rs",
+      "sha256": "d606711945b310ae7f05fd1cff54d0a97e536295e3149e4d12d0983a8ef39ff0"
+    },
+    {
+      "path": "crates/spiffe-source/tests/withdrawal_policy.rs",
+      "sha256": "9896e0beca8274b8b3de339f75ea331a5eb4729dc7d8c4dda40985ac0c0de08a"
+    },
+    {
+      "path": "crates/spiffe-source/tests/outage_policy.rs",
+      "sha256": "83845a4bc9b77ab91c01ccef67afe08b830a5762a01808956e0377ba7bf55ab3"
+    },
+    {
+      "path": "crates/spiffe-source/tests/trust_reduction_policy.rs",
+      "sha256": "19c7769575027c1c404e2cb8a41c394c72a1600b8c1cc7593c5accec5c4e7531"
+    },
+    {
+      "path": "crates/spiffe-source/tests/support/policy.rs",
+      "sha256": "ab0168f14c1bb5750582db83db9802a6403f94827a28ef4c59c232bf62f93357"
+    },
+    {
+      "path": "crates/spiffe-source/src/snapshot.rs",
+      "sha256": "eac3f881fbdf2cea21b2ee2046f4ececf7a61501d3b5add5049cac634ef426c6"
+    },
+    {
+      "path": "crates/spiffe-source/src/error.rs",
+      "sha256": "c2bd97640a14770d31bf59a6f6d20069245bc466b095e36350c48283ccf1d72b"
+    },
+    {
+      "path": "crates/spiffe-source/src/config.rs",
+      "sha256": "c6a5aa75b9734a48b3195874074bd122a17eb56cb802a288de9157a8ca0b1f2b"
+    },
+    {
+      "path": "crates/spiffe-source/src/svid_profile.rs",
+      "sha256": "ae5e6c1d83841ef1d7f81cbdaf85452ebe791d0c829524f1da6af1d6702bc288"
+    },
+    {
+      "path": "crates/spiffe-source/src/sink.rs",
+      "sha256": "ce5603f9280b48dadcc2ceef9640b667ac839ad0197190db9a9d8c3a0c72191d"
+    },
+    {
+      "path": "crates/spiffe-source/src/sink/transport.rs",
+      "sha256": "7899240d30a93c998074e1ea8a83e31d8c8ec272d210d4df58861c4fab8d7e70"
+    },
+    {
+      "path": "crates/transport-security/src/generations.rs",
+      "sha256": "626e150638f14d21a60fd207ebba34a9b38173ea766b87ba327c58e4ca31101f"
+    },
+    {
+      "path": "crates/spiffe-source/src/lib.rs",
+      "sha256": "50a975b67dc7764109f014d5ebfef1c283400e36c9525b1531d8010bf2b9a3cc"
+    },
+    {
+      "path": "crates/spiffe-source/tests/production_sink_policy.rs",
+      "sha256": "556bfb2df0f988a2e7d05bad359181a068bf7fafecb448102f44dcaa557dc86e"
+    },
+    {
+      "path": "crates/spiffe-source/src/source_handle.rs",
+      "sha256": "f870853088dba4b674b9bc5f265c50af8caa7a91873dac02ddb78b563cf5633f"
+    },
+    {
+      "path": "crates/transport-security/src/source_lifetime.rs",
+      "sha256": "c180e8c96ccf81e197337674044aea249748d560a1757caf5642d447922959bb"
+    },
+    {
+      "path": "crates/transport-security/src/source_history_activation.rs",
+      "sha256": "c9059d04ddf349a44d3a291a28c0e3fb0505a551aabfe801db93c3a9af992ff1"
+    },
+    {
+      "path": "crates/transport-security/src/source_trust.rs",
+      "sha256": "96dacd5d17c55ef56e665afc47c8c6b797f3bd3129bfe18fb768c78cf3e46fc0"
+    },
+    {
+      "path": "crates/domain/Cargo.toml",
+      "sha256": "7536b0b444451c252d92615250a06efb74e0c8c99edda244e1f0802c6a00de25"
+    },
+    {
+      "path": "crates/domain/src/lib.rs",
+      "sha256": "2db2ace5bf8abd4ac858d40a72caa704cd22508090f6d8605c12f30bdc7437ae"
+    },
+    {
+      "path": "crates/transport-security/Cargo.toml",
+      "sha256": "74c6e322dfcd18a0b495b2ac88ed850afc2b165e80e5dbbeff4fda406a72d12e"
+    },
+    {
+      "path": "crates/transport-security/src/lib.rs",
+      "sha256": "4d2c9614dae83fca5d5d4c8de1b75cc501b25df30b62aaa720e38b0aa92b0fc8"
+    },
+    {
+      "path": "crates/transport-security/src/svid_profile.rs",
+      "sha256": "b13202dee43322cf226cb8b202aecfba83ae993dc4a160e4caec3dcf2cafb38c"
+    },
+    {
+      "path": "scripts/security/formal-cargo-freshness.py",
+      "sha256": "246565be88eb0c64a17a8c2551906c06698d07a0df76b69aea7f27e7aa63bf5c"
+    },
+    {
+      "path": "scripts/security/formal-cargo-isolation.py",
+      "sha256": "f0d313d9895adc193afc26ae954b90bceb94deda66da239199c527eaf628eeda"
+    },
+    {
+      "path": "scripts/security/cargo-lock-projection.py",
+      "sha256": "85ebc3052f5be51de19f50af0b131d3e0a02496259ed5d59d209ed797ef79b6a"
+    }
+  ],
+  "lock_projection": {
+    "root": "opensesame-spiffe-source",
+    "algorithm": "cargo-lock-projection-v1-sha256",
+    "sha256": "982dc27799db3659c78944eb435288c80c1cf4d2fc9930bd4a7fef1f1d8dad8f"
+  },
+  "optional_sources": [
+    {
+      "path": "crates/domain/build.rs",
+      "sha256": null
+    },
+    {
+      "path": "crates/spiffe-source/build.rs",
+      "sha256": null
+    },
+    {
+      "path": "crates/transport-security/build.rs",
+      "sha256": null
+    }
+  ]
+}

@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
-"""Run guarded mutants in a separate temporary worktree and restore it."""
+"""Run guarded mutants in a leased scratch checkout and restore it."""
 import json
 import os
 from pathlib import Path
 import shutil
 import subprocess
-import tempfile
+import sys
+import tarfile
 
 root = Path(__file__).resolve().parents[3]
 model = root / "spec/formal/authority"
-manifest = json.loads((model / "coverage.json").read_text())
 mutations = [
     ("export", "crates/domain/src/grant_attenuation.rs",
      'if child.constraints.raw_credential_export && !parent.constraints.raw_credential_export {',
@@ -34,47 +34,110 @@ mutations = [
 ]
 
 
-def check(scratch: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(["bash", "spec/formal/authority/check.sh"], cwd=scratch,
-                          env=os.environ.copy(), text=True, capture_output=True)
+def scratch_path(base: Path, name: str) -> Path:
+    if not isinstance(name, str) or not name or "\\" in name or any(ord(c) < 32 or ord(c) == 127 for c in name):
+        raise RuntimeError("invalid scratch path")
+    relative = Path(name)
+    if relative.is_absolute() or str(relative) != name or any(p in (".", "..") for p in relative.parts):
+        raise RuntimeError(f"invalid scratch path: {name}")
+    current = base
+    for part in relative.parts[:-1]:
+        current /= part
+        if current.is_symlink() or (current.exists() and not current.is_dir()):
+            raise RuntimeError(f"unsafe scratch parent: {name}")
+    return base / relative
 
 
-with tempfile.TemporaryDirectory(prefix="opensesame-authority-mutants-") as temporary:
-    scratch = Path(temporary) / "checkout"
-    added = False
+def archive(source_root: Path, destination: Path, fds: tuple[int, ...] = ()) -> None:
+    staged = subprocess.run(["git", "diff", "--cached", "--quiet", "--"], cwd=source_root, check=False)
+    if staged.returncode == 1:
+        raise RuntimeError("scratch controls require an empty index")
+    if staged.returncode != 0:
+        raise RuntimeError("could not inspect the Git index")
+    process = subprocess.Popen(["git", "archive", "--format=tar", "HEAD"], cwd=source_root,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, pass_fds=fds)
+    assert process.stdout is not None and process.stderr is not None
     try:
-        subprocess.run(["git", "-C", str(root), "worktree", "add", "--detach", str(scratch), "HEAD"],
-                       check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        added = True
+        with tarfile.open(fileobj=process.stdout, mode="r|") as source:
+            source.extractall(destination, filter="data")
+    except BaseException:
+        process.kill()
+        process.wait()
+        raise
+    finally:
+        process.stdout.close()
+    error = process.stderr.read().decode("utf-8", errors="replace")
+    if process.wait() != 0:
+        raise RuntimeError(f"git archive failed: {error}")
+    coverage = scratch_path(source_root, "spec/formal/authority/coverage.json")
+    if coverage.is_symlink() or not coverage.is_file():
+        raise RuntimeError("unreviewed scratch coverage path")
+    reviewed = json.loads(coverage.read_text())
+    paths = [entry["path"] for entry in reviewed["sources"] + reviewed["optional_sources"]]
+    for command in (["git", "diff", "--name-only", "--no-renames", "-z", "HEAD", "--"],
+                    ["git", "ls-files", "--others", "--exclude-standard", "-z"]):
+        names = subprocess.run(command, cwd=source_root, check=True, stdout=subprocess.PIPE).stdout.split(b"\0")
+        paths.extend(os.fsdecode(name) for name in names if name)
+    for name in dict.fromkeys(paths):
+        source, target = scratch_path(source_root, name), scratch_path(destination, name)
+        if source.is_symlink():
+            raise RuntimeError(f"unexpected symlink in {name}")
+        if not source.exists():
+            if target.is_symlink() or target.is_file():
+                target.unlink()
+            elif target.exists():
+                raise RuntimeError(f"unexpected scratch target in {name}")
+            continue
+        if not source.is_file() or target.is_symlink():
+            raise RuntimeError(f"unexpected scratch source in {name}")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+
+
+def check(scratch: Path, env: dict[str, str], fd: int) -> subprocess.CompletedProcess[str]:
+    # The nested workspace's unique target is inside the leased checkout, so
+    # a surviving compiler holds the lease and a later owner removes remnants.
+    return subprocess.run(["bash", "spec/formal/authority/check.sh"], cwd=scratch,
+                          env=env | {"TMPDIR": str(scratch)}, text=True, capture_output=True,
+                          timeout=600, pass_fds=(fd,), check=False)
+
+
+def main() -> None:
+    env = os.environ.copy()
+    env.pop("OPENSESAME_FORMAL_SCRATCH_LOCK_FD", None)
+    subprocess.run([sys.executable, "-I", str(model / "check-drift.py")], cwd=root,
+                   env=env, check=True, timeout=60)
+    helper = root / "scripts/security/formal-cargo-isolation.py"
+    isolation = {"__name__": "formal_cargo_isolation", "__file__": str(helper)}
+    exec(compile(helper.read_bytes(), str(helper), "exec", dont_inherit=True), isolation)
+    with isolation["scratch_checkout"](root) as lease:
+        scratch, fd = lease.path, lease.lock_fd
+        env["OPENSESAME_FORMAL_SCRATCH_LOCK_FD"] = str(fd)
+        archive(root, scratch, (fd,))
         destination = scratch / "spec/formal/authority"
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(model, destination, dirs_exist_ok=True)
-        for entry in manifest["sources"]:
-            shutil.copy2(root / entry["path"], scratch / entry["path"])
-        baseline = check(scratch)
+        baseline = check(scratch, env, fd)
         if baseline.returncode:
             raise RuntimeError("scratch baseline failed:\n" + (baseline.stdout + baseline.stderr)[-2000:])
         for name, relative, before, after in mutations:
             source = scratch / relative
-            original = source.read_bytes()
-            text = original.decode()
-            if text.count(before) != 1:
-                raise RuntimeError(f"{name}: mutation point is absent or ambiguous")
-            try:
-                source.write_text(text.replace(before, after, 1))
-                result = check(scratch)
-            finally:
-                source.write_bytes(original)
+            with isolation["mutated_coverage"](
+                scratch, destination / "coverage.json", source, before, after,
+                destination / "check-drift.py", env=env,
+            ):
+                result = check(scratch, env, fd)
             output = result.stdout + result.stderr
-            if result.returncode == 0 or "assertion `left == right` failed" not in output or "vector:" not in output:
+            if result.returncode != 101 or "assertion `left == right` failed" not in output or "vector:" not in output:
                 raise RuntimeError(f"{name}: no corresponding assertion failed:\n{output[-2000:]}")
             counterexample = next(line.strip() for line in output.splitlines()
                                   if line.startswith("assertion `left == right` failed: vector:"))
-            print(f"{name}: {counterexample}", flush=True)
-        restored = check(scratch)
+            print(f"{name}: exit 101; {counterexample}", flush=True)
+        restored = check(scratch, env, fd)
         if restored.returncode:
             raise RuntimeError("restored baseline failed:\n" + (restored.stdout + restored.stderr)[-2000:])
         print("Restored baseline passed.", flush=True)
-    finally:
-        if added:
-            subprocess.run(["git", "-C", str(root), "worktree", "remove", "--force", str(scratch)], check=True)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (OSError, RuntimeError, ValueError, subprocess.SubprocessError) as error:
+        raise SystemExit(f"authority-negative-controls: {error}") from error

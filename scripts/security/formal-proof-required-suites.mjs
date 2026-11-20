@@ -26,11 +26,34 @@ function sameMembers(actual, expected) {
   );
 }
 
+function sameProjection(actual, expected, fields) {
+  if (!actual || !expected) return !actual && !expected;
+  return fields.every((field) => actual[field] === expected[field]);
+}
+
+function sameManifestProjection(actual, expected) {
+  if (!sameProjection(actual, expected, ["path", "package", "lock", "root"]))
+    return false;
+  if (!actual || !expected) return true;
+  if (!actual.manifests || !expected.manifests)
+    return !actual.manifests && !expected.manifests;
+  return sameMembers(actual.manifests, expected.manifests);
+}
+
 export function sameProofContract(actual, expected) {
   return (
     sameMembers(actual.proofs, expected.proofs) &&
     actual.command.length === expected.command.length &&
-    expected.command.every((item, index) => actual.command[index] === item)
+    expected.command.every((item, index) => actual.command[index] === item) &&
+    sameProjection(actual.lockProjection, expected.lockProjection, [
+      "path",
+      "root",
+      "dependency",
+    ]) &&
+    sameManifestProjection(
+      actual.manifestProjection,
+      expected.manifestProjection,
+    )
   );
 }
 

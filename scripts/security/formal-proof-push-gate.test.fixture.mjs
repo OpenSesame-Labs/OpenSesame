@@ -41,6 +41,11 @@ function setupController(controller) {
     "formal-proof-push-gate.mjs",
     "formal-proof-push-gate-registry.mjs",
     "formal-proof-push-history.mjs",
+    "formal-proof-lock-history.mjs",
+    "formal-proof-manifest-set.mjs",
+    "formal-proof-source-selection.mjs",
+    "formal-proof-spiffe-peer-domain.mjs",
+    "formal-proof-source-history.mjs",
     "formal-proof-remote-main.mjs",
     "formal-proof-required-suites.mjs",
   ])
@@ -194,6 +199,20 @@ export function installHook(f) {
     "scripts/security/formal-proof-push-history.mjs",
     readFileSync(new URL("./formal-proof-push-history.mjs", import.meta.url)),
   );
+  for (const name of [
+    "formal-proof-lock-history.mjs",
+    "formal-proof-manifest-set.mjs",
+    "formal-proof-source-selection.mjs",
+    "formal-proof-spiffe-peer-domain.mjs",
+    "formal-proof-source-history.mjs",
+    "cargo-lock-projection.py",
+    "cargo-workspace-projection.py",
+    "cargo-workspace-multipackage.py",
+  ])
+    f.write(
+      `scripts/security/${name}`,
+      readFileSync(new URL(`./${name}`, import.meta.url)),
+    );
   f.write(
     "scripts/security/formal-proof-remote-main.mjs",
     readFileSync(new URL("./formal-proof-remote-main.mjs", import.meta.url)),

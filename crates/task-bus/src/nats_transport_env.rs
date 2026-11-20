@@ -5,9 +5,11 @@
 //! Everything it produces is either a private locator (never serialized) or a
 //! public reference (`TrustRef` / `IdentityRef` / `NatsAuth`).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
-use opensesame_domain::transport::{IdentitySourceKind, TransportError, TrustProfileKind};
+use opensesame_domain::transport::{
+    IdentitySourceKind, TlsVersion, TransportError, TrustProfileKind,
+};
 use opensesame_transport_security::env::{self as tls_env, Lookup, ServerExpectation};
 use opensesame_transport_security::{NativeIdentitySpec, NativeTrustSpec};
 
@@ -18,8 +20,12 @@ use crate::nats_transport::{Locators, NatsTransportSpec};
 
 const ENV_PREFIX: &str = "OPENSESAME_NATS";
 
-fn truthy(value: Option<&str>) -> bool {
-    matches!(value.map(str::trim), Some("1" | "true" | "yes" | "on"))
+fn security_flag(value: Option<&str>, name: &str) -> Result<bool, TransportError> {
+    match value {
+        None | Some("0" | "false" | "no" | "off") => Ok(false),
+        Some("1" | "true" | "yes" | "on") => Ok(true),
+        Some(_) => Err(malformed(format!("{name} is not a valid boolean"))),
+    }
 }
 
 fn get(lookup: &Lookup<'_>, name: &str) -> Option<String> {
@@ -36,25 +42,42 @@ pub(crate) fn malformed(message: impl Into<String>) -> TransportError {
     TransportError::MalformedConfiguration(message.into())
 }
 
+pub(crate) fn read_seed(path: &Path) -> Result<String, TransportError> {
+    let raw = std::fs::read_to_string(path)
+        .map_err(|e| TransportError::MalformedConfiguration(format!("nkey seed file: {e}")))?;
+    let seed = raw.trim().to_owned();
+    if !seed.starts_with('S') || seed.len() < 20 {
+        return Err(TransportError::MalformedConfiguration(
+            "nkey seed file does not hold a seed".into(),
+        ));
+    }
+    Ok(seed)
+}
+
 fn auth_from(
     lookup: &Lookup<'_>,
     prefix: &str,
 ) -> Result<Option<(NatsAuth, PathBuf)>, TransportError> {
     let seed_var = format!("{prefix}_NKEY_SEED_FILE");
     let creds_var = format!("{prefix}_CREDS_FILE");
+    let seed = get(lookup, &seed_var);
+    let creds = get(lookup, &creds_var);
     match get(lookup, &format!("{prefix}_AUTH")).as_deref() {
+        None | Some("none") if seed.is_some() || creds.is_some() => {
+            Err(TransportError::IdentityMissing)
+        }
         None | Some("none") => Ok(None),
+        Some("nkey") if creds.is_some() => Err(malformed("conflicting NATS credential sources")),
+        Some("creds") if seed.is_some() => Err(malformed("conflicting NATS credential sources")),
         Some("nkey") => {
-            let path = get(lookup, &seed_var)
-                .ok_or_else(|| malformed(format!("{seed_var} is required")))?;
+            let path = seed.ok_or_else(|| malformed(format!("{seed_var} is required")))?;
             Ok(Some((
                 NatsAuth::Nkey { seed_ref: seed_var },
                 PathBuf::from(path),
             )))
         }
         Some("creds") => {
-            let path = get(lookup, &creds_var)
-                .ok_or_else(|| malformed(format!("{creds_var} is required")))?;
+            let path = creds.ok_or_else(|| malformed(format!("{creds_var} is required")))?;
             Ok(Some((
                 NatsAuth::Creds {
                     path_ref: creds_var,
@@ -68,13 +91,85 @@ fn auth_from(
     }
 }
 
+fn validate_sources(
+    tls: &str,
+    lookup: &Lookup<'_>,
+    identity: Option<&NativeIdentitySpec>,
+    trust: Option<&NativeTrustSpec>,
+    identity_name: Option<&str>,
+    trust_name: Option<&str>,
+) -> Result<(), TransportError> {
+    let [cert, key, managed, spiffe] = [
+        "CERT_FILE",
+        "KEY_FILE",
+        "MANAGED_CERTIFICATE_ID",
+        "SPIFFE_ID",
+    ]
+    .map(|suffix| get(lookup, &format!("{tls}_{suffix}")).is_some());
+    let identity_companion = cert || key || managed || spiffe;
+    if identity.is_none() && (identity_name.is_some() || identity_companion) {
+        return Err(TransportError::IdentityMissing);
+    }
+    let identity_conflict = match identity {
+        Some(NativeIdentitySpec::PemFiles { .. }) => managed || spiffe,
+        Some(NativeIdentitySpec::ManagedCertificate { .. }) => cert || key || spiffe,
+        Some(NativeIdentitySpec::Spiffe { .. }) => cert || key || managed,
+        None => false,
+    };
+    if identity_conflict {
+        return Err(malformed("conflicting NATS identity sources"));
+    }
+    if trust_name.is_some() && trust.is_none() {
+        return Err(TransportError::TrustUnknown);
+    }
+    let trust_conflict = match trust {
+        Some(NativeTrustSpec::PemFile { .. }) => {
+            get(lookup, &format!("{tls}_TRUST_DOMAIN")).is_some()
+        }
+        Some(NativeTrustSpec::SpiffeTrustDomain { .. }) => {
+            get(lookup, &format!("{tls}_TRUST_FILE")).is_some()
+        }
+        None => false,
+    };
+    if trust_conflict {
+        return Err(malformed("conflicting NATS trust sources"));
+    }
+    Ok(())
+}
+
+fn minimum_from(tls: &str, lookup: &Lookup<'_>) -> Result<(TlsVersion, bool), TransportError> {
+    let minimum_key = format!("{tls}_MIN_VERSION");
+    let setting = get(lookup, &minimum_key);
+    let version = tls_env::load_min_version_from(tls, &|name| {
+        if name == minimum_key {
+            setting.clone()
+        } else {
+            lookup(name)
+        }
+    })?;
+    Ok((version, setting.is_some()))
+}
+
+fn reconnect_limit_from(
+    prefix: &str,
+    lookup: &Lookup<'_>,
+) -> Result<Option<usize>, TransportError> {
+    get(lookup, &format!("{prefix}_MAX_RECONNECTS"))
+        .map(|v| {
+            v.parse::<usize>()
+                .map_err(|e| malformed(format!("{prefix}_MAX_RECONNECTS: {e}")))
+        })
+        .transpose()
+}
+
 impl NatsTransportSpec {
     /// Read the `OPENSESAME_NATS_*` deployment variables. `None` when no
     /// transport variable is set, so callers can fall back to stored policy.
     ///
     /// # Errors
     ///
-    /// `MalformedConfiguration` for a missing companion or an unknown word.
+    /// `IdentityMissing` or `TrustUnknown` for a reference without its source;
+    /// `MalformedConfiguration` for conflicting sources or an unknown word.
     pub fn from_env() -> Result<Option<Self>, TransportError> {
         Self::from_lookup(ENV_PREFIX, &process_env)
     }
@@ -88,41 +183,61 @@ impl NatsTransportSpec {
         let tls = format!("{prefix}_TLS");
         let identity = tls_env::load_identity_from(&tls, lookup)?;
         let trust = tls_env::load_trust_from(&tls, lookup)?;
+        let identity_name = get(lookup, &format!("{tls}_IDENTITY_NAME"));
+        let trust_name = get(lookup, &format!("{tls}_TRUST_NAME"));
+        validate_sources(
+            &tls,
+            lookup,
+            identity.as_ref(),
+            trust.as_ref(),
+            identity_name.as_deref(),
+            trust_name.as_deref(),
+        )?;
         let server = tls_env::load_server_expectation_from(&tls, lookup)?;
-        let min_version = tls_env::load_min_version_from(&tls, lookup)?;
+        let (min_version, explicit_min_version) = minimum_from(&tls, lookup)?;
         let crl_file = tls_env::load_crl_file_from(&tls, lookup);
         let require_flag = get(lookup, &format!("{prefix}_REQUIRE_TLS"));
         let first_flag = get(lookup, &format!("{prefix}_TLS_FIRST"));
         let auth = auth_from(lookup, prefix)?;
         let provision = auth_from(lookup, &format!("{prefix}_PROVISION"))?;
-        let max_reconnects = get(lookup, &format!("{prefix}_MAX_RECONNECTS"))
-            .map(|v| {
-                v.parse::<usize>()
-                    .map_err(|e| malformed(format!("{prefix}_MAX_RECONNECTS: {e}")))
-            })
-            .transpose()?;
+        let max_reconnects = reconnect_limit_from(prefix, lookup)?;
 
         let anything = identity.is_some()
             || trust.is_some()
+            || crl_file.is_some()
             || server.is_some()
+            || explicit_min_version
             || require_flag.is_some()
             || first_flag.is_some()
             || auth.is_some()
+            || provision.is_some()
             || get(lookup, &format!("{prefix}_AUTH")).is_some();
         if !anything {
+            if max_reconnects.is_some() {
+                return Err(malformed(format!(
+                    "{prefix}_MAX_RECONNECTS requires an explicit NATS transport policy"
+                )));
+            }
             return Ok(None);
         }
 
-        let tls_first = truthy(first_flag.as_deref());
-        let require_tls = truthy(require_flag.as_deref())
+        let tls_first = security_flag(first_flag.as_deref(), "TLS_FIRST")?;
+        let require_tls = security_flag(require_flag.as_deref(), "REQUIRE_TLS")?
             || tls_first
             || identity.is_some()
             || trust.is_some()
-            || auth.is_some();
-        let trust_name =
-            get(lookup, &format!("{tls}_TRUST_NAME")).unwrap_or_else(|| "nats-server-trust".into());
-        let identity_name =
-            get(lookup, &format!("{tls}_IDENTITY_NAME")).unwrap_or_else(|| "nats-client".into());
+            || crl_file.is_some()
+            || server.is_some()
+            || explicit_min_version
+            || auth.is_some()
+            || provision.is_some();
+        if !require_tls && require_flag.is_none() {
+            return Err(malformed(format!(
+                "{prefix}_REQUIRE_TLS must be explicitly false for a plaintext environment policy"
+            )));
+        }
+        let trust_name = trust_name.unwrap_or_else(|| "nats-server-trust".into());
+        let identity_name = identity_name.unwrap_or_else(|| "nats-client".into());
         let transport = NatsTransport {
             require_tls,
             tls_first,
@@ -166,14 +281,14 @@ impl NatsTransportSpec {
     }
 }
 
-fn trust_kind(spec: &NativeTrustSpec) -> TrustProfileKind {
+pub(crate) fn trust_kind(spec: &NativeTrustSpec) -> TrustProfileKind {
     match spec {
         NativeTrustSpec::PemFile { kind, .. } => *kind,
         NativeTrustSpec::SpiffeTrustDomain { .. } => TrustProfileKind::SpiffeTrustDomain,
     }
 }
 
-fn identity_kind(spec: &NativeIdentitySpec) -> IdentitySourceKind {
+pub(crate) fn identity_kind(spec: &NativeIdentitySpec) -> IdentitySourceKind {
     match spec {
         NativeIdentitySpec::PemFiles { .. } => IdentitySourceKind::PemFiles,
         NativeIdentitySpec::ManagedCertificate { .. } => IdentitySourceKind::ManagedCertificate,
@@ -211,4 +326,73 @@ pub fn url_hosts(nats_url: &str) -> Result<Vec<(String, String)>, TransportError
         return Err(malformed("nats_url is empty"));
     }
     Ok(out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn nonassertive_env_cannot_override_stored_tls() {
+        assert!(NatsTransportSpec::from_lookup("TEST_NATS", &|_| None)
+            .unwrap()
+            .is_none());
+        for limit in ["0", "1", "7"] {
+            let only_limit =
+                |name: &str| (name == "TEST_NATS_MAX_RECONNECTS").then(|| limit.to_owned());
+            assert!(
+                matches!(
+                    NatsTransportSpec::from_lookup("TEST_NATS", &only_limit),
+                    Err(TransportError::MalformedConfiguration(_))
+                ),
+                "retry-only environment must be refused"
+            );
+        }
+        for settings in [
+            &[("TEST_NATS_AUTH", "none")][..],
+            &[("TEST_NATS_TLS_FIRST", "0")][..],
+            &[("TEST_NATS_TLS_FIRST", "false"), ("TEST_NATS_AUTH", "none")][..],
+            &[
+                ("TEST_NATS_MAX_RECONNECTS", "2"),
+                ("TEST_NATS_AUTH", "none"),
+            ][..],
+        ] {
+            let lookup = |name: &str| {
+                settings
+                    .iter()
+                    .find_map(|(key, value)| (*key == name).then(|| (*value).to_owned()))
+            };
+            assert!(
+                matches!(
+                    NatsTransportSpec::from_lookup("TEST_NATS", &lookup),
+                    Err(TransportError::MalformedConfiguration(_))
+                ),
+                "nonassertive environment must be refused"
+            );
+        }
+        let explicit = |name: &str| match name {
+            "TEST_NATS_MAX_RECONNECTS" => Some("2".into()),
+            "TEST_NATS_REQUIRE_TLS" => Some("1".into()),
+            "TEST_NATS_TLS_FIRST" => Some("0".into()),
+            "TEST_NATS_AUTH" => Some("none".into()),
+            _ => None,
+        };
+        let spec = NatsTransportSpec::from_lookup("TEST_NATS", &explicit)
+            .unwrap()
+            .unwrap();
+        assert_eq!(spec.max_reconnects, Some(2));
+        assert!(spec.is_secure());
+        let plaintext = |name: &str| match name {
+            "TEST_NATS_REQUIRE_TLS" | "TEST_NATS_TLS_FIRST" => Some("0".into()),
+            "TEST_NATS_AUTH" => Some("none".into()),
+            _ => None,
+        };
+        let spec = NatsTransportSpec::from_lookup("TEST_NATS", &plaintext)
+            .unwrap()
+            .unwrap();
+        assert!(
+            !spec.is_secure(),
+            "explicit plaintext override remains available"
+        );
+    }
 }

@@ -6,10 +6,12 @@
 //!    `rustls-webpki` to an anchor of the trust-domain bundle, with the
 //!    `serverAuth` usage, the connection time, and every CRL the bundle
 //!    carries (`EndEntityCert::verify_for_usage`);
-//! 2. TLS 1.2 / 1.3 handshake signatures (`CertificateVerify`) are verified
-//!    by the rustls crypto provider exactly as the built-in verifier does;
-//! 3. the leaf must carry exactly one URI SAN and it must equal the expected
-//!    SPIFFE ID byte for byte.
+//! 2. the bundle must name the expected ID's trust domain explicitly, and
+//!    the verified leaf must satisfy the X.509-SVID profile with exactly the
+//!    expected SPIFFE ID.
+//!
+//! Rustls separately invokes the TLS 1.2 / 1.3 handshake-signature
+//! (`CertificateVerify`) callbacks, which delegate to its crypto provider.
 //!
 //! What it deliberately does **not** do is compare a DNS reference identity:
 //! that is the `WebPKI` profile (`ServerNamePolicy::Dns`), and a workload's
@@ -23,10 +25,11 @@ use opensesame_domain::transport::{PeerIdentitySelector, TransportError, TrustPr
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::crypto::{verify_tls12_signature, verify_tls13_signature, WebPkiSupportedAlgorithms};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
-use rustls::{CertificateError, DigitallySignedStruct, SignatureScheme};
+use rustls::{DigitallySignedStruct, SignatureScheme};
 
 use crate::error::{malformed, pki_error};
-use crate::leaf::ParsedLeaf;
+use crate::svid_profile::SvidRole;
+use crate::svid_tls::verify_svid;
 use crate::trust::TrustBundle;
 use crate::MAX_CHAIN_DEPTH;
 
@@ -42,8 +45,8 @@ impl SpiffeServerVerifier {
     /// # Errors
     ///
     /// `MalformedConfiguration` when the bundle is not a
-    /// `SpiffeTrustDomain` profile or the expected ID is not a valid SPIFFE
-    /// ID.
+    /// `SpiffeTrustDomain` profile with an explicit canonical domain, or
+    /// the expected ID is invalid or belongs to a different domain.
     pub fn new(
         trust: TrustBundle,
         expected_spiffe_id: &str,
@@ -57,6 +60,19 @@ impl SpiffeServerVerifier {
             )));
         }
         PeerIdentitySelector::SpiffeId(expected_spiffe_id.to_owned()).validate()?;
+        let domain = trust
+            .spiffe_trust_domain()
+            .ok_or_else(|| malformed("SPIFFE trust bundle must name its trust domain"))?;
+        let expected = spiffe::SpiffeId::new(expected_spiffe_id)
+            .map_err(|_| malformed("expected SPIFFE ID is invalid"))?;
+        if expected.to_string() != expected_spiffe_id
+            || expected.path().is_empty()
+            || expected.trust_domain().as_str() != domain
+        {
+            return Err(malformed(
+                "expected SPIFFE ID must be canonical and belong to the bundle domain",
+            ));
+        }
         Ok(Self {
             trust,
             expected: expected_spiffe_id.to_owned(),
@@ -111,14 +127,18 @@ impl ServerCertVerifier for SpiffeServerVerifier {
         )
         .map_err(pki_error)?;
 
-        let leaf = ParsedLeaf::parse(end_entity)
-            .map_err(|e| rustls::Error::General(format!("spiffe leaf: {}", e.code())))?;
-        match leaf.uri_sans.as_slice() {
-            [only] if *only == self.expected => Ok(ServerCertVerified::assertion()),
-            _ => Err(rustls::Error::InvalidCertificate(
-                CertificateError::NotValidForName,
-            )),
-        }
+        let domain = self
+            .trust
+            .spiffe_trust_domain()
+            .ok_or_else(|| rustls::Error::General("SPIFFE trust domain unavailable".to_owned()))?;
+        verify_svid(
+            end_entity,
+            domain,
+            Some(&self.expected),
+            SvidRole::Server,
+            now,
+        )?;
+        Ok(ServerCertVerified::assertion())
     }
 
     fn verify_tls12_signature(

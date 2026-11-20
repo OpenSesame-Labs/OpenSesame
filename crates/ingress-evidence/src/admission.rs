@@ -39,10 +39,9 @@ impl IngressAdmission for BindingSetAdmission {
             return false;
         };
         bindings
-            .resolve_scoped(
+            .resolve_verified_scoped(
                 &BindingScope::Deployment,
-                peer.trust_profile(),
-                peer.identities(),
+                peer,
                 BindingPurpose::TrustedIngress,
                 Utc::now(),
             )

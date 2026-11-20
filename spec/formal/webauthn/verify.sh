@@ -16,9 +16,12 @@ if [[ ! -x "$root/node_modules/.bin/vitest" ]]; then
   exit 1
 fi
 vectors="$(mktemp "${TMPDIR:-/tmp}/opensesame-approval-formal.XXXXXXXX")"
-trap 'rm -f "$vectors"' EXIT
+report="$(mktemp "${TMPDIR:-/tmp}/opensesame-approval-vitest.XXXXXXXX")"
+trap 'rm -f "$vectors" "$report"' EXIT
 bash "$root/spec/formal/check-axioms.sh" "$lean_bin" "$root/spec/formal/webauthn/ApprovalBinding.lean" > "$vectors"
 cd "$root"
 OPENSESAME_APPROVAL_VECTORS="$vectors" \
-  "$root/node_modules/.bin/vitest" run --config spec/formal/webauthn/vitest.config.ts --maxWorkers=2
+  "$root/node_modules/.bin/vitest" run --config spec/formal/webauthn/vitest.config.ts --maxWorkers=2 \
+    --reporter=default --reporter=json --outputFile.json="$report"
+node scripts/test/formal-vitest-report.mjs webauthn "$report" "$vectors" "$root"
 node spec/formal/webauthn/check-drift.mjs

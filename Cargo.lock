@@ -4024,6 +4024,7 @@ dependencies = [
  "opensesame-domain",
  "opensesame-event-seal",
  "opensesame-host-core",
+ "opensesame-human-vault",
  "opensesame-ingress-evidence",
  "opensesame-lifecycle",
  "opensesame-nats-callout",
@@ -4766,6 +4767,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
+ "tokio-rustls",
  "tracing",
  "x25519-dalek",
 ]
@@ -4805,6 +4807,7 @@ dependencies = [
  "secrecy",
  "serde_json",
  "sha2 0.11.1",
+ "spiffe",
  "tempfile",
  "thiserror 2.0.21",
  "time",

@@ -36,6 +36,7 @@ opensesame-claims = { path = "../../crates/claims" }
 opensesame-connector-host = { path = "../../crates/connector-host" }
 opensesame-client-core = { path = "../../crates/client-core" }
 opensesame-host-core = { path = "../../crates/host-core" }
+opensesame-human-vault = { path = "../../crates/human-vault" }
 opensesame-redaction = { path = "../../crates/redaction" }
 opensesame-relay = { path = "../../crates/relay" }
 opensesame-provider-openfga = { path = "../../crates/provider-openfga" }
@@ -95,6 +96,7 @@ opensesame-task-bus = { path = "../../crates/task-bus", features = ["testkit"] }
 opensesame-connection-broker = { path = "../../crates/connection-broker", features = ["sts-stand-in"] }
 async-trait = { workspace = true }
 opensesame-transport-security = { path = "../../crates/transport-security", features = ["testkit"] }
+opensesame-spiffe-source = { path = "../../crates/spiffe-source", features = ["fake-workload-api"] }
 rustls = { version = "0.23.43", default-features = false, features = ["ring", "std", "tls12"] }
 tokio-rustls = { version = "0.26.4", default-features = false, features = ["ring", "tls12"] }
 tempfile = { workspace = true }

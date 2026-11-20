@@ -10,13 +10,11 @@ use crate::nats_transport_env::url_hosts;
 use opensesame_domain::transport::{TransportError, TrustProfileKind};
 use serde_json::json;
 use std::collections::HashMap;
-
 fn lookup(vars: &[(&str, &str)]) -> HashMap<String, String> {
     vars.iter()
         .map(|(k, v)| ((*k).to_owned(), (*v).to_owned()))
         .collect()
 }
-
 fn spec_from(vars: &[(&str, &str)]) -> Result<Option<NatsTransportSpec>, TransportError> {
     let map = lookup(vars);
     NatsTransportSpec::from_lookup("OPENSESAME_NATS", &|name| map.get(name).cloned())
@@ -249,6 +247,78 @@ fn public_policy_rejects_locator_shaped_fields() {
             "{body}"
         );
     }
+}
+
+#[test]
+fn security_bearing_env_settings_never_select_plaintext() {
+    for (name, value) in [
+        ("OPENSESAME_NATS_TLS_SERVER_NAME", "localhost"),
+        (
+            "OPENSESAME_NATS_TLS_SERVER_SPIFFE_ID",
+            "spiffe://a.test/nats",
+        ),
+        ("OPENSESAME_NATS_TLS_MIN_VERSION", "1.2"),
+        ("OPENSESAME_NATS_TLS_MIN_VERSION", "1.3"),
+        ("OPENSESAME_NATS_TLS_CRL_FILE", "/missing.crl"),
+    ] {
+        let spec = spec_from(&[(name, value)])
+            .unwrap()
+            .expect("setting resolves a policy");
+        assert!(spec.is_secure(), "{name} must imply TLS");
+        assert!(
+            matches!(
+                spec.normalized("nats://localhost:4222"),
+                Err(TransportError::TrustUnknown)
+            ),
+            "{name} without trust must fail closed"
+        );
+    }
+    assert!(
+        matches!(
+            spec_from(&[("OPENSESAME_NATS_TLS_TRUST_NAME", "nats-trust")]),
+            Err(TransportError::TrustUnknown)
+        ),
+        "trust name without its source must fail closed"
+    );
+    assert!(
+        matches!(
+            spec_from(&[("OPENSESAME_NATS_TLS_IDENTITY_NAME", "nats-client")]),
+            Err(TransportError::IdentityMissing)
+        ),
+        "identity name without its source must fail closed"
+    );
+    for name in [
+        "OPENSESAME_NATS_TLS_CERT_FILE",
+        "OPENSESAME_NATS_TLS_KEY_FILE",
+        "OPENSESAME_NATS_TLS_MANAGED_CERTIFICATE_ID",
+        "OPENSESAME_NATS_TLS_SPIFFE_ID",
+        "OPENSESAME_NATS_NKEY_SEED_FILE",
+        "OPENSESAME_NATS_CREDS_FILE",
+        "OPENSESAME_NATS_PROVISION_NKEY_SEED_FILE",
+        "OPENSESAME_NATS_PROVISION_CREDS_FILE",
+    ] {
+        assert!(
+            matches!(
+                spec_from(&[(name, "/unused")]),
+                Err(TransportError::IdentityMissing)
+            ),
+            "{name} without its source must fail closed"
+        );
+    }
+    let provision = spec_from(&[
+        ("OPENSESAME_NATS_PROVISION_AUTH", "nkey"),
+        ("OPENSESAME_NATS_PROVISION_NKEY_SEED_FILE", "/missing.seed"),
+    ])
+    .unwrap()
+    .expect("provisioning credential resolves a policy");
+    assert!(
+        provision.is_secure(),
+        "provisioning credentials must imply TLS"
+    );
+    assert!(matches!(
+        provision.normalized("nats://localhost:4222"),
+        Err(TransportError::TrustUnknown)
+    ));
 }
 
 #[test]

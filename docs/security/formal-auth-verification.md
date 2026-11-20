@@ -59,7 +59,17 @@ its source blobs must be present locally. Fetch the reviewed history if they
 are missing. The hashes detect drift. They do not prove the review or the model
 is correct.
 The pre-push hook selects registered suites when their mapped implementation
-files occur in the commits being pushed, including changes later reverted. It
+files occur in the commits being pushed, including changes later reverted. The
+filter uses file paths: a test-only edit inside a mapped implementation file
+can still select its suite, while a separate proof-only or test-only file does
+not. For a suite with a registered Cargo.lock projection, it also selects changes to the
+reviewed dependency graph; lockfile-only graph selection conservatively includes
+inactive optional, development, and target-specific packages. It
+also selects authority for changes to its inherited Cargo workspace inputs and
+relevant package overrides; its bounded projection and exclusions are described
+in the [authority model](../../spec/formal/authority/README.md). The proof
+harness uses a separate lockfile and does not claim complete graph equality with
+the production workspace. The gate
 reads historical policy as data and checks each registry or requirements change
 against the requirements in that commit. Earlier registry history from before
 the requirements file existed is included in selection. If a changed path had
@@ -83,6 +93,88 @@ and asks for a retry. A local hook cannot make its last remote read atomic with
 the server's eventual ref update; server-side policy remains necessary.
 Selected suites require a clean worktree with no `assume-unchanged` or
 `skip-worktree` index flags, so Git cannot hide proof-input changes.
+
+A suite covering a local Cargo dependency graph can register a multi-package
+workspace projection. Its reviewed manifest paths, each sibling `build.rs`,
+and every intermediate `Cargo.toml` path must be mapped implementation
+inputs, and its lock projection must cover the entire root closure. The suite's
+runner must pin reviewed build-script contents or absence and reject unreviewed
+or nonregular scripts before invoking Cargo. The projector accepts only an
+absent `package.build`, `false`, or the canonical `"build.rs"` path; custom
+build paths fail closed. For each relevant commit and merge parent,
+the gate reads regular manifest blobs from that revision, resolves local path
+dependencies and aliases, and checks them against the lockfile's local closure.
+The workspace projection includes inherited package fields, dependencies and
+lints used by that closure, along with relevant patches and profile overrides.
+An approved manifest may be absent only while it is outside the closure;
+unmapped or ambiguous packages, alternate workspace roots, nested manifests,
+unsupported paths and malformed dependency tables fail closed. Both current
+and legacy Cargo build/dev dependency table spellings are included.
+
+The lock graph conservatively includes optional, development and target-specific
+dependencies but does not encode active features or target choice. These
+projections do not establish feature unification from packages outside the
+registered closure, toolchain or Cargo configuration integrity, or the behavior
+of dependencies and build scripts. Each suite must document and review those
+limits separately; the projection is a drift selector, not a Lean refinement
+proof.
+
+The Rust suites also independently list the Cargo library, binary, and named
+integration-test targets they actually exercise. Before Cargo runs, the drift
+check requires each selected name and source path to match that inventory and
+its covered hash, rejects unsupported target attributes, and refuses local
+build scripts or custom build paths for those packages. Unrelated inactive
+targets are outside this inventory. The current push selector maps reviewed
+crate manifests as whole files, however, so even an unrelated edit to one of
+those manifests can select the suite. Changes to an unrelated inactive target
+source are not selected merely because that target exists.
+
+These target checks do not independently discover Rust modules, `include!`
+inputs, or macro expansion. Reviewing a covered source change must also review
+its wiring and update the implementation mappings for any newly relevant
+source; a matching target path and source hash alone do not establish that the
+transitive source inventory is complete.
+
+The authority, SPIFFE, source-lifetime, source-trust-selection and peer-domain
+Rust runners guard against Cargo reusing artifacts built from another worktree.
+They assign a reviewed workspace wrapper to the canonical checkout path, clear
+`RUSTC_WRAPPER` for proof subprocesses, and check the pinned inputs before and
+after execution. A freshness preflight touches the declared local target roots,
+including path dependencies outside the Cargo workspace, and requires active
+local artifacts to be freshly compiled in the current proof session before the
+test or program runs. It checks the resulting artifacts and runs the input
+check again after nonzero exits and caught interruptions; a hard kill cannot
+run that final check. The authority harness has its own Cargo workspace and
+uses a private temporary target directory.
+
+Mutation controls use a stable private scratch checkout for each live checkout
+and hold its exclusive lock through the compiler and descendants. Cleanup only
+removes the registered directory while holding that lock; if an interrupted
+child still holds it, a later run waits and can retire the checkout. Explicit
+cleanup uses `python3 -I scripts/security/formal-cargo-isolation.py --clean-scratch <checkout>`.
+A permanently surviving descendant can therefore block later controls
+indefinitely. A hard kill immediately before a staging
+directory is registered can leave an empty private directory; interruption
+during registration or wrapper creation can also leave small private temporary
+files. Repeated hard kills can accumulate these remnants, which contain no
+checked-out source or compiled artifacts. A hard
+kill of an authority run can leave its private temporary target until removed.
+
+These checks assume a trusted Cargo and Rust toolchain, reviewed runner and
+Cargo configuration, and no concurrent uncooperative changes to the source or
+target cache during a proof. The scratch lock requires supported POSIX locking
+and no-replace rename behavior; unsupported systems fail closed. The lock and
+artifact checks provide runtime evidence about the selected builds; they do not
+prove that Rust refines the Lean model. Runner and Cargo configuration changes
+are execution metadata, and must be protected separately rather than selecting
+these implementation-filtered proofs by themselves.
+
+The Rust drift checks load their Cargo projection helpers only after checking
+the helper bytes against the suite's coverage record. The authority check also
+isolates the workspace helper's nested lock-projection import. This detects
+helper drift when that record is trusted; changing both requires review of the
+runner metadata and is not ruled out by a hash alone.
+
 The shared Lean checker rejects unapproved axiom
 declarations and theorem dependencies; `propext` and `Quot.sound` are permitted
 Lean built-ins. See [the hook instructions](../../scripts/README.md).
@@ -134,6 +226,17 @@ claim of exhaustive inventory or Lean coverage:
 | DPoP replay cache. RFC 9449. | [`replay.rs`](../../crates/proof/src/replay.rs). | [DPOP-R1](../../spec/formal/dpop/README.md) models the single-process cache under stated clock and atomicity assumptions; full DPoP validation is not proved. |
 | Grant delegation and replacement. [ADR 0036](../adr/0036-coverage-guided-fuzz-and-bounded-proofs.md). | [`grant.rs`](../../crates/domain/src/grant.rs) and its validators. | [AUTH-D1–D6](../../spec/formal/authority/README.md) model selected attenuation checks. Caller authentication, all constraint dimensions, and concurrent behavior are outside the model. A separate Kani harness checks a bounded interval case. |
 | Host API relay organization tenant isolation. [ADR 0046](../adr/0046-relayed-execution-and-authorization-inbox.md). | [`caller_scope`](../../crates/gateway/src/routes/relay_scope.rs) scopes inspection and denial in [`relay.rs`](../../crates/gateway/src/routes/relay.rs). | **RELAY-T1** is **unproved**. Sessions use their authenticated organization; operators use the bootstrap organization. Cross-organization inspection and denial return `not_found`. Disabled execution and result routes return 501 after authentication without disclosing tenant records. [`relay_tenant_tests.rs`](../../crates/gateway/src/routes/relay_tenant_tests.rs) exercises the boundary; the relay route suite passed before the latest main integration, and there is no Lean suite. |
+| SPIFFE identity and trust withdrawal. [ADR 0132](../adr/0132-optional-mtls-and-workload-identity.md), [ADR 0223](../adr/0223-spiffe-withdrawal-under-ambiguous-snapshots.md). | [`source.rs`](../../crates/spiffe-source/src/source.rs), [`source_policy.rs`](../../crates/spiffe-source/src/source_policy.rs), and [`outage.rs`](../../crates/spiffe-source/src/outage.rs). | The [withdrawal model](../../spec/formal/spiffe/README.md) covers selected denial, trust-reduction, and outage-deadline decisions. It does not prove SDK behavior for arbitrary responses, implementation refinement, certificate verification, or hard real-time sink withdrawal. |
+| Source-owned transport lifetime. [ADR 0223](../adr/0223-spiffe-withdrawal-under-ambiguous-snapshots.md). | [`source_lifetime.rs`](../../crates/transport-security/src/source_lifetime.rs), [`signing_fence.rs`](../../crates/transport-security/src/signing_fence.rs), [`source.rs`](../../crates/spiffe-source/src/source.rs), and the Host admission paths. | The [source-lifetime model](../../spec/formal/source-lifetime/README.md) covers selected owner, epoch, deadline, quarantine, and signer release checks. Dual-clock behavior, actual trust-bundle comparisons, scheduler timing, underlying TLS key operations, and restart persistence remain outside the Lean proof. |
+| Host SPIFFE source trust selection. [ADR 0132](../adr/0132-optional-mtls-and-workload-identity.md). | [`boot.rs`](../../crates/gateway/src/transport/boot.rs), [`source_trust_selection.rs`](../../crates/gateway/src/transport/source_trust_selection.rs). | The [selector model](../../spec/formal/source-trust-selection/README.md) proves a Boolean source-view/presence/kind/profile/domain policy; finite Rust correspondence and live TLS tests exercise the implementation. Restart persistence is addressed separately by the history suite below, under its stated assumptions; arbitrary consumers remain unproved. |
+| SPIFFE peer-domain admission. [ADR 0132](../adr/0132-optional-mtls-and-workload-identity.md). | [`svid_profile.rs`](../../crates/transport-security/src/svid_profile.rs), [`server_conn.rs`](../../crates/transport-security/src/server_conn.rs), and [`binding.rs`](../../crates/domain/src/transport/binding.rs). | The [peer-domain model](../../spec/formal/spiffe-peer-domain/README.md) covers abstract chain, domain, profile, selector and revocation decisions. Finite correspondence and live TLS-to-service admission tests exercise selected paths; certificate parsing, cryptography, concurrency and Rust refinement are unproved. |
+| NATS outbound trust and rotation. [ADR 0132](../adr/0132-optional-mtls-and-workload-identity.md). | [`nats_connect.rs`](../../crates/task-bus/src/nats_connect.rs), [`nats_transport_env.rs`](../../crates/task-bus/src/nats_transport_env.rs), [`nats_rotation.rs`](../../crates/task-bus/src/nats_rotation.rs), [`client.rs`](../../crates/transport-security/src/client.rs) and [`bounded.rs`](../../crates/transport-security/src/bounded.rs). | [NATS-T1, T2, C1, D1 and R1–R4](../../spec/formal/source-trust-selection/README.md#nats-client-trust-and-rotation) model selected trust, identity, revocation configuration, downgrade, sequential rotation, one-use handshake-gate and retry-limit properties. Finite correspondence and NATS/TLS controls exercise selected paths; identity-source provenance, cryptography and Rust/concurrent refinement remain unproved. Existing sessions and explicitly reused injected material still require trusted caller management. |
+| Durable Host source-trust names. [Operator procedure](../operators/source-trust-history.md). | [`source_history.rs`](../../crates/gateway/src/transport/source_history.rs), its coordinator, source flow and stored-trust lifecycle. | The [history model](../../spec/formal/source-trust-history/README.md) has a registered suite; an earlier integration passed Linux process-level checks. A rerun after lint fixes, mutation controls, and the final pre-push run remain pending. It does not establish fencing of noncooperating writers, store continuity, or Rust/SQLite refinement. |
+
+The NATS check fixes the Cargo library targets and exact test inventory, but
+it does not establish the full Rust module and `include!` closure. Reviewers
+must map any newly introduced implementation source before later edits can
+select its proof; a refreshed source hash alone is insufficient.
 
 **RELAY-F1 — relay execution fails closed (unproved).** Until a holder can
 re-authorize at the effect boundary, the Host must not accept new relay work,

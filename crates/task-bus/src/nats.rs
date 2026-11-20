@@ -30,6 +30,9 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 
+#[path = "nats_rotation.rs"]
+pub(crate) mod rotation;
+
 /// Adapter-level failures with stable codes.
 #[derive(Debug, thiserror::Error)]
 pub enum NatsBusError {
@@ -100,6 +103,7 @@ struct Session {
     client: async_nats::Client,
     js: jetstream::Context,
     consumer: Option<jetstream::consumer::Consumer<pull::Config>>,
+    accepted: Arc<rotation::Accepted>,
 }
 
 /// `JetStream` `TaskBus`: publish `CloudEvents`; drain via durable pull consumer.
@@ -107,7 +111,8 @@ pub struct NatsJetStreamTaskBus {
     config: NatsJetStreamConfig,
     session: RwLock<Session>,
     health: Arc<BusHealth>,
-    injected: InjectedMaterial,
+    accepted: std::sync::RwLock<Arc<rotation::Accepted>>,
+    rotations: tokio::sync::Mutex<()>,
 }
 
 async fn open_session(
@@ -155,6 +160,10 @@ async fn open_session(
         client,
         js,
         consumer,
+        accepted: Arc::new(rotation::Accepted {
+            transport: spec,
+            injected: injected.clone(),
+        }),
     })
 }
 
@@ -218,41 +227,17 @@ impl NatsJetStreamTaskBus {
         injected: InjectedMaterial,
     ) -> anyhow::Result<Self> {
         let health = Arc::new(BusHealth::default());
-        let session = open_session(&config, &injected, Arc::clone(&health)).await?;
+        let candidate_health = Arc::new(BusHealth::default());
+        let session = open_session(&config, &injected, Arc::clone(&candidate_health)).await?;
+        health.adopt(&candidate_health);
+        let accepted = Arc::clone(&session.accepted);
         Ok(Self {
             config,
             session: RwLock::new(session),
             health,
-            injected,
+            accepted: std::sync::RwLock::new(accepted),
+            rotations: tokio::sync::Mutex::new(()),
         })
-    }
-
-    /// Rotate to new transport material: open a second connection with
-    /// `transport` (and optionally new injected material), swap it in, then
-    /// drain the old one. The durable consumer is untouched — it is looked
-    /// up again, never recreated, so its name and sequence survive.
-    ///
-    /// # Errors
-    ///
-    /// As [`Self::connect`]; on error the old session stays in place.
-    pub async fn rotate(
-        &self,
-        transport: NatsTransportSpec,
-        injected: Option<InjectedMaterial>,
-    ) -> anyhow::Result<()> {
-        let mut config = self.config.clone();
-        config.transport = transport;
-        config.provision = false;
-        let injected = injected.unwrap_or_else(|| self.injected.clone());
-        let fresh = open_session(&config, &injected, Arc::clone(&self.health)).await?;
-        let old = {
-            let mut guard = self.session.write().await;
-            std::mem::replace(&mut *guard, fresh)
-        };
-        if let Err(error) = old.client.drain().await {
-            tracing::warn!(%error, "draining the previous NATS connection failed");
-        }
-        Ok(())
     }
 
     /// Durable consumer info (name, delivered/ack floors), for lifecycle tests.
@@ -280,7 +265,7 @@ impl NatsJetStreamTaskBus {
 
     #[must_use]
     pub fn transport_view(&self) -> NatsTransportView {
-        self.config.transport.view()
+        self.accepted().transport.view()
     }
 
     #[must_use]
