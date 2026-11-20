@@ -49,13 +49,10 @@ fn skip_line_comment(bytes: &[u8], start: usize) -> usize {
 }
 
 /// Rust block comments do not nest; the first `*/` ends the comment.
+/// Strings are not lexed inside `/* */`, so `"` does not hide the closer.
 pub(crate) fn skip_block_comment_flat(bytes: &[u8], start: usize) -> usize {
     let mut index = start + 2;
     while index + 1 < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
         if bytes[index] == b'*' && bytes[index + 1] == b'/' {
             return index + 2;
         }
@@ -66,14 +63,11 @@ pub(crate) fn skip_block_comment_flat(bytes: &[u8], start: usize) -> usize {
 
 /// Noise stripping treats fake `/* /* */ tail */` as one comment so hidden
 /// `.text()` cannot slip through after a spurious `*/`.
+/// Only `/*` and `*/` are special; a `"` inside the comment is not a string.
 pub(crate) fn skip_block_comment_nested(bytes: &[u8], start: usize) -> usize {
     let mut index = start + 2;
     let mut depth = 1i32;
     while index + 1 < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
         if bytes[index] == b'/' && bytes[index + 1] == b'*' {
             depth += 1;
             index += 2;
@@ -260,6 +254,15 @@ mod probes {
         assert_eq!(&bytes[flat..], b" still */.text()");
         let nested = skip_block_comment_nested(bytes, 0);
         assert_eq!(&bytes[nested..], b".text()");
+    }
+
+    #[test]
+    fn p5_block_comment_string_literal_is_not_code() {
+        let bytes = br#"/* " */ response.text()"#;
+        let flat = skip_block_comment_flat(bytes, 0);
+        assert_eq!(&bytes[flat..], b" response.text()");
+        let nested = skip_block_comment_nested(bytes, 0);
+        assert_eq!(&bytes[nested..], b" response.text()");
     }
 
     #[test]
