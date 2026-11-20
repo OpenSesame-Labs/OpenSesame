@@ -159,6 +159,12 @@ fn check_ordinary(fields: &[&str], line: &str) {
     );
 }
 
+fn check_sign(fields: &[&str], _line: &str) {
+    let _ = parse_bit(fields[1]);
+    assert!([0, 1, 2, 3].contains(&parse_number(fields[2])));
+    let _ = parse_bit(fields[3]);
+}
+
 #[test]
 #[ignore = "requires Lean vectors; run spec/formal/source-lifetime/verify.sh"]
 fn lean_vectors_match_source_owned_generation_manager() {
@@ -167,7 +173,7 @@ fn lean_vectors_match_source_owned_generation_manager() {
     let input = std::fs::read_to_string(path).expect("read Lean source-lifetime vectors");
     let mut seen = HashSet::new();
     let mut inputs = HashSet::new();
-    let mut counts = [0_u32; 4];
+    let mut counts = [0_u32; 5];
     for line in input.lines() {
         assert!(seen.insert(line.to_owned()), "duplicate vector: {line}");
         let fields: Vec<_> = line.split('\t').collect();
@@ -176,6 +182,7 @@ fn lean_vectors_match_source_owned_generation_manager() {
             ["fence", _, _, _, _, _, _, _] => (1, 3, check_fence),
             ["usable", _, _, _] => (2, 3, check_usable),
             ["ordinary", _, _, _, _, _] => (3, 4, check_ordinary),
+            ["sign", _, _, _] => (4, 3, check_sign),
             _ => panic!("unexpected source-lifetime vector: {line}"),
         };
         assert!(
@@ -185,5 +192,5 @@ fn lean_vectors_match_source_owned_generation_manager() {
         counts[index] += 1;
         check(&fields, line);
     }
-    assert_eq!(counts, [1, 4, 12, 8], "incomplete Lean vector matrix");
+    assert_eq!(counts, [1, 4, 12, 8, 8], "incomplete Lean vector matrix");
 }

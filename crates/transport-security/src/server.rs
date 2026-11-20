@@ -7,6 +7,8 @@
 //! two authenticating profiles session resumption, tickets, early data and
 //! half-RTT data are all off: a resumed connection would carry an identity
 //! verified under an older generation and 0-RTT data is replayable.
+//! `SecureListener` disables resumption for source-owned `ServerTls` and fences
+//! session caches on earlier generations across a later source claim.
 
 use std::fmt;
 use std::sync::Arc;
@@ -16,7 +18,7 @@ use opensesame_domain::transport::{
     validate_id, TlsVersion, TransportError, TransportPolicy, TrustProfileKind,
 };
 use rustls::server::{NoServerSessionStorage, WebPkiClientVerifier};
-use rustls::sign::SingleCertAndKey;
+use rustls::sign::{CertifiedKey, SingleCertAndKey};
 use rustls::ServerConfig;
 
 use crate::bounded::BoundedClientVerifier;
@@ -172,7 +174,18 @@ impl fmt::Debug for ServerProfile {
 ///
 /// As [`ServerProfile::validate`], plus `MalformedConfiguration` when the
 /// client verifier cannot be built from the bundle.
+///
+/// This standalone builder does not bind a generation manager. Use
+/// [`crate::SecureListener`] for a generation-bound signing fence.
 pub fn server_config(profile: &ServerProfile) -> Result<Arc<ServerConfig>, TransportError> {
+    server_config_with_key(profile, profile.identity.certified_key(), false)
+}
+
+pub(crate) fn server_config_with_key(
+    profile: &ServerProfile,
+    certified_key: CertifiedKey,
+    disable_resumption: bool,
+) -> Result<Arc<ServerConfig>, TransportError> {
     profile.validate()?;
     let provider = provider();
     let builder = ServerConfig::builder_with_provider(Arc::clone(&provider))
@@ -189,12 +202,10 @@ pub fn server_config(profile: &ServerProfile) -> Result<Arc<ServerConfig>, Trans
     };
     let mut config = builder
         .with_client_cert_verifier(verifier)
-        .with_cert_resolver(Arc::new(SingleCertAndKey::from(
-            profile.identity.certified_key(),
-        )));
+        .with_cert_resolver(Arc::new(SingleCertAndKey::from(certified_key)));
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
     config.max_early_data_size = 0;
-    if profile.policy.authenticates_client() {
+    if disable_resumption || profile.policy.authenticates_client() {
         config.session_storage = Arc::new(NoServerSessionStorage {});
         config.send_tls13_tickets = 0;
         config.send_half_rtt_data = false;

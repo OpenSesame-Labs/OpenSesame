@@ -197,6 +197,77 @@ test("a core certificate proof cannot borrow another row's test-support binding"
   forbidden(value, /EM-(?:SCHEMA|COVERAGE|BINDING|CONTRACT)/u);
 });
 
+for (const [role, paths] of [
+  [
+    "implementation",
+    [
+      "crates/transport-security/src/lib.rs",
+      "crates/transport-security/src/client.rs",
+      "crates/transport-security/src/guard.rs",
+      "crates/transport-security/src/identity.rs",
+      "crates/transport-security/src/listener.rs",
+      "crates/transport-security/src/server.rs",
+      "crates/transport-security/src/server_conn.rs",
+      "crates/transport-security/src/signing_fence.rs",
+      "crates/transport-security/src/testkit/mod.rs",
+      "crates/transport-security/src/testkit/ca.rs",
+      "crates/transport-security/src/testkit/leaf.rs",
+    ],
+  ],
+  [
+    "regressions",
+    [
+      "crates/transport-security/src/signing_fence_tests.rs",
+      "crates/transport-security/tests/common/mod.rs",
+      "crates/transport-security/tests/signing_fence_races.rs",
+      "crates/transport-security/tests/source_lifetime.rs",
+      "crates/transport-security/tests/source_lifetime_edges.rs",
+      "crates/transport-security/tests/source_lifetime_tls12.rs",
+    ],
+  ],
+]) {
+  test(`host signing protection cannot remove its ${role} bindings`, () => {
+    for (const path of paths) {
+      const value = matrix();
+      const host = row(value, "host-listeners");
+      host[role] = host[role].filter((item) => item !== path);
+      if (
+        !value.surfaces.some((surface) =>
+          [...surface.implementation, ...surface.regressions].includes(path),
+        )
+      ) {
+        delete value.sources[path];
+      }
+      const expected = `EM-BINDING: host-listeners is missing its ${role} binding ${path}`;
+      assert.ok(issues(value).includes(expected), expected);
+    }
+  });
+}
+
+test("signer and TLS race fingerprints reject source drift", () => {
+  for (const changed of [
+    "crates/transport-security/src/signing_fence.rs",
+    "crates/transport-security/tests/signing_fence_races.rs",
+    "crates/transport-security/tests/source_lifetime_tls12.rs",
+  ]) {
+    const altered = {
+      ...snapshot,
+      read: (path) =>
+        path === changed
+          ? Buffer.from("unreviewed change")
+          : snapshot.read(path),
+    };
+    assert.ok(
+      coverageViolations(matrix(), altered).some((issue) =>
+        issue.startsWith(
+          `EM-DRIFT: reviewed implementation changed: ${changed};`,
+        ),
+      ),
+      `source drift not rejected for ${changed}`,
+    );
+  }
+});
+
 for (const control of ["originating-client-proof", "exact-bootstrap-trust"]) {
   test(`EST certificate proof cannot omit ${control}`, () => {
     const value = matrix();

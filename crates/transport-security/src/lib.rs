@@ -48,6 +48,7 @@ pub mod verify_spiffe;
 mod bounded;
 mod idle_io;
 mod server_conn;
+mod signing_fence;
 
 #[cfg(feature = "testkit")]
 pub mod testkit;

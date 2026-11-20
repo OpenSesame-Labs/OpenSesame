@@ -21,6 +21,44 @@ if [[ "$(grep -Fxc "test $required ... ok" "$scratch/correspondence" || true)" !
   echo "source-lifetime-formal: required Lean correspondence test did not run and pass" >&2
   exit 1
 fi
+signer="signing_fence::tests::lean_vectors_match_generation_bound_signer"
+OPENSESAME_SOURCE_LIFETIME_VECTORS="$scratch/vectors" \
+  cargo test --locked -p opensesame-transport-security --all-features \
+  --lib "$signer" -- --ignored --exact | tee "$scratch/signer-correspondence"
+if [[ "$(grep -Fxc "test $signer ... ok" "$scratch/signer-correspondence" || true)" != 1 ]] ||
+   ! grep -Eq '^test result: ok\. 1 passed; 0 failed; 0 ignored;' "$scratch/signer-correspondence"; then
+  echo "source-lifetime-formal: required Lean signer correspondence did not run and pass" >&2
+  exit 1
+fi
+cargo test --locked -p opensesame-transport-security --all-features \
+  --lib signing_fence::tests | tee "$scratch/signer"
+for name in \
+  expiry_before_signing_never_calls_the_private_key \
+  a_delayed_signature_is_withheld_if_expiry_or_rotation_occurs \
+  a_live_signature_is_returned_and_a_dropped_manager_fails_closed \
+  a_preclaim_session_cache_cannot_return_secrets_after_claim \
+  delayed_session_retrieval_withholds_secrets_after_source_claim; do
+  if [[ "$(grep -Fxc "test signing_fence::tests::$name ... ok" "$scratch/signer" || true)" != 1 ]]; then
+    echo "source-lifetime-formal: required signer test did not run and pass: $name" >&2
+    exit 1
+  fi
+done
+cargo test --locked -p opensesame-transport-security --all-features \
+  --test signing_fence_races | tee "$scratch/signing-races"
+if [[ "$(grep -Fxc "test source_claim_after_session_retrieval_is_rejected_before_application_admission ... ok" "$scratch/signing-races" || true)" != 1 ]]; then
+  echo "source-lifetime-formal: required post-retrieval race test did not run and pass" >&2
+  exit 1
+fi
+cargo test --locked -p opensesame-transport-security --all-features \
+  --test source_lifetime_tls12 | tee "$scratch/tls12"
+for name in \
+  source_tls12_listener_never_resumes \
+  tls12_session_prepared_before_claim_cannot_resume_after_claim; do
+  if [[ "$(grep -Fxc "test $name ... ok" "$scratch/tls12" || true)" != 1 ]]; then
+    echo "source-lifetime-formal: required TLS 1.2 test did not run and pass: $name" >&2
+    exit 1
+  fi
+done
 cargo test --locked -p opensesame-transport-security --all-features \
   --test source_lifetime | tee "$scratch/manager"
 for name in \
@@ -32,7 +70,7 @@ for name in \
   source_epoch_survives_trust_updates_and_delayed_events_cannot_change_a_new_epoch \
   source_claim_quarantines_existing_connections_before_any_snapshot \
   an_expired_source_blocks_new_handshakes_and_existing_requests \
-  handshake_started_before_expiry_is_rechecked_after_tls_completes; do
+  handshake_started_before_expiry_cannot_sign_after_expiry; do
   if [[ "$(grep -Fxc "test $name ... ok" "$scratch/manager" || true)" != 1 ]]; then
     echo "source-lifetime-formal: required manager test did not run and pass: $name" >&2
     exit 1
@@ -65,7 +103,10 @@ cargo test --locked -p opensesame-transport-security --all-features \
   --test source_lifetime_edges | tee "$scratch/edges"
 for name in \
   source_profiles_reject_mismatched_labels_and_removed_domains_cannot_return \
-  tls_only_keepalive_cannot_resume_after_source_handoff; do
+  tls_only_keepalive_cannot_resume_after_source_handoff \
+  source_tls_only_listener_disables_ticket_resumption \
+  source_listener_refuses_a_profile_that_substitutes_its_identity \
+  ordinary_tls_resumes_but_a_prepared_connection_cannot_resume_after_source_claim; do
   if [[ "$(grep -Fxc "test $name ... ok" "$scratch/edges" || true)" != 1 ]]; then
     echo "source-lifetime-formal: required trust or TLS test did not run and pass: $name" >&2
     exit 1

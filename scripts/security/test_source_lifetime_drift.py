@@ -56,6 +56,12 @@ class DriftTest(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "review source drift"):
             self.check()
 
+    def test_modified_tls_version_helper_is_rejected(self):
+        path = self.root / "crates/transport-security/src/client.rs"
+        path.write_text(path.read_text() + "\n// version helper drift\n")
+        with self.assertRaisesRegex(SystemExit, "review source drift"):
+            self.check()
+
     def test_same_bytes_symlinked_source_is_rejected(self):
         path = self.root / "crates/transport-security/src/guard.rs"
         twin = self.root / "same-guard.rs"

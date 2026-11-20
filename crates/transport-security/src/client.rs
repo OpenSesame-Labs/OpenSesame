@@ -94,6 +94,10 @@ fn check_policy(profile: &ClientProfile) -> Result<(), TransportError> {
 /// `MalformedConfiguration` for a policy/bundle mismatch, an identity that
 /// cannot authenticate a client, or a verifier that cannot be built;
 /// `EvidenceExpired` for an expired client identity.
+///
+/// This standalone builder does not bind a [`TransportGenerations`](crate::TransportGenerations)
+/// manager. Source-owned outbound credentials need a generation-bound client
+/// integration before they can use the listener's signing-time fence.
 pub fn client_config(profile: &ClientProfile) -> Result<ClientConfig, TransportError> {
     check_policy(profile)?;
     let provider = provider();

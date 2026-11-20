@@ -315,7 +315,7 @@ async fn an_expired_source_blocks_new_handshakes_and_existing_requests() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn handshake_started_before_expiry_is_rechecked_after_tls_completes() {
+async fn handshake_started_before_expiry_cannot_sign_after_expiry() {
     let server = DisposableCa::new("servers");
     let client = DisposableCa::new("clients");
     let gens = generations(server.issue_server("localhost").identity(), &client);
@@ -351,15 +351,16 @@ async fn handshake_started_before_expiry_is_rechecked_after_tls_completes() {
     let connection = tokio_rustls::TlsConnector::from(config)
         .connect(localhost(), tcp)
         .await;
-    if let Ok(mut stream) = connection {
-        assert!(request_on(&mut stream, "/protected").await.is_err());
-    }
+    assert!(
+        connection.is_err(),
+        "expired signing must fail the TLS handshake"
+    );
     tokio::time::timeout(std::time::Duration::from_secs(5), async {
         while listener.counters.handshakes_failed() == 0 {
             tokio::task::yield_now().await;
         }
     })
     .await
-    .expect("server must reject after the handshake");
+    .expect("server must reject the handshake");
     assert_eq!(hits.protected(), 0);
 }
