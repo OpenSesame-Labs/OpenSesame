@@ -23,6 +23,7 @@ import {
   RESUME_WALKTHROUGH,
   installTutorialQueueLibraryOptions,
   noteTutorialDeclined,
+  postQueuedTutorialNotice,
   rehydrateTutorialQueueNotices,
 } from "./tutorial-queue-present.js";
 
@@ -213,6 +214,28 @@ describe("tutorial queue", () => {
         "settings.danger.review",
       ]),
     );
+  });
+
+  it("resume act skips start when live queueableGoal fails", () => {
+    let started = false;
+    const unbind = bindTutorialResume(() => {
+      started = true;
+      return true;
+    });
+    queueTutorial("vault.item.accounts", { title: "Accounts" });
+    postQueuedTutorialNotice("vault.item.accounts", { toast: false });
+    installTutorialQueueLibraryOptions({
+      sectionDrawn: () => false,
+      holds: () => false,
+    });
+    const row = listNotices().find(
+      (notice) => notice.id === "tutorial.queue.vault.item.accounts",
+    );
+    row?.act?.run();
+    expect(started).toBe(false);
+    expect(JSON.parse(raw ?? "{}").goals).toContain("vault.item.accounts");
+    installTutorialQueueLibraryOptions({});
+    unbind();
   });
 
   it("does not repost resume when live queueableGoal fails on refresh", () => {
