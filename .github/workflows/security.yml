@@ -159,9 +159,6 @@ jobs:
         with:
           cache: true
           install_args: node
-      # patched-dependencies.mjs imports tar from the locked tree.
-      - name: Install locked npm dependencies
-        run: npm ci --ignore-scripts --no-audit --no-fund
       # The lockfile pins each tarball under patches/vendor/ by integrity, so
       # an install cannot be handed different bytes. This proves the other
       # half: the committed bytes are the published package plus the reviewed
@@ -175,6 +172,7 @@ jobs:
           python3 scripts/security/test_vendored_sqlx.py
           python3 scripts/security/verify-vendored-keepass.py
           python3 scripts/security/test_vendored_keepass.py
+          python3 scripts/security/test_cargo_lock_projection.py
 
   osv-scanner:
     name: OSV-Scanner (lockfiles)
