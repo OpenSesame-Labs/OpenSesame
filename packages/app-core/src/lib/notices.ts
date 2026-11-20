@@ -5,6 +5,7 @@
  */
 
 import type { ConnectorId } from "./connectors.js";
+import { hideToast } from "./notice-toast.js";
 
 export type NoticeTone = "info" | "warn" | "err";
 
@@ -283,6 +284,9 @@ export function restorePersistedTrayNotices(restored: Notice[]): void {
 
 export function dismissNotice(id: string): void {
   noticeSeams.dismissNotice(id);
+  if (id === "tutorial.pause.session" || id.startsWith("tutorial.queue.")) {
+    hideToast(id);
+  }
 }
 
 export function clearNotices(): void {
