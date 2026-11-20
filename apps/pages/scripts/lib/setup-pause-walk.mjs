@@ -172,11 +172,14 @@ async function clearObstructingSheets(page) {
 
 export async function openNotes(page) {
   await clearObstructingSheets(page);
+  const dialog = page.getByRole("dialog", { name: "Notifications" });
+  if (await dialog.isVisible().catch(() => false)) {
+    return dialog;
+  }
   await page
     .getByRole("button", { name: /Notifications —/ })
     .first()
     .click();
-  const dialog = page.getByRole("dialog", { name: "Notifications" });
   await dialog.waitFor({ timeout: 8_000 });
   return dialog;
 }
@@ -301,8 +304,9 @@ async function capturePauseDismissX(page, href, profileId, check, dir) {
   dialog = await openNotes(page);
   await assertNoticeActionsNoOverlap(dialog, check);
   await shotPage(page, path.join(dir, "tutorial-pause-dismiss-x.png"));
+  dialog = await openNotes(page);
   check(
-    (await countResumeKeys(await openNotes(page))) === 1,
+    (await countResumeKeys(dialog)) === 1,
     "dismiss (X) still leaves tour queued after closing tray",
   );
 }

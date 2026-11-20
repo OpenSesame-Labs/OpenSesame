@@ -170,7 +170,11 @@ function sameWords(existing: Notice, input: StatusNoticeInput): boolean {
 }
 
 function hideDismissedTutorialToast(id: string): void {
-  if (id === "tutorial.pause.session" || id.startsWith("tutorial.queue.")) {
+  if (
+    id === "tutorial.pause.session" ||
+    id === "setup.minimal.confirm" ||
+    id.startsWith("tutorial.queue.")
+  ) {
     hideToast(id);
   }
 }
