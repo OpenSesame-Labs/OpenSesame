@@ -66,7 +66,8 @@ export async function captureChoices(page, shot, record) {
   mark(record, "U1-setup-keyboard", focused === "Minimal", focused);
 }
 
-async function finishCustom(page, shot, record) {
+async function finishCustom(page, shot, record, options = {}) {
+  const { enableConnectorsExternal = false } = options;
   await page
     .getByRole("tab", { name: "capabilities" })
     .waitFor({ timeout: 20_000 });
@@ -77,30 +78,61 @@ async function finishCustom(page, shot, record) {
     /Use the minimal configuration/.test(ceremony),
     "capabilities tab",
   );
-  const customize = page.getByRole("button", {
-    name: /^Customize this installation/,
-  });
-  const customized = await customize
-    .waitFor({ state: "visible", timeout: 8_000 })
-    .then(() => true)
-    .catch(() => false);
-  if (customized) {
-    await customize.click();
-    const personal = page.getByRole("button", { name: /^Personal/ });
-    const personalSeen = await personal
+  if (enableConnectorsExternal) {
+    await page
+      .getByRole("button", { name: /^Customize this installation/ })
+      .click();
+    await page.getByTestId("purpose-card-custom").click();
+    const pick = page
+      .getByTestId("capability-card-connectors.external")
+      .locator(".capcard__pick");
+    await pick.waitFor({ state: "visible", timeout: 30_000 });
+    if ((await pick.getAttribute("aria-pressed")) !== "true")
+      await pick.click();
+    await page.getByRole("button", { name: "Save on this device" }).click();
+    await page.getByTestId("capability-apply").click();
+    await page
+      .getByTestId("capability-outcome")
+      .waitFor({ state: "visible", timeout: 120_000 });
+    mark(
+      record,
+      "custom-connectors-external",
+      true,
+      "applied connectors.external",
+    );
+    await shot("setup-connectors-external");
+  } else {
+    const customize = page.getByRole("button", {
+      name: /^Customize this installation/,
+    });
+    const customized = await customize
       .waitFor({ state: "visible", timeout: 8_000 })
       .then(() => true)
       .catch(() => false);
-    if (personalSeen) await personal.click();
-    await shot("setup-custom");
+    if (customized) {
+      await customize.click();
+      const personal = page.getByRole("button", { name: /^Personal/ });
+      const personalSeen = await personal
+        .waitFor({ state: "visible", timeout: 8_000 })
+        .then(() => true)
+        .catch(() => false);
+      if (personalSeen) await personal.click();
+      await shot("setup-custom");
+    }
   }
   const left = await visibleClick(page, "button", "Skip all", 8_000);
   if (!left) await visibleClick(page, "button", "Close", 8_000);
 }
 
-export async function applySetupChoice(page, shot, record, choice) {
+export async function applySetupChoice(
+  page,
+  shot,
+  record,
+  choice,
+  options = {},
+) {
   await visibleClick(page, "button", choice);
-  if (choice === "Custom") await finishCustom(page, shot, record);
+  if (choice === "Custom") await finishCustom(page, shot, record, options);
   const where = await waitPastSetup(page);
   record.landed = where;
   if (where === "sign-in") {
