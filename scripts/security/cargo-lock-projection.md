@@ -73,9 +73,11 @@ not prove source integrity or the security property being checked.
 
 The full `opensesame-spiffe-source` closure above is what
 `spec/formal/spiffe/check-drift.py` hashes. The inactive `shuttle` edge is
-inside that hash. `--dependency spiffe` leaves it out. A matching full-closure
-fingerprint still leaves manifests, Cargo configuration, patches, and the
-toolchain to a separate review.
+inside that hash. `--dependency spiffe` leaves it out. A change on that
+inactive edge therefore reports a change and selects the SPIFFE suite as a
+conservative false positive; the lockfile alone cannot safely filter it out.
+A matching full-closure fingerprint still leaves manifests, Cargo
+configuration, patches, and the toolchain to a separate review.
 
 Run the isolated tests with:
 

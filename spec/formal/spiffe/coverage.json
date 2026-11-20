@@ -49,9 +49,9 @@
       },
       {
         "name": "prost-types",
-        "version": "0.14.4",
+        "version": "0.14.6",
         "source": "registry+https://github.com/rust-lang/crates.io-index",
-        "checksum": "f94967dc7688f3054c7fac87473ffae4cc4c3904800e2d9f5b857246d8963b0a"
+        "checksum": "f29a7c4c7a84cef41a53d338a2d10d4f1b043ea5c3dde26db22ee2c9c1b1c75b"
       },
       {
         "name": "thiserror",
@@ -103,9 +103,9 @@
       },
       {
         "name": "zeroize",
-        "version": "1.9.1",
+        "version": "1.9.2",
         "source": "registry+https://github.com/rust-lang/crates.io-index",
-        "checksum": "e13084392c5e4bc371903e2935a5eaeed24905a7511356b883835e18a78f6879"
+        "checksum": "85ccff8a4805aba1eaa4cd4afcd49f7557dd2cf5fd79ffc37f8959466effc5aa"
       }
     ]
   },
@@ -330,7 +330,7 @@
   "lock_projection": {
     "root": "opensesame-spiffe-source",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "baa531cfcef82e90af0fbd03e922798566035879cf1d7e98bf66e34d5143df1e"
+    "sha256": "770ae4144417a63ce24e2733df276c671ade125b5026c69bdba042f437afab6c"
   },
   "optional_sources": [
     {
