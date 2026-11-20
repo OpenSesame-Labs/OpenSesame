@@ -27,7 +27,6 @@ import {
   signInMethods,
 } from "@opensesame/app-core/lib/settings.js";
 import { completeSetup } from "@opensesame/app-core/lib/setup.js";
-import type { ComponentType } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
   IconCheck,
@@ -60,27 +59,14 @@ import { useRovingTabs } from "./use-roving-tabs.js";
 import "./setup.css";
 import "./setup/steps/steps.css";
 
-import { useCompositionContributions } from "../bindings/capabilities.js";
-/** One tab: the fixed capabilities tab, or a `setup-panel` contribution. */
-export type SetupPanel = Readonly<{
-  id: string;
-  tab: string;
-  rail: string;
-  Panel: ComponentType;
-  order?: number;
-}>;
+import {
+  CAPABILITIES_STEP,
+  baseSetupPanels,
+  useContributedPanels,
+} from "./setup/setup-panels.js";
 
-export const CAPABILITIES_STEP = "capabilities";
-
-function useContributedPanels(): readonly SetupPanel[] {
-  return useCompositionContributions("setup-panel").map((entry) => ({
-    id: entry.id,
-    tab: entry.tab,
-    rail: entry.rail,
-    Panel: entry.Panel,
-    order: entry.order,
-  }));
-}
+export type { SetupPanel } from "./setup/setup-panels.js";
+export { CAPABILITIES_STEP } from "./setup/setup-panels.js";
 
 export const setupScreenDependencies = {
   completeSetup,
@@ -113,17 +99,7 @@ export function SetupScreen({
   const [finishing, setFinishing] = useState(false);
   useEffect(() => () => dismissMinimalConfirm(), []);
   const contributed = setupScreenDependencies.useSetupPanels();
-  const STEPS: readonly SetupPanel[] = [
-    {
-      id: CAPABILITIES_STEP,
-      tab: CAPABILITIES_STEP,
-      rail: "Capabilities",
-      Panel: CapabilitySetup,
-    },
-    ...[...contributed].sort(
-      (a, b) => (a.order ?? 0) - (b.order ?? 0) || a.id.localeCompare(b.id),
-    ),
-  ];
+  const STEPS = baseSetupPanels(contributed);
   const [rawIndex, setIndex] = useState(() =>
     Math.max(
       0,
