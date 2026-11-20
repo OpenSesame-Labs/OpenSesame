@@ -131,6 +131,28 @@ function verifierSealKey(secret: string, state: string, nonce: string): Buffer {
   );
 }
 
+function verifierSealIv(
+  key: Buffer,
+  state: string,
+  nonce: string,
+  verifier?: string,
+): Buffer {
+  const hmac = createHmac("sha256", key).update(
+    legBindingMaterial(state, nonce),
+  );
+  if (verifier === undefined) {
+    return hmac
+      .update("\0opensesame:fed-pending-seal-iv\0")
+      .digest()
+      .subarray(0, 12);
+  }
+  return hmac
+    .update("\0opensesame:fed-pending-seal-iv-v2\0")
+    .update(verifier, "utf8")
+    .digest()
+    .subarray(0, 12);
+}
+
 /** Seal the PKCE verifier for wire transport; the MAC never covers the raw verifier. */
 function sealVerifier(
   verifier: string,
@@ -139,11 +161,7 @@ function sealVerifier(
   nonce: string,
 ): string {
   const key = verifierSealKey(secret, state, nonce);
-  const iv = createHmac("sha256", key)
-    .update("\0opensesame:fed-pending-seal-iv\0")
-    .update(legBindingMaterial(state, nonce))
-    .digest()
-    .subarray(0, 12);
+  const iv = verifierSealIv(key, state, nonce, verifier);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
   const ciphertext = Buffer.concat([
     cipher.update(verifier, "utf8"),
