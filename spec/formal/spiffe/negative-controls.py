@@ -218,7 +218,6 @@ def archive_workspace(destination: Path) -> None:
         ["git", "-C", str(ROOT), "remote", "get-url", "origin"],
         text=True,
     ).strip()
-    head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()
     subprocess.run(["git", "init", "-q"], cwd=destination, check=True)
     subprocess.run(["git", "remote", "add", "origin", origin_url], cwd=destination, check=True)
     subprocess.run(
@@ -227,8 +226,26 @@ def archive_workspace(destination: Path) -> None:
             "fetch",
             "-q",
             "origin",
-            f"refs/heads/main:refs/remotes/origin/main",
-            head,
+            "refs/heads/main:refs/remotes/origin/main",
+        ],
+        cwd=destination,
+        check=True,
+    )
+    subprocess.run(["git", "add", "-A"], cwd=destination, check=True)
+    # Local commit records the archived bytes. Do not sign: a caller with
+    # commit.gpgsign set must still be able to build this disposable repo.
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.email=negative-controls@example.invalid",
+            "-c",
+            "user.name=negative-controls",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-qm",
+            "negative-controls scratch",
         ],
         cwd=destination,
         check=True,

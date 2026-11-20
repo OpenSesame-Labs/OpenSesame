@@ -246,6 +246,6 @@
   "lock_projection": {
     "root": "opensesame-spiffe-source",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "ba43654cc71800677f10e553043276519bfc2ca377dfc7ee6797b0840dee9ecc"
+    "sha256": "d703bfac3b763df5789d92f0d7f2044026e1153ac739de290c3fbd83bd4ace9b"
   }
 }
