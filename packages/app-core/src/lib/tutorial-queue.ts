@@ -97,14 +97,23 @@ export const tutorialResumeSeams: TutorialResumeSeams = {
   start: resumeUnwired,
 };
 
+const resumeBindings: TutorialResumeStart[] = [];
+
+function syncResumeBinding(): void {
+  const active =
+    resumeBindings[resumeBindings.length - 1] ?? resumeUnwired;
+  tutorialResumeSeams.start = active;
+}
+
 /** Install the support controller's resume. The returned function detaches it. */
 export function bindTutorialResume(start: TutorialResumeStart): () => void {
-  const previous = tutorialResumeSeams.start;
-  tutorialResumeSeams.start = start;
+  resumeBindings.push(start);
+  syncResumeBinding();
   return () => {
-    if (tutorialResumeSeams.start === start) {
-      tutorialResumeSeams.start = previous;
-    }
+    const index = resumeBindings.lastIndexOf(start);
+    if (index === -1) return;
+    resumeBindings.splice(index, 1);
+    syncResumeBinding();
   };
 }
 
