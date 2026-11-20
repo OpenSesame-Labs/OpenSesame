@@ -20,7 +20,7 @@ pub use error::SpiffeSourceError;
 pub use outage::ReconnectPolicy;
 pub use sink::GenerationSink;
 pub use snapshot::{SvidGeneration, TrustDomainBundles};
-pub use source::{SpiffeSource, SpiffeSourceHandle};
+pub use source::{SpiffeSource, SpiffeSourceHandle, WaitError};
 pub use status::{SourcePhase, SourceStatus};
 pub use svid_profile::{SvidExpectation, SvidFacts, SvidProfileError, SvidRole};
 
