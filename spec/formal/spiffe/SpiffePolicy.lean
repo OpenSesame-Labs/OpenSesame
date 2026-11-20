@@ -52,6 +52,12 @@ theorem missing_bundle_withdraws (phase : Phase) :
 theorem malformed_snapshot_withdraws (phase : Phase) :
     step phase (.failure (classify .malformedField)) = .withdrawn := rfl
 
+theorem empty_response_withdraws (phase : Phase) :
+    step phase (.failure (classify .emptyResponse)) = .withdrawn := rfl
+
+theorem invalid_field_withdraws (phase : Phase) :
+    step phase (.failure (classify .invalidField)) = .withdrawn := rfl
+
 theorem transient_transport_is_outage : classify .transport = .outage := rfl
 
 theorem unauthenticated_withdraws (phase : Phase) :
@@ -109,6 +115,14 @@ theorem outage_bounded_by_freshness (notAfter since maxStale : Nat) :
 theorem retry_cannot_extend_deadline (notAfter previous since maxStale : Nat) :
     retryDeadline notAfter previous since maxStale ≤ previous := by
   exact Nat.min_le_left _ _
+
+theorem retry_bounded_by_certificate (notAfter previous since maxStale : Nat) :
+    retryDeadline notAfter previous since maxStale ≤ notAfter := by
+  exact Nat.le_trans (Nat.min_le_right _ _) (outage_bounded_by_certificate _ _ _)
+
+theorem retry_bounded_by_freshness (notAfter previous since maxStale : Nat) :
+    retryDeadline notAfter previous since maxStale ≤ since + maxStale := by
+  exact Nat.le_trans (Nat.min_le_right _ _) (outage_bounded_by_freshness _ _ _)
 
 theorem effective_bounded_by_certificate (notAfter retainUntil : Nat) :
     effectiveDeadline notAfter retainUntil ≤ notAfter := by
