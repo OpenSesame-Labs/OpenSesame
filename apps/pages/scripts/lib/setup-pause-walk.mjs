@@ -161,7 +161,7 @@ async function clearObstructingSheets(page) {
     await page.keyboard.press("Escape");
     await support.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
   }
-  const coach = page.locator(".coach__card").locator("visible=true");
+  const coach = page.locator(".coach__card").visible();
   if (await coach.isVisible().catch(() => false)) {
     const exit = page.getByRole("button", { name: "Exit tutorial" });
     if (await exit.isVisible().catch(() => false)) await exit.click();
@@ -334,11 +334,14 @@ async function capturePauseAllReload(page, href, profileId, check, dir) {
   await page.waitForTimeout(2500);
 
   await page.reload({ waitUntil: "domcontentloaded" });
-  const pin = page.getByLabel("PIN", { exact: true });
-  const lock = page
-    .getByRole("button", { name: "Lock vault" })
-    .locator("visible=true");
-  await lock.or(pin).first().waitFor({ timeout: 30_000 });
+  // Exact name skips "Unlock vault". `.visible()` keeps a hidden PIN
+  // earlier in the DOM from winning this wait over the lock button.
+  const lock = page.getByRole("button", {
+    name: "Lock vault",
+    exact: true,
+  });
+  const pin = page.getByLabel("PIN", { exact: true }).visible();
+  await lock.or(pin).first().waitFor({ state: "visible", timeout: 30_000 });
   if (await pin.isVisible().catch(() => false)) await unlockWithPin(page);
   dialog = await openNotes(page);
   let afterReload = await countResumeKeys(dialog);

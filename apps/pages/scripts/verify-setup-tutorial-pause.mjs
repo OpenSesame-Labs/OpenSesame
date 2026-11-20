@@ -13,7 +13,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { chromium } from "@playwright/test";
 import { findChromium } from "./duress/find-chromium.mjs";
 import { mainPagesDist } from "./lib/setup-pause-main-dist.mjs";
@@ -42,11 +42,15 @@ function digest(file) {
   return createHash("sha256").update(readFileSync(file)).digest("hex");
 }
 
-const staticHref = `${ORIGIN}${BASE}`;
+/** Main stays on the static harness. Only the branch phase may use devUrl. */
+export function phaseOptions(label, devUrl, origin, base) {
+  const phaseDevUrl = label === "branch" ? devUrl : "";
+  const href = phaseDevUrl || `${origin}${base}`;
+  return { devUrl: phaseDevUrl, href };
+}
 
 async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
-  const phaseDevUrl = label === "branch" ? devUrl : "";
-  const href = phaseDevUrl || staticHref;
+  const phase = phaseOptions(label, devUrl, ORIGIN, BASE);
   return runBuildPhase(
     browser,
     {
@@ -54,8 +58,8 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
       dist,
       expectAdvanced,
       tutorial,
-      devUrl: phaseDevUrl,
-      href,
+      devUrl: phase.devUrl,
+      href: phase.href,
       BASE,
       outRoot,
     },
@@ -124,7 +128,12 @@ async function main() {
   console.log(`setup tutorial pause ok; shots in ${outRoot}`);
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  main().catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
+}
