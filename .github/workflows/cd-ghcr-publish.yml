@@ -10,7 +10,7 @@ name: GHCR image build proof
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 11 */5 * *"  # every 5 days, 11:00 UTC — keeps warm-cache under 7-day TTL
+    - cron: "17 11 */3 * *"  # every 3 days, 11:17 UTC (off :00); tolerates one missed run under 7-day TTL
   push:
     branches: [main]
     paths:
@@ -148,7 +148,9 @@ jobs:
         env:
           CACHE_NAME: rust-ghcr
           CACHE_HIT: ${{ steps.rust-cache-ghcr.outputs.cache-hit }}
+          CACHE_MATCHED_KEY: ${{ steps.rust-cache-ghcr.outputs.cache-primary-key }}
           CACHE_PRIMARY_KEY: v0-rust-ghcr-opensesame-amd64
+          CACHE_PRIMARY_IS_PREFIX: "true"
           MAIN_SEED_PREFIX: v0-rust-ghcr-opensesame-amd64-
         run: |
           export CACHE_PROBE_DIR="${HOME}/.cargo/registry/cache"

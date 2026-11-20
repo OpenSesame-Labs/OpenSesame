@@ -19,8 +19,8 @@ function assertTriggersAndPublishGuards() {
   assert.match(workflow, /branches: \[main\]/);
   assert.match(workflow, /workflow_dispatch:/);
   assert.match(workflow, /schedule:\n/);
-  assert.match(workflow, /cron: "0 11 \*\/5 \* \*"/);
-  assert.match(workflow, /\n {2}schedule:\n {4}- cron: "0 11 \*\/5 \* \*"/);
+  assert.match(workflow, /cron: "17 11 \*\/3 \* \*"/);
+  assert.match(workflow, /\n {2}schedule:\n {4}- cron: "17 11 \*\/3 \* \*"/);
   assert.match(
     workflow,
     /schedule runs on default branch only, proof-only \(publication-disabled\), no registry push/,
