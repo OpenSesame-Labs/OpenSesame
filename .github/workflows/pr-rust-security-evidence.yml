@@ -62,13 +62,17 @@ jobs:
       CARGO_PROFILE_DEV_DEBUG: 0
       CARGO_PROFILE_TEST_DEBUG: 0
     steps:
-      - name: Check out the exact PR head without credentials
+      - name: Check out trusted materialization helpers
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          ref: ${{ needs.resolve.outputs.head_sha }}
-          path: head
+          ref: ${{ github.workflow_sha }}
+          path: .ci-tools
           persist-credentials: false
-          fetch-depth: 1
+          allow-unsafe-pr-checkout: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: scripts/ci/materialize-git-sha.sh
+      - name: Park trusted helpers outside the workspace root
+        run: mv .ci-tools "$RUNNER_TEMP/ci-tools"
       - name: Install the explicit pinned Rust toolchain
         uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
@@ -77,6 +81,11 @@ jobs:
           cache: false
           cache_save: false
           persist_github_token: false
+      - name: Materialize the exact PR head without actions/checkout
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ needs.resolve.outputs.head_sha }}
+        run: bash "$RUNNER_TEMP/ci-tools/scripts/ci/materialize-git-sha.sh" head
       - name: Run the hardcoded exact-head security matrix
         working-directory: head
         env:
