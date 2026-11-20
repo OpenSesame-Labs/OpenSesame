@@ -18,6 +18,25 @@ pub(crate) fn builder_url(expr: &str) -> Option<&str> {
     marked_url(expr).or_else(|| call_arg_url(expr))
 }
 
+/// Whether `expr` contains a request-builder method call (`.get(`, `.post(`,
+/// `.request(`, …). Used as ownership-escape evidence: a binding whose value
+/// constructs a request passes the builder on to a wrapper that receives it.
+pub(super) fn has_builder_call(expr: &str) -> bool {
+    let bytes = expr.as_bytes();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        if builder_paren(expr, index).is_some() {
+            return true;
+        }
+        index += 1;
+    }
+    false
+}
+
 fn marked_url(expr: &str) -> Option<&str> {
     let bytes = expr.as_bytes();
     let mut index = 0usize;

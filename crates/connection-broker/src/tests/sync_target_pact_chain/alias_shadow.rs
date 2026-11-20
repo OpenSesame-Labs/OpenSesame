@@ -195,4 +195,34 @@ mod probes {
             "{bare}"
         );
     }
+
+    /// A send alias shadowed in a nested scope by a harmless closure is not a
+    /// dispatch at the inner call site; the alias is resolved as visible
+    /// there (Codex PRRT_kwDOTwzAKs65dW9j).
+    #[test]
+    fn codex_thread_shadowed_dispatch_alias_at_call_site() {
+        let inner = "fn f() { let dispatch = RequestBuilder::send; { let dispatch = |_| (); dispatch(request); } }";
+        assert!(
+            dispatch_alias_calls(inner).is_empty(),
+            "inner closure shadow must hide the alias call: {inner}"
+        );
+        let outer = "fn f() { let dispatch = RequestBuilder::send; { let dispatch = |_| (); } dispatch(request); }";
+        assert_eq!(
+            dispatch_alias_calls(outer).len(),
+            1,
+            "outer call still sees the send alias: {outer}"
+        );
+        let guarded = r#"async fn f() { let dispatch = RequestBuilder::send; if safe.scheme() != "https" { return Err("x".into()); } { let dispatch = |_| (); } dispatch(request).await?; }"#;
+        assert_eq!(
+            crate::tests::sync_target_pact_https::credentialed_send_https_gaps(guarded),
+            (1, 0),
+            "{guarded}"
+        );
+        let leaked = r#"async fn f() { let dispatch = RequestBuilder::send; if safe.scheme() != "https" { return Err("x".into()); } { let dispatch = |_| (); dispatch(request).await?; } }"#;
+        assert_eq!(
+            crate::tests::sync_target_pact_https::credentialed_send_https_gaps(leaked),
+            (0, 0),
+            "{leaked}"
+        );
+    }
 }

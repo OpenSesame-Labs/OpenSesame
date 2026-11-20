@@ -3,7 +3,7 @@
 use super::capture_debug_name;
 use crate::tests::sync_target_pact_norm::string_len;
 use crate::tests::sync_target_pact_rename;
-use crate::tests::sync_target_pact_scan::{ident_before, is_ident_char};
+use crate::tests::sync_target_pact_scan::ident_before;
 
 pub(super) fn macro_debug_response(scanned: &str) -> bool {
     let bytes = scanned.as_bytes();
@@ -46,13 +46,46 @@ fn debug_macro_at(scanned: &str, bang: usize) -> bool {
     let Some(name) = macro_name_before(scanned, bang) else {
         return false;
     };
-    if !MACROS.contains(&name.as_str()) {
-        return false;
-    }
     let Some(open) = macro_paren(scanned, bang) else {
         return false;
     };
+    if !MACROS.contains(&name.as_str()) {
+        // An imported or project-specific macro (`audit!`, `emit!`, …) can
+        // format and export provider metadata as well as any logging name.
+        // Conservatively flag it when an argument carries a tracked response;
+        // unrelated macros (`vec![1]`) stay clear.
+        return unknown_macro_tracks_response(scanned, open);
+    }
     debug_macro_args(scanned, open, name == "dbg")
+}
+
+/// Macros outside the known logging list are reads when any argument, named
+/// format capture, or tracing field carries a credentialed response receiver.
+fn unknown_macro_tracks_response(scanned: &str, open: usize) -> bool {
+    let Some(args) = paren_inside_at(scanned, open) else {
+        return false;
+    };
+    let pieces = split_args(args);
+    let captures = debug_capture_names(&pieces);
+    let mut offset = 0usize;
+    for piece in &pieces {
+        if piece.is_empty() {
+            continue;
+        }
+        let Some(rel) = args[offset..].find(piece) else {
+            continue;
+        };
+        let at = open + 1 + offset + rel;
+        if arg_is_response(scanned, piece, at)
+            || named_format_is_response(scanned, piece, at, &captures)
+            || capture_names_track_response(scanned, at, &captures)
+            || tracing_piece_is_response(scanned, piece, at)
+        {
+            return true;
+        }
+        offset += rel + piece.len();
+    }
+    false
 }
 
 fn macro_name_before(source: &str, bang: usize) -> Option<String> {
@@ -135,11 +168,12 @@ fn tracing_piece_is_response(scanned: &str, piece: &str, at: usize) -> bool {
         return false;
     };
     let rhs_trim = rhs.trim_start();
-    let Some(name) = rhs_trim.strip_prefix('?') else {
-        return false;
-    };
-    let name_at = trimmed_at + (trimmed.len() - rhs.len()) + (rhs.len() - rhs_trim.len()) + 1;
-    arg_is_response(scanned, name, name_at)
+    let name_at = trimmed_at + (trimmed.len() - rhs.len()) + (rhs.len() - rhs_trim.len());
+    if let Some(name) = rhs_trim.strip_prefix('?') {
+        return arg_is_response(scanned, name, name_at + 1);
+    }
+    // `field = response`: the tracked receiver is the argument itself.
+    arg_is_response(scanned, rhs_trim, name_at)
 }
 
 /// `{r:?}` in the format string, with a later `r = response` argument.

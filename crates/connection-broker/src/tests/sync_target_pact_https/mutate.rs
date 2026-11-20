@@ -312,4 +312,35 @@ mod probes {
             assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
         }
     }
+
+    /// Read-only URL inspection (`as_str`, `host_str`, `path`, …) after the
+    /// guard keeps it: the checked value is unchanged (Codex
+    /// PRRT_kwDOTwzAKs65i9UU).
+    #[test]
+    fn codex_thread_read_only_url_methods_keep_the_guard() {
+        let kept = [
+            (
+                r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } let _ = url.as_str(); client.get(url).send().await?; }"#,
+                (1, 0),
+            ),
+            (
+                r#"async fn f() { let _ = url.as_str(); client.get(url).send().await?; }"#,
+                (1, 1),
+            ),
+            (
+                r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } let _ = url.host_str(); let _ = url.path(); client.get(url).send().await?; }"#,
+                (1, 0),
+            ),
+        ];
+        for (sample, expected) in kept {
+            assert_eq!(credentialed_send_https_gaps(sample), expected, "{sample}");
+        }
+        let voided = [
+            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } url.set_scheme("http"); client.get(url).send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } url.push_str(evil); client.get(url).send().await?; }"#,
+        ];
+        for sample in voided {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+        }
+    }
 }

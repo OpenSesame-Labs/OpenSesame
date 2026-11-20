@@ -1,6 +1,6 @@
 //! Expression peeling and receiver names.
 use super::super::sync_target_pact_norm::string_len;
-use super::bind::{plain_name, read_ident_at};
+use super::bind::plain_name;
 use super::marker::is_ident_char;
 
 pub(super) fn receiver_before(source: &str, dot: usize) -> String {

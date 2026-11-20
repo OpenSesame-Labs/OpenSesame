@@ -1,142 +1,11 @@
-//! Host pin, redirect policy, and stream-receiver probes.
+//! Host pin and stream-receiver probes.
 use super::super::sync_target_pact_https::{closure_owns, credentialed_send_https_gaps};
 use super::super::sync_target_pact_norm::{
     function_spans, is_keyword_at, match_brace, non_code_len, strip_noise,
 };
 use super::super::sync_target_pact_scan::sync_target_production_for_scan;
+use super::redirect::code_compact;
 use super::{assert_clear, assert_read};
-
-#[test]
-fn p5_redirect_policy_none_in_egress_clients() {
-    assert!(
-        egress_sources_disable_redirects(),
-        "credentialed egress client must disable redirects"
-    );
-    let commented = "// .redirect(redirect::Policy::none())\nfn f() {}\n";
-    assert!(!redirect_policy_none_in_code(commented));
-    let quoted = "fn f() { let _ = \".redirect(redirect::Policy::none())\"; }\n";
-    assert!(!redirect_policy_none_in_code(quoted));
-    let unrelated = [
-        "fn f() { client.redirect(redirect::Policy::limited(10)); }\nfn g() { let _ = Policy::none(); }\n",
-        "fn f() { builder.redirect(Policy::none()); other.redirect(Policy::limited(1)); }\n",
-        "fn f() { builder.redirect(wrap(Policy::none())); }\n",
-    ];
-    for sample in unrelated {
-        assert!(!redirect_policy_none_in_code(sample), "{sample}");
-    }
-    let configured = [
-        "fn f() { builder.redirect(reqwest::redirect::Policy::none()); }\n",
-        "fn f() { builder.redirect(redirect::Policy::none()); }\n",
-        "fn f() { builder.redirect(Policy::none()); }\n",
-    ];
-    for sample in configured {
-        assert!(redirect_policy_none_in_code(sample), "{sample}");
-    }
-}
-
-pub(crate) fn egress_sources_disable_redirects() -> bool {
-    [
-        include_str!("../lib.rs"),
-        include_str!("../constructor.rs"),
-        include_str!("../egress_client.rs"),
-    ]
-    .into_iter()
-    .all(redirect_policy_none_in_code)
-}
-
-/// Every `.redirect(` configures the client with `Policy::none()`.
-/// A `Policy::none()` elsewhere in the file does not count.
-fn redirect_policy_none_in_code(src: &str) -> bool {
-    let src = strip_noise(src);
-    let bytes = src.as_bytes();
-    let mut index = 0usize;
-    let mut saw = false;
-    while index < bytes.len() {
-        if let Some(len) = non_code_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        if src[index..].starts_with(".redirect(") {
-            let open = index + ".redirect".len();
-            let Some(arg) = paren_inside(&src[open..]) else {
-                return false;
-            };
-            if !arg_is_policy_none(arg) {
-                return false;
-            }
-            saw = true;
-            index = open + 1;
-            continue;
-        }
-        index += 1;
-    }
-    saw
-}
-
-fn arg_is_policy_none(arg: &str) -> bool {
-    let compact = code_compact(arg);
-    let Some(at) = policy_none_at(&compact) else {
-        return false;
-    };
-    let before = &compact[..at];
-    let after = &compact[at + "Policy::none()".len()..];
-    after.is_empty() && (before.is_empty() || before.ends_with("::"))
-}
-
-fn policy_none_at(compact: &str) -> Option<usize> {
-    let needle = "Policy::none()";
-    let mut offset = 0usize;
-    while let Some(rel) = compact[offset..].find(needle) {
-        let at = offset + rel;
-        let boundary = at == 0 || compact.as_bytes()[at - 1] == b':';
-        if boundary {
-            return Some(at);
-        }
-        offset = at + needle.len();
-    }
-    None
-}
-
-fn code_compact(src: &str) -> String {
-    let bytes = src.as_bytes();
-    let mut out = String::new();
-    let mut index = 0usize;
-    while index < bytes.len() {
-        if let Some(len) = non_code_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        if !bytes[index].is_ascii_whitespace() {
-            out.push(bytes[index] as char);
-        }
-        index += 1;
-    }
-    out
-}
-
-fn paren_inside(at_paren: &str) -> Option<&str> {
-    let bytes = at_paren.strip_prefix('(')?.as_bytes();
-    let mut depth = 1i32;
-    let mut index = 0usize;
-    while index < bytes.len() {
-        if let Some(len) = non_code_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        match bytes[index] {
-            b'(' => depth += 1,
-            b')' => {
-                depth -= 1;
-                if depth == 0 {
-                    return Some(&at_paren[1..index + 1]);
-                }
-            }
-            _ => {}
-        }
-        index += 1;
-    }
-    None
-}
 
 /// Every `.send()` sits in a function whose depth-1 `if` is
 /// `parsed.host_str() != Some(authority)` and returns before that send.
@@ -421,4 +290,29 @@ fn p5_unrelated_stream_markers_are_not_body_reads() {
     ] {
         assert_read(sample);
     }
+}
+
+/// The host pin is verified structurally: comment or string decoys that quote
+/// `parsed.host_str() != Some(authority)` do not count, and two separate
+/// fragment mentions do not add up to the comparison (Codex
+/// PRRT_kwDOTwzAKs65srXs, PRRT_kwDOTwzAKs65tGUb, PRRT_kwDOTwzAKs65wAMT).
+#[test]
+fn codex_thread_host_pin_structural_match() {
+    let decoys = [
+        "async fn f() { // parsed.host_str() != Some(authority)\n request.send().await?; }",
+        r#"async fn f() { let _ = "parsed.host_str() != Some(authority)"; request.send().await?; }"#,
+        "async fn f() { let _ = parsed.host_str(); if candidate != Some(authority) { return Err(\"x\".into()); } request.send().await?; }",
+        "async fn f() { let _ = parsed.host_str(); let _ = authority; if candidate != Some(other) { return Err(\"x\".into()); } request.send().await?; }",
+    ];
+    for sample in decoys {
+        assert!(
+            !host_pin_guards_send(sample),
+            "comment, string, or split fragments are not the pin: {sample}"
+        );
+    }
+    let pinned = r#"async fn f() { if parsed.host_str() != Some(authority) { return Err("x".into()); } request.send().await?; }"#;
+    assert!(
+        host_pin_guards_send(pinned),
+        "the complete comparison pins the send: {pinned}"
+    );
 }

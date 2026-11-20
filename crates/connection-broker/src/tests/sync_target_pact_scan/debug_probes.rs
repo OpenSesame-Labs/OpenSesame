@@ -47,4 +47,95 @@ mod probes {
             );
         }
     }
+
+    /// `dbg![response]`, `format!["{:?}", response]`, `tracing::info![?response]`
+    /// — every Rust macro delimiter reaches the response scan.
+    #[test]
+    fn codex_thread_debug_macro_non_paren_delimiters() {
+        let hits = [
+            "dbg![response]",
+            r#"format!["{:?}", response]"#,
+            "tracing::info![?response]",
+            r#"format!{"{:?}", response}"#,
+            "dbg!{response}",
+            "println![\"{response:?}\"]",
+        ];
+        for sample in hits {
+            assert!(
+                !response_body_reads(sample).is_empty(),
+                "bracket/brace macro must read the response: {sample}"
+            );
+        }
+        let misses = [
+            "dbg![status]",
+            r#"format!["{:?}", status]"#,
+            "vec![response_count]",
+        ];
+        for sample in misses {
+            assert!(
+                response_body_reads(sample).is_empty(),
+                "unrelated macro argument is not a body read: {sample}"
+            );
+        }
+    }
+
+    /// A `Body::from` alias is only a read when a later invocation receives a
+    /// response-derived argument (Codex review).
+    #[test]
+    fn codex_thread_body_from_alias_traces_response_invocation() {
+        let hits = [
+            "let make_body = reqwest::Body::from; make_body(response)",
+            "let make_body = reqwest::Body::from; let payload = response; make_body(payload)",
+            "reqwest::Body::from(response)",
+        ];
+        for sample in hits {
+            assert!(
+                !response_body_reads(sample).is_empty(),
+                "alias invoked with the response moves the body: {sample}"
+            );
+        }
+        let misses = [
+            "let make_body = reqwest::Body::from;",
+            "let make_body = reqwest::Body::from; make_body(payload)",
+            "pass(Body::from)",
+        ];
+        for sample in misses {
+            assert!(
+                response_body_reads(sample).is_empty(),
+                "request-body converter without the response is not a read: {sample}"
+            );
+        }
+    }
+
+    /// Macros outside the known logging list (`audit!`, `emit!`) can format
+    /// and export provider metadata; flag them when an argument tracks the
+    /// response (Codex review).
+    #[test]
+    fn codex_thread_unknown_macro_with_response_arg_is_a_read() {
+        let hits = [
+            "audit!(upstream = ?response)",
+            "audit![response]",
+            "emit!(body = response)",
+            "audit!(\"{response:?}\")",
+            "let reply = response; audit!(upstream = ?reply)",
+        ];
+        for sample in hits {
+            assert!(
+                !response_body_reads(sample).is_empty(),
+                "unknown macro receiving the response exports metadata: {sample}"
+            );
+        }
+        let misses = [
+            "audit!(status)",
+            "audit!(\"{status:?}\")",
+            "vec![1, 2, 3]",
+            "emit!(body = payload)",
+        ];
+        for sample in misses {
+            assert!(
+                response_body_reads(sample).is_empty(),
+                "unknown macro without the response stays clear: {sample}"
+            );
+        }
+    }
 }
