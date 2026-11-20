@@ -56,6 +56,7 @@ export function createSupportController(
   let stopGuideFeed: (() => void) | null = null;
   let navigator: ((route: GuideRouteId) => boolean) | null = null;
   let pendingQueuedResume: PendingQueuedResume | null = null;
+  let queuedResumeLoading = false;
   let unbindResume: (() => void) | null = null;
   let entries = 0;
   let cancelled = false;
@@ -218,6 +219,7 @@ export function createSupportController(
     source: string,
     origin: GuideOrigin = "model",
   ): Promise<void> {
+    if (state.guide !== null || queuedResumeLoading) return;
     const loaded = await ensureEngine();
     if (!loaded) {
       notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
@@ -247,6 +249,10 @@ export function createSupportController(
       pendingQueuedResume = value;
     },
     guideRunning: () => state.guide !== null,
+    queuedResumeLoading: () => queuedResumeLoading,
+    setQueuedResumeLoading: (loading) => {
+      queuedResumeLoading = loading;
+    },
     notifyFailure,
     runAuthoredProgram: (loaded, guide) => {
       const program = loaded.compileAuthored(guide);
@@ -271,6 +277,7 @@ export function createSupportController(
     loading = null;
     dependencies.clearTargets();
     pendingQueuedResume = null;
+    queuedResumeLoading = false;
     // Everything the person said, everything that answered, and every overlay
     // it drew goes with the keys.
     state = emptyView(state.route);
