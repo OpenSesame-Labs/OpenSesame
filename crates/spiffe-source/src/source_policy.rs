@@ -1,9 +1,16 @@
 //! Fail-closed decisions for SDK errors on the Workload API stream.
 //!
 //! `NoIdentityIssued`, an empty SVID list, and [`WorkloadApiError::EmptyResponse`]
-//! are one withdrawal: [`TransportError::IdentityMissing`] reported as
-//! `svid_not_issued`. Permission denial and authentication failure also
-//! withdraw, with distinct status codes, and never take the outage path.
+//! are one [`ApiAction::Withdraw`]: [`TransportError::IdentityMissing`] reported
+//! as `svid_not_issued`. Permission denial and authentication failure return
+//! [`ApiAction::Denied`] with distinct status codes (`workload_api_denied` and
+//! `workload_api_unauthenticated`). That variant is separate from
+//! [`ApiAction::Withdraw`] and never takes the outage path. The connection loop
+//! maps `Denied` to immediate generation withdrawal, using
+//! [`TransportError::IdentityMissing`] and the denial's status code. ADR 0227
+//! requires that generation withdrawal for material-RPC `PERMISSION_DENIED` and
+//! `UNAUTHENTICATED`. The classifier does not report those failures as the
+//! `Withdraw` variant.
 //!
 //! The `spiffe` 0.19 SDK (`WorkloadApiError::from_status`) is what splits a
 //! gRPC `PERMISSION_DENIED` whose message contains the SPIRE phrase
@@ -93,6 +100,8 @@ mod tests {
 
     #[test]
     fn permission_and_authentication_failures_withdraw_with_distinct_codes() {
+        // Classifier result is `ApiAction::Denied` with these codes. The loop
+        // maps `Denied` to immediate generation withdrawal.
         let permission = classify_api_failure(&WorkloadApiError::PermissionDenied("denied".into()));
         let unauthenticated = classify_api_failure(&transport(
             GrpcStatusCode::Unauthenticated,
