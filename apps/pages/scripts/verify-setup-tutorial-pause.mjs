@@ -16,7 +16,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 import { findChromium } from "./duress/find-chromium.mjs";
-import { sealLocalOnly } from "./lib/pages-journey.mjs";
 import { freezeContextRandomness } from "./lib/setup-pause-freeze.mjs";
 import { mainPagesDist } from "./lib/setup-pause-main-dist.mjs";
 import {
