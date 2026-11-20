@@ -209,6 +209,16 @@ arguments. Match the complete scheme, host and port against a trusted
 configuration; server-provided links are not authorization. Attachments on
 other origins are counted as left behind. See ADR 0052 §7.
 
+Live account imports attempt at most 512 attachments and retain at most
+2 GiB of attachment ciphertext by default, with a 500 MiB per-file limit.
+The person importing can set `--max-attachments` and
+`--max-attachment-bytes` for a larger or smaller vault. A failed download
+charges its reserved allowance because the server may already have sent data;
+the report counts files skipped by limits and files that could not be
+downloaded. Scratch files remain bounded by the byte budget and disappear
+when the source is dropped. Imports do not merge accounts: choose adequate
+limits before importing, since `--replace` replaces the prior account.
+
 ## Singleton endpoints
 
 Three endpoints are machine-wide singletons and are never taken by default
