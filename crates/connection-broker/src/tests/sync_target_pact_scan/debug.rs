@@ -90,7 +90,18 @@ fn marker_hit(
 }
 
 fn body_from_function_item(scanned: &str) -> bool {
-    body_from_direct_call(scanned) || body_from_alias_calls(scanned)
+    body_from_direct_call(scanned)
+        || body_from_item_sites(scanned)
+        || body_from_alias_calls(scanned)
+}
+
+/// `let f = Body::from;` and `pass(Body::from)` move the body. Same rule as
+/// `let f = Response::url;`: the function item is the read, not only a later call.
+fn body_from_item_sites(scanned: &str) -> bool {
+    each_marker(scanned, "::from", |index, _, after| {
+        super::ident_before(&scanned[..index]) == "Body"
+            && super::pattern::is_function_item_tail(after)
+    })
 }
 
 fn body_from_direct_call(scanned: &str) -> bool {

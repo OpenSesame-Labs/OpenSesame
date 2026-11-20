@@ -158,7 +158,9 @@ fn named_format_is_response(scanned: &str, piece: &str, at: usize, captures: &[S
         return false;
     }
     let rhs_at = at + (piece.len() - rhs.len());
-    arg_is_response(scanned, rhs, rhs_at)
+    let trimmed = rhs.trim_start();
+    let lead = rhs.len() - trimmed.len();
+    arg_is_response(scanned, trimmed, rhs_at + lead)
 }
 
 fn debug_capture_names(pieces: &[&str]) -> Vec<String> {
@@ -230,7 +232,15 @@ fn arg_is_response(scanned: &str, arg: &str, at: usize) -> bool {
     let Some(name) = sync_target_pact_rename::plain_name(arg) else {
         return false;
     };
-    sync_target_pact_rename::tracks_response_receiver(scanned, at, name)
+    // `dbg!(&response)` and `r = response` must track the ident, not the `&` or space.
+    let name_at = at + ident_offset(arg, &name);
+    sync_target_pact_rename::tracks_response_receiver(scanned, name_at, name)
+}
+
+fn ident_offset(arg: &str, name: &str) -> usize {
+    let lead = arg.len() - arg.trim_start().len();
+    let within = arg.trim_start();
+    lead + within.find(name).unwrap_or(0)
 }
 
 fn paren_inside_at(source: &str, open: usize) -> Option<&str> {
