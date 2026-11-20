@@ -50,12 +50,21 @@ export class SupportControllerCore {
    * An idle timer, background policy, or another tab locks without this.
    */
   lockWalkthroughDrove = false;
-  unwatchLockActivation: () => void;
+  unwatchLockActivation!: () => void;
 
   readonly host: SupportHost;
 
   constructor(readonly dependencies: SupportSessionDependencies) {
     this.host = this.createHost();
+    this.watchLockActivation();
+  }
+
+  /**
+   * `clearMountedGuideTargets` clears activation listeners with the mounts,
+   * so a lock tears this watch down too; without a fresh one the next lock
+   * walkthrough cannot record that its own button drove the lock.
+   */
+  private watchLockActivation(): void {
     this.unwatchLockActivation = subscribeGuideActivation("shell.lock", () => {
       this.noteLockWalkthroughDrove();
     });
@@ -257,6 +266,16 @@ export class SupportControllerCore {
         this.notifyFailure(GUIDE_ERROR_TEXT.GUIDE_VALIDATION_ERROR);
         return;
       }
+      // The engine load and compile can outlast a queued Resume taking the
+      // slot; a start that entered first must not run over the tour Resume
+      // began and drop the queue row that belongs to it.
+      if (
+        era !== this.generation ||
+        guideSnapshotActive(this.state.guide) ||
+        this.queuedResumeLoading
+      ) {
+        return;
+      }
       await this.runProgram(program, origin);
     } finally {
       if (era === this.generation) this.guideStartPending = false;
@@ -274,6 +293,8 @@ export class SupportControllerCore {
     this.engine = null;
     this.loading = null;
     this.dependencies.clearTargets();
+    this.unwatchLockActivation();
+    this.watchLockActivation();
     this.pendingQueuedResume = null;
     this.queuedResumeLoading = false;
     this.guideStartPending = false;

@@ -1,8 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { guideGoalIds } from "../tutorial/registry/goals.js";
 import { toastOf } from "./notice-toast.js";
 import { clearNotices, listNotices, setStatusNotice } from "./notices.js";
 import {
   TUTORIAL_PAUSE_NOTICE,
+  TUTORIAL_QUEUE_LIMIT,
   bindTutorialResume,
   completeQueuedTutorial,
   dequeueTutorial,
@@ -243,6 +245,34 @@ describe("tutorial queue", () => {
     pause?.act?.run();
     expect(sessionTutorialsPaused()).toBe(true);
     expect(listQueuedTutorials().length).toBeGreaterThan(1);
+  });
+
+  it("refuses a new id at the limit instead of evicting the oldest", () => {
+    const others = guideGoalIds().filter((id) => id !== "vault.lock");
+    expect(others.length).toBeGreaterThanOrEqual(TUTORIAL_QUEUE_LIMIT);
+    for (const goalId of others.slice(0, TUTORIAL_QUEUE_LIMIT)) {
+      expect(queueTutorial(goalId, { title: "Tour" })).toBe(true);
+    }
+    const atLimit = storedQueuedGoalIds();
+    expect(atLimit).toHaveLength(TUTORIAL_QUEUE_LIMIT);
+    expect(queueTutorial("vault.lock", { title: "Lock the vault" })).toBe(
+      false,
+    );
+    expect(storedQueuedGoalIds()).toEqual(atLimit);
+    // An id already queued stays success even at the limit.
+    expect(queueTutorial(atLimit[0], { title: "Tour" })).toBe(true);
+    expect(storedQueuedGoalIds()).toEqual(atLimit);
+  });
+
+  it("setQueuedTutorials refuses new ids at the limit, keeping stored ones", () => {
+    const ids = guideGoalIds().slice(0, TUTORIAL_QUEUE_LIMIT);
+    setQueuedTutorials(ids);
+    expect(storedQueuedGoalIds()).toHaveLength(TUTORIAL_QUEUE_LIMIT);
+    const atLimit = storedQueuedGoalIds();
+    const notStored = guideGoalIds().find((id) => !atLimit.includes(id));
+    expect(notStored).toBeDefined();
+    setQueuedTutorials([notStored ?? "vault.lock", atLimit[0]]);
+    expect(storedQueuedGoalIds()).toEqual(atLimit);
   });
 
   it("setQueuedTutorials keeps stored ids when the goal is not in the registry", () => {
