@@ -98,6 +98,48 @@ describe("a tray card whose act works in place (ADR 0221)", () => {
     expect(only).toHaveBeenCalledTimes(1);
   });
 
+  it("lands focus on the tray Close key after a keyboard worded choice", async () => {
+    const pause = vi.fn();
+    const onOpen = vi.fn();
+    render(
+      <MemoryRouter>
+        <div role="dialog" aria-label="Notifications">
+          <button type="button" aria-label="Close">
+            Close
+          </button>
+          <StatusNoticeCard
+            notice={{
+              id: "tutorial.pause.session",
+              kind: "status",
+              tone: "warn",
+              title: "Tutorials",
+              body: "Pause the others for this session?",
+              act: {
+                label: "Pause all for this session",
+                worded: true,
+                run: pause,
+              },
+              alt: { label: "Only this one", worded: true, run: () => {} },
+              createdAt: "2026-11-18T00:00:00Z",
+            }}
+            onOpen={onOpen}
+            wordedTray
+          />
+        </div>
+      </MemoryRouter>,
+    );
+    const pauseKey = screen.getByRole("button", {
+      name: "Pause all for this session",
+    });
+    pauseKey.focus();
+    fireEvent.click(pauseKey);
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Close" }),
+    );
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
   it("closes the tray after a keyboard worded choice on a page toast", () => {
     const pause = vi.fn();
     const only = vi.fn();
