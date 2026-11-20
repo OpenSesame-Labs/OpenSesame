@@ -18,8 +18,8 @@ import {
   vaultIdOf,
 } from "@opensesame/app-core/lib/capabilities/invalidation.js";
 import { vaultSelectionKey } from "@opensesame/app-core/lib/capabilities/keys.js";
-import { applyPersonalLocalPwaDefaults } from "@opensesame/app-core/lib/capabilities/store-pwa-defaults.js";
 import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js";
+import { applyPersonalLocalPwaDefaults } from "@opensesame/app-core/lib/capabilities/store-pwa-defaults.js";
 import { captureAliasArrivalFromPage } from "@opensesame/app-core/lib/ceremony-aliases.js";
 import {
   bindClaimLockReset,
@@ -36,7 +36,6 @@ import {
   watchInviteArrivals,
 } from "@opensesame/app-core/lib/join/invite.js";
 import { kvHydrate } from "@opensesame/app-core/lib/kv.js";
-import { rehydrateTutorialQueueNotices } from "@opensesame/app-core/lib/tutorial-queue-present.js";
 import { lastVaultIsGuest } from "@opensesame/app-core/lib/last-vault.js";
 import {
   activeProject,
@@ -48,6 +47,7 @@ import {
   type ParsedRuntimeConfig,
   loadRuntimeConfig,
 } from "@opensesame/app-core/lib/runtime-config.js";
+import { rehydrateTutorialQueueNotices } from "@opensesame/app-core/lib/tutorial-queue-present.js";
 import { restorePacks } from "@opensesame/app-core/lib/type-packs/restore.js";
 import { watchVaultTypes } from "@opensesame/app-core/lib/type-packs/watch.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
