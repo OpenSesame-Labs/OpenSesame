@@ -1,6 +1,49 @@
 //! Durable origin/key binding. All authority transitions are atomic SQL writes.
 use super::{Db, Row};
 
+/// Record at most one decision in the caller's transaction and return the
+/// immutable capability request that was approved or denied.
+/// # Errors
+/// A storage failure leaves the transaction uncommitted.
+pub async fn decide_browser_pairing_in_transaction(
+    tx: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
+    code_digest: &str,
+    principal: &str,
+    org: &str,
+    approve: bool,
+    now: i64,
+    membership_revision: Option<(&str, &str)>,
+) -> anyhow::Result<Option<String>> {
+    let (incarnation, revision) = membership_revision.unzip();
+    Ok(sqlx::query_scalar(
+        "UPDATE browser_pairings SET state=?,principal_id=?,organization_id=?,approved_at=?,
+        membership_incarnation=?,authority_revision=?
+        WHERE user_code_digest=? AND state='pending' AND expires_at>?
+        AND (?=0 OR NOT EXISTS (SELECT 1 FROM host_membership_withdrawals
+          WHERE organization_id=? AND principal_id=?
+          AND ((? IS NULL AND ? IS NULL)
+            OR (membership_incarnation=? AND authority_revision=?))))
+        RETURNING capabilities_json",
+    )
+    .bind(if approve { "approved" } else { "denied" })
+    .bind(principal)
+    .bind(org)
+    .bind(now)
+    .bind(incarnation)
+    .bind(revision)
+    .bind(code_digest)
+    .bind(now)
+    .bind(approve)
+    .bind(org)
+    .bind(principal)
+    .bind(incarnation)
+    .bind(revision)
+    .bind(incarnation)
+    .bind(revision)
+    .fetch_optional(&mut **tx)
+    .await?)
+}
+
 pub struct NewBrowserPairing<'a> {
     pub id: &'a str,
     pub device_digest: &'a str,
@@ -15,6 +58,8 @@ pub struct NewBrowserPairing<'a> {
 #[derive(Clone)]
 pub struct BrowserGrant {
     pub authentication_json: Option<String>,
+    pub membership_incarnation: Option<String>,
+    pub authority_revision: Option<String>,
     pub client_id: String,
     pub origin: String,
     pub dpop_jkt: String,
@@ -30,6 +75,8 @@ pub struct BrowserGrant {
 fn grant_row(row: &sqlx::sqlite::SqliteRow) -> anyhow::Result<BrowserGrant> {
     Ok(BrowserGrant {
         authentication_json: row.try_get("authentication_json")?,
+        membership_incarnation: row.try_get("membership_incarnation")?,
+        authority_revision: row.try_get("authority_revision")?,
         client_id: row.try_get("id")?,
         origin: row.try_get("origin")?,
         dpop_jkt: row.try_get("dpop_jkt")?,
@@ -128,19 +175,19 @@ impl Db {
         approve: bool,
         now: i64,
     ) -> anyhow::Result<bool> {
-        let changed = sqlx::query(
-            "UPDATE browser_pairings SET state=?,principal_id=?,organization_id=?,approved_at=?
-            WHERE user_code_digest=? AND state='pending' AND expires_at>?",
+        let mut tx = self.pool.begin().await?;
+        let changed = decide_browser_pairing_in_transaction(
+            &mut tx,
+            code_digest,
+            principal,
+            org,
+            approve,
+            now,
+            None,
         )
-        .bind(if approve { "approved" } else { "denied" })
-        .bind(principal)
-        .bind(org)
-        .bind(now)
-        .bind(code_digest)
-        .bind(now)
-        .execute(&self.pool)
         .await?;
-        Ok(changed.rows_affected() == 1)
+        tx.commit().await?;
+        Ok(changed.is_some())
     }
 
     /// Consume approval and create the short-lived grant in one transaction.
@@ -164,6 +211,13 @@ impl Db {
         let Some(row) = sqlx::query(
             "UPDATE browser_pairings SET state='consumed'
             WHERE device_digest=? AND origin=? AND dpop_jkt=? AND state='approved' AND expires_at>?
+            AND NOT EXISTS (SELECT 1 FROM host_membership_withdrawals w
+              WHERE w.organization_id=browser_pairings.organization_id
+                AND w.principal_id=browser_pairings.principal_id
+                AND ((browser_pairings.membership_incarnation IS NULL
+                      AND browser_pairings.authority_revision IS NULL)
+                  OR (w.membership_incarnation=browser_pairings.membership_incarnation
+                      AND w.authority_revision=browser_pairings.authority_revision)))
             RETURNING *,NULL AS authentication_json",
         )
         .bind(device)
@@ -180,11 +234,12 @@ impl Db {
         grant.expires_at = now
             .checked_add(300)
             .ok_or_else(|| anyhow::anyhow!("clock overflow"))?;
-        let inserted = sqlx::query("INSERT INTO browser_clients (id,origin,dpop_jkt,audience,capabilities_json,principal_id,organization_id,approved_at)
-            SELECT ?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM browser_clients)<4096
+        let inserted = sqlx::query("INSERT INTO browser_clients (id,origin,dpop_jkt,audience,capabilities_json,principal_id,organization_id,approved_at,membership_incarnation,authority_revision)
+            SELECT ?,?,?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM browser_clients)<4096
             AND (SELECT COUNT(*) FROM browser_clients WHERE principal_id=? AND organization_id=? AND revoked_at IS NULL)<64")
             .bind(&grant.client_id).bind(&grant.origin).bind(&grant.dpop_jkt).bind(&grant.audience)
             .bind(&grant.capabilities_json).bind(&grant.principal_id).bind(&grant.organization_id).bind(grant.approved_at)
+            .bind(&grant.membership_incarnation).bind(&grant.authority_revision)
             .bind(&grant.principal_id).bind(&grant.organization_id)
             .execute(&mut *tx).await?;
         anyhow::ensure!(inserted.rows_affected() == 1, "browser client capacity");
@@ -213,7 +268,12 @@ impl Db {
         let Some(row) = sqlx::query(
             "SELECT g.client_id,c.approved_at FROM browser_grants g JOIN browser_clients c
             ON c.id=g.client_id WHERE g.token_digest=? AND g.expires_at>?
-            AND c.revoked_at IS NULL AND c.capabilities_json=?",
+            AND c.revoked_at IS NULL AND c.capabilities_json=?
+            AND NOT EXISTS (SELECT 1 FROM host_membership_withdrawals w
+              WHERE w.organization_id=c.organization_id AND w.principal_id=c.principal_id
+                AND ((c.membership_incarnation IS NULL AND c.authority_revision IS NULL)
+                  OR (w.membership_incarnation=c.membership_incarnation
+                      AND w.authority_revision=c.authority_revision)))",
         )
         .bind(token_digest)
         .bind(now)
@@ -259,7 +319,12 @@ impl Db {
     ) -> anyhow::Result<Option<BrowserGrant>> {
         let row = sqlx::query(
             "SELECT c.*,g.issued_at,g.expires_at FROM browser_clients c JOIN browser_grants g
-            ON g.client_id=c.id WHERE g.token_digest=? AND g.expires_at>? AND c.revoked_at IS NULL",
+            ON g.client_id=c.id WHERE g.token_digest=? AND g.expires_at>? AND c.revoked_at IS NULL
+            AND NOT EXISTS (SELECT 1 FROM host_membership_withdrawals w
+              WHERE w.organization_id=c.organization_id AND w.principal_id=c.principal_id
+                AND ((c.membership_incarnation IS NULL AND c.authority_revision IS NULL)
+                  OR (w.membership_incarnation=c.membership_incarnation
+                      AND w.authority_revision=c.authority_revision)))",
         )
         .bind(token_digest)
         .bind(now)

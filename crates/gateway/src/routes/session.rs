@@ -113,8 +113,12 @@ pub async fn whoami(State(st): State<AppState>, headers: axum::http::HeaderMap) 
 pub struct RevokeSessionsRequest {
     principal_id: String,
     organization_id: String,
+    membership_incarnation: String,
+    authority_revision: String,
+    withdrawal_id: String,
 }
 
+#[cfg(test)]
 fn revoke_matching_sessions(
     sessions: &mut HashMap<String, HostSessionClaims>,
     principal_id: &str,
@@ -128,6 +132,15 @@ fn revoke_matching_sessions(
     before - sessions.len()
 }
 
+fn revision_matches(
+    actual: Option<&crate::session_claims::MembershipRevision>,
+    incarnation: &str,
+    revision: &str,
+) -> bool {
+    actual.is_some_and(|actual| actual.incarnation == incarnation && actual.revision == revision)
+}
+
+#[cfg(test)]
 fn revoke_pending_authorizations(
     pending: &mut HashMap<String, crate::app_state::DevicePending>,
     principal_id: &str,
@@ -162,24 +175,74 @@ pub async fn revoke(
             .into_response();
     };
     let canonical_organization_id = organization_id.to_string();
-    // Device-token minting holds this fence from reading its approval through
-    // publishing the session. Revocation therefore observes and clears either
-    // the pending grant or the minted session, never a gap between them.
-    let _lifecycle = st.session_lifecycle.lock().unwrap();
+    let Some(principal) = crate::session_claims::parse_principal(&req.principal_id) else {
+        return StatusCode::BAD_REQUEST.into_response();
+    };
+    let canonical_uuid = |value: &str| {
+        uuid::Uuid::parse_str(value).is_ok_and(|id| !id.is_nil() && id.to_string() == value)
+    };
+    if organization_id.as_uuid().is_nil()
+        || !canonical_uuid(&req.membership_incarnation)
+        || !canonical_uuid(&req.authority_revision)
+        || !canonical_uuid(&req.withdrawal_id)
+    {
+        return StatusCode::BAD_REQUEST.into_response();
+    }
+    let principal_id = principal.to_string();
+    if st
+        .db
+        .withdraw_host_membership(&opensesame_storage::host_membership::MembershipWithdrawal {
+            withdrawal_id: &req.withdrawal_id,
+            organization_id: &canonical_organization_id,
+            principal_id: &principal_id,
+            membership_incarnation: &req.membership_incarnation,
+            authority_revision: &req.authority_revision,
+        })
+        .await
+        .is_err()
+    {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    }
+    // Local eviction is an optimization. The committed revision tombstone is
+    // the authority every replica checks for sessions and device redemption.
     let mut sessions = st.sessions.lock().unwrap();
-    let revoked =
-        revoke_matching_sessions(&mut sessions, &req.principal_id, &canonical_organization_id);
+    let before = sessions.len();
+    sessions.retain(|_, claims| {
+        !same_principal_subject(&claims.principal_id.to_string(), &principal_id)
+            || claims.organization_id.to_string() != canonical_organization_id
+            || !revision_matches(
+                claims.membership_revision.as_ref(),
+                &req.membership_incarnation,
+                &req.authority_revision,
+            )
+    });
+    let revoked = before - sessions.len();
     drop(sessions);
 
     // An approved device code can mint a session after this request. Clear matching
     // approvals too so a membership mutation revokes both live and not-yet-minted sessions.
-    revoke_pending_authorizations(
-        &mut st.device_codes.lock().unwrap(),
-        &req.principal_id,
-        organization_id,
-    );
+    for pending in st.device_codes.lock().unwrap().values_mut() {
+        if pending.approved.as_ref().is_some_and(|approved| {
+            same_principal_subject(&approved.principal, &principal_id)
+                && approved.organization_id == organization_id
+                && revision_matches(
+                    approved.membership_revision.as_ref(),
+                    &req.membership_incarnation,
+                    &req.authority_revision,
+                )
+        }) {
+            pending.approved = None;
+        }
+    }
 
-    Json(json!({"revoked": revoked})).into_response()
+    Json(json!({
+        "revoked": revoked,
+        "durable": true,
+        "withdrawal_id": req.withdrawal_id,
+        "membership_incarnation": req.membership_incarnation,
+        "authority_revision": req.authority_revision,
+    }))
+    .into_response()
 }
 
 #[cfg(test)]
