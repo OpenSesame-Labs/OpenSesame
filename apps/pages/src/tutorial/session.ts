@@ -463,7 +463,7 @@ export function createSupportController(
     beginQueuedWalkthrough(goalId, guide);
   }
 
-  function teardown(): void {
+  function clearSessionForLock(): void {
     generation += 1;
     stopGuideFeed?.();
     stopGuideFeed = null;
@@ -474,12 +474,17 @@ export function createSupportController(
     engine = null;
     loading = null;
     dependencies.clearTargets();
-    unbindResume?.();
     pendingQueuedResume = null;
     // Everything the person said, everything that answered, and every overlay
     // it drew goes with the keys.
     state = emptyView(state.route);
     emit();
+  }
+
+  function teardown(): void {
+    clearSessionForLock();
+    unbindResume?.();
+    unbindResume = null;
   }
 
   return {
@@ -645,7 +650,7 @@ export function createSupportController(
       engine?.cancelGuide(reason);
     },
     lock() {
-      teardown();
+      clearSessionForLock();
     },
     destroy() {
       teardown();
