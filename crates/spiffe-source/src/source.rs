@@ -8,11 +8,13 @@
 //! configured identity or trust. A parsed candidate rejected by the profile or
 //! sink retains the previous generation only when every old anchor is present
 //! in the new trust view, and only within its existing time bounds. Explicit
-//! permission or authentication denial withdraws, as does an empty Workload
-//! API response (the same withdrawal as an empty SVID list). A transport
-//! error or disconnect starts an outage: material is retained until the
-//! earlier of its expiry or the outage freshness limit. Reconnection uses
-//! bounded, jittered backoff; there is no fallback identity.
+//! permission or authentication denial is `ApiAction::Denied`. This loop maps
+//! that to immediate generation withdrawal with `TransportError::IdentityMissing`
+//! and the denial's status code. An empty Workload API response is the same
+//! `ApiAction::Withdraw` as an empty SVID list. A transport error or
+//! disconnect starts an outage: material is retained until the earlier of its
+//! expiry or the outage freshness limit. Reconnection uses bounded, jittered
+//! backoff; there is no fallback identity.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -256,9 +258,11 @@ impl Loop {
         }
     }
 
-    /// Stream-open and mid-stream failures share this exit. A withdrawal
-    /// ends the stream at both points so a following EOF cannot replace the
-    /// reported reason with an outage.
+    /// Stream-open and mid-stream failures share this exit. `Denied` and
+    /// `Withdraw` both end the stream there as generation withdrawal, so a
+    /// following EOF cannot replace the reported reason with an outage.
+    /// `Denied` uses `TransportError::IdentityMissing` and the denial's
+    /// status code; `Withdraw` keeps its own reason and code.
     fn end_action(action: ApiAction, stage: &'static str) -> StreamEnd {
         match action {
             ApiAction::Denied(code) => StreamEnd::Withdrawn(TransportError::IdentityMissing, code),
