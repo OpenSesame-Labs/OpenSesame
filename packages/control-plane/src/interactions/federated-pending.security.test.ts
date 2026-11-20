@@ -139,6 +139,47 @@ describe("signed federated state integrity", () => {
     expect(decodePending(forged, secret)).toBeUndefined();
   });
 
+  it("rejects a mixed plaintext verifier and sealed verifierEnc", () => {
+    const cookie = encodePending(pending, secret);
+    expect(
+      decodePending(alterPayload(cookie, { verifier: "forged-verifier" }), secret),
+    ).toBeUndefined();
+  });
+
+  it("rejects decoding with the wrong pepper", () => {
+    expect(decodePending(encodePending(pending, secret), "wrong-pepper")).toBe(
+      undefined,
+    );
+  });
+
+  it("rejects swapped verifier seals between two pending legs", () => {
+    const other: PendingFederatedAuth = {
+      ...pending,
+      state: "state-two",
+      nonce: "nonce-two",
+      verifier: "verifier-two",
+    };
+    const a = encodePending(pending, secret);
+    const b = encodePending(other, secret);
+    const splitA = a.lastIndexOf(".");
+    const splitB = b.lastIndexOf(".");
+    const wireA = JSON.parse(
+      Buffer.from(a.slice(0, splitA), "base64url").toString("utf8"),
+    );
+    const wireB = JSON.parse(
+      Buffer.from(b.slice(0, splitB), "base64url").toString("utf8"),
+    );
+    wireB.verifierEnc = wireA.verifierEnc;
+    const forged = `${Buffer.from(JSON.stringify(wireB)).toString("base64url")}${b.slice(splitB)}`;
+    expect(decodePending(forged, secret)).toBeUndefined();
+  });
+
+  it("decodes a frozen historical sealed blob", () => {
+    const frozen =
+      "eyJpc3N1ZXIiOiJodHRwczovL2lzc3Vlci5leGFtcGxlIiwic3RhdGUiOiJzdGF0ZS1leGFtcGxlIiwibm9uY2UiOiJub25jZS1leGFtcGxlIiwia2luZCI6Im9pZGMiLCJwcm92aWRlcklkIjoicHJvdmlkZXItZXhhbXBsZSIsImJ5b0lkIjoiYnlvLWV4YW1wbGUiLCJvcmdJZCI6Im9yZy1leGFtcGxlIiwidmVyaWZpZXJFbmMiOiJFTDc2X0FKSG1NZDhtTjIzTEF0aENzTEpSVktleXZ1TkptOUY3Z3hIMEV2LXFjS2VOdjFMU0swUzNpayJ9.MLquXkODnP2hz9aLiRRvSyNg9Q8Ne7hIPLJ-HJsukxc";
+    expect(decodePending(frozen, secret)).toEqual(pending);
+  });
+
   it("still decodes legacy v3 cookies that carry a plaintext verifier", () => {
     const cookie = existingV3Cookie(pending);
     expect(decodePending(cookie, secret)).toEqual(pending);
