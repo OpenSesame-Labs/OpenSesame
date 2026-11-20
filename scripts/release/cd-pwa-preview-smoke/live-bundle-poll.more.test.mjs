@@ -19,7 +19,9 @@ import {
   shellAssetRelative,
 } from "./live-bundle-poll.mjs";
 import {
+  cdnRetryBudget,
   fetchAbortTimeoutMs,
+  hurlMaxTimeArg,
   sharedCdnDeadlineEndMs,
 } from "./retry-budget.mjs";
 
@@ -44,6 +46,74 @@ test("fetchAbortTimeoutMs caps stalled headers at the shared CDN remainder", () 
     fetchAbortTimeoutMs(15_000, 200, () => 50, false),
     15_000,
   );
+});
+
+test("cdnRetryBudget keeps the default window off a one-second max-time", () => {
+  const budget = cdnRetryBudget({});
+  assert.deepEqual(budget, {
+    retries: 6,
+    intervalMs: 2_000,
+    maxTimeMs: 15_000,
+  });
+  assert.ok(
+    budget.maxTimeMs > 1_000,
+    "per-attempt time must not collapse to 1s",
+  );
+});
+
+test("cdnRetryBudget handles zero and sub-second deadlines without a 1s default", () => {
+  assert.deepEqual(cdnRetryBudget({ PWA_SMOKE_CDN_DEADLINE_MS: "0" }), {
+    retries: 0,
+    intervalMs: 2_000,
+    maxTimeMs: 15_000,
+  });
+  assert.deepEqual(cdnRetryBudget({ PWA_SMOKE_CDN_DEADLINE_MS: "1" }), {
+    retries: 0,
+    intervalMs: 2_000,
+    maxTimeMs: 1,
+  });
+  assert.deepEqual(cdnRetryBudget({ PWA_SMOKE_CDN_DEADLINE_MS: "250" }), {
+    retries: 0,
+    intervalMs: 2_000,
+    maxTimeMs: 250,
+  });
+  assert.deepEqual(
+    cdnRetryBudget({
+      PWA_SMOKE_CDN_DEADLINE_MS: "999",
+      PWA_SMOKE_CDN_POLL_MS: "100",
+    }),
+    { retries: 0, intervalMs: 100, maxTimeMs: 999 },
+  );
+});
+
+test("cdnRetryBudget fits one wall-clock window across edge deadlines", () => {
+  const edges = [
+    1, 250, 999, 1_000, 2_000, 15_000, 17_000, 20_000, 51_000, 120_000,
+    1_800_000, 170_000_000,
+  ];
+  for (const deadlineMs of edges) {
+    const { retries, intervalMs, maxTimeMs } = cdnRetryBudget({
+      PWA_SMOKE_CDN_DEADLINE_MS: String(deadlineMs),
+    });
+    const worstCaseMs = (retries + 1) * maxTimeMs + retries * intervalMs;
+    assert.ok(
+      worstCaseMs <= deadlineMs,
+      `deadline ${deadlineMs}ms: ${worstCaseMs}ms worst case must fit`,
+    );
+    assert.ok(maxTimeMs <= 15_000);
+  }
+  // 30 minutes fits exactly: 106 attempts × 15s + 105 waits × 2s.
+  assert.deepEqual(cdnRetryBudget({ PWA_SMOKE_CDN_DEADLINE_MS: "1800000" }), {
+    retries: 105,
+    intervalMs: 2_000,
+    maxTimeMs: 15_000,
+  });
+});
+
+test("hurlMaxTimeArg emits a duration suffix so sub-second budgets parse", () => {
+  assert.equal(hurlMaxTimeArg(15_000), "15000ms");
+  assert.equal(hurlMaxTimeArg(250), "250ms");
+  assert.equal(hurlMaxTimeArg(1), "1ms");
 });
 
 test("readBoundedBody stops at shared CDN deadline before per-chunk cap", async () => {
@@ -137,6 +207,28 @@ test("dynamicImportRefsFromJs includes side-effect and minified export-from", ()
   assert.deepEqual(
     new Set(dynamicImportRefsFromJs(source)),
     new Set(["./side.js", "./peer.js"]),
+  );
+});
+
+test("dynamicImportRefsFromJs finds newline-separated static imports", () => {
+  const source = [
+    'import { a } from "./one.js"',
+    'import { b } from "./two.js"',
+    'import "./three.css"',
+    'export { c } from "./four.js"',
+    "",
+  ].join("\n");
+  assert.deepEqual(
+    new Set(dynamicImportRefsFromJs(source)),
+    new Set(["./one.js", "./two.js", "./three.css", "./four.js"]),
+  );
+});
+
+test("dynamicImportRefsFromJs allows whitespace after a separator", () => {
+  const source = 'import"./a.js"; \n import"./b.js";\n\timport"./c.css"\n';
+  assert.deepEqual(
+    new Set(dynamicImportRefsFromJs(source)),
+    new Set(["./a.js", "./b.js", "./c.css"]),
   );
 });
 
@@ -239,6 +331,29 @@ test("listStagedShellAssetPaths follows static import from in the entry chunk", 
     assert.deepEqual(listStagedShellAssetPaths(dist, pagesBase), [
       join(dist, "assets/main.js"),
       join(dist, "assets/child.js"),
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("listStagedShellAssetPaths follows consecutive newline-separated imports", () => {
+  const { root, dist } = stageDist();
+  try {
+    writeFileSync(join(dist, "assets", "child-a.js"), "export const a = 1;\n");
+    writeFileSync(join(dist, "assets", "child-b.js"), "export const b = 2;\n");
+    writeFileSync(
+      join(dist, "assets", "main.js"),
+      'import { a } from "./child-a.js"\nimport { b } from "./child-b.js"\n',
+    );
+    writeFileSync(
+      join(dist, "index.html"),
+      '<script type="module" src="/OpenSesame/assets/main.js"></script>',
+    );
+    assert.deepEqual(listStagedShellAssetPaths(dist, pagesBase), [
+      join(dist, "assets/main.js"),
+      join(dist, "assets/child-a.js"),
+      join(dist, "assets/child-b.js"),
     ]);
   } finally {
     rmSync(root, { recursive: true, force: true });
@@ -371,9 +486,47 @@ test("shared CDN deadline end is one window from PWA_SMOKE_CDN_STARTED_MS", () =
   );
 });
 
-test("pollLiveShellAssets rejects oversize Content-Length without reading the body", async () => {
+test("shared CDN deadline end rejects a window past MAX_SAFE_INTEGER", () => {
+  assert.throws(
+    () =>
+      sharedCdnDeadlineEndMs({
+        PWA_SMOKE_CDN_STARTED_MS: "9007199254740991",
+        PWA_SMOKE_CDN_DEADLINE_MS: "120000",
+      }),
+    /MAX_SAFE_INTEGER/,
+  );
+  // The sum, not each input, decides: exactly MAX_SAFE_INTEGER still fits.
+  assert.equal(
+    sharedCdnDeadlineEndMs({
+      PWA_SMOKE_CDN_STARTED_MS: "0",
+      PWA_SMOKE_CDN_DEADLINE_MS: "9007199254740991",
+    }),
+    9_007_199_254_740_991,
+  );
+});
+
+test("pollLiveShellAssets rejects a poll window that loses integer precision", async () => {
   const { root, dist } = stageDist();
-  let read = false;
+  try {
+    await assert.rejects(
+      () =>
+        pollLiveShellAssets(
+          envFor(dist, { PWA_SMOKE_CDN_DEADLINE_MS: "9007199254740991" }),
+          {
+            fetch: async () => new Response("no"),
+          },
+        ),
+      /MAX_SAFE_INTEGER/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("pollLiveShellAssets rejects oversize Content-Length without consuming body bytes", async () => {
+  const { root, dist } = stageDist();
+  let pulls = 0;
+  let readers = 0;
   try {
     writeFileSync(
       join(dist, "index.html"),
@@ -387,18 +540,38 @@ test("pollLiveShellAssets rejects oversize Content-Length without reading the bo
             PWA_SMOKE_CDN_POLL_MS: "10",
           }),
           {
+            // A plain response-like: undici's Response wrapper pumps its
+            // own body copy in the background, which would hide whether
+            // the poll itself ever acquired the stream.
             fetch: async () => {
-              read = true;
-              return new Response("x", {
-                status: 200,
-                headers: { "content-length": String(20 * 1024 * 1024) },
+              const body = new ReadableStream({
+                pull(controller) {
+                  // One pull only primes the stream's own queue; a
+                  // consumer reading 20 MiB would pull repeatedly.
+                  pulls += 1;
+                  controller.enqueue(new Uint8Array(64 * 1024));
+                },
               });
+              const acquireReader = body.getReader.bind(body);
+              body.getReader = () => {
+                readers += 1;
+                return acquireReader();
+              };
+              return {
+                ok: true,
+                status: 200,
+                headers: new Headers({
+                  "content-length": String(20 * 1024 * 1024),
+                }),
+                body,
+              };
             },
           },
         ),
-      /body exceeds/,
+      /body exceeds 16777216 bytes/,
     );
-    assert.equal(read, true);
+    assert.equal(readers, 0);
+    assert.ok(pulls <= 1, `stream was consumed: ${pulls} pulls`);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

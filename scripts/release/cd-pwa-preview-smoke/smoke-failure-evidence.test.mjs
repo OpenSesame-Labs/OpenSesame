@@ -18,13 +18,21 @@ test("redactDiagnosticText truncates and redacts bearer tokens", () => {
     redactDiagnosticText("Authorization Bearer abc.def.ghi"),
     /\[redacted\]/,
   );
-  assert.equal(
-    redactDiagnosticText('console error {"token":"abc"}'),
-    'console error {"token":"[redacted]"}',
-  );
+  // The JSON value loses its content; the key must stay visible.
+  const consoleJson = redactDiagnosticText('console error {"token":"abc"}');
+  assert.equal(consoleJson, 'console error {"token":"[redacted]"}');
+  assert.ok(!consoleJson.includes('{"[redacted]'));
   assert.equal(
     redactDiagnosticText('{"api_key":"sekret","password":"p"}'),
     '{"api_key":"[redacted]","password":"[redacted]"}',
+  );
+  assert.equal(
+    redactDiagnosticText('{"access_token":"xyz","api-key":"k"}'),
+    '{"access_token":"[redacted]","api-key":"[redacted]"}',
+  );
+  assert.equal(
+    redactDiagnosticText("fetch failed for token=abc123 at /x"),
+    "fetch failed for [redacted] at /x",
   );
 });
 

@@ -257,6 +257,11 @@ test("capture writes failure evidence without lengthening the front-door wait", 
         error: "net::ERR_FAILED",
       },
     ]);
+    const summary = JSON.parse(
+      readFileSync(join(out, "failure-summary.json"), "utf8"),
+    );
+    assert.equal(summary.phase, "capture");
+    assert.equal(summary.error, "button missing");
   });
 });
 
@@ -309,6 +314,220 @@ test("capture writes failure evidence when browser launch fails", async () => {
       readFileSync(join(out, "failure-console.json"), "utf8"),
     );
     assert.equal(consoleLog.error, "launch failed");
+    const summary = JSON.parse(
+      readFileSync(join(out, "failure-summary.json"), "utf8"),
+    );
+    assert.equal(summary.phase, "launch");
+  });
+});
+
+test("capture preserves the launch error when evidence writing fails", async () => {
+  await withEvidence(async (out) => {
+    await assert.rejects(
+      () =>
+        captureLiveSmokeEvidence(
+          {
+            PAGES_URL: "https://example.github.io/OpenSesame/",
+            GITHUB_SHA: sha,
+            SMOKE_EVIDENCE_OUT: out,
+          },
+          {
+            launchHeadlessPlaywright: async () => {
+              // The bootstrapped evidence directory vanishes before the
+              // pre-page failure write, so writing evidence must throw.
+              rmSync(out, { recursive: true, force: true });
+              throw new Error("launch failed");
+            },
+          },
+        ),
+      /launch failed/,
+    );
+    assert.equal(existsSync(out), false);
+  });
+});
+
+test("capture labels context and page failures distinctly from launch", async () => {
+  await withEvidence(async (out) => {
+    await assert.rejects(
+      () =>
+        captureLiveSmokeEvidence(
+          {
+            PAGES_URL: "https://example.github.io/OpenSesame/",
+            GITHUB_SHA: sha,
+            SMOKE_EVIDENCE_OUT: out,
+          },
+          {
+            launchHeadlessPlaywright: async () => ({
+              browser: {
+                async newContext() {
+                  throw new Error("context boom");
+                },
+              },
+            }),
+          },
+        ),
+      /context boom/,
+    );
+    assert.equal(
+      JSON.parse(readFileSync(join(out, "failure-summary.json"), "utf8")).phase,
+      "context",
+    );
+
+    await assert.rejects(
+      () =>
+        captureLiveSmokeEvidence(
+          {
+            PAGES_URL: "https://example.github.io/OpenSesame/",
+            GITHUB_SHA: sha,
+            SMOKE_EVIDENCE_OUT: out,
+          },
+          {
+            launchHeadlessPlaywright: async () => ({
+              browser: {
+                async newContext() {
+                  return {
+                    async newPage() {
+                      throw new Error("page boom");
+                    },
+                  };
+                },
+              },
+            }),
+          },
+        ),
+      /page boom/,
+    );
+    assert.equal(
+      JSON.parse(readFileSync(join(out, "failure-summary.json"), "utf8")).phase,
+      "page",
+    );
+  });
+});
+
+test("capture redacts secrets in failure artifacts", async () => {
+  await withEvidence(async (out) => {
+    const handlers = {};
+    const page = {
+      on(event, handler) {
+        handlers[event] = handler;
+      },
+      async goto() {
+        handlers.console?.({
+          type: () => "error",
+          text: () => 'fetch failed {"token":"abc123"} at chunk load',
+        });
+        handlers.requestfailed?.({
+          url: () => "https://example.github.io/OpenSesame/assets/x.js",
+          method: () => "GET",
+          failure: () => ({ errorText: "net::ERR_FAILED token=sekrit" }),
+        });
+      },
+      getByRole() {
+        return {
+          async waitFor() {
+            throw new Error("button missing token=leaked");
+          },
+        };
+      },
+      async screenshot(shot) {
+        await writeFile(shot.path, "png");
+      },
+    };
+    await assert.rejects(
+      () =>
+        captureLiveSmokeEvidence(
+          {
+            PAGES_URL: "https://example.github.io/OpenSesame/",
+            GITHUB_SHA: sha,
+            SMOKE_EVIDENCE_OUT: out,
+          },
+          {
+            launchHeadlessPlaywright: async () => ({
+              browser: {
+                async newContext() {
+                  return {
+                    async newPage() {
+                      return page;
+                    },
+                  };
+                },
+                async close() {},
+              },
+            }),
+          },
+        ),
+      /button missing/,
+    );
+    const consoleLog = JSON.parse(
+      readFileSync(join(out, "failure-console.json"), "utf8"),
+    );
+    assert.equal(consoleLog.error, "button missing [redacted]");
+    assert.deepEqual(consoleLog.entries, [
+      {
+        type: "error",
+        text: 'fetch failed {"token":"[redacted]"} at chunk load',
+      },
+    ]);
+    const networkLog = JSON.parse(
+      readFileSync(join(out, "failure-network.json"), "utf8"),
+    );
+    assert.deepEqual(networkLog.entries, [
+      {
+        url: "https://example.github.io/OpenSesame/assets/x.js",
+        method: "GET",
+        error: "net::ERR_FAILED [redacted]",
+      },
+    ]);
+  });
+});
+
+test("a synchronous browser.close failure does not mask the capture error", async () => {
+  await withEvidence(async (out) => {
+    const page = {
+      on() {},
+      async goto() {},
+      getByRole() {
+        return {
+          async waitFor() {
+            throw new Error("button missing");
+          },
+        };
+      },
+      async screenshot(shot) {
+        await writeFile(shot.path, "png");
+      },
+    };
+    await assert.rejects(
+      () =>
+        captureLiveSmokeEvidence(
+          {
+            PAGES_URL: "https://example.github.io/OpenSesame/",
+            GITHUB_SHA: sha,
+            SMOKE_EVIDENCE_OUT: out,
+          },
+          {
+            launchHeadlessPlaywright: async () => ({
+              browser: {
+                async newContext() {
+                  return {
+                    async newPage() {
+                      return page;
+                    },
+                  };
+                },
+                close() {
+                  throw new Error("close boom");
+                },
+              },
+            }),
+          },
+        ),
+      /button missing/,
+    );
+    const summary = JSON.parse(
+      readFileSync(join(out, "failure-summary.json"), "utf8"),
+    );
+    assert.equal(summary.error, "button missing");
   });
 });
 

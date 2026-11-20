@@ -5,14 +5,17 @@ import { readString } from "../../lib/json-boundary.mjs";
 const MAX_ENTRY_TEXT = 500;
 const SENSITIVE =
   /(?:Bearer\s+[A-Za-z0-9._~+/=-]+|(?:api[_-]?key|token|secret|password)\s*[=:]\s*)\S+/giu;
+/** Quoted credential keys (`token`, `access_token`, `api-key`, …) keep their
+ * key and lose only the value: `{"token":"abc"}` → `{"token":"[redacted]"}`. */
 const JSON_CREDENTIAL =
-  /"(?:api[_-]?key|token|secret|password)"\s*:\s*"(?:\\.|[^"\\])*"/giu;
+  /"[^"]*(?:api[_-]?key|token|secret|password)[^"]*"\s*:\s*"(?:\\.|[^"\\])*"/giu;
 
 export function redactDiagnosticText(text) {
   const raw = String(text ?? "");
   const redacted = raw
     .replace(JSON_CREDENTIAL, (match) =>
-      match.replace(/:\s*"(?:\\.|[^"\\])*"/u, ':"[redacted]"'),
+      // Only the trailing value loses its content; the key stays visible.
+      match.replace(/:\s*"(?:\\.|[^"\\])*"$/u, ':"[redacted]"'),
     )
     .replace(SENSITIVE, "[redacted]");
   return redacted.length > MAX_ENTRY_TEXT

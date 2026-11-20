@@ -11,23 +11,24 @@ import { assertNotProofGateFail } from "../cd-preview-smoke.mjs";
 import { checkReleaseMeta } from "../cd-release-meta.mjs";
 import { pollLiveShellAssets } from "./live-bundle-poll.mjs";
 import { buildHurlVariables, serializeHurlVariables } from "./prepare-vars.mjs";
-import { cdnRetryBudget } from "./retry-budget.mjs";
+import { cdnRetryBudget, hurlMaxTimeArg } from "./retry-budget.mjs";
 import { captureLiveSmokeEvidence } from "./screenshot-evidence.mjs";
 import {
   bootstrapSmokeEvidence,
+  redactDiagnosticText,
   writeSmokePhaseFailure,
 } from "./smoke-failure-evidence.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 
-function runHurl(name, variablesPath, retry, intervalMs, maxTimeSec) {
+function runHurl(name, variablesPath, retry, intervalMs, maxTimeArg) {
   const hurlBin = process.env.HURL_BIN ?? "hurl";
   const args = [
     "--test",
     "--variables-file",
     variablesPath,
     "--max-time",
-    String(maxTimeSec),
+    maxTimeArg,
     "--retry",
     String(retry),
     "--retry-interval",
@@ -43,6 +44,26 @@ function runHurl(name, variablesPath, retry, intervalMs, maxTimeSec) {
   }
   if (ran.status !== 0) {
     throw new Error(`hurl ${name} failed with exit ${ran.status ?? 1}`);
+  }
+}
+
+/**
+ * Write one phase's failure evidence without ever replacing the original
+ * error: mark `phaseWritten` only after the write lands so the outer `run`
+ * phase cannot overwrite a capture, hurl, or shell-poll record.
+ */
+async function recordPhaseFailure(phase, error) {
+  try {
+    await writeSmokePhaseFailure(process.env, phase, error);
+    if (error instanceof Error) error.phaseWritten = true;
+  } catch (evidenceError) {
+    console.error(
+      redactDiagnosticText(
+        evidenceError instanceof Error
+          ? evidenceError.message
+          : "failure evidence was not written",
+      ),
+    );
   }
 }
 
@@ -65,10 +86,15 @@ async function main() {
   const cdn = cdnRetryBudget(process.env);
   const hurlStarted = Date.now();
   try {
-    runHurl("pages.hurl", varPath, cdn.retries, cdn.intervalMs, cdn.maxTimeSec);
+    runHurl(
+      "pages.hurl",
+      varPath,
+      cdn.retries,
+      cdn.intervalMs,
+      hurlMaxTimeArg(cdn.maxTimeMs),
+    );
   } catch (error) {
-    await writeSmokePhaseFailure(process.env, "hurl", error);
-    if (error instanceof Error) error.phaseWritten = true;
+    await recordPhaseFailure("hurl", error);
     throw error;
   }
   const hurlMs = Date.now() - hurlStarted;
@@ -78,8 +104,7 @@ async function main() {
   try {
     shellAssets = await pollLiveShellAssets(process.env);
   } catch (error) {
-    await writeSmokePhaseFailure(process.env, "shell-poll", error);
-    if (error instanceof Error) error.phaseWritten = true;
+    await recordPhaseFailure("shell-poll", error);
     throw error;
   }
   const shellMs = Date.now() - shellStarted;
@@ -90,9 +115,7 @@ async function main() {
     evidence = await captureLiveSmokeEvidence(process.env);
   } catch (error) {
     if (error?.phaseWritten !== true) {
-      await writeSmokePhaseFailure(process.env, "capture", error).catch(
-        () => {},
-      );
+      await recordPhaseFailure("capture", error);
     }
     throw error;
   }
@@ -111,17 +134,9 @@ if (
   main().catch(async (error) => {
     const message =
       error instanceof Error ? error.message : "pwa preview smoke failed";
-    console.error(message);
-    try {
-      if (!(error instanceof Error && error.phaseWritten === true)) {
-        await writeSmokePhaseFailure(process.env, "run", error);
-      }
-    } catch (evidenceError) {
-      const text =
-        evidenceError instanceof Error
-          ? evidenceError.message
-          : "failure evidence was not written";
-      console.error(text);
+    console.error(redactDiagnosticText(message));
+    if (!(error instanceof Error && error.phaseWritten === true)) {
+      await recordPhaseFailure("run", error);
     }
     process.exit(1);
   });

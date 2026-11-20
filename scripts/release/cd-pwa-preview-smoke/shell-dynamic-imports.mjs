@@ -3,14 +3,15 @@ import { dirname, join } from "node:path";
 
 const DYNAMIC_IMPORT = /import\s*\(\s*["']([^"']+)["']\s*\)/giu;
 const VITE_DEP_ASSET = /["'](assets\/[^"']+\.(?:m?js|css))["']/giu;
-/** Emitted `import … from "./chunk.js"` in Vite bundles (incl. minified). */
+/** Emitted `import … from "./chunk.js"` in Vite bundles (incl. minified).
+ * Multiline: consecutive imports separated by `;`/`,` or newlines all match. */
 const STATIC_MODULE_FROM =
-  /(?:^|[;,])import(?:\s+type\s+)?[\s\w*{},$]*?from\s*["'](\.[^"']+\.m?js)["']/giu;
+  /(?:^|[;,])\s*import(?:\s+type\s+)?[\s\w*{},$]*?from\s*["'](\.[^"']+\.m?js)["']/gimu;
 const STATIC_EXPORT_FROM =
-  /(?:^|[;,])export[\s\w*{},$]*?from\s*["'](\.[^"']+\.m?js)["']/giu;
+  /(?:^|[;,])\s*export[\s\w*{},$]*?from\s*["'](\.[^"']+\.m?js)["']/gimu;
 /** Side-effect-only `import"./chunk.js"` / `import"./chunk.css"`. */
 const STATIC_SIDE_EFFECT =
-  /(?:^|[;,])import\s*["'](\.[^"']+\.(?:m?js|css))["']/giu;
+  /(?:^|[;,])\s*import\s*["'](\.[^"']+\.(?:m?js|css))["']/gimu;
 const CSS_URL = /url\(\s*(?:'([^']*)'|"([^"]*)"|([^"')]+))\s*\)/giu;
 
 function normalizeDistRelative(pathPart, ref) {

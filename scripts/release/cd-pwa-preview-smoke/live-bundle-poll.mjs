@@ -13,6 +13,7 @@ import {
 } from "./live-bundle-body.mjs";
 import { normalizePagesBase } from "./prepare-vars.mjs";
 import {
+  cdnDeadlineEndMs,
   cdnPollBudget,
   fetchAbortTimeoutMs,
   sharedCdnDeadlineEndMs,
@@ -239,7 +240,7 @@ export async function pollLiveShellAssets(env, deps = {}) {
     deps.cdnDeadlineEndMs ??
     (sharedStarted !== undefined
       ? sharedCdnDeadlineEndMs(env)
-      : pollStartedAt + deadlineMs);
+      : cdnDeadlineEndMs(pollStartedAt, deadlineMs));
   const remainingMs = Math.max(0, deadlineEndMs - now());
   const matched = new Set();
   const started = now();

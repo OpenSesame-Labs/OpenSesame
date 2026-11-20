@@ -64,6 +64,32 @@ test("listStagedShellAssetPaths rejects a root path outside the Pages base", () 
   }
 });
 
+test("listStagedShellAssetPaths rejects traversal out of the Pages base", () => {
+  const { root, dist } = stageDist();
+  try {
+    writeFileSync(
+      join(dist, "index.html"),
+      '<script type="module" src="/OpenSesame/assets/../../outside/main.js"></script>',
+    );
+    assert.throws(
+      () => listStagedShellAssetPaths(dist, pagesBase),
+      /escapes dist|outside Pages base/,
+    );
+    // A same-origin absolute URL collapses to /outside/main.js via URL
+    // normalization, which is equally outside the Pages base.
+    writeFileSync(
+      join(dist, "index.html"),
+      '<script type="module" src="https://example.github.io/OpenSesame/assets/../../outside/main.js"></script>',
+    );
+    assert.throws(
+      () => listStagedShellAssetPaths(dist, pagesBase),
+      /escapes dist|outside Pages base/,
+    );
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("pollLiveShellAssets retries until each live body matches the staged digest", async () => {
   const { root, dist } = stageDist();
   const calls = [];
@@ -135,7 +161,7 @@ test("pollLiveShellAssets names the first mismatched path when the deadline expi
             now: clock.now,
           },
         ),
-      /live shell asset mismatch: assets\/app\.css \((?:sha256|CDN poll deadline expired)/,
+      /live shell asset mismatch: assets\/app\.css \(CDN poll deadline expired\)/,
     );
     assert.deepEqual(calls, [
       `${pagesBase}assets/app.css`,

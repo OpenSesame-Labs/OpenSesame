@@ -122,6 +122,8 @@ function truncateEntry(entry) {
   const out = { ...entry };
   for (const key of ["text", "url", "error"]) {
     const text = readString(out[key]);
+    // redactDiagnosticText replaces secrets first and only then caps the
+    // length, so no entry field can leak a sliced secret.
     if (text !== undefined) out[key] = redactDiagnosticText(text);
   }
   return out;
@@ -159,10 +161,8 @@ function recordPageDiagnostics(page, consoleEntries, networkEntries) {
     page.on("pageerror", (error) => {
       const text =
         error instanceof Error ? (error.stack ?? error.message) : String(error);
-      pushDiagnostic(consoleEntries, {
-        type: "pageerror",
-        text: text.slice(0, 2_000),
-      });
+      // No slicing before redaction: a cut secret would survive the redactor.
+      pushDiagnostic(consoleEntries, { type: "pageerror", text });
     });
     page.on("response", (response) => {
       const request = callMethod(response, "request");
@@ -185,12 +185,19 @@ function recordPageDiagnostics(page, consoleEntries, networkEntries) {
   }
 }
 
+/** Evidence-write failures are diagnostics too; never let them replace the error. */
+function reportEvidenceError(error) {
+  const text =
+    error instanceof Error ? error.message : "failure evidence was not written";
+  console.error(redactDiagnosticText(text));
+}
+
 async function writeFailureFiles(
   outRoot,
   consoleEntries,
   networkEntries,
   error,
-  phase = "capture",
+  phase,
 ) {
   const raw =
     error instanceof Error ? error.message : "preview smoke capture failed";
@@ -219,6 +226,7 @@ async function writeFailureEvidence(
   consoleEntries,
   networkEntries,
   error,
+  phase,
 ) {
   try {
     await page.screenshot({
@@ -232,11 +240,22 @@ async function writeFailureEvidence(
         : "failure screenshot failed";
     pushDiagnostic(consoleEntries, { type: "evidence", text });
   }
-  await writeFailureFiles(outRoot, consoleEntries, networkEntries, error);
+  await writeFailureFiles(
+    outRoot,
+    consoleEntries,
+    networkEntries,
+    error,
+    phase,
+  );
 }
 
-async function writePrePageFailureEvidence(outRoot, error, consoleEntries) {
-  await writeFailureFiles(outRoot, consoleEntries, [], error, "launch");
+async function writePrePageFailureEvidence(
+  outRoot,
+  error,
+  consoleEntries,
+  phase = "launch",
+) {
+  await writeFailureFiles(outRoot, consoleEntries, [], error, phase);
 }
 
 export async function captureLiveSmokeEvidence(env, deps = {}) {
@@ -265,17 +284,26 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
   try {
     ({ browser } = await launch());
   } catch (launchError) {
-    await writePrePageFailureEvidence(outRoot, launchError, consoleEntries);
-    if (launchError instanceof Error) launchError.phaseWritten = true;
+    try {
+      await writePrePageFailureEvidence(outRoot, launchError, consoleEntries);
+      if (launchError instanceof Error) launchError.phaseWritten = true;
+    } catch (evidenceError) {
+      reportEvidenceError(evidenceError);
+    }
     throw launchError;
   }
+  // A browser that launched can still fail to produce a context or a page;
+  // those phases are distinct from a true launch failure.
+  let phase = "context";
   try {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
       reducedMotion: "reduce",
       serviceWorkers: "block",
     });
+    phase = "page";
     page = await context.newPage();
+    phase = "capture";
     recordPageDiagnostics(page, consoleEntries, networkEntries);
     const entryUrl = smokeBrowserEntryUrl(pagesBase, sha);
     await page.goto(entryUrl, {
@@ -317,20 +345,26 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
           consoleEntries,
           networkEntries,
           error,
+          phase,
         );
       } else {
-        await writePrePageFailureEvidence(outRoot, error, consoleEntries);
+        await writePrePageFailureEvidence(
+          outRoot,
+          error,
+          consoleEntries,
+          phase,
+        );
       }
       if (error instanceof Error) error.phaseWritten = true;
     } catch (evidenceError) {
-      const text =
-        evidenceError instanceof Error
-          ? evidenceError.message
-          : "failure evidence was not written";
-      console.error(text);
+      reportEvidenceError(evidenceError);
     }
     throw error;
   } finally {
-    await browser?.close()?.catch(() => undefined);
+    try {
+      await browser?.close()?.catch(() => undefined);
+    } catch {
+      // A synchronous close failure must not mask the capture error.
+    }
   }
 }

@@ -88,10 +88,10 @@ test("registry retry is a single attempt when publish already confirmed", () => 
 test("cdn retry budget stays bounded", () => {
   const budget = cdnRetryBudget({});
   assert.equal(budget.intervalMs, 2_000);
+  assert.ok(budget.maxTimeMs > 1_000, "max-time must not collapse to 1s");
   const attempts = budget.retries + 1;
   assert.ok(
-    attempts * budget.maxTimeSec * 1000 + budget.retries * budget.intervalMs <=
-      120_000,
+    attempts * budget.maxTimeMs + budget.retries * budget.intervalMs <= 120_000,
   );
 });
 
@@ -112,7 +112,7 @@ test("cdn retry budget caps retries inside the hurl wall clock", () => {
   assert.ok(budget.retries >= 0);
   const attempts = budget.retries + 1;
   assert.ok(
-    attempts * budget.maxTimeSec * 1000 + budget.retries * budget.intervalMs <=
+    attempts * budget.maxTimeMs + budget.retries * budget.intervalMs <=
       deadlineMs,
   );
 });
