@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "reviewed_base_revision": "00996e26a2cfb0e53be905d5d4f3d61d60d5eb6e",
+  "reviewed_base_revision": "048f4e2d91c5953780b86da349f20356219e8c6a",
   "reviewed_source_state": "Reviewed v3 MAC with scrypt-bound verifier, verifierEnc on the wire by default when a pepper is present (OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER default on; explicit false is rollout-off), and leg-binding for seal/unseal.",
   "sources": [
     {
@@ -9,7 +9,7 @@
     },
     {
       "path": "packages/control-plane/src/interactions/federated-pending.ts",
-      "sha256": "ec9364f34b5eb51ef5e6e8c4bdc6dd00422e627fa2692c19e156923e0cdf7668"
+      "sha256": "994040cbad3418de8395e44f9a8ff3b24d034e2e4f421ac9d47c8f769851a1db"
     },
     {
       "path": "packages/control-plane/src/interactions/federated-trust-binding.ts",
