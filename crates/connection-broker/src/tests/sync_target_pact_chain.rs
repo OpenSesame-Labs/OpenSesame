@@ -182,6 +182,7 @@ fn is_ident_char(ch: char) -> bool {
 
 /// `(call_index, ident_len)` for `let name = Path::{send,execute}` function items.
 /// The binding is not a dispatch; only a later `name(…)` in that function is.
+/// `let call = name` forwards the alias. `let (name,) = (Path::send,)` does too.
 pub(crate) fn dispatch_alias_calls(source: &str) -> Vec<(usize, usize)> {
     let bytes = source.as_bytes();
     let spans = function_spans(bytes);
@@ -198,6 +199,17 @@ pub(crate) fn dispatch_alias_calls(source: &str) -> Vec<(usize, usize)> {
             continue;
         }
         if let Some((name, head_len)) = function_item_let(source, index) {
+            if let Some((fn_start, _)) = innermost_span(&spans, index) {
+                aliases.push(DispatchAlias {
+                    fn_start,
+                    at: index,
+                    name,
+                });
+            }
+            index += head_len;
+            continue;
+        }
+        if let Some((name, head_len)) = alias_forward_let(source, &aliases, &spans, index) {
             if let Some((fn_start, _)) = innermost_span(&spans, index) {
                 aliases.push(DispatchAlias {
                     fn_start,
@@ -226,7 +238,224 @@ struct DispatchAlias {
 
 fn function_item_let(source: &str, index: usize) -> Option<(String, usize)> {
     let head_len = function_item_head(source, index)?;
-    Some((let_name_before_path(source, index)?, head_len))
+    let name = let_name_before_path(source, index).or_else(|| tuple_binding_name(source, index))?;
+    Some((name, head_len))
+}
+
+/// `let call = dispatch` when `dispatch` is already a send alias in this function.
+fn alias_forward_let(
+    source: &str,
+    aliases: &[DispatchAlias],
+    spans: &[(usize, usize)],
+    index: usize,
+) -> Option<(String, usize)> {
+    let bytes = source.as_bytes();
+    if index > 0 {
+        let prev = bytes[index - 1];
+        if is_ident_byte(prev) || prev == b'.' || prev == b':' {
+            return None;
+        }
+    }
+    let name = leading_ident(&source[index..]);
+    if name.is_empty() {
+        return None;
+    }
+    let mut after = &source[index + name.len()..];
+    after = strip_turbofish(after).unwrap_or(after);
+    if after.starts_with('(') {
+        return None;
+    }
+    let next = after.chars().next();
+    let terminator = matches!(next, Some(';' | ')' | ',' | ']' | '}') | None);
+    let cast = after.starts_with("as")
+        && after[2..]
+            .chars()
+            .next()
+            .is_none_or(|ch| !is_ident_char(ch));
+    if !terminator && !cast {
+        return None;
+    }
+    let eq = eq_before(bytes, index)?;
+    let (fn_start, _) = innermost_span(spans, index)?;
+    let known = aliases
+        .iter()
+        .any(|alias| alias.fn_start == fn_start && alias.at < index && alias.name == name);
+    if !known {
+        return None;
+    }
+    let new_name = super::sync_target_pact_let::let_binding_name(source[..eq].trim_end())?;
+    (new_name != name).then_some((new_name, name.len()))
+}
+
+fn eq_before(bytes: &[u8], index: usize) -> Option<usize> {
+    let mut at = index;
+    while at > 0 && bytes[at - 1].is_ascii_whitespace() {
+        at -= 1;
+    }
+    if at == 0 || bytes[at - 1] != b'=' {
+        return None;
+    }
+    let eq = at - 1;
+    if matches!(
+        eq.checked_sub(1).and_then(|prev| bytes.get(prev)),
+        Some(b'=' | b'!' | b'<' | b'>')
+    ) {
+        return None;
+    }
+    Some(eq)
+}
+
+/// `let (dispatch,) = (Path::send,)` — the pattern element lines up with the function item.
+fn tuple_binding_name(source: &str, head: usize) -> Option<String> {
+    let path_start = path_prefix_start(source, head);
+    let (open, element) = tuple_open_and_index(source, path_start)?;
+    if open == 0 || source.as_bytes().get(open - 1) != Some(&b'=') {
+        return None;
+    }
+    let eq = open - 1;
+    if matches!(
+        eq.checked_sub(1)
+            .and_then(|prev| source.as_bytes().get(prev)),
+        Some(b'=' | b'!' | b'<' | b'>')
+    ) {
+        return None;
+    }
+    let tail = statement_tail(&source[..eq]);
+    let paren = tail.find('(')?;
+    if !let_introduces_pattern(&tail[..paren]) {
+        return None;
+    }
+    let inside = paren_inside(&tail[paren..])?;
+    let elements = tuple_elements(inside);
+    let elem = elements.get(element)?.trim();
+    pattern_name(elem)
+}
+
+fn tuple_open_and_index(source: &str, path_start: usize) -> Option<(usize, usize)> {
+    let bytes = source.as_bytes();
+    if path_start == 0 {
+        return None;
+    }
+    let mut index = path_start;
+    let mut depth = 0i32;
+    let mut commas = 0usize;
+    while index > 0 {
+        index -= 1;
+        match bytes[index] {
+            b')' | b']' | b'}' => depth += 1,
+            b'(' | b'[' | b'{' if depth > 0 => depth -= 1,
+            b'(' if depth == 0 => return Some((index, commas)),
+            b',' if depth == 0 => commas += 1,
+            b'=' | b';' | b'{' if depth == 0 => return None,
+            _ => {}
+        }
+    }
+    None
+}
+
+fn statement_tail(lhs: &str) -> &str {
+    let bytes = lhs.as_bytes();
+    let mut depth = 0i32;
+    let mut index = bytes.len();
+    while index > 0 {
+        index -= 1;
+        match bytes[index] {
+            b'>' if index > 0 && bytes[index - 1] == b'-' => {}
+            b')' | b']' | b'>' => depth += 1,
+            b'(' | b'[' | b'<' if depth > 0 => depth -= 1,
+            b';' | b'{' if depth == 0 => return lhs[index + 1..].trim(),
+            _ => {}
+        }
+    }
+    lhs.trim()
+}
+
+fn paren_inside(at_paren: &str) -> Option<&str> {
+    let bytes = at_paren.strip_prefix('(')?.as_bytes();
+    let mut depth = 1i32;
+    let mut index = 0usize;
+    while index < bytes.len() {
+        match bytes[index] {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&at_paren[1..index + 1]);
+                }
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    None
+}
+
+fn tuple_elements(inside: &str) -> Vec<&str> {
+    let bytes = inside.as_bytes();
+    let (mut depth, mut index, mut start) = (0i32, 0usize, 0usize);
+    let mut out = Vec::new();
+    while index < bytes.len() {
+        match bytes[index] {
+            b'(' | b'[' | b'{' | b'<' => depth += 1,
+            b')' | b']' | b'}' | b'>' if depth > 0 => depth -= 1,
+            b',' if depth == 0 => {
+                out.push(inside[start..index].trim());
+                start = index + 1;
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    out.push(inside[start..].trim());
+    out
+}
+
+fn pattern_name(elem: &str) -> Option<String> {
+    let mut elem = elem.trim();
+    if let Some(rest) = strip_kw(elem, "mut") {
+        elem = rest;
+    }
+    if let Some(rest) = strip_kw(elem, "ref") {
+        elem = rest;
+        if let Some(rest) = strip_kw(elem, "mut") {
+            elem = rest;
+        }
+    }
+    let name: String = elem.chars().take_while(|ch| is_ident_char(*ch)).collect();
+    if name.is_empty() || name == "_" {
+        return None;
+    }
+    let rest = elem[name.len()..].trim_start();
+    (rest.is_empty() || rest.starts_with(':')).then_some(name)
+}
+
+fn strip_kw<'a>(source: &'a str, keyword: &str) -> Option<&'a str> {
+    let rest = source.strip_prefix(keyword)?;
+    rest.chars()
+        .next()
+        .is_none_or(|ch| !is_ident_char(ch))
+        .then(|| rest.trim_start())
+}
+
+/// `let (name,)` or `}let (name,)` after a previous block. `mut` may sit between.
+fn let_introduces_pattern(before_paren: &str) -> bool {
+    let before = before_paren.trim_end();
+    if ends_with_kw(before, "let") {
+        return true;
+    }
+    let Some(rest) = before.strip_suffix("mut") else {
+        return false;
+    };
+    if rest.chars().next_back().is_some_and(is_ident_char) {
+        return false;
+    }
+    ends_with_kw(rest.trim_end(), "let")
+}
+
+fn ends_with_kw(source: &str, keyword: &str) -> bool {
+    source
+        .strip_suffix(keyword)
+        .is_some_and(|rest| rest.chars().next_back().is_none_or(|ch| !is_ident_char(ch)))
 }
 
 fn function_item_head(source: &str, index: usize) -> Option<usize> {

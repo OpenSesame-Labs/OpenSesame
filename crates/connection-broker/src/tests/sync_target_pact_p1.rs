@@ -35,6 +35,101 @@ fn execute_on_clone_ref_and_alias_is_credentialed() {
 }
 
 #[test]
+fn nested_scheme_if_does_not_dominate_later_send() {
+    let samples = [
+        r#"async fn f() { if ready { if url.scheme() != "https" { return Err("x".into()); } } client.get(url).send().await?; }"#,
+        r#"async fn f() { if false { if parsed.scheme() != "https" { return Err("x".into()); } } request.send().await?; }"#,
+        r#"async fn f() { if ready { } else if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+    ];
+    for sample in samples {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+    }
+    let dominates = r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(dominates), (1, 0));
+}
+
+#[test]
+fn post_check_url_mutation_is_not_guarded() {
+    let samples = [
+        r#"async fn f() { if parsed.scheme() != "https" { return Err("x".into()); } parsed.set_scheme("http"); client.get(parsed).send().await?; }"#,
+        r#"async fn f() { let parsed = Url::parse(&url).unwrap(); if parsed.scheme() != "https" { return Err("x".into()); } url.clone_from(&evil); client.get(&url).send().await?; }"#,
+        r#"async fn f() { let parsed = Url::parse(&url).unwrap(); if parsed.scheme() != "https" { return Err("x".into()); } url.push_str(evil); client.get(&url).send().await?; }"#,
+        r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } std::mem::swap(&mut url, &mut evil); client.get(url).send().await?; }"#,
+    ];
+    for sample in samples {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+    }
+    let kept = r#"async fn f() { let parsed = Url::parse(&url).unwrap(); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(kept), (1, 0));
+}
+
+#[test]
+fn forwarded_dispatch_alias_is_a_credentialed_send() {
+    let bare = r#"async fn f() { let dispatch = reqwest::RequestBuilder::send; let call = dispatch; call(request).await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(bare), (1, 1));
+    let guarded = r#"async fn f() { if parsed.scheme() != "https" { return Err("x".into()); } let dispatch = reqwest::RequestBuilder::send; let call = dispatch; call(request).await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(guarded), (1, 0));
+    let again = r#"async fn f() { let dispatch = reqwest::RequestBuilder::send; let call = dispatch; let again = call; again(request).await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(again), (1, 1));
+    let tuple = r#"async fn f() { let (dispatch,) = (reqwest::RequestBuilder::send,); dispatch(request).await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(tuple), (1, 1));
+    let tuple_guarded = r#"async fn f() { if parsed.scheme() != "https" { return Err("x".into()); } let (dispatch,) = (reqwest::RequestBuilder::send,); dispatch(request).await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(tuple_guarded), (1, 0));
+}
+
+#[test]
+fn response_metadata_reads_are_body_reads() {
+    for sample in [
+        "let f = reqwest::Response::headers; f(&response)",
+        "let f = response.headers; f()",
+        "let f = http::Response::into_body; f(response)",
+        "let convert = reqwest::Body::from; let payload = convert(response); payload.collect().await",
+        "format!(\"{response:?}\")",
+        "format!(\"{:?}\", response)",
+        "let reply = response; format!(\"{reply:?}\")",
+        "dbg!(&response)",
+        "dbg!(response)",
+        "response.error_for_status()",
+        "format!(\"{}\", response.error_for_status().unwrap_err())",
+        "let show = Response::error_for_status;",
+    ] {
+        let reads = response_body_reads(sample);
+        assert!(
+            !reads.is_empty(),
+            "provider metadata must stay discarded: {sample} -> {reads:?}"
+        );
+    }
+    for sample in [
+        "format!(\"upstream {status}\")",
+        "format!(\"{:?}\", status)",
+        "format!(\"{:?}\", response.status())",
+        "let status = response.status();",
+        "format!(\"{reply:?}\")",
+        "rows.into_iter().map(SyncTargetView::from).collect()",
+        "dbg!(status)",
+    ] {
+        let reads = response_body_reads(sample);
+        assert!(
+            reads.is_empty(),
+            "status display is not provider metadata: {sample} -> {reads:?}"
+        );
+    }
+}
+
+/// Free `request.send()` has no local builder URL. A `parsed.scheme()` check in
+/// that function is accepted on purpose; a guard of a different binding is not.
+/// `http_provider_json` parses and sends the same `url`, so it does not rely on this.
+#[test]
+fn free_floating_scheme_guard_covers_only_an_unresolved_send() {
+    let floating = r#"async fn f() { if parsed.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(floating), (1, 0));
+    let execute = r#"async fn f() { if parsed.scheme() != "https" { return Err("x".into()); } client.execute(request).await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(execute), (1, 0));
+    let decoy = r#"async fn f() { if decoy.scheme() != "https" { return Err("x".into()); } let request = other; request.send().await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(decoy), (1, 1));
+}
+
+#[test]
 fn ufcs_from_into_headers_and_streams_are_body_reads() {
     for sample in [
         "Into::into(response)",
