@@ -4,24 +4,75 @@ use super::bind::{plain_name, read_ident_at};
 use super::marker::is_ident_char;
 
 pub(super) fn receiver_before(source: &str, dot: usize) -> String {
-    let prefix = source[..dot].trim_end();
-    if prefix.ends_with(')') {
-        if let Some(name) = paren_group_ident(prefix) {
+    let mut prefix = source[..dot].trim_end();
+    for _ in 0..8 {
+        if !prefix.ends_with(')') {
+            break;
+        }
+        let Some(open) = matching_open(prefix, prefix.len() - 1) else {
+            break;
+        };
+        let prev = prefix[..open].trim_end();
+        // `response.clone()` / `response.by_ref()` — the outer call's receiver
+        // is the method receiver, not the empty span after `)`.
+        if let Some(recv) = method_receiver(prev) {
+            prefix = recv.trim_end();
+            continue;
+        }
+        // `foo(response)` is a call. A grouping paren peels inward.
+        if preceded_by_call(prev) {
+            break;
+        }
+        let inner = prefix[open + 1..prefix.len() - 1].trim();
+        if let Some(name) = plain_name(inner) {
             return name;
         }
+        if inner.len() >= prefix.len() {
+            break;
+        }
+        prefix = inner;
     }
     trailing_ident(prefix).unwrap_or_default()
 }
 
-fn paren_group_ident(prefix: &str) -> Option<String> {
-    let open = matching_open(prefix, prefix.len() - 1)?;
-    if open > 0 {
-        let prev = prefix[..open].trim_end();
-        if prev.ends_with(|ch: char| is_ident_char(ch) || ch == '.') {
-            return None;
+fn method_receiver(prev: &str) -> Option<&str> {
+    let head = strip_trailing_turbofish(prev);
+    let dot = head.rfind('.')?;
+    let name = &head[dot + 1..];
+    if name.is_empty() || !name.chars().all(is_ident_char) {
+        return None;
+    }
+    let recv = head[..dot].trim_end();
+    (!recv.is_empty()).then_some(recv)
+}
+
+fn strip_trailing_turbofish(prev: &str) -> &str {
+    let trimmed = prev.trim_end();
+    let bytes = trimmed.as_bytes();
+    if bytes.last() != Some(&b'>') {
+        return trimmed;
+    }
+    let mut depth = 0i32;
+    let mut index = bytes.len();
+    while index > 0 {
+        index -= 1;
+        match bytes[index] {
+            b'>' => depth += 1,
+            b'<' => {
+                depth -= 1;
+                if depth == 0 {
+                    let before = trimmed[..index].trim_end();
+                    return before.strip_suffix("::").unwrap_or(trimmed);
+                }
+            }
+            _ => {}
         }
     }
-    plain_name(&prefix[open + 1..prefix.len() - 1])
+    trimmed
+}
+
+fn preceded_by_call(prev: &str) -> bool {
+    prev.ends_with(|ch: char| is_ident_char(ch) || ch == '.')
 }
 
 pub(super) fn unwrap_value(expr: &str) -> &str {
@@ -151,6 +202,45 @@ pub(super) fn matching_open(source: &str, close: usize) -> Option<usize> {
         index += 1;
     }
     None
+}
+
+#[cfg(test)]
+mod probes {
+    use crate::tests::sync_target_pact_scan::response_body_reads;
+
+    fn reads(sample: &str) -> bool {
+        !response_body_reads(sample).is_empty()
+    }
+
+    #[test]
+    fn council_p1_method_chain_into_is_a_response_move() {
+        let hits = [
+            "response.clone().into()",
+            "response.by_ref().try_into()",
+            "response.clone().by_ref().into()",
+            "(response.clone()).into()",
+            "response.clone::<u8>().into()",
+            "(response).into()",
+            "let reply = response; reply.clone().into()",
+        ];
+        for sample in hits {
+            assert!(
+                reads(sample),
+                "method chain must keep the response receiver: {sample}"
+            );
+        }
+        let misses = [
+            "status.clone().into()",
+            "rows.by_ref().try_into()",
+            "foo(response).into()",
+        ];
+        for sample in misses {
+            assert!(
+                !reads(sample),
+                "unrelated chain is not a body read: {sample}"
+            );
+        }
+    }
 }
 
 pub(super) fn trailing_ident(source: &str) -> Option<String> {
