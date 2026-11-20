@@ -4,6 +4,7 @@ import { clearNotices, listNotices } from "./notices.js";
 import {
   TUTORIAL_PAUSE_NOTICE,
   bindTutorialResume,
+  completeQueuedTutorial,
   dequeueTutorial,
   listQueuedTutorials,
   queueTutorial,
@@ -99,6 +100,7 @@ describe("tutorial queue", () => {
     const started: string[] = [];
     const unbind = bindTutorialResume((goalId, guide, home) => {
       started.push(`${goalId} ${home} ${guide.includes(goalId)}`);
+      completeQueuedTutorial(goalId);
       return true;
     });
     queueTutorial("feature.identity", { title: "Turn on Identity" });
@@ -113,7 +115,10 @@ describe("tutorial queue", () => {
   });
 
   it("queues a decline with a resume key and a pause prompt", () => {
-    const unbind = bindTutorialResume(() => true);
+    const unbind = bindTutorialResume((goalId) => {
+      completeQueuedTutorial(goalId);
+      return true;
+    });
     expect(noteTutorialDeclined("vault.lock", "Lock the vault")).toBe(true);
     expect(noteTutorialDeclined("vault.lock", "Lock the vault")).toBe(true);
     expect(listQueuedTutorials()).toEqual([{ goalId: "vault.lock" }]);
