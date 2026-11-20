@@ -57,7 +57,7 @@
     },
     {
       "path": "crates/transport-security/src/source_lifetime.rs",
-      "sha256": "c180e8c96ccf81e197337674044aea249748d560a1757caf5642d447922959bb"
+      "sha256": "3f6cd17b0ffd8373ef9067f66c30f1a33f2d8570fe9918aa44d804a93deee613"
     },
     {
       "path": "crates/transport-security/src/source_trust.rs",
@@ -185,11 +185,11 @@
     },
     {
       "path": "crates/gateway/src/app_state.rs",
-      "sha256": "34dce58be53b456fff2dbfaff5ef1cf5c2336c07d130c0fc1634e2a1091d45f2"
+      "sha256": "05cab6d942fa31d7a812bef83ef026d2abfd1beae05730352739e904348c5911"
     },
     {
       "path": "crates/gateway/src/config.rs",
-      "sha256": "4c58e95ba3471dd02df38b0716e6bf5335e64b9ee154936bd17101884b81e7b6"
+      "sha256": "7732beba4593fc00e2c7cc5fc38d87d594771c7a98f3de0ad2efa1860d887a47"
     },
     {
       "path": "crates/gateway/src/transport/mod.rs",
@@ -253,7 +253,7 @@
     },
     {
       "path": "crates/gateway/src/transport/test_support.rs",
-      "sha256": "37882a8ed18219edf5f5d399fc230eb9d4f6bd917d8eda4c5f5dc0ace5ecf321"
+      "sha256": "d7084b75682ee7d4bb5ff3a61b7fc31c308bf6e5fbfbcab769028291a2a7f218"
     },
     {
       "path": "crates/gateway/src/transport/source_history/tests.rs",
@@ -265,7 +265,7 @@
     },
     {
       "path": "crates/gateway/src/transport/source_history/integration_tests.rs",
-      "sha256": "ad96b8f5488352fa5263e149bad352c198073e63fef8244b0c8ecb6d0f8cbbfa"
+      "sha256": "96eb078b852a06f1471a0dfc9be6a26741449fa6c5956fa653b870ca853a8941"
     },
     {
       "path": "crates/gateway/src/transport_lifecycle/trust_history_tests.rs",
@@ -385,11 +385,11 @@
     },
     {
       "path": "spec/formal/source-trust-history/verify.sh",
-      "sha256": "e2fa315a0c1068739394b1ac0126982081cf966062c76ab0e445f64770ada495"
+      "sha256": "c94e0ccf9fc34e539d49d9f6c92bbc754bbcf1a92456ce2b76b4a2cdc0c56f39"
     },
     {
       "path": "spec/formal/source-trust-history/negative-controls.py",
-      "sha256": "1ef636fe1f031bdd0d4f341179e9da059a919cf75aafffded5c61e22590aaa20"
+      "sha256": "0b72ccdf1185949476bba90281a50ea344609162e7b739607a33ab055da605ef"
     },
     {
       "path": "spec/formal/required-theorem-command.lean",

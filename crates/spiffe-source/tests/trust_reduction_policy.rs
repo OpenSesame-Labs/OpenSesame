@@ -46,8 +46,19 @@ async fn rejected_reduction_withdraws(profile_error: bool, remove_one_anchor: bo
     };
     let next_bundle = remove_one_anchor.then(|| foreign_a.bundle_der());
     api.push_snapshot(federated_snapshot(&td, &rejected, next_bundle));
-    let status = withdrawn_promptly(&handle).await;
-    assert_eq!(status.last_error.as_deref(), Some("trust_reduced"));
+    let status = if profile_error {
+        let status = withdrawn_promptly(&handle).await;
+        assert_eq!(status.last_error.as_deref(), Some("trust_reduced"));
+        status
+    } else {
+        handle
+            .wait_for(WAIT, |status| {
+                status.last_error.as_deref() == Some("key_pair_mismatch")
+            })
+            .await
+            .expect("rejected activation is reported after withdrawal")
+    };
+    assert_eq!(status.phase, SourcePhase::Withdrawn);
     assert_eq!(
         sink.last(),
         Some(SinkEvent::Withdrawn(TransportError::TrustUnknown))

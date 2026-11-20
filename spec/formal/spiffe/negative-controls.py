@@ -102,6 +102,13 @@ MUTATIONS = (
         (integration("trust_reduction_policy", "rejected_profile_with_removed_anchor_withdraws", "expected prompt withdrawal"),),
     ),
     Mutation(
+        "reduced-trust-is-not-withdrawn-before-activation",
+        "src/source_history_flow.rs",
+        ".is_some_and(|active| !generation.bundles.contains_all(&active.bundles))",
+        ".is_some_and(|_| false)",
+        (integration("trust_reduction_policy", "refused_activation_with_removed_anchor_withdraws", "rejected activation is reported after withdrawal"),),
+    ),
+    Mutation(
         "status-allows-equal-deadline",
         "src/status.rs",
         "if now >= bounded_deadline(not_after, self.retain_until) =>",

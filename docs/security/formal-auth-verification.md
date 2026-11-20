@@ -5,6 +5,12 @@ model, and checks. The present Lean coverage consists of bounded slices of the I
 proof of OpenSesame's complete authentication or authorization system. Update this register whenever the covered behavior changes or a new
 formal property is introduced.
 
+This workflow draws on Lauren Tan's Pstack
+[create](https://github.com/cursor/plugins/blob/main/pstack/skills/create-formal-verification-skill/SKILL.md)
+and [maintain](https://github.com/cursor/plugins/blob/main/pstack/skills/maintain-formal-verification-skill/SKILL.md)
+formal verification skills: map source behavior to the model, exercise negative
+controls, and state the bounds of each claim as the implementation evolves.
+
 ## Checked properties
 
 The reviewed source revision is recorded in
@@ -94,6 +100,59 @@ the server's eventual ref update; server-side policy remains necessary.
 Selected suites require a clean worktree with no `assume-unchanged` or
 `skip-worktree` index flags, so Git cannot hide proof-input changes.
 
+For a selected suite, the hook compares its npm verification script and npm
+pre/post hooks, its listed runner files, and the shared runner files with the
+destination and each relevant incoming history snapshot. This detects changes
+that are later reverted, including changes through a merge. New refs use the
+maximal advertised ancestor tips; if there are multiple incomparable tips,
+all must agree. Missing, malformed, or non-regular runner files fail closed.
+The protected inputs include each suite's `required-theorems.lean` signatures;
+change these separately from a mapped implementation.
+The protected inventory is in
+[`formal-proof-runner-pins.json`](../../scripts/security/formal-proof-runner-pins.json).
+For a selected suite it is parsed as data from the committed Git blob after its
+checked-out bytes are verified. An inventory-only update is parsed from the
+pushed commit without selecting a proof. The checker independently includes it
+in each selected history comparison, so an inventory edit cannot remove its
+own protection. The hook, controller, loader, and other executable modules
+imported before the check remain trusted inputs, including their import-time
+effects.
+Each suite row lists its npm script, required runner paths, Cargo configuration
+directories, and optional execution-input paths. The array-only format rejects
+duplicate suites, duplicate paths within a row, malformed rows, and unsafe paths.
+The controller independently requires each pinned suite's theorem-signature
+file, essential runner inputs, and applicable Cargo metadata in every incoming
+inventory-changing commit and at the target. It rejects malformed or weakened
+intermediate versions even when a later commit restores them. Add a new suite
+and its complete inventory together in the metadata-only update.
+Change a runner or this inventory in a separate metadata-only push before
+changing an implementation that selects the affected suite. This also applies
+when adding a suite or a new runner file; an advertised predecessor branch can
+serve as the baseline for a stacked branch.
+
+For Cargo-based suites, the comparison includes both Cargo configuration
+filenames at every repository directory searched from the verifier's working
+directory, including files absent from the baseline. Before a changed lockfile
+or workspace manifest can be classified as unrelated, the hook checks the
+relevant projection helpers and selector against their historical baseline and
+their checked-out copies. Update these helpers in a separate
+metadata-only push before changing an input governed by a projection.
+When a suite runs, the same execution inputs must match the committed worktree,
+including absent paths that Git would otherwise ignore. An unrelated push does
+not run this check. Cargo configuration outside the repository remains part of
+the local environment's trust boundary.
+
+This local comparison is an incremental safeguard, not a trusted verifier or
+proof that the baseline was reviewed: an earlier metadata-only push may change
+the runner, and a local hook or environment can be bypassed or modified. Model
+definitions, correspondence tests, and coverage manifests remain editable
+alongside code and could also be weakened. Review and
+server-enforced checks, with independently trusted verifier and coverage
+baselines, are needed for a stronger guarantee. The runner inventory does not
+pin every transitive dependency, executable, or environment input. It does not
+establish that a change was reviewed, identify every Rust file that a build
+can compile, or prove that the mapped source graph is complete. Review new
+modules, build inputs, and conditional compilation against the stated coverage.
 A suite covering a local Cargo dependency graph can register a multi-package
 workspace projection. Its reviewed manifest paths, each sibling `build.rs`,
 and every intermediate `Cargo.toml` path must be mapped implementation
@@ -231,7 +290,7 @@ claim of exhaustive inventory or Lean coverage:
 | Host SPIFFE source trust selection. [ADR 0132](../adr/0132-optional-mtls-and-workload-identity.md). | [`boot.rs`](../../crates/gateway/src/transport/boot.rs), [`source_trust_selection.rs`](../../crates/gateway/src/transport/source_trust_selection.rs). | The [selector model](../../spec/formal/source-trust-selection/README.md) proves a Boolean source-view/presence/kind/profile/domain policy; finite Rust correspondence and live TLS tests exercise the implementation. Restart persistence is addressed separately by the history suite below, under its stated assumptions; arbitrary consumers remain unproved. |
 | SPIFFE peer-domain admission. [ADR 0132](../adr/0132-optional-mtls-and-workload-identity.md). | [`svid_profile.rs`](../../crates/transport-security/src/svid_profile.rs), [`server_conn.rs`](../../crates/transport-security/src/server_conn.rs), and [`binding.rs`](../../crates/domain/src/transport/binding.rs). | The [peer-domain model](../../spec/formal/spiffe-peer-domain/README.md) covers abstract chain, domain, profile, selector and revocation decisions. Finite correspondence and live TLS-to-service admission tests exercise selected paths; certificate parsing, cryptography, concurrency and Rust refinement are unproved. |
 | NATS outbound trust and rotation. [ADR 0132](../adr/0132-optional-mtls-and-workload-identity.md). | [`nats_connect.rs`](../../crates/task-bus/src/nats_connect.rs), [`nats_transport_env.rs`](../../crates/task-bus/src/nats_transport_env.rs), [`nats_rotation.rs`](../../crates/task-bus/src/nats_rotation.rs), [`client.rs`](../../crates/transport-security/src/client.rs) and [`bounded.rs`](../../crates/transport-security/src/bounded.rs). | [NATS-T1, T2, C1, D1 and R1–R4](../../spec/formal/source-trust-selection/README.md#nats-client-trust-and-rotation) model selected trust, identity, revocation configuration, downgrade, sequential rotation, one-use handshake-gate and retry-limit properties. Finite correspondence and NATS/TLS controls exercise selected paths; identity-source provenance, cryptography and Rust/concurrent refinement remain unproved. Existing sessions and explicitly reused injected material still require trusted caller management. |
-| Durable Host source-trust names. [Operator procedure](../operators/source-trust-history.md). | [`source_history.rs`](../../crates/gateway/src/transport/source_history.rs), its coordinator, source flow and stored-trust lifecycle. | The [history model](../../spec/formal/source-trust-history/README.md) has a registered suite; an earlier integration passed Linux process-level checks. A rerun after lint fixes, mutation controls, and the final pre-push run remain pending. It does not establish fencing of noncooperating writers, store continuity, or Rust/SQLite refinement. |
+| Durable Host source-trust names. [Operator procedure](../operators/source-trust-history.md). | [`source_history.rs`](../../crates/gateway/src/transport/source_history.rs), its coordinator, source flow and stored-trust lifecycle. | The [history model](../../spec/formal/source-trust-history/README.md) passed Linux process-level checks on `b1016221`; all 11 mutation controls passed across two runs after a focused PEM witness was added. The full suite and pre-push run need repetition with that witness. It does not establish fencing of noncooperating writers, store continuity, or Rust/SQLite refinement. |
 
 The NATS check fixes the Cargo library targets and exact test inventory, but
 it does not establish the full Rust module and `include!` closure. Reviewers

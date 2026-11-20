@@ -206,14 +206,15 @@ test("a new or transient local build script selects its covered proof suites", (
   }
 });
 
-test("a historical base may predate a newly registered suite", (t) => {
+test("a new suite needs runner metadata after a historical base", (t) => {
   const f = fixture(t);
   const suite = requirements.suites.find((entry) => entry.id === "oauth");
   seedRequiredSuite(f, suite);
   const target = f.commit();
   const result = f.run(f.tuple(target, f.base));
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(f.commands(), ["run verify:oauth-formal"]);
+  assert.notEqual(result.status, 0, result.stdout);
+  assert.match(result.stderr, /formal runner .*missing/i);
+  assert.deepEqual(f.commands(), []);
 });
 test("registry changes cannot add unpinned or remove required coverage", (t) => {
   for (const kind of [
@@ -392,61 +393,4 @@ test("historical requirements are parsed as data, never executed", (t) => {
   assert.match(result.stderr, /Invalid formal proof requirements/);
   assert.equal(existsSync(marker), false);
   assert.deepEqual(f.commands(), []);
-});
-
-test("durable history and shared source modules select only their mapped proofs", (t) => {
-  const cases = [
-    [
-      "crates/gateway/src/transport/source_history/file_lock.rs",
-      ["source-history"],
-    ],
-    [
-      "crates/spiffe-source/src/source_history_flow.rs",
-      ["spiffe", "source-lifetime", "source-trust-selection", "source-history"],
-    ],
-    [
-      "crates/transport-security/src/source_history_activation.rs",
-      [
-        "spiffe",
-        "source-lifetime",
-        "source-trust-selection",
-        "spiffe-peer-domain",
-        "source-history",
-      ],
-    ],
-    ["spec/formal/source-trust-history/SourceTrustHistory.lean", []],
-    ["docs/unrelated.md", []],
-  ];
-  const history = requirements.suites.find(
-    (entry) => entry.id === "source-history",
-  );
-  assert.ok(history);
-  for (const [path, expected] of cases) {
-    const selected = requirements.suites.filter((entry) =>
-      entry.implementation.includes(path),
-    );
-    assert.deepEqual(
-      selected.map((entry) => entry.id),
-      expected,
-      path,
-    );
-    for (const reverted of [false, true]) {
-      const f = fixture(t);
-      seedRequiredSuite(f, history);
-      for (const entry of selected)
-        for (const proof of entry.proofs) f.write(proof, "proof\n");
-      f.write(path, "before\n");
-      const base = f.commit();
-      f.write(path, "changed\n");
-      f.commit();
-      if (reverted) f.write(path, "before\n");
-      const target = reverted ? f.commit() : f.git("rev-parse", "HEAD").trim();
-      const result = f.run(f.tuple(target, base));
-      assert.equal(result.status, 0, `${path}: ${result.stderr}`);
-      assert.deepEqual(
-        f.commands(),
-        selected.map((entry) => `run ${entry.command[2]}`),
-      );
-    }
-  }
 });

@@ -139,7 +139,7 @@ test("a changed closure later reverted in pushed history still selects the suite
   expectPush(f, true);
 });
 
-test("a newly introduced root and policy select the proof suite", (t) => {
+test("a new policy and root require runner metadata first", (t) => {
   const f = fixture(t);
   f.write("Cargo.lock", lock({ root: false }));
   installHook(f);
@@ -164,7 +164,10 @@ test("a newly introduced root and policy select the proof suite", (t) => {
   f.write("spec/formal/spiffe/proof", "proof\n");
   f.write("Cargo.lock", lock());
   f.commit();
-  expectPush(f, true);
+  const result = push(f, "HEAD", "refs/heads/main");
+  assert.notEqual(result.status, 0, result.stdout);
+  assert.match(result.stderr, /formal runner .*missing/i);
+  assert.deepEqual(f.commands(), []);
 });
 
 test("removing a root selects the suite; absence in both revisions does not", (t) => {
