@@ -1,6 +1,11 @@
 import { type JsonObject, overlapCast } from "@opensesame/os-domain";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { revokePrincipalSessions } from "../interactions/upstream-logout.js";
+import {
+  resumePendingProvisionalRevocations,
+  revokeProvisionalSession,
+} from "../repos/provisional-revocation.js";
 
 type App = ReturnType<typeof createControlPlane>["app"];
 interface ProvisionalRequestHeaders {
@@ -124,6 +129,86 @@ describe("principals routes edge cases", () => {
 
     expect(
       (await app.request("/v1/principals/me", { headers: auth })).status,
+    ).toBe(401);
+  });
+
+  it("recovers token cleanup and attributed audit after an audit outage", async () => {
+    const { app, ctx } = createControlPlane({ config: testConfig() });
+    const created = await provisional(app);
+    const audit = vi
+      .spyOn(ctx.repos.auditEvents, "append")
+      .mockRejectedValueOnce(new Error("audit unavailable"));
+    await expect(
+      revokeProvisionalSession(ctx, created.sessionId, {
+        actorType: "human",
+        correlationId: "provisional-recovery",
+        metadata: { action: "principal.provisional_revoke" },
+      }),
+    ).rejects.toThrow("audit unavailable");
+    expect(
+      (await ctx.stores.provisionalSessions.get(created.sessionId))
+        ?.revocationCleanupPending,
+    ).toBe(true);
+    expect(await ctx.stores.provisionalTokens.get(created.accessToken)).toBe(
+      undefined,
+    );
+    audit.mockRestore();
+
+    await resumePendingProvisionalRevocations(ctx);
+    expect(
+      (await ctx.stores.provisionalSessions.get(created.sessionId))
+        ?.revocationCleanupPending,
+    ).toBeUndefined();
+    const events = await ctx.repos.auditEvents.list({ limit: 100 });
+    expect(
+      events.find((event) => event.sessionId === created.sessionId)
+        ?.correlationId,
+    ).toBe("provisional-recovery");
+  });
+
+  it("retries upstream session audit cleanup after an outage", async () => {
+    const { app, ctx } = createControlPlane({ config: testConfig() });
+    const created = await provisional(app);
+    const audit = vi
+      .spyOn(ctx.repos.auditEvents, "append")
+      .mockRejectedValueOnce(new Error("audit unavailable"));
+    await expect(
+      revokePrincipalSessions(
+        ctx,
+        [created.principalId],
+        "https://issuer.example",
+      ),
+    ).rejects.toThrow("audit unavailable");
+    expect(
+      (await ctx.stores.provisionalSessions.get(created.sessionId))
+        ?.revocationCleanupPending,
+    ).toBe(true);
+    audit.mockRestore();
+
+    expect(
+      await revokePrincipalSessions(
+        ctx,
+        [created.principalId],
+        "https://issuer.example",
+      ),
+    ).toBe(0);
+    expect(
+      (await ctx.stores.provisionalSessions.get(created.sessionId))
+        ?.revocationCleanupPending,
+    ).toBeUndefined();
+    expect(
+      (await ctx.repos.auditEvents.list({ limit: 100 })).some(
+        (event) =>
+          event.sessionId === created.sessionId &&
+          event.metadata.via === "upstream_logout",
+      ),
+    ).toBe(true);
+    expect(
+      (
+        await app.request("/v1/principals/me", {
+          headers: { authorization: `Bearer ${created.accessToken}` },
+        })
+      ).status,
     ).toBe(401);
   });
 

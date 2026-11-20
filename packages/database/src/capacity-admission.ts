@@ -1,5 +1,5 @@
 import type { ByoUpstream, JsonObject } from "@opensesame/os-domain";
-import { overlapCast } from "@opensesame/os-domain";
+import { overlapCast, readJsonObject } from "@opensesame/os-domain";
 import { and, count, eq, sql } from "drizzle-orm";
 import { isUniqueViolation } from "./client-origin-store.js";
 import { ConflictError, normalizeIssuer } from "./repos/interfaces.js";
@@ -18,6 +18,18 @@ export interface ScimUserRecord {
   updatedAt: Date;
 }
 
+export const SCIM_DEPROVISION_JOURNAL_ATTRIBUTE =
+  "urn:opensesame:params:scim:2.0:deprovision-journal";
+
+export function hasPendingScimDeprovision(raw: JsonObject): boolean {
+  const journal = readJsonObject(raw[SCIM_DEPROVISION_JOURNAL_ATTRIBUTE]);
+  const targets = journal?.targets;
+  return (
+    Array.isArray(targets) &&
+    targets.some((target) => readJsonObject(target)?.completed === false)
+  );
+}
+
 export interface ScimUserStore {
   create(user: ScimUserRecord): Promise<ScimUserRecord>;
   /**
@@ -29,6 +41,16 @@ export interface ScimUserStore {
     limit: number,
   ): Promise<ScimUserRecord | null>;
   getById(orgId: string, id: string): Promise<ScimUserRecord | null>;
+  getVersioned(
+    orgId: string,
+    id: string,
+  ): Promise<{ user: ScimUserRecord; revision: string } | null>;
+  replaceIfRevision(
+    orgId: string,
+    id: string,
+    expectedRevision: string,
+    next: ScimUserRecord,
+  ): Promise<{ user: ScimUserRecord; revision: string } | undefined>;
   findByUserName(
     orgId: string,
     userName: string,
@@ -40,6 +62,11 @@ export interface ScimUserStore {
   listByOrganization(
     orgId: string,
     page?: { offset: number; limit: number },
+  ): Promise<ScimUserRecord[]>;
+  /** Bounded durable recovery scan for incomplete deprovision journals. */
+  listPendingDeprovisions(
+    limit: number,
+    afterId?: string,
   ): Promise<ScimUserRecord[]>;
 }
 
@@ -156,6 +183,7 @@ export function createMemoryScimWithinLimit(
 
 export function createMemoryScimUserStore(): ScimUserStore {
   const users = new Map<string, ScimUserRecord>();
+  const revisions = new Map<string, string>();
   const ofOrg = (orgId: string) =>
     [...users.values()].filter((user) => user.organizationId === orgId);
   return {
@@ -167,14 +195,38 @@ export function createMemoryScimUserStore(): ScimUserStore {
         throw new ConflictError(`scim user already exists: ${row.userName}`);
       }
       users.set(row.id, row);
+      revisions.set(row.id, crypto.randomUUID());
       return normalizeScimUser(row);
     },
     async createWithinLimit(user, limit) {
-      return createMemoryScimWithinLimit(users, user, limit);
+      const created = createMemoryScimWithinLimit(users, user, limit);
+      if (created) revisions.set(created.id, crypto.randomUUID());
+      return created;
     },
     async getById(orgId, id) {
       const row = users.get(id);
       return row?.organizationId === orgId ? normalizeScimUser(row) : null;
+    },
+    async getVersioned(orgId, id) {
+      const row = users.get(id);
+      const revision = revisions.get(id);
+      return row?.organizationId === orgId && revision
+        ? { user: normalizeScimUser(row), revision }
+        : null;
+    },
+    async replaceIfRevision(orgId, id, expectedRevision, next) {
+      const row = users.get(id);
+      if (
+        !row ||
+        row.organizationId !== orgId ||
+        revisions.get(id) !== expectedRevision
+      )
+        return undefined;
+      const normalized = normalizeScimUser(next);
+      const revision = crypto.randomUUID();
+      users.set(id, normalized);
+      revisions.set(id, revision);
+      return { user: normalizeScimUser(normalized), revision };
     },
     async findByUserName(orgId, userName) {
       const row = ofOrg(orgId).find((user) => user.userName === userName);
@@ -193,6 +245,7 @@ export function createMemoryScimUserStore(): ScimUserStore {
         throw new ConflictError(`scim user not found: ${row.id}`);
       }
       users.set(row.id, row);
+      revisions.set(row.id, crypto.randomUUID());
       return normalizeScimUser(row);
     },
     async countByOrganization(orgId) {
@@ -205,6 +258,14 @@ export function createMemoryScimUserStore(): ScimUserStore {
       return page
         ? ordered.slice(page.offset, page.offset + page.limit)
         : ordered;
+    },
+    async listPendingDeprovisions(limit, afterId) {
+      return [...users.values()]
+        .filter((user) => hasPendingScimDeprovision(user.raw))
+        .filter((user) => afterId === undefined || user.id > afterId)
+        .sort((left, right) => left.id.localeCompare(right.id))
+        .slice(0, limit)
+        .map(normalizeScimUser);
     },
   };
 }

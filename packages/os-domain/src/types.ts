@@ -537,6 +537,12 @@ export interface ProvisionalSession {
   expiresAt: Date;
   claimedAt?: Date;
   revokedAt?: Date;
+  revocationCleanupPending?: boolean;
+  revocationCleanup?: {
+    actorType: AuditActorType;
+    correlationId: string;
+    metadata: JsonObject;
+  };
   lastSeenAt?: Date;
 }
 

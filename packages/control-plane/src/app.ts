@@ -35,8 +35,8 @@ import {
   createInteractionLinkRoutes,
 } from "./routes/interaction-handoff.js";
 import { createInteractionRoutes } from "./routes/interactions.js";
-import { mfaFactorRoutes } from "./routes/mfa-factors.js";
 import { mfaRoutes } from "./routes/mfa.js";
+import { mfaFactorRoutes } from "./routes/mfa-factors.js";
 import { notificationCallbackRoutes } from "./routes/notification-callbacks.js";
 import {
   notificationChannelRoutes,
@@ -47,6 +47,7 @@ import { oauthClientRoutes } from "./routes/oauth-clients.js";
 import { oauthSectorAdminRoutes } from "./routes/oauth-sector-admin.js";
 import { createOrgDomainRoutes } from "./routes/org-domains.js";
 import { createOrgLdapRoutes } from "./routes/org-ldap.js";
+import { organizationMemberWithdrawalRoutes } from "./routes/organization-member-withdrawal.js";
 import { organizationRoutes } from "./routes/organizations.js";
 import { originClientAdminRoutes } from "./routes/origin-clients-admin.js";
 import { principalRoutes } from "./routes/principals.js";
@@ -73,7 +74,7 @@ export function createHonoApp(
   app.use("*", async (c, next) => {
     if (c.req.path !== "/v1/health/live") {
       try {
-        await ctx.systemPrincipalReady;
+        await ctx.securityRecoveryReady;
       } catch {
         return c.json({ error: "security_state_unavailable" }, 503);
       }
@@ -90,7 +91,7 @@ export function createHonoApp(
   );
   app.use("*", publicAuthenticationCors(ctx));
   const ordinaryCors = cors({
-    origin: (origin, c) => {
+    origin: (origin, _c) => {
       if (!origin || origin === "null" || origin === "*") return "";
       return ctx.config.corsOrigins.includes(origin) ? origin : "";
     },
@@ -148,6 +149,9 @@ export function createHonoApp(
   app.route("/v1/authentication", authenticationServiceRoutes);
   app.route("/v1/device", deviceRoutes);
   app.route("/v1/enrollment", enrollmentRoutes);
+  // Register the durable withdrawal endpoints first; they intentionally replace
+  // the legacy role/remove handlers at the same paths.
+  app.route("/v1/organizations", organizationMemberWithdrawalRoutes);
   app.route("/v1/organizations", organizationRoutes);
   app.route("/v1/oauth/clients", oauthClaimRoutes);
   app.route("/v1/oauth/clients", oauthClientRoutes);

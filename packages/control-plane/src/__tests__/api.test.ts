@@ -11,6 +11,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { resetDeviceApprovalBudgetForTest } from "../routes/device.js";
+import { hostRevocationResponseFor } from "./scim-test-helpers.js";
 
 interface DeviceApprovalHeaders {
   origin?: string;
@@ -236,7 +237,6 @@ describe("control-plane API", () => {
       headers: { ...auth, "content-type": "application/json" },
       body: JSON.stringify({ token: project.claimToken }),
     });
-
     // Approval must not resurrect an expired project; force that state directly.
     const stored = ctx.stores.projects.get(project.projectId);
     expect(stored).toBeDefined();
@@ -1175,7 +1175,6 @@ describe("control-plane API", () => {
       headers: { ...owner.auth, "content-type": "application/json" },
       body: JSON.stringify({ principalId: member.principalId, role: "member" }),
     });
-
     const requests: Array<{ url: string; body: Record<string, string> }> = [];
     const rolesSeenByHost: Array<string | undefined> = [];
     const timeout = vi.spyOn(AbortSignal, "timeout");
@@ -1196,6 +1195,7 @@ describe("control-plane API", () => {
               )
             )?.role,
           );
+          return hostRevocationResponseFor(requests.at(-1)?.body ?? {});
         }
         return new Response(JSON.stringify({ ok: true }), {
           status: 200,
@@ -1263,9 +1263,9 @@ describe("control-plane API", () => {
         ),
       ).toHaveLength(2);
       expect(host).toHaveBeenCalledTimes(4);
-      expect(rolesSeenByHost).toEqual(["admin", undefined]);
+      expect(rolesSeenByHost).toEqual(["member", "admin"]);
       expect(requests.map(({ url }) => new URL(url).pathname)).toEqual([
-        "/tenant/api/v1/device/approve",
+        "/tenant/api/v1/device/approve-membership",
         "/tenant/api/v1/sessions/revoke",
         "/tenant/api/v1/sessions/revoke",
       ]);
@@ -1310,7 +1310,7 @@ describe("control-plane API", () => {
     expect((await request("{")).status).toBe(400);
   });
 
-  it("serializes membership rollback so it cannot resurrect a removed owner", async () => {
+  it("keeps a failed withdrawal fenced from a competing owner removal", async () => {
     const { app } = createControlPlane({
       config: {
         port: 0,
@@ -1357,12 +1357,9 @@ describe("control-plane API", () => {
         markFirstStarted();
         return firstResponse;
       })
-      .mockImplementation(async () => {
+      .mockImplementation(async (_input, init) => {
         markSecondStarted();
-        return new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        });
+        return hostRevocationResponseFor(JSON.parse(String(init?.body)));
       });
     try {
       const failedDemotion = app.request(
@@ -1389,7 +1386,7 @@ describe("control-plane API", () => {
 
       releaseFirst(new Response("down", { status: 503 }));
       expect((await failedDemotion).status).toBe(502);
-      expect((await removal).status).toBe(204);
+      expect((await removal).status).toBe(409);
       await secondStarted;
 
       const members = overlapCast(
@@ -1399,7 +1396,7 @@ describe("control-plane API", () => {
           })
         ).json(),
       );
-      expect(members.members).not.toContainEqual(
+      expect(members.members).toContainEqual(
         expect.objectContaining({ principalId: target.principalId }),
       );
     } finally {
@@ -1471,13 +1468,10 @@ describe("control-plane API", () => {
           markApprovalStarted();
           return approvalResponse;
         })
-        .mockImplementation(async (input) => {
+        .mockImplementation(async (input, init) => {
           hostUrls.push(String(input));
           markMutationReachedHost();
-          return new Response(JSON.stringify({ ok: true }), {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          });
+          return hostRevocationResponseFor(JSON.parse(String(init?.body)));
         });
       try {
         const approval = app.request("/v1/device/approve", {
@@ -1519,7 +1513,7 @@ describe("control-plane API", () => {
         expect((await mutation).status).toBe(method === "PATCH" ? 200 : 204);
         await mutationReachedHost;
         expect(hostUrls.map((url) => new URL(url).pathname)).toEqual([
-          "/api/v1/device/approve",
+          "/api/v1/device/approve-membership",
           "/api/v1/sessions/revoke",
         ]);
       } finally {

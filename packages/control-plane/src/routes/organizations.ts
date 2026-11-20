@@ -3,7 +3,6 @@ import { name } from "@gdp-ts/core";
 import { appendAuditEvent } from "@opensesame/audit";
 import {
   AddOrganizationMemberRequestSchema,
-  ChangeOrganizationMemberRoleRequestSchema,
   CreateOrganizationRequestSchema,
   JoinOrganizationTenantRequestSchema,
   OrganizationMembershipResponseSchema,
@@ -18,15 +17,18 @@ import type {
 } from "@opensesame/os-domain";
 import { Hono } from "hono";
 import type { AppContext } from "../context.js";
-import { secureServiceEndpoint } from "../deployment-mode.js";
 import { organizationId } from "../lib/ids.js";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
+import {
+  authorizedOrganizationMembership,
+  orgOwner,
+} from "../proofs/org-owner.js";
 import { organizationIssuerAdmission } from "../proofs/organization-issuer-admission.js";
+import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import { serializeKeyed } from "../serialize.js";
 import {
-  removeOrganizationMembership,
   writeOrganization,
   writeOrganizationMembership,
 } from "../services/org-admin.js";
@@ -209,18 +211,8 @@ export async function ensurePersonalOrganization(
   return ctx.stores.organizationMemberships.upsert(membership);
 }
 
-export function hostApiEndpoint(
-  configuredUrl: string,
-  path: string,
-): URL | undefined {
-  try {
-    const base = secureServiceEndpoint(configuredUrl);
-    if (!base.pathname.endsWith("/")) base.pathname += "/";
-    return new URL(path.replace(/^\/+/, ""), base);
-  } catch {
-    return undefined;
-  }
-}
+export { hostApiEndpoint } from "../services/host-endpoint.js";
+export { revokeOrganizationMembership } from "./organization-revocation.js";
 
 function toResponse(org: Organization, role: OrganizationRole) {
   return OrganizationResponseSchema.parse({
@@ -267,109 +259,6 @@ function membershipResponse(membership: OrganizationMembership) {
   });
 }
 
-export type OrganizationRevocationInput = {
-  organizationId: string;
-  principalId: string;
-  correlationId: string;
-  /** Why authority was withdrawn — recorded on the audit row. */
-  reason: string;
-  /**
-   * Finish session revocation even when the membership row was already gone.
-   * A deprovisioning retry after a partial failure needs this: the first
-   * attempt removed the row and then failed before ending sessions.
-   */
-  revokeSessionsWithoutMembership?: boolean;
-};
-
-export type OrganizationRevocationResult = {
-  /** False when the membership was already gone (a repeated sync pass). */
-  membershipRemoved: boolean;
-  sessionsRevoked: number;
-};
-
-/**
- * Drop a membership and every session it authorized (ADR 0056/0057).
- *
- * SCIM deactivation and an LDAP directory sync both have to do exactly this,
- * and a deprovisioning that removed the row but left live provisional bearers
- * behind would leave the user signed in for the rest of the session TTL.
- */
-export async function revokeOrganizationMembership(
-  ctx: AppContext,
-  input: OrganizationRevocationInput,
-): Promise<OrganizationRevocationResult> {
-  const membershipRemoved = await serializeMembershipMutation(
-    ctx,
-    input.organizationId,
-    async () =>
-      ctx.stores.organizationMemberships.remove(
-        input.organizationId,
-        input.principalId,
-      ),
-  );
-
-  // A membership that was already gone normally authorized nothing here, and
-  // the holder's sessions are not this tenant's to end (a repeated sync pass,
-  // or a subject some other tenant's directory happens to name). A SCIM retry
-  // is the exception: it named the principal through this tenant's own
-  // identity tuple, so finishing an interrupted revocation is still in scope.
-  let sessionsRevoked = 0;
-  const sessions =
-    membershipRemoved || input.revokeSessionsWithoutMembership
-      ? await ctx.stores.provisionalSessions.entries()
-      : [];
-  for (const [, session] of sessions) {
-    if (session.principalId !== input.principalId) continue;
-    await ctx.stores.provisionalSessions.delete(session.id);
-    sessionsRevoked += 1;
-  }
-  await removeOrphanTokens(ctx.stores);
-
-  await appendAuditEvent(ctx.repos.auditEvents, {
-    eventType: "organization.member_revoked",
-    outcome: "succeeded",
-    principalId: input.principalId,
-    organizationId: input.organizationId,
-    correlationId: input.correlationId,
-    metadata: {
-      action: "organization.member.revoke",
-      reason: input.reason,
-      count: sessionsRevoked,
-    },
-  });
-  return { membershipRemoved, sessionsRevoked };
-}
-
-async function revokeHostSessions(
-  ctx: AppContext,
-  organizationId: string,
-  principalId: string,
-): Promise<boolean> {
-  const url = hostApiEndpoint(ctx.config.hostApiUrl, "api/v1/sessions/revoke");
-  if (!url) return false;
-
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "x-opensesame-operator": ctx.config.operatorToken,
-      },
-      body: JSON.stringify({
-        organization_id: organizationId,
-        principal_id: principalId,
-      }),
-      redirect: "error",
-      signal: AbortSignal.timeout(5_000),
-    });
-    await response.body?.cancel();
-    return response.ok;
-  } catch {
-    ctx.log.warn("Host session revocation failed");
-    return false;
-  }
-}
-
 organizationRoutes.get("/", requirePrincipal(), async (c) => {
   const ctx = c.get("ctx");
   const principalId = authenticatedPrincipalId(c.get("principalId"));
@@ -377,6 +266,14 @@ organizationRoutes.get("/", requirePrincipal(), async (c) => {
   for (const membership of await ctx.stores.organizationMemberships.listByPrincipal(
     principalId,
   )) {
+    if (
+      !(await authorizedOrganizationMembership(
+        ctx.stores,
+        membership.organizationId,
+        principalId,
+      ))
+    )
+      continue;
     const org = await ctx.stores.organizations.get(membership.organizationId);
     if (!org || org.state === "deleted") continue;
     organizations.push(toResponse(org, membership.role));
@@ -790,7 +687,7 @@ organizationRoutes.post("/:id/members", requirePrincipal(), async (c) => {
   const ctx = c.get("ctx");
   const organizationId = c.req.param("id");
   return serializeMembershipMutation(ctx, organizationId, () =>
-    asOrgOwner(c, MEMBER_ADMIN, async ({ org, proof, actor }) => {
+    asOrgOwner(c, MEMBER_ADMIN, async ({ org, actor }) => {
       const principalId = actor.value;
       const parsed = AddOrganizationMemberRequestSchema.safeParse(
         await c.req.json(),
@@ -801,24 +698,50 @@ organizationRoutes.post("/:id/members", requirePrincipal(), async (c) => {
           400,
         );
       }
-      const principal = await ctx.repos.principals.getById(
-        parsed.data.principalId,
-      );
-      if (!principal) return c.json({ error: "principal_not_found" }, 404);
-      if (principal.state === "suspended" || principal.state === "closed") {
-        return c.json({ error: "principal_inactive" }, 409);
-      }
-      if (await getMembership(ctx, organizationId, principal.id)) {
-        return c.json({ error: "membership_exists" }, 409);
-      }
-      const now = ctx.clock();
-      const membership = await writeOrganizationMembership(ctx, org, proof, {
+      const mutation = await withScimOrganizationBoundary(
+        ctx,
         organizationId,
-        principalId: principal.id,
-        role: parsed.data.role,
-        createdAt: now,
-        updatedAt: now,
-      });
+        async (tx) => {
+          const owner = await orgOwner(
+            tx.stores,
+            actor,
+            org,
+            MEMBER_ADMIN.liveness,
+          );
+          if (!owner.ok) return { status: "unauthorized" as const, owner };
+          const principal = await tx.repos.principals.getById(
+            parsed.data.principalId,
+          );
+          if (!principal) return { status: "principal_not_found" as const };
+          if (principal.state === "suspended" || principal.state === "closed")
+            return { status: "principal_inactive" as const };
+          if (await getMembership(tx, organizationId, principal.id))
+            return { status: "membership_exists" as const };
+          const now = tx.clock();
+          const membership = await writeOrganizationMembership(
+            tx,
+            org,
+            owner.proof,
+            {
+              organizationId,
+              principalId: principal.id,
+              role: parsed.data.role,
+              createdAt: now,
+              updatedAt: now,
+            },
+          );
+          return { status: "created" as const, membership };
+        },
+      );
+      if (mutation.status === "unauthorized")
+        return c.json({ error: mutation.owner.error }, mutation.owner.status);
+      if (mutation.status === "principal_not_found")
+        return c.json({ error: "principal_not_found" }, 404);
+      if (mutation.status === "principal_inactive")
+        return c.json({ error: "principal_inactive" }, 409);
+      if (mutation.status === "membership_exists")
+        return c.json({ error: "membership_exists" }, 409);
+      const membership = mutation.membership;
       await appendAuditEvent(ctx.repos.auditEvents, {
         eventType: "organization.member_added",
         outcome: "succeeded",
@@ -827,7 +750,7 @@ organizationRoutes.post("/:id/members", requirePrincipal(), async (c) => {
         correlationId: c.get("correlationId"),
         metadata: {
           action: "organization.member.add",
-          memberPrincipalId: principal.id,
+          memberPrincipalId: membership.principalId,
           role: membership.role,
         },
       });
@@ -835,126 +758,6 @@ organizationRoutes.post("/:id/members", requirePrincipal(), async (c) => {
     }),
   );
 });
-
-organizationRoutes.patch(
-  "/:id/members/:principalId",
-  requirePrincipal(),
-  async (c) => {
-    const ctx = c.get("ctx");
-    const organizationId = c.req.param("id");
-    return serializeMembershipMutation(ctx, organizationId, () =>
-      asOrgOwner(c, MEMBER_ADMIN, async ({ org, proof, actor }) => {
-        const actorPrincipalId = actor.value;
-        const targetPrincipalId = c.req.param("principalId");
-        const target = await getMembership(
-          ctx,
-          organizationId,
-          targetPrincipalId,
-        );
-        if (!target) return c.json({ error: "membership_not_found" }, 404);
-        const parsed = ChangeOrganizationMemberRoleRequestSchema.safeParse(
-          await c.req.json(),
-        );
-        if (!parsed.success) {
-          return c.json(
-            { error: "validation_error", details: parsed.error.flatten() },
-            400,
-          );
-        }
-        if (target.role === parsed.data.role) {
-          return c.json(membershipResponse(target));
-        }
-        if (
-          target.role === "owner" &&
-          (await ctx.stores.organizationMemberships.countOwners(
-            organizationId,
-          )) === 1
-        ) {
-          return c.json({ error: "last_owner" }, 409);
-        }
-        const updated: OrganizationMembership = {
-          ...target,
-          role: parsed.data.role,
-          updatedAt: ctx.clock(),
-        };
-        // Publish the new role before yielding to Host revocation. Otherwise a
-        // concurrent approval can capture the old role after Host has revoked it.
-        await writeOrganizationMembership(ctx, org, proof, updated);
-        if (
-          !(await revokeHostSessions(ctx, organizationId, targetPrincipalId))
-        ) {
-          await writeOrganizationMembership(ctx, org, proof, target);
-          return c.json({ error: "session_revocation_failed" }, 502);
-        }
-        await appendAuditEvent(ctx.repos.auditEvents, {
-          eventType: "organization.member_role_changed",
-          outcome: "succeeded",
-          principalId: actorPrincipalId,
-          organizationId,
-          correlationId: c.get("correlationId"),
-          metadata: {
-            action: "organization.member.role.change",
-            memberPrincipalId: targetPrincipalId,
-            previousRole: target.role,
-            role: updated.role,
-          },
-        });
-        return c.json(membershipResponse(updated));
-      }),
-    );
-  },
-);
-
-organizationRoutes.delete(
-  "/:id/members/:principalId",
-  requirePrincipal(),
-  async (c) => {
-    const ctx = c.get("ctx");
-    const organizationId = c.req.param("id");
-    return serializeMembershipMutation(ctx, organizationId, () =>
-      asOrgOwner(c, MEMBER_ADMIN, async ({ org, proof, actor }) => {
-        const actorPrincipalId = actor.value;
-        const targetPrincipalId = c.req.param("principalId");
-        const target = await getMembership(
-          ctx,
-          organizationId,
-          targetPrincipalId,
-        );
-        if (!target) return c.json({ error: "membership_not_found" }, 404);
-        if (
-          target.role === "owner" &&
-          (await ctx.stores.organizationMemberships.countOwners(
-            organizationId,
-          )) === 1
-        ) {
-          return c.json({ error: "last_owner" }, 409);
-        }
-        // Remove authority before yielding so no approval can mint a session in the
-        // gap between revocation and this mutation. Restore it if Host fails closed.
-        await removeOrganizationMembership(ctx, org, proof, targetPrincipalId);
-        if (
-          !(await revokeHostSessions(ctx, organizationId, targetPrincipalId))
-        ) {
-          await writeOrganizationMembership(ctx, org, proof, target);
-          return c.json({ error: "session_revocation_failed" }, 502);
-        }
-        await appendAuditEvent(ctx.repos.auditEvents, {
-          eventType: "organization.member_removed",
-          outcome: "succeeded",
-          principalId: actorPrincipalId,
-          organizationId,
-          correlationId: c.get("correlationId"),
-          metadata: {
-            action: "organization.member.remove",
-            memberPrincipalId: targetPrincipalId,
-            role: target.role,
-          },
-        });
-        return c.body(null, 204);
-      }),
-    );
-  },
-);
 
 organizationRoutes.get("/:id", requirePrincipal(), async (c) => {
   const ctx = c.get("ctx");
@@ -966,5 +769,3 @@ organizationRoutes.get("/:id", requirePrincipal(), async (c) => {
   }
   return c.json(toResponse(org, membership.role));
 });
-
-import { removeOrphanTokens } from "../repos/session-storage.js";

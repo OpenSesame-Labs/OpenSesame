@@ -7,6 +7,7 @@ import { type JWK, SignJWT, importJWK } from "jose";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import { loopbackHost } from "../deployment-mode.js";
+import { authorizedOrganizationMembership } from "../proofs/org-owner.js";
 import { takeSecurityMap } from "../repos/durable-map.js";
 import { webAuthnRpFromPublicUrl } from "../routes/approval-ceremony.js";
 
@@ -107,7 +108,7 @@ async function activeOrganizationMembership(
 ) {
   const [organization, membership] = await Promise.all([
     ctx.stores.organizations.get(organizationId),
-    ctx.stores.organizationMemberships.find(organizationId, principalId),
+    authorizedOrganizationMembership(ctx.stores, organizationId, principalId),
   ]);
   return organization?.state === "active" ? membership : undefined;
 }

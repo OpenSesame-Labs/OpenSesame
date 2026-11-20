@@ -10,7 +10,11 @@
 import { name } from "@gdp-ts/core";
 import type { AppContext } from "../context.js";
 import { actorId, organizationId } from "../lib/ids.js";
-import { putLdapConfig, removeLdapConfig } from "../services/org-admin.js";
+import {
+  prepareOwnerRemovalWithdrawal,
+  putLdapConfig,
+  removeLdapConfig,
+} from "../services/org-admin.js";
 import { orgOwner } from "./org-owner.js";
 
 export async function orgOwnerMistakes(
@@ -27,6 +31,25 @@ export async function orgOwnerMistakes(
 
       // The honest path compiles: proof about `orgA`, call about `orgA`.
       await removeLdapConfig(ctx, orgA, verdict.proof);
+      const revocation = {
+        principalId: "prn_member",
+        actorPrincipalId: actor.value,
+        actorType: "human" as const,
+        correlationId: "type-regression",
+        reason: "organization_owner_removed" as const,
+      };
+      await prepareOwnerRemovalWithdrawal(ctx, orgA, verdict.proof, revocation);
+
+      // @ts-expect-error — owner removal cannot compile without the owner proof.
+      await prepareOwnerRemovalWithdrawal(ctx, orgA, revocation);
+
+      await prepareOwnerRemovalWithdrawal(
+        ctx,
+        orgB,
+        // @ts-expect-error — a proof about organization A cannot remove from B.
+        verdict.proof,
+        revocation,
+      );
 
       // @ts-expect-error — a proof about organization A does not authorize B.
       await removeLdapConfig(ctx, orgB, verdict.proof);

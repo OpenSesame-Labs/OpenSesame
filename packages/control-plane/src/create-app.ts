@@ -55,6 +55,7 @@ import {
   sealExistingEvents,
   sealPostgresEvents,
 } from "./event-sealing.js";
+import { resumePendingUpstreamLogouts } from "./interactions/upstream-logout.js";
 import {
   type AccountLookupSlot,
   lookupHostedAccount,
@@ -63,11 +64,16 @@ import { IndexedClaimStore } from "./repos/claim-store.js";
 import { DurableClaimStore } from "./repos/durable-claim-store.js";
 import { createDurableJwtReplayCache } from "./repos/durable-jwt-replay.js";
 import { DurablePrincipalMappingStore } from "./repos/durable-mapping-store.js";
+import { resumePendingProvisionalRevocations } from "./repos/provisional-revocation.js";
 import { installDurableSecurityMaps } from "./repos/security-maps.js";
 import { verifySecurityDatabase } from "./repos/security-readiness.js";
 import { hostAuthorizationAudiences } from "./services/host-authorization.js";
 import { createMailer } from "./services/mailer.js";
 import { createNotificationCallbackAdapters } from "./services/notification-callbacks.js";
+import {
+  resumePendingOrganizationWithdrawals,
+  scheduleOrganizationWithdrawalRecovery,
+} from "./services/organization-withdrawal-recovery.js";
 import { createSmsBridge } from "./services/sms-bridge.js";
 import { createAppStores } from "./state.js";
 import { agentAuthOAuthClient } from "./ui/agent-auth-pages.js";
@@ -335,6 +341,10 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
     eventSealer,
   );
 
+  let recoverSecurityState = async (): Promise<void> => {};
+  const securityRecoveryReady = systemPrincipalReady.then(() =>
+    recoverSecurityState(),
+  );
   const ctx: AppContext = {
     hostAuthorizationAudiences: hostAudiences,
     ...passkeyComponents,
@@ -361,6 +371,7 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
     ...(betterAuthDatabase ? { betterAuthDatabase } : undefined),
     systemOwnerPrincipalId: SYSTEM_OWNER_PRINCIPAL_ID,
     systemPrincipalReady,
+    securityRecoveryReady,
     securityStateReady: async () => {
       try {
         await systemPrincipalReady;
@@ -373,9 +384,20 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
       }
     },
   };
+  recoverSecurityState = async () => {
+    await resumePendingUpstreamLogouts(ctx);
+    await resumePendingProvisionalRevocations(ctx);
+    await resumePendingOrganizationWithdrawals(ctx);
+  };
 
   const app = createHonoApp(
-    ctx,
+    scheduleOrganizationWithdrawalRecovery(
+      ctx,
+      securityRecoveryReady,
+      () => log.warn("Organization withdrawal recovery deferred"),
+      undefined,
+      false,
+    ),
     resolveWalletNativeMounts({
       config,
       sealer: eventSealer,

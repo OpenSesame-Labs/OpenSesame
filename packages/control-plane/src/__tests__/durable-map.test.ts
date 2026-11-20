@@ -22,6 +22,52 @@ import { migratedPGlite, warmMigratedPGlite } from "./migrated-pglite.js";
 vi.setConfig({ testTimeout: 60_000 });
 beforeAll(warmMigratedPGlite, 60_000);
 
+it("commits caller-owned transaction writes without nesting", async () => {
+  const client = await migratedPGlite();
+  try {
+    const db = drizzle(client, { schema });
+    const store = new DurableMap<number>(
+      overlapCast(db),
+      "OpenSesame:BoundTransaction",
+      false,
+      null,
+      undefined,
+      createEventSealer("durable-security-fixture-key"),
+    );
+    await store.transaction(async (tx) => {
+      const bound = store.onDatabase(tx);
+      await bound.set("committed", 1);
+      expect(await bound.get("committed")).toBe(1);
+    });
+    expect(await store.get("committed")).toBe(1);
+    await expect(
+      store.transaction(async (tx) => {
+        await store.onDatabase(tx).set("rolled-back", 2);
+        throw new Error("rollback");
+      }),
+    ).rejects.toThrow("rollback");
+    expect(await store.get("rolled-back")).toBeUndefined();
+    const cleanup = new DurableMap<{
+      expiresAt: Date;
+      revocationCleanupPending: boolean;
+    }>(
+      overlapCast(db),
+      "OpenSesame:ProvisionalSession",
+      false,
+      1,
+      undefined,
+      createEventSealer("durable-security-fixture-key"),
+    );
+    await cleanup.set("pending", {
+      expiresAt: new Date(0),
+      revocationCleanupPending: true,
+    });
+    expect(await cleanup.get("pending")).toBeDefined();
+  } finally {
+    await client.close();
+  }
+});
+
 it("shares exact typed state, hashes bearer keys, and consumes once across replicas", async () => {
   const client = await migratedPGlite();
   try {

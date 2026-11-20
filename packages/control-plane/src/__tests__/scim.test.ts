@@ -6,6 +6,7 @@ import {
 import { type JsonObject, isString, overlapCast } from "@opensesame/os-domain";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { principalSessionEpoch } from "../repos/principal-session-boundary.js";
 import {
   SCIM_TOKEN_PREFIX,
   provisionedRoleForSubject,
@@ -15,6 +16,7 @@ import { putGroupRoleMappingAsOwner } from "./org-owner-fixture.js";
 import {
   DEFAULT_IDP_SUBJECT,
   PAGES_ORIGIN,
+  installHostRevocationMock,
   mintOrgIdToken,
   seedTenantWithIssuer,
   testConfig,
@@ -62,24 +64,23 @@ async function verified(app: App, subject: string) {
   expect(linked.status).toBe(201);
   return created;
 }
-
 let idp: ReferenceIdp;
-
+let restoreHost: () => void;
 beforeAll(async () => {
   idp = await startReferenceIdp();
+  const mock = installHostRevocationMock();
+  restoreHost = () => mock.mockRestore();
 }, 30_000);
-
 afterAll(async () => {
+  restoreHost();
   await idp.close();
 });
-
 const seedTenant = (
   app: App,
   ctx: ReturnType<typeof createControlPlane>["ctx"],
   slug: string,
   issuer: string | null = idp.issuer,
 ) => seedTenantWithIssuer(app, ctx, slug, issuer);
-
 async function mintScimToken(app: App, orgId: string, ownerToken: string) {
   const res = await app.request(`/v1/organizations/${orgId}/scim/tokens`, {
     method: "POST",
@@ -175,14 +176,47 @@ describe("SCIM provisioning lifecycle", () => {
     expect(deactivated.status).toBe(200);
     expect(overlapCast(await deactivated.json()).active).toBe(false);
 
-    // Membership gone, and the session it authorised with it.
+    // Membership authority is gone, while the principal-wide session remains
+    // usable for personal work and other tenants.
     expect(
       await ctx.stores.organizationMemberships.find(org.id, guest.principalId),
     ).toBeUndefined();
     const stillSignedIn = await app.request("/v1/organizations", {
       headers: auth(guest.accessToken),
     });
-    expect(stillSignedIn.status).toBe(401);
+    expect(stillSignedIn.status).toBe(200);
+    const epochAfterDeactivation = await principalSessionEpoch(
+      ctx.stores,
+      guest.principalId,
+    );
+
+    // A directory retry advances the publication fence even though the row is
+    // already absent, without turning an organization event into global logout.
+    const retried = await app.request(
+      usersPath(org.id, `/${created.body.id}`),
+      {
+        method: "PATCH",
+        headers: scimHeaders(token),
+        body: JSON.stringify({
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+          Operations: [{ op: "replace", path: "active", value: false }],
+        }),
+      },
+    );
+    expect(retried.status).toBe(200);
+    expect(
+      await principalSessionEpoch(ctx.stores, guest.principalId),
+    ).toBeGreaterThan(epochAfterDeactivation);
+    expect(
+      await ctx.stores.organizationMemberships.find(org.id, guest.principalId),
+    ).toBeUndefined();
+    expect(
+      (
+        await app.request("/v1/organizations", {
+          headers: auth(guest.accessToken),
+        })
+      ).status,
+    ).toBe(200);
   }, 30_000);
 
   it("refuses a subject the directory deactivated before it ever signed in", async () => {

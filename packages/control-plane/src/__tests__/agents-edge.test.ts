@@ -1,6 +1,8 @@
 import { type JsonObject, overlapCast } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { revokeOrganizationMembership } from "../routes/organization-revocation.js";
+import { prepareRemovalWithdrawal } from "../services/organization-withdrawal.js";
 
 type App = ReturnType<typeof createControlPlane>["app"];
 
@@ -124,6 +126,106 @@ describe("agents routes edge cases", () => {
           displayName: "intruder-agent",
           publicKeyJkt: "jkt-intruder",
           projectId: project.id,
+        })
+      ).status,
+    ).toBe(404);
+  });
+
+  it("denies tenant-project agents during and after organization withdrawal", async () => {
+    const { app, ctx } = createControlPlane({ config: testConfig() });
+    const owner = await verified(app, "agent-withdrawal-owner");
+    const organization = overlapCast(
+      await (
+        await app.request("/v1/organizations", {
+          method: "POST",
+          headers: {
+            ...auth(owner.accessToken),
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            slug: "agent-withdrawal",
+            displayName: "Agent Withdrawal",
+          }),
+        })
+      ).json(),
+    );
+    const project = overlapCast(
+      await (
+        await app.request("/v1/projects", {
+          method: "POST",
+          headers: {
+            ...auth(owner.accessToken),
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            displayName: "Tenant Agent Project",
+            organizationId: organization.id,
+          }),
+        })
+      ).json(),
+    );
+    const registered = await registerAgent(app, owner.accessToken, {
+      displayName: "tenant-agent",
+      publicKeyJkt: "jkt-tenant-agent",
+      projectId: project.id,
+    });
+    expect(registered.status).toBe(201);
+    const agent = overlapCast(await registered.json());
+    const membership = await ctx.stores.organizationMemberships.findVersioned(
+      organization.id,
+      owner.principalId,
+    );
+    if (!membership) throw new Error("Expected organization membership");
+    const prepared = await prepareRemovalWithdrawal(ctx, {
+      organizationId: organization.id,
+      principalId: owner.principalId,
+      expectedIncarnation: membership.incarnation,
+      actorPrincipalId: ctx.systemOwnerPrincipalId,
+      actorType: "system",
+      correlationId: "agent-withdrawal",
+      reason: "scim_deactivated",
+    });
+    if (prepared.status !== "ready")
+      throw new Error("Expected prepared withdrawal");
+
+    const listed = overlapCast(
+      await (
+        await app.request("/v1/agents", {
+          headers: auth(owner.accessToken),
+        })
+      ).json(),
+    ).agents;
+    expect(listed.some((item) => item.id === agent.agentId)).toBe(false);
+    expect(
+      (
+        await app.request(`/v1/agents/${agent.agentId}/claim`, {
+          method: "POST",
+          headers: auth(owner.accessToken),
+        })
+      ).status,
+    ).toBe(404);
+
+    await revokeOrganizationMembership(ctx, {
+      organizationId: organization.id,
+      principalId: owner.principalId,
+      correlationId: "agent-withdrawal-complete",
+      reason: "test",
+      expectedIncarnation: prepared.prepared.incarnation,
+      expectedWithdrawalId: prepared.prepared.withdrawal.id,
+    });
+    const now = ctx.clock();
+    await ctx.stores.organizationMemberships.upsert({
+      organizationId: organization.id,
+      principalId: owner.principalId,
+      role: "owner",
+      createdAt: now,
+      updatedAt: now,
+    });
+    expect(
+      (
+        await app.request(`/v1/agents/${agent.agentId}/claim`, {
+          method: "POST",
+          headers: auth(owner.accessToken),
         })
       ).status,
     ).toBe(404);

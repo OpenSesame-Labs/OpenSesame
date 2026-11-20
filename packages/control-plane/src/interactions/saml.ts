@@ -29,6 +29,7 @@ import {
 import type { ControlPlaneConfig } from "../config.js";
 import type { AppContext } from "../context.js";
 import { sameOriginPath } from "../middleware/same-origin-path.js";
+import { authorizedOrganizationMembership } from "../proofs/org-owner.js";
 import {
   jitJoinOrganization,
   usesNativeSaml,
@@ -1114,7 +1115,11 @@ export async function admitSamlSubject(
     ? await ctx.stores.organizations.get(tenant)
     : undefined;
   const legacyMembership = legacy
-    ? await ctx.stores.organizationMemberships.find(tenant, legacy.principalId)
+    ? await authorizedOrganizationMembership(
+        ctx.stores,
+        tenant,
+        legacy.principalId,
+      )
     : undefined;
   // Legacy rows predate tenant-scoped keys. Accept one only for the SAML
   // tenant that actually owns this entityID (not an organization that merely

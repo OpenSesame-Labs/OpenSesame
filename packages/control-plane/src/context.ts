@@ -11,8 +11,7 @@ import type { Repositories } from "@opensesame/database";
 import type { ChannelAdapter } from "@opensesame/notification-adapters";
 import type { OpenSesameProviderBundle } from "@opensesame/oauth-provider";
 import type { Logger } from "@opensesame/observability";
-import type { Clock } from "@opensesame/os-domain";
-import type { AuthenticationServiceStores } from "@opensesame/os-domain";
+import type { AuthenticationServiceStores, Clock } from "@opensesame/os-domain";
 import type { ProvisionalPolicy } from "@opensesame/policy";
 import type { ControlPlaneConfig } from "./config.js";
 import type { IndexedClaimStore } from "./repos/claim-store.js";
@@ -22,7 +21,8 @@ import type { NotificationCallbackAdapters } from "./services/notification-callb
 import type { AppStores } from "./state.js";
 
 export type ControlPlaneRepositories = Omit<Repositories, "auditEvents"> & {
-  auditEvents: AuditSink & Pick<Repositories["auditEvents"], "list">;
+  auditEvents: AuditSink &
+    Pick<Repositories["auditEvents"], "findByDigest" | "getById" | "list">;
 };
 
 export interface AppContext {
@@ -84,4 +84,6 @@ export interface AppContext {
    * the first auto-admission.
    */
   systemPrincipalReady: Promise<void>;
+  /** Durable security work recovered before non-liveness requests are served. */
+  securityRecoveryReady: Promise<void>;
 }

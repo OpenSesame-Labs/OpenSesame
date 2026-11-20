@@ -7,9 +7,20 @@ formal property is introduced.
 
 ## Checked properties
 
-The reviewed source revision is recorded in
-[`coverage.json`](../../spec/formal/auth/coverage.json), together with hashes of
-the source files actually reviewed. Principal and project proof design is in
+The reviewed source Git blobs are recorded in the independently landed
+[`reviewed-sources.json`](../../spec/formal/auth/reviewed-sources.json)
+attestation and repeated in
+[`coverage.json`](../../spec/formal/auth/coverage.json), together with SHA-256
+hashes of the source files actually reviewed. Full-history verification rejects
+an attestation introduced in the same commit as a covered source change. The
+attestation records the previously reviewed base blob as well as the newly
+reviewed blob; full-history verification also rejects an attestation whose base
+does not match both its parent tree and the preceding active manifest. The
+blob IDs remain referenced by the later squash commit's tree, so a depth-one
+fresh clone can still verify exact byte correspondence without intermediate
+feature commits. In that shallow case, prior-review ordering comes from the
+separately merged attestation and signed-stack replay, not from history that the
+clone does not contain. Principal and project proof design is in
 [ADR 0178](../adr/0178-authorization-checks-are-proofs-the-compiler-can-see.md).
 The provisional token-prefix requirement is recorded in the
 [session ID audit](audits/2026-08-07-provisional-session-id.md). The model and
@@ -20,11 +31,26 @@ storage or network implementations.
 
 | ID | Requirement and implementation | Lean property | Executable correspondence |
 |---|---|---|---|
-| AUTH-S1 | A provisional session authenticates only for a `pst_` token mapped to a present, unexpired, unrevoked session and a present principal that is neither suspended nor closed. [`resolveProvisionalSession`](../../packages/control-plane/src/middleware/auth.ts) performs those checks. | `bad_session_prefix_denied`, `unmapped_session_denied`, `missing_session_denied`, `revoked_session_denied`, `expired_session_denied`, `missing_principal_session_denied`, `suspended_principal_session_denied`, `closed_principal_session_denied` | The actual resolver is compared with 240 combinations of the abstract guards, expiry boundary, and principal state. |
+| AUTH-S1 | A provisional session authenticates only for a `pst_` token mapped to a present, unexpired, unrevoked session and a present principal that is neither suspended nor closed. [`resolveProvisionalSession`](../../packages/control-plane/src/middleware/auth.ts) performs those checks and re-reads the token and session inside the principal's session boundary. | `bad_session_prefix_denied`, `unmapped_session_denied`, `missing_session_denied`, `revoked_session_denied`, `expired_session_denied`, `missing_principal_session_denied`, `suspended_principal_session_denied`, `closed_principal_session_denied` | The actual resolver is compared with 240 combinations of the abstract guards, expiry boundary, and principal state. |
+| AUTH-S2 | Membership revocation advances [`principals.sessionAuthorityVersion`](../../packages/database/src/schema/index.ts) under one exclusive boundary while retaining established principal-wide sessions; upstream/global logout advances the version and cleans up sessions. Session publication must present the version captured before its eligibility decision and authentication must re-read under the shared boundary. This prevents another replica or a delayed stale issuer from restoring withdrawn authority without turning one tenant's withdrawal into global logout. [`withPrincipalSessionBoundary`](../../packages/control-plane/src/repos/principal-session-boundary.ts), [`saveProvisional`](../../packages/control-plane/src/repos/session-storage.ts), [`revokeOrganizationMembership`](../../packages/control-plane/src/routes/organization-revocation.ts), and [`revokeSessionsForIdentity`](../../packages/control-plane/src/interactions/upstream-logout.ts) implement the boundary. Assumptions: replicas share PostgreSQL and issuance roads retain the captured version. | Unproved: database transactions, advisory-lock ordering, and replica failure are outside the Lean model. | Memory and real-PostgreSQL cases in `organization-session-postgres.test.ts` cover revoke-first contention, publisher-first ordering, stale post-commit publication, established-session retention, and rollback; SCIM/LDAP regressions cover organization-scoped withdrawal and retry fencing. The reviewed revocation source blob is recorded in the AUTH-S3 snapshot below. Status: **unproved**. |
+| AUTH-S3 | A membership role change or removal first persists a unique incarnation, authority revision, and withdrawal ID; Host revocation is idempotently bound to that exact tuple, and only that same membership incarnation can complete. SCIM deactivation records the exact incarnation set before publishing the inactive directory row. [`prepareWithdrawal`](../../packages/control-plane/src/services/organization-withdrawal.ts), [`withScimOrganizationBoundary`](../../packages/control-plane/src/repos/scim-organization-boundary.ts), and the versioned membership stores enforce this fence. Completion persists an audit intent atomically and [`scheduleOrganizationWithdrawalRecovery`](../../packages/control-plane/src/services/organization-withdrawal-recovery.ts) retries fenced transitions and audit publication with bounded concurrency. This prevents a delayed retry from revoking or changing a replacement membership, prevents JIT admission from racing a directory withdrawal, and does not lose a successful withdrawal audit during an outage. | Unproved: cross-service delivery, PostgreSQL transaction behavior, advisory locks, and crash recovery are outside the Lean model. | Store conformance tests cover incarnation compare-and-remove, withdrawal compare-and-set, retry, and SCIM revision conflicts; route-level Host, outage recovery, and audit-intent behavior remain finite executable evidence. The non-mechanized security review snapshot records the exact core implementation blobs below. Status: **unproved**. |
 | AUTH-P1 | An absent principal is refused and a principal with `provisional` assurance is refused. [`verifiedPrincipal`](../../packages/control-plane/src/proofs/verified-principal.ts) makes both checks. | `missing_principal_denied`, `provisional_principal_denied`, `admitted_principal_not_provisional` | The actual function is compared with all eight abstract lookup/assurance cases. |
 | AUTH-Z1 | A missing project, an invisible project, or a caller without a resolved role gets no project proof. [`projectAccess`](../../packages/control-plane/src/proofs/project-role.ts) calls [`isVisible` and `roleFor`](../../packages/control-plane/src/services/project-access.ts). | `absent_project_denied`, `hidden_project_denied`, `no_role_denied` | The actual functions are compared with the model across project presence, every declared state, four expiry classes, and four role results. |
 | AUTH-Z2 | A member gets no admin proof; only a resolved owner can receive an owner proof. `projectAccess` creates the role-specific proof values. | `member_never_receives_admin`, `nonowner_never_receives_owner` | The same matrix checks the role and the actual proof fields and kinds. |
 | AUTH-Z3 | A project at or after its expiration instant is invisible; a deleted project is invisible. `isVisible` uses an inclusive expiry check. | `not_visible_at_expiry`, `not_visible_after_expiry`, `deleted_project_not_visible` | The matrix includes times before, exactly at, and after expiry for every project state and role. |
+| AUTH-Z4 | For an organization-owned project, [`roleFor`](../../packages/control-plane/src/services/project-access.ts) returns no role unless the principal has a current organization membership with no pending withdrawal. Removal and re-addition cannot revive the former project grant because withdrawal deletes the old project membership. | Unproved: the Lean model receives an already-resolved role and does not model organization membership, withdrawal state, or incarnation-bound cleanup. | Finite project-withdrawal and tenant-agent regressions cover pending withdrawal, completed removal, unrelated-organization retention, and remove/re-add denial. The prospective reviewed-source attestation binds the implementation bytes. Status: **unproved**. |
+
+AUTH-S3 core implementation snapshot (future changes require a new review and
+snapshot update):
+
+- `packages/control-plane/src/services/organization-withdrawal.ts`: `6c9e7aad9506e5c4d7c1410270c0a90a6f0ac44b`
+- `packages/control-plane/src/services/host-withdrawal-attestation.ts`: `834f69e93d7ea53ace5d4485c3c7db7c2851e6e0`
+- `packages/control-plane/src/repos/scim-organization-boundary.ts`: `0308e1cc99dcf93dac4c10d72f2a9c84d0214d63`
+- `packages/control-plane/src/routes/organization-revocation.ts`: `75aa2ce80b0cfd04690c2ecb20906e3908d67ac8`
+- `packages/control-plane/src/services/organization-withdrawal-recovery.ts`: `76eafa00f6a63b538f3c663af578f2506471b563`
+- `packages/control-plane/src/routes/device.ts`: `38704bbd4da79c3588bd9fa4904e751b26bfa6e1`
+- `packages/database/src/repos/organization-membership-postgres.ts`: `0a5ea7d1a7c1a195e5f41cd1963ffbf62c148658`
+- `packages/database/src/schema/organization-withdrawal.ts`: `ceac79bd1fa20908812b767bc7d3067d4d84ce95`
 
 The Lean theorems quantify over their declared model inputs. Time in the model
 is an arbitrary integer. The correspondence test exercises 8 principal cases,
@@ -33,6 +59,12 @@ with test stores that return the specified rows and memberships. It checks the
 real TypeScript functions, but finite testing does not mathematically prove
 that TypeScript refines the Lean model for all inputs. Review that mapping
 whenever a covered source changes.
+
+The PostgreSQL advisory-lock ordering, transaction rollback, replica failure,
+and concurrent session publication behavior are not represented by the Lean
+model and remain **unproved**. The executable two-replica evidence is
+`organization-session-postgres.test.ts`; it complements AUTH-S1 but does not
+turn database or lock behavior into a theorem.
 
 `verifiedPrincipal` means **non-provisional assurance** here. It admits
 `self_asserted`, and this function does not check the principal's lifecycle
@@ -53,11 +85,13 @@ An existing Lean executable can be selected with
 `OPENSESAME_LEAN_BIN=/absolute/path/to/lean`. The command rejects another Lean
 version and treats Lean warnings, including a `sorry`, as errors. Lean checks
 theorems and emits the cases; Vitest compares those cases to the real functions;
-finally the source-hash check fails on an unreviewed change to any covered file.
-It also compares those hashes to the declared reviewed commit; the commit and
-its source blobs must be present locally. Fetch the reviewed history if they
-are missing. The hashes detect drift. They do not prove the review or the model
-is correct.
+finally the source-hash check fails when a covered file differs from its
+declared evidence. Version 1 manifests compare the hashes to a reviewed commit,
+which must be present locally. Version 2 manifests compare them to a prior
+reviewed-source attestation and reject same-commit self-attestation when full
+history is available. A shallow clone verifies the attestation, Git blobs, and
+current bytes but cannot independently reconstruct their ordering. The hashes
+detect drift. They do not prove that the review or model is correct.
 The pre-push hook selects registered suites when their mapped implementation
 files occur in the commits being pushed, including changes later reverted. It
 reads historical policy as data and checks each registry or requirements change

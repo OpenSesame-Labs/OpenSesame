@@ -4,7 +4,6 @@ import {
   bigserial,
   boolean,
   check,
-  customType,
   foreignKey,
   index,
   integer,
@@ -14,27 +13,15 @@ import {
   text,
   timestamp,
   uniqueIndex,
+  uuid,
 } from "drizzle-orm/pg-core";
-/** bytea column mapped to Uint8Array */
-export const bytea = customType<{ data: Uint8Array; driverData: Buffer }>({
-  dataType() {
-    return "bytea";
-  },
-  toDriver(value: Uint8Array): Buffer {
-    return Buffer.from(value);
-  },
-  fromDriver(value: Buffer): Uint8Array {
-    return new Uint8Array(value);
-  },
-});
-export const timestamps = {
-  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" })
-    .notNull()
-    .defaultNow(),
-};
+import { bytea, timestamps } from "./column-types.js";
+import {
+  organizationWithdrawalCheck,
+  organizationWithdrawalIndexes,
+} from "./organization-withdrawal.js";
+
+export { bytea, timestamps } from "./column-types.js";
 
 export const principals = pgTable(
   "principals",
@@ -48,6 +35,9 @@ export const principals = pgTable(
       mode: "date",
     }),
     version: integer("version").notNull().default(1),
+    sessionAuthorityVersion: integer("session_authority_version")
+      .notNull()
+      .default(0),
     ...timestamps,
   },
   (t) => [
@@ -62,11 +52,7 @@ export const principals = pgTable(
   ],
 );
 
-/**
- * External identities.
- * Unique on (kind, issuer, tenant, subject) — tenant coalesced to '' for uniqueness.
- * NO unique constraint on email.
- */
+/** External identities are tuple-unique; email deliberately is not unique. */
 export const externalIdentities = pgTable(
   "external_identities",
   {
@@ -504,6 +490,15 @@ export const organizationMemberships = pgTable(
       .notNull()
       .references(() => principals.id, { onDelete: "cascade" }),
     role: text("role").notNull(),
+    incarnation: uuid("incarnation").notNull().defaultRandom(),
+    authorityRevision: uuid("authority_revision").notNull().defaultRandom(),
+    withdrawalId: uuid("withdrawal_id"),
+    withdrawalKind: text("withdrawal_kind"),
+    withdrawalRole: text("withdrawal_role"),
+    withdrawalReason: text("withdrawal_reason"),
+    withdrawalActorType: text("withdrawal_actor_type"),
+    withdrawalActorPrincipalId: text("withdrawal_actor_principal_id"),
+    withdrawalCorrelationId: text("withdrawal_correlation_id"),
     ...timestamps,
   },
   (t) => [
@@ -512,10 +507,12 @@ export const organizationMemberships = pgTable(
       t.principalId,
     ),
     index("organization_memberships_principal_id_idx").on(t.principalId),
+    ...organizationWithdrawalIndexes(t),
     check(
       "organization_memberships_role_check",
       sql`${t.role} in ('owner','admin','member')`,
     ),
+    organizationWithdrawalCheck(t),
   ],
 );
 
@@ -625,6 +622,7 @@ export const scimUsers = pgTable(
     displayName: text("display_name"),
     /** Attributes as the IdP sent them; SCIM leniency means we keep the rest. */
     raw: jsonb("raw").$type<JsonObject>().notNull().default({}),
+    revision: uuid("revision").notNull().defaultRandom(),
     ...timestamps,
   },
   (t) => [

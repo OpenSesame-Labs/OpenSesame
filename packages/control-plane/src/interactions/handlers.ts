@@ -500,7 +500,7 @@ export async function mintProvisionalForInteraction(
         }
 
         accessToken = `pst_${randomBytes(24).toString("base64url")}`;
-        await saveProvisional(ctx.stores, provisionalSession, accessToken);
+        await saveCurrent(ctx.stores, provisionalSession, accessToken);
       } catch (error) {
         // No half-minted identity survives a failed mint: the principal, its
         // unclaimed mapping and any session row are all removed before the
@@ -665,7 +665,5 @@ export async function finishConsentAllow(
     { mergeWithLastSubmission: true },
   );
 }
-import {
-  removeOrphanTokens,
-  saveProvisional,
-} from "../repos/session-storage.js";
+
+import { removeOrphanTokens, saveCurrent } from "../repos/session-storage.js";

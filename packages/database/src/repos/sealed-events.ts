@@ -145,6 +145,14 @@ function sealedAudit(
           uow,
         ),
       ),
+    getById: async (id) => {
+      const event = await base.getById(id);
+      return event ? open(event) : null;
+    },
+    findByDigest: async (digest) => {
+      const event = await base.findByDigest(digest);
+      return event ? open(event) : null;
+    },
     list: async (filter) => (await base.list(filter)).map(open),
   });
 }

@@ -1,3 +1,4 @@
+import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
 import {
   type ApprovalActivation,
@@ -14,7 +15,6 @@ import {
   type JsonObject,
   type NotificationDelivery,
   type NotificationPreferences,
-  type OrganizationMembership,
   type OutboxEvent,
   type Principal,
   type Project,
@@ -75,7 +75,6 @@ import {
   type NotificationDeliveryRepository,
   type NotificationPreferenceRepository,
   OUTBOX_CLAIM_HOLD_MS,
-  type OrganizationMembershipStore,
   type OrganizationStores,
   type OutboxRepository,
   type PrincipalRepository,
@@ -94,6 +93,7 @@ import {
   outboxClaimToken,
   outboxHoldActive,
 } from "./interfaces.js";
+import { PostgresOrganizationMembershipStore } from "./organization-membership-postgres.js";
 import { PostgresOrganizationStore } from "./organization-store-postgres.js";
 import { mapAuditEvent } from "./postgres-map-audit.js";
 import { createPostgresPushSubscriptions } from "./push-subscriptions-postgres.js";
@@ -107,6 +107,18 @@ import type {
 export type Database = PostgresJsDatabase<typeof schema>;
 
 type TxDb = Database;
+
+type AmbientTransaction = { root: Database; transaction: TxDb };
+const ambientTransaction = new AsyncLocalStorage<AmbientTransaction>();
+
+/** Bind repository calls on one root database to its caller-owned transaction. */
+export function withPostgresTransactionContext<T>(
+  root: Database,
+  transaction: Database,
+  run: () => Promise<T>,
+): Promise<T> {
+  return ambientTransaction.run({ root, transaction }, run);
+}
 
 function normalizeTenant(tenant?: string | null): string {
   return tenant ?? "";
@@ -538,6 +550,8 @@ function dbOf(uow: UnitOfWork | undefined, root: Database): TxDb {
   if (uow instanceof PostgresUnitOfWork) {
     return uow.db;
   }
+  const ambient = ambientTransaction.getStore();
+  if (ambient?.root === root) return ambient.transaction;
   return root;
 }
 
@@ -1370,6 +1384,22 @@ export class PostgresRepositories implements Repositories {
         .returning();
       if (!row) throw new Error("insert audit event failed");
       return mapAuditEvent(row);
+    },
+    getById: async (id) => {
+      const [row] = await this.db
+        .select()
+        .from(schema.auditEvents)
+        .where(eq(schema.auditEvents.id, id))
+        .limit(1);
+      return row ? mapAuditEvent(row) : null;
+    },
+    findByDigest: async (digest) => {
+      const [row] = await this.db
+        .select()
+        .from(schema.auditEvents)
+        .where(eq(schema.auditEvents.digest, digest))
+        .limit(1);
+      return row ? mapAuditEvent(row) : null;
     },
     list: async (filter) => {
       const limit = filter?.limit ?? 50;
@@ -2527,119 +2557,7 @@ export function createPostgresProjectStores(db: Database): ProjectStores {
   };
 }
 
-function mapOrganizationMembership(
-  row: typeof schema.organizationMemberships.$inferSelect,
-): OrganizationMembership {
-  return {
-    organizationId: row.organizationId,
-    principalId: row.principalId,
-    role: overlapCast(row.role),
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-  };
-}
-
-export { PostgresOrganizationStore };
-
-/** Postgres membership rows behind the `OrganizationMembershipStore` interface. */
-export class PostgresOrganizationMembershipStore
-  implements OrganizationMembershipStore
-{
-  constructor(private readonly db: Database) {}
-
-  async find(
-    organizationId: string,
-    principalId: string,
-  ): Promise<OrganizationMembership | undefined> {
-    const [row] = await this.db
-      .select()
-      .from(schema.organizationMemberships)
-      .where(
-        and(
-          eq(schema.organizationMemberships.organizationId, organizationId),
-          eq(schema.organizationMemberships.principalId, principalId),
-        ),
-      )
-      .limit(1);
-    return row ? mapOrganizationMembership(row) : undefined;
-  }
-
-  async upsert(
-    membership: OrganizationMembership,
-  ): Promise<OrganizationMembership> {
-    const [row] = await this.db
-      .insert(schema.organizationMemberships)
-      .values({
-        organizationId: membership.organizationId,
-        principalId: membership.principalId,
-        role: membership.role,
-        createdAt: membership.createdAt,
-        updatedAt: membership.updatedAt,
-      })
-      .onConflictDoUpdate({
-        target: [
-          schema.organizationMemberships.organizationId,
-          schema.organizationMemberships.principalId,
-        ],
-        set: {
-          role: membership.role,
-          createdAt: membership.createdAt,
-          updatedAt: membership.updatedAt,
-        },
-      })
-      .returning();
-    if (!row) throw new Error("upsert organization membership returned no row");
-    return mapOrganizationMembership(row);
-  }
-
-  async remove(organizationId: string, principalId: string): Promise<boolean> {
-    const rows = await this.db
-      .delete(schema.organizationMemberships)
-      .where(
-        and(
-          eq(schema.organizationMemberships.organizationId, organizationId),
-          eq(schema.organizationMemberships.principalId, principalId),
-        ),
-      )
-      .returning({
-        organizationId: schema.organizationMemberships.organizationId,
-      });
-    return rows.length > 0;
-  }
-
-  async listByOrganization(
-    organizationId: string,
-  ): Promise<OrganizationMembership[]> {
-    const rows = await this.db
-      .select()
-      .from(schema.organizationMemberships)
-      .where(eq(schema.organizationMemberships.organizationId, organizationId));
-    return rows.map(mapOrganizationMembership);
-  }
-
-  async listByPrincipal(
-    principalId: string,
-  ): Promise<OrganizationMembership[]> {
-    const rows = await this.db
-      .select()
-      .from(schema.organizationMemberships)
-      .where(eq(schema.organizationMemberships.principalId, principalId));
-    return rows.map(mapOrganizationMembership);
-  }
-
-  async countOwners(organizationId: string): Promise<number> {
-    const rows = await this.db
-      .select({ principalId: schema.organizationMemberships.principalId })
-      .from(schema.organizationMemberships)
-      .where(
-        and(
-          eq(schema.organizationMemberships.organizationId, organizationId),
-          eq(schema.organizationMemberships.role, "owner"),
-        ),
-      );
-    return rows.length;
-  }
-}
+export { PostgresOrganizationMembershipStore, PostgresOrganizationStore };
 
 export function createPostgresOrganizationStores(
   db: Database,

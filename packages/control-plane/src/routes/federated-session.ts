@@ -13,8 +13,14 @@ import type { AppContext } from "../context.js";
 import type { Variables } from "../middleware/context.js";
 import { deleteSecurityMapEntry } from "../repos/durable-map.js";
 import {
+  principalSessionEpoch,
+  principalSessionEpochOn,
+  withPrincipalSessionBoundary,
+} from "../repos/principal-session-boundary.js";
+import {
   removeOrphanTokens,
   revokeSessionTokens,
+  saveProvisional,
 } from "../repos/session-storage.js";
 import { serializeKeyed } from "../serialize.js";
 import { settleVerifiedOwner } from "../services/identity-principal-fence.js";
@@ -119,6 +125,7 @@ export async function adoptSession(
   ctx: AppContext,
   principalId: string,
   correlationId: string,
+  expectedEpoch: number,
 ): Promise<FederatedSessionAdoption> {
   const now = ctx.clock();
   const session: ProvisionalSession = {
@@ -137,9 +144,8 @@ export async function adoptSession(
     expiresAt: new Date(now.getTime() + ctx.config.provisionalTtlMs),
   };
   const accessToken = `pst_${randomBytes(24).toString("base64url")}`;
-  await ctx.stores.provisionalSessions.set(session.id, session);
   try {
-    await ctx.stores.provisionalTokens.set(accessToken, session.id);
+    await saveProvisional(ctx.stores, session, accessToken, expectedEpoch);
   } catch (error) {
     // A capacity refusal on the token must not leave a session nobody can
     // redeem, occupying a slot until its TTL.
@@ -183,6 +189,15 @@ export async function adoptSessionWithinCapacity(
   principalId: string,
   correlationId: string,
 ): Promise<FederatedSessionAdoption> {
+  const expectedEpoch = await withPrincipalSessionBoundary(
+    ctx.stores,
+    principalId,
+    "publish",
+    (stores, database) =>
+      database
+        ? principalSessionEpochOn(database, principalId)
+        : principalSessionEpoch(stores, principalId),
+  );
   // The SAME key the mint roads serialize on ("provisional-mint" in
   // principals.ts and interactions/handlers.ts): capacity is one shared
   // read-then-write over provisionalSessions, and two keys would let a
@@ -213,7 +228,7 @@ export async function adoptSessionWithinCapacity(
       if (!(await settleVerifiedOwner(ctx, principalId))) {
         throw new PrincipalNotActiveError();
       }
-      return adoptSession(ctx, principalId, correlationId);
+      return adoptSession(ctx, principalId, correlationId, expectedEpoch);
     },
   );
 }

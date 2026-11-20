@@ -24,6 +24,17 @@ import { resolveActiveProject } from "./projects.js";
 
 export const agentRoutes = new Hono<{ Variables: Variables }>();
 
+async function canManageAgent(
+  ctx: Variables["ctx"],
+  agent: Agent,
+  principalId: string,
+): Promise<boolean> {
+  if (agent.ownerPrincipalId !== principalId) return false;
+  if (!agent.projectId) return true;
+  const project = await ctx.stores.projects.get(agent.projectId);
+  return Boolean(project && (await roleFor(ctx, project, principalId)));
+}
+
 agentRoutes.get("/", requirePrincipal(), async (c) => {
   const ctx = c.get("ctx");
   const principal = authenticatedPrincipalId(c.get("principalId"));
@@ -33,7 +44,11 @@ agentRoutes.get("/", requirePrincipal(), async (c) => {
       : [...ctx.stores.agents.values()].filter(
           (agent) => agent.ownerPrincipalId === principal,
         );
-  return c.json({ agents });
+  const authorized = [];
+  for (const agent of agents) {
+    if (await canManageAgent(ctx, agent, principal)) authorized.push(agent);
+  }
+  return c.json({ agents: authorized });
 });
 
 const UpdateAgent = z
@@ -53,7 +68,7 @@ agentRoutes.patch("/:id", requirePrincipal(), async (c) => {
   if (!parsed.success) return c.json({ error: "validation_error" }, 400);
   return transaction(ctx.stores, principal, async (registry) => {
     const agent = await registry.agents.get(c.req.param("id"));
-    if (!agent || agent.ownerPrincipalId !== principal)
+    if (!agent || !(await canManageAgent(ctx, agent, principal)))
       return c.json({ error: "not_found" }, 404);
     if (agent.state === "revoked")
       return c.json({ error: "agent_revoked" }, 409);
@@ -228,7 +243,7 @@ agentRoutes.post(
     // `claimed` on completion, so an unfenced claim would let any caller take
     // over someone else's agent. Foreign ids answer 404, not 403: the id space
     // must not be enumerable either.
-    if (!agent || agent.ownerPrincipalId !== principalId) {
+    if (!agent || !(await canManageAgent(ctx, agent, principalId))) {
       return c.json({ error: "not_found" }, 404);
     }
     if (agent.state === "revoked" || agent.state === "suspended") {

@@ -1,12 +1,17 @@
+import { auditEventDigest } from "@opensesame/audit";
 import { type BoundaryValue, overlapCast } from "@opensesame/os-domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { resumePendingOrganizationWithdrawalAudits } from "../repos/organization-withdrawal-audit.js";
 import {
   authenticatedPrincipalId,
   ensurePersonalOrganization,
   hostApiEndpoint,
   revokeOrganizationMembership,
 } from "../routes/organizations.js";
+import { finishLegacyOrphan } from "../routes/scim-legacy-orphan.js";
+import { prepareRemovalWithdrawal } from "../services/organization-withdrawal.js";
+import { scheduleOrganizationWithdrawalRecovery } from "../services/organization-withdrawal-recovery.js";
 import {
   auth,
   createOrg,
@@ -14,9 +19,21 @@ import {
   baseTestConfig as testConfig,
   verified,
 } from "./organization-tenant-fixture.js";
+import { hostRevocationResponse } from "./scim-test-helpers.js";
 
-function mockHostFetch(impl: () => Promise<Response>) {
-  return vi.spyOn(globalThis, "fetch").mockImplementation(impl);
+function mockHostFetch(
+  impl: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
+  attest = true,
+) {
+  return vi
+    .spyOn(globalThis, "fetch")
+    .mockImplementation(async (input, init) => {
+      const response = await impl(input, init);
+      const url = input instanceof Request ? input.url : String(input);
+      if (!attest || !response.ok || !url.endsWith("/api/v1/sessions/revoke"))
+        return response;
+      return hostRevocationResponse(init);
+    });
 }
 
 afterEach(() => {
@@ -24,11 +41,204 @@ afterEach(() => {
 });
 
 describe("organization helpers", () => {
+  it("retries deferred withdrawal recovery until the pending set clears", async () => {
+    const { app, ctx } = createControlPlane({ config: testConfig() });
+    await ctx.systemPrincipalReady;
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const member = await provisional(app);
+    const outsider = await provisional(app);
+    const [plainMembership] =
+      await ctx.stores.organizationMemberships.listByPrincipal(
+        member.principalId,
+      );
+    const membership = plainMembership
+      ? await ctx.stores.organizationMemberships.findVersioned(
+          plainMembership.organizationId,
+          member.principalId,
+        )
+      : undefined;
+    if (!membership) throw new Error("Expected personal membership");
+    const prepared = await prepareRemovalWithdrawal(ctx, {
+      organizationId: membership.membership.organizationId,
+      principalId: member.principalId,
+      expectedIncarnation: membership.incarnation,
+      actorPrincipalId: ctx.systemOwnerPrincipalId,
+      actorType: "system",
+      correlationId: "host-retry",
+      reason: "scim_deactivated",
+    });
+    expect(prepared.status).toBe("ready");
+    const pendingOwnerMutation = await app.request(
+      `/v1/organizations/${membership.membership.organizationId}/members`,
+      {
+        method: "POST",
+        headers: {
+          ...auth(member.accessToken),
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          principalId: outsider.principalId,
+          role: "member",
+        }),
+      },
+    );
+    expect(pendingOwnerMutation.status).toBe(404);
+    await ctx.stores.organizationWithdrawalAudits.set("audit-retry", {
+      id: "audit-retry",
+      kind: "remove",
+      actorType: "system",
+      actorPrincipalId: ctx.systemOwnerPrincipalId,
+      organizationId: "org:audit-retry",
+      principalId: "prn_audit_retry",
+      correlationId: "audit-retry",
+      previousRole: "member",
+    });
+    const audit = vi
+      .spyOn(ctx.repos.auditEvents, "append")
+      .mockRejectedValue(new Error("audit sink unavailable"));
+    const host = mockHostFetch(() =>
+      Promise.resolve(new Response("{}", { status: 200 })),
+    );
+    const pending = vi.spyOn(
+      ctx.stores.organizationMemberships,
+      "listPendingWithdrawals",
+    );
+    let retry: (() => void) | undefined;
+    const delays: number[] = [];
+    scheduleOrganizationWithdrawalRecovery(
+      ctx,
+      Promise.resolve(),
+      () => undefined,
+      (run, delayMs) => {
+        delays.push(delayMs);
+        retry = run;
+      },
+    );
+    for (let expected = 1; expected <= 8; expected += 1) {
+      await vi.waitFor(() => expect(pending).toHaveBeenCalledTimes(expected));
+      retry?.();
+    }
+    expect(audit).toHaveBeenCalled();
+    audit.mockRestore();
+    await vi.waitFor(() => expect(pending).toHaveBeenCalledTimes(9));
+    expect(host).toHaveBeenCalledOnce();
+    expect(
+      await ctx.stores.organizationMemberships.find(
+        membership.membership.organizationId,
+        member.principalId,
+      ),
+    ).toBeUndefined();
+    expect(delays).toEqual([
+      1_000, 2_000, 4_000, 8_000, 16_000, 32_000, 60_000, 60_000, 60_000,
+    ]);
+  });
+
   it("authenticatedPrincipalId throws when the middleware contract broke", () => {
     expect(() => authenticatedPrincipalId(undefined)).toThrow(
       /invariant violated/,
     );
     expect(authenticatedPrincipalId("prn_1")).toBe("prn_1");
+  });
+
+  it("contacts Host before a legacy-orphan audit can fail", async () => {
+    const { app, ctx } = createControlPlane({ config: testConfig() });
+    const member = await provisional(app);
+    const fetchSpy = mockHostFetch(() =>
+      Promise.resolve(new Response("{}", { status: 200 })),
+    );
+    vi.spyOn(ctx.repos.auditEvents, "append").mockRejectedValueOnce(
+      new Error("audit sink unavailable"),
+    );
+
+    await expect(
+      finishLegacyOrphan(
+        ctx,
+        "org:legacy-orphan",
+        {
+          principalId: member.principalId,
+          incarnation: "00000000-0000-4000-8000-000000000010",
+          authorityRevision: "00000000-0000-4000-8000-000000000011",
+          withdrawalId: "00000000-0000-4000-8000-000000000012",
+        },
+        "legacy-orphan-audit",
+      ),
+    ).rejects.toThrow("audit sink unavailable");
+    expect(fetchSpy).toHaveBeenCalledOnce();
+  });
+
+  it("does not remove a membership recreated before legacy-orphan recovery", async () => {
+    const { app, ctx } = createControlPlane({ config: testConfig() });
+    const member = await provisional(app);
+    const organizationId = "org:legacy-orphan-recreated";
+    const now = ctx.clock();
+    await ctx.stores.organizationMemberships.upsert({
+      organizationId,
+      principalId: member.principalId,
+      role: "member",
+      createdAt: now,
+      updatedAt: now,
+    });
+    const host = mockHostFetch(() =>
+      Promise.resolve(new Response("{}", { status: 200 })),
+    );
+
+    await finishLegacyOrphan(
+      ctx,
+      organizationId,
+      {
+        principalId: member.principalId,
+        incarnation: "00000000-0000-4000-8000-000000000020",
+        authorityRevision: "00000000-0000-4000-8000-000000000021",
+        withdrawalId: "00000000-0000-4000-8000-000000000022",
+      },
+      "legacy-orphan-recreated",
+    );
+    expect(
+      await ctx.stores.organizationMemberships.find(
+        organizationId,
+        member.principalId,
+      ),
+    ).toBeDefined();
+    expect(host).not.toHaveBeenCalled();
+  });
+
+  it("retains an audit intent when its apparent event is detached", async () => {
+    const { ctx } = createControlPlane({ config: testConfig() });
+    const id = "00000000-0000-4000-8000-000000000013";
+    await ctx.stores.organizationWithdrawalAudits.set(id, {
+      id,
+      kind: "remove",
+      actorType: "system",
+      actorPrincipalId: ctx.systemOwnerPrincipalId,
+      organizationId: "org:detached-audit",
+      principalId: "prn_detached_audit",
+      correlationId: "detached-audit",
+      previousRole: "member",
+    });
+    const previousDigest = "a".repeat(64);
+    const detached = overlapCast({
+      id: `organization-withdrawal:${id}`,
+      occurredAt: new Date(),
+      eventType: "organization.member_removed",
+      outcome: "succeeded",
+      actorType: "system",
+      principalId: ctx.systemOwnerPrincipalId,
+      organizationId: "org:detached-audit",
+      correlationId: "detached-audit",
+      metadata: {
+        action: "organization.member.remove",
+        targetId: "prn_detached_audit",
+        fromState: "member",
+      },
+      previousDigest,
+    });
+    detached.digest = auditEventDigest(detached, previousDigest);
+    vi.spyOn(ctx.repos.auditEvents, "getById").mockResolvedValue(detached);
+
+    await expect(
+      resumePendingOrganizationWithdrawalAudits(ctx),
+    ).rejects.toThrow("Conflicting organization withdrawal audit event");
+    expect(await ctx.stores.organizationWithdrawalAudits.get(id)).toBeDefined();
   });
 
   it("hostApiEndpoint rejects non-HTTP, credentialed, and invalid URLs", () => {
@@ -56,10 +266,7 @@ describe("organization helpers", () => {
     );
   });
 
-  it("revokeOrganizationMembership drops the row and every session it authorized", async () => {
-    // The shared deprovisioning helper: SCIM deactivation and an LDAP sync
-    // both land here, and a revocation that removed the membership but left
-    // live bearers behind would leave the user signed in regardless.
+  it("revokeOrganizationMembership drops organization authority without global logout", async () => {
     const { app, ctx } = createControlPlane({ config: testConfig() });
     const member = await provisional(app);
     const membership = await ensurePersonalOrganization(
@@ -77,9 +284,41 @@ describe("organization helpers", () => {
       principalId: member.principalId,
       correlationId: "corr-revoke",
       reason: "deprovisioned",
+      withdrawalAudit: {
+        id: "00000000-0000-4000-8000-000000000001",
+        kind: "remove",
+        actorType: "system",
+        actorPrincipalId: ctx.systemOwnerPrincipalId,
+        organizationId: membership.organizationId,
+        principalId: member.principalId,
+        correlationId: "corr-revoke",
+        previousRole: membership.role,
+      },
     });
     expect(result.membershipRemoved).toBe(true);
-    expect(result.sessionsRevoked).toBeGreaterThan(0);
+    expect(
+      await ctx.stores.organizationWithdrawalAudits.get(
+        "00000000-0000-4000-8000-000000000001",
+      ),
+    ).toBeDefined();
+    const auditFailure = vi
+      .spyOn(ctx.repos.auditEvents, "append")
+      .mockRejectedValueOnce(new Error("audit store unavailable"));
+    await expect(
+      resumePendingOrganizationWithdrawalAudits(ctx),
+    ).rejects.toThrow("audit store unavailable");
+    expect(
+      await ctx.stores.organizationWithdrawalAudits.get(
+        "00000000-0000-4000-8000-000000000001",
+      ),
+    ).toBeDefined();
+    auditFailure.mockRestore();
+    await resumePendingOrganizationWithdrawalAudits(ctx);
+    expect(
+      await ctx.stores.organizationWithdrawalAudits.get(
+        "00000000-0000-4000-8000-000000000001",
+      ),
+    ).toBeUndefined();
 
     expect(
       await ctx.stores.organizationMemberships.find(
@@ -90,7 +329,7 @@ describe("organization helpers", () => {
     const after = await app.request("/v1/principals/me", {
       headers: auth(member.accessToken),
     });
-    expect(after.status).toBe(401);
+    expect(after.status).toBe(200);
 
     // Directory sync may replay a departure; revocation is idempotent.
     const again = await revokeOrganizationMembership(ctx, {
@@ -100,7 +339,6 @@ describe("organization helpers", () => {
       reason: "deprovisioned",
     });
     expect(again.membershipRemoved).toBe(false);
-    expect(again.sessionsRevoked).toBe(0);
   });
 });
 
@@ -501,7 +739,16 @@ describe("organizations routes edge cases", () => {
       ).status,
     ).toBe(200);
 
-    fetchSpy.mockResolvedValue(new Response("{}", { status: 200 }));
+    fetchSpy.mockResolvedValue(new Response('{"revoked":1}', { status: 200 }));
+    const legacy = await remove(owner.accessToken, member.principalId);
+    expect(legacy.status).toBe(502);
+    expect(overlapCast(await legacy.json()).error).toBe(
+      "session_revocation_failed",
+    );
+
+    fetchSpy.mockImplementation(async (_input, init) =>
+      hostRevocationResponse(init),
+    );
     expect((await remove(owner.accessToken, member.principalId)).status).toBe(
       204,
     );
@@ -509,175 +756,5 @@ describe("organizations routes edge cases", () => {
       headers: auth(owner.accessToken),
     });
     expect(overlapCast(await after.json()).members).toHaveLength(1);
-  });
-});
-
-describe("device approve edge cases", () => {
-  it("requires a configured operator token", async () => {
-    const { app } = createControlPlane({
-      config: { ...testConfig(), operatorToken: "" },
-    });
-    const created = await provisional(app);
-    const res = await app.request("/v1/device/approve", {
-      method: "POST",
-      headers: {
-        ...auth(created.accessToken),
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ user_code: "ABCD-EFGH" }),
-    });
-    expect(res.status).toBe(503);
-    expect(overlapCast(await res.json()).error).toBe(
-      "operator_token_unconfigured",
-    );
-  });
-
-  it("requires a user_code in a JSON object body", async () => {
-    const { app } = createControlPlane({ config: testConfig() });
-    const created = await provisional(app);
-
-    const notJson = await app.request("/v1/device/approve", {
-      method: "POST",
-      headers: {
-        ...auth(created.accessToken),
-        "content-type": "application/json",
-      },
-      body: "not json at all{",
-    });
-    expect(notJson.status).toBe(400);
-
-    const missing = await app.request("/v1/device/approve", {
-      method: "POST",
-      headers: {
-        ...auth(created.accessToken),
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ user_code: "   " }),
-    });
-    expect(missing.status).toBe(400);
-    expect(overlapCast(await missing.json()).error).toBe("invalid_request");
-  });
-
-  it("requires disambiguation when the principal holds several memberships", async () => {
-    const { app } = createControlPlane({ config: testConfig() });
-    const owner = await verified(app, "device-multi-org");
-    // Personal workspace plus one created organization.
-    expect((await createOrg(app, owner.accessToken, "second-org")).status).toBe(
-      201,
-    );
-
-    const res = await app.request("/v1/device/approve", {
-      method: "POST",
-      headers: {
-        ...auth(owner.accessToken),
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({ user_code: "ABCD-EFGH" }),
-    });
-    expect(res.status).toBe(400);
-    expect(overlapCast(await res.json()).error).toBe(
-      "organization_id_required",
-    );
-  });
-
-  it("denies approval into organizations the caller cannot use", async () => {
-    const { app, ctx } = createControlPlane({ config: testConfig() });
-    const owner = await verified(app, "device-deny-owner");
-    const other = await verified(app, "device-deny-other");
-    const foreignOrg = overlapCast(
-      await (await createOrg(app, other.accessToken, "foreign-org")).json(),
-    );
-
-    // Not a member.
-    const notMember = await app.request("/v1/device/approve", {
-      method: "POST",
-      headers: {
-        ...auth(owner.accessToken),
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        user_code: "ABCD-EFGH",
-        organization_id: foreignOrg.id,
-      }),
-    });
-    expect(notMember.status).toBe(403);
-    expect(overlapCast(await notMember.json()).error).toBe(
-      "organization_access_denied",
-    );
-
-    // A suspended organization denies even its owner.
-    const stored = await ctx.stores.organizations.get(foreignOrg.id);
-    if (!stored) throw new Error("org missing");
-    await ctx.stores.organizations.set(foreignOrg.id, {
-      ...stored,
-      state: "suspended",
-    });
-    const suspendedOrg = await app.request("/v1/device/approve", {
-      method: "POST",
-      headers: {
-        ...auth(other.accessToken),
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        user_code: "ABCD-EFGH",
-        organization_id: foreignOrg.id,
-      }),
-    });
-    expect(suspendedOrg.status).toBe(403);
-  });
-
-  it("maps Host failures to statuses and keeps the operator token server-side", async () => {
-    const { app } = createControlPlane({ config: testConfig() });
-    // A fresh principal per probe: the per-principal device throttle is
-    // deliberately lower than the Host's deployment-global failure fence.
-    const approve = async () => {
-      const owner = await provisional(app);
-      return app.request("/v1/device/approve", {
-        method: "POST",
-        headers: {
-          ...auth(owner.accessToken),
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({ user_code: "ABCD-EFGH" }),
-      });
-    };
-
-    const fetchSpy = mockHostFetch(() =>
-      Promise.resolve(new Response("gone", { status: 404 })),
-    );
-    const notFound = await approve();
-    expect(notFound.status).toBe(404);
-    expect(overlapCast(await notFound.json()).error).toBe(
-      "host_approval_failed",
-    );
-    fetchSpy.mockResolvedValue(new Response("boom", { status: 500 }));
-    const badGateway = await approve();
-    expect(badGateway.status).toBe(502);
-    expect(overlapCast(await badGateway.json()).error).toBe(
-      "host_approval_failed",
-    );
-
-    fetchSpy.mockRejectedValue(new Error("connection refused"));
-    const unreachable = await approve();
-    expect(unreachable.status).toBe(502);
-    expect(overlapCast(await unreachable.json()).error).toBe(
-      "host_api_unreachable",
-    );
-
-    // Host bodies are never consumed or reflected, including secret-shaped text.
-    fetchSpy.mockResolvedValue(
-      new Response("secret-sentinel", { status: 200 }),
-    );
-    const plain = await approve();
-    expect(plain.status).toBe(200);
-    expect(await plain.json()).toEqual({ ok: true, status: 200 });
-  });
-
-  it("fails closed when the Host API URL is not a plain HTTP(S) base", async () => {
-    expect(() =>
-      createControlPlane({
-        config: { ...testConfig(), hostApiUrl: "ftp://host.example" },
-      }),
-    ).toThrow(/Invalid deployment endpoint/);
   });
 });

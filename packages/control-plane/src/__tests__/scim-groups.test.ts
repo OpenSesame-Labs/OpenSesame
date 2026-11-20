@@ -3,19 +3,20 @@ import {
   startReferenceIdp,
 } from "@opensesame/mock-upstream-idp/testkit";
 import { overlapCast } from "@opensesame/os-domain";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { provisionedRoleForSubject } from "../routes/scim.js";
 import {
   memberIds,
   parseMemberSelector,
   resolveMemberIds,
 } from "../routes/scim-member-selector.js";
-import { provisionedRoleForSubject } from "../routes/scim.js";
 import { putGroupRoleMappingAsOwner } from "./org-owner-fixture.js";
 import {
   DEFAULT_IDP_SUBJECT,
   PAGES_ORIGIN,
   groupsPath,
+  installHostRevocationMock,
   joinTenant,
   mintOrgIdToken,
   mintScimToken,
@@ -28,13 +29,22 @@ import {
 } from "./scim-test-helpers.js";
 
 let idp: ReferenceIdp;
+let restoreHost: () => void;
+let hostStatus = 200;
 
 beforeAll(async () => {
   idp = await startReferenceIdp();
+  const mock = installHostRevocationMock(() => hostStatus);
+  restoreHost = () => mock.mockRestore();
 }, 30_000);
 
 afterAll(async () => {
+  restoreHost();
   await idp.close();
+});
+
+afterEach(() => {
+  hostStatus = 200;
 });
 
 describe("SCIM member selector", () => {
@@ -76,6 +86,46 @@ describe("SCIM member selector", () => {
 });
 
 describe("SCIM Groups persistence", () => {
+  it("retries a Host-failed role withdrawal without losing its durable fence", async () => {
+    const { app, ctx } = createControlPlane({ config: testConfig(idp.issuer) });
+    const { owner, org } = await seedTenant(app, ctx, "role-retry", idp);
+    const { token } = await mintScimToken(app, org.id, owner.accessToken);
+    const { idToken, subject } = await mintOrgIdToken(idp, PAGES_ORIGIN);
+    await putGroupRoleMappingAsOwner(ctx, org.id, "admins", "admin");
+    const created = await provisionUser(app, org.id, token, {
+      userName: "retry@example.test",
+      externalId: subject,
+    });
+    const guest = await provisional(app);
+    expect(
+      (await joinTenant(app, "role-retry", guest.accessToken, idToken)).status,
+    ).toBe(201);
+    const patch = [
+      { op: "add", path: "members", value: [{ value: created.body.id }] },
+    ];
+    hostStatus = 503;
+    expect(
+      (await patchScim(app, groupsPath(org.id, "admins"), token, patch)).status,
+    ).toBe(500);
+    const fenced = await ctx.stores.organizationMemberships.findVersioned(
+      org.id,
+      guest.principalId,
+    );
+    expect(fenced?.membership.role).toBe("member");
+    expect(fenced?.withdrawal?.kind).toBe("change_role");
+
+    hostStatus = 200;
+    expect(
+      (await patchScim(app, groupsPath(org.id, "admins"), token, patch)).status,
+    ).toBe(200);
+    const completed = await ctx.stores.organizationMemberships.findVersioned(
+      org.id,
+      guest.principalId,
+    );
+    expect(completed?.membership.role).toBe("admin");
+    expect(completed?.withdrawal).toBeUndefined();
+  }, 30_000);
+
   it("ADV-20: selector-only members[value eq id] remove drops membership and privilege", async () => {
     const { app, ctx } = createControlPlane({ config: testConfig(idp.issuer) });
     const { owner, org } = await seedTenant(app, ctx, "adv20-org", idp);

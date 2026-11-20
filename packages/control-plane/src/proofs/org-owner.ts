@@ -13,11 +13,27 @@
  */
 
 import { type Named, type Proof, defineProof } from "@gdp-ts/core";
-import type { Organization } from "@opensesame/os-domain";
+import type {
+  Organization,
+  OrganizationMembership,
+} from "@opensesame/os-domain";
 import type { ActorId, OrganizationId } from "../lib/ids.js";
 import type { AppStores } from "../state.js";
 
 const OrgOwner = defineProof("OrgOwner");
+
+/** Membership authority excludes rows already fenced for withdrawal. */
+export async function authorizedOrganizationMembership(
+  stores: Pick<AppStores, "organizationMemberships">,
+  organizationId: string,
+  principalId: string,
+): Promise<OrganizationMembership | undefined> {
+  const versioned = await stores.organizationMemberships.findVersioned(
+    organizationId,
+    principalId,
+  );
+  return versioned?.withdrawalId ? undefined : versioned?.membership;
+}
 export interface OrgOwner<A, O> extends Proof<"OrgOwner", [A, O]> {}
 
 /**
@@ -52,7 +68,11 @@ export async function orgOwner<A, O>(
 ): Promise<OrgOwnerVerdict<A, O>> {
   const organization = await stores.organizations.get(org.value);
   const membership = organization
-    ? await stores.organizationMemberships.find(organization.id, actor.value)
+    ? await authorizedOrganizationMembership(
+        stores,
+        organization.id,
+        actor.value,
+      )
     : undefined;
   const live =
     organization !== undefined &&
