@@ -57,15 +57,15 @@
     },
     {
       "path": "crates/spiffe-source/tests/withdrawal_policy.rs",
-      "sha256": "e18449ec754b142b00d4ed82e198d1d477b8c8ccfeefc70061f06a03cb33e1ec",
+      "sha256": "1c96ff5ed77b2c37d9eee35a23113ee0062e9fd66b51d9e22baff2850163f9c0",
       "base_blob": null,
-      "reviewed_blob": "fc09cafe098f03621108918a60cced0714c354cf"
+      "reviewed_blob": "76a1eba42cf48952817d9629bd0ed41a5865373b"
     },
     {
       "path": "crates/spiffe-source/tests/outage_policy.rs",
-      "sha256": "f72244eca0af4891c2ce98a8086042c1f6afd1895b1c48023f671bc45e8c1ce2",
+      "sha256": "d96616e9d7c75e4a5834af3428358645608e9b8ec187b01b23bb6c23e73aa1d5",
       "base_blob": null,
-      "reviewed_blob": "3cef9e1147bd92c7d94db0ebd8f5c61ad3f73a50"
+      "reviewed_blob": "0db8a4e3a585eff4e52830b3da57669bdb2ab652"
     },
     {
       "path": "crates/spiffe-source/tests/trust_reduction_policy.rs",
@@ -129,9 +129,9 @@
     },
     {
       "path": "crates/spiffe-source/tests/production_sink_policy.rs",
-      "sha256": "4706f39803c67b5a2e32652b5cd71b3cdf3a9649e93c5381924187ea8956c4f6",
+      "sha256": "8cbdac8519fce49acbaa04f744e4fb616beb397122c0c892fa9fe41267803f79",
       "base_blob": null,
-      "reviewed_blob": "ac2ea26153716dc27446eecfbe7a6282c94ca584"
+      "reviewed_blob": "49285730b19946747c0e0c97c8b4fdc4a23381ee"
     }
   ]
 }
