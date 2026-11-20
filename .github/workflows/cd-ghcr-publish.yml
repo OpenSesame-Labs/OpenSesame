@@ -4,7 +4,7 @@
 # Restore publication only through qualified digest-bound OCI promotion and a
 # separately protected container-release credential and registry package ACL.
 # schedule runs on default branch only, proof-only (publication-disabled), no registry push.
-# The cron refreshes ghcr-opensesame-amd64 before the 7-day GitHub Actions cache TTL.
+# The cron refreshes ghcr-opensesame-amd64-musl before the 7-day GitHub Actions cache TTL.
 name: GHCR image build proof
 
 on:
@@ -113,8 +113,11 @@ jobs:
             /tsconfig.base.json
             /.env.schema
             /.dockerignore
+            /.cargo/config.toml
       - name: Install Linux keychain build dependencies
         run: bash scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"
+      - name: Install musl toolchain
+        run: bash scripts/ci/prepare-musl.sh "$RUNNER_TEMP/opensesame-musl"
       - name: Restore mise tool cache
         uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -129,17 +132,18 @@ jobs:
       # rust-cache v2 joins `workspaces` `$target` onto the workspace root, so
       # the target is the relative path from $GITHUB_WORKSPACE
       # ($HOME/work/<owner>/<repo>) to that directory.
-      # Save ghcr-opensesame-amd64 only on main, and only for push,
+      # Save ghcr-opensesame-amd64-musl only on main, and only for push,
       # workflow_dispatch, and schedule. A branch workflow_dispatch restores
       # the key and does not save, so it cannot replace the shared blob.
       # cache-on-failure saves this shared key when the build fails.
       # cache-all-crates keeps dependency crates. The schedule refreshes the
-      # key before the 7-day GitHub Actions cache TTL.
+      # key before the 7-day GitHub Actions cache TTL. The musl suffix drops
+      # the previous gnu target cache; those objects do not build this triple.
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         id: rust-cache-ghcr
         with:
           prefix-key: v0-rust
-          shared-key: ghcr-opensesame-amd64
+          shared-key: ghcr-opensesame-amd64-musl
           cache-all-crates: true
           cache-on-failure: true
           save-if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule') }}
@@ -149,103 +153,31 @@ jobs:
           CACHE_NAME: rust-ghcr
           CACHE_HIT: ${{ steps.rust-cache-ghcr.outputs.cache-hit }}
           CACHE_MATCHED_KEY: ${{ steps.rust-cache-ghcr.outputs.cache-primary-key }}
-          CACHE_PRIMARY_KEY: v0-rust-ghcr-opensesame-amd64
+          CACHE_PRIMARY_KEY: v0-rust-ghcr-opensesame-amd64-musl
           CACHE_PRIMARY_IS_PREFIX: "true"
-          MAIN_SEED_PREFIX: v0-rust-ghcr-opensesame-amd64-
+          MAIN_SEED_PREFIX: v0-rust-ghcr-opensesame-amd64-musl-
         run: |
           export CACHE_PROBE_DIR="${HOME}/.cargo/registry/cache"
           node scripts/lib/ci-cache-seed.mjs
-      # Hosted Ubuntu provides clang. mold is not on the image. Fetch whichever
-      # is missing into the runner temp, without changing system packages.
-      - name: Install mold and clang
-        run: |
-          set -euo pipefail
-          if command -v mold >/dev/null && command -v clang >/dev/null; then
-            ld_mold=$(command -v ld.mold)
-            ldd "$ld_mold" >/dev/null
-            "$ld_mold" --version >/dev/null
-            exit 0
-          fi
-          link_root="${RUNNER_TEMP}/opensesame-link"
-          mkdir -p "$link_root"/{lists/partial,cache/archives/partial,conf.d,log,packages,sysroot,bin}
-          printf 'Dir::Etc::parts "%s/conf.d";\n#clear APT::Update::Post-Invoke;\n#clear APT::Update::Post-Invoke-Success;\n' \
-            "$link_root" > "$link_root/apt.conf"
-          apt_options=(
-            -c "$link_root/apt.conf"
-            -o "Dir::State::lists=$link_root/lists"
-            -o "Dir::Cache=$link_root/cache"
-            -o "Dir::Cache::archives=$link_root/packages"
-            -o "Dir::Log=$link_root/log"
-            -o "Dir::Etc::parts=$link_root/conf.d"
-            -o "APT::Sandbox::User=$(id -un)"
-            -o "Debug::NoLocking=1"
-            -o "APT::Get::Download-Only=true"
-            -o "APT::Get::AllowUnauthenticated=false"
-            -o "Acquire::AllowInsecureRepositories=false"
-          )
-          missing=()
-          command -v mold >/dev/null || missing+=(mold)
-          command -v clang >/dev/null || missing+=(clang)
-          APT_CONFIG="$link_root/apt.conf" apt-get "${apt_options[@]}" update
-          APT_CONFIG="$link_root/apt.conf" apt-get "${apt_options[@]}" install -y --no-install-recommends "${missing[@]}"
-          for archive in "$link_root/packages/"*.deb; do
-            dpkg-deb --extract "$archive" "$link_root/sysroot"
-          done
-          for tool in mold ld.mold clang; do
-            if [[ -e "$link_root/sysroot/usr/bin/$tool" ]]; then
-              cp -a "$link_root/sysroot/usr/bin/$tool" "$link_root/bin/"
-            fi
-          done
-          for extra in "$link_root/sysroot/usr/bin"/clang-*; do
-            [[ -e "$extra" ]] || continue
-            cp -a "$extra" "$link_root/bin/"
-          done
-          # Apt mold links libmimalloc from the extracted debs. Export those
-          # directories whenever the linker was copied, even if clang is present.
-          if [[ -e "$link_root/bin/ld.mold" || -e "$link_root/bin/mold" ]] || ! command -v clang >/dev/null; then
-            lib_dirs=()
-            for dir in "$link_root/sysroot/usr/lib/"* "$link_root/sysroot/lib/"*; do
-              [[ -d "$dir" ]] || continue
-              lib_dirs+=("$dir")
-            done
-            if ((${#lib_dirs[@]} > 0)); then
-              joined=$(IFS=:; echo "${lib_dirs[*]}")
-              echo "LD_LIBRARY_PATH=${joined}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" >> "$GITHUB_ENV"
-              export LD_LIBRARY_PATH="${joined}${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-            fi
-          fi
-          if compgen -G "$link_root/bin/*" >/dev/null; then
-            echo "$link_root/bin" >> "$GITHUB_PATH"
-          fi
-          if command -v mold >/dev/null; then
-            command -v ld.mold >/dev/null
-            ldd "$(command -v ld.mold)" >/dev/null
-            ld.mold --version >/dev/null
-          else
-            test -x "$link_root/bin/mold"
-            test -e "$link_root/bin/ld.mold"
-            ldd "$link_root/bin/ld.mold" >/dev/null
-            "$link_root/bin/ld.mold" --version >/dev/null
-          fi
-          if ! command -v clang >/dev/null; then
-            test -e "$link_root/bin/clang"
-          fi
+      # Alpine runs this binary. mold links the gnu target only and breaks
+      # musl-gcc. prepare-musl.sh puts musl-gcc on PATH for this step.
       - name: Build opensesame release binary
         env:
           CARGO_INCREMENTAL: "0"
           CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
           CARGO_PROFILE_RELEASE_DEBUG: "0"
           CARGO_PROFILE_RELEASE_STRIP: symbols
-          RUSTFLAGS: "-C link-arg=-fuse-ld=mold"
         run: |
           source "$RUNNER_TEMP/opensesame-dbus/env.sh"
-          cargo build --release --locked -p opensesame-cli --bin opensesame
-      # mise.toml CARGO_TARGET_DIR is outside the workspace. Upload that
+          source "$RUNNER_TEMP/opensesame-musl/env.sh"
+          rustup target add x86_64-unknown-linux-musl
+          cargo build --release --locked -p opensesame-cli --bin opensesame --target x86_64-unknown-linux-musl
+      # mise.toml CARGO_TARGET_DIR is outside the workspace. Upload the musl
       # release binary. rust-cache above restores the same directory.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: opensesame-amd64-binary
-          path: ${{ env.CARGO_TARGET_DIR }}/release/opensesame
+          path: ${{ env.CARGO_TARGET_DIR }}/x86_64-unknown-linux-musl/release/opensesame
           if-no-files-found: error
           retention-days: 1
           compression-level: 0
