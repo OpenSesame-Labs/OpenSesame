@@ -116,7 +116,10 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
         id,
         check,
       );
-      check(existsSync(applied.picker), `${label}/${id} setup-profile-picker.png`);
+      check(
+        existsSync(applied.picker),
+        `${label}/${id} setup-profile-picker.png`,
+      );
       profileMarkerKeys.push(applied.markerKey);
       records.push({
         build: label,
@@ -136,7 +139,10 @@ async function runBuild(browser, { label, dist, expectAdvanced, tutorial }) {
   );
   for (const id of PROFILES) {
     const applied = path.join(outRoot, label, id, "setup-profile-applied.png");
-    check(existsSync(applied), `${label}/${id} setup-profile-applied.png on disk`);
+    check(
+      existsSync(applied),
+      `${label}/${id} setup-profile-applied.png on disk`,
+    );
   }
   if (expectAdvanced) {
     const warnDir = profileDir(outRoot, label, "minimal");
