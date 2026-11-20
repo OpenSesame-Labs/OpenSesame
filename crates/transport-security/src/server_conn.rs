@@ -6,6 +6,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::Router;
+use opensesame_time::{DateTime, Utc};
 use hyper::body::Incoming;
 use hyper::Request;
 use hyper_util::rt::{TokioExecutor, TokioIo, TokioTimer};
@@ -13,7 +14,6 @@ use hyper_util::server::conn::auto::Builder;
 use hyper_util::server::graceful::Watcher;
 use opensesame_domain::transport::attest::AttestedPeer;
 use opensesame_domain::transport::{EvidenceSource, TlsVersion, TransportError, VerifiedPeer};
-use opensesame_time::{DateTime, Utc};
 use rustls::server::ServerConnection;
 use rustls::ProtocolVersion;
 use tokio::net::TcpStream;
@@ -63,6 +63,9 @@ async fn handshake(
         .await
         .map_err(|_| malformed("handshake timed out"))?
         .map_err(|e| classify_io_error(&e))?;
+    // The prepared acceptor may have become stale while the handshake was
+    // in flight. Do not publish peer evidence for a retired source epoch.
+    generations.checked_current(Some(prepared.number))?;
     let (_, connection) = accepted.get_ref();
     if matches!(
         connection.handshake_kind(),

@@ -9,9 +9,8 @@
 //! maps `Denied` to immediate generation withdrawal, using
 //! [`TransportError::IdentityMissing`] and the denial's status code. ADR 0227
 //! requires generation withdrawal when material-RPC returns `PERMISSION_DENIED`
-//! or `UNAUTHENTICATED`; the classifier maps those to [`ApiAction::Denied`].
-//! [`ApiAction::Outage`] alone retains the generation across transport failures;
-//! it is not the same control as [`ApiAction::Withdraw`].
+//! or `UNAUTHENTICATED`; the classifier maps those to [`ApiAction::Denied`], not
+//! the outage [`ApiAction::Withdraw`] path.
 //!
 //! The `spiffe` 0.19 SDK (`WorkloadApiError::from_status`) is what splits a
 //! gRPC `PERMISSION_DENIED` whose message contains the SPIRE phrase

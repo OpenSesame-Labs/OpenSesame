@@ -12,10 +12,11 @@ case "${model##*/}" in
   AuthPolicy.lean) suite=auth; required_count=19 ;;
   Authority.lean) suite=authority; required_count=10 ;;
   ReplayPolicy.lean) suite=dpop; required_count=10 ;;
+  SpiffePolicy.lean) suite=spiffe; required_count=21 ;;
   PendingIntegrity.lean) suite=oauth; required_count=14 ;;
   ApprovalBinding.lean) suite=webauthn; required_count=12 ;;
   InteractionClock.lean) suite=interaction-clock; required_count=9 ;;
-  SpiffePolicy.lean) suite=spiffe; required_count=21 ;;
+  SourceLifetime.lean) suite=source-lifetime; required_count=12 ;;
   *) echo "unknown formal model: $model" >&2; exit 1 ;;
 esac
 obligations="$root/spec/formal/$suite/required-theorems.lean"
