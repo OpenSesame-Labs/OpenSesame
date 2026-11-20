@@ -159,7 +159,7 @@
     },
     {
       "path": "crates/spiffe-source/tests/trust_reduction_policy.rs",
-      "sha256": "19c7769575027c1c404e2cb8a41c394c72a1600b8c1cc7593c5accec5c4e7531"
+      "sha256": "b068ce6670d5e660bbe5c1bef5f4a290f04ff57b21bf22aa69d4ae43185d94a2"
     },
     {
       "path": "crates/spiffe-source/tests/support/policy.rs",
