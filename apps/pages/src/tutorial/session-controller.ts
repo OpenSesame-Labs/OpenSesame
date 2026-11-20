@@ -22,6 +22,7 @@ export function createSupportController(
     set: (patch) => core.set(patch),
     view: () => core.state,
     ensureEngine: () => core.ensureEngine(),
+    loadGeneration: () => core.generation,
     engine: () => core.engine,
     cancelled: {
       get: () => core.cancelled,

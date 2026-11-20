@@ -19,11 +19,7 @@ import {
 } from "./session-queued-resume.js";
 import { emptyView } from "./session-view.js";
 import { queueTourExit } from "./tutorial-exit.js";
-import {
-  GUIDE_ERROR_TEXT,
-  SUPPORT_ERROR_TEXT,
-  UNEXPECTED_TEXT,
-} from "./ui/messages.js";
+import { GUIDE_ERROR_TEXT, UNEXPECTED_TEXT } from "./ui/messages.js";
 
 export type SupportAskBinding = {
   ask: (question: string) => Promise<void>;
@@ -42,6 +38,8 @@ export class SupportControllerCore {
   navigator: ((route: GuideRouteId) => boolean) | null = null;
   pendingQueuedResume: PendingQueuedResume | null = null;
   queuedResumeLoading = false;
+  /** Set for the whole of one `startGuide`, including its engine load. */
+  guideStartPending = false;
   unbindResume: (() => void) | null = null;
   entries = 0;
   cancelled = false;
@@ -233,22 +231,36 @@ export class SupportControllerCore {
     source: string,
     origin: GuideOrigin = "model",
   ): Promise<void> {
-    if (guideSnapshotActive(this.state.guide) || this.queuedResumeLoading)
-      return;
-    const loaded = await this.ensureEngine();
-    if (!loaded) {
-      this.notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
-      return;
-    }
-    const program =
-      origin === "authored"
-        ? loaded.compileAuthored(source)
-        : loaded.compile(source);
-    if (!program) {
-      this.notifyFailure(GUIDE_ERROR_TEXT.GUIDE_VALIDATION_ERROR);
+    if (
+      guideSnapshotActive(this.state.guide) ||
+      this.queuedResumeLoading ||
+      this.guideStartPending
+    ) {
       return;
     }
-    await this.runProgram(program, origin);
+    const era = this.generation;
+    this.guideStartPending = true;
+    try {
+      const loaded = await this.ensureEngine();
+      if (era !== this.generation) return;
+      if (guideSnapshotActive(this.state.guide) || this.queuedResumeLoading) {
+        return;
+      }
+      // A rejected load already posted UNEXPECTED_TEXT. A generation bump
+      // is silent. Neither is "nothing is available".
+      if (!loaded) return;
+      const program =
+        origin === "authored"
+          ? loaded.compileAuthored(source)
+          : loaded.compile(source);
+      if (!program) {
+        this.notifyFailure(GUIDE_ERROR_TEXT.GUIDE_VALIDATION_ERROR);
+        return;
+      }
+      await this.runProgram(program, origin);
+    } finally {
+      if (era === this.generation) this.guideStartPending = false;
+    }
   }
 
   clearSessionForLock(): void {
@@ -264,6 +276,7 @@ export class SupportControllerCore {
     this.dependencies.clearTargets();
     this.pendingQueuedResume = null;
     this.queuedResumeLoading = false;
+    this.guideStartPending = false;
     this.state = emptyView(this.state.route);
     this.emit();
   }
