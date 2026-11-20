@@ -69,6 +69,29 @@ const wirePendingSchema = pendingFederatedAuthSchema
     },
   );
 
+const WIRE_COOKIE_FIELDS = new Set([
+  "issuer",
+  "state",
+  "nonce",
+  "verifier",
+  "verifierEnc",
+  "kind",
+  "providerId",
+  "byoId",
+  "orgId",
+]);
+
+function wireCookieHasOnlyKnownFields(
+  parsed: unknown,
+): parsed is z.infer<typeof wirePendingSchema> {
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return false;
+  }
+  return Reflect.ownKeys(parsed).every(
+    (key) => typeof key === "string" && WIRE_COOKIE_FIELDS.has(key),
+  );
+}
+
 const SCRYPT_PARAMS = {
   N: 32768,
   r: 8,
@@ -392,6 +415,7 @@ function verifiedPendingPayload(
     const parsed: unknown = JSON.parse(
       Buffer.from(payload, "base64url").toString("utf8"),
     );
+    if (!wireCookieHasOnlyKnownFields(parsed)) return undefined;
     const macResult = wirePendingSchema.safeParse(parsed);
     if (!macResult.success) return undefined;
     data = macResult.data;
@@ -467,6 +491,8 @@ export function decodePending(
     const parsed: unknown = JSON.parse(
       Buffer.from(payload, "base64url").toString("utf8"),
     );
+    if (secret !== undefined && !wireCookieHasOnlyKnownFields(parsed))
+      return undefined;
     const result = wirePendingSchema.safeParse(parsed);
     if (!result.success) return undefined;
     const data = result.data;
