@@ -366,11 +366,9 @@ test3(
               *[Symbol.iterator]() {
                 yield ["**", "..", "a", "b"];
               },
-              push() {
-                throw new Error("NaN bypassed the glob-part bound");
-              },
+              push() {},
             }),
-          /NaN bypassed the glob-part bound/,
+          /too many patterns/,
         );
         assert3.equal(
           minimatch
