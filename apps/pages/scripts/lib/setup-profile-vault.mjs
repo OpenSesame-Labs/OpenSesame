@@ -33,7 +33,7 @@ async function shotFrame(page, file) {
   await frame.screenshot({ path: file, animations: "disabled" });
 }
 
-async function confirmMinimal(page, dir) {
+async function confirmMinimal(page, dir, check, required) {
   await page.waitForTimeout(400);
   const anyway = page.getByRole("button", { name: "Use Minimal anyway" });
   try {
@@ -59,7 +59,8 @@ async function confirmMinimal(page, dir) {
       await anyway.first().waitFor({ state: "visible", timeout: 4_000 });
       await anyway.first().click();
     } catch {
-      // Main-line builds may commit Minimal without the extra confirm step.
+      // Main commits Minimal with no confirm. The advanced road must show it.
+      check(!required, "Use Minimal anyway offered before Minimal commit");
     }
   }
 }
@@ -257,8 +258,20 @@ async function commitSetupRoadChoice(page, profileId, check, dir) {
         : profileId === "custom"
           ? "Custom"
           : "Full";
+  let minimalConfirmRequired = false;
+  if (profileId === "minimal") {
+    const label = (
+      await page
+        .locator("#setup-config-minimal")
+        .innerText()
+        .catch(() => "")
+    ).trim();
+    minimalConfirmRequired = label.startsWith("Advanced.");
+  }
   await page.getByRole("button", { name: choice, exact: true }).click();
-  if (profileId === "minimal") await confirmMinimal(page, dir);
+  if (profileId === "minimal") {
+    await confirmMinimal(page, dir, check, minimalConfirmRequired);
+  }
   if (profileId === "custom") await finishCustom(page, check);
 
   const landed = await waitPastSetup(page);

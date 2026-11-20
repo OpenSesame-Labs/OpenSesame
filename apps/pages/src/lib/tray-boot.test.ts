@@ -2,6 +2,7 @@
 
 import * as connectRoads from "@opensesame/app-core/lib/connect-roads.js";
 import * as contributions from "@opensesame/app-core/lib/contributions.js";
+import * as persist from "@opensesame/app-core/lib/notice-tray-persist.js";
 import {
   clearNotices,
   listNotices,
@@ -11,14 +12,75 @@ import * as present from "@opensesame/app-core/lib/tutorial-queue-present.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import type { VaultState } from "@opensesame/app-core/lib/vault/store-state.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  MINIMAL_CONFIRM_ID,
+  dismissMinimalConfirm,
+  showMinimalConfirm,
+} from "../screens/setup/minimal-confirm.js";
 import { bootTrayNotices } from "./tray-boot.js";
 import { FINE_POINTER_QUERY, NARROW_QUERY } from "./use-narrow.js";
 
+function lockVault(): void {
+  vi.spyOn(vaultStore, "getSnapshot").mockImplementation(
+    () =>
+      // SAFETY: fixture matches the VaultState contract; boot only checks status.
+      ({ status: "locked", guest: false, tomb: "personal" }) as VaultState,
+  );
+  vi.spyOn(vaultStore, "subscribe").mockImplementation(() => () => {});
+}
+
 describe("bootTrayNotices", () => {
   afterEach(() => {
+    dismissMinimalConfirm();
     clearNotices();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("keeps a minimal confirm opened while tray history is restoring", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(persist, "restoreTrayNoticeHistory").mockReturnValue(gate);
+    lockVault();
+    bootTrayNotices();
+    showMinimalConfirm(
+      () => {},
+      () => {},
+    );
+    release();
+    await gate;
+    await vi.waitFor(() => {
+      expect(
+        listNotices().some((notice) => notice.id === MINIMAL_CONFIRM_ID),
+      ).toBe(true);
+    });
+    const kept = listNotices().find(
+      (notice) => notice.id === MINIMAL_CONFIRM_ID,
+    );
+    expect(kept?.act?.label).toBe("Use Minimal anyway");
+    expect(kept?.alt?.label).toBe("Keep Default");
+  });
+
+  it("drops a restored minimal confirm that has no choices", async () => {
+    vi.spyOn(persist, "restoreTrayNoticeHistory").mockImplementation(
+      async () => {
+        setStatusNotice({
+          id: MINIMAL_CONFIRM_ID,
+          tone: "warn",
+          title: "Minimal",
+          body: "Restored without its choices.",
+        });
+      },
+    );
+    lockVault();
+    bootTrayNotices();
+    await vi.waitFor(() => {
+      expect(
+        listNotices().some((notice) => notice.id === MINIMAL_CONFIRM_ID),
+      ).toBe(false);
+    });
   });
 
   it("refreshes the queue gate and tray notices on unlocked vault snapshots", () => {
