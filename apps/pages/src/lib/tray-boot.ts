@@ -17,7 +17,10 @@ import {
   rehydrateTutorialQueueNotices,
 } from "@opensesame/app-core/lib/tutorial-queue-present.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
-import { dismissMinimalConfirm } from "../screens/setup/minimal-confirm.js";
+import {
+  MINIMAL_CONFIRM_ID,
+  dismissMinimalConfirm,
+} from "../screens/setup/minimal-confirm.js";
 import { buildTutorialGateOptions } from "./tutorial-gate-options.js";
 import { FINE_POINTER_QUERY, NARROW_QUERY } from "./use-narrow.js";
 
@@ -27,6 +30,18 @@ function syncTutorialQueueGate(): void {
 
 function vaultUnlocked(): boolean {
   return vaultStore.getSnapshot().status === "unlocked";
+}
+
+/**
+ * A restored Minimal confirm has the words and no act. One opened while
+ * restore is still in flight already has its choices; leave that one up.
+ */
+function dismissRestoredMinimalConfirm(): void {
+  const current = listNotices().find(
+    (notice) => notice.id === MINIMAL_CONFIRM_ID,
+  );
+  if (!current || current.act || current.alt) return;
+  dismissMinimalConfirm();
 }
 
 /** Hide queued-tour rows without dequeuing. The locked gate's Resume is inert. */
@@ -64,7 +79,7 @@ export function bootTrayNotices(): void {
     forgetSessionTutorialPause();
   });
   void restoreTrayNoticeHistory().finally(() => {
-    dismissMinimalConfirm();
+    dismissRestoredMinimalConfirm();
     if (!vaultUnlocked()) {
       suppressQueuedTutorialTrayRows();
       return;
