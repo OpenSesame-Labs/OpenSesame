@@ -6,18 +6,18 @@
  * here is a transcript.
  */
 
-import { loadGuidance } from "./guidance.js";
 import { guideGoal, guideGoalIds } from "../tutorial/registry/goals.js";
+import { loadGuidance } from "./guidance.js";
 import { hideToast, showToast } from "./notice-toast.js";
-import { dismissNotice, listNotices, setStatusNotice } from "./notices.js";
+import { dismissNotice, setStatusNotice } from "./notices.js";
 import {
   TUTORIAL_PAUSE_NOTICE,
+  TUTORIAL_QUEUE_LIMIT,
   listQueuedTutorials,
   queueTutorial,
-  setQueuedTutorials,
-  TUTORIAL_QUEUE_LIMIT,
   resumeTutorialFromNotice,
   sessionTutorialsPaused,
+  setQueuedTutorials,
   setSessionTutorialsPaused,
   tutorialQueueNoticeId,
 } from "./tutorial-queue.js";
