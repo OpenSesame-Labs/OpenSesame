@@ -22,6 +22,7 @@ COPY --from=build /src/tests/fuzz/jazzer ./tests/fuzz/jazzer
 COPY --from=build /src/tools/mock-upstream-idp ./tools/mock-upstream-idp
 COPY --from=build /src/tools/oxlint/anti-slop ./tools/oxlint/anti-slop
 COPY --from=build /src/tsconfig.base.json ./tsconfig.base.json
+COPY --from=build /src/patches ./patches
 # Production runtime only: no dev toolchains or nested lockfiles in node_modules.
 RUN npm ci --omit=dev --ignore-scripts \
   && npm install --no-save --ignore-scripts tsx@4.23.15 \

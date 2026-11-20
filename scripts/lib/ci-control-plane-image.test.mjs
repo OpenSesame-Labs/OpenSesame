@@ -25,6 +25,7 @@ describe("control-plane runtime image", () => {
     expect(dockerfile).toMatch(
       /rm -rf node_modules\/@typescript node_modules\/typescript/,
     );
+    expect(dockerfile).toMatch(/COPY --from=build \/src\/patches \.\/patches/);
   });
 
   it("upgrades the slim runtime base before serving traffic", () => {
