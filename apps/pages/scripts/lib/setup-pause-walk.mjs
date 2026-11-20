@@ -110,6 +110,7 @@ export async function captureProfilePicker(page, href, dir, profileId, check) {
   check(!setupVisible, `${profileId} left setup on unlocked vault`);
   return {
     file: result.file,
+    features: result.features,
     picker: result.picker,
     markers: result.markers,
     markerKey: profileMarkerKey(result.markers),
