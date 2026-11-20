@@ -2922,14 +2922,14 @@
       "974c6ed1"
     ],
     "crates/gateway/src/transport/mod.rs": [
-      "b246b1b6",
-      "77bac19e",
-      "c97b6f6c",
-      "f8985ae2",
-      "aaf2d176",
-      "95b5bba5",
-      "447dc5b8",
-      "9e125800"
+      "69f4733b",
+      "850892a1",
+      "080d71b8",
+      "28f8bc04",
+      "ccb5de57",
+      "e93fa7ad",
+      "9124c48a",
+      "8c677fbd"
     ],
     "crates/gateway/src/transport/probe.rs": [
       "281791f2",
