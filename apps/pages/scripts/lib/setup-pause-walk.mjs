@@ -152,7 +152,9 @@ async function clearObstructingSheets(page) {
       exact: true,
     });
     if (await close.isVisible().catch(() => false)) await close.click();
-    await notifications.waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
+    await notifications
+      .waitFor({ state: "hidden", timeout: 5_000 })
+      .catch(() => {});
   }
   const support = page.getByRole("dialog", { name: "Support", exact: true });
   if (await support.isVisible().catch(() => false)) {

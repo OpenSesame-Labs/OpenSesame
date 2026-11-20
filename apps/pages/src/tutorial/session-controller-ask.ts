@@ -1,16 +1,16 @@
 import { HELP_TOPICS } from "@opensesame/app-core/tutorial/registry/goals.js";
 import { rankHelpTopics } from "@opensesame/app-core/tutorial/registry/goals-search.js";
+import type { GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes.js";
 import type { GuideProgram } from "@opensesame/guide-lang";
 import { gateSupportAsk } from "./ask-guard.js";
 import type { SupportEngine } from "./engine.js";
-import type { GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes.js";
-import type { SupportEntryExtras, SupportEntryKind } from "./session.js";
-import type { SupportView } from "./session.js";
+import type {
+  SupportEntryExtras,
+  SupportEntryKind,
+  SupportView,
+} from "./session.js";
 import { noteGrounding, walkthroughsFor } from "./session-grounding.js";
-import {
-  GUIDE_REFUSED_TEXT,
-  SUPPORT_ERROR_TEXT,
-} from "./ui/messages.js";
+import { GUIDE_REFUSED_TEXT, SUPPORT_ERROR_TEXT } from "./ui/messages.js";
 
 export type SessionAskDeps = {
   push: (
@@ -70,8 +70,9 @@ async function handleAskSnapshot(
   snapshot: AskSessionSnapshot,
 ): Promise<boolean> {
   if (snapshot.status === "error") {
-    const authored = rankHelpTopics(text, route).find((entry) => entry.strong)
-      ?.topic;
+    const authored = rankHelpTopics(text, route).find(
+      (entry) => entry.strong,
+    )?.topic;
     if (authored && snapshot.error === "AGENT_UNAVAILABLE") {
       deps.push("answer", authored.answer, [], {
         walkthroughs: walkthroughsFor([authored]),

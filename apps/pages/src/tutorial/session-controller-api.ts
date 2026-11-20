@@ -6,11 +6,11 @@ import type { GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes
 import type { GuideCancelReason } from "@opensesame/guide-runtime";
 import type { GuideOrigin } from "./engine.js";
 import type { SupportController, SupportTab } from "./session.js";
-import { SUPPORT_ERROR_TEXT } from "./ui/messages.js";
-import {
-  type SupportAskBinding,
+import type {
+  SupportAskBinding,
   SupportControllerCore,
 } from "./session-controller-core.js";
+import { SUPPORT_ERROR_TEXT } from "./ui/messages.js";
 
 export function buildSupportController(
   core: SupportControllerCore,
