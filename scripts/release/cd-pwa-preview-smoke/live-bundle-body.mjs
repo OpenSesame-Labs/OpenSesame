@@ -51,10 +51,32 @@ function assertWithinByteCap(size, distRelative) {
   }
 }
 
-async function readArrayBufferBody(response, distRelative) {
-  const bytes = Buffer.from(await response.arrayBuffer());
-  assertWithinByteCap(bytes.length, distRelative);
-  return bytes;
+async function readArrayBufferBody(
+  response,
+  distRelative,
+  readEndsAt,
+  now,
+) {
+  const remaining = Math.max(1, readEndsAt - now());
+  let timer;
+  try {
+    const raw = await Promise.race([
+      response.arrayBuffer(),
+      new Promise((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error("body read timed out")),
+          remaining,
+        );
+      }),
+    ]);
+    const bytes = Buffer.from(raw);
+    assertWithinByteCap(bytes.length, distRelative);
+    return bytes;
+  } catch (error) {
+    rethrowShellRead(error, distRelative);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function rethrowShellRead(error, distRelative) {
@@ -72,12 +94,13 @@ async function readStreamBody(
   bodyDeadlineAt,
   now,
   perChunkCapMs,
+  enforceDeadline,
 ) {
   const chunks = [];
   let total = 0;
   const perReadCapEnd = at + perChunkCapMs;
   const readEndsAt =
-    bodyDeadlineAt > at
+    enforceDeadline && bodyDeadlineAt > at
       ? Math.min(bodyDeadlineAt, perReadCapEnd)
       : perReadCapEnd;
   try {
@@ -124,15 +147,20 @@ export async function readBoundedBody(
   if (declared !== undefined && declared > MAX_SHELL_ASSET_BYTES) {
     throw oversizedShellBody(distRelative);
   }
+  const perReadCapEnd = at + perChunkCapMs;
+  const readEndsAt =
+    enforceDeadline && bodyDeadlineAt > at
+      ? Math.min(bodyDeadlineAt, perReadCapEnd)
+      : perReadCapEnd;
   const stream = response.body;
   if (stream === null) {
-    return readArrayBufferBody(response, distRelative);
+    return readArrayBufferBody(response, distRelative, readEndsAt, now);
   }
   let reader;
   try {
     reader = stream.getReader();
   } catch {
-    return readArrayBufferBody(response, distRelative);
+    return readArrayBufferBody(response, distRelative, readEndsAt, now);
   }
   return readStreamBody(
     reader,
@@ -141,6 +169,7 @@ export async function readBoundedBody(
     bodyDeadlineAt,
     now,
     perChunkCapMs,
+    enforceDeadline,
   );
 }
 
