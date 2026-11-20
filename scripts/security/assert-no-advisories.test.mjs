@@ -29,7 +29,6 @@ const exactFinding = Object.freeze({
 const repairedTuples = [
   ["GHSA-3g3m-2fjr-6pw4", "glob", "10.5.0"],
   ["GHSA-3g3m-2fjr-6pw4", "glob", "11.1.0"],
-  ["GHSA-3g3m-2fjr-6pw4", "glob", "13.0.7"],
   ["GHSA-g3hv-75wg-m249", "minimatch", "9.0.9"],
   ["GHSA-g3hv-75wg-m249", "minimatch", "10.2.6"],
   ["GHSA-fc5q-39xc-vjpf", "picomatch", "2.3.2"],
@@ -124,7 +123,7 @@ test("the exact repaired advisory tuples pass their complete attestation", () =>
     );
     assert.ifError(result.error);
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /7 exact repaired findings attested/);
+    assert.match(result.stdout, /6 exact repaired findings attested/);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
