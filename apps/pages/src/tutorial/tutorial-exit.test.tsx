@@ -55,12 +55,7 @@ function idleSession(): SupportSession {
   };
 }
 
-function engineFor(goal: string): {
-  engine: SupportEngine;
-  started: string[];
-  whenRunning: Promise<void>;
-  stop(reason: GuideCancelReason): void;
-} {
+function engineFor(goal: string) {
   const started: string[] = [];
   let pending: GuideCancelReason | null = null;
   let settle: ((outcome: GuideOutcome) => void) | null = null;
@@ -104,6 +99,11 @@ function engineFor(goal: string): {
     started,
     whenRunning,
     stop: finish,
+  } satisfies {
+    engine: SupportEngine;
+    started: string[];
+    whenRunning: Promise<void>;
+    stop(reason: GuideCancelReason): void;
   };
 }
 
