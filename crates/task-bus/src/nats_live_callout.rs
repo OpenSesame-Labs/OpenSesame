@@ -17,6 +17,58 @@ use std::time::Duration;
 
 const B64: base64::engine::GeneralPurpose = base64::engine::general_purpose::URL_SAFE_NO_PAD;
 
+/// Raw core-NATS client for route tests, where `TaskBus` does not expose the subjects.
+pub(crate) async fn core_client(pki: &Pki, roles: &Roles, url: &str) -> async_nats::Client {
+    let leaf = pki.client("route-test.nats.opensesame.test");
+    let spec = pki
+        .client_spec(Some(&leaf), Some(&roles.host.0), false)
+        .normalized(url)
+        .expect("spec");
+    let options = crate::nats_connect::connect_options(
+        &spec,
+        NatsRole::Host,
+        &InjectedMaterial::default(),
+        Arc::new(BusHealth::default()),
+    )
+    .await
+    .expect("options");
+    options.connect(url).await.expect("core client connects")
+}
+
+pub(crate) fn handshake_expectations() -> [bool; 2] {
+    let path = std::env::var("OPENSESAME_NATS_HANDSHAKE_VECTORS").expect("Lean handshake vectors");
+    let text = std::fs::read_to_string(path).expect("read handshake vectors");
+    let mut rows = [None, None];
+    for line in text.lines() {
+        let parts: Vec<_> = line.split('\t').collect();
+        let (index, value) = match parts.as_slice() {
+            ["handshake-fence", "0", "0"] => (0, false),
+            ["handshake-fence", "0", "1"] => (0, true),
+            ["handshake-fence", "1", "0"] => (1, false),
+            ["handshake-fence", "1", "1"] => (1, true),
+            _ => panic!("invalid handshake vector"),
+        };
+        assert!(
+            rows[index].replace(value).is_none(),
+            "duplicate handshake vector"
+        );
+    }
+    [
+        rows[0].expect("missing fresh handshake vector"),
+        rows[1].expect("missing spent handshake vector"),
+    ]
+}
+
+pub(crate) async fn wait_for_reconnect_limit(health: &BusHealth) {
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while health.last_event().as_deref() != Some("client_error:max_reconnects") {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("reconnects did not terminate at the configured limit");
+}
+
 fn now() -> i64 {
     i64::try_from(
         std::time::SystemTime::now()

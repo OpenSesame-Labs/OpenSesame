@@ -24,6 +24,7 @@ export const REQUIRED_SECURITY_POLICY_FILES = [
   "scripts/lib/dependency-compatibility.test.mjs",
   "scripts/fuzz/jazzer-gate.sh",
   "scripts/lib/fuzz-directory.sh",
+  "scripts/mtls/mtls-fixtures.sh",
   "spec/formal/proof-registry.json",
   "spec/formal/proof-requirements.json",
   "spec/formal/check-axioms.sh",

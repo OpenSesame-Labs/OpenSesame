@@ -29,6 +29,10 @@ case "$check" in
     tar --zstd -xf "$tools_root/lean.tar.zst" -C "$tools_root"
     printf 'OPENSESAME_LEAN_BIN=%s\n' "$tools_root/lean-4.24.0-linux/bin/lean" >> "$GITHUB_ENV"
     "$tools_root/lean-4.24.0-linux/bin/lean" --version
+    export OPENSESAME_MTLS_FIXTURE_DIR="$tools_root/mtls-fixtures"
+    bash scripts/mtls/mtls-fixtures.sh fetch nats-server
+    bash scripts/mtls/mtls-fixtures.sh verify nats-server
+    printf 'OPENSESAME_MTLS_FIXTURE_DIR=%s\n' "$OPENSESAME_MTLS_FIXTURE_DIR" >> "$GITHUB_ENV"
     ;;
   mutation-rust)
     cargo install cargo-mutants --version 25.3.1 --locked --root "$tools_root"

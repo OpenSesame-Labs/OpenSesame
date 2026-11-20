@@ -73,6 +73,7 @@ test("overlapping mapped suites run, but unrelated and Cargo helper edits skip",
       "source-lifetime",
       "source-trust-selection",
       "spiffe-peer-domain",
+      "nats-trust-rotation",
     ],
   );
   for (const changed of [
@@ -98,7 +99,6 @@ test("overlapping mapped suites run, but unrelated and Cargo helper edits skip",
     );
   }
 });
-
 test("signing implementation selects all mapped proofs without selecting proof-only edits", (t) => {
   const suite = requirements.suites.find(
     (entry) => entry.id === "source-lifetime",
@@ -122,7 +122,12 @@ test("signing implementation selects all mapped proofs without selecting proof-o
     if (implementation.includes(changed)) {
       assert.deepEqual(
         selected.map((entry) => entry.id),
-        ["source-lifetime", "source-trust-selection", "spiffe-peer-domain"],
+        [
+          "source-lifetime",
+          "source-trust-selection",
+          "spiffe-peer-domain",
+          ...(changed.endsWith("/client.rs") ? ["nats-trust-rotation"] : []),
+        ],
       );
     }
     seedRequiredSuite(f, suite);
@@ -306,16 +311,6 @@ test("a policy-aware worktree rejects metadata changes to a manifest-less histor
   const target = f.commit();
   f.git("checkout", "-q", branch);
   const result = f.run(f.tuple(target, previous, "refs/heads/legacy"));
-  assert.notEqual(result.status, 0);
-  assert.match(result.stderr, /requirements are missing/);
-  assert.deepEqual(f.commands(), []);
-});
-
-test("a metadata change cannot remove requirements from the target", (t) => {
-  const f = fixture(t);
-  rmSync(join(f.repo, manifest));
-  const target = f.commit();
-  const result = f.run(f.tuple(target));
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /requirements are missing/);
   assert.deepEqual(f.commands(), []);

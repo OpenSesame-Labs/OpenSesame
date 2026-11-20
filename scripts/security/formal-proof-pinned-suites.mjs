@@ -1,4 +1,7 @@
-import { SOURCE_TRUST_SELECTION_SUITE } from "./formal-proof-source-selection.mjs";
+import {
+  NATS_TRUST_ROTATION_SUITE,
+  SOURCE_TRUST_SELECTION_SUITE,
+} from "./formal-proof-source-selection.mjs";
 import { SPIFFE_PEER_DOMAIN_SUITE } from "./formal-proof-spiffe-peer-domain.mjs";
 
 // Independently reviewed minimum. Extend with each new formal suite or mapping.
@@ -336,4 +339,5 @@ export const PINNED_FORMAL_SUITES = [
   },
   SOURCE_TRUST_SELECTION_SUITE,
   SPIFFE_PEER_DOMAIN_SUITE,
+  NATS_TRUST_ROTATION_SUITE,
 ];

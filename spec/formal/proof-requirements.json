@@ -811,6 +811,73 @@
         "run",
         "verify:spiffe-peer-domain-formal"
       ]
+    },
+    {
+      "id": "nats-trust-rotation",
+      "implementation": [
+        "crates/task-bus/src/lib.rs",
+        "crates/task-bus/src/nats.rs",
+        "crates/task-bus/src/nats_connect.rs",
+        "crates/task-bus/src/nats_delivery.rs",
+        "crates/task-bus/src/nats_policy.rs",
+        "crates/task-bus/src/nats_rotation.rs",
+        "crates/task-bus/src/nats_transport.rs",
+        "crates/task-bus/src/nats_transport_env.rs",
+        "crates/task-bus/src/validate.rs",
+        "crates/domain/src/lib.rs",
+        "crates/domain/src/transport/mod.rs",
+        "crates/domain/src/transport/policy.rs",
+        "crates/domain/src/transport/selector.rs",
+        "crates/domain/src/transport/error.rs",
+        "crates/transport-security/src/lib.rs",
+        "crates/transport-security/src/client.rs",
+        "crates/transport-security/src/trust.rs",
+        "crates/transport-security/src/verify_spiffe.rs",
+        "crates/transport-security/src/svid_tls.rs",
+        "crates/transport-security/src/svid_profile.rs",
+        "crates/transport-security/src/bounded.rs",
+        "crates/transport-security/src/identity.rs",
+        "crates/transport-security/src/leaf.rs",
+        "crates/transport-security/src/error.rs",
+        "crates/transport-security/src/env.rs",
+        "crates/domain/Cargo.toml",
+        "crates/task-bus/Cargo.toml",
+        "crates/transport-security/Cargo.toml",
+        "crates/xkeys/Cargo.toml",
+        "crates/Cargo.toml",
+        "crates/domain/build.rs",
+        "crates/task-bus/build.rs",
+        "crates/transport-security/build.rs",
+        "crates/xkeys/build.rs"
+      ],
+      "lockProjection": {
+        "path": "Cargo.lock",
+        "root": "opensesame-task-bus"
+      },
+      "manifestProjection": {
+        "path": "Cargo.toml",
+        "package": "crates/task-bus/Cargo.toml",
+        "lock": "Cargo.lock",
+        "root": "opensesame-task-bus",
+        "manifests": [
+          "crates/domain/Cargo.toml",
+          "crates/task-bus/Cargo.toml",
+          "crates/transport-security/Cargo.toml",
+          "crates/xkeys/Cargo.toml"
+        ]
+      },
+      "proofs": [
+        "spec/formal/source-trust-selection/SourceTrustSelection.lean",
+        "spec/formal/source-trust-selection/required-theorems.lean",
+        "spec/formal/required-theorem-command.lean",
+        "spec/formal/check-axioms.sh",
+        "spec/formal/check-axioms.test.mjs"
+      ],
+      "command": [
+        "npm",
+        "run",
+        "verify:nats-trust-formal"
+      ]
     }
   ]
 }

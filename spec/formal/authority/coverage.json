@@ -329,7 +329,7 @@
     },
     {
       "path": "scripts/security/cargo-workspace-projection.py",
-      "sha256": "4debbeddb6b4980b696fb23e17ba93159088cb62b05e42793d05be5341352381"
+      "sha256": "193a29a0477d486b4e21edb38ee656cec9450d272fde1850e9e14026a4b8d09a"
     }
   ],
   "lock_projection": {
