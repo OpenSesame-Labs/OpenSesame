@@ -9,7 +9,7 @@
 # copies ops/compose/prebuilt/opensesame from the build context to
 # /usr/local/bin/opensesame with mode 0755. CI writes that binary; it is not
 # committed. Leave it out of .dockerignore so the context still contains it.
-FROM rust:1.99.0-bookworm@sha256:114c7a4425406451c2866b6aafe69fe29b1b298832db1277d411ac73c82d04d6 AS chef
+FROM rust:1.100.0-bookworm@sha256:ade39a710ef85f3506cffcfec3e8a24ba090badef1dff2fb798f71d878833fea AS chef
 RUN apt-get update \
   && apt-get install -y --no-install-recommends libdbus-1-dev pkg-config musl-tools \
   && rm -rf /var/lib/apt/lists/* \
@@ -50,11 +50,11 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 
 # Packages, user, and state dir for both runtime targets. No binary yet, so
 # the prebuilt target does not depend on the chef compile.
-# Alpine 3.22. Both binaries are x86_64-unknown-linux-musl (static), so this
+# Alpine 3.24. Both binaries are x86_64-unknown-linux-musl (static), so this
 # stage does not install a glibc compatibility layer or libstdc++. libdbus is
 # compiled into the binary (dbus crate `vendored` feature, static). Alpine
 # dbus-libs is not installed: this binary does not need it.
-FROM alpine:3.22@sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f AS alpine-runtime
+FROM alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS alpine-runtime
 RUN apk add --no-cache ca-certificates curl \
   && adduser -D -u 10001 app \
   && mkdir -p /var/lib/opensesame \
