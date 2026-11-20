@@ -43,6 +43,7 @@ on:
       - "scripts/release/pages-pwa-serve.mjs"
       - "scripts/release/cd-release-meta.mjs"
       - "scripts/release/cd-main-ci-gate.mjs"
+      - "scripts/release/cd-pwa-stranded-deploy.mjs"
       - "scripts/release/cd-resolve-main-ci-run.mjs"
       - "scripts/release/cd-preview-smoke.mjs"
       - "scripts/release/cd-preview-smoke-registry.mjs"
@@ -61,6 +62,7 @@ on:
       - "scripts/ci/pwa-profile-proof-select.mjs"
       - ".github/actions/publish-npm-package/**"
       - ".github/workflows/cd-pwa.yml"
+      - ".github/workflows/cd-pwa-stranded-dispatch.yml"
       - ".github/workflows/ci.yml"
   workflow_dispatch:
     inputs:

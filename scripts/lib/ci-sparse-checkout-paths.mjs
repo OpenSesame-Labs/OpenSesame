@@ -127,6 +127,20 @@ export const PROOF_CHECKOUT_PLAN = Object.freeze({
     Object.freeze({ paths: SPARSE_CI_REPORTER }),
     Object.freeze({ paths: SPARSE_CI_REPORTER }),
   ]),
+  ".github/workflows/cd-pwa-stranded-dispatch.yml": Object.freeze([
+    Object.freeze({
+      paths: [
+        "scripts/lib",
+        "scripts/release",
+        "scripts/quality",
+        ".github/workflows/cd-pwa.yml",
+        "/mise.toml",
+        "/mise.lock",
+      ],
+      history:
+        "git diff from live Pages release.json revision to HEAD needs full history.",
+    }),
+  ]),
   ".github/workflows/cd-pwa.yml": Object.freeze([
     Object.freeze({ paths: SPARSE_CD_RELEASE_SCRIPT }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
