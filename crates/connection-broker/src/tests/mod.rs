@@ -36,6 +36,7 @@ mod rotation_leftover;
 mod sync_target_pact;
 mod sync_target_pact_chain;
 mod sync_target_pact_https;
+mod sync_target_pact_let;
 mod sync_target_pact_norm;
 mod sync_target_pact_rename;
 mod sync_target_pact_scan;
