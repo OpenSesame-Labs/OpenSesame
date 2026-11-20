@@ -11,6 +11,7 @@ import {
   waitOpen,
 } from "./pages-journey.mjs";
 import { visibleClick } from "./verification-checklist-shot.mjs";
+import { assertProfileVaultDom } from "./setup-profile-vault-dom.mjs";
 
 async function openSetupChoices(page, href) {
   await page.goto(href, { waitUntil: "domcontentloaded" });
@@ -222,85 +223,6 @@ export async function vaultRailMarkers(page) {
 
 export function profileMarkerKey(markers) {
   return JSON.stringify(markers);
-}
-
-/** DOM proof that the committed plan matches the setup road. */
-export function assertProfileVaultDom(profileId, markers, check) {
-  const {
-    enableCore,
-    account,
-    passkey,
-    certificate,
-    itemFilters,
-    onSwitchCount,
-    externalConnectors,
-    passkeyRecords,
-    certificateRecords,
-    liveSessions,
-    browserLocalIam,
-    accessAuthority,
-    derivedTypes,
-  } = markers;
-  if (profileId === "minimal") {
-    check(
-      enableCore === 1 && itemFilters === 0,
-      `minimal vault: no item-type filters until enabled (${JSON.stringify(markers)})`,
-    );
-    check(
-      !externalConnectors &&
-        !passkeyRecords &&
-        !certificateRecords &&
-        !liveSessions &&
-        onSwitchCount <= 1,
-      `minimal vault: no optional features on (${JSON.stringify(markers)})`,
-    );
-    return;
-  }
-  if (profileId === "default") {
-    check(
-      account > 0 && passkey > 0 && certificate > 0,
-      `default vault: password + passkey + certificate filters (${JSON.stringify(markers)})`,
-    );
-    check(
-      externalConnectors &&
-        passkeyRecords &&
-        certificateRecords &&
-        accessAuthority &&
-        browserLocalIam,
-      `default vault: Default extensions on in Features (${JSON.stringify(markers)})`,
-    );
-    check(
-      !liveSessions && onSwitchCount >= 5 && onSwitchCount <= 12,
-      `default vault: moderate feature count (${onSwitchCount})`,
-    );
-    return;
-  }
-  if (profileId === "full") {
-    check(itemFilters >= 5, `full vault: full item-type rail (${itemFilters})`);
-    check(
-      onSwitchCount >= 18,
-      `full vault: broad feature approval (${onSwitchCount} switches on)`,
-    );
-    check(
-      externalConnectors && liveSessions,
-      `full vault: connectors and live sessions on (${JSON.stringify(markers)})`,
-    );
-    return;
-  }
-  if (profileId === "custom") {
-    check(
-      derivedTypes,
-      `custom vault: Derived item types on in Features (${JSON.stringify(markers)})`,
-    );
-    check(
-      !externalConnectors && !passkeyRecords,
-      `custom vault: no Default connector pack (${JSON.stringify(markers)})`,
-    );
-    check(
-      passkey === 0 && certificate === 0,
-      `custom vault: passkey/certificate filters off before core enable (${JSON.stringify(markers)})`,
-    );
-  }
 }
 
 async function commitSetupRoadChoice(page, profileId, check, dir) {
