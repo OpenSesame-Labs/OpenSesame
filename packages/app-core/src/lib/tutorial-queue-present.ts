@@ -6,6 +6,7 @@
  * here is a transcript.
  */
 
+import { goalOffered } from "../tutorial/registry/areas.js";
 import { guideGoal, guideGoalIds } from "../tutorial/registry/goals.js";
 import { loadGuidance } from "./guidance.js";
 import { hideToast, showToast } from "./notice-toast.js";
@@ -13,12 +14,14 @@ import { dismissNotice, setStatusNotice } from "./notices.js";
 import {
   TUTORIAL_PAUSE_NOTICE,
   TUTORIAL_QUEUE_LIMIT,
+  completeQueuedTutorial,
   listQueuedTutorials,
   queueTutorial,
   resumeTutorialFromNotice,
   sessionTutorialsPaused,
   setQueuedTutorials,
   setSessionTutorialsPaused,
+  tutorialHomeRoute,
   tutorialQueueNoticeId,
 } from "./tutorial-queue.js";
 
@@ -29,6 +32,14 @@ export const ONLY_THIS_TUTORIAL = "Only this one";
 function dismissPausePrompt(): void {
   hideToast(TUTORIAL_PAUSE_NOTICE);
   dismissNotice(TUTORIAL_PAUSE_NOTICE);
+}
+
+function queueableGoal(goalId: string): boolean {
+  const goal = guideGoal(goalId);
+  if (goal === null) return false;
+  const home = tutorialHomeRoute(goal);
+  if (home.startsWith("/setup")) return false;
+  return goalOffered(goal, {});
 }
 
 /**
@@ -43,40 +54,50 @@ export function queueUnansweredWalkthroughs(): number {
   for (const goalId of guideGoalIds()) {
     if (answered.has(goalId) && !existingSet.has(goalId)) continue;
     if (existingSet.has(goalId)) continue;
-    if (guideGoal(goalId) === null) continue;
+    if (!queueableGoal(goalId)) continue;
     pending.push(goalId);
   }
   const room = Math.max(0, TUTORIAL_QUEUE_LIMIT - existing.length);
   const accepted = pending.slice(0, room);
   setQueuedTutorials([...existing, ...accepted]);
   for (const goalId of accepted) {
-    postQueuedTutorialNotice(goalId);
+    postQueuedTutorialNotice(goalId, { toast: false });
   }
   return accepted.length;
 }
 
-/** The tray row and the toast that resumes one queued tour. */
-export function postQueuedTutorialNotice(goalId: string): void {
+/** The tray row and, unless `toast` is false, the matching page toast. */
+export function postQueuedTutorialNotice(
+  goalId: string,
+  options: { toast?: boolean } = {},
+): void {
   const goal = guideGoal(goalId);
   if (goal === null) return;
   const id = tutorialQueueNoticeId(goalId);
   const resume = () => {
     resumeTutorialFromNotice(goalId);
   };
-  showToast({
-    id,
-    tone: "info",
-    title: goal.title,
-    body: "Queued.",
-    sticky: true,
-    choice: { label: RESUME_WALKTHROUGH, run: resume },
-  });
+  if (options.toast !== false) {
+    showToast({
+      id,
+      tone: "info",
+      title: goal.title,
+      body: "Queued.",
+      sticky: true,
+      choice: { label: RESUME_WALKTHROUGH, run: resume },
+    });
+  }
   setStatusNotice({
     id,
     tone: "info",
     title: goal.title,
     body: "Queued.",
-    act: { label: RESUME_WALKTHROUGH, worded: true, run: resume },
+    act: {
+      label: RESUME_WALKTHROUGH,
+      worded: true,
+      opens: true,
+      run: resume,
+    },
   });
 }
 
@@ -85,7 +106,7 @@ export function postQueuedTutorialNotice(goalId: string): void {
  * is: the queue row is enough.
  */
 export function postTutorialPausePrompt(): void {
-  if (sessionTutorialsPaused()) return;
+  if (sessionTutorialsPaused() || loadGuidance().mode === "off") return;
   const pauseAll = () => {
     queueUnansweredWalkthroughs();
     setSessionTutorialsPaused(true);
@@ -128,6 +149,12 @@ export function noteTutorialDeclined(goalId: string, title: string): boolean {
 export function rehydrateTutorialQueueNotices(): void {
   dismissPausePrompt();
   for (const item of listQueuedTutorials()) {
-    postQueuedTutorialNotice(item.goalId);
+    if (guideGoal(item.goalId) === null) continue;
+    postQueuedTutorialNotice(item.goalId, { toast: false });
   }
+}
+
+/** A tour finished without using the queue notice's resume key. */
+export function noteTutorialCompleted(goalId: string): void {
+  completeQueuedTutorial(goalId);
 }
