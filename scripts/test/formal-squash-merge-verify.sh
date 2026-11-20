@@ -24,6 +24,14 @@ import json, os, shutil, subprocess, sys
 from pathlib import Path
 
 root, scratch = map(Path, sys.argv[1:3])
+# Branch-side diff only: three-dot against the merge-base. Main-only moves
+# (manifests, covered sources) must survive in the simulation untouched.
+branch_paths = set(
+    subprocess.check_output(
+        ["git", "-C", str(root), "diff", "--name-only", "origin/main...HEAD"],
+        text=True,
+    ).splitlines()
+)
 manifests = [
     scratch / "spec/formal/authority/coverage.json",
     scratch / "spec/formal/dpop/coverage.json",
@@ -40,25 +48,25 @@ for manifest in manifests:
         seen.add(rel)
         if rel == "Cargo.lock" or rel.endswith("/Cargo.lock"):
             continue
+        # Only sources this branch touched come from the branch checkout;
+        # main-only advances keep the scratch (main) bytes.
+        if rel not in branch_paths:
+            continue
         dest = scratch / rel
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(root / rel, dest)
 # Start from origin/main's lock (the scratch worktree). Overlay Cargo.toml
-# and Cargo.lock paths that differ from HEAD, including a lock-only diff.
-# Regenerate offline when either differs so the scratch resolution follows
-# that diff instead of keeping main's lock.
-manifest_diff = subprocess.check_output(
-    ["git", "-C", str(root), "diff", "--name-only", "origin/main", "HEAD"],
-    text=True,
-)
+# and Cargo.lock paths the branch changed relative to the merge-base,
+# including a lock-only diff. Regenerate offline when either differs so the
+# scratch resolution follows that diff instead of keeping main's lock.
 changed_manifests = [
     rel
-    for rel in manifest_diff.splitlines()
+    for rel in sorted(branch_paths)
     if rel == "Cargo.toml" or rel.endswith("/Cargo.toml")
 ]
 changed_locks = [
     rel
-    for rel in manifest_diff.splitlines()
+    for rel in sorted(branch_paths)
     if rel == "Cargo.lock" or rel.endswith("/Cargo.lock")
 ]
 for rel in changed_locks:
