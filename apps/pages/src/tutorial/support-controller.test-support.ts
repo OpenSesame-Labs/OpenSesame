@@ -27,7 +27,10 @@ export function stubSupportController(
   const listeners = new Set<() => void>();
   const started: StartedGuide[] = [];
   const opened: (SupportTab | undefined)[] = [];
-  const stops = { count: 0, reason: "user" as GuideCancelReason };
+  const stops = {
+    count: 0,
+    reason: "user",
+  } satisfies { count: number; reason: GuideCancelReason };
   const nothing = () => undefined;
   const support: SupportController = {
     subscribe(listener) {
