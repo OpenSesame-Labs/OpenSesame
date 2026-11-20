@@ -149,6 +149,7 @@ def nats_controls() -> None:
     client_svid = "nats::live_tests::injected_spiffe_client_matches_locator_and_profile"
     runtime, crls = "nats::live_delivery::accepted_material_and_view_follow_serialized_rotations", "nats::live_topology::injected_trust_enforces_configured_crls"
     env_test, flags = "nats::tests::security_bearing_env_settings_never_select_plaintext", "validate::tests::invalid_nats_security_booleans_fail_closed"
+    downgrade = "validate::tests::explicit_plaintext_flag_cannot_disable_security_settings"
     health, conflicts = "tests::failed_and_old_connections_cannot_change_active_health", "tests::contradictory_nats_security_sources_are_refused"
     locators, stored_test = "tests::mutated_public_policy_cannot_ignore_security_locators", "tests::stored_tls_requirements_cannot_resolve_to_plaintext"
     reconnect, retry = "nats::live_routes::injected_sessions_fence_reconnect_and_rotation", "nats_transport_env::tests::nonassertive_env_cannot_override_stored_tls"
@@ -234,10 +235,10 @@ def nats_controls() -> None:
                 ("nkey policy ignores creds locator", transport, [("NatsAuth::Nkey { .. } if self.locators.creds_file.is_some()", "NatsAuth::Nkey { .. } if false")], locators, False, "nkey policy must not ignore a creds locator"),
                 ("plaintext policy ignores CRL locator", transport, [("|| self.locators.crl_file.is_some()", "|| false")], locators, False, "CRL locator must not be silently ignored"),
                 ("plaintext policy ignores provisioning locator", transport, [("|| self.locators.provision.is_some()", "|| false")], locators, False, "provisioning credential locator must not be silently ignored"),
-                ("server expectation allows plaintext", env_source, [("|| server.is_some()\n            || explicit_min_version\n            || auth.is_some()\n            || provision.is_some();", "|| false\n            || explicit_min_version\n            || auth.is_some()\n            || provision.is_some();")], env_test, False, "must imply TLS"),
+                ("server expectation allows plaintext", env_source, [("|| server.is_some()\n            || explicit_min_version\n            || auth.is_some()\n            || provision.is_some();", "|| false\n            || explicit_min_version\n            || auth.is_some()\n            || provision.is_some();")], downgrade, False, "security setting must imply TLS"),
                 ("invalid TLS flag becomes false", env_source, [('Some(_) => Err(malformed(format!("{name} is not a valid boolean"))),', 'Some(_) => Ok(false),')], flags, False, "invalid security flag must be refused"),
-                ("explicit minimum allows plaintext", env_source, [("|| explicit_min_version\n            || auth.is_some()\n            || provision.is_some();", "|| false\n            || auth.is_some()\n            || provision.is_some();")], env_test, False, "must imply TLS"),
-                ("configured CRL allows plaintext", env_source, [("|| crl_file.is_some()\n            || server.is_some()\n            || explicit_min_version\n            || auth.is_some()\n            || provision.is_some();", "|| false\n            || server.is_some()\n            || explicit_min_version\n            || auth.is_some()\n            || provision.is_some();")], env_test, False, "must imply TLS"),
+                ("explicit minimum allows plaintext", env_source, [("|| explicit_min_version\n            || auth.is_some()\n            || provision.is_some();", "|| false\n            || auth.is_some()\n            || provision.is_some();")], downgrade, False, "security setting must imply TLS"),
+                ("configured CRL allows plaintext", env_source, [("|| crl_file.is_some()\n            || server.is_some()\n            || explicit_min_version\n            || auth.is_some()\n            || provision.is_some();", "|| false\n            || server.is_some()\n            || explicit_min_version\n            || auth.is_some()\n            || provision.is_some();")], downgrade, False, "security setting must imply TLS"),
                 ("identity name without source accepted", env_source, [("identity_name.is_some() || identity_companion", "identity_companion")], env_test, False, "identity name without its source must fail closed"),
                 ("identity companion without source accepted", env_source, [("identity_name.is_some() || identity_companion", "identity_name.is_some()")], env_test, False, "without its source must fail closed"),
                 ("trust name without source accepted", env_source, [("trust_name.is_some() && trust.is_none()", "false")], env_test, False, "trust name without its source must fail closed"),
@@ -246,7 +247,7 @@ def nats_controls() -> None:
                 ("conflicting trust sources accepted", env_source, [("if trust_conflict {", "if false {")], conflicts, False, "conflicting NATS source must be refused"),
                 ("nkey and creds accepted together", env_source, [("Some(\"nkey\") if creds.is_some()", "Some(\"nkey\") if false")], conflicts, False, "conflicting NATS source must be refused"),
                 ("creds and nkey accepted together", env_source, [("Some(\"creds\") if seed.is_some()", "Some(\"creds\") if false")], conflicts, False, "conflicting NATS source must be refused"),
-                ("provisioning credential allows plaintext", env_source, [("|| auth.is_some()\n            || provision.is_some();", "|| auth.is_some()\n            || false;")], env_test, False, "provisioning credentials must imply TLS"),
+                ("provisioning credential allows plaintext", env_source, [("|| auth.is_some()\n            || provision.is_some();", "|| auth.is_some()\n            || false;")], downgrade, False, "security setting must imply TLS"),
             ]
             for label, name, edits, test, ignored, diagnostic in mutations:
                 if len(edits) != 1:

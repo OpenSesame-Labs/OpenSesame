@@ -6,6 +6,17 @@
 use super::live_callout::{connect_as, start_responder};
 use super::live_harness::{free_port, Pki, Roles, Server};
 use super::live_tests::{backup_config, config, event};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+
+use opensesame_domain::transport::{TrustProfileKind, TrustProfileRef};
+use opensesame_transport_security::testkit::{DisposableCa, IssuedLeaf, LeafSpec};
+use opensesame_transport_security::TrustBundle;
+
+use crate::nats_connect::{connect_options, BusHealth, InjectedMaterial, NatsRole};
+use crate::nats_policy::NatsTransportSource;
+use crate::nats_transport::NatsTransportSpec;
+
 use super::*;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
@@ -153,8 +164,6 @@ async fn observer_may_only_ask_srv(pki: &Pki, roles: &Roles, server: &Server) {
 pub(crate) fn spiffe_server(
     pki: &Pki,
 ) -> (Server, opensesame_transport_security::testkit::IssuedLeaf) {
-    use opensesame_transport_security::testkit::LeafSpec;
-
     let leaf = pki.ca.issue_with(&LeafSpec::spiffe("spiffe://a.test/nats"));
     let (cert, key) = pki.write_leaf("spiffe-nats", &leaf);
     let port = free_port();
@@ -172,8 +181,6 @@ pub(crate) fn spiffe_server(
 }
 
 pub(crate) fn spiffe_spec(crl: Option<&std::path::Path>) -> crate::NatsTransportSpec {
-    use std::collections::HashMap;
-
     let mut values = HashMap::from([
         (
             "OPENSESAME_NATS_TLS_TRUST_KIND",
@@ -202,17 +209,6 @@ pub(crate) fn spiffe_spec(crl: Option<&std::path::Path>) -> crate::NatsTransport
         .unwrap()
         .unwrap()
 }
-
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-
-use opensesame_domain::transport::{TrustProfileKind, TrustProfileRef};
-use opensesame_transport_security::testkit::{DisposableCa, IssuedLeaf, LeafSpec};
-use opensesame_transport_security::TrustBundle;
-
-use crate::nats_connect::{connect_options, BusHealth, InjectedMaterial, NatsRole};
-use crate::nats_policy::NatsTransportSource;
-use crate::nats_transport::NatsTransportSpec;
 
 fn environment(expected_domain: &str) -> NatsTransportSpec {
     let values = HashMap::from([

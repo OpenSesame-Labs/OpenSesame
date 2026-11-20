@@ -171,6 +171,7 @@ NATS_LIB_TESTS = [
     ("nats::tests::security_bearing_env_settings_never_select_plaintext", "env", False, "crates/task-bus/src/nats_tests.rs"),
     ("nats_transport_env::tests::nonassertive_env_cannot_override_stored_tls", "nonassertive", False, "crates/task-bus/src/nats_transport_env.rs"),
     ("validate::tests::invalid_nats_security_booleans_fail_closed", "flags", False, "crates/task-bus/src/validate.rs"),
+    ("validate::tests::explicit_plaintext_flag_cannot_disable_security_settings", "explicit_false", False, "crates/task-bus/src/validate.rs"),
     ("validate::tests::lean_vectors_match_nats_reconnect_limit", "retry_limit", True, "crates/task-bus/src/validate.rs"),
     ("tests::contradictory_nats_security_sources_are_refused", "conflicts", False, "crates/task-bus/src/lib_tests.rs"),
     ("tests::mutated_public_policy_cannot_ignore_security_locators", "locators", False, "crates/task-bus/src/lib_tests.rs"),

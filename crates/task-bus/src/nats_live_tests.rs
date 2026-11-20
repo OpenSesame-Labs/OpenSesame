@@ -2,11 +2,18 @@
 //! `OPENSESAME_MTLS_FIXTURES=1`): client mTLS admission, downgrade refusal,
 //! the role matrix, system-subject denial, and identity rotation.
 
+use super::live_callout::wait_for_reconnect_limit;
 use super::live_harness::{secure_server, Pki, Roles};
+use super::live_mixed::{assert_stored_spiffe_profile, bit, options, spiffe_server, spiffe_spec};
 use super::*;
 use crate::nats_transport::NatsTransportSpec;
-use opensesame_domain::transport::TransportError;
+use opensesame_domain::transport::{
+    PeerIdentitySelector, TransportError, TrustProfileKind, TrustProfileRef,
+};
+use opensesame_transport_security::testkit::{DisposableCa, LeafSpec};
+use opensesame_transport_security::TrustBundle;
 use serde_json::json;
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 pub(crate) fn config(
@@ -26,9 +33,6 @@ pub(crate) fn config(
 }
 
 pub(crate) async fn direct_nats_reconnect(pki: &Pki, injected: InjectedMaterial) {
-    use super::live_callout::wait_for_reconnect_limit;
-    use super::live_mixed::{spiffe_server, spiffe_spec};
-
     let (server, _) = spiffe_server(pki);
     let mut spec = spiffe_spec(None);
     spec.max_reconnects = Some(1);
@@ -90,16 +94,6 @@ fn is_tls_failure(error: &anyhow::Error) -> bool {
 #[tokio::test]
 #[ignore = "requires Lean vectors; run spec/formal/source-trust-selection/verify.sh --nats"]
 async fn injected_spiffe_client_matches_locator_and_profile() {
-    use std::collections::{HashMap, HashSet};
-    use std::sync::Arc;
-
-    use opensesame_domain::transport::{PeerIdentitySelector, TrustProfileKind, TrustProfileRef};
-    use opensesame_transport_security::testkit::{DisposableCa, LeafSpec};
-    use opensesame_transport_security::TrustBundle;
-
-    use crate::nats::live_mixed::{assert_stored_spiffe_profile, bit, options};
-    use crate::nats_connect::InjectedMaterial;
-
     let values = HashMap::from([
         ("OPENSESAME_NATS_REQUIRE_TLS", "1"),
         ("OPENSESAME_NATS_TLS_TRUST_KIND", "spiffe_trust_domain"),

@@ -805,11 +805,11 @@
       },
       {
         "path": "crates/task-bus/src/validate.rs",
-        "sha256": "c2672377b630ca78d888a56365d955f5f6388b7070ba6c983fce9c9220cf13da"
+        "sha256": "69ca51216f76a2a71e5c1d4c464cb2a509fd2d79a951a921452eba2e6ece0f58"
       },
       {
         "path": "crates/task-bus/src/lib_tests.rs",
-        "sha256": "59872ca0e5c796e8d6da792e456263c081577dad34cfb3425ed7eb8d903365aa"
+        "sha256": "cf2c42937cd179d51fbb9fdb026efc7114a661c2d3f8ec194dfe613f67032c2b"
       },
       {
         "path": "crates/task-bus/src/nats_tests.rs",
@@ -817,7 +817,7 @@
       },
       {
         "path": "crates/task-bus/src/nats_live_delivery.rs",
-        "sha256": "bc29838e97ad155e1e8da22252029a84290e174bac645775b9ca9c51e4f2dd96"
+        "sha256": "cf5042827405cb22de6b9086b8942289b0e13a37181398a3c38aa456f5f5ab15"
       },
       {
         "path": "crates/task-bus/src/nats_live_harness.rs",
@@ -825,7 +825,7 @@
       },
       {
         "path": "crates/task-bus/src/nats_live_mixed.rs",
-        "sha256": "013a58b47e4f604b85bf3572ee06d62124da79f6009f17b7ea19aa0a2df56e33"
+        "sha256": "203aac7e7c7ac0e3d0a420aa7d2ef449a90cfabfe83e174b6ff4bbeaa46e4678"
       },
       {
         "path": "crates/task-bus/src/nats_live_roles.rs",
@@ -841,11 +841,11 @@
       },
       {
         "path": "crates/task-bus/src/nats_live_tests.rs",
-        "sha256": "6a1f23ef679bb74790119bb73f7133dc7b0386fc4a4f2b20de29d8537cb36f28"
+        "sha256": "ca1b84e7749374c64f51800918af38632b05fd3b61def0a0398ce6e09d9a61e4"
       },
       {
         "path": "crates/task-bus/src/nats_live_topology.rs",
-        "sha256": "63be746326f23c6d0100d57b6f89c84e45253c716784765c3c56cae24a94f80f"
+        "sha256": "1e18bdbba3244a425e9d26597906697ec04ab9b045e6e54c4d4ab57c73286f2c"
       },
       {
         "path": "crates/transport-security/src/lib.rs",

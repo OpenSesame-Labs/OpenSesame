@@ -73,6 +73,7 @@ if [[ "${1:-}" == "--nats" ]]; then
   run_nats_test nats::tests::security_bearing_env_settings_never_select_plaintext env
   run_nats_test nats_transport_env::tests::nonassertive_env_cannot_override_stored_tls nonassertive
   run_nats_test validate::tests::invalid_nats_security_booleans_fail_closed flags
+  run_nats_test validate::tests::explicit_plaintext_flag_cannot_disable_security_settings explicit_false
   run_nats_test validate::tests::lean_vectors_match_nats_reconnect_limit retry_limit --ignored
   run_nats_test tests::contradictory_nats_security_sources_are_refused conflicts
   run_nats_test tests::mutated_public_policy_cannot_ignore_security_locators locators
