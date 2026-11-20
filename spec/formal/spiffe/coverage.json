@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_revision": "817c677c5dfbbb229160010ba685bcd491d1d961",
-  "reviewed_source_state": "Source hashes identify the NATS rotation and shared TLS changes above the recorded base; they do not prove source-to-model refinement. The compiler-isolation and projection helpers were reviewed separately.",
+  "reviewed_revision": "94260f7078fb3b9a4f42658a2eab702c358c6042",
+  "reviewed_source_state": "Source hashes identify the reviewed source-history integration after this base; they do not prove Rust refinement.",
   "sdk_projection": {
     "package": {
       "name": "spiffe",
@@ -115,7 +115,11 @@
     },
     {
       "path": "crates/spiffe-source/src/source.rs",
-      "sha256": "400087e9e2249814b3203e96acd2d17fec08bef3c59e5191bd063df1d891d8fb"
+      "sha256": "3425ff54d43d7d3a218385af1b662fd4f8da644a7f3c1e423c41a809e59f8466"
+    },
+    {
+      "path": "crates/spiffe-source/src/source_history_flow.rs",
+      "sha256": "ed64cbda5e27776bc2a83c755bb3fae0ed7686c4251e69dd0ccd17c15ea5c70c"
     },
     {
       "path": "crates/spiffe-source/src/source_policy.rs",
@@ -179,15 +183,15 @@
     },
     {
       "path": "crates/spiffe-source/src/sink.rs",
-      "sha256": "21c597fab17c22ab844235f438fa0d4b359edf852d631e7cc7c3c0058e64d004"
+      "sha256": "ce5603f9280b48dadcc2ceef9640b667ac839ad0197190db9a9d8c3a0c72191d"
     },
     {
       "path": "crates/spiffe-source/src/sink/transport.rs",
-      "sha256": "57afdd42263b6cdcdfdfd70540662fa5d9b93d150b0739805b293b48763b70bc"
+      "sha256": "7899240d30a93c998074e1ea8a83e31d8c8ec272d210d4df58861c4fab8d7e70"
     },
     {
       "path": "crates/transport-security/src/generations.rs",
-      "sha256": "6a0ea9469a622afb4f063c99591f0ff98eeeea2e7660f1c398a643418626bf67"
+      "sha256": "626e150638f14d21a60fd207ebba34a9b38173ea766b87ba327c58e4ca31101f"
     },
     {
       "path": "crates/spiffe-source/src/lib.rs",
@@ -203,11 +207,15 @@
     },
     {
       "path": "crates/transport-security/src/source_lifetime.rs",
-      "sha256": "3418936660034ce732ade3983837d5d926e4bcf6abe50d38c5702c91a062d9ed"
+      "sha256": "c180e8c96ccf81e197337674044aea249748d560a1757caf5642d447922959bb"
+    },
+    {
+      "path": "crates/transport-security/src/source_history_activation.rs",
+      "sha256": "c9059d04ddf349a44d3a291a28c0e3fb0505a551aabfe801db93c3a9af992ff1"
     },
     {
       "path": "crates/transport-security/src/source_trust.rs",
-      "sha256": "5d6d97f8e4d1d9da515f9d55e9e918a41b1cde43a9643c9baef2fc71433e5b32"
+      "sha256": "96dacd5d17c55ef56e665afc47c8c6b797f3bd3129bfe18fb768c78cf3e46fc0"
     },
     {
       "path": "crates/domain/Cargo.toml",
@@ -223,7 +231,7 @@
     },
     {
       "path": "crates/transport-security/src/lib.rs",
-      "sha256": "2ee17d4756990146a4ef3902f779de668c8386f74d85d41fa086c8ed0d419d2c"
+      "sha256": "4d2c9614dae83fca5d5d4c8de1b75cc501b25df30b62aaa720e38b0aa92b0fc8"
     },
     {
       "path": "crates/transport-security/src/svid_profile.rs",

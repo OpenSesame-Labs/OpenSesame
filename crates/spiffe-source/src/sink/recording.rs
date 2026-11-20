@@ -6,7 +6,7 @@ use std::time::Instant;
 use opensesame_time::{DateTime, Utc};
 use opensesame_domain::TransportError;
 
-use super::{GenerationLease, GenerationSink};
+use super::{GenerationLease, GenerationSink, PreparationError, PreparedHistory};
 use crate::snapshot::SvidGeneration;
 
 /// One observed sink event (no key material).
@@ -94,7 +94,25 @@ impl GenerationSink for RecordingSink {
 }
 
 impl GenerationLease for RecordingLease {
-    fn activate(&mut self, generation: &SvidGeneration) -> Result<u64, TransportError> {
+    fn prepare(
+        &mut self,
+        _generation: &SvidGeneration,
+    ) -> Result<PreparedHistory, PreparationError> {
+        if self.retired {
+            return Err(PreparationError::Lease(TransportError::GenerationStale));
+        }
+        Ok(PreparedHistory {
+            write: Box::pin(async { Ok(()) }),
+            withdrew_local_conflict: false,
+        })
+    }
+
+    fn activate(
+        &mut self,
+        generation: &SvidGeneration,
+        _wait_deadline: DateTime<Utc>,
+        _wait_monotonic: Instant,
+    ) -> Result<u64, TransportError> {
         if self.retired {
             return Err(TransportError::GenerationStale);
         }

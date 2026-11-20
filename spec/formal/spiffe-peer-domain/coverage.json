@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "reviewed_revision": "56c52ad05fd764f88d12d7bafcaa60a0c976327d",
-  "reviewed_source_state": "Source hashes identify the reviewed task-bus feature correction after this base; they do not prove Rust refinement.",
+  "reviewed_revision": "94260f7078fb3b9a4f42658a2eab702c358c6042",
+  "reviewed_source_state": "Source hashes identify the reviewed source-history integration after this base; they do not prove Rust refinement.",
   "lock_projection": {
     "root": "opensesame-gateway",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "b1abd3e2af6898df1ca78d93c8b2c6100f98ce42da4a23c0a070e70b6137c00c"
+    "sha256": "2d37d6108cf6f63ef9e33600dea795d66dc5a2577a54a272bf485ea01d6cf6b9"
   },
   "sources": [
     {
@@ -58,7 +58,7 @@
     },
     {
       "path": "crates/transport-security/src/lib.rs",
-      "sha256": "2ee17d4756990146a4ef3902f779de668c8386f74d85d41fa086c8ed0d419d2c"
+      "sha256": "4d2c9614dae83fca5d5d4c8de1b75cc501b25df30b62aaa720e38b0aa92b0fc8"
     },
     {
       "path": "crates/transport-security/src/bounded.rs",
@@ -74,7 +74,7 @@
     },
     {
       "path": "crates/transport-security/src/generations.rs",
-      "sha256": "6a0ea9469a622afb4f063c99591f0ff98eeeea2e7660f1c398a643418626bf67"
+      "sha256": "626e150638f14d21a60fd207ebba34a9b38173ea766b87ba327c58e4ca31101f"
     },
     {
       "path": "crates/transport-security/src/guard.rs",
@@ -110,11 +110,15 @@
     },
     {
       "path": "crates/transport-security/src/source_lifetime.rs",
-      "sha256": "3418936660034ce732ade3983837d5d926e4bcf6abe50d38c5702c91a062d9ed"
+      "sha256": "c180e8c96ccf81e197337674044aea249748d560a1757caf5642d447922959bb"
+    },
+    {
+      "path": "crates/transport-security/src/source_history_activation.rs",
+      "sha256": "c9059d04ddf349a44d3a291a28c0e3fb0505a551aabfe801db93c3a9af992ff1"
     },
     {
       "path": "crates/transport-security/src/source_trust.rs",
-      "sha256": "5d6d97f8e4d1d9da515f9d55e9e918a41b1cde43a9643c9baef2fc71433e5b32"
+      "sha256": "96dacd5d17c55ef56e665afc47c8c6b797f3bd3129bfe18fb768c78cf3e46fc0"
     },
     {
       "path": "crates/transport-security/src/svid_profile.rs",
@@ -178,11 +182,11 @@
     },
     {
       "path": "crates/spiffe-source/src/sink.rs",
-      "sha256": "21c597fab17c22ab844235f438fa0d4b359edf852d631e7cc7c3c0058e64d004"
+      "sha256": "ce5603f9280b48dadcc2ceef9640b667ac839ad0197190db9a9d8c3a0c72191d"
     },
     {
       "path": "crates/spiffe-source/src/sink/transport.rs",
-      "sha256": "57afdd42263b6cdcdfdfd70540662fa5d9b93d150b0739805b293b48763b70bc"
+      "sha256": "7899240d30a93c998074e1ea8a83e31d8c8ec272d210d4df58861c4fab8d7e70"
     },
     {
       "path": "crates/spiffe-source/src/svid_profile.rs",
@@ -238,15 +242,15 @@
     },
     {
       "path": "crates/gateway/src/lib.rs",
-      "sha256": "aad5d5298f6ab859540bb2bfa1bd71c2ef3207cb543250d02aebeb8a1b4e22d9"
+      "sha256": "0e5988eaf0273eda3d1f002a32a671a597e458746dc0ff9514a1e34acdb50dd4"
     },
     {
       "path": "crates/gateway/src/app_state.rs",
-      "sha256": "fdf37f08fcd0e6731eb2ae82c06c818077fc78355893b863c2b0ccea74356e3a"
+      "sha256": "34dce58be53b456fff2dbfaff5ef1cf5c2336c07d130c0fc1634e2a1091d45f2"
     },
     {
       "path": "crates/gateway/src/transport/mod.rs",
-      "sha256": "93083feb8574bf583b13d3cc860f4dd64d8374b11f3b1c2a0de7e8d2ebbe6614"
+      "sha256": "f6a89073d0edd8a1bd3c27fa69365fd5bb85449acdc2fbac5c74baa2ee1b8041"
     },
     {
       "path": "crates/gateway/src/transport/boot.rs",
@@ -254,11 +258,11 @@
     },
     {
       "path": "crates/gateway/src/transport/config.rs",
-      "sha256": "0ebd0b88632dde4b37945901a103b9ab12010a8eea76fc858c87622ad2241db3"
+      "sha256": "83f34adeb43ce15c536524f4a40109014d4086a752edeed5488dc3209280d4cf"
     },
     {
       "path": "crates/gateway/src/transport/runtime.rs",
-      "sha256": "f844dc8cef3c9fc3197ab19d6fa0a67988137bef57ac4af17e02c9c05edf1752"
+      "sha256": "aac4bd27d5003f9a9cf010cd38811472693ac9d8c6e9a26cf2397a393c8c08dc"
     },
     {
       "path": "crates/gateway/src/transport/source_trust_selection.rs",
@@ -270,11 +274,11 @@
     },
     {
       "path": "crates/gateway/src/transport/boot_source_trust_tests.rs",
-      "sha256": "a14c3d8ab0c404122667d3b31ac88ec105166c609546ee520712b6f06eb55259"
+      "sha256": "3c31af76a565766fd3eb03d977a2275297c7d1283d56d78bf13de9da69a70a40"
     },
     {
       "path": "crates/gateway/src/transport/test_support.rs",
-      "sha256": "007bd36aa5bb294742823fc2b9a384f2458260fcd50098df9fa9e2cd3aba9053"
+      "sha256": "37882a8ed18219edf5f5d399fc230eb9d4f6bd917d8eda4c5f5dc0ace5ecf321"
     },
     {
       "path": "crates/gateway/src/transport_lifecycle/mod.rs",
@@ -282,7 +286,7 @@
     },
     {
       "path": "crates/gateway/src/transport_lifecycle/trust.rs",
-      "sha256": "4f185ced150171355d5ecbe79b6a42539d9332a08d859043f59dc05689c83105"
+      "sha256": "4314c1e84d77d9d4ce28daaae16a07b338157c295a577974ec290c2dbe8c4eb3"
     },
     {
       "path": "crates/gateway/src/transport_lifecycle/trust_tests.rs",
@@ -298,15 +302,15 @@
     },
     {
       "path": "crates/gateway/src/transport_lifecycle/trust_activate.rs",
-      "sha256": "983f001f9c9bd2232e2e8b93783a3d659686d0bd2972be81f149029393c28866"
+      "sha256": "c9bfd5e7ade759c776e48b7e6eb721b4f1652ec9824f02bb53c1a3076bdbf1f5"
     },
     {
       "path": "crates/gateway/src/transport_lifecycle/trust_store.rs",
-      "sha256": "8648ebe3e471dc2221fa917d5042b3d560ea0337ba531b6107a19b62d0ccd503"
+      "sha256": "e107589e040f088b62043262aba6977e178281e8a6602349e8e6201ea26a7e5d"
     },
     {
       "path": "crates/gateway/src/transport_lifecycle/boot.rs",
-      "sha256": "f0dec9fff245007823e5037d84725026308c199e2fbcf239974b3cd0dfea2306"
+      "sha256": "b728fc1e55821a9a7e1ad305821a89a4de553600fdc4b50053e704a2cbeecde6"
     },
     {
       "path": "crates/storage/src/lib.rs",
@@ -314,7 +318,7 @@
     },
     {
       "path": "crates/storage/src/host_kv.rs",
-      "sha256": "adfcc765d0cf20a2f6723e5d7a08ab8289beca8d4a54380c1f8cbd63e97fdba2"
+      "sha256": "a3e44491df0d13404e9f98f827bf23ba44d077a481b13d086eed6ee083a6556d"
     },
     {
       "path": "scripts/security/cargo-lock-projection.py",
@@ -426,7 +430,7 @@
     },
     {
       "path": "crates/gateway/Cargo.toml",
-      "sha256": "fd87242e30a0403cdbcee0ce8ff36a60d2de62be83a77f94c5f49f5935655696"
+      "sha256": "69f2859b3b2d5d5b9e2095f37343afc9d9612f2df32c117e0409bae6a23325a7"
     },
     {
       "path": "crates/host-core/Cargo.toml",

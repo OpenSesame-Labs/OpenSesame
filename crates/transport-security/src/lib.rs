@@ -63,6 +63,7 @@ pub use env::{NativeIdentitySpec, NativeTrustSpec, TransportEnv};
 pub use error::classify_tls_error;
 pub use generations::{
     Generation, GenerationCandidate, SourceOwner, SourceTrust, TransportGenerations,
+    MAX_SOURCE_HISTORY_PROFILES,
 };
 pub use guard::{enforce_current_generation, PeerDenyHook};
 pub use identity::{ChainUsage, TlsIdentity};

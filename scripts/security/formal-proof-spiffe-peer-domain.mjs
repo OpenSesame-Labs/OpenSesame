@@ -24,6 +24,7 @@ export const SPIFFE_PEER_DOMAIN_SUITE = {
     "crates/transport-security/src/server_conn.rs",
     "crates/transport-security/src/signing_fence.rs",
     "crates/transport-security/src/source_lifetime.rs",
+    "crates/transport-security/src/source_history_activation.rs",
     "crates/transport-security/src/source_trust.rs",
     "crates/transport-security/src/svid_profile.rs",
     "crates/transport-security/src/svid_tls.rs",

@@ -308,5 +308,7 @@ async fn a_store_failure_leaves_the_running_generation_unchanged() {
     assert!(!serves(&generations, "peers"));
 }
 
+#[path = "trust_history_tests.rs"]
+mod history_tests;
 #[path = "trust_source_tests.rs"]
 mod source_tests;

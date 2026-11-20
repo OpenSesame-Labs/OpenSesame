@@ -11,9 +11,11 @@ use opensesame_domain::transport::{TransportError, TrustProfileRef};
 use super::{Generation, GenerationCandidate, TransportGenerations};
 use crate::trust::TrustBundle;
 
+#[path = "source_history_activation.rs"]
+mod source_history_activation;
 #[path = "source_trust.rs"]
 mod source_trust;
-pub use source_trust::SourceTrust;
+pub use source_trust::{SourceTrust, MAX_SOURCE_HISTORY_PROFILES};
 
 #[derive(Debug)]
 struct OwnerKey {
@@ -56,9 +58,8 @@ pub(super) struct SourceState {
     /// Once a source claims this manager, only an explicitly claimed source
     /// can reactivate it, including after that source retires.
     managed: bool,
-    /// A removed source profile must not be resurrected by stored trust.
-    /// This tombstone persists until the manager itself is replaced.
     source_profiles: BTreeSet<TrustProfileRef>,
+    pending: Option<source_history_activation::Pending>,
 }
 
 impl SourceState {
@@ -89,7 +90,7 @@ impl SourceState {
         now: DateTime<Utc>,
     ) -> Result<(), TransportError> {
         if !self.managed {
-            return Ok(());
+            return self.allow_unmanaged_history(candidate);
         }
         if current.withdrawn.is_some() {
             return Err(TransportError::GenerationStale);
@@ -277,6 +278,7 @@ impl TransportGenerations {
         if !owner.belongs_to(self) || !serial.matching(owner, epoch) {
             return Err(TransportError::GenerationStale);
         }
+        serial.pending = None;
         let fence = serial
             .fence
             .as_mut()

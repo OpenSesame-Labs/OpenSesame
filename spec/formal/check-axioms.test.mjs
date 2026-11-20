@@ -53,6 +53,12 @@ const suites = [
     vectors: 16,
   },
   {
+    name: "source-trust-history",
+    model: "SourceTrustHistory.lean",
+    first: "unattested_initialization_refused",
+    vectors: 21,
+  },
+  {
     name: "spiffe",
     model: "SpiffePolicy.lean",
     first: "no_identity_withdraws",

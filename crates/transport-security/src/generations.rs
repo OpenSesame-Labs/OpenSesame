@@ -23,7 +23,7 @@ use crate::trust::TrustBundle;
 #[path = "source_lifetime.rs"]
 mod source_lifetime;
 use source_lifetime::SourceState;
-pub use source_lifetime::{SourceOwner, SourceTrust};
+pub use source_lifetime::{SourceOwner, SourceTrust, MAX_SOURCE_HISTORY_PROFILES};
 
 /// One activated configuration.
 #[derive(Clone, Debug)]
@@ -128,6 +128,9 @@ pub struct TransportGenerations {
     changes: watch::Sender<u64>,
     activation: Mutex<SourceState>,
     denied: RwLock<BTreeSet<String>>,
+    // An embedding runtime may tie this manager's entire Arc lifetime to an
+    // exclusive external owner. The manager cannot validate that owner's policy.
+    _lifetime_guard: Option<Arc<dyn Send + Sync>>,
 }
 
 impl std::fmt::Debug for TransportGenerations {
@@ -145,12 +148,28 @@ impl TransportGenerations {
     /// [`GenerationCandidate::into_generation`]).
     #[must_use]
     pub fn new(initial: Generation) -> Arc<Self> {
+        Self::with_optional_lifetime_guard(initial, None)
+    }
+
+    /// Keep an embedding runtime's ownership guard alive for every clone of
+    /// this manager. The caller must validate the guard's policy and acquire
+    /// it before exposing the manager.
+    #[must_use]
+    pub fn new_with_lifetime_guard(initial: Generation, guard: Arc<dyn Send + Sync>) -> Arc<Self> {
+        Self::with_optional_lifetime_guard(initial, Some(guard))
+    }
+
+    fn with_optional_lifetime_guard(
+        initial: Generation,
+        guard: Option<Arc<dyn Send + Sync>>,
+    ) -> Arc<Self> {
         let (changes, _) = watch::channel(initial.number);
         Arc::new(Self {
             current: ArcSwap::from_pointee(initial),
             changes,
             activation: Mutex::new(SourceState::default()),
             denied: RwLock::new(BTreeSet::new()),
+            _lifetime_guard: guard,
         })
     }
 

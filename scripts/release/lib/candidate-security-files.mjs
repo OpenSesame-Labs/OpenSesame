@@ -39,6 +39,7 @@ export const REQUIRED_SECURITY_POLICY_FILES = [
   "scripts/security/formal-proof-pinned-suites.mjs",
   "scripts/security/formal-proof-source-selection.mjs",
   "scripts/security/formal-proof-spiffe-peer-domain.mjs",
+  "scripts/security/formal-proof-source-history.mjs",
   "scripts/security/formal-cargo-isolation.py",
   "scripts/security/formal-cargo-freshness.py",
   "scripts/security/formal-proof-required-suites.mjs",

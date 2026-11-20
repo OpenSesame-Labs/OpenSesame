@@ -210,10 +210,14 @@ impl TrustProfileSet {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ActivatedEpoch {
     pub revision: u32,
+    /// Exact generation installed by this adoption, not a later observation.
+    pub generation: Option<u64>,
     pub next_overlap_expiry: Option<DateTime<Utc>>,
     /// Every profile name the activated set stored, so a later activation
     /// never mistakes a removed stored profile for a deployment-plane one.
     pub names: std::collections::BTreeSet<TrustProfileRef>,
+    /// Stored entries excluded because their names belong to the source.
+    pub quarantined: std::collections::BTreeSet<TrustProfileRef>,
 }
 
 /// Why a trust write was refused.

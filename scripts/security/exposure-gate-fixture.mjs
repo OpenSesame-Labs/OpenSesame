@@ -144,6 +144,7 @@ export function installFormalGate(f) {
     "scripts/security/formal-proof-pinned-suites.mjs",
     "scripts/security/formal-proof-source-selection.mjs",
     "scripts/security/formal-proof-spiffe-peer-domain.mjs",
+    "scripts/security/formal-proof-source-history.mjs",
     "scripts/security/formal-proof-push-gate.mjs",
     "scripts/security/formal-proof-push-gate-registry.mjs",
     "scripts/security/formal-proof-push-history.mjs",

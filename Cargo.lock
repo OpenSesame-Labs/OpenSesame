@@ -4025,6 +4025,7 @@ dependencies = [
  "opensesame-domain",
  "opensesame-event-seal",
  "opensesame-host-core",
+ "opensesame-human-vault",
  "opensesame-ingress-evidence",
  "opensesame-lifecycle",
  "opensesame-nats-callout",

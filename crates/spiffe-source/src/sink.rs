@@ -2,12 +2,49 @@
 //! `opensesame_transport_security::TransportGenerations` (see
 //! [`crate::sink::transport`]); tests use [`RecordingSink`].
 
+use opensesame_domain::{TransportError, TrustProfileRef};
 use opensesame_time::{DateTime, Utc};
-use opensesame_domain::TransportError;
+use std::collections::BTreeSet;
+use std::future::Future;
+use std::pin::Pin;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
 use crate::snapshot::SvidGeneration;
+
+/// An owned storage operation that can run without holding a source lock.
+pub type HistoryWrite = Pin<Box<dyn Future<Output = Result<(), TransportError>> + Send>>;
+
+/// A write-ahead operation and whether preparing it withdrew a generation
+/// that contained a local bundle under an incoming source-owned name.
+pub struct PreparedHistory {
+    pub write: HistoryWrite,
+    pub withdrew_local_conflict: bool,
+}
+
+/// Preparation distinguishes a rejected candidate from an unavailable
+/// history store or lost source ownership, which require a fresh stream.
+#[derive(Debug)]
+pub enum PreparationError {
+    Candidate(TransportError),
+    Lease(TransportError),
+    History(TransportError),
+}
+
+/// A trusted write-ahead reservation store. Implementations must preserve all
+/// previously reserved names and acknowledge only after the union is durable.
+/// The source drops superseded futures: a started write that outlives its
+/// future must keep the trust-owner guard until it is known quiescent, and an
+/// unknown outcome must fence successor managers. Implementations must bound
+/// outstanding detached work and refuse saturation synchronously. They must
+/// never activate a generation on behalf of a dropped future.
+pub trait GenerationHistory: Send + Sync + 'static {
+    /// Reserve bounded write capacity before starting an asynchronous union.
+    ///
+    /// # Errors
+    /// The store cannot accept another write safely.
+    fn reserve(&self, names: BTreeSet<TrustProfileRef>) -> Result<HistoryWrite, TransportError>;
+}
 
 /// A consumer of generations that can grant one exclusive source lease.
 pub trait GenerationSink: Send + Sync + 'static {
@@ -22,11 +59,24 @@ pub trait GenerationSink: Send + Sync + 'static {
 /// An exclusive source session. Implementations must fence each operation to
 /// this owner and its current source epoch, including retirement.
 pub trait GenerationLease: Send + 'static {
+    /// Validate a candidate and prepare its write-ahead reservation. The
+    /// returned future must be awaited without holding the lease lock.
+    ///
+    /// # Errors
+    /// The owner is stale or the candidate cannot be accepted.
+    fn prepare(&mut self, generation: &SvidGeneration)
+        -> Result<PreparedHistory, PreparationError>;
+
     /// Activate a validated candidate and advance the source epoch.
     ///
     /// # Errors
     /// The owner is stale or the candidate is refused.
-    fn activate(&mut self, generation: &SvidGeneration) -> Result<u64, TransportError>;
+    fn activate(
+        &mut self,
+        generation: &SvidGeneration,
+        wait_deadline: DateTime<Utc>,
+        wait_monotonic: Instant,
+    ) -> Result<u64, TransportError>;
 
     /// Shorten the current epoch's use-time bound.
     ///
@@ -72,8 +122,24 @@ impl SharedLease {
         f(lease.as_mut())
     }
 
-    pub(crate) fn activate(&self, generation: &SvidGeneration) -> Result<u64, TransportError> {
-        self.with(|lease| lease.activate(generation))
+    pub(crate) fn activate(
+        &self,
+        generation: &SvidGeneration,
+        wait_deadline: DateTime<Utc>,
+        wait_monotonic: Instant,
+    ) -> Result<u64, TransportError> {
+        self.with(|lease| lease.activate(generation, wait_deadline, wait_monotonic))
+    }
+
+    pub(crate) fn prepare(
+        &self,
+        generation: &SvidGeneration,
+    ) -> Result<PreparedHistory, PreparationError> {
+        let mut lease = self
+            .0
+            .lock()
+            .map_err(|_| PreparationError::Lease(TransportError::SourceUnsupported))?;
+        lease.prepare(generation)
     }
 
     pub(crate) fn tighten(

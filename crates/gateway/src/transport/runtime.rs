@@ -20,7 +20,6 @@ use opensesame_domain::transport::{
 use opensesame_ingress_evidence::{
     originating_peer_layer, BindingSetAdmission, IngressLimits, OriginatingPeerLayer,
 };
-use opensesame_spiffe_source::sink::TransportGenerationsSink;
 use opensesame_spiffe_source::{SourcePhase, SpiffeSource, SpiffeSourceConfig, SpiffeSourceHandle};
 use opensesame_storage::Db;
 use opensesame_transport_security::env::{NativeIdentitySpec, NativeTrustSpec};
@@ -30,6 +29,7 @@ use opensesame_transport_security::{
 
 use super::bindings::{self, BindingsSource};
 use super::config::{AuthMode, ListenerConfig, TransportConfig};
+use super::source_history::coordinator::{claim_host_history, ManagedHistory};
 use super::status::{SharedFacts, TransportFacts};
 use super::ManagedIdentityResolver;
 
@@ -95,19 +95,20 @@ impl TransportRuntime {
         db: &Db,
         resolver: &dyn ManagedIdentityResolver,
     ) -> Result<Option<Arc<Self>>, TransportError> {
-        if config.listener.is_none()
-            && config.service_bindings_file.is_none()
-            && config.mapping_auth != AuthMode::Mtls
-            && config.callout_auth != AuthMode::Mtls
-        {
+        if config.is_unconfigured() {
             return Ok(None);
         }
         let loaded = bindings::load(db, config.service_bindings_file.as_deref()).await?;
         let bindings = Arc::new(RwLock::new(loaded.set));
         let listener = config.listener.clone();
         let (generations, spiffe) = match listener.as_ref() {
-            Some(listener) => build_generations(listener, resolver).await?,
-            None => (empty_generations()?, None),
+            Some(listener) => build_generations(listener, resolver, db).await?,
+            None => (
+                seeded_manager(db, GenerationCandidate::default())
+                    .await?
+                    .generations(),
+                None,
+            ),
         };
         let client_trust_profile = listener.as_ref().map_or_else(
             || TrustProfileRef::new(super::config::DEFAULT_CLIENT_TRUST_PROFILE),
@@ -200,20 +201,29 @@ impl TransportRuntime {
     }
 }
 
-/// A generation with no identity and no trust: the Host has bindings or an
-/// mTLS client mode but no secure listener of its own.
-fn empty_generations() -> Result<Arc<TransportGenerations>, TransportError> {
-    let generation =
-        GenerationCandidate::default().into_generation(1, opensesame_time::Utc::now())?;
-    Ok(TransportGenerations::new(generation))
+/// A configured Host trust owner must have complete durable history before
+/// any source generation or stored trust can be exposed.
+async fn seeded_manager(
+    db: &Db,
+    candidate: GenerationCandidate,
+) -> Result<ManagedHistory, TransportError> {
+    let permit = tokio::time::timeout(SPIFFE_FIRST_SVID_TIMEOUT, claim_host_history())
+        .await
+        .map_err(|_| TransportError::malformed("source history owner claim timed out"))?
+        .map_err(|error| TransportError::malformed(format!("source history: {error}")))?;
+    permit
+        .start_manager(db.clone(), candidate)
+        .await
+        .map_err(|error| TransportError::malformed(format!("source history: {error}")))
 }
 
 async fn build_generations(
     listener: &ListenerConfig,
     resolver: &dyn ManagedIdentityResolver,
+    db: &Db,
 ) -> Result<(Arc<TransportGenerations>, Option<SpiffeSourceHandle>), TransportError> {
     if let NativeIdentitySpec::Spiffe { .. } = &listener.identity {
-        return start_spiffe(listener).await.map(|(g, h)| (g, Some(h)));
+        return start_spiffe(listener, db).await.map(|(g, h)| (g, Some(h)));
     }
     let identity = resolve_identity(&listener.identity, resolver).await?;
     let mut candidate = GenerationCandidate {
@@ -227,8 +237,8 @@ async fn build_generations(
             .peer_trust
             .insert(listener.client_trust_profile.clone(), bundle);
     }
-    let generation = candidate.into_generation(1, opensesame_time::Utc::now())?;
-    Ok((TransportGenerations::new(generation), None))
+    let managed = seeded_manager(db, candidate).await?;
+    Ok((managed.generations(), None))
 }
 
 /// PEM now, managed through the custody bridge. A `managed` reference the
@@ -278,20 +288,32 @@ fn load_trust(
 /// is bound only after a real generation exists.
 async fn start_spiffe(
     listener: &ListenerConfig,
+    db: &Db,
 ) -> Result<(Arc<TransportGenerations>, SpiffeSourceHandle), TransportError> {
     let config = SpiffeSourceConfig::from_native_spec(&listener.identity)
         .map_err(|e| e.to_transport_error())?
         .ok_or(TransportError::SourceUnsupported)?;
-    let generations = empty_generations()?;
-    let sink = Arc::new(TransportGenerationsSink::new(Arc::clone(&generations)));
+    let managed = seeded_manager(db, GenerationCandidate::default()).await?;
+    let generations = managed.generations();
+    let sink = Arc::new(managed.source_sink());
     let handle = SpiffeSource::start(config, sink)?;
     let ready = handle
         .wait_for(SPIFFE_FIRST_SVID_TIMEOUT, |status| {
-            status.generation.is_some() || status.phase == SourcePhase::Withdrawn
+            matches!(
+                status.phase,
+                SourcePhase::Streaming | SourcePhase::Withdrawn
+            )
         })
         .await;
     match ready {
-        Ok(status) if status.generation.is_some() => Ok((generations, handle)),
+        Ok(status)
+            if status.phase == SourcePhase::Streaming
+                && status
+                    .generation
+                    .is_some_and(|number| generations.checked_current(Some(number)).is_ok()) =>
+        {
+            Ok((generations, handle))
+        }
         Ok(_) | Err(_) => Err(TransportError::IdentityMissing),
     }
 }

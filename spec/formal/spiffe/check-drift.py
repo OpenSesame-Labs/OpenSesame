@@ -26,6 +26,7 @@ TARGETS = {
 MINIMUM_PATHS = {
     'crates/spiffe-source/Cargo.toml',
     'crates/spiffe-source/src/source.rs',
+    'crates/spiffe-source/src/source_history_flow.rs',
     'crates/spiffe-source/src/source_policy.rs',
     'crates/spiffe-source/src/bundles.rs',
     'crates/spiffe-source/src/outage.rs',
@@ -48,6 +49,7 @@ MINIMUM_PATHS = {
     'crates/spiffe-source/tests/production_sink_policy.rs',
     'crates/spiffe-source/src/source_handle.rs',
     'crates/transport-security/src/source_lifetime.rs',
+    'crates/transport-security/src/source_history_activation.rs',
     'crates/transport-security/src/source_trust.rs',
     'crates/transport-security/src/svid_profile.rs',
     'crates/transport-security/Cargo.toml',

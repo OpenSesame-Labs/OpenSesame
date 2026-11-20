@@ -255,3 +255,89 @@ pub fn pem_config(cert: std::path::PathBuf, key: std::path::PathBuf) -> Transpor
     }
     config
 }
+
+/// A resolved identity for exercising the managed-custody startup path.
+pub struct ManagedIdentity(pub Arc<opensesame_transport_security::TlsIdentity>);
+
+#[async_trait::async_trait]
+impl super::ManagedIdentityResolver for ManagedIdentity {
+    async fn resolve(
+        &self,
+        _id: &str,
+    ) -> Result<Arc<opensesame_transport_security::TlsIdentity>, opensesame_domain::TransportError>
+    {
+        Ok(Arc::clone(&self.0))
+    }
+
+    fn capability(&self) -> opensesame_domain::transport::CapabilityOutcome {
+        opensesame_domain::transport::CapabilityOutcome::unsupported("test resolver")
+    }
+}
+
+/// A configured runtime must refuse a database whose history was not attested.
+pub async fn assert_missing_history(
+    config: TransportConfig,
+    db: &opensesame_storage::Db,
+    resolver: &dyn super::ManagedIdentityResolver,
+) {
+    let error = TransportRuntime::build(config, db, resolver)
+        .await
+        .unwrap_err();
+    assert!(error
+        .to_string()
+        .contains("not been explicitly initialized"));
+}
+
+/// Wait for detached source work to relinquish the process-local owner.
+pub async fn wait_for_history_owner() {
+    drop(
+        tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            super::source_history::coordinator::claim_host_history(),
+        )
+        .await
+        .unwrap()
+        .unwrap(),
+    );
+}
+
+/// Configured non-source startup paths for a file-backed history test.
+pub fn history_configs(
+    dir: &std::path::Path,
+) -> (
+    TransportConfig,
+    TransportConfig,
+    ManagedIdentity,
+    TransportConfig,
+) {
+    use opensesame_domain::transport::TrustProfileKind;
+    use opensesame_transport_security::testkit::DisposableCa;
+
+    let server = DisposableCa::new("server");
+    let clients = DisposableCa::new("clients");
+    let leaf = server.issue_server("localhost");
+    let resolver = ManagedIdentity(Arc::new(leaf.identity()));
+    let (cert, key) = leaf.write_to(dir);
+    let ca_file = dir.join("clients.pem");
+    std::fs::write(&ca_file, clients.root_pem()).unwrap();
+    let mut pem = pem_config(cert, key);
+    pem.listener.as_mut().unwrap().client_trust = Some(NativeTrustSpec::PemFile {
+        path: ca_file,
+        kind: TrustProfileKind::PrivateRoot,
+    });
+    let mut managed = pem.clone();
+    managed.listener.as_mut().unwrap().identity = NativeIdentitySpec::ManagedCertificate {
+        certificate_id: "test-certificate".into(),
+    };
+    let bindings = dir.join("bindings.json");
+    std::fs::write(
+        &bindings,
+        serde_json::to_vec(&ServiceBindingSet::empty()).unwrap(),
+    )
+    .unwrap();
+    let mut bindings_only = mtls_config();
+    bindings_only.listener = None;
+    bindings_only.callout_auth = AuthMode::Unconfigured;
+    bindings_only.service_bindings_file = Some(bindings);
+    (pem, managed, resolver, bindings_only)
+}

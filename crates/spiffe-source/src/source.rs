@@ -27,9 +27,14 @@ use crate::config::SpiffeSourceConfig;
 use crate::error::SpiffeSourceError;
 use crate::outage::{bounded_deadline, retention_deadline, Backoff};
 use crate::sink::{ClaimedSink, GenerationSink, SharedLease};
-use crate::snapshot::{SvidGeneration, TrustDomainBundles};
+use crate::snapshot::TrustDomainBundles;
 use crate::status::{SourcePhase, SourceStatus};
 
+#[path = "source_history_flow.rs"]
+mod source_history_flow;
+use source_history_flow::{
+    sleep_until_monotonic, wait_for_history, Completion, PendingSnapshot, Preparation,
+};
 #[path = "source_policy.rs"]
 mod source_policy;
 use source_policy::{classify_api_failure, ApiAction};
@@ -79,10 +84,12 @@ struct Loop {
 struct Active {
     not_after: DateTime<Utc>,
     bundles: TrustDomainBundles,
+    monotonic_deadline: std::time::Instant,
 }
 
 enum StreamEnd {
     Stop,
+    HistoryRetry,
     Broken(SpiffeSourceError),
     Withdrawn(TransportError, &'static str),
     Expired,
@@ -113,6 +120,7 @@ impl Loop {
             }
             match self.connect_and_stream().await {
                 StreamEnd::Stop => break,
+                StreamEnd::HistoryRetry => {}
                 StreamEnd::Broken(err) => self.on_outage(&err),
                 StreamEnd::Withdrawn(reason, code) => self.withdraw(reason, Some(code)),
                 StreamEnd::Expired => self.withdraw(TransportError::EvidenceExpired, None),
@@ -165,27 +173,64 @@ impl Loop {
         self.update(|s| {
             s.connections = s.connections.saturating_add(1);
         });
+        let mut pending: Option<Box<PendingSnapshot>> = None;
         loop {
             let expiry = self.active_deadline();
+            let write_expiry = pending.as_ref().map(|snapshot| snapshot.wait_until);
             tokio::select! {
                 biased;
                 _ = self.stop.changed() => return StreamEnd::Stop,
                 () = sleep_until(expiry) => {
-                    self.withdraw(TransportError::EvidenceExpired, None);
+                    let had_pending = pending.take().is_some();
+                    self.withdraw(
+                        TransportError::EvidenceExpired,
+                        had_pending.then_some("history_write_timeout"),
+                    );
+                    if had_pending {
+                        return StreamEnd::HistoryRetry;
+                    }
                 }
-                item = stream.next() => match item {
-                    Some(Ok(ctx)) => self.apply(&ctx),
-                    Some(Err(error)) => match classify_api_failure(&error) {
-                        ApiAction::Denied(code) => {
-                            return StreamEnd::Withdrawn(TransportError::IdentityMissing, code);
+                () = sleep_until_monotonic(write_expiry) => {
+                    drop(pending.take());
+                    self.withdraw(TransportError::EvidenceExpired, Some("history_write_timeout"));
+                    return StreamEnd::HistoryRetry;
+                }
+                item = stream.next() => {
+                    // Any observed newer event supersedes the candidate. A
+                    // detached old DB operation may reserve extra names but
+                    // can no longer activate its snapshot.
+                    drop(pending.take());
+                    match item {
+                        Some(Ok(ctx)) => match self.prepare_snapshot(&ctx) {
+                            Preparation::Candidate(snapshot) => pending = Some(snapshot),
+                            Preparation::Ignore => {}
+                            Preparation::Retry => return StreamEnd::HistoryRetry,
+                        },
+                        Some(Err(error)) => match classify_api_failure(&error) {
+                            ApiAction::Denied(code) => {
+                                return StreamEnd::Withdrawn(TransportError::IdentityMissing, code);
+                            }
+                            ApiAction::Withdraw(reason, code) => self.withdraw(reason, Some(code)),
+                            ApiAction::Outage => {
+                                return StreamEnd::Broken(SpiffeSourceError::Transport("stream".into()));
+                            }
+                        },
+                        None => return StreamEnd::Broken(SpiffeSourceError::Transport("closed".into())),
+                    }
+                }
+                result = wait_for_history(&mut pending) => {
+                    if let Some(completed) = pending.take() {
+                        if matches!(
+                            self.finish_snapshot(&completed, result.is_ok()),
+                            Completion::Retry
+                        ) {
+                            return StreamEnd::HistoryRetry;
                         }
-                        ApiAction::Withdraw(reason, code) => self.withdraw(reason, Some(code)),
-                        ApiAction::Outage => {
-                            return StreamEnd::Broken(SpiffeSourceError::Transport("stream".into()));
-                        }
-                    },
-                    None => return StreamEnd::Broken(SpiffeSourceError::Transport("closed".into())),
-                },
+                    } else {
+                        self.withdraw(TransportError::SourceUnsupported, Some("history_state_invalid"));
+                        return StreamEnd::Withdrawn(TransportError::SourceUnsupported, "history_state_invalid");
+                    }
+                }
             }
         }
     }
@@ -194,47 +239,6 @@ impl Loop {
         self.active
             .as_ref()
             .map(|active| bounded_deadline(active.not_after, self.status.borrow().retain_until))
-    }
-
-    fn apply(&mut self, ctx: &X509Context) {
-        let now = Utc::now();
-        match SvidGeneration::select(ctx, &self.config, now) {
-            Ok(generation) => match self.sink.0.activate(&generation) {
-                Ok(number) => {
-                    self.backoff.reset();
-                    self.active = Some(Active {
-                        not_after: generation.not_after,
-                        bundles: generation.bundles.clone(),
-                    });
-                    self.update(|s| {
-                        s.phase = SourcePhase::Streaming;
-                        s.generation = Some(number);
-                        s.not_after = Some(generation.not_after);
-                        s.updated_at = Some(now);
-                        s.outage_since = None;
-                        s.retain_until = Some(generation.not_after);
-                        s.last_error = None;
-                        s.snapshots = s.snapshots.saturating_add(1);
-                    });
-                }
-                Err(TransportError::GenerationStale | TransportError::SourceUnsupported) => {
-                    self.withdraw(
-                        TransportError::SourceUnsupported,
-                        Some("source_ownership_lost"),
-                    );
-                }
-                Err(refused) => {
-                    self.retain_or_withdraw(ctx, refused.code());
-                }
-            },
-            Err(err) if err.is_withdrawal() => {
-                let code = err.code().to_owned();
-                self.withdraw(err.to_transport_error(), Some(&code));
-            }
-            Err(err) => {
-                self.retain_or_withdraw(ctx, err.code());
-            }
-        }
     }
 
     fn retain_or_withdraw(&mut self, ctx: &X509Context, code: &str) {
@@ -258,15 +262,22 @@ impl Loop {
             .as_ref()
             .map(|a| retention_deadline(a.not_after, Some((now, max_stale))));
         if let Some(deadline) = retain {
-            if monotonic_now
-                .checked_add(max_stale)
-                .is_none_or(|bound| self.sink.0.tighten(deadline, bound).is_err())
-            {
+            let Some(bound) = monotonic_now.checked_add(max_stale) else {
                 self.withdraw(
                     TransportError::SourceUnsupported,
                     Some("source_ownership_lost"),
                 );
                 return;
+            };
+            if self.sink.0.tighten(deadline, bound).is_err() {
+                self.withdraw(
+                    TransportError::SourceUnsupported,
+                    Some("source_ownership_lost"),
+                );
+                return;
+            }
+            if let Some(active) = self.active.as_mut() {
+                active.monotonic_deadline = active.monotonic_deadline.min(bound);
             }
         }
         let code = err.code().to_owned();

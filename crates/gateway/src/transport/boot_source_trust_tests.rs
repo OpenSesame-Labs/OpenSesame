@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::{routing::get, Router};
-use chrono::Utc;
+use opensesame_time::Utc;
 use opensesame_domain::transport::{
     ServiceBindingSet, TlsVersion, TrustProfileKind, TrustProfileRef,
 };

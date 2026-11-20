@@ -481,6 +481,8 @@
       "minSecretBytes": 0,
       "budget": null,
       "implementation": [
+        "apps/cli/src/serve.rs",
+        "crates/gateway/src/app_state.rs",
         "crates/gateway/src/bootstrap.rs",
         "crates/gateway/src/config.rs",
         "crates/gateway/src/lib.rs",
@@ -497,6 +499,9 @@
         "crates/gateway/src/transport/proof.rs",
         "crates/gateway/src/transport/routes.rs",
         "crates/gateway/src/transport/runtime.rs",
+        "crates/gateway/src/transport/source_history.rs",
+        "crates/gateway/src/transport/source_history/coordinator.rs",
+        "crates/gateway/src/transport/source_history/file_lock.rs",
         "crates/gateway/src/transport/status.rs",
         "crates/gateway/src/transport/test_support.rs",
         "crates/transport-security/src/lib.rs",
@@ -512,9 +517,13 @@
         "crates/transport-security/src/testkit/ca.rs",
         "crates/transport-security/src/testkit/leaf.rs",
         "crates/transport-security/src/source_lifetime.rs",
+        "crates/transport-security/src/source_history_activation.rs",
         "crates/transport-security/src/source_trust.rs",
         "crates/gateway/src/transport_lifecycle/mod.rs",
+        "crates/gateway/src/transport_lifecycle/boot.rs",
+        "crates/gateway/src/transport_lifecycle/routes.rs",
         "crates/gateway/src/transport_lifecycle/trust_activate.rs",
+        "crates/gateway/src/transport_lifecycle/trust_store.rs",
         "crates/transport-security/src/bounded.rs",
         "crates/transport-security/src/provenance.rs",
         "crates/transport-security/src/leaf.rs",
@@ -528,10 +537,31 @@
         "crates/ingress-evidence/src/admission.rs",
         "crates/ingress-evidence/src/verify.rs",
         "crates/gateway/src/transport_lifecycle/trust.rs",
+        "crates/spiffe-source/src/source.rs",
+        "crates/spiffe-source/src/source_history_flow.rs",
+        "crates/spiffe-source/src/sink.rs",
         "crates/spiffe-source/src/sink/transport.rs",
-        "crates/spiffe-source/src/svid_profile.rs"
+        "crates/spiffe-source/src/svid_profile.rs",
+        "crates/storage/src/host_kv.rs",
+        "crates/storage/src/migrations.rs",
+        "crates/storage/migrations/0009_host_kv.sql",
+        "crates/human-vault/src/lib.rs",
+        "crates/human-vault/src/root_protection/mod.rs",
+        "crates/human-vault/src/root_protection/physical_writer_lease.rs",
+        "crates/human-vault/src/unix_private_files.rs",
+        "crates/human-vault/src/unix_private_files/writer_lease.rs"
       ],
       "regressions": [
+        "apps/cli/tests/host_startup_security.rs",
+        "apps/cli/tests/entry_startup.rs",
+        "crates/gateway/src/transport/source_history/tests.rs",
+        "crates/gateway/src/transport/source_history/coordinator_tests.rs",
+        "crates/gateway/src/transport/source_history/integration_tests.rs",
+        "crates/gateway/src/transport_lifecycle/trust_history_tests.rs",
+        "crates/gateway/src/transport_lifecycle/routes_tests.rs",
+        "crates/spiffe-source/tests/durable_history_policy.rs",
+        "crates/spiffe-source/tests/durable_history_supersession.rs",
+        "crates/transport-security/tests/source_history_reservation.rs",
         "crates/gateway/src/config_listener_tests.rs",
         "crates/gateway/src/transport/boot_tests.rs",
         "crates/gateway/src/transport/boot_source_trust_tests.rs",
@@ -557,7 +587,7 @@
         "crates/gateway/src/transport_lifecycle/trust_tests.rs",
         "crates/spiffe-source/tests/production_sink_policy.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Relay route registrations remain mounted, but heartbeat, submission, executable delivery, approval and result reporting fail closed. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. One listener configuration, 14 transport configuration and 6 listener boot tests passed. This does not add a listener or a fallback. Source-lifetime review: service admission refuses an expired source; status reports quarantined and expired generations unloaded and preserves revocation precedence. The focused admission, status and source-owned trust collision tests and integrated deadline controls passed. The listener wraps its signer and preclaim session cache with generation checks; source-owned listeners disable resumption. Signer, resumption-race and TLS 1.2/1.3 regressions exercise those boundaries. Testkit files support those regressions and add no production authority. An in-flight key operation or a signature released immediately before withdrawal cannot be revoked, and already-admitted work is not cancelled. Standalone client and server configurations are outside the listener fence. Host source-trust selection requires the generation-bound authoritative source bundle with the requested profile and kind. On the reviewed predecessor, all 16 selector correspondence vectors, the exact two-bundle return control, and the live reconstructed-manager TLS regression passed. The correspondence module is compiled only for tests and adds no production authority. That regression reuses an in-memory store; it is not a process restart or a real Workload API test. Durable source history remains a separate boundary. Peer-domain review: a SPIFFE bundle carries its explicit domain, certificate validation and SVID checks precede peer evidence, and service binding uses exact SPIFFE identity with separate leaf revocation. The configured Host source domain must match the authoritative selected bundle. The peer-domain, live TLS admission, resumption/rotation, forwarded-evidence and wrong-domain controls passed; the correspondence proves only its stated Boolean properties, not Rust refinement. The NATS client opts into a one-use server verifier with TLS resumption disabled; existing host-listener verification remains unchanged."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Relay route registrations remain mounted, but heartbeat, submission, executable delivery, approval and result reporting fail closed. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. One listener configuration, 14 transport configuration and 6 listener boot tests passed. This does not add a listener or a fallback. Source-lifetime review: service admission refuses an expired source; status reports quarantined and expired generations unloaded and preserves revocation precedence. The focused admission, status and source-owned trust collision tests and integrated deadline controls passed. The listener wraps its signer and preclaim session cache with generation checks; source-owned listeners disable resumption. Signer, resumption-race and TLS 1.2/1.3 regressions exercise those boundaries. Testkit files support those regressions and add no production authority. An in-flight key operation or a signature released immediately before withdrawal cannot be revoked, and already-admitted work is not cancelled. Standalone client and server configurations are outside the listener fence. Host source-trust selection requires the generation-bound authoritative source bundle with the requested profile and kind. On the reviewed predecessor, all 16 selector correspondence vectors, the exact two-bundle return control, and the live reconstructed-manager TLS regression passed. The correspondence module is compiled only for tests and adds no production authority. That regression reuses an in-memory store; it is not a process restart or a real Workload API test. Durable source history remains a separate boundary. Peer-domain review: a SPIFFE bundle carries its explicit domain, certificate validation and SVID checks precede peer evidence, and service binding uses exact SPIFFE identity with separate leaf revocation. The configured Host source domain must match the authoritative selected bundle. The peer-domain, live TLS admission, resumption/rotation, forwarded-evidence and wrong-domain controls passed; the correspondence proves only its stated Boolean properties, not Rust refinement. The NATS client opts into a one-use server verifier with TLS resumption disabled; existing host-listener verification remains unchanged. Source-history review: before the final lint changes, the registered history suite passed 76 Linux tests in 16 groups, including SQLite union and cancellation, the cooperative file lease, offline attestation, a real bindings-only Host startup, source supersession, stored-trust quarantine and reconciliation. The lint-corrected source still needs the full suite rerun. The Host-process case does not prove secure-listener or request-guard enforcement. The complete attestation, continuous database identity and cooperative trusted filesystem are assumptions; raw writers, older binaries, backup rollback and physical power-loss durability are not proved. Windows-only startup and initializer refusal tests have not been run on Windows. The proof suite separately pins the executed migration inventory; its hashes do not establish implementation refinement."
     },
     {
       "id": "certificate-binding",
@@ -2917,14 +2947,14 @@
       "b997cc50"
     ],
     "crates/gateway/src/lib.rs": [
-      "aad5d529",
-      "8f6ab859",
-      "540bb2bf",
-      "a1bd71c2",
-      "ef3207cb",
-      "543250d0",
-      "2aebeb8a",
-      "1b4e22d9"
+      "0e5988ea",
+      "f0273eda",
+      "3d1f002a",
+      "32a671a5",
+      "97e45874",
+      "6dc0ff95",
+      "14a1e34a",
+      "cdb50dd4"
     ],
     "crates/gateway/src/routes/est_config_policy.rs": [
       "f610fa83",
@@ -3047,14 +3077,14 @@
       "89913c85"
     ],
     "crates/gateway/src/transport/boot_source_trust_tests.rs": [
-      "a14c3d8a",
-      "b0c40412",
-      "2667d3b3",
-      "1ac88ec1",
-      "05166c60",
-      "9546ee52",
-      "0712b6f0",
-      "6eb55259"
+      "3c31af76",
+      "a565766f",
+      "d3eb03d9",
+      "77a22752",
+      "97c7d128",
+      "3d56d78b",
+      "f13de9da",
+      "69a70a40"
     ],
     "crates/gateway/src/transport/boot_tests.rs": [
       "30dd640f",
@@ -3087,14 +3117,14 @@
       "1c8efb79"
     ],
     "crates/gateway/src/transport/config.rs": [
-      "0ebd0b88",
-      "632dde4b",
-      "37945901",
-      "a103b9ab",
-      "12010a8e",
-      "ea76fc85",
-      "8c87622a",
-      "d2241db3"
+      "83f34ade",
+      "b43ce15c",
+      "536524f4",
+      "a4010901",
+      "4d4086a7",
+      "52edeed5",
+      "488dc320",
+      "9280d4cf"
     ],
     "crates/gateway/src/transport/managed.rs": [
       "95f2f2f8",
@@ -3107,14 +3137,14 @@
       "974c6ed1"
     ],
     "crates/gateway/src/transport/mod.rs": [
-      "93083feb",
-      "8574bf58",
-      "3b13d3cc",
-      "860f4dd6",
-      "4d8374b1",
-      "1f3b1c2a",
-      "0de7e8d2",
-      "ebbe6614"
+      "f6a89073",
+      "d0edd8a1",
+      "bd3c27fa",
+      "69365fd5",
+      "bb85449a",
+      "cdc2fbac",
+      "5c74baa2",
+      "ee1b8041"
     ],
     "crates/gateway/src/transport/probe.rs": [
       "281791f2",
@@ -3157,14 +3187,14 @@
       "0b777fc2"
     ],
     "crates/gateway/src/transport/runtime.rs": [
-      "f844dc8c",
-      "ef3c9fc3",
-      "197ab19d",
-      "6fa0a679",
-      "88137bef",
-      "57ac4af1",
-      "7e02c9c0",
-      "5edf1752"
+      "aac4bd27",
+      "d5003f9a",
+      "9cf010cd",
+      "38811472",
+      "693ac9d8",
+      "c6e9a26c",
+      "f2397a39",
+      "3c8c08dc"
     ],
     "crates/gateway/src/transport/status.rs": [
       "daac4453",
@@ -3177,14 +3207,14 @@
       "a9a37fce"
     ],
     "crates/gateway/src/transport/test_support.rs": [
-      "007bd36a",
-      "a5bb2947",
-      "42823fc2",
-      "b9a384f2",
-      "458260fc",
-      "d50098df",
-      "9fa9e2cd",
-      "3aba9053"
+      "37882a8e",
+      "d18219ed",
+      "f5f5d399",
+      "fc230eb9",
+      "d4f6bd91",
+      "7d8eda4c",
+      "5f5dc0ac",
+      "e5ecf321"
     ],
     "crates/storage/migrations/0057_est_passphrase_budget.sql": [
       "9efda976",
@@ -6777,24 +6807,24 @@
       "1c05799e"
     ],
     "crates/gateway/Cargo.toml": [
-      "fd87242e",
-      "30a0403c",
-      "dbcee0ce",
-      "8ff36a60",
-      "d2de62be",
-      "83a77f94",
-      "c5f49f59",
-      "35655696"
+      "69f2859b",
+      "3b2d5d5b",
+      "9e2095f3",
+      "7343afc9",
+      "d9612f2d",
+      "f32c117e",
+      "0409bae6",
+      "a23325a7"
     ],
     "crates/gateway/src/app_state.rs": [
-      "fdf37f08",
-      "fcd0e673",
-      "1eb2ae82",
-      "c06c8180",
-      "77fc7835",
-      "5893b863",
-      "c2b0ccea",
-      "74356e3a"
+      "34dce58b",
+      "e53b456f",
+      "ff2dbfaf",
+      "f5ef1cf5",
+      "c2336c07",
+      "d130c0fc",
+      "1634e2a1",
+      "091d45f2"
     ],
     "crates/gateway/src/testkit/mod.rs": [
       "18d8967d",
@@ -7217,14 +7247,14 @@
       "7a67a462"
     ],
     "crates/gateway/src/transport_lifecycle/trust.rs": [
-      "4f185ced",
-      "15017135",
-      "5d5ecbe7",
-      "9b6a4253",
-      "9d9332a0",
-      "8d859043",
-      "f59dc056",
-      "89c83105"
+      "4314c1e8",
+      "4d77d9d4",
+      "ce28daaa",
+      "e16a07b3",
+      "38157c29",
+      "5a577974",
+      "ec290c2d",
+      "be8c4eb3"
     ],
     "crates/connection-broker/src/catalog.rs": [
       "34fbc4b1",
@@ -7297,24 +7327,24 @@
       "f2d16503"
     ],
     "crates/transport-security/src/generations.rs": [
-      "6a0ea946",
-      "9a622afb",
-      "4f063c99",
-      "591f0ff9",
-      "8eeeea2e",
-      "7660f1c3",
-      "98a64341",
-      "8626bf67"
+      "626e1506",
+      "38f14d21",
+      "a60fd207",
+      "ebba34a9",
+      "b38173ea",
+      "766b87ba",
+      "327c58e4",
+      "ca31101f"
     ],
     "crates/transport-security/src/source_lifetime.rs": [
-      "34189366",
-      "60034ce7",
-      "32ade398",
-      "3837d5d9",
-      "26e4bcf6",
-      "abe50d38",
-      "c5702c91",
-      "a062d9ed"
+      "c180e8c9",
+      "6ccf81e1",
+      "97337674",
+      "044aea24",
+      "9748d560",
+      "a1757caf",
+      "5642d447",
+      "922959bb"
     ],
     "crates/transport-security/src/source_lifetime_tests.rs": [
       "b4ae3455",
@@ -7327,34 +7357,34 @@
       "51b8353e"
     ],
     "crates/transport-security/src/source_trust.rs": [
-      "5d6d97f8",
-      "e4d1d9da",
-      "515f9d55",
-      "e9e918a4",
-      "1b1cde43",
-      "a9643c9b",
-      "aef2fc71",
-      "433e5b32"
+      "96dacd5d",
+      "17c55ef5",
+      "6e665afc",
+      "47c8c6b7",
+      "97f3bd31",
+      "29bfe18f",
+      "b768c78c",
+      "f3e46fc0"
     ],
     "crates/gateway/src/transport_lifecycle/trust_activate.rs": [
-      "983f001f",
-      "9c9bd223",
-      "2e2e8b93",
-      "783a3d65",
-      "9686d0bd",
-      "2972be81",
-      "f1490293",
-      "93c28866"
+      "c9bfd5e7",
+      "ade759c7",
+      "76e48b7e",
+      "6eb721b4",
+      "f1652ec9",
+      "824f02bb",
+      "53c1a307",
+      "6bdbf1f5"
     ],
     "crates/gateway/src/transport_lifecycle/trust_generation_tests.rs": [
-      "0b8d11aa",
-      "c6d15fb0",
-      "e730aeb4",
-      "51da2f07",
-      "0bfbc2ab",
-      "c40deee2",
-      "3a9c9f20",
-      "d769cc23"
+      "f4583b7e",
+      "2ee8d45e",
+      "4aa2f3ee",
+      "401f3faf",
+      "92af2fe9",
+      "ab27c068",
+      "1534ea01",
+      "f15a719c"
     ],
     "crates/gateway/src/transport_lifecycle/trust_source_tests.rs": [
       "a9569037",
@@ -7367,14 +7397,14 @@
       "556eacfd"
     ],
     "crates/transport-security/src/lib.rs": [
-      "2ee17d47",
-      "56990146",
-      "a4ef3902",
-      "f779de66",
-      "8c8386f7",
-      "4d85d41f",
-      "a086c8ed",
-      "0d419d2c"
+      "4d2c9614",
+      "dae83fca",
+      "5d5d4c8d",
+      "e1b75cc5",
+      "01b25df3",
+      "0b62aaa7",
+      "20e38b0a",
+      "a92b0fc8"
     ],
     "crates/transport-security/src/client.rs": [
       "a3e38ba0",
@@ -7617,14 +7647,14 @@
       "36f9cc68"
     ],
     "crates/spiffe-source/src/sink/transport.rs": [
-      "57afdd42",
-      "263b6cdc",
-      "dfdfd705",
-      "40662fa5",
-      "d9b93d15",
-      "0b073980",
-      "5b293b48",
-      "763b70bc"
+      "7899240d",
+      "30a93c99",
+      "8074e1ea",
+      "8a83e31d",
+      "8c8ec272",
+      "d210d4df",
+      "58861c4f",
+      "ab8d7e70"
     ],
     "crates/spiffe-source/src/svid_profile.rs": [
       "ae5e6c1d",
@@ -7737,14 +7767,294 @@
       "aa3f2fc3"
     ],
     "crates/transport-security/tests/spiffe_peer_rotation.rs": [
-      "a31b0f0b",
-      "4add6e81",
-      "bd1b7fa4",
-      "8a9a9da8",
-      "221851fa",
-      "4a4d57b4",
-      "c0aca546",
-      "8098b097"
+      "f745827c",
+      "eb20bb7d",
+      "9ac6db5b",
+      "ddc537e3",
+      "2eed1b47",
+      "edcdb255",
+      "18696dc9",
+      "92e2cc13"
+    ],
+    "apps/cli/src/serve.rs": [
+      "a1f1c931",
+      "e2a35e23",
+      "2ce043db",
+      "3db8e675",
+      "f9dd941e",
+      "e7fce845",
+      "d672addf",
+      "2a4ed460"
+    ],
+    "apps/cli/tests/entry_startup.rs": [
+      "9d847cb3",
+      "fea49120",
+      "29dba00b",
+      "38e2060c",
+      "9aed1fd1",
+      "ee6d2a3d",
+      "90d38724",
+      "c942afe8"
+    ],
+    "apps/cli/tests/host_startup_security.rs": [
+      "424f1e64",
+      "95795375",
+      "580f2448",
+      "c52f0891",
+      "eb7ca571",
+      "71eaae02",
+      "814493af",
+      "649037de"
+    ],
+    "crates/gateway/src/transport/source_history.rs": [
+      "b1fc87d0",
+      "bf9c93cc",
+      "8bc857e5",
+      "243688ae",
+      "9193e54b",
+      "cee95cd0",
+      "b7177d03",
+      "94aaeede"
+    ],
+    "crates/gateway/src/transport/source_history/coordinator.rs": [
+      "c3db844d",
+      "ad3922e8",
+      "56f252dc",
+      "0f9640ea",
+      "4aa1157e",
+      "aa4563fb",
+      "1da94427",
+      "462c62e4"
+    ],
+    "crates/gateway/src/transport/source_history/coordinator_tests.rs": [
+      "c14acc25",
+      "133eeef0",
+      "0fa99039",
+      "5b8dc679",
+      "68acb938",
+      "31c5a934",
+      "26389dc4",
+      "9cac5592"
+    ],
+    "crates/gateway/src/transport/source_history/file_lock.rs": [
+      "7759de84",
+      "2cdcd41f",
+      "e16f5192",
+      "43d9d386",
+      "e7ec83e4",
+      "d8eacbd0",
+      "23accfa0",
+      "8b63ebd8"
+    ],
+    "crates/gateway/src/transport/source_history/integration_tests.rs": [
+      "ad96b8f5",
+      "488352fa",
+      "5263e149",
+      "bad352c1",
+      "98073e63",
+      "fef8244b",
+      "0c8ecb6d",
+      "0f8cbbfa"
+    ],
+    "crates/gateway/src/transport/source_history/tests.rs": [
+      "3e2c3f91",
+      "e1525065",
+      "6bf25bd8",
+      "94f8a70a",
+      "3907265c",
+      "29ef31b6",
+      "1fabdced",
+      "97e183ad"
+    ],
+    "crates/gateway/src/transport_lifecycle/boot.rs": [
+      "b728fc1e",
+      "55821a9a",
+      "7e1ad305",
+      "821a89a4",
+      "de553600",
+      "fdc4b500",
+      "53e704a2",
+      "cbeecde6"
+    ],
+    "crates/gateway/src/transport_lifecycle/routes.rs": [
+      "ca543131",
+      "a123881b",
+      "4d8d893f",
+      "da9c13b3",
+      "cc87022f",
+      "651754bb",
+      "e8efe387",
+      "7ed8abe4"
+    ],
+    "crates/gateway/src/transport_lifecycle/routes_tests.rs": [
+      "8fff72f8",
+      "872e0107",
+      "cf112399",
+      "1e0cabeb",
+      "8ccba24e",
+      "5f998fcf",
+      "5c0117ad",
+      "b5162fff"
+    ],
+    "crates/gateway/src/transport_lifecycle/trust_history_tests.rs": [
+      "305735a4",
+      "c8235a90",
+      "d9a36c12",
+      "2ac66c43",
+      "f1e0c5e8",
+      "ea251ca4",
+      "193946c4",
+      "7580b8f2"
+    ],
+    "crates/gateway/src/transport_lifecycle/trust_store.rs": [
+      "e107589e",
+      "040f088b",
+      "62043262",
+      "aba6977e",
+      "178281e8",
+      "a6602349",
+      "e8e6201e",
+      "a26a7e5d"
+    ],
+    "crates/human-vault/src/lib.rs": [
+      "cd3443ad",
+      "aa14490a",
+      "1cb7c859",
+      "8969c6d1",
+      "aca62870",
+      "05b193d6",
+      "e0ce3b9f",
+      "b49d5049"
+    ],
+    "crates/human-vault/src/root_protection/mod.rs": [
+      "719a5157",
+      "68346ccc",
+      "47d6b10b",
+      "89ab92b1",
+      "63bc02dd",
+      "3cc8079c",
+      "4615ef30",
+      "9f1ed0c5"
+    ],
+    "crates/human-vault/src/root_protection/physical_writer_lease.rs": [
+      "680c20a2",
+      "dfee124f",
+      "4dd94960",
+      "a9b6977f",
+      "dcd6a934",
+      "9a60d01c",
+      "e83fbb81",
+      "19871acd"
+    ],
+    "crates/human-vault/src/unix_private_files.rs": [
+      "70a5d12e",
+      "8e561692",
+      "d6650ed0",
+      "9a7953c4",
+      "ae59ba03",
+      "ea9b01b7",
+      "d02c1443",
+      "25bc2cc0"
+    ],
+    "crates/human-vault/src/unix_private_files/writer_lease.rs": [
+      "2dcc88d9",
+      "1892039c",
+      "7e42ad84",
+      "a57a23f4",
+      "a2eee7bd",
+      "027a31dd",
+      "50b27a84",
+      "bb173037"
+    ],
+    "crates/spiffe-source/src/sink.rs": [
+      "ce5603f9",
+      "280b48da",
+      "dcc2ceef",
+      "9640b667",
+      "ac839ad0",
+      "197190db",
+      "9a9d8c3a",
+      "0c72191d"
+    ],
+    "crates/spiffe-source/src/source.rs": [
+      "3425ff54",
+      "d43d7d3a",
+      "218385af",
+      "1b662fd4",
+      "f8da644a",
+      "7f3c1e42",
+      "3c41a809",
+      "e59f8466"
+    ],
+    "crates/spiffe-source/src/source_history_flow.rs": [
+      "ed64cbda",
+      "5e27776b",
+      "c2a83c75",
+      "5bb3fae0",
+      "ed7686c4",
+      "251e69dd",
+      "0ccd17c1",
+      "5ea5c70c"
+    ],
+    "crates/spiffe-source/tests/durable_history_policy.rs": [
+      "0d8a6603",
+      "1ca9b6cf",
+      "77a25266",
+      "3efd49c3",
+      "ea3ca432",
+      "8ef79b0a",
+      "814f6ff9",
+      "2f81761d"
+    ],
+    "crates/spiffe-source/tests/durable_history_supersession.rs": [
+      "99594e03",
+      "483bf160",
+      "5d233120",
+      "c0075d2d",
+      "a09c0d50",
+      "a0176422",
+      "4369b6bf",
+      "5e981398"
+    ],
+    "crates/storage/migrations/0009_host_kv.sql": [
+      "89d07686",
+      "7a75d582",
+      "bb5ec566",
+      "e5db5aac",
+      "30523ef0",
+      "43d9b129",
+      "deaeb297",
+      "607908ca"
+    ],
+    "crates/storage/src/host_kv.rs": [
+      "a3e44491",
+      "df0d1340",
+      "4e9f98f8",
+      "27bf23ba",
+      "44d077a4",
+      "81b13d08",
+      "6eed6ee0",
+      "83a6556d"
+    ],
+    "crates/transport-security/src/source_history_activation.rs": [
+      "c9059d04",
+      "ddf349a4",
+      "4d3a291a",
+      "28c0e3fb",
+      "0505a551",
+      "aabfe801",
+      "db93c3a9",
+      "af992ff1"
+    ],
+    "crates/transport-security/tests/source_history_reservation.rs": [
+      "2fa0c01e",
+      "2617115b",
+      "956de985",
+      "487e2bc9",
+      "f998df19",
+      "6bd1721e",
+      "0e4f42fc",
+      "f3bccb15"
     ]
   }
 }

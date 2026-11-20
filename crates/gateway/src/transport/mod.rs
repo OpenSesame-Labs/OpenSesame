@@ -38,6 +38,7 @@ pub mod probe;
 pub mod proof;
 pub mod routes;
 pub mod runtime;
+pub mod source_history;
 pub mod status;
 
 #[cfg(test)]

@@ -276,6 +276,7 @@ test("native push selects the independent NATS suite only for mapped history", (
         "source-trust-selection",
         "spiffe-peer-domain",
         "nats-trust-rotation",
+        "source-history",
       ];
     if (["nats", "reverted"].includes(operation))
       selected = ["nats-trust-rotation"];
@@ -360,6 +361,7 @@ test("transport lib changes select SPIFFE proofs while authority proof-only edit
       "source-trust-selection",
       "spiffe-peer-domain",
       "nats-trust-rotation",
+      "source-history",
     ],
   );
   assert.ok(

@@ -1,3 +1,4 @@
+import { SOURCE_HISTORY_SUITE } from "./formal-proof-source-history.mjs";
 import {
   NATS_TRUST_ROTATION_SUITE,
   SOURCE_TRUST_SELECTION_SUITE,
@@ -226,6 +227,7 @@ export const PINNED_FORMAL_SUITES = [
       "crates/spiffe-source/Cargo.toml",
       "crates/spiffe-source/src/lib.rs",
       "crates/spiffe-source/src/source.rs",
+      "crates/spiffe-source/src/source_history_flow.rs",
       "crates/spiffe-source/src/source_handle.rs",
       "crates/spiffe-source/src/source_policy.rs",
       "crates/spiffe-source/src/bundles.rs",
@@ -239,6 +241,7 @@ export const PINNED_FORMAL_SUITES = [
       "crates/spiffe-source/src/sink/transport.rs",
       "crates/transport-security/src/generations.rs",
       "crates/transport-security/src/source_lifetime.rs",
+      "crates/transport-security/src/source_history_activation.rs",
       "crates/transport-security/src/source_trust.rs",
       "crates/transport-security/Cargo.toml",
       "crates/transport-security/src/lib.rs",
@@ -270,6 +273,7 @@ export const PINNED_FORMAL_SUITES = [
       "crates/transport-security/Cargo.toml",
       "crates/transport-security/src/generations.rs",
       "crates/transport-security/src/source_lifetime.rs",
+      "crates/transport-security/src/source_history_activation.rs",
       "crates/transport-security/src/source_trust.rs",
       "crates/transport-security/src/guard.rs",
       "crates/transport-security/src/listener.rs",
@@ -284,6 +288,7 @@ export const PINNED_FORMAL_SUITES = [
       "crates/spiffe-source/Cargo.toml",
       "crates/spiffe-source/src/lib.rs",
       "crates/spiffe-source/src/source.rs",
+      "crates/spiffe-source/src/source_history_flow.rs",
       "crates/spiffe-source/src/source_handle.rs",
       "crates/spiffe-source/src/sink.rs",
       "crates/spiffe-source/src/sink/transport.rs",
@@ -340,4 +345,5 @@ export const PINNED_FORMAL_SUITES = [
   SOURCE_TRUST_SELECTION_SUITE,
   SPIFFE_PEER_DOMAIN_SUITE,
   NATS_TRUST_ROTATION_SUITE,
+  SOURCE_HISTORY_SUITE,
 ];

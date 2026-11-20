@@ -56,6 +56,7 @@
     "verify:dpop-formal": "bash spec/formal/dpop/verify.sh",
     "verify:oauth-formal": "bash spec/formal/oauth/verify.sh",
     "verify:source-lifetime-formal": "bash spec/formal/source-lifetime/verify.sh",
+    "verify:source-history-formal": "bash spec/formal/source-trust-history/verify.sh",
     "verify:source-trust-selection-formal": "bash spec/formal/source-trust-selection/verify.sh",
     "verify:nats-trust-formal": "bash spec/formal/source-trust-selection/verify.sh --nats",
     "verify:spiffe-peer-domain-formal": "bash spec/formal/spiffe-peer-domain/verify.sh",
