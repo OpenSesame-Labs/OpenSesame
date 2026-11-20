@@ -16,7 +16,13 @@ pub(super) fn receiver_is_sqlx(source: &str, execute_at: usize) -> bool {
         return true;
     }
     let name = trailing_ident(recv);
-    !name.is_empty() && binding_is_sqlx(&source[..execute_at], &name)
+    if !name.is_empty() {
+        return binding_is_sqlx(&source[..execute_at], &name);
+    }
+    // `query.bind(1).execute(…)` chains end in `)`, so the trailing ident is
+    // empty; the head binding is the query.
+    let head = leading_ident(query_head(recv.trim()));
+    !head.is_empty() && binding_is_sqlx(&source[..execute_at], &head)
 }
 
 /// The binding's value is a SQLx query. `wrap(sqlx::query(…))` only mentions
@@ -255,6 +261,13 @@ fn sole_ident(expr: &str) -> Option<&str> {
     (!name.is_empty() && expr[end..].trim().is_empty()).then_some(name)
 }
 
+fn leading_ident(expr: &str) -> String {
+    expr.trim_start()
+        .chars()
+        .take_while(|ch| is_ident_char(*ch))
+        .collect()
+}
+
 fn trailing_ident(expr: &str) -> String {
     expr.trim_end()
         .chars()
@@ -359,9 +372,20 @@ mod probes {
             r#"async fn f() { let query = sqlx::query("select 1").bind(1); query.execute(&pool).await?; }"#,
             r#"async fn f() { let query = sqlx::query("select 1"); let client = query; client.execute(&pool).await?; }"#,
             r#"async fn f() { let query = (sqlx::query("select 1")); query.execute(&pool).await?; }"#,
+            r#"async fn f() { let query = sqlx::query("select 1"); query.bind(1).execute(&pool).await?; }"#,
+            r#"async fn f() { let query = sqlx::query("select 1"); query.bind(1).bind("x").execute(&pool).await?; }"#,
+            r#"async fn f() { let query = sqlx::query("select 1"); (query).bind(1).execute(&pool).await?; }"#,
+            r#"async fn f() { let q = sqlx::query("select 1"); let query = q; query.bind(1).execute(&pool).await?; }"#,
         ];
         for sample in db {
             assert_eq!(credentialed_send_https_gaps(sample), (0, 0), "{sample}");
+        }
+        let http = [
+            r#"async fn f() { let client = wrap(sqlx::query("s")); client.ready().execute(request).await?; }"#,
+            r#"async fn f() { let client = wrap(sqlx::query("s")).ready(); client.execute(request).await?; }"#,
+        ];
+        for sample in http {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
         }
     }
 }
