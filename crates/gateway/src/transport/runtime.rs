@@ -153,7 +153,7 @@ impl TransportRuntime {
         opensesame_time::DateTime<opensesame_time::Utc>,
         Option<opensesame_time::DateTime<opensesame_time::Utc>>,
     )> {
-        let current = self.generations.current();
+        let current = self.generations.checked_current(None).ok()?;
         current.identity.as_ref().map(|identity| {
             (
                 current.number,
@@ -284,7 +284,7 @@ async fn start_spiffe(
         .ok_or(TransportError::SourceUnsupported)?;
     let generations = empty_generations()?;
     let sink = Arc::new(TransportGenerationsSink::new(Arc::clone(&generations)));
-    let handle = SpiffeSource::start(config, sink);
+    let handle = SpiffeSource::start(config, sink)?;
     let ready = handle
         .wait_for(SPIFFE_FIRST_SVID_TIMEOUT, |status| {
             status.generation.is_some() || status.phase == SourcePhase::Withdrawn

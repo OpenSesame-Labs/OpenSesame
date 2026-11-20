@@ -307,3 +307,6 @@ async fn a_store_failure_leaves_the_running_generation_unchanged() {
     assert_eq!(generations.current().number, before, "nothing activated");
     assert!(!serves(&generations, "peers"));
 }
+
+#[path = "trust_source_tests.rs"]
+mod source_tests;

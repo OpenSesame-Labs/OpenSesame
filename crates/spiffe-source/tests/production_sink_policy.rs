@@ -6,7 +6,7 @@ mod policy;
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::Utc;
+use opensesame_time::Utc;
 use opensesame_domain::TransportError;
 use opensesame_spiffe_source::fake::{FakeTrustDomain, FakeWorkloadApi};
 use opensesame_spiffe_source::sink::TransportGenerationsSink;
@@ -25,9 +25,9 @@ async fn removed_identity_withdraws_the_production_generation_and_can_recover() 
     let td = FakeTrustDomain::new(TD);
     let gateway = td.issue_svid(GW, Duration::from_mins(10));
     api.push_snapshot(snapshot(&td, &[&gateway]));
-    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink);
+    let handle = SpiffeSource::start(config(&api, Duration::from_secs(5)), sink).unwrap();
 
-    streaming(&handle, 1).await;
+    streaming(&handle, 2).await;
     assert!(generations.current().identity.is_some());
     assert_eq!(generations.current().withdrawn, None);
 
@@ -39,7 +39,7 @@ async fn removed_identity_withdraws_the_production_generation_and_can_recover() 
     );
 
     api.push_snapshot(snapshot(&td, &[&gateway]));
-    streaming(&handle, 3).await;
+    streaming(&handle, 4).await;
     assert!(generations.current().identity.is_some());
     assert_eq!(generations.current().withdrawn, None);
     handle.stop().await;

@@ -20,6 +20,11 @@ use crate::error::malformed;
 use crate::identity::{ChainUsage, TlsIdentity};
 use crate::trust::TrustBundle;
 
+#[path = "source_lifetime.rs"]
+mod source_lifetime;
+use source_lifetime::SourceState;
+pub use source_lifetime::{SourceOwner, SourceTrust};
+
 /// One activated configuration.
 #[derive(Clone, Debug)]
 pub struct Generation {
@@ -121,7 +126,7 @@ impl GenerationCandidate {
 pub struct TransportGenerations {
     current: ArcSwap<Generation>,
     changes: watch::Sender<u64>,
-    activation: Mutex<()>,
+    activation: Mutex<SourceState>,
     denied: RwLock<BTreeSet<String>>,
 }
 
@@ -144,7 +149,7 @@ impl TransportGenerations {
         Arc::new(Self {
             current: ArcSwap::from_pointee(initial),
             changes,
-            activation: Mutex::new(()),
+            activation: Mutex::new(SourceState::default()),
             denied: RwLock::new(BTreeSet::new()),
         })
     }
@@ -163,10 +168,11 @@ impl TransportGenerations {
     ///
     /// As [`GenerationCandidate::validate`].
     pub fn activate(&self, candidate: GenerationCandidate) -> Result<u64, TransportError> {
-        let _serial = self
+        let mut serial = self
             .activation
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        serial.allow_ordinary_activation(&self.current.load(), &candidate, Utc::now())?;
         self.swap_in(candidate)
     }
 
@@ -189,7 +195,7 @@ impl TransportGenerations {
         expected: u64,
         candidate: GenerationCandidate,
     ) -> Result<u64, TransportError> {
-        let _serial = self
+        let mut serial = self
             .activation
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -197,6 +203,7 @@ impl TransportGenerations {
         if current.number != expected || current.withdrawn.is_some() {
             return Err(TransportError::GenerationStale);
         }
+        serial.allow_ordinary_activation(&current, &candidate, Utc::now())?;
         self.swap_in(candidate)
     }
 
@@ -215,10 +222,16 @@ impl TransportGenerations {
     /// `reason` attached so listeners refuse new connections and the request
     /// guard denies requests on open ones.
     pub fn withdraw(&self, reason: TransportError) {
-        let _serial = self
+        let mut serial = self
             .activation
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
+        serial.revoke_source();
+        self.withdraw_locked(reason);
+    }
+
+    /// Publish a withdrawal while the activation mutex is held.
+    fn withdraw_locked(&self, reason: TransportError) {
         let current = self.current.load_full();
         let number = current.number + 1;
         let next = Generation {

@@ -7,10 +7,19 @@
       "area": "hosted-drop",
       "flow": "hosted-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["ciphertext", "guess-oracle"],
+      "artifacts": [
+        "ciphertext",
+        "guess-oracle"
+      ],
       "verification": "server",
-      "controls": ["mandatory-proof", "bearer-before-budget"],
-      "guarantees": ["single-use", "expiry"],
+      "controls": [
+        "mandatory-proof",
+        "bearer-before-budget"
+      ],
+      "guarantees": [
+        "single-use",
+        "expiry"
+      ],
       "enforcement": "authoritative",
       "entropyBits": 40,
       "minSecretBytes": 0,
@@ -60,9 +69,15 @@
       "area": "portable-drop",
       "flow": "portable-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["ciphertext"],
+      "artifacts": [
+        "ciphertext"
+      ],
       "verification": "code-aead",
-      "controls": ["code-derived-aead", "bounded-kdf", "cryptographic-random"],
+      "controls": [
+        "code-derived-aead",
+        "bounded-kdf",
+        "cryptographic-random"
+      ],
       "guarantees": [],
       "enforcement": "advisory",
       "entropyBits": 80,
@@ -94,7 +109,9 @@
       "area": "portable-drop",
       "flow": "hosted-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["payload-key"],
+      "artifacts": [
+        "payload-key"
+      ],
       "verification": "none",
       "controls": [],
       "guarantees": [],
@@ -137,7 +154,9 @@
       "area": "portable-drop",
       "flow": "portable-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["payload-key"],
+      "artifacts": [
+        "payload-key"
+      ],
       "verification": "none",
       "controls": [],
       "guarantees": [],
@@ -181,9 +200,13 @@
       "area": "account-totp",
       "flow": "account-totp",
       "observer": "authenticated",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
-      "controls": ["mandatory-proof"],
+      "controls": [
+        "mandatory-proof"
+      ],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -227,9 +250,15 @@
       "area": "est-enrollment",
       "flow": "est-password",
       "observer": "public",
-      "artifacts": ["public-certificate", "guess-oracle"],
+      "artifacts": [
+        "public-certificate",
+        "guess-oracle"
+      ],
       "verification": "server",
-      "controls": ["mandatory-proof", "trusted-budget-source"],
+      "controls": [
+        "mandatory-proof",
+        "trusted-budget-source"
+      ],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -253,6 +282,10 @@
         "crates/gateway/src/routes/est_server.rs",
         "crates/gateway/src/routes/est_server_tests_budget.rs",
         "crates/gateway/src/routes/est_wire.rs",
+        "crates/gateway/src/routes/est_auth.rs",
+        "crates/gateway/src/routes/est_freshness.rs",
+        "crates/transport-security/src/generations.rs",
+        "crates/transport-security/src/source_lifetime.rs",
         "crates/storage/migrations/0057_est_passphrase_budget.sql",
         "crates/storage/migrations/0059_est_source_budgets.sql",
         "crates/storage/src/est_scep.rs",
@@ -264,10 +297,15 @@
         "crates/gateway/src/routes/est_legacy_passphrase_tests.rs",
         "crates/gateway/src/routes/est_budget_source_tests.rs",
         "crates/gateway/src/routes/est_source_budget_tests.rs",
+        "crates/gateway/src/routes/est_server_tests.rs",
+        "crates/gateway/src/routes/est_certificate_proof_tests.rs",
+        "crates/gateway/src/routes/est_certificate_freshness_tests.rs",
+        "crates/gateway/src/routes/est_test_pause.rs",
+        "crates/transport-security/src/source_lifetime_tests.rs",
         "crates/storage/tests/est_passphrase_budget.rs",
         "crates/storage/tests/certmgr_pact.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Source-lifetime review: the authenticated request rechecks its transport after the awaited password-budget reservation. Twelve EST certificate, freshness and TLS tests and five budget tests passed; source-lifetime clock and deadline controls passed in the integrated proof suite. Later policy and issuer awaits are not rechecked before issuance, so already-admitted enrollment may finish after withdrawal."
     },
     {
       "id": "est-policy",
@@ -275,9 +313,13 @@
       "area": "est-enrollment",
       "flow": "est-policy",
       "observer": "authenticated",
-      "artifacts": ["authority-api"],
+      "artifacts": [
+        "authority-api"
+      ],
       "verification": "signature",
-      "controls": ["preserve-policy-on-omission"],
+      "controls": [
+        "preserve-policy-on-omission"
+      ],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
@@ -287,7 +329,9 @@
         "crates/gateway/src/routes/est_server.rs",
         "crates/gateway/src/routes/est_config_policy.rs"
       ],
-      "regressions": ["crates/gateway/src/routes/est_server_tests_budget.rs"],
+      "regressions": [
+        "crates/gateway/src/routes/est_server_tests_budget.rs"
+      ],
       "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
     },
     {
@@ -296,9 +340,15 @@
       "area": "est-enrollment",
       "flow": "est-client-certificate",
       "observer": "network-peer",
-      "artifacts": ["public-certificate", "certificate-binding"],
+      "artifacts": [
+        "public-certificate",
+        "certificate-binding"
+      ],
       "verification": "signature",
-      "controls": ["originating-client-proof", "exact-bootstrap-trust"],
+      "controls": [
+        "originating-client-proof",
+        "exact-bootstrap-trust"
+      ],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -306,6 +356,13 @@
       "budget": null,
       "implementation": [
         "crates/gateway/src/routes/est_wire.rs",
+        "crates/gateway/src/routes/est_auth.rs",
+        "crates/gateway/src/routes/est_freshness.rs",
+        "crates/transport-security/src/generations.rs",
+        "crates/transport-security/src/source_lifetime.rs",
+        "crates/transport-security/src/source_trust.rs",
+        "crates/gateway/src/transport_lifecycle/mod.rs",
+        "crates/gateway/src/transport_lifecycle/trust_activate.rs",
         "crates/domain/src/lib.rs",
         "crates/domain/src/transport/mod.rs",
         "crates/domain/src/transport/evidence.rs",
@@ -317,10 +374,14 @@
         "crates/gateway/src/routes/est_certificate_proof_tests.rs",
         "crates/gateway/src/routes/est_certificate_tls_tests.rs",
         "crates/gateway/src/routes/est_certificate_freshness_tests.rs",
+        "crates/gateway/src/routes/est_test_pause.rs",
+        "crates/transport-security/src/source_lifetime_tests.rs",
+        "crates/gateway/src/transport_lifecycle/trust_generation_tests.rs",
+        "crates/gateway/src/transport_lifecycle/trust_source_tests.rs",
         "crates/domain/src/transport/evidence_tests.rs",
         "crates/domain/src/transport/source_contract_tests.rs"
       ],
-      "review": "EST certificate enrollment and replacement require usable current direct-client MtlsRequired TLS evidence. A direct TLS proxy leaf, TrustedIngress policy and forwarded assertions are refused. Explicit bootstrap pins require the complete listener anchor set to match because VerifiedPeer does not retain the validated path. Strong-password fallback remains limited to profiles that explicitly permit it."
+      "review": "EST certificate authorization requires usable current direct-client MtlsRequired TLS evidence. A direct TLS proxy leaf, TrustedIngress policy and forwarded assertions are refused. Explicit bootstrap pins require the complete listener anchor set to match because VerifiedPeer does not retain the validated path. Strong-password fallback remains limited to profiles that explicitly permit it. The peer and transport generation are checked again after the awaited inventory lookup; the relevant twelve EST certificate, freshness and TLS tests passed. Source-trust preparation preserves source-owned and reserved names; the source-collision regression passed. Later policy and issuer awaits are not rechecked before issuance, so already-admitted enrollment may finish after withdrawal."
     },
     {
       "id": "host-testkit-listener",
@@ -328,7 +389,9 @@
       "area": "host-admission",
       "flow": "host-testkit-listener",
       "observer": "network-peer",
-      "artifacts": ["authority-api"],
+      "artifacts": [
+        "authority-api"
+      ],
       "verification": "none",
       "controls": [
         "all-listeners-classified",
@@ -403,7 +466,9 @@
       "area": "host-admission",
       "flow": "host-listeners",
       "observer": "network-peer",
-      "artifacts": ["authority-api"],
+      "artifacts": [
+        "authority-api"
+      ],
       "verification": "none",
       "controls": [
         "all-listeners-classified",
@@ -431,13 +496,24 @@
         "crates/gateway/src/transport/routes.rs",
         "crates/gateway/src/transport/runtime.rs",
         "crates/gateway/src/transport/status.rs",
-        "crates/gateway/src/transport/test_support.rs"
+        "crates/gateway/src/transport/test_support.rs",
+        "crates/transport-security/src/generations.rs",
+        "crates/transport-security/src/source_lifetime.rs",
+        "crates/transport-security/src/source_trust.rs",
+        "crates/gateway/src/transport_lifecycle/mod.rs",
+        "crates/gateway/src/transport_lifecycle/trust_activate.rs"
       ],
       "regressions": [
         "crates/gateway/src/config_listener_tests.rs",
-        "crates/gateway/src/transport/boot_tests.rs"
+        "crates/gateway/src/transport/boot_tests.rs",
+        "crates/gateway/src/transport/admission_tests.rs",
+        "crates/gateway/src/transport/admission_source_tests.rs",
+        "crates/gateway/src/transport/status_tests.rs",
+        "crates/transport-security/src/source_lifetime_tests.rs",
+        "crates/gateway/src/transport_lifecycle/trust_generation_tests.rs",
+        "crates/gateway/src/transport_lifecycle/trust_source_tests.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Relay route registrations remain mounted, but heartbeat, submission, executable delivery, approval and result reporting fail closed. The listener and lifecycle policy are unchanged. The focused relay route regressions passed before the latest main integration; the unchanged listener regressions were not rerun."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Relay route registrations remain mounted, but heartbeat, submission, executable delivery, approval and result reporting fail closed. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. This does not add a listener or a fallback. Source-lifetime review: service admission refuses an expired source; status reports quarantined and expired generations unloaded and preserves revocation precedence. The focused admission, status and source-owned trust collision tests and integrated deadline controls passed. Already-admitted work is not cancelled. "
     },
     {
       "id": "certificate-binding",
@@ -445,16 +521,24 @@
       "area": "host-admission",
       "flow": "certificate-binding",
       "observer": "authenticated",
-      "artifacts": ["certificate-binding"],
+      "artifacts": [
+        "certificate-binding"
+      ],
       "verification": "signature",
-      "controls": ["originating-client-proof"],
+      "controls": [
+        "originating-client-proof"
+      ],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
       "minSecretBytes": 0,
       "budget": null,
-      "implementation": ["crates/gateway/src/transport/proof.rs"],
-      "regressions": ["crates/gateway/src/transport/proof_tests.rs"],
+      "implementation": [
+        "crates/gateway/src/transport/proof.rs"
+      ],
+      "regressions": [
+        "crates/gateway/src/transport/proof_tests.rs"
+      ],
       "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
     },
     {
@@ -463,7 +547,9 @@
       "area": "bitwarden",
       "flow": "bitwarden-account",
       "observer": "public",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -557,7 +643,10 @@
       "area": "bitwarden",
       "flow": "bitwarden-send",
       "observer": "link-holder",
-      "artifacts": ["ciphertext", "guess-oracle"],
+      "artifacts": [
+        "ciphertext",
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -607,7 +696,9 @@
       "area": "bitwarden",
       "flow": "bitwarden-api-key",
       "observer": "public",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -649,7 +740,9 @@
       "area": "bitwarden",
       "flow": "bitwarden-device-code",
       "observer": "public",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -692,7 +785,12 @@
       "area": "bitwarden",
       "flow": "bitwarden-import",
       "observer": "device-owner",
-      "artifacts": ["ciphertext", "code-verifier", "raw-secret", "otp-seed"],
+      "artifacts": [
+        "ciphertext",
+        "code-verifier",
+        "raw-secret",
+        "otp-seed"
+      ],
       "verification": "none",
       "controls": [
         "confined-import-paths",
@@ -748,9 +846,13 @@
       "area": "signing-keys",
       "flow": "public-signing-keys",
       "observer": "public",
-      "artifacts": ["public-key"],
+      "artifacts": [
+        "public-key"
+      ],
       "verification": "none",
-      "controls": ["public-parameter-allowlist"],
+      "controls": [
+        "public-parameter-allowlist"
+      ],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
@@ -804,7 +906,12 @@
       "area": "local-vault-activation",
       "flow": "local-vault-activation",
       "observer": "device-owner",
-      "artifacts": ["ciphertext", "payload-key", "raw-secret", "private-key"],
+      "artifacts": [
+        "ciphertext",
+        "payload-key",
+        "raw-secret",
+        "private-key"
+      ],
       "verification": "client-only",
       "controls": [
         "original-owner-lifetime",
@@ -1017,7 +1124,11 @@
       "area": "native-provider-custody",
       "flow": "native-provider-custody",
       "observer": "device-owner",
-      "artifacts": ["ciphertext", "payload-key", "raw-secret"],
+      "artifacts": [
+        "ciphertext",
+        "payload-key",
+        "raw-secret"
+      ],
       "verification": "client-only",
       "controls": [
         "original-provider-transport",
@@ -1682,14 +1793,14 @@
       "717c457a"
     ],
     "crates/gateway/src/routes/est_certificate_freshness_tests.rs": [
-      "0d29cf94",
-      "2cf4040e",
-      "13b779dd",
-      "29f42b3b",
-      "79682fdc",
-      "1a58d968",
-      "ca1dce56",
-      "0f9917a4"
+      "3c208e0a",
+      "21e79722",
+      "cf5eef0d",
+      "161bc169",
+      "029a9e41",
+      "a7ac598c",
+      "c17284b2",
+      "bb1d80b4"
     ],
     "crates/domain/src/lib.rs": [
       "2db2ace5",
@@ -2802,14 +2913,14 @@
       "c7ef8a02"
     ],
     "crates/gateway/src/routes/est_passphrase_budget.rs": [
-      "fb28c695",
-      "d4bfcd61",
-      "685166fe",
-      "742b761a",
-      "2b0d5b0e",
-      "d0b93795",
-      "9ae2333a",
-      "b6ecebfc"
+      "31f3c4d8",
+      "8f0f2510",
+      "078c0c6e",
+      "4e2e807e",
+      "dfedcfda",
+      "a99ddd94",
+      "fe773b5a",
+      "f6dbb28f"
     ],
     "crates/gateway/src/routes/est_records.rs": [
       "fd23afbc",
@@ -2842,14 +2953,14 @@
       "4cdfc600"
     ],
     "crates/gateway/src/routes/est_wire.rs": [
-      "cee026e8",
-      "26912699",
-      "a186d65f",
-      "d4288d08",
-      "4a3af759",
-      "3ec09373",
-      "41c2a685",
-      "4bc4631b"
+      "81f2eb36",
+      "9a8cea00",
+      "35d049c5",
+      "b8e685e2",
+      "d0e53fd6",
+      "5ad36604",
+      "90fdf3ed",
+      "a303b0a0"
     ],
     "crates/gateway/src/routes/mod.rs": [
       "0f134c3e",
@@ -2862,14 +2973,14 @@
       "a21658ef"
     ],
     "crates/gateway/src/transport/admission.rs": [
-      "5d023d5c",
-      "9668ab38",
-      "efa770d5",
-      "ae3816bf",
-      "f99d59e6",
-      "44d4ccfb",
-      "77430a7e",
-      "71e713f9"
+      "97ee3c87",
+      "5a204154",
+      "67e440c4",
+      "7885cce9",
+      "8bd09963",
+      "f6d44085",
+      "835900c8",
+      "29bdd90e"
     ],
     "crates/gateway/src/transport/bindings.rs": [
       "634cd253",
@@ -2972,24 +3083,24 @@
       "0b777fc2"
     ],
     "crates/gateway/src/transport/runtime.rs": [
-      "87ae80d9",
-      "eb100f67",
-      "5519994a",
-      "b446a71a",
-      "f119f6fa",
-      "7615a89d",
-      "b0ba056a",
-      "1e40609d"
+      "f844dc8c",
+      "ef3c9fc3",
+      "197ab19d",
+      "6fa0a679",
+      "88137bef",
+      "57ac4af1",
+      "7e02c9c0",
+      "5edf1752"
     ],
     "crates/gateway/src/transport/status.rs": [
-      "3d6b1f62",
-      "b49decb3",
-      "37c022ab",
-      "4777c0c2",
-      "bc52f348",
-      "1c6da585",
-      "e41197d8",
-      "c9a0f2f6"
+      "daac4453",
+      "00f33a61",
+      "1b5354ee",
+      "4bf9ea8f",
+      "9a2c5637",
+      "ed29ea48",
+      "5b231c49",
+      "a9a37fce"
     ],
     "crates/gateway/src/transport/test_support.rs": [
       "5fff0801",
@@ -7050,6 +7161,136 @@
       "aa16d365",
       "41a1a39f",
       "85ce9bc4"
+    ],
+    "crates/gateway/src/routes/est_auth.rs": [
+      "fe712af6",
+      "69e671a4",
+      "8a14c9c3",
+      "21680170",
+      "f8f69db1",
+      "1be63c68",
+      "75ea02d5",
+      "6f36ed62"
+    ],
+    "crates/gateway/src/routes/est_freshness.rs": [
+      "6f0ab862",
+      "2f867144",
+      "78dde33c",
+      "ade85c00",
+      "979c3892",
+      "b52d9190",
+      "fe8f132b",
+      "acb3875a"
+    ],
+    "crates/gateway/src/routes/est_test_pause.rs": [
+      "36c869c8",
+      "2c27a5ca",
+      "e430fc0a",
+      "4b22b1ba",
+      "b34110ca",
+      "cf680a9d",
+      "8f9c30b6",
+      "c010b54a"
+    ],
+    "crates/gateway/src/transport/admission_tests.rs": [
+      "ee3f780a",
+      "1c3cacde",
+      "b41bc6df",
+      "da43da7f",
+      "055b05d0",
+      "432d05e6",
+      "381d7125",
+      "83484ae5"
+    ],
+    "crates/gateway/src/transport/admission_source_tests.rs": [
+      "9499484a",
+      "1ff0b531",
+      "6764b85e",
+      "c46a774c",
+      "1310d741",
+      "eeaba84d",
+      "dde3e3ba",
+      "4d9ebc0c"
+    ],
+    "crates/gateway/src/transport/status_tests.rs": [
+      "1707285e",
+      "321c8cda",
+      "e0a36acd",
+      "52632aaa",
+      "980d9fb0",
+      "bb2f17e5",
+      "7b2cd434",
+      "f2d16503"
+    ],
+    "crates/transport-security/src/generations.rs": [
+      "6a0ea946",
+      "9a622afb",
+      "4f063c99",
+      "591f0ff9",
+      "8eeeea2e",
+      "7660f1c3",
+      "98a64341",
+      "8626bf67"
+    ],
+    "crates/transport-security/src/source_lifetime.rs": [
+      "49ca6377",
+      "c7bd1f51",
+      "dc7ec80f",
+      "3de2afd0",
+      "5ef82de4",
+      "165073fd",
+      "2fcbb059",
+      "1737fbd3"
+    ],
+    "crates/transport-security/src/source_lifetime_tests.rs": [
+      "b4ae3455",
+      "45dd68d0",
+      "51587ba6",
+      "650f323a",
+      "cd1a8b77",
+      "95d7745e",
+      "bc0a68c9",
+      "51b8353e"
+    ],
+    "crates/transport-security/src/source_trust.rs": [
+      "5d6d97f8",
+      "e4d1d9da",
+      "515f9d55",
+      "e9e918a4",
+      "1b1cde43",
+      "a9643c9b",
+      "aef2fc71",
+      "433e5b32"
+    ],
+    "crates/gateway/src/transport_lifecycle/trust_activate.rs": [
+      "983f001f",
+      "9c9bd223",
+      "2e2e8b93",
+      "783a3d65",
+      "9686d0bd",
+      "2972be81",
+      "f1490293",
+      "93c28866"
+    ],
+    "crates/gateway/src/transport_lifecycle/trust_generation_tests.rs": [
+      "0b8d11aa",
+      "c6d15fb0",
+      "e730aeb4",
+      "51da2f07",
+      "0bfbc2ab",
+      "c40deee2",
+      "3a9c9f20",
+      "d769cc23"
+    ],
+    "crates/gateway/src/transport_lifecycle/trust_source_tests.rs": [
+      "a9569037",
+      "9eb353f6",
+      "0f851090",
+      "d4c4b8d3",
+      "f3f5d8c6",
+      "4cae1f7a",
+      "707ebb45",
+      "556eacfd"
     ]
   }
 }

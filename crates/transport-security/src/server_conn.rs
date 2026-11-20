@@ -63,6 +63,9 @@ async fn handshake(
         .await
         .map_err(|_| malformed("handshake timed out"))?
         .map_err(|e| classify_io_error(&e))?;
+    // The prepared acceptor may have become stale while the handshake was
+    // in flight. Do not publish peer evidence for a retired source epoch.
+    generations.checked_current(Some(prepared.number))?;
     let (_, connection) = accepted.get_ref();
     if matches!(
         connection.handshake_kind(),

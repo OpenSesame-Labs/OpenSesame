@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use opensesame_domain::{CredentialStatus, TransportError};
 use spiffe::transport::{GrpcStatusCode, TransportError as SdkTransportError};
 use spiffe::WorkloadApiError;

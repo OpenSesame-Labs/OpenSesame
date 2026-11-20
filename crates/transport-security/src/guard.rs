@@ -22,7 +22,7 @@ use opensesame_domain::transport::TransportError;
 use opensesame_time::Utc;
 
 use crate::generations::TransportGenerations;
-use crate::provenance::PeerExtension;
+use crate::provenance::{ListenerProvenance, PeerExtension};
 use crate::server::DenyThumbprint;
 
 /// The listener's per-connection denylist hook, inserted beside
@@ -46,14 +46,18 @@ pub fn check_peer_freshness(
     generations: &TransportGenerations,
     req: &Request,
 ) -> Result<(), TransportError> {
+    let current = generations.checked_current(None)?;
+    if let Some(ListenerProvenance::Tls { generation, .. }) =
+        req.extensions().get::<ListenerProvenance>()
+    {
+        if *generation != current.number {
+            return Err(TransportError::GenerationStale);
+        }
+    }
     let Some(PeerExtension(peer)) = req.extensions().get::<PeerExtension>() else {
         return Ok(());
     };
-    let current = generations.current();
-    if let Some(reason) = &current.withdrawn {
-        return Err(reason.clone());
-    }
-    if peer.credential_generation() < current.number || peer.trust_generation() < current.number {
+    if peer.credential_generation() != current.number || peer.trust_generation() != current.number {
         return Err(TransportError::GenerationStale);
     }
     if Utc::now() > peer.usable_until() {
