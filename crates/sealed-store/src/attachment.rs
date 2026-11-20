@@ -494,14 +494,19 @@ impl StoreRoot {
         let rel = attach_relative(name)?;
         let _lock = crate::store_lock::StoreLock::for_sealing(&self.path, name, key)?;
         if !self.path.join(&rel).exists() {
-            if let Ok(state) = self.attachment_entry_state(name, key) {
-                if state.deleted {
-                    self.collect_garbage(key)?;
-                    auto_commit(&self.path, crate::store::COMMIT_DETACH)?;
-                    return Ok(());
-                }
+            let state = self.attachment_entry_state(name, key)?;
+            if state.deleted {
+                self.collect_garbage(key)?;
+                auto_commit(&self.path, crate::store::COMMIT_DETACH)?;
+                return Ok(());
             }
-            return Err(StoreError::NotFound(name.into()));
+            let local = self.attachment_revision(name)?;
+            let minimum = local.unwrap_or(0).max(state.revision);
+            let revision = self.tombstone_attachment_witness(name, key, minimum)?;
+            self.record_attachment_revision(name, revision)?;
+            self.collect_garbage(key)?;
+            auto_commit(&self.path, crate::store::COMMIT_DETACH)?;
+            return Ok(());
         }
         let state = self.attachment_entry_state(name, key)?;
         // Advance the local counter before unlink, including when this clone
