@@ -69,6 +69,35 @@ describe("a tray card whose act works in place (ADR 0221)", () => {
     expect(document.activeElement).toBe(document.body);
   });
 
+  it("draws a worded pair as choice keys", () => {
+    const pause = vi.fn();
+    const only = vi.fn();
+    render(
+      card({
+        id: "tutorial.pause.session",
+        kind: "status",
+        tone: "warn",
+        title: "Tutorials",
+        body: "Pause the others for this session?",
+        act: {
+          label: "Pause all for this session",
+          worded: true,
+          run: pause,
+        },
+        alt: { label: "Only this one", worded: true, run: only },
+        createdAt: "2026-11-18T00:00:00Z",
+      }),
+    );
+    const pauseKey = screen.getByRole("button", {
+      name: "Pause all for this session",
+    });
+    expect(pauseKey.className).toContain("choice");
+    fireEvent.click(pauseKey);
+    fireEvent.click(screen.getByRole("button", { name: "Only this one" }));
+    expect(pause).toHaveBeenCalledTimes(1);
+    expect(only).toHaveBeenCalledTimes(1);
+  });
+
   it("leaves focus to the page for an act that opens it", () => {
     const onOpen = vi.fn();
     const opens: Notice = {
