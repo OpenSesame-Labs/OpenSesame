@@ -93,19 +93,20 @@ function WordedActs({
     const fromKeyboard =
       actionsRef.current?.contains(document.activeElement) ?? false;
     if (fromKeyboard) handBack = notice.id;
+    let trayClose: HTMLButtonElement | null = null;
+    if (wordedTray && fromKeyboard) {
+      const dialog = actionsRef.current?.closest('[role="dialog"]');
+      trayClose =
+        dialog?.querySelector<HTMLButtonElement>(
+          'button[aria-label="Close"]',
+        ) ?? null;
+    }
     if (opens) onOpen();
     run();
     if (opens) return;
     if (wordedTray) {
-      if (fromKeyboard) {
-        queueMicrotask(() => {
-          const dialog = actionsRef.current?.closest('[role="dialog"]');
-          const close =
-            dialog?.querySelector<HTMLButtonElement>(
-              'button[aria-label="Close"]',
-            ) ?? null;
-          if (close) landFocus(close);
-        });
+      if (trayClose) {
+        queueMicrotask(() => landFocus(trayClose));
       }
       return;
     }
