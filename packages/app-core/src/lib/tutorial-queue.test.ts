@@ -19,6 +19,7 @@ import {
   ONLY_THIS_TUTORIAL,
   PAUSE_ALL_FOR_SESSION,
   RESUME_WALKTHROUGH,
+  installTutorialQueueLibraryOptions,
   noteTutorialDeclined,
   rehydrateTutorialQueueNotices,
 } from "./tutorial-queue-present.js";
@@ -61,6 +62,15 @@ describe("tutorial queue", () => {
       expect(queueTutorial("vault.lock", { title: profile })).toBe(true);
       expect(raw?.includes(profile)).toBe(false);
     }
+  });
+
+  it("dequeues a stored id while its goal is not in the live registry", () => {
+    tutorialQueueSeams.write(
+      JSON.stringify({ goals: ["feature.unloaded", "vault.lock"] }),
+    );
+    expect(listQueuedTutorials()).toEqual([{ goalId: "vault.lock" }]);
+    dequeueTutorial("feature.unloaded");
+    expect(JSON.parse(raw ?? "{}").goals).toEqual(["vault.lock"]);
   });
 
   it("drops a corrupt record and unknown ids", () => {
@@ -187,6 +197,24 @@ describe("tutorial queue", () => {
     pause?.act?.run();
     expect(sessionTutorialsPaused()).toBe(true);
     expect(listQueuedTutorials().length).toBeGreaterThan(1);
+  });
+
+  it("does not repost resume when live queueableGoal fails on refresh", () => {
+    expect(
+      queueTutorial("vault.item.accounts", { title: "Accounts" }),
+    ).toBe(true);
+    installTutorialQueueLibraryOptions({ holds: () => false });
+    rehydrateTutorialQueueNotices();
+    expect(
+      listNotices().some(
+        (notice) => notice.id === "tutorial.queue.vault.item.accounts",
+      ),
+    ).toBe(false);
+    expect(listQueuedTutorials()).toEqual([
+      { goalId: "vault.item.accounts" },
+    ]);
+    clearNotices();
+    installTutorialQueueLibraryOptions({});
   });
 
   it("skips the pause prompt when the session is already paused", () => {
