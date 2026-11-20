@@ -50,6 +50,9 @@ mod bindings_tests;
 #[cfg(test)]
 mod boot_tests;
 #[cfg(test)]
+#[path = "runtime_spiffe_boot_tests.rs"]
+mod spiffe_boot_tests;
+#[cfg(test)]
 mod config_tests;
 #[cfg(test)]
 mod probe_tests;
