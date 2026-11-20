@@ -111,6 +111,10 @@ export function postQueuedTutorialNotice(
   if (goal === null) return;
   const id = tutorialQueueNoticeId(goalId);
   const resume = () => {
+    if (!queueableGoal(goalId)) {
+      suppressQueueNoticePresentation(goalId);
+      return;
+    }
     resumeTutorialFromNotice(goalId);
   };
   if (options.toast !== false) {
