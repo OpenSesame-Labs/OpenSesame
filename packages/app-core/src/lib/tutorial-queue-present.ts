@@ -6,7 +6,10 @@
  * here is a transcript.
  */
 
-import { goalOffered } from "../tutorial/registry/areas.js";
+import {
+  type LibraryOptions,
+  goalOffered,
+} from "../tutorial/registry/areas.js";
 import { guideGoal, guideGoalIds } from "../tutorial/registry/goals.js";
 import { GUIDE_OVERLAY_ROUTES } from "../tutorial/registry/routes.js";
 import { loadGuidance } from "./guidance.js";
@@ -36,6 +39,15 @@ type QueuedTutorialNoticeOptions = Readonly<{ toast?: boolean }>;
 
 const TRAY_ONLY_NOTICE: QueuedTutorialNoticeOptions = { toast: false };
 
+let queueLibraryOptions: LibraryOptions = {};
+
+/** Pages wires the same predicates the tutorial library uses before pause-all queues. */
+export function installTutorialQueueLibraryOptions(
+  options: LibraryOptions,
+): void {
+  queueLibraryOptions = options;
+}
+
 function dismissPausePrompt(): void {
   hideToast(TUTORIAL_PAUSE_NOTICE);
   dismissNotice(TUTORIAL_PAUSE_NOTICE);
@@ -52,7 +64,7 @@ function queueableGoal(goalId: string): boolean {
   ) {
     return false;
   }
-  return goalOffered(goal, {});
+  return goalOffered(goal, queueLibraryOptions);
 }
 
 /**
