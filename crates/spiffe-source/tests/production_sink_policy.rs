@@ -6,11 +6,11 @@ mod policy;
 use std::sync::Arc;
 use std::time::Duration;
 
-use opensesame_time::Utc;
 use opensesame_domain::TransportError;
 use opensesame_spiffe_source::fake::{FakeTrustDomain, FakeWorkloadApi};
 use opensesame_spiffe_source::sink::TransportGenerationsSink;
 use opensesame_spiffe_source::SpiffeSource;
+use opensesame_time::Utc;
 use opensesame_transport_security::{GenerationCandidate, TransportGenerations};
 use policy::{config, snapshot, streaming, withdrawn_promptly, GW, TD};
 
