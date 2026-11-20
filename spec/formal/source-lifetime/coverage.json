@@ -5,7 +5,7 @@
   "lock_projection": {
     "root": "opensesame-spiffe-source",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "ba43654cc71800677f10e553043276519bfc2ca377dfc7ee6797b0840dee9ecc"
+    "sha256": "4d2bceb0015954470dbe49179facfe30ee1318b4794ceb8eab6fca4fac30e888"
   },
   "sources": [
     {
@@ -38,15 +38,15 @@
     },
     {
       "path": "crates/transport-security/Cargo.toml",
-      "sha256": "b110243d5c1e06d41ee4c1cda4cc36ca0eec9cb6a9933bdf9e4154ae0d41b232"
+      "sha256": "ab4cbb467ac63dfb9017f2d582b52b28b47c57e637475843106e0b1c295bd5c8"
     },
     {
       "path": "crates/transport-security/src/generations.rs",
-      "sha256": "33f8937240d6a07fe8a1ab538a491912b990b110fdda9c46b2e3a41ce55eb36e"
+      "sha256": "1b478c5f6cee3d1192726d5a4451496ecff294c6f1174ab5b3b1f9c844c6d29e"
     },
     {
       "path": "crates/transport-security/src/source_lifetime.rs",
-      "sha256": "7c3005c107018eae6d958a824676dd8c2c644e93f60cded761fb679d95fe7c13"
+      "sha256": "49ca6377c7bd1f51dc7ec80f3de2afd05ef82de4165073fd2fcbb0591737fbd3"
     },
     {
       "path": "crates/transport-security/src/source_trust.rs",
@@ -54,7 +54,7 @@
     },
     {
       "path": "crates/transport-security/src/guard.rs",
-      "sha256": "abe2ccb399441becc4126439a2f2ec42a892506407ef33864b4e5eacbf257bca"
+      "sha256": "9090fc88fbb92ab3c3fb2dfa244af1d1587fa43b267530d3d0806d332e0565d8"
     },
     {
       "path": "crates/transport-security/src/listener.rs",
@@ -62,7 +62,7 @@
     },
     {
       "path": "crates/transport-security/src/server_conn.rs",
-      "sha256": "d97e01c8e7c5933c0c47c7b6516b0dc831c70f696fbeec6031ed2b6807fe9601"
+      "sha256": "2596fc0ab5a4b860a3ea170ef84244d32ee1ad6cef5495a61a1630988347891b"
     },
     {
       "path": "crates/transport-security/src/trust.rs",
@@ -82,27 +82,27 @@
     },
     {
       "path": "crates/spiffe-source/Cargo.toml",
-      "sha256": "ec98a2dc812e1d0cdc3388cbefc2e6f020fceac942f46a67a689024dd62b1195"
+      "sha256": "1d2f4e9b12d224c03ffd5a15d412ccd8681fa920a56d4360b121f9bbe6eab5a3"
     },
     {
       "path": "crates/spiffe-source/src/lib.rs",
-      "sha256": "50a975b67dc7764109f014d5ebfef1c283400e36c9525b1531d8010bf2b9a3cc"
+      "sha256": "0c8480f773ffe915c10e95733566e71258edee4043648d65d2c2e65d0f1056ac"
     },
     {
       "path": "crates/spiffe-source/src/source.rs",
-      "sha256": "d31ef3d7f83e45e96abb9e281abee22a07715213f243ae4b5991d596a21f7815"
+      "sha256": "3c17f1f47dc3375370ff392b5113ad2a608e9e193161ed2bc5b0e4588f5dccce"
     },
     {
       "path": "crates/spiffe-source/src/source_handle.rs",
-      "sha256": "f870853088dba4b674b9bc5f265c50af8caa7a91873dac02ddb78b563cf5633f"
+      "sha256": "747f4190798873965993970e9e4b333af1bb7c2940175225d5b72eda483254ef"
     },
     {
       "path": "crates/spiffe-source/src/sink.rs",
-      "sha256": "daeef0d0fd567643b8e262e6c2c20cf8a57b3c689d62b4346474467f8b5f8263"
+      "sha256": "21c597fab17c22ab844235f438fa0d4b359edf852d631e7cc7c3c0058e64d004"
     },
     {
       "path": "crates/spiffe-source/src/sink/transport.rs",
-      "sha256": "b233a7a2fe4d64de2951ea7f8c4f71d92808e6dd46c6ed83f6f7823aff8c274b"
+      "sha256": "0d1aeffc773e2fffe9d77c298c7ee786a8a79432c79b1f6a112809b360b2129e"
     },
     {
       "path": "crates/spiffe-source/src/snapshot.rs",
@@ -118,7 +118,7 @@
     },
     {
       "path": "crates/spiffe-source/src/source_policy.rs",
-      "sha256": "faf81b2b4de6d9ded51f4663105ccb731ab9acd71a46e4ff48c4efd235ac516d"
+      "sha256": "3f03a7b0a28eef755542eb761729b44df12a2efe5635c2dff3ce4da5c28695d0"
     },
     {
       "path": "crates/spiffe-source/src/config.rs",
@@ -154,7 +154,7 @@
     },
     {
       "path": "crates/gateway/src/transport/mod.rs",
-      "sha256": "93083feb8574bf583b13d3cc860f4dd64d8374b11f3b1c2a0de7e8d2ebbe6614"
+      "sha256": "69f4733b850892a1080d71b828f8bc04ccb5de57e93fa7ad9124c48a8c677fbd"
     },
     {
       "path": "crates/gateway/src/transport_lifecycle/mod.rs",
@@ -166,15 +166,15 @@
     },
     {
       "path": "crates/gateway/src/transport/runtime.rs",
-      "sha256": "a70eae24bbb90ca59f4232b036299734b2311c1a2a72743bc0ad2e13a5cea69b"
+      "sha256": "24743319059bbfa6210e484225333e83d6f70279099d0dd7bc273aa6613a5e48"
     },
     {
       "path": "crates/gateway/src/transport/admission.rs",
-      "sha256": "6a59a7758d1986ea254b4c3976ca911d36749296a7b07c9a301cfdf5a5b5f02e"
+      "sha256": "97ee3c875a20415467e440c47885cce98bd09963f6d44085835900c829bdd90e"
     },
     {
       "path": "crates/gateway/src/transport/status.rs",
-      "sha256": "f0bc719814c3f42b7aa47ff4cd4aa60234c12b05d1793223b7ead14ef67af8dd"
+      "sha256": "31d0a4ed64fbe5bcc0003b95435f6c0c3cd62eb5f800c8286c022be5ee20f7f5"
     },
     {
       "path": "crates/gateway/src/routes/est_wire.rs",
@@ -190,15 +190,15 @@
     },
     {
       "path": "crates/gateway/src/routes/est_passphrase_budget.rs",
-      "sha256": "69ac160066df9e6d810e273783ed4cf1146dbe342eeadf028ec023d0dfd9a1c4"
+      "sha256": "31f3c4d88f0f2510078c0c6e4e2e807edfedcfdaa99ddd94fe773b5af6dbb28f"
     },
     {
       "path": "crates/gateway/src/routes/est_freshness.rs",
-      "sha256": "cd8804f3fa80d6260f3ccca57d17831b87055b31679ce56de392cf1a32cba140"
+      "sha256": "6f0ab8622f86714478dde33cade85c00979c3892b52d9190fe8f132bacb3875a"
     },
     {
       "path": "crates/gateway/src/transport_lifecycle/trust_activate.rs",
-      "sha256": "0dfcbe8ded2f01ede0e2c3e982dd5c175e2d7517a0d4c4a738b8a148d3cbadaa"
+      "sha256": "2c19969e524a7f5e18b25fc57cca290ced425de9798a486290719cbdbc7ddd49"
     },
     {
       "path": "crates/gateway/src/transport_lifecycle/trust_store.rs",
@@ -218,11 +218,11 @@
     },
     {
       "path": "crates/transport-security/src/source_lifetime_tests.rs",
-      "sha256": "c3c82bed965d5b8936d5f2f9a7e1a3b6b0eac4683079dd5198c1a813bc6e7a3b"
+      "sha256": "b4ae345545dd68d051587ba6650f323acd1a8b7795d7745ebc0a68c951b8353e"
     },
     {
       "path": "crates/gateway/src/transport/status_tests.rs",
-      "sha256": "81dfbef784151780f81027881607818fd277eaeb169c51863dc376f60f2a2798"
+      "sha256": "b822e31b5c2f6ce259ec57a543f6796106c56f32192b50593357cd763e4ba301"
     },
     {
       "path": "crates/gateway/src/transport/admission_tests.rs",
@@ -230,7 +230,7 @@
     },
     {
       "path": "crates/gateway/src/transport/admission_source_tests.rs",
-      "sha256": "7a8e708954bcdd054c2de68900781bd60da2e27b510a2267e31a5890c585f714"
+      "sha256": "9499484a1ff0b5316764b85ec46a774c1310d741eeaba84ddde3e3ba4d9ebc0c"
     },
     {
       "path": "crates/gateway/src/routes/est_test_pause.rs",
@@ -242,7 +242,7 @@
     },
     {
       "path": "crates/gateway/src/transport_lifecycle/trust_generation_tests.rs",
-      "sha256": "ec7c7fd07e2bce039541aee471225941be13b8466955c4675711a9b2296c7128"
+      "sha256": "4d8e926038e3b5c8547db09caceb4b5aee5c25d278d42c038ec552fd4bdc913c"
     },
     {
       "path": "crates/gateway/src/routes/est_server_tests.rs",
@@ -258,15 +258,15 @@
     },
     {
       "path": "crates/transport-security/tests/source_lifetime_formal.rs",
-      "sha256": "3fe6a22059a7664d5c9a1e888f0511a9d6fada7581cb837b5c9f845df80fdbc0"
+      "sha256": "bdea2db88eef9c06647c26187b5542d206cb045cf713bbe656ca6a6496a17a20"
     },
     {
       "path": "crates/transport-security/tests/source_lifetime.rs",
-      "sha256": "b192f3b7aed683e902849f444313f5a008d5bee602fbc6e8540f967fded2c795"
+      "sha256": "22fab7b9b96849446069b30ba897b06db75d8fe79abcf5ec5ebf7d90f70020a7"
     },
     {
       "path": "crates/transport-security/tests/source_lifetime_edges.rs",
-      "sha256": "eedfc23e3e12e39debeb6f07c5dce24c8dd07975c1acc384555ff32f6b6fa316"
+      "sha256": "de9c5d47546dbdc6056c1b51a93d448cf888d891654f832cab0925d754b28746"
     },
     {
       "path": "crates/transport-security/tests/common/mod.rs",
@@ -274,7 +274,7 @@
     },
     {
       "path": "crates/spiffe-source/src/source_lease_tests.rs",
-      "sha256": "55774fa22f7f1408f511a661cd4f4d2a41b06046ac4b8447bd609aa2a2c3c9a5"
+      "sha256": "ae807d2e206dfd123afe10c6f561593fc39ce262774bde870c2f2e6aadb7f264"
     }
   ],
   "optional_sources": [
