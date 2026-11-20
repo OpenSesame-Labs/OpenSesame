@@ -9,6 +9,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   bindTutorialResume,
+  completeQueuedTutorial,
   dequeueTutorial,
   forgetSessionTutorialPause,
   listQueuedTutorials,
@@ -65,8 +66,9 @@ describe("tutorial pause formal replay", () => {
     ]);
 
     let home = "";
-    const unbind = bindTutorialResume((_goalId, _guide, homeRoute) => {
+    const unbind = bindTutorialResume((goalId, _guide, homeRoute) => {
       home = homeRoute;
+      completeQueuedTutorial(goalId);
       return true;
     });
     expect(resumeTutorialFromNotice("settings.danger.review")).toBe(true);
