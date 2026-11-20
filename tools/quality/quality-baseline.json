@@ -16,9 +16,9 @@
     "max-statements": 40
   },
   "totals": {
-    "files": 439,
-    "violations": 698,
-    "oversizedLines": 212550
+    "files": 438,
+    "violations": 695,
+    "oversizedLines": 211887
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -236,11 +236,6 @@
     },
     "apps/pages/src/tutorial/__tests__/a11y/stylesheet-contract.test.ts": {
       "max-nested-callbacks": 1
-    },
-    "apps/pages/src/tutorial/session.ts": {
-      "complexity": 1,
-      "max-lines": 660,
-      "max-lines-per-function": 1
     },
     "apps/pages/src/tutorial/ui/SupportPanel.tsx": {
       "max-lines-per-function": 1

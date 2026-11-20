@@ -17,11 +17,24 @@ const PROGRAM: GuideProgram = {
 };
 
 const RUNNING: GuideRuntimeSnapshot = {
-  phase: "running",
-  stepIndex: 0,
-  stepCount: 1,
+  status: "running",
+  goal: "vault.lock",
+  index: 0,
+  total: 1,
+  runId: 1,
   message: null,
-  origin: "authored",
+  error: null,
+  tour: {
+    step: 1,
+    count: 1,
+    kind: "narrate",
+    message: "Queued.",
+    target: null,
+    side: null,
+    action: false,
+    degraded: false,
+    canBack: false,
+  },
 };
 
 function stubEngine(running: boolean): SupportEngine {
