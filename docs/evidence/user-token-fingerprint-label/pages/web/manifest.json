@@ -1,7 +1,7 @@
 {
   "version": 1,
   "status": "approved",
-  "sourceCommit": "0a395003adc7c144714d96c97d586a2252577aee",
+  "sourceCommit": "04019a29afce6e37f2993317495704099bcbcf0b",
   "approval": {
     "by": "Tyler-R-Kendrick",
     "reference": "https://github.com/OpenSesame-Labs/OpenSesame/pull/2823"
