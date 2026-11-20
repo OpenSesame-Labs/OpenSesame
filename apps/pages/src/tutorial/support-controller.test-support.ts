@@ -9,6 +9,7 @@
  * interface and loads nothing.
  */
 
+import type { GuideCancelReason } from "@opensesame/guide-runtime";
 import type { GuideOrigin } from "./engine.js";
 import type { SupportController, SupportTab, SupportView } from "./session.js";
 import { emptyView } from "./session-view.js";
@@ -26,7 +27,7 @@ export function stubSupportController(
   const listeners = new Set<() => void>();
   const started: StartedGuide[] = [];
   const opened: (SupportTab | undefined)[] = [];
-  const stops = { count: 0 };
+  const stops = { count: 0, reason: "user" as GuideCancelReason };
   const nothing = () => undefined;
   const support: SupportController = {
     subscribe(listener) {
@@ -56,8 +57,9 @@ export function stubSupportController(
     nextStep: nothing,
     backStep: nothing,
     replayGuide: nothing,
-    stopGuide: () => {
+    stopGuide: (reason: GuideCancelReason = "user") => {
       stops.count += 1;
+      stops.reason = reason;
     },
     lock: nothing,
     destroy: nothing,
