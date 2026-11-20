@@ -9,13 +9,10 @@ import {
   completeQueuedTutorial,
 } from "@opensesame/app-core/lib/tutorial-queue.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
-import { HELP_TOPICS } from "@opensesame/app-core/tutorial/registry/goals.js";
-import { rankHelpTopics } from "@opensesame/app-core/tutorial/registry/goals-search.js";
 import type { GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes.js";
 import { clearMountedGuideTargets } from "@opensesame/app-core/tutorial/registry/targets.js";
 import type { GuideProgram } from "@opensesame/guide-lang";
 import type { GuideCancelReason } from "@opensesame/guide-runtime";
-import { gateSupportAsk } from "./ask-guard.js";
 import {
   type GuideOrigin,
   type SupportEngine,
@@ -30,8 +27,8 @@ import type {
   SupportSessionDependencies,
   SupportView,
 } from "./session.js";
-import { noteGrounding, walkthroughsFor } from "./session-grounding.js";
 import { emptyView } from "./session-view.js";
+import { createSessionAskMethods } from "./session-controller-ask.js";
 import {
   createQueuedResumeHandlers,
   type PendingQueuedResume,
@@ -39,7 +36,6 @@ import {
 import { queueTourExit } from "./tutorial-exit.js";
 import {
   GUIDE_ERROR_TEXT,
-  GUIDE_REFUSED_TEXT,
   SUPPORT_ERROR_TEXT,
   UNEXPECTED_TEXT,
 } from "./ui/messages.js";
@@ -236,6 +232,23 @@ export function createSupportController(
     await runProgram(program, origin);
   }
 
+  const { ask, cancel, answerFromAuthoredHelp } = createSessionAskMethods({
+    push,
+    set,
+    view: () => state,
+    ensureEngine,
+    engine: () => engine,
+    cancelled: {
+      get: () => cancelled,
+      set: (value) => {
+        cancelled = value;
+      },
+    },
+    notifyFailure,
+    refreshAvailability,
+    runProgram: (program, origin) => runProgram(program, origin),
+  });
+
   const {
     flushPendingQueuedResume,
     resumeQueuedWalkthrough: resumeQueuedWalkthroughImpl,
@@ -278,8 +291,6 @@ export function createSupportController(
     dependencies.clearTargets();
     pendingQueuedResume = null;
     queuedResumeLoading = false;
-    // Everything the person said, everything that answered, and every overlay
-    // it drew goes with the keys.
     state = emptyView(state.route);
     emit();
   }
@@ -329,76 +340,9 @@ export function createSupportController(
         }
       };
     },
-    resumeQueuedWalkthrough(goalId, guide, homeRoute) {
-      return resumeQueuedWalkthroughImpl(goalId, guide, homeRoute);
-    },
-    async ask(question) {
-      const gate = gateSupportAsk(question, state.thinking);
-      if (gate.kind === "skip") return;
-      const { text } = gate;
-      push("question", text, []);
-      const loaded = await ensureEngine();
-      if (!loaded) {
-        const authored = rankHelpTopics(text, state.route).find(
-          (e) => e.strong,
-        )?.topic;
-        if (authored) {
-          push("answer", authored.answer, [], {
-            walkthroughs: walkthroughsFor([authored]),
-          });
-          return;
-        }
-        notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
-        return;
-      }
-      cancelled = false;
-      set({ thinking: true });
-      await loaded.session.ask(text);
-      if (engine !== loaded) return;
-      set({ thinking: false });
-      if (cancelled) {
-        cancelled = false;
-        push("note", SUPPORT_ERROR_TEXT.AGENT_ABORTED, []);
-        return;
-      }
-      const snapshot = loaded.session.snapshot();
-      if (snapshot.status === "error") {
-        const authored = rankHelpTopics(text, state.route).find(
-          (entry) => entry.strong,
-        )?.topic;
-        if (authored && snapshot.error === "AGENT_UNAVAILABLE") {
-          push("answer", authored.answer, [], {
-            walkthroughs: walkthroughsFor([authored]),
-          });
-          void refreshAvailability();
-          return;
-        }
-        notifyFailure(
-          SUPPORT_ERROR_TEXT[snapshot.error ?? "AGENT_PROTOCOL_ERROR"],
-        );
-        void refreshAvailability();
-        return;
-      }
-      const last = snapshot.messages.at(-1);
-      if (last && last.role === "assistant") {
-        push("answer", last.text, snapshot.suggestedQuestions, {
-          thoughts: snapshot.thoughts,
-          computer: snapshot.computer,
-        });
-      }
-      // A walkthrough the compiler rejected is reported as a walkthrough that
-      // did not run — never as the codes it failed with, and never as the text.
-      if (snapshot.guideError) notifyFailure(GUIDE_REFUSED_TEXT);
-      if (last && last.role === "assistant") {
-        noteGrounding(push, state.route, text, snapshot.grounding);
-      }
-      if (snapshot.program) await runProgram(snapshot.program, "model");
-    },
-    cancel() {
-      if (!state.thinking) return;
-      cancelled = true;
-      engine?.session.cancel();
-    },
+    resumeQueuedWalkthrough: resumeQueuedWalkthroughImpl,
+    ask,
+    cancel,
     clear() {
       engine?.session.clear();
       set({ transcript: [] });
@@ -417,16 +361,8 @@ export function createSupportController(
       }
       await refreshAvailability();
     },
-    answerFromAuthoredHelp(question, answer) {
-      push("question", question, []);
-      const topic = HELP_TOPICS.find((entry) => entry.answer === answer);
-      push("answer", answer, [], {
-        walkthroughs: topic ? walkthroughsFor([topic]) : [],
-      });
-    },
-    startGuide(source, origin) {
-      return startGuide(source, origin);
-    },
+    answerFromAuthoredHelp,
+    startGuide,
     pauseGuide() {
       engine?.pauseGuide();
     },

@@ -154,6 +154,38 @@ export async function openNotes(page) {
   return dialog;
 }
 
+function rectsOverlap(a, b) {
+  return !(
+    a.x + a.width <= b.x ||
+    b.x + b.width <= a.x ||
+    a.y + a.height <= b.y ||
+    b.y + b.height <= a.y
+  );
+}
+
+/** Action keys on each notice card must not sit on top of one another. */
+export async function assertNoticeActionsNoOverlap(dialog, check) {
+  const cards = dialog.locator(".notice-card");
+  const cardCount = await cards.count();
+  for (let card = 0; card < cardCount; card += 1) {
+    const buttons = cards.nth(card).locator(".actions button");
+    const buttonCount = await buttons.count();
+    const boxes = [];
+    for (let i = 0; i < buttonCount; i += 1) {
+      const box = await buttons.nth(i).boundingBox();
+      if (box) boxes.push(box);
+    }
+    for (let left = 0; left < boxes.length; left += 1) {
+      for (let right = left + 1; right < boxes.length; right += 1) {
+        check(
+          !rectsOverlap(boxes[left], boxes[right]),
+          `notice-card ${card}: action ${left} and ${right} do not overlap`,
+        );
+      }
+    }
+  }
+}
+
 async function exitVaultLockTutorial(page, href, profileId, check, dir) {
   await applySetupProfileToUnlockedVault(page, href, profileId, check, dir);
   const card = await startTutorial(page, "vault.lock");
@@ -186,6 +218,7 @@ async function capturePauseOptOut(page, href, profileId, check, dir) {
     .getByRole("button", { name: "Resume walkthrough" })
     .first()
     .waitFor({ timeout: 8_000 });
+  await assertNoticeActionsNoOverlap(dialog, check);
   await shotPage(page, path.join(dir, "tutorial-opt-out-notifications.png"));
   check(
     (await countResumeKeys(dialog)) === 1,
@@ -215,12 +248,13 @@ async function capturePauseOnlyOne(page, href, profileId, check, dir) {
     (await pauseOthers.count()) === 0,
     "Only this one removes pause-others card",
   );
+  await assertNoticeActionsNoOverlap(dialog, check);
   await shotPage(page, path.join(dir, "tutorial-pause-only-one.png"));
 }
 
 async function capturePauseDismissX(page, href, profileId, check, dir) {
   await exitVaultLockTutorial(page, href, profileId, check, dir);
-  const dialog = await openNotes(page);
+  let dialog = await openNotes(page);
   const pauseCard = dialog.locator(".notice-card", {
     hasText: "Pause the others",
   });
@@ -237,6 +271,8 @@ async function capturePauseDismissX(page, href, profileId, check, dir) {
   await dialog.getByRole("button", { name: "Close", exact: true }).click();
   await dialog.waitFor({ state: "hidden" });
   await page.waitForTimeout(400);
+  dialog = await openNotes(page);
+  await assertNoticeActionsNoOverlap(dialog, check);
   await shotPage(page, path.join(dir, "tutorial-pause-dismiss-x.png"));
   check(
     (await countResumeKeys(await openNotes(page))) === 1,
@@ -260,6 +296,7 @@ async function capturePauseAllReload(page, href, profileId, check, dir) {
     pauseAllCount <= TUTORIAL_QUEUE_LIMIT,
     `pause all respects cap (${pauseAllCount})`,
   );
+  await assertNoticeActionsNoOverlap(dialog, check);
   await shotPage(page, path.join(dir, "tutorial-pause-all-queued.png"));
   await dialog.getByRole("button", { name: "Close", exact: true }).click();
   await dialog.waitFor({ state: "hidden" });
@@ -286,6 +323,7 @@ async function capturePauseAllReload(page, href, profileId, check, dir) {
     afterReload === pauseAllCount,
     `queued tours survive reload (${afterReload} of ${pauseAllCount})`,
   );
+  await assertNoticeActionsNoOverlap(dialog, check);
   await shotPage(page, path.join(dir, "tutorial-queue-after-reload.png"));
   const pauseLeft = await dialog
     .getByRole("button", { name: "Pause all for this session" })
