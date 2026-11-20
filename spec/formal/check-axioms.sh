@@ -12,14 +12,14 @@ case "${model##*/}" in
   AuthPolicy.lean) suite=auth; required_count=19 ;;
   Authority.lean) suite=authority; required_count=10 ;;
   ReplayPolicy.lean) suite=dpop; required_count=10 ;;
-  SpiffePolicy.lean) suite=spiffe; required_count=21 ;;
+  SpiffePolicy.lean) suite=spiffe; required_count=25 ;;
   PendingIntegrity.lean) suite=oauth; required_count=14 ;;
   ApprovalBinding.lean) suite=webauthn; required_count=12 ;;
   InteractionClock.lean) suite=interaction-clock; required_count=9 ;;
   AuthPolicy.lean) suite=auth; required_count=19 ;;
   Authority.lean) suite=authority; required_count=10 ;;
   ReplayPolicy.lean) suite=dpop; required_count=10 ;;
-  SpiffePolicy.lean) suite=spiffe; required_count=21 ;;
+  SpiffePolicy.lean) suite=spiffe; required_count=25 ;;
   SourceLifetime.lean) suite=source-lifetime; required_count=13 ;;
   SourceTrustSelection.lean) suite=source-trust-selection; required_count=39 ;;
   SpiffePeerDomain.lean) suite=spiffe-peer-domain; required_count=12 ;;
