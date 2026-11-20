@@ -43,13 +43,6 @@ export async function shotPage(page, file) {
   await page.screenshot({ path: file, animations: "disabled" });
 }
 
-async function shotDialog(page, file) {
-  const dialog = page.getByRole("dialog", { name: "Notifications" });
-  await dialog.waitFor({ timeout: 8_000 });
-  await page.waitForTimeout(200);
-  await dialog.screenshot({ path: file, animations: "disabled" });
-}
-
 export async function assertOnSetup(page, check) {
   const frame = page.locator(".setup__frame");
   const setup = await frame.isVisible().catch(() => false);
@@ -161,14 +154,7 @@ export async function openNotes(page) {
   return dialog;
 }
 
-async function exitVaultLockTutorial(
-  page,
-  href,
-  sealLocalOnly,
-  profileId,
-  check,
-  dir,
-) {
+async function exitVaultLockTutorial(page, href, profileId, check, dir) {
   await applySetupProfileToUnlockedVault(page, href, profileId, check, dir);
   const card = await startTutorial(page, "vault.lock");
   await card.getByRole("button", { name: "Exit tutorial" }).click();
@@ -186,7 +172,6 @@ export async function captureTutorialPauseFlow(
   dir,
   check,
   href,
-  sealLocalOnly,
   profileId,
 ) {
   let pauseAllCount;
@@ -200,14 +185,7 @@ export async function captureTutorialPauseFlow(
   {
     const { context, page } = await freshPage();
     try {
-      await exitVaultLockTutorial(
-        page,
-        href,
-        sealLocalOnly,
-        profileId,
-        check,
-        dir,
-      );
+      await exitVaultLockTutorial(page, href, profileId, check, dir);
       const dialog = await openNotes(page);
       await dialog
         .getByRole("button", { name: "Pause all for this session" })
@@ -231,14 +209,7 @@ export async function captureTutorialPauseFlow(
   {
     const { context, page } = await freshPage();
     try {
-      await exitVaultLockTutorial(
-        page,
-        href,
-        sealLocalOnly,
-        profileId,
-        check,
-        dir,
-      );
+      await exitVaultLockTutorial(page, href, profileId, check, dir);
       const dialog = await openNotes(page);
       await dialog.getByRole("button", { name: "Only this one" }).click();
       await page.waitForTimeout(500);
@@ -269,14 +240,7 @@ export async function captureTutorialPauseFlow(
   {
     const { context, page } = await freshPage();
     try {
-      await exitVaultLockTutorial(
-        page,
-        href,
-        sealLocalOnly,
-        profileId,
-        check,
-        dir,
-      );
+      await exitVaultLockTutorial(page, href, profileId, check, dir);
       const dialog = await openNotes(page);
       const pauseCard = dialog.locator(".notice-card", {
         hasText: "Pause the others",
@@ -308,14 +272,7 @@ export async function captureTutorialPauseFlow(
   {
     const { context, page } = await freshPage();
     try {
-      await exitVaultLockTutorial(
-        page,
-        href,
-        sealLocalOnly,
-        profileId,
-        check,
-        dir,
-      );
+      await exitVaultLockTutorial(page, href, profileId, check, dir);
       let dialog = await openNotes(page);
       await dialog
         .getByRole("button", { name: "Pause all for this session" })
