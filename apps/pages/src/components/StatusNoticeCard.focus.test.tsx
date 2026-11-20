@@ -3,7 +3,7 @@ import type { Notice } from "@opensesame/app-core/lib/notices.js";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { StatusNoticeCard } from "./NotificationsBar.js";
+import { StatusNoticeCard } from "./StatusNoticeCard.js";
 
 afterEach(() => cleanup());
 
@@ -96,6 +96,39 @@ describe("a tray card whose act works in place (ADR 0221)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Only this one" }));
     expect(pause).toHaveBeenCalledTimes(1);
     expect(only).toHaveBeenCalledTimes(1);
+  });
+
+  it("closes the sheet after a keyboard worded choice removes its card", () => {
+    const pause = vi.fn();
+    const only = vi.fn();
+    const onOpen = vi.fn();
+    render(
+      <MemoryRouter>
+        <StatusNoticeCard
+          notice={{
+            id: "tutorial.pause.session",
+            kind: "status",
+            tone: "warn",
+            title: "Tutorials",
+            body: "Pause the others for this session?",
+            act: {
+              label: "Pause all for this session",
+              worded: true,
+              run: pause,
+            },
+            alt: { label: "Only this one", worded: true, run: only },
+            createdAt: "2026-11-18T00:00:00Z",
+          }}
+          onOpen={onOpen}
+        />
+      </MemoryRouter>,
+    );
+    const pauseKey = screen.getByRole("button", {
+      name: "Pause all for this session",
+    });
+    pauseKey.focus();
+    fireEvent.click(pauseKey);
+    expect(onOpen).toHaveBeenCalledTimes(1);
   });
 
   it("leaves focus to the page for an act that opens it", () => {
