@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 
+import * as connectRoads from "@opensesame/app-core/lib/connect-roads.js";
 import * as contributions from "@opensesame/app-core/lib/contributions.js";
 import {
   clearNotices,
@@ -188,6 +189,43 @@ describe("bootTrayNotices", () => {
     status = "locked";
     fire(NARROW_QUERY);
     expect(refresh.mock.calls.length).toBe(refreshAfterBoot + 2);
+    expect(
+      listNotices().some((notice) => notice.id.startsWith("tutorial.queue.")),
+    ).toBe(false);
+  });
+
+  it("refreshes the queue gate when connector roads change", async () => {
+    let roadListener: (() => void) | null = null;
+    let status: VaultState["status"] = "unlocked";
+    vi.spyOn(vaultStore, "getSnapshot").mockImplementation(
+      () =>
+        // SAFETY: fixture matches the VaultState contract; boot only checks status.
+        ({ status, guest: false, tomb: "personal" }) as VaultState,
+    );
+    vi.spyOn(vaultStore, "subscribe").mockImplementation(() => () => {});
+    vi.spyOn(connectRoads, "subscribeConnectRoads").mockImplementation(
+      (listener) => {
+        roadListener = listener;
+        return () => {};
+      },
+    );
+    const refresh = vi.spyOn(present, "refreshQueuedTutorialTrayNotices");
+    const gate = vi.spyOn(present, "installTutorialQueueLibraryOptions");
+    const rehydrate = vi.spyOn(present, "rehydrateTutorialQueueNotices");
+    bootTrayNotices();
+    await vi.waitFor(() => expect(rehydrate).toHaveBeenCalled());
+    expect(roadListener).not.toBeNull();
+    const refreshAfterBoot = refresh.mock.calls.length;
+    const gateAfterBoot = gate.mock.calls.length;
+
+    roadListener?.();
+    expect(gate.mock.calls.length).toBe(gateAfterBoot + 1);
+    expect(refresh.mock.calls.length).toBe(refreshAfterBoot + 1);
+
+    status = "locked";
+    roadListener?.();
+    expect(gate.mock.calls.length).toBe(gateAfterBoot + 2);
+    expect(refresh.mock.calls.length).toBe(refreshAfterBoot + 1);
     expect(
       listNotices().some((notice) => notice.id.startsWith("tutorial.queue.")),
     ).toBe(false);
