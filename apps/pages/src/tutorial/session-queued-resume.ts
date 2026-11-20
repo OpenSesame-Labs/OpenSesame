@@ -76,8 +76,8 @@ export function createQueuedResumeHandlers(host: QueuedResumeHost) {
     if (!pending) return;
     const { goalId, guide, homeRoute } = pending;
     if (!queuedResumeRouteOk(homeRoute)) return;
-    if (host.queuedResumeLoading()) return;
     host.setPending(null);
+    host.setQueuedResumeLoading(false);
     beginQueuedWalkthrough(goalId, guide, homeRoute);
   }
 
@@ -92,6 +92,7 @@ export function createQueuedResumeHandlers(host: QueuedResumeHost) {
     const onHome = queuedResumeRouteOk(homeRoute);
     if (!onHome) {
       if (!host.getNavigator()?.(homeRoute)) return false;
+      host.setQueuedResumeLoading(true);
       host.setPending({ goalId, guide, homeRoute });
       void host.ensureEngine();
       return true;
