@@ -103,7 +103,7 @@ def revision_blob(revision: str, path: str) -> str | None:
     return blob
 
 
-def verify_sources(coverage: dict, revision: str, *, scratch: bool = False) -> None:
+def verify_sources(coverage: dict, revision: str) -> None:
     attestation_path = coverage.get("reviewed_attestation")
     if not isinstance(attestation_path, str) or ATTESTATION_RE.fullmatch(attestation_path) is None:
         raise ValueError("reviewed attestation path is missing or malformed")
@@ -123,8 +123,6 @@ def verify_sources(coverage: dict, revision: str, *, scratch: bool = False) -> N
         work = hashlib.sha256((ROOT / path).read_bytes()).hexdigest()
         if work != expected:
             raise ValueError(f"review source drift: {path}")
-        if scratch:
-            continue
         reviewed = hashlib.sha256(blob_bytes(item["reviewed_blob"])).hexdigest()
         if reviewed != expected:
             raise ValueError(f"reviewed blob does not match hashed bytes: {path}")
@@ -149,20 +147,8 @@ def main():
         revision = str(coverage.get("reviewed_revision", ""))
         if coverage.get("version") != 2 or not re.fullmatch(r"[0-9a-f]{40}", revision):
             raise ValueError("invalid coverage manifest")
-        if os.environ.get("OPENSESAME_SPIFFE_NEGATIVE_CONTROLS") == "1":
-            subprocess.run(
-                ["git", "-C", str(ROOT), "cat-file", "-e", f"{revision}^{{commit}}"],
-                check=True,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        else:
-            assert_reviewed_revision_on_main(ROOT, revision, "spiffe-formal")
-        verify_sources(
-            coverage,
-            revision,
-            scratch=os.environ.get("OPENSESAME_SPIFFE_NEGATIVE_CONTROLS") == "1",
-        )
+        assert_reviewed_revision_on_main(ROOT, revision, "spiffe-formal")
+        verify_sources(coverage, revision)
         graph = projection.read_lock(ROOT / "Cargo.lock")
         verify_lock(coverage, graph, (ROOT / "crates/spiffe-source/src/lib.rs").read_text())
     except (OSError, ValueError, KeyError, TypeError, subprocess.CalledProcessError) as exc:
