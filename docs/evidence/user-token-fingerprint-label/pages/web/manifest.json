@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "status": "approved",
+  "sourceCommit": "ee50412cef2816447a631f7330e306caa9239165",
+  "approval": {
+    "by": "Tyler-R-Kendrick",
+    "reference": "https://github.com/OpenSesame-Labs/OpenSesame/pull/2823"
+  },
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "adf58434b7e46985da5051dea79756fd63a8d9483fa72d2d62c4da921886f432"
+    },
+    {
+      "path": "label-baseline/custom/user-token-fingerprint-label.png",
+      "sha256": "30bc9d7bd4ceabf2596d9b4554c4742be06efcd1cc9e6ba4adfa1cce64626f4d"
+    },
+    {
+      "path": "label-baseline/default/user-token-fingerprint-label.png",
+      "sha256": "98e6dff155c5e079dfa7dea74622513612da888e06472cbbff8d83acd89be2a6"
+    },
+    {
+      "path": "label-baseline/full/user-token-fingerprint-label.png",
+      "sha256": "9bb8f688a246dded6a9fce8a05c7f14d5413c00540f1591b3faa4c1a3934f2ba"
+    },
+    {
+      "path": "label-baseline/minimal-local/user-token-fingerprint-label.png",
+      "sha256": "eeeab78816f13e669555810c8db05826c6a9028293c2bef6dfa5da6a04cedf3e"
+    },
+    {
+      "path": "label-current/custom/user-token-fingerprint-label.png",
+      "sha256": "839176593033cea6754f9803c5994e1cbfadb9333e8b6c06571dfd5bea65c348"
+    },
+    {
+      "path": "label-current/default/user-token-fingerprint-label.png",
+      "sha256": "c49f18da09233de2f8cd07390123bc4355acd83f709deb576370af8d1f11c715"
+    },
+    {
+      "path": "label-current/full/user-token-fingerprint-label.png",
+      "sha256": "049a99d3f310e01f4df142a8acea7d0e8b1defd88a8f402650639884763f3a4a"
+    },
+    {
+      "path": "label-current/minimal-local/user-token-fingerprint-label.png",
+      "sha256": "2108900a5c51925e6200cd018e3e3532419396bd0f5a416a6a9cb70c19231122"
+    }
+  ]
+}

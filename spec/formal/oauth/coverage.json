@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_base_revision": "54152206997fac3831c27c13d4c18a3d48f7adee",
-  "reviewed_source_state": "Reviewed the v3 cookie and legacy-provider checks; hashes identify the reviewed source bytes.",
+  "reviewed_base_revision": "00996e26a2cfb0e53be905d5d4f3d61d60d5eb6e",
+  "reviewed_source_state": "Reviewed v3 MAC with scrypt-bound verifier, optional verifierEnc wire seal behind federatedPendingSealVerifierOnWire (default off for mixed-version rollout), and leg-binding for seal/unseal.",
   "sources": [
     {
       "path": "packages/control-plane/src/interactions/federated-leg.ts",
@@ -9,7 +9,7 @@
     },
     {
       "path": "packages/control-plane/src/interactions/federated-pending.ts",
-      "sha256": "ae0df9286b7d226643941aef995be3ce98c95944b3dcf333d3ab8e7debd1765d"
+      "sha256": "7d9ca488e4108df323234757b20d966439d3e9e4b24491f6f0de726ccaaf300c"
     },
     {
       "path": "packages/control-plane/src/interactions/federated-trust-binding.ts",
@@ -17,7 +17,7 @@
     },
     {
       "path": "packages/control-plane/src/interactions/federated.ts",
-      "sha256": "3c320d4188bac854c2ccdb862ccdba9f4fa785bf1bb864b13c332b3b0f828328"
+      "sha256": "436d58fba39a50e4779ffedd78e73f628e58a217993334d4f97a48317a023fa8"
     },
     {
       "path": "packages/control-plane/src/interactions/oauth2.ts",
@@ -29,7 +29,7 @@
     },
     {
       "path": "packages/control-plane/src/routes/interactions.ts",
-      "sha256": "96ede607117d115bcd61524e3d6cb67ff814dfd658e78b61f99c9e1c8a3d68d2"
+      "sha256": "b23bb16415ff8e982e3631050032b66124b0e9f393ebf778f2a5d6498d3bb973"
     }
   ]
 }

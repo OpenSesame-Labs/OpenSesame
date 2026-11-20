@@ -101,6 +101,12 @@ function existingV3Cookie(value: PendingFederatedAuth): string {
   return `${payload}.${tag}`;
 }
 
+function existingSealedCookie(value: PendingFederatedAuth): string {
+  return encodePending(value, secret, { sealVerifierOnWire: true });
+}
+
+const sealOnWire = { sealVerifierOnWire: true as const };
+
 describe("signed federated state integrity", () => {
   it("round-trips a signed state with its organization and upstream context", () => {
     expect(decodePending(encodePending(pending, secret), secret)).toEqual(
@@ -108,10 +114,88 @@ describe("signed federated state integrity", () => {
     );
   });
 
-  it("preserves the v3 cookie format already emitted by main", () => {
+  it("round-trips a sealed-on-wire cookie with a fresh random GCM IV", () => {
+    const cookie = existingSealedCookie(pending);
+    expect(decodePending(cookie, secret)).toEqual(pending);
+    const again = encodePending(pending, secret, sealOnWire);
+    expect(decodePending(again, secret)).toEqual(pending);
+    expect(again).not.toBe(cookie);
+  });
+
+  it("keeps a plaintext verifier on the wire by default for mixed-version rollouts", () => {
+    const cookie = encodePending(pending, secret);
+    const payload = cookie.slice(0, cookie.lastIndexOf("."));
+    const wire = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    expect(wire.verifier).toBe(pending.verifier);
+    expect(wire).not.toHaveProperty("verifierEnc");
+  });
+
+  it("never places a raw verifier when sealVerifierOnWire is enabled", () => {
+    const cookie = encodePending(pending, secret, sealOnWire);
+    const payload = cookie.slice(0, cookie.lastIndexOf("."));
+    const wire = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+    expect(wire).not.toHaveProperty("verifier");
+    expect(wire.verifierEnc).toEqual(expect.any(String));
+  });
+
+  it("rejects a tampered verifier seal", () => {
+    const cookie = encodePending(pending, secret, sealOnWire);
+    const split = cookie.lastIndexOf(".");
+    const wire = JSON.parse(
+      Buffer.from(cookie.slice(0, split), "base64url").toString("utf8"),
+    );
+    wire.verifierEnc = `${wire.verifierEnc}x`;
+    const forged = `${Buffer.from(JSON.stringify(wire)).toString("base64url")}${cookie.slice(split)}`;
+    expect(decodePending(forged, secret)).toBeUndefined();
+  });
+
+  it("rejects a mixed plaintext verifier and sealed verifierEnc", () => {
+    const cookie = encodePending(pending, secret, sealOnWire);
+    expect(
+      decodePending(
+        alterPayload(cookie, { verifier: "forged-verifier" }),
+        secret,
+      ),
+    ).toBeUndefined();
+  });
+
+  it("rejects decoding with the wrong pepper", () => {
+    expect(decodePending(encodePending(pending, secret), "wrong-pepper")).toBe(
+      undefined,
+    );
+  });
+
+  it("rejects swapped verifier seals between two pending legs", () => {
+    const other: PendingFederatedAuth = {
+      ...pending,
+      state: "state-two",
+      nonce: "nonce-two",
+      verifier: "verifier-two",
+    };
+    const a = encodePending(pending, secret, sealOnWire);
+    const b = encodePending(other, secret, sealOnWire);
+    const splitA = a.lastIndexOf(".");
+    const splitB = b.lastIndexOf(".");
+    const wireA = JSON.parse(
+      Buffer.from(a.slice(0, splitA), "base64url").toString("utf8"),
+    );
+    const wireB = JSON.parse(
+      Buffer.from(b.slice(0, splitB), "base64url").toString("utf8"),
+    );
+    wireB.verifierEnc = wireA.verifierEnc;
+    const forged = `${Buffer.from(JSON.stringify(wireB)).toString("base64url")}${b.slice(splitB)}`;
+    expect(decodePending(forged, secret)).toBeUndefined();
+  });
+
+  it("decodes a frozen historical sealed blob", () => {
+    const frozen =
+      "eyJpc3N1ZXIiOiJodHRwczovL2lzc3Vlci5leGFtcGxlIiwic3RhdGUiOiJzdGF0ZS1leGFtcGxlIiwibm9uY2UiOiJub25jZS1leGFtcGxlIiwia2luZCI6Im9pZGMiLCJwcm92aWRlcklkIjoicHJvdmlkZXItZXhhbXBsZSIsImJ5b0lkIjoiYnlvLWV4YW1wbGUiLCJvcmdJZCI6Im9yZy1leGFtcGxlIiwidmVyaWZpZXJFbmMiOiJNNE50eVFsSWFFX05peHItRlBPa0NxU0k0RU1vY2JOR05kX2JTRHJBZ0RqYXBxNkxfbTFPb2Rialc2SSJ9.8XAuAdF3JCU5Uim5SJqIaI1rVEaJBTGRmFG7KgqxkNY";
+    expect(decodePending(frozen, secret)).toEqual(pending);
+  });
+
+  it("still decodes legacy v3 cookies that carry a plaintext verifier", () => {
     const cookie = existingV3Cookie(pending);
     expect(decodePending(cookie, secret)).toEqual(pending);
-    expect(encodePending(pending, secret)).toBe(cookie);
   });
 
   it.each([

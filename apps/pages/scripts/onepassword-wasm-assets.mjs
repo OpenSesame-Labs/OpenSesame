@@ -18,7 +18,8 @@ const manifest = JSON.parse(
   ),
 );
 export const ONEPASSWORD_SDK = Object.freeze(manifest.sdk);
-export const ONEPASSWORD_ASSETS = Object.freeze(manifest.assets);
+const SDK_ARTIFACT_PATHS = Object.freeze(manifest.assets);
+export const ONEPASSWORD_ASSETS = SDK_ARTIFACT_PATHS;
 const UTIL = "const { TextDecoder, TextEncoder } = require(`util`);";
 const BOOTSTRAP = `const path = require('path').join(__dirname, 'core_bg.wasm');
 const bytes = require('fs').readFileSync(path);
@@ -33,7 +34,7 @@ wasm.__wbindgen_start();`;
 // SHA-256 over pinned SDK artifact bytes (wasm/glue/license) checked
 // against the committed manifest digests — a supply-chain pin, and the
 // input is never a password.
-export function assertOnePasswordHash(bytes, expected) {
+export function assertPinnedArtifactDigest(bytes, expected) {
   if (createHash("sha256").update(bytes).digest("hex") !== expected)
     throw new Error(
       "Pinned 1Password artifact digest differs; review the SDK upgrade.",
@@ -46,8 +47,8 @@ function replaceOnce(source, expected, replacement) {
 }
 /** Keep every upstream business function intact, including its wasm-bindgen imports. */
 export function adaptOnePasswordGlue(source) {
-  assertOnePasswordHash(source, ONEPASSWORD_SDK.glueHash);
-  const bootstrap = `const wasmURL = new URL(${JSON.stringify(`./${posix.basename(ONEPASSWORD_ASSETS.wasm)}`)}, import.meta.url);
+  assertPinnedArtifactDigest(source, ONEPASSWORD_SDK.glueHash);
+  const bootstrap = `const wasmURL = new URL(${JSON.stringify(`./${posix.basename(SDK_ARTIFACT_PATHS.wasm)}`)}, import.meta.url);
 const response = await fetch(wasmURL);
 if (!response.ok) throw new Error("Could not load the 1Password SDK asset.");
 const bytes = await response.arrayBuffer();
@@ -78,23 +79,23 @@ export function loadOnePasswordAssets(packageRoot = onePasswordPackageRoot()) {
   const wasm = readFileSync(join(packageRoot, "nodejs/core_bg.wasm"));
   if (wasm.length !== ONEPASSWORD_SDK.wasmBytes)
     throw new Error("Pinned 1Password raw WASM length differs.");
-  assertOnePasswordHash(wasm, ONEPASSWORD_SDK.wasmHash);
+  assertPinnedArtifactDigest(wasm, ONEPASSWORD_SDK.wasmHash);
   const compressed = gzipSync(wasm, { level: ONEPASSWORD_SDK.wasmGzipLevel });
   if (compressed.length !== ONEPASSWORD_SDK.wasmGzipBytes)
     throw new Error("Pinned 1Password compressed WASM length differs.");
-  assertOnePasswordHash(compressed, ONEPASSWORD_SDK.wasmGzipHash);
+  assertPinnedArtifactDigest(compressed, ONEPASSWORD_SDK.wasmGzipHash);
   const runtime = adaptOnePasswordGlue(
     readFileSync(join(packageRoot, "nodejs/core.js"), "utf8"),
   );
-  assertOnePasswordHash(runtime, ONEPASSWORD_SDK.runtimeHash);
+  assertPinnedArtifactDigest(runtime, ONEPASSWORD_SDK.runtimeHash);
   const license = readFileSync(
     new URL("./vendor/onepassword-sdk.LICENSE", import.meta.url),
   );
-  assertOnePasswordHash(license, ONEPASSWORD_SDK.licenseHash);
+  assertPinnedArtifactDigest(license, ONEPASSWORD_SDK.licenseHash);
   return new Map([
-    [ONEPASSWORD_ASSETS.wasm, compressed],
-    [ONEPASSWORD_ASSETS.runtime, runtime],
-    [ONEPASSWORD_ASSETS.license, license],
+    [SDK_ARTIFACT_PATHS.wasm, compressed],
+    [SDK_ARTIFACT_PATHS.runtime, runtime],
+    [SDK_ARTIFACT_PATHS.license, license],
   ]);
 }
 

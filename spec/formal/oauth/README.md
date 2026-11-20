@@ -19,10 +19,11 @@ account or organization effects. See the
 | FED-I1 | The current domain-separated MAC input binds the encoded payload and verifier binding. | `current_message_binds_payload`, `current_message_binds_verifier` | `encodePending` and `decodePending` use a tag over the exact encoded payload and the scrypt-bound verifier; the security test changes each field and an unknown future field. |
 | FED-I2 | A legacy tag requires a nonempty signed static-provider ID and cannot authorize organization, bring-your-own, or unknown provenance that its MAC did not cover. | `legacy_rejects_missing_provider`, `legacy_rejects_organization`, `legacy_rejects_byo`, `legacy_rejects_unknown`, `legacy_rejects_invalid_tag`, `legacy_byo_strip_rejected`, `legacy_organization_strip_rejected`, `legacy_static_signed_provider_accepted` | Thirty-two Lean-generated tag and provenance cases exercise `decodePending`; separate regressions strip unsigned organization and BYO IDs. |
 | FED-I3 | For OIDC, every supplied provider, bring-your-own, or organization identifier must match the source and identifier of current trust. Without provenance only a static source is accepted. | `accepted_provider_matches`, `accepted_byo_matches`, `accepted_organization_matches`, `missing_provenance_only_static` | Eighty-one Lean-generated cases exercise `trustMatchesPending`. Hosted-route tests cover a normal organization sign-in and issuer reassignment during an in-flight sign-in. An exchange-level test changes trust after the initial lookup and checks that the lookup selecting credentials refuses before discovery. |
+| FED-I4 | The v3 MAC binds the scrypt verifier digest, not the wire encoding of the PKCE verifier. | `wire_encoding_does_not_change_mac_binding` | `encodePending` defaults to plaintext `verifier` on the wire (`federatedPendingSealVerifierOnWire` off) so mixed-version control-plane replicas keep decoding in-flight cookies; optional `verifierEnc` seals the verifier when every replica can unseal. Security tests cover both wire shapes, mixed-field rejection, and production route options. |
 
-`coverage.json` records the reviewed base commit, which predates the fix, and
-hashes identifying the reviewed pending-state, exchange and callback bytes. The
-hashes signal unreviewed drift; they are not proof of correctness. The legacy
+`coverage.json` records the reviewed base commit and hashes identifying the
+reviewed pending-state, exchange and callback bytes. The hashes signal
+unreviewed drift; they are not proof of correctness. The legacy
 format is accepted only when its payload has no fields outside the old signed
 field set and carries a nonempty signed provider ID. Explicit default `kind`
 remains equivalent to its absence; absent and empty provider IDs are both
