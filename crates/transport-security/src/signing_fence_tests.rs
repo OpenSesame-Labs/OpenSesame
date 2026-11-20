@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::time::Duration;
 
-use chrono::Utc;
+use opensesame_time::Utc;
 use rustls::server::StoresServerSessions;
 use rustls::sign::{CertifiedKey, Signer, SigningKey};
 use rustls::{Error, SignatureAlgorithm, SignatureScheme};
@@ -110,7 +110,7 @@ fn expiry_before_signing_never_calls_the_private_key() {
     let (key, _entered, _resume, calls) = controlled_key(&generations, epoch);
     let signer = key.key.choose_scheme(&[SCHEME]).unwrap();
     generations
-        .tighten_source_deadline(&owner, epoch, Utc::now() - chrono::Duration::seconds(1))
+        .tighten_source_deadline(&owner, epoch, Utc::now() - opensesame_time::Duration::seconds(1))
         .unwrap();
     assert!(signer.sign(b"handshake").is_err());
     assert_eq!(calls.load(Ordering::SeqCst), 0);
@@ -133,7 +133,7 @@ fn a_delayed_signature_is_withheld_if_expiry_or_rotation_occurs() {
                 .unwrap();
         } else {
             generations
-                .tighten_source_deadline(&owner, epoch, Utc::now() - chrono::Duration::seconds(1))
+                .tighten_source_deadline(&owner, epoch, Utc::now() - opensesame_time::Duration::seconds(1))
                 .unwrap();
         }
         resume.send(()).unwrap();
@@ -273,7 +273,7 @@ fn lean_vectors_match_generation_bound_signer() {
                     .tighten_source_deadline(
                         &owner,
                         epoch,
-                        Utc::now() - chrono::Duration::seconds(1),
+                        Utc::now() - opensesame_time::Duration::seconds(1),
                     )
                     .unwrap(),
                 2 => generations
@@ -296,7 +296,7 @@ fn lean_vectors_match_generation_bound_signer() {
             result
         } else {
             generations
-                .tighten_source_deadline(&owner, epoch, Utc::now() - chrono::Duration::seconds(1))
+                .tighten_source_deadline(&owner, epoch, Utc::now() - opensesame_time::Duration::seconds(1))
                 .unwrap();
             // If the pre-check regresses, the underlying test signer may run;
             // pre-release it so that the assertion fails rather than hangs.

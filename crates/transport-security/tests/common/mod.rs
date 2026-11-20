@@ -56,6 +56,8 @@ pub fn spiffe_bundle(name: &str, ca: &DisposableCa) -> TrustBundle {
         &ca.root_pem(),
     )
     .expect("bundle")
+    .with_spiffe_trust_domain(name)
+    .expect("domain")
 }
 
 /// Generations whose identity is `server` and whose only peer bundle is

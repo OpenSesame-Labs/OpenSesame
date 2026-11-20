@@ -4,15 +4,19 @@ A Host listener configured with a `SpiffeTrustDomain` accepts its selected
 client trust bundle only from the current source-owned generation. A stored
 bundle with the same profile cannot stand in for a source bundle that is
 absent after a manager restart. The selected bundle must have the exact
-profile label and `SpiffeTrustDomain` kind. An ordinary file-backed listener
+profile label, `SpiffeTrustDomain` kind and configured domain. An ordinary file-backed listener
 continues to use its configured generation trust.
 
-`SourceTrustSelection.lean` proves six obligations about this finite selector:
-source-view freshness, presence, kind and profile must all hold, and every
-complete source input is accepted. The Rust correspondence runs the 16 Boolean
-combinations through the actual `source_trust_selection::select` function.
-The harness supplies stale and fabricated source views to exercise all
-branches; this is not a proof of the manager or of Rust execution. A separate
+`SourceTrustSelection.lean` proves seven obligations about this finite selector:
+source-view freshness, presence, kind, profile and configured domain must all
+hold, and every complete source input is accepted. The Rust correspondence
+checks the 32 Boolean combinations against the actual selection function and,
+for a fresh present view, compares all eight kind/profile/domain combinations
+with its private production predicate. For a non-SPIFFE kind, safe bundle
+constructors cannot attach a domain, so the full selection test uses the same
+domainless bundle for both abstract domain bits. The harness supplies stale and
+fabricated source views to exercise these branches; this is not a proof of the
+manager or of Rust execution. A separate
 selector regression checks the returned profile, kind, anchors, CRLs, and
 generation against the requested entry in a two-domain source view;
 this exact-return behavior is tested rather than proved by the Boolean model.
@@ -28,7 +32,7 @@ request guard recheck that generation; operations already admitted are not
 rolled back. The design assumes the configured source and the generation
 manager's owner API are trusted to publish the source view. This suite does not
 persist history or prove that a domain once served remains reserved after
-restart. It also does not establish peer URI-domain matching, exclusive SPIFFE
+restart. On its own it does not establish peer URI-domain matching, exclusive SPIFFE
 selectors, full X.509-SVID validation, or behavior of arbitrary consumers that
 read `Generation::trust` directly. Those require separate contracts.
 

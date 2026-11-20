@@ -111,6 +111,7 @@ impl SourceState {
                         && proposed.profile() == profile
                         && source.generation() == proposed.generation()
                         && source.kind() == proposed.kind()
+                        && source.spiffe_trust_domain() == proposed.spiffe_trust_domain()
                         && source.anchors() == proposed.anchors()
                         && source.crls() == proposed.crls()
                 }

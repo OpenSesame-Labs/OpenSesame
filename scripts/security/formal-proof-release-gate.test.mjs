@@ -188,9 +188,9 @@ test("release qualification refuses to lose a required suite", (t) => {
 test("the independently pinned suite contracts survive coordinated JSON weakening", (t) => {
   assert.deepEqual(
     PINNED_FORMAL_SUITES.map((suite) => suite.id),
-    ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop", "spiffe", "source-lifetime", "source-trust-selection"],
+    ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop", "spiffe", "source-lifetime", "source-trust-selection", "spiffe-peer-domain"],
   );
-  for (const id of ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop", "spiffe", "source-lifetime", "source-trust-selection"]) {
+  for (const id of ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop", "spiffe", "source-lifetime", "source-trust-selection", "spiffe-peer-domain"]) {
     for (const kind of ["suite", "mapping", "proof", "command"]) {
       const f = fixture(t);
       const altered = structuredClone(REQUIREMENTS);
@@ -213,7 +213,7 @@ test("the independently pinned suite contracts survive coordinated JSON weakenin
   }
 });
 test("the pinned source and SPIFFE lock projections cannot be weakened", (t) => {
-  for (const id of ["spiffe", "source-lifetime", "source-trust-selection"]) {
+  for (const id of ["spiffe", "source-lifetime", "source-trust-selection", "spiffe-peer-domain"]) {
     for (const kind of ["remove", "root", "dependency"]) {
       const f = fixture(t);
       const altered = structuredClone(REQUIREMENTS);

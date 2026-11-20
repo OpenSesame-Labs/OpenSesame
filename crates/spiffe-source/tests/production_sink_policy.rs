@@ -30,6 +30,10 @@ async fn removed_identity_withdraws_the_production_generation_and_can_recover() 
     streaming(&handle, 2).await;
     assert!(generations.current().identity.is_some());
     assert_eq!(generations.current().withdrawn, None);
+    let current = generations.current();
+    let source = generations.source_trust(current.number).unwrap().unwrap();
+    let profile = TransportGenerationsSink::profile_for(TD).unwrap();
+    assert_eq!(source.bundles[&profile].spiffe_trust_domain(), Some(TD));
 
     api.revoke_all();
     withdrawn_promptly(&handle).await;

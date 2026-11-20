@@ -74,9 +74,13 @@ pub fn forwarded(client_dns: &str, client_thumb: &str, ingress: &VerifiedPeer) -
         tls_version: TlsVersion::Tls13,
         authenticated_at: now,
         usable_until: now + Duration::minutes(5),
-        ingress: Some(Box::new(ingress_attestation(ingress))),
+        ingress: None,
     }
-    .into_verified()
+    .into_verified_with_ingress(
+        ingress_attestation(ingress)
+            .into_verified()
+            .expect("trusted ingress fixture"),
+    )
     .expect("forwarded evidence")
 }
 

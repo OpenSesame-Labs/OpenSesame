@@ -63,6 +63,8 @@ MANIFESTS = [
     "crates/transport-security/Cargo.toml",
     "crates/trusted-exec/Cargo.toml",
     "crates/xkeys/Cargo.toml",
+    "crates/time/Cargo.toml",
+    "patches/vendor/sqlx-sqlite-0.9.0/Cargo.toml",
 ]
 PATHS = [
     "crates/domain/Cargo.toml",
@@ -78,6 +80,9 @@ PATHS = [
     "crates/transport-security/src/generations.rs",
     "crates/transport-security/src/source_lifetime.rs",
     "crates/transport-security/src/source_trust.rs",
+    "crates/transport-security/src/provenance.rs",
+    "crates/transport-security/src/svid_profile.rs",
+    "crates/transport-security/src/svid_tls.rs",
     "crates/transport-security/src/trust.rs",
     "crates/transport-security/src/identity.rs",
     "crates/transport-security/src/leaf.rs",
@@ -214,8 +219,11 @@ def main():
                 raise ValueError("review gateway dependency graph drift")
             multi = load_verified("cargo_workspace_multipackage", isolated / Path(helpers[2]).name, verified[helpers[2]])
             documents = {path: multi.workspace_projection.read_toml(regular_path(path)) for path in MANIFESTS}
-            ancestor = regular_path("crates/Cargo.toml", optional=True)
-            documents["crates/Cargo.toml"] = None if ancestor is None else multi.workspace_projection.read_toml(ancestor)
+            for ancestor in multi.manifest_ancestors(documents):
+                if ancestor in documents:
+                    continue
+                found = regular_path(ancestor, optional=True)
+                documents[ancestor] = None if found is None else multi.workspace_projection.read_toml(found)
             workspace = multi.workspace_projection.read_toml(regular_path("Cargo.toml"))
             projected = multi.project(workspace, documents, graph, "opensesame-gateway", "crates/gateway/Cargo.toml")
             expected_workspace = {

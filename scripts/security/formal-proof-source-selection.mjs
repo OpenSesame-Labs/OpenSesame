@@ -156,6 +156,9 @@ export const SOURCE_TRUST_SELECTION_SUITE = {
     "crates/transport-security/build.rs",
     "crates/trusted-exec/build.rs",
     "crates/xkeys/build.rs",
+    "crates/transport-security/src/svid_profile.rs",
+    "crates/transport-security/src/svid_tls.rs",
+    "crates/transport-security/src/provenance.rs",
   ],
   lockProjection: {
     path: "Cargo.lock",

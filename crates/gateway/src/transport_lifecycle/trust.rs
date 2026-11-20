@@ -88,7 +88,12 @@ impl StoredTrustProfile {
                 pem.extend_from_slice(retiring.as_bytes());
             }
         }
-        TrustBundle::from_pem(self.profile.clone(), self.kind, &pem)
+        let bundle = TrustBundle::from_pem(self.profile.clone(), self.kind, &pem)?;
+        if let Some(domain) = &self.trust_domain {
+            bundle.with_spiffe_trust_domain(domain)
+        } else {
+            Ok(bundle)
+        }
     }
 
     /// Whether the retiring anchors are still honoured at `now`.
@@ -106,7 +111,9 @@ impl StoredTrustProfile {
             )));
         }
         match (self.kind, &self.trust_domain) {
-            (TrustProfileKind::SpiffeTrustDomain, Some(domain)) if !domain.is_empty() => {}
+            (TrustProfileKind::SpiffeTrustDomain, Some(domain)) => {
+                TrustBundle::validate_spiffe_trust_domain(domain)?;
+            }
             (TrustProfileKind::SpiffeTrustDomain, _) => {
                 return Err(TransportError::malformed(format!(
                     "trust profile {}: a spiffe_trust_domain profile must name its trust domain",

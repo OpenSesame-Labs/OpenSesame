@@ -36,6 +36,10 @@ mod selector_tests;
 #[cfg(test)]
 mod source_contract_tests;
 #[cfg(test)]
+mod spiffe_attest_tests;
+#[cfg(test)]
+mod spiffe_domain_formal_tests;
+#[cfg(test)]
 mod status_tests;
 
 pub use binding::{
