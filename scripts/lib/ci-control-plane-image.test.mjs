@@ -28,10 +28,13 @@ describe("control-plane runtime image", () => {
     expect(dockerfile).toMatch(/COPY --from=build \/src\/patches \.\/patches/);
   });
 
-  it("upgrades the slim runtime base before serving traffic", () => {
-    const runtime =
-      dockerfile.split("AS runtime-deps")[1]?.split("FROM")[1] ?? "";
-    expect(runtime).toMatch(/apt-get -y upgrade --no-install-recommends/);
+  it("serves traffic from digest-pinned alpine without apt", () => {
+    expect(dockerfile).toMatch(
+      /node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5[\s\S]*AS runtime-deps/,
+    );
+    const afterDeps = dockerfile.split("AS runtime-deps")[1] ?? "";
+    expect(afterDeps).toMatch(/adduser -D -u 10001 app/);
+    expect(afterDeps).not.toMatch(/apt-get/);
   });
 
   it("still starts from TypeScript sources with tsx", () => {

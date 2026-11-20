@@ -1,7 +1,7 @@
 # The one native binary. Every native role is a subcommand of it:
 # `opensesame host run` (Host API), `opensesame worker run`, `opensesame daemon run`.
 #
-# Two targets share the debian runtime below. Only the binary source differs.
+# Two targets share the Alpine runtime below. Only the binary source differs.
 # `runtime` is the local path. It keeps the full cargo-chef plan and compile:
 #   docker build -f ops/compose/Dockerfile --target runtime -t opensesame:local .
 # `runtime-from-prebuilt` is the default target (the last stage). GHCR publish
@@ -43,19 +43,19 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 
 # Packages, user, and state dir for both runtime targets. No binary yet, so
 # the prebuilt target does not depend on the chef compile.
-# Debian trixie (glibc 2.41). The GHCR binary is linked on the Ubuntu 24.04
-# runner (glibc 2.39). The bookworm chef binary from `runtime` also runs here.
-FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS debian-runtime
-RUN useradd -u 10001 -m app \
-  && apt-get update \
-  && apt-get -y upgrade --no-install-recommends \
-  && apt-get install -y --no-install-recommends ca-certificates curl libdbus-1-3 \
-  && rm -rf /var/lib/apt/lists/* \
+# Alpine 3.22 (musl). The GHCR binary is linked on the Ubuntu 24.04 runner
+# (glibc) and the bookworm chef binary is glibc too. gcompat and libstdc++
+# run those binaries. libdbus is compiled into the binary (dbus crate
+# `vendored` feature, static). Alpine dbus-libs is musl and is not installed:
+# it cannot satisfy a glibc-linked binary, and this binary does not need it.
+FROM alpine:3.22@sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f AS alpine-runtime
+RUN apk add --no-cache ca-certificates curl gcompat libstdc++ \
+  && adduser -D -u 10001 app \
   && mkdir -p /var/lib/opensesame \
   && chown 10001:10001 /var/lib/opensesame
 
 # Local compile. Selects the builder binary. Compose uses this target.
-FROM debian-runtime AS runtime
+FROM alpine-runtime AS runtime
 COPY --from=builder /usr/local/bin/opensesame /usr/local/bin/opensesame
 # Default inspect version. CD passes --build-arg VERSION from the git tag or 0.0.0-next.
 ARG VERSION=0.0.0-local
@@ -80,7 +80,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 
 # Default target. GHCR publish builds this stage. The binary is the CI file
 # ops/compose/prebuilt/opensesame, mode 0755, not the chef output.
-FROM debian-runtime AS runtime-from-prebuilt
+FROM alpine-runtime AS runtime-from-prebuilt
 COPY --chmod=0755 ops/compose/prebuilt/opensesame /usr/local/bin/opensesame
 ARG VERSION=0.0.0-local
 LABEL org.opencontainers.image.source="https://github.com/OpenSesame-Labs/OpenSesame" \

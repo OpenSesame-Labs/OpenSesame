@@ -238,17 +238,18 @@ function assertPrebuiltImageJob(image) {
   assert.doesNotMatch(image, /linux\/arm64/);
 }
 
-/** cargo-chef layering, the pinned Debian runtime and the BuildKit target cache. */
+/** cargo-chef layering, the pinned Alpine runtime and the BuildKit target cache. */
 function assertCargoChefDockerfile(dockerfile) {
   assert.match(dockerfile, /cargo-chef/);
   assert.match(dockerfile, /cargo chef prepare/);
   assert.match(dockerfile, /cargo chef cook/);
   assert.match(
     dockerfile,
-    /FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS debian-runtime\n/,
+    /FROM alpine:3\.22@sha256:49340b346798875b5592e5d420241f2f9cfba5f47e62ebb1446a1b34734e898f AS alpine-runtime\n/,
   );
-  assert.match(dockerfile, /FROM debian-runtime AS runtime\n/);
-  assert.match(dockerfile, /FROM debian-runtime AS runtime-from-prebuilt\n/);
+  assert.doesNotMatch(dockerfile, /apk add[^\n]*dbus-libs/);
+  assert.match(dockerfile, /FROM alpine-runtime AS runtime\n/);
+  assert.match(dockerfile, /FROM alpine-runtime AS runtime-from-prebuilt\n/);
   assert.doesNotMatch(dockerfile, /debian:bookworm-slim/);
   assert.equal(
     dockerfile.match(/--mount=type=cache,target=\/src\/target,sharing=locked/g)

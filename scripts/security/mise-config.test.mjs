@@ -14,7 +14,9 @@ import {
 const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 const lockPlatforms = [
   "linux-x64",
+  "linux-x64-musl",
   "linux-arm64",
+  "linux-arm64-musl",
   "macos-arm64",
   "macos-x64",
   "windows-x64",
