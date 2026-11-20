@@ -20,7 +20,7 @@ for rel in \
   cp -a "$ROOT/$rel" "$SCRATCH/$rel"
 done
 python3 - "$ROOT" "$SCRATCH" <<'PY'
-import json, shutil, subprocess, sys
+import json, os, shutil, subprocess, sys
 from pathlib import Path
 
 root, scratch = map(Path, sys.argv[1:3])
@@ -60,7 +60,12 @@ for rel in changed_manifests:
     dest.parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(root / rel, dest)
 if changed_manifests:
-    subprocess.run(["cargo", "generate-lockfile"], cwd=scratch, check=True)
+    subprocess.run(
+        ["cargo", "generate-lockfile", "--offline"],
+        cwd=scratch,
+        check=True,
+        env={**os.environ, "CARGO_NET_OFFLINE": "true"},
+    )
 scratch_pkg = scratch / "package.json"
 root_pkg = root / "package.json"
 if scratch_pkg.exists() and root_pkg.exists():
