@@ -1,37 +1,45 @@
 /**
- * Build `origin/main` Pages dist for before/after evidence without checking it out.
+ * Build `origin/main` Pages dist for before/after evidence (mirrored node_modules).
  */
 
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { ensureTree } from "./round8-profile-trees.mjs";
 
 const repoRoot = path.resolve(
   fileURLToPath(new URL(".", import.meta.url)),
   "../../../..",
 );
-const worktree = path.join(repoRoot, "work", "setup-pause-main-tree");
-const marker = path.join(worktree, "apps", "pages", "dist", "index.html");
 
+const mainSha = () =>
+  execFileSync("git", ["rev-parse", "origin/main"], {
+    cwd: repoRoot,
+    encoding: "utf8",
+  }).trim();
+
+/** Main-line dist for before shots (`npm ci` + `vite build` in a detached worktree). */
 export function mainPagesDist() {
-  if (existsSync(marker)) {
-    return path.dirname(marker);
+  const preset = process.env.SETUP_PAUSE_MAIN_DIST;
+  if (preset && existsSync(path.join(preset, "index.html"))) {
+    return preset;
   }
-  if (!existsSync(worktree)) {
-    execFileSync(
-      "git",
-      ["worktree", "add", "-f", worktree, "origin/main"],
-      { cwd: repoRoot, stdio: "inherit" },
-    );
+  const tree = ensureTree(mainSha());
+  const outDir = path.join(tree, "apps/pages/dist");
+  if (existsSync(path.join(outDir, "index.html"))) {
+    return outDir;
   }
-  execFileSync("npm", ["run", "build", "-w", "@opensesame/pages"], {
-    cwd: worktree,
+  execFileSync("mise", ["exec", "--", "npm", "ci"], {
+    cwd: tree,
     stdio: "inherit",
-    env: { ...process.env, CI: process.env.CI ?? "1" },
   });
-  if (!existsSync(marker)) {
-    throw new Error(`main dist missing after build: ${marker}`);
+  execFileSync("mise", ["exec", "--", "npm", "run", "build", "-w", "@opensesame/pages"], {
+    cwd: tree,
+    stdio: "inherit",
+  });
+  if (!existsSync(path.join(outDir, "index.html"))) {
+    throw new Error(`main dist missing at ${outDir}`);
   }
-  return path.dirname(marker);
+  return outDir;
 }
