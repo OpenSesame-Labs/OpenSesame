@@ -256,6 +256,12 @@
     "hono": "4.13.16",
     "@noble/post-quantum": "$noble-post-quantum-patched",
     "follow-redirects": "1.16.2",
+    "dts-bundle-generator": {
+      "typescript": "6.0.3"
+    },
+    "glob@14.0.6": {
+      "minimatch": "$minimatch11-patched"
+    },
     "glob@^10.0.0": "$glob10-patched",
     "archiver-utils": {
       "glob": {
