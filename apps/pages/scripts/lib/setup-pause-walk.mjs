@@ -90,29 +90,110 @@ export function profileDir(root, build, profileId) {
   return dir;
 }
 
+async function profilePlanFingerprint(page, profileId) {
+  if (profileId === "custom") {
+    const tab = page.getByRole("tab", { selected: true });
+    return `custom:${(await tab.innerText()).trim()}`;
+  }
+  const kinds = await page
+    .locator("[id^='setup-config-']")
+    .allInnerTexts()
+    .catch(() => []);
+  if (kinds.length > 0) {
+    return `${profileId}:picker:${kinds.join("|")}`;
+  }
+  const title = await page
+    .getByRole("heading", { level: 1 })
+    .innerText()
+    .catch(() => "");
+  const frameVisible = await page
+    .locator(".setup__frame")
+    .isVisible()
+    .catch(() => false);
+  return `${profileId}:${title}:${frameVisible}`;
+}
+
+function roadLabel(profileId) {
+  if (profileId === "minimal") return "Minimal";
+  if (profileId === "default") return "Default";
+  if (profileId === "custom") return "Custom";
+  return "Full";
+}
+
+async function waitForPlanApplied(page, profileId, check) {
+  if (profileId === "custom") {
+    const tab = page.getByRole("tab", { name: /^capabilities$/i });
+    await tab.waitFor({ timeout: 20_000 });
+    check(await tab.isVisible(), "custom opens the capability ceremony");
+    return;
+  }
+  await page
+    .getByRole("heading", { level: 1, name: "Sign in" })
+    .waitFor({ timeout: 45_000 });
+  check(
+    await page.getByRole("heading", { level: 1, name: "Sign in" }).isVisible(),
+    `${profileId} applied and reached sign-in`,
+  );
+}
+
+/** Choose a road, apply the plan (including Minimal confirm), capture proof. */
 export async function captureProfilePicker(page, href, dir, profileId, check) {
   await openSetupChoices(page, href);
   await assertOnSetup(page, check);
-  const choice =
-    profileId === "minimal"
-      ? "Minimal"
-      : profileId === "default"
-        ? "Default"
-        : profileId === "custom"
-          ? "Custom"
-          : "Full";
-  await page.getByRole("button", { name: choice, exact: true }).focus();
-  const file = path.join(dir, "setup-profile-picker.png");
-  await shotFrame(page, file);
+  const choice = roadLabel(profileId);
+  await page.getByRole("button", { name: choice, exact: true }).click();
+  if (profileId === "minimal") {
+    await page.waitForTimeout(400);
+    const warning = path.join(dir, "setup-minimal-confirm-tray.png");
+    const anyway = page.getByRole("button", { name: "Use Minimal anyway" });
+    try {
+      await page
+        .getByRole("button", { name: /Notifications —/ })
+        .first()
+        .waitFor({ state: "visible", timeout: 8_000 });
+      await page
+        .getByRole("button", { name: /Notifications —/ })
+        .first()
+        .click();
+      const dialog = page.getByRole("dialog", { name: "Notifications" });
+      await dialog.waitFor({ timeout: 8_000 });
+      await shotPage(page, warning);
+      await dialog.getByRole("button", { name: "Use Minimal anyway" }).click();
+    } catch {
+      try {
+        await anyway.first().waitFor({ state: "visible", timeout: 4_000 });
+        await anyway.first().click();
+      } catch {
+        // Older main-line builds commit Minimal without the extra confirm step.
+      }
+    }
+  }
+  await waitForPlanApplied(page, profileId, check);
+  const file = path.join(dir, "setup-profile-applied.png");
+  if (profileId === "custom") {
+    await shotFrame(page, file);
+    const tab = page.getByRole("tab", { selected: true });
+    const tabText = (await tab.innerText()).trim();
+    check(
+      /capabilities/i.test(tabText),
+      `${profileId} ceremony names capabilities`,
+    );
+  } else {
+    await shotPage(page, file);
+  }
   check(
-    (await page.locator(".setup__frame").innerText()).includes(choice),
-    `${profileId} picker names the profile`,
+    !(await page
+      .locator(".setup__frame")
+      .isVisible()
+      .catch(() => false)) || profileId === "custom",
+    `${profileId} left the picker after apply`,
   );
-  return file;
+  const fingerprint = await profilePlanFingerprint(page, profileId);
+  return { file, fingerprint };
 }
 
-export async function captureMinimalWarning(page, dir, check) {
-  await openSetupChoices(page, page.url());
+export async function captureMinimalWarning(page, dir, check, href) {
+  await openSetupChoices(page, href);
   await page.getByRole("button", { name: "Minimal", exact: true }).click();
   await page
     .getByRole("button", { name: /Notifications —/ })
@@ -217,6 +298,7 @@ export async function captureTutorialPauseFlow(
       await exitVaultLockTutorial(page, href, sealLocalOnly);
       const dialog = await openNotes(page);
       await dialog.getByRole("button", { name: "Only this one" }).click();
+      await page.waitForTimeout(500);
       check(
         (await countResumeKeys(dialog)) === 1,
         "Only this one leaves one queued tour",
@@ -237,6 +319,7 @@ export async function captureTutorialPauseFlow(
         hasText: "Pause the others",
       });
       await pauseCard.getByRole("button", { name: "Dismiss" }).click();
+      await page.waitForTimeout(300);
       check(
         (await countResumeKeys(dialog)) === 1,
         "dismiss (X) still leaves tour queued",
@@ -256,7 +339,7 @@ export async function captureTutorialPauseFlow(
       await dialog
         .getByRole("button", { name: "Pause all for this session" })
         .click();
-      await page.waitForTimeout(800);
+      await page.waitForTimeout(1200);
       const queuedCount = await countResumeKeys(dialog);
       pauseAllCount = queuedCount;
       check(
@@ -282,7 +365,7 @@ export async function captureTutorialPauseFlow(
       if (await pin.isVisible().catch(() => false)) await unlockWithPin(page);
       dialog = await openNotes(page);
       let afterReload = await countResumeKeys(dialog);
-      const deadline = Date.now() + 20_000;
+      const deadline = Date.now() + 30_000;
       while (afterReload < pauseAllCount && Date.now() < deadline) {
         const close = dialog.getByRole("button", {
           name: "Close",

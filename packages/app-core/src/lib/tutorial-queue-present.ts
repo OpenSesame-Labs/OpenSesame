@@ -149,13 +149,18 @@ export function noteTutorialDeclined(goalId: string, title: string): boolean {
   return true;
 }
 
+/** Tray rows for queued goals only — does not touch the session pause question. */
+export function refreshQueuedTutorialTrayNotices(): void {
+  for (const item of listQueuedTutorials()) {
+    if (guideGoal(item.goalId) === null) continue;
+    postQueuedTutorialNotice(item.goalId, TRAY_ONLY_NOTICE);
+  }
+}
+
 /** After tray restore, put resume keys back on the ids that survived. */
 export function rehydrateTutorialQueueNotices(): void {
   dismissPausePrompt();
-  for (const item of listQueuedTutorials()) {
-    if (guideGoal(item.goalId) === null) continue;
-    postQueuedTutorialNotice(item.goalId, { toast: false });
-  }
+  refreshQueuedTutorialTrayNotices();
 }
 
 /** A tour finished without using the queue notice's resume key. */
