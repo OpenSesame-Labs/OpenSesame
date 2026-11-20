@@ -7417,24 +7417,24 @@
       "25012c7b"
     ],
     "crates/transport-security/src/guard.rs": [
-      "abe2ccb3",
-      "99441bec",
-      "c4126439",
-      "a2f2ec42",
-      "a8925064",
-      "07ef3386",
-      "4b4e5eac",
-      "bf257bca"
+      "b4bee289",
+      "91e9b3ac",
+      "d405e6d7",
+      "7f7debe8",
+      "90f0a710",
+      "3d2ddc13",
+      "a654ec20",
+      "cab14109"
     ],
     "crates/transport-security/src/identity.rs": [
-      "8dc5e16c",
-      "03570e0d",
-      "09167706",
-      "1cd3f8ad",
-      "6f34c7e0",
-      "68144655",
-      "a24e9ecb",
-      "bbd0d2be"
+      "90310fc5",
+      "d8b6ae87",
+      "f70c2bc9",
+      "554ba023",
+      "982890ce",
+      "42bf7329",
+      "4d693081",
+      "5e436b22"
     ],
     "crates/transport-security/src/listener.rs": [
       "66d35c81",
@@ -7507,14 +7507,14 @@
       "78bc126b"
     ],
     "crates/transport-security/tests/source_lifetime.rs": [
-      "b8f98754",
-      "dd5eb9d8",
-      "26cf9606",
-      "783232ec",
-      "92e62ad5",
-      "85af0d13",
-      "a3ffa165",
-      "fc93ce44"
+      "8b5992d1",
+      "377c243f",
+      "a5ba3c95",
+      "52cdbfee",
+      "7ad88a7e",
+      "364c56ff",
+      "0ab51f77",
+      "8aa7f5dd"
     ],
     "crates/transport-security/tests/source_lifetime_edges.rs": [
       "919e5a39",
@@ -7537,34 +7537,34 @@
       "fe17231c"
     ],
     "crates/transport-security/src/testkit/mod.rs": [
-      "a0cd7bc3",
-      "c5296c01",
-      "cf276c6b",
-      "eff41021",
-      "5b35671b",
-      "6854f87d",
-      "677655a3",
-      "d4c91ac6"
+      "e00bca97",
+      "89958743",
+      "fee8fbec",
+      "0234277a",
+      "5197b66c",
+      "e2617def",
+      "6a8bf486",
+      "30bedfe2"
     ],
     "crates/transport-security/src/testkit/ca.rs": [
-      "f9ed4c64",
-      "72bdb74b",
-      "0970f979",
-      "8896c488",
-      "56351887",
-      "feccc06d",
-      "f2e18f24",
-      "eccc26e6"
+      "dda885e6",
+      "e2a4f2a3",
+      "e2b8b338",
+      "c7106cc7",
+      "c944cfdd",
+      "f2cd73cc",
+      "e7544dfe",
+      "c4cf1ef4"
     ],
     "crates/transport-security/src/testkit/leaf.rs": [
-      "176044fa",
-      "2a3c88f3",
-      "287dc808",
-      "47f19ace",
-      "30d6232b",
-      "44bd3790",
-      "1aea9136",
-      "790fc306"
+      "4c2852f2",
+      "b105116f",
+      "ec329078",
+      "c8c8baf0",
+      "b836fac8",
+      "110801ae",
+      "84e2bc32",
+      "9dfa31c4"
     ],
     "crates/domain/src/transport/binding.rs": [
       "b78bf1bb",
@@ -7767,14 +7767,14 @@
       "aa3f2fc3"
     ],
     "crates/transport-security/tests/spiffe_peer_rotation.rs": [
-      "f745827c",
-      "eb20bb7d",
-      "9ac6db5b",
-      "ddc537e3",
-      "2eed1b47",
-      "edcdb255",
-      "18696dc9",
-      "92e2cc13"
+      "a31b0f0b",
+      "4add6e81",
+      "bd1b7fa4",
+      "8a9a9da8",
+      "221851fa",
+      "4a4d57b4",
+      "c0aca546",
+      "8098b097"
     ],
     "apps/cli/src/serve.rs": [
       "a1f1c931",
@@ -7917,14 +7917,14 @@
       "a26a7e5d"
     ],
     "crates/human-vault/src/lib.rs": [
-      "cd3443ad",
-      "aa14490a",
-      "1cb7c859",
-      "8969c6d1",
-      "aca62870",
-      "05b193d6",
-      "e0ce3b9f",
-      "b49d5049"
+      "65687ad4",
+      "8d3d031f",
+      "d25d395d",
+      "cb39f6f2",
+      "88242de4",
+      "b17097ce",
+      "451b4266",
+      "fc2ce86c"
     ],
     "crates/human-vault/src/root_protection/mod.rs": [
       "719a5157",

@@ -109,19 +109,32 @@ const matrices = {
 const oauthSecurityNames = [
   "signed federated state integrity round-trips a signed state with its organization and upstream context",
   "signed federated state integrity preserves the v3 cookie format already emitted by main",
-  ...["issuer", "state", "nonce", "verifier", "kind", "providerId", "byoId", "orgId"].map(
-    (field) => "signed federated state integrity rejects a changed " + field,
+  ...[
+    "issuer",
+    "state",
+    "nonce",
+    "verifier",
+    "kind",
+    "providerId",
+    "byoId",
+    "orgId",
+  ].map(
+    (field) => `signed federated state integrity rejects a changed ${field}`,
   ),
   "signed federated state integrity authenticates new fields even before the decoder uses them",
   "signed federated state integrity accepts a legacy signature only when no unsigned provenance is present",
   "signed federated state integrity accepts legacy static provenance only with a signed nonempty provider",
-  ...["orgId", "byoId"].map((field) =>
-    "signed federated state integrity rejects a legacy " + field +
-    " cookie after its unsigned owner is stripped"
+  ...["orgId", "byoId"].map(
+    (field) =>
+      "signed federated state integrity rejects a legacy " +
+      field +
+      " cookie after its unsigned owner is stripped",
   ),
-  ...["orgId", "byoId"].map((field) =>
-    "refuses a stripped legacy " + field +
-    " callback before trust lookup or exchange"
+  ...["orgId", "byoId"].map(
+    (field) =>
+      "refuses a stripped legacy " +
+      field +
+      " callback before trust lookup or exchange",
   ),
   "binds OAuth2 callbacks to the same static OAuth2 provider",
   "refuses a changed trust owner at the exchange's own lookup",
@@ -149,7 +162,9 @@ function sameSet(actual, expected, label) {
     expected.some((value) => !unique.has(value))
   ) {
     const expectedSet = new Set(expected);
-    fail(`${label}: expected every required case exactly once; missing=${JSON.stringify(expected.find((value) => !unique.has(value)))} unexpected=${JSON.stringify(actual.find((value) => !expectedSet.has(value)))} actual=${actual.length} unique=${unique.size} expected=${expected.length}`);
+    fail(
+      `${label}: expected every required case exactly once; missing=${JSON.stringify(expected.find((value) => !unique.has(value)))} unexpected=${JSON.stringify(actual.find((value) => !expectedSet.has(value)))} actual=${actual.length} unique=${unique.size} expected=${expected.length}`,
+    );
   }
 }
 function parseVectors(suite, text) {
