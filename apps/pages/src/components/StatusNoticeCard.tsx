@@ -79,12 +79,12 @@ function WordedActs({
   notice,
   onOpen,
   actionsRef,
-  inFlow,
+  wordedTray,
 }: {
   notice: Notice;
   onOpen: () => void;
   actionsRef: RefObject<HTMLDivElement | null>;
-  inFlow: boolean;
+  wordedTray: boolean;
 }) {
   const act = notice.act;
   const alt = notice.alt;
@@ -96,7 +96,7 @@ function WordedActs({
     if (opens) onOpen();
     run();
     if (opens) return;
-    if (inFlow) {
+    if (wordedTray) {
       if (fromKeyboard) {
         landFocus(firstControl(actionsRef.current));
       }
@@ -155,11 +155,13 @@ export function StatusNoticeCard({
   notice,
   onOpen,
   inFlow = false,
+  wordedTray = false,
   dismissContext,
 }: {
   notice: Notice;
   onOpen: () => void;
   inFlow?: boolean;
+  wordedTray?: boolean;
   dismissContext?: string;
 }) {
   const tone = notice.tone ?? "info";
@@ -207,7 +209,7 @@ export function StatusNoticeCard({
             notice={notice}
             onOpen={onOpen}
             actionsRef={actions}
-            inFlow={inFlow}
+            wordedTray={wordedTray}
           />
         ) : notice.act ? (
           <IconKey
