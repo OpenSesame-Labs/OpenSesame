@@ -141,6 +141,7 @@ jobs:
           persist-credentials: false
           allow-unsafe-pr-checkout: false
           path: .ci-control
+          sparse-checkout-cone-mode: false
           sparse-checkout: |
             scripts/ci/materialize-git-sha.sh
             scripts/release
@@ -154,7 +155,9 @@ jobs:
           TARGET_SHA: ${{ inputs.source_sha }}
         run: bash "$RUNNER_TEMP/ci-control/scripts/ci/materialize-git-sha.sh" "$GITHUB_WORKSPACE"
       - name: Restore trusted helpers beside the candidate tree
-        run: mv "$RUNNER_TEMP/ci-control" .ci-control
+        run: |
+          rm -rf .ci-control
+          mv "$RUNNER_TEMP/ci-control" .ci-control
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           cache: false

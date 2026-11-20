@@ -69,6 +69,7 @@ jobs:
           path: .ci-tools
           persist-credentials: false
           allow-unsafe-pr-checkout: false
+          sparse-checkout-cone-mode: false
           sparse-checkout: scripts/ci/materialize-git-sha.sh
       - name: Park trusted helpers outside the workspace root
         run: mv .ci-tools "$RUNNER_TEMP/ci-tools"
