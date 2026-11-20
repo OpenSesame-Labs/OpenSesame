@@ -363,9 +363,9 @@ checksum = "bfdc70193dadb9d7287fa4b633f15f90c876915b31f6af17da307fc59c9859a8"
 
 [[package]]
 name = "async-nats"
-version = "0.51.0"
+version = "0.52.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a4f92759f418774b78c36ef07885849150ce950c67d9bcdeff8a9c253f57d9a1"
+checksum = "015f0a7a3b0b29701b78c76a4d4a122624c97c71fa30363381664eb729d619c7"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -7028,7 +7028,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix 1.1.6",
  "windows-sys 0.61.2",
