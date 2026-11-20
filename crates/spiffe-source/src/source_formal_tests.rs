@@ -3,8 +3,8 @@
 use std::collections::HashSet;
 use std::time::Duration;
 
-use opensesame_time::{DateTime, Utc};
 use opensesame_domain::{CredentialStatus, TransportError};
+use opensesame_time::{DateTime, Utc};
 use spiffe::transport::{GrpcStatusCode, TransportError as SdkTransportError};
 use spiffe::WorkloadApiError;
 
@@ -43,11 +43,17 @@ fn api_error(name: &str) -> WorkloadApiError {
     }
 }
 
+fn no_identity() -> ApiAction {
+    ApiAction::Withdraw(TransportError::IdentityMissing, "svid_not_issued")
+}
+
 fn decision(name: &str) -> ApiAction {
     match name {
-        "no_identity" => ApiAction::Denied("svid_not_issued"),
+        // `no_identity` and `missing_svids` are one withdrawal. The model
+        // names both; an empty response classifies as `missing_svids`.
+        "no_identity" | "missing_svids" => no_identity(),
         "permission_denied" => ApiAction::Denied("workload_api_denied"),
-        "missing_svids" => ApiAction::Withdraw(TransportError::IdentityMissing, "svid_not_issued"),
+        "unauthenticated" => ApiAction::Denied("workload_api_unauthenticated"),
         "missing_bundle" => ApiAction::Withdraw(TransportError::TrustUnknown, "bundle_missing"),
         "outage" => ApiAction::Outage,
         "malformed" => ApiAction::Withdraw(
