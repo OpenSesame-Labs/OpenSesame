@@ -7,10 +7,19 @@
       "area": "hosted-drop",
       "flow": "hosted-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["ciphertext", "guess-oracle"],
+      "artifacts": [
+        "ciphertext",
+        "guess-oracle"
+      ],
       "verification": "server",
-      "controls": ["mandatory-proof", "bearer-before-budget"],
-      "guarantees": ["single-use", "expiry"],
+      "controls": [
+        "mandatory-proof",
+        "bearer-before-budget"
+      ],
+      "guarantees": [
+        "single-use",
+        "expiry"
+      ],
       "enforcement": "authoritative",
       "entropyBits": 40,
       "minSecretBytes": 0,
@@ -60,9 +69,15 @@
       "area": "portable-drop",
       "flow": "portable-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["ciphertext"],
+      "artifacts": [
+        "ciphertext"
+      ],
       "verification": "code-aead",
-      "controls": ["code-derived-aead", "bounded-kdf", "cryptographic-random"],
+      "controls": [
+        "code-derived-aead",
+        "bounded-kdf",
+        "cryptographic-random"
+      ],
       "guarantees": [],
       "enforcement": "advisory",
       "entropyBits": 80,
@@ -94,7 +109,9 @@
       "area": "portable-drop",
       "flow": "hosted-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["payload-key"],
+      "artifacts": [
+        "payload-key"
+      ],
       "verification": "none",
       "controls": [],
       "guarantees": [],
@@ -137,7 +154,9 @@
       "area": "portable-drop",
       "flow": "portable-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["payload-key"],
+      "artifacts": [
+        "payload-key"
+      ],
       "verification": "none",
       "controls": [],
       "guarantees": [],
@@ -181,9 +200,13 @@
       "area": "account-totp",
       "flow": "account-totp",
       "observer": "authenticated",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
-      "controls": ["mandatory-proof"],
+      "controls": [
+        "mandatory-proof"
+      ],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -227,9 +250,15 @@
       "area": "est-enrollment",
       "flow": "est-password",
       "observer": "public",
-      "artifacts": ["public-certificate", "guess-oracle"],
+      "artifacts": [
+        "public-certificate",
+        "guess-oracle"
+      ],
       "verification": "server",
-      "controls": ["mandatory-proof", "trusted-budget-source"],
+      "controls": [
+        "mandatory-proof",
+        "trusted-budget-source"
+      ],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -284,9 +313,13 @@
       "area": "est-enrollment",
       "flow": "est-policy",
       "observer": "authenticated",
-      "artifacts": ["authority-api"],
+      "artifacts": [
+        "authority-api"
+      ],
       "verification": "signature",
-      "controls": ["preserve-policy-on-omission"],
+      "controls": [
+        "preserve-policy-on-omission"
+      ],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
@@ -296,7 +329,9 @@
         "crates/gateway/src/routes/est_server.rs",
         "crates/gateway/src/routes/est_config_policy.rs"
       ],
-      "regressions": ["crates/gateway/src/routes/est_server_tests_budget.rs"],
+      "regressions": [
+        "crates/gateway/src/routes/est_server_tests_budget.rs"
+      ],
       "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
     },
     {
@@ -305,9 +340,15 @@
       "area": "est-enrollment",
       "flow": "est-client-certificate",
       "observer": "network-peer",
-      "artifacts": ["public-certificate", "certificate-binding"],
+      "artifacts": [
+        "public-certificate",
+        "certificate-binding"
+      ],
       "verification": "signature",
-      "controls": ["originating-client-proof", "exact-bootstrap-trust"],
+      "controls": [
+        "originating-client-proof",
+        "exact-bootstrap-trust"
+      ],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -348,7 +389,9 @@
       "area": "host-admission",
       "flow": "host-testkit-listener",
       "observer": "network-peer",
-      "artifacts": ["authority-api"],
+      "artifacts": [
+        "authority-api"
+      ],
       "verification": "none",
       "controls": [
         "all-listeners-classified",
@@ -423,7 +466,9 @@
       "area": "host-admission",
       "flow": "host-listeners",
       "observer": "network-peer",
-      "artifacts": ["authority-api"],
+      "artifacts": [
+        "authority-api"
+      ],
       "verification": "none",
       "controls": [
         "all-listeners-classified",
@@ -550,16 +595,24 @@
       "area": "host-admission",
       "flow": "certificate-binding",
       "observer": "authenticated",
-      "artifacts": ["certificate-binding"],
+      "artifacts": [
+        "certificate-binding"
+      ],
       "verification": "signature",
-      "controls": ["originating-client-proof"],
+      "controls": [
+        "originating-client-proof"
+      ],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
       "minSecretBytes": 0,
       "budget": null,
-      "implementation": ["crates/gateway/src/transport/proof.rs"],
-      "regressions": ["crates/gateway/src/transport/proof_tests.rs"],
+      "implementation": [
+        "crates/gateway/src/transport/proof.rs"
+      ],
+      "regressions": [
+        "crates/gateway/src/transport/proof_tests.rs"
+      ],
       "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
     },
     {
@@ -568,7 +621,9 @@
       "area": "bitwarden",
       "flow": "bitwarden-account",
       "observer": "public",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -662,7 +717,10 @@
       "area": "bitwarden",
       "flow": "bitwarden-send",
       "observer": "link-holder",
-      "artifacts": ["ciphertext", "guess-oracle"],
+      "artifacts": [
+        "ciphertext",
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -712,7 +770,9 @@
       "area": "bitwarden",
       "flow": "bitwarden-api-key",
       "observer": "public",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -754,7 +814,9 @@
       "area": "bitwarden",
       "flow": "bitwarden-device-code",
       "observer": "public",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -797,7 +859,12 @@
       "area": "bitwarden",
       "flow": "bitwarden-import",
       "observer": "device-owner",
-      "artifacts": ["ciphertext", "code-verifier", "raw-secret", "otp-seed"],
+      "artifacts": [
+        "ciphertext",
+        "code-verifier",
+        "raw-secret",
+        "otp-seed"
+      ],
       "verification": "none",
       "controls": [
         "confined-import-paths",
@@ -854,9 +921,13 @@
       "area": "signing-keys",
       "flow": "public-signing-keys",
       "observer": "public",
-      "artifacts": ["public-key"],
+      "artifacts": [
+        "public-key"
+      ],
       "verification": "none",
-      "controls": ["public-parameter-allowlist"],
+      "controls": [
+        "public-parameter-allowlist"
+      ],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
@@ -902,7 +973,7 @@
         "apps/pages/src/modules/identity.ceremonies/ClaimRoute.test.tsx",
         "apps/pages/src/modules/identity.ceremonies/ClaimRoute.portable-drop.test.tsx"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-10: the portable-drop disclosure changed form, not content. SentDropsPanel.tsx states it as a fact on the row ('Reopens after expiry · cannot be revoked') in place of a caption under it. ShareForm.tsx and drop-card-fields.tsx state it as two field rows ('After expiry: A saved link and code still open it' and 'Revoke: Not possible') in place of a caption, before sealing and on the ready card. Both facts still appear wherever they did, only for a portable drop. No expiry, claim, storage or revocation logic changed, and a portable row still offers no Revoke control. Passed: SentDropsPanel.test.tsx, ClaimRoute.test.tsx, ClaimRoute.portable-drop.test.tsx and the DropCeremony suites (34 tests in 6 files), and outbound-drops.test.ts (8). DropCeremony.share.test.tsx now asserts both facts before sealing as well as on the ready card; the form had no such assertion before. Observed in headless Chromium at 390px against the dev server: both rows render in the share form and on the ready card. Enforcement stays advisory: the disclosure informs the sender and does not stop a saved link and code from reopening the copy. 2026-11-18: Biome reordered imports only; SentDropsPanel regressions passed (6/6) before refreshing the reviewed fingerprint."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-10: the portable-drop disclosure changed form, not content. SentDropsPanel.tsx states it as a fact on the row ('Reopens after expiry \u00b7 cannot be revoked') in place of a caption under it. ShareForm.tsx and drop-card-fields.tsx state it as two field rows ('After expiry: A saved link and code still open it' and 'Revoke: Not possible') in place of a caption, before sealing and on the ready card. Both facts still appear wherever they did, only for a portable drop. No expiry, claim, storage or revocation logic changed, and a portable row still offers no Revoke control. Passed: SentDropsPanel.test.tsx, ClaimRoute.test.tsx, ClaimRoute.portable-drop.test.tsx and the DropCeremony suites (34 tests in 6 files), and outbound-drops.test.ts (8). DropCeremony.share.test.tsx now asserts both facts before sealing as well as on the ready card; the form had no such assertion before. Observed in headless Chromium at 390px against the dev server: both rows render in the share form and on the ready card. Enforcement stays advisory: the disclosure informs the sender and does not stop a saved link and code from reopening the copy. 2026-11-18: Biome reordered imports only; SentDropsPanel regressions passed (6/6) before refreshing the reviewed fingerprint."
     },
     {
       "id": "local-vault-activation",
@@ -910,7 +981,12 @@
       "area": "local-vault-activation",
       "flow": "local-vault-activation",
       "observer": "device-owner",
-      "artifacts": ["ciphertext", "payload-key", "raw-secret", "private-key"],
+      "artifacts": [
+        "ciphertext",
+        "payload-key",
+        "raw-secret",
+        "private-key"
+      ],
       "verification": "client-only",
       "controls": [
         "original-owner-lifetime",
@@ -1123,7 +1199,11 @@
       "area": "native-provider-custody",
       "flow": "native-provider-custody",
       "observer": "device-owner",
-      "artifacts": ["ciphertext", "payload-key", "raw-secret"],
+      "artifacts": [
+        "ciphertext",
+        "payload-key",
+        "raw-secret"
+      ],
       "verification": "client-only",
       "controls": [
         "original-provider-transport",
@@ -3068,14 +3148,14 @@
       "974c6ed1"
     ],
     "crates/gateway/src/transport/mod.rs": [
-      "f6a89073",
-      "d0edd8a1",
-      "bd3c27fa",
-      "69365fd5",
-      "bb85449a",
-      "cdc2fbac",
-      "5c74baa2",
-      "ee1b8041"
+      "34033997",
+      "b096b90b",
+      "2932e456",
+      "3e057785",
+      "c80f3acc",
+      "f4b823bc",
+      "21f91e8a",
+      "83828b8b"
     ],
     "crates/gateway/src/transport/probe.rs": [
       "281791f2",
@@ -3118,14 +3198,14 @@
       "0b777fc2"
     ],
     "crates/gateway/src/transport/runtime.rs": [
-      "aac4bd27",
-      "d5003f9a",
-      "9cf010cd",
-      "38811472",
-      "693ac9d8",
-      "c6e9a26c",
-      "f2397a39",
-      "3c8c08dc"
+      "789d8d4b",
+      "5acb25b5",
+      "46aa1091",
+      "3c202642",
+      "95d33579",
+      "b38e1e0d",
+      "8abaa606",
+      "1cf07153"
     ],
     "crates/gateway/src/transport/status.rs": [
       "daac4453",
@@ -7598,14 +7678,14 @@
       "702bc288"
     ],
     "crates/spiffe-source/tests/production_sink_policy.rs": [
-      "556bfb2d",
-      "f0f988a2",
-      "e7d05bad",
-      "359181a0",
-      "68bf7faf",
-      "ecb44810",
-      "2f44dcaa",
-      "557dc86e"
+      "cf48e651",
+      "caab825f",
+      "1d32a62a",
+      "f616238d",
+      "2cfa2139",
+      "d8ba1b1e",
+      "e4346df5",
+      "a1d4f64b"
     ],
     "crates/transport-security/src/bounded.rs": [
       "c3d952c0",
@@ -7908,24 +7988,24 @@
       "0c72191d"
     ],
     "crates/spiffe-source/src/source.rs": [
-      "3425ff54",
-      "d43d7d3a",
-      "218385af",
-      "1b662fd4",
-      "f8da644a",
-      "7f3c1e42",
-      "3c41a809",
-      "e59f8466"
+      "7b0cbb48",
+      "503427cc",
+      "dd3cc67d",
+      "fe972bd6",
+      "25046246",
+      "8fc569ec",
+      "0c84600a",
+      "f22d7021"
     ],
     "crates/spiffe-source/src/source_history_flow.rs": [
-      "ed64cbda",
-      "5e27776b",
-      "c2a83c75",
-      "5bb3fae0",
-      "ed7686c4",
-      "251e69dd",
-      "0ccd17c1",
-      "5ea5c70c"
+      "19b03ad5",
+      "4435eb1c",
+      "95b38288",
+      "2ec52f19",
+      "191ec5af",
+      "75e1139b",
+      "310e5661",
+      "6dbe05c2"
     ],
     "crates/spiffe-source/tests/durable_history_policy.rs": [
       "0d8a6603",
