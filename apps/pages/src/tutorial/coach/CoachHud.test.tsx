@@ -9,6 +9,7 @@
  * meter, and what happens to a step whose control is not on screen.
  */
 
+import type { GuideTourView } from "@opensesame/guide-runtime";
 import { fakeAgentAlwaysUnavailable } from "@opensesame/support-agent";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -20,8 +21,27 @@ import {
   tutorialCard,
   walkthrough,
 } from "../__tests__/a11y/harness.js";
+import { coachMessage, firstVaultTourProgress } from "./CoachParts.js";
 
 afterEach(disposeSupport);
+
+it("tells an already-mounted PIN road how to leave the held wait", () => {
+  // SAFETY: this fixture satisfies GuideTourView for coachMessage; it only branches on step/kind/action/degraded.
+  const tour = {
+    step: 4,
+    count: 8,
+    kind: "point",
+    message: "Seal with passkey.",
+    target: "unlock.seal-actions",
+    side: "bottom",
+    action: false,
+    degraded: false,
+    canBack: true,
+  } as GuideTourView;
+  expect(coachMessage(tour, true, true, "")).toBe(
+    "PIN is selected. Select Next.",
+  );
+});
 
 async function startLock(targets: readonly string[] = ["shell.lock"]) {
   const user = userEvent.setup();
@@ -56,6 +76,29 @@ const counter = (card: HTMLElement) =>
   card.querySelector(".coach__count")?.textContent ?? "";
 
 describe("the tutorial card", () => {
+  it("keeps passkey and PIN first-vault progress contiguous", () => {
+    expect(firstVaultTourProgress("unlock.methods", 8, 8)).toEqual({
+      offset: 0,
+      count: 12,
+    });
+    expect(firstVaultTourProgress("unlock.seal-actions", 8, 8)).toEqual({
+      offset: 0,
+      count: 12,
+    });
+    expect(firstVaultTourProgress("unlock.seal-pin-entry", 8, 8)).toEqual({
+      offset: 0,
+      count: 16,
+    });
+    expect(firstVaultTourProgress(null, 8, 4)).toEqual({
+      offset: 4,
+      count: 12,
+    });
+    expect(firstVaultTourProgress(null, 8, 8)).toEqual({
+      offset: 8,
+      count: 16,
+    });
+  });
+
   it("has Next on every step and Done on the closing card", async () => {
     const { user, card } = await startLock();
     expect(counter(card)).toBe("Step 1 of 2");
@@ -119,7 +162,7 @@ describe("the tutorial card", () => {
     await user.click(within(card).getByRole("button", { name: /^Next/ }));
     await waitFor(() =>
       expect(card.querySelector(".coach__cue")?.textContent).toContain(
-        "your move",
+        "Complete this step",
       ),
     );
   });
@@ -128,21 +171,17 @@ describe("the tutorial card", () => {
     // No fixture is bound for the lock, so the step has nothing to light.
     const { user, card } = await startLock([]);
     await user.click(within(card).getByRole("button", { name: /^Next/ }));
-    await waitFor(() =>
-      expect(card.querySelector(".coach__cue")?.textContent).toContain(
-        "not on screen",
-      ),
-    );
+    await waitFor(() => expect(card.textContent).toContain("not on screen"));
     expect(document.querySelector(".coach__ring")).toBeNull();
     expect(within(card).getByRole("button", { name: /^Next/ })).toBeTruthy();
   });
 
   it("writes the sentence as text, whatever it contains", async () => {
     const { card } = await startLock();
-    // The first step is authored prose and arrives as one text node.
-    const text = card.querySelector(".coach__text");
-    expect(text?.querySelectorAll("*").length).toBe(1); // only the hidden counter
-    expect(text?.textContent).toContain("Locking drops the keys");
+    // The authored sentence remains text, separate from the counter and status.
+    const text = card.querySelector(".coach__message");
+    expect(text?.querySelectorAll("*").length).toBe(0);
+    expect(text?.textContent).toContain("Lock the vault to remove its keys");
   });
 
   it("marks its root with the step's target and whether it degraded", async () => {

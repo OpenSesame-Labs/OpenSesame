@@ -21,9 +21,9 @@ export const SHELL_GOALS: readonly GuideGoalDescriptor[] = [
       'say "Import takes a .env, .csv, .json, .1pux, .zip or .kdbx export and merges it into this vault. Nothing leaves the device."',
       'navigate "/vault/list"',
       'wait route "/vault/list" timeout=15000',
-      'focus "vault.import" "Import opens the file picker; on a phone, hold the + and slide up, then let go on Import. The file is previewed in a sheet before anything is written." side=bottom',
+      'focus "vault.import" "Select Import and choose a file. On a phone, hold +, slide up to Import, then release. Review the preview before importing." side=bottom',
       'wait target "vault.import" event=activate timeout=60000',
-      'success "Choose an export to import. The items land sealed in this vault."',
+      'success "Choose a file and confirm the import to add its items to your vault."',
       "end",
     ].join("\n"),
   },
@@ -35,9 +35,9 @@ export const SHELL_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "client.command-bar"',
-      'say "The command bar is the one typed field in the frame. A command runs; a sentence it cannot parse goes to Support as a question."',
+      'say "Use the command bar to navigate, search or copy a field. If it cannot interpret what you type, it sends the text to Support as a question."',
       'wait state "vault.unlocked" is=true timeout=60000',
-      'focus "shell.command-bar" "Type a command: go to a section, search, or copy a field. Enter runs it." side=bottom',
+      'focus "shell.command-bar" "Type a command to go to a section, search or copy a field. Select the arrow to run it." side=bottom',
       "end",
     ].join("\n"),
   },
@@ -55,7 +55,7 @@ export const SHELL_HELP: readonly HelpTopic[] = [
     id: "help.vault.import",
     title: "How do I bring items in from another password manager?",
     answer:
-      "Import sits beside New item in the Vault's path strip, and takes an export from another manager — a .env, .csv, .json, .1pux, .zip or .kdbx file — an OpenSesame encrypted backup, or a sealed-store path manifest, merged by path. The file is read on this device and previewed in a sheet; nothing is written until you confirm it.",
+      "Import a file from another password manager, an .env file, or an encrypted backup. Review the items before confirming the import.",
     routes: [],
     goal: "vault.import",
     keywords: [

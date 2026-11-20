@@ -5,6 +5,7 @@ import type {
 } from "@opensesame/app-core/lib/vault/unlock-methods.js";
 import { IconKey } from "../../../components/IconKey.js";
 import { IconEdit, IconPlus, IconTrash } from "../../../components/Icons.js";
+import { useGuideTarget } from "../../../tutorial/registry/react.jsx";
 import { MethodRow } from "./MethodRow.js";
 import type { MethodKind, SheetRequest } from "./MethodSheet.js";
 
@@ -114,6 +115,9 @@ function CodeRow({
   busy: boolean;
   open: Open;
 }) {
+  const emailRef = useGuideTarget<HTMLButtonElement>(
+    "settings.second-step.email",
+  );
   return (
     <MethodRow
       kind={channel}
@@ -129,6 +133,7 @@ function CodeRow({
       }
       action={
         <IconKey
+          keyRef={channel === "email" ? emailRef : undefined}
           label={on ? "Remove" : hasService ? "Add" : "Set sign-in service"}
           small
           disabled={busy}

@@ -16,6 +16,7 @@ import {
 } from "@opensesame/app-core/tutorial/registry/predicates.js";
 import { readGuidePredicate } from "@opensesame/app-core/tutorial/registry/state.js";
 import { integrationDraws } from "../sections/settings/provider-tile-items.js";
+import { isTouchPointer } from "./gestures.js";
 import { installState } from "./install.js";
 import { installPanelDraws } from "./install-panel.js";
 import { finePointerNow, narrowNow } from "./use-narrow.js";
@@ -34,6 +35,7 @@ export function buildTutorialGateOptions(
   provideGuideDeviceForm(() => ({
     narrow: narrowNow(),
     keys: finePointerNow(),
+    touch: isTouchPointer(),
   }));
   provideGuideSupportModelPicks(
     () => plan?.capabilities["support.local-ai"]?.approved === true,

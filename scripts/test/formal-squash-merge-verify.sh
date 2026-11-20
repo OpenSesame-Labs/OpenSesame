@@ -45,7 +45,7 @@ PY
   git config user.name "formal-squash-verify"
   git config user.email "formal-squash-verify@example.invalid"
   git add -A
-  git commit -qm "squash-sim: auth formal stack on origin/main"
+  git commit --allow-empty -qm "squash-sim: auth formal stack on origin/main"
 )
 python3 "$SCRATCH/spec/formal/authority/check-drift.py"
 python3 "$SCRATCH/spec/formal/dpop/check_drift.py"

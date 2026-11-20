@@ -8,7 +8,10 @@
  * says so; pressing it opens the session rather than starting another.
  */
 
+import { subscribeContributions } from "@opensesame/app-core/lib/contributions.js";
 import { isGuestSessionTomb } from "@opensesame/app-core/lib/duress/store/decoy-scratch.js";
+import { isKnownGuideTarget } from "@opensesame/app-core/tutorial/registry/targets.js";
+import { useCallback, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router";
 import { IconShare } from "../../components/Icons.js";
 import { useVaultShare } from "../../components/vault-share-seat.js";
@@ -17,13 +20,29 @@ import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { useLiveGuest, useLiveHost } from "./live-hooks.js";
 import "./live.css";
 
+const target = "shell.share";
+const isDeclared = () => isKnownGuideTarget(target);
+
+function useLiveShareGuideTarget(): (node: HTMLButtonElement | null) => void {
+  const declared = useSyncExternalStore(
+    subscribeContributions,
+    isDeclared,
+    isDeclared,
+  );
+  const bind = useGuideTarget<HTMLButtonElement>(target);
+  return useCallback(
+    (node) => bind(node && declared && isDeclared() ? node : null),
+    [bind, declared],
+  );
+}
+
 export function LiveShareButton() {
   const share = useVaultShare();
   const { status, guest, tomb } = useVault();
   const { host, state } = useLiveHost();
   const joined = useLiveGuest();
   const navigate = useNavigate();
-  const ref = useGuideTarget<HTMLButtonElement>("shell.share");
+  const ref = useLiveShareGuideTarget();
   if (!share) return null;
   // A joined guest still needs one key back to the live catalog after moving
   // around the vault; the Share sheet is the owner's, not theirs.

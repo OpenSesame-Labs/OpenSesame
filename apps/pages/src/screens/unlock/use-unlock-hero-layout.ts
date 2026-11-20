@@ -25,6 +25,26 @@ export type UnlockHeroBox = {
   size: number;
 };
 
+function observeHeroLayout(
+  pane: HTMLElement,
+  card: HTMLElement,
+  notes: HTMLElement | null,
+  place: () => void,
+): () => void {
+  let frame = 0;
+  const observer = new ResizeObserver(() => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(place);
+  });
+  observer.observe(pane);
+  observer.observe(card);
+  if (notes) observer.observe(notes);
+  return () => {
+    observer.disconnect();
+    cancelAnimationFrame(frame);
+  };
+}
+
 /**
  * Place the unlock CipherWordmark as a hero above the card. On wide screens
  * it spans the left pane independently of the narrower unlock form.
@@ -119,13 +139,9 @@ export function useUnlockHeroLayout(
         pane.style.paddingTop = "";
       };
     }
-    const ro = new ResizeObserver(place);
-    ro.observe(pane);
-    ro.observe(card);
-    const notes = notesRef.current;
-    if (notes) ro.observe(notes);
+    const stop = observeHeroLayout(pane, card, notesRef.current, place);
     return () => {
-      ro.disconnect();
+      stop();
       pane.style.paddingTop = "";
     };
   }, [paneRef, cardRef, notesRef]);

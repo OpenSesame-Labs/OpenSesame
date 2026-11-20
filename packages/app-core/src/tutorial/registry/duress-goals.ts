@@ -19,11 +19,11 @@ export const DURESS_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "vaults.duress-code"',
-      'say "A duress code is a second code for this device. Typed where a vault unlocks, it shows something else instead of the vault. Only the owner of an open vault can set it, change it or clear it."',
+      'say "A duress code opens a decoy instead of your vault. Only a vault owner can manage it."',
       'wait state "vault.unlocked" is=true timeout=60000',
       'navigate "/settings/security"',
       'wait route "/settings/security" timeout=15000',
-      'focus "settings.security" "The Duress panel is on this page, below the unlock methods. Press Add on its Duress code row to choose the code; Change and Clear replace or remove it." side=bottom',
+      'focus "settings.security" "In the Duress panel, select Add to create a code, Change to replace it, or Clear to remove it." side=bottom',
       "end",
     ].join("\n"),
   },
@@ -34,11 +34,11 @@ export const DURESS_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "vaults.travel"',
-      'say "Travel mode takes the vaults that are not safe to carry off this device before a trip, and brings them back afterwards. It draws beside the duress code, so it appears once you are in a vault you own."',
+      'say "Travel mode removes vaults you choose not to carry on this device and restores them after your trip. It appears beside Duress when you open a vault you own."',
       'wait state "vault.unlocked" is=true timeout=60000',
       'navigate "/settings/security"',
       'wait route "/settings/security" timeout=15000',
-      'focus "settings.security" "The Travel panel is on this page, under the Duress panel. Leave for a trip sends the vaults away, and Come home from a trip brings them back." side=bottom',
+      'focus "settings.security" "In Travel mode, select Leave for a trip to remove selected vaults from this device. Select Come home from a trip to restore them." side=bottom',
       "end",
     ].join("\n"),
   },
@@ -49,7 +49,7 @@ export const DURESS_HELP: readonly HelpTopic[] = [
     id: "help.vaults.duress-code",
     title: "How do I set a duress code?",
     answer:
-      "Settings → Security → Duress. A duress code is a second code: typed where a vault unlocks, it opens something else instead of your vault. Add on the Duress code row chooses it; Change and Clear replace or remove it. Only the owner of an open vault can do this.",
+      "In Settings → Security → Duress, select Add to create a code. Entering it at unlock opens a decoy. A vault owner can also change or clear the code.",
     routes: ["/settings/security"],
     goal: "vaults.duress-code",
     keywords: [
@@ -66,7 +66,7 @@ export const DURESS_HELP: readonly HelpTopic[] = [
     id: "help.vaults.travel",
     title: "How do I protect my vaults when I travel?",
     answer:
-      "Settings → Security → Travel, beside Duress. Leave for a trip sends the vaults that are not safe to carry off this device, and Come home from a trip brings them back. It appears once you are in a vault you own.",
+      "In a vault you own, open Settings → Security → Travel. Select Leave for a trip to remove selected vaults from this device, or Come home from a trip to restore them.",
     routes: ["/settings/security"],
     goal: "vaults.travel",
     keywords: [

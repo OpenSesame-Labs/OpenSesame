@@ -12,77 +12,40 @@
  * Runs in the page: everything one step shows. Small helpers, so the
  * measurement stays readable and each one is simple to trust.
  */
-export function measureStep() {
+export function measureStep(tools) {
   const root = document.querySelector(".coach");
   if (!root) return null;
   const text = (selector) => root.querySelector(selector)?.textContent ?? "";
-  const box = (node) => {
-    if (!node) return null;
-    const { left, top, right, bottom, width, height } =
-      node.getBoundingClientRect();
-    return { left, top, right, bottom, width, height };
-  };
-  const pointable = (element) => {
-    for (let node = element; node; node = node.parentElement) {
-      const style = getComputedStyle(node);
-      if (style.display === "none" || style.visibility === "hidden")
-        return false;
-    }
-    return true;
-  };
-  const describe = (node) => {
-    if (!node) return "nothing";
-    const id = node.id ? `#${node.id}` : "";
-    const first = String(node.getAttribute("class") ?? "").split(" ")[0];
-    return `${node.tagName.toLowerCase()}${id}${first ? `.${first}` : ""}`;
-  };
-  const viewport = {
-    width: document.documentElement.clientWidth,
-    height: innerHeight,
-  };
-  // The part of the control a person could press: its box inside the screen
-  // and inside the aperture the product opened for it.
-  const visiblePart = (control, ring) => {
-    const parts = [
-      box(control),
-      { left: 0, top: 0, right: viewport.width, bottom: viewport.height },
-    ];
-    if (ring) parts.push(ring);
-    const left = Math.max(...parts.map((part) => part.left));
-    const top = Math.max(...parts.map((part) => part.top));
-    const right = Math.min(...parts.map((part) => part.right));
-    const bottom = Math.min(...parts.map((part) => part.bottom));
-    return right > left && bottom > top ? { left, top, right, bottom } : null;
-  };
-  const probeControl = (control, ring) => {
-    const part = visiblePart(control, ring);
-    if (!part) return { visible: false };
-    const x = (part.left + part.right) / 2;
-    const y = (part.top + part.bottom) / 2;
-    const hit = document.elementFromPoint(x, y);
-    return {
-      visible: true,
-      x: Math.round(x),
-      y: Math.round(y),
-      hit: describe(hit),
-      onControl: Boolean(hit) && control.contains(hit),
-      onCard: Boolean(hit?.closest(".coach__card")),
-      onDim: Boolean(hit?.classList.contains("coach__dim")),
-    };
-  };
+  const {
+    box,
+    button,
+    pointable,
+    viewport,
+    visiblePart,
+    probeControl,
+    readableInstruction,
+  } = tools();
   const target = root.getAttribute("data-coach-target") ?? "";
-  const control = target
-    ? ([...document.querySelectorAll(`[data-guide-targets~="${target}"]`)].find(
-        pointable,
-      ) ?? null)
-    : null;
+  const candidates = target
+    ? [
+        ...document.querySelectorAll(`[data-guide-targets~="${target}"]`),
+      ].filter(pointable)
+    : [];
+  const control =
+    candidates.find((candidate) => visiblePart(candidate, null)) ??
+    candidates[0] ??
+    null;
   const card = root.querySelector(".coach__card");
   const ring = root.querySelector(".coach__ring");
   const go = root.querySelector(".coach__btn--go");
+  const exit = root.querySelector('button[aria-label="Exit tutorial"]');
   const back = [...root.querySelectorAll(".coach__btn")].find((b) =>
     /Back|Replay/.test(b.textContent ?? ""),
   );
   const ringBox = box(ring);
+  const goInfo = button(go);
+  const exitInfo = button(exit);
+
   return {
     kind: root.getAttribute("data-coach-kind"),
     step: Number(root.getAttribute("data-coach-step")),
@@ -91,15 +54,30 @@ export function measureStep() {
     counter: text(".coach__count"),
     title: text(".coach__title"),
     text: text(".coach__text"),
+    textReadable: readableInstruction(root.querySelector(".coach__text")),
     cue: text(".coach__cue"),
     notOnScreen: text(".coach__cue").includes("not on screen"),
     action: Boolean(ring?.classList.contains("is-action")),
+    actionOnly: Boolean(
+      card?.classList.contains("coach__card--awaiting-action"),
+    ),
     card: box(card),
     ring: ringBox,
     control: box(control),
+    visibleControl: control ? visiblePart(control, null) : null,
+    actionable:
+      control?.matches(
+        'button, a, input, select, textarea, [role="button"], [role="switch"]',
+      ) ?? false,
     probe: control ? probeControl(control, ringBox) : null,
-    go: box(go),
-    goDisabled: go ? go.disabled : null,
+    go: goInfo.box,
+    goReachable: goInfo.reachable,
+    goDisabled: goInfo.disabled,
+    goAriaDisabled: goInfo.ariaDisabled,
+    goVisible: goInfo.visible,
+    exit: exitInfo.box,
+    exitVisible: exitInfo.visible,
+    exitReachable: exitInfo.reachable,
     backDisabled: back ? back.disabled : null,
     focusInCard: Boolean(card?.contains(document.activeElement)),
     viewport,
@@ -129,22 +107,42 @@ const touches = (box, viewport) =>
 const describeBox = (box) =>
   `${Math.round(box.left)},${Math.round(box.top)} ${Math.round(box.width)}x${Math.round(box.height)}`;
 
-/** The card, and Next on it. */
-function cardChecks(info, phone) {
+function actionCardChecks(info, phone) {
+  const { card, viewport } = info;
+  return [
+    [
+      info.action && info.goAriaDisabled && !info.goVisible,
+      "the action-only card waits for the highlighted control",
+    ],
+    [
+      Boolean(info.exit) &&
+        info.exitVisible &&
+        info.exitReachable &&
+        inside(info.exit, viewport) &&
+        (!phone || info.exit.height >= 43.5),
+      `Exit remains visible and reachable on the action-only card (${info.exit ? describeBox(info.exit) : "missing"}; card ${describeBox(card)}; reachable ${info.exitReachable})`,
+    ],
+  ];
+}
+
+function nextCardChecks(info, phone) {
   const { card, go, viewport } = info;
   const out = [
-    [
-      inside(card, viewport),
-      `the card sits inside the viewport (${describeBox(card)} in ${viewport.width}x${viewport.height})`,
-    ],
     [
       Boolean(go) && go.width > 0 && !info.goDisabled,
       "Next is present and enabled",
     ],
-    [info.text.trim().length > 0, "the step says something"],
   ];
   if (!go) return out;
   out.push([inside(go, viewport), "Next is inside the viewport"]);
+  out.push([
+    go.left >= card.left - 0.5 &&
+      go.right <= card.right + 0.5 &&
+      go.top >= card.top - 0.5 &&
+      go.bottom <= card.bottom + 0.5 &&
+      info.goReachable,
+    "Next is fully visible and reachable in the card",
+  ]);
   if (phone) {
     out.push([
       go.height >= 43.5,
@@ -152,6 +150,22 @@ function cardChecks(info, phone) {
     ]);
   }
   return out;
+}
+
+/** The card, and its available actions. */
+function cardChecks(info, phone) {
+  const { card, viewport } = info;
+  return [
+    [
+      inside(card, viewport),
+      `the card sits inside the viewport (${describeBox(card)} in ${viewport.width}x${viewport.height})`,
+    ],
+    [info.text.trim().length > 0, "the step says something"],
+    [info.textReadable, "the instruction has room to read or scroll"],
+    ...(info.actionOnly
+      ? actionCardChecks(info, phone)
+      : nextCardChecks(info, phone)),
+  ];
 }
 
 /** What a pointer reaches at the visible centre of the control, as one check. */
@@ -192,6 +206,19 @@ function litChecks(info) {
     [!intersects(card, ring), "the card does not cover the lit control"],
     ...reachChecks(info),
   );
+  if (info.actionable && info.visibleControl && info.control) {
+    out.push(
+      [
+        !intersects(card, info.visibleControl),
+        "the card does not cover the actual control",
+      ],
+      [
+        info.visibleControl.width >= info.control.width - 1 &&
+          info.visibleControl.height >= info.control.height - 1,
+        "the actual control is fully visible inside its scrollports",
+      ],
+    );
+  }
   return out;
 }
 
@@ -201,4 +228,151 @@ export function stepChecks(info, { phone }) {
   const out = [[true, "the card is on screen"], ...cardChecks(info, phone)];
   if (info.kind === "point" && info.target !== "") out.push(...litChecks(info));
   return out;
+}
+
+/** Build the standard measured tutorial step assertion for a browser walk. */
+export function tutorialStepChecker(
+  page,
+  check,
+  phone,
+  total,
+  label,
+  readStep,
+  { out, width, keepShots } = {},
+) {
+  return async function step(target, number, expectedTotal = total) {
+    await page
+      .locator(
+        `.coach[data-coach-target="${target}"][data-coach-status="waiting"]`,
+      )
+      .waitFor({ timeout: 30000 });
+    const info = await readStep(page);
+    check(info?.target === target, `${label}: target ${target}`);
+    check(
+      info?.counter === `Step ${number} of ${expectedTotal}`,
+      `${label}: progress Step ${number} of ${expectedTotal}`,
+    );
+    if (info) {
+      for (const [ok, what] of stepChecks(info, { phone }))
+        check(ok, `${label} · ${target}: ${what}`);
+    }
+    if (keepShots)
+      await page.screenshot({
+        path: `${out}/${width}-${label.replaceAll(" ", "-")}-${String(number).padStart(2, "0")}.png`,
+      });
+    return info;
+  };
+}
+
+/** Assert a required control is in the viewport and wins its center hit test. */
+export async function checkControlReachable(page, check, control, label) {
+  const box = await control.boundingBox();
+  const viewport = page.viewportSize();
+  const hit =
+    box &&
+    (await control.evaluate(
+      (node, point) => {
+        const top = document.elementFromPoint(point.x, point.y);
+        return top !== null && (node === top || node.contains(top));
+      },
+      { x: box.x + box.width / 2, y: box.y + box.height / 2 },
+    ));
+  check(
+    box !== null &&
+      box.y >= 0 &&
+      box.y + box.height <= viewport.height &&
+      hit === true,
+    `first vault: ${label} is visible and reachable`,
+  );
+}
+
+/** Prove the method decision cannot advance before a usable PIN field exists. */
+export async function checkTutorialNextBlocked(
+  page,
+  check,
+  next,
+  target = "unlock.seal-actions",
+) {
+  const visible = await next.isVisible();
+  check(
+    !visible || (await next.getAttribute("aria-disabled")) === "true",
+    `first vault: Next cannot skip required action ${target}`,
+  );
+  if (!visible) return;
+  await next.evaluate((button) => button.click());
+  check(
+    (await page.locator(`.coach[data-coach-target="${target}"]`).count()) === 1,
+    `first vault: disabled Next keeps ${target} active`,
+  );
+}
+
+/** Wait for PRF failure to select the cross-platform road, with useful state. */
+export async function waitForSecurityKey(
+  page,
+  { out, width, label, keepShots },
+) {
+  try {
+    await page.waitForFunction(
+      () =>
+        [...document.querySelectorAll('[role="tab"]')].some(
+          (tab) =>
+            tab.textContent?.trim() === "Security key" &&
+            tab.getAttribute("aria-selected") === "true",
+        ),
+      undefined,
+      { timeout: 15000 },
+    );
+  } catch (error) {
+    if (keepShots)
+      await page.screenshot({
+        path: `${out}/${width}-${label.replaceAll(" ", "-")}-security-key-timeout.png`,
+        fullPage: true,
+      });
+    const state = await page.evaluate(() => ({
+      url: location.href,
+      tabs: [...document.querySelectorAll('[role="tab"]')].map((tab) => ({
+        text: tab.textContent?.trim(),
+        selected: tab.getAttribute("aria-selected"),
+      })),
+      alert: document.querySelector('[role="alert"]')?.textContent?.trim(),
+    }));
+    throw new Error(
+      `Security key fallback did not appear: ${JSON.stringify(state)}`,
+      { cause: error },
+    );
+  }
+}
+
+/** Explain a stuck transition from the method group to the first PIN field. */
+export async function waitForPinTutorial(
+  page,
+  { out, width, label, keepShots },
+) {
+  try {
+    await page
+      .locator('.coach[data-coach-target="unlock.seal-pin-entry"]')
+      .waitFor();
+  } catch (error) {
+    if (keepShots)
+      await page.screenshot({
+        path: `${out}/${width}-${label.replaceAll(" ", "-")}-pin-transition-timeout.png`,
+        fullPage: true,
+      });
+    const state = await page.evaluate(() => ({
+      tabs: [...document.querySelectorAll('[role="tab"]')].map((tab) => ({
+        text: tab.textContent?.trim(),
+        selected: tab.getAttribute("aria-selected"),
+      })),
+      targets: [...document.querySelectorAll("[data-guide-targets]")].map(
+        (target) => target.getAttribute("data-guide-targets"),
+      ),
+      coach: document
+        .querySelector(".coach")
+        ?.getAttribute("data-coach-target"),
+      alert: document.querySelector('[role="alert"]')?.textContent?.trim(),
+    }));
+    throw new Error(`PIN tutorial did not advance: ${JSON.stringify(state)}`, {
+      cause: error,
+    });
+  }
 }
