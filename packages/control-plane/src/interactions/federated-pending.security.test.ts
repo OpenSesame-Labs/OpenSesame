@@ -118,6 +118,27 @@ describe("signed federated state integrity", () => {
     expect(encodePending(pending, secret)).toBe(cookie);
   });
 
+  it("never places a raw verifier in the signed wire payload", () => {
+    const cookie = encodePending(pending, secret);
+    const payload = cookie.slice(0, cookie.lastIndexOf("."));
+    const wire = JSON.parse(
+      Buffer.from(payload, "base64url").toString("utf8"),
+    );
+    expect(wire).not.toHaveProperty("verifier");
+    expect(wire.verifierEnc).toEqual(expect.any(String));
+  });
+
+  it("rejects a tampered verifier seal", () => {
+    const cookie = encodePending(pending, secret);
+    const split = cookie.lastIndexOf(".");
+    const wire = JSON.parse(
+      Buffer.from(cookie.slice(0, split), "base64url").toString("utf8"),
+    );
+    wire.verifierEnc = `${wire.verifierEnc}x`;
+    const forged = `${Buffer.from(JSON.stringify(wire)).toString("base64url")}${cookie.slice(split)}`;
+    expect(decodePending(forged, secret)).toBeUndefined();
+  });
+
   it("still decodes legacy v3 cookies that carry a plaintext verifier", () => {
     const cookie = existingV3Cookie(pending);
     expect(decodePending(cookie, secret)).toEqual(pending);

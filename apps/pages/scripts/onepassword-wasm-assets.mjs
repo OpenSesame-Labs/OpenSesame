@@ -40,8 +40,6 @@ export function assertPinnedArtifactDigest(bytes, expected) {
       "Pinned 1Password artifact digest differs; review the SDK upgrade.",
     );
 }
-/** @deprecated Use assertPinnedArtifactDigest */
-export const assertOnePasswordHash = assertPinnedArtifactDigest;
 function replaceOnce(source, expected, replacement) {
   if (source.split(expected).length !== 2)
     throw new Error("Unexpected 1Password bootstrap statement count.");
