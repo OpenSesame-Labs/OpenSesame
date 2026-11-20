@@ -3,8 +3,10 @@ use super::super::sync_target_pact_norm::{function_spans, string_len};
 
 /// `(call_index, ident_len)` for `let name = Path::{send,execute}` function items.
 /// The binding is not a dispatch; only a later `name(…)` in that function is.
-/// `let call = name`, `call = name`, and `let call = { name }` forward the alias.
-/// `let (name,) = (Path::send,)` does too.
+/// `()`, `{}`, `&`, `*`, and a block tail (`{ stmts; value }`) still create the
+/// alias, including `dispatch = Path::send` with no `let`. `let call = name`,
+/// `call = name`, `let call = &name`, and `let call = { stmts; name }` forward it.
+/// `let (name,) = ((Path::send),)` does too.
 pub(crate) fn dispatch_alias_calls(source: &str) -> Vec<(usize, usize)> {
     let bytes = source.as_bytes();
     let spans = function_spans(bytes);
@@ -111,19 +113,9 @@ fn alias_forward_let(
     (new_name != name).then_some((new_name, name.len()))
 }
 
-/// `=` before this value, unwrapping `{ dispatch }` and `(dispatch)`.
-fn value_eq(bytes: &[u8], mut index: usize) -> Option<usize> {
-    loop {
-        while index > 0 && bytes[index - 1].is_ascii_whitespace() {
-            index -= 1;
-        }
-        if index > 0 && matches!(bytes[index - 1], b'{' | b'(') {
-            index -= 1;
-            continue;
-        }
-        break;
-    }
-    eq_before(bytes, index)
+/// `=` before this value. `()`, `{}`, `&`, `*`, and `{ stmts; value }` unwrap.
+fn value_eq(bytes: &[u8], index: usize) -> Option<usize> {
+    super::peel::eq_before(bytes, super::peel::peel_expr_prefix(bytes, index, false)?)
 }
 
 /// Left-hand side of `let call = …` or `call = …`.
@@ -141,24 +133,6 @@ fn assign_target(lhs: &str) -> Option<String> {
         before = before[..before.len() - "mut".len()].trim_end();
     }
     before.is_empty().then_some(name)
-}
-
-fn eq_before(bytes: &[u8], index: usize) -> Option<usize> {
-    let mut at = index;
-    while at > 0 && bytes[at - 1].is_ascii_whitespace() {
-        at -= 1;
-    }
-    if at == 0 || bytes[at - 1] != b'=' {
-        return None;
-    }
-    let eq = at - 1;
-    if matches!(
-        eq.checked_sub(1).and_then(|prev| bytes.get(prev)),
-        Some(b'=' | b'!' | b'<' | b'>')
-    ) {
-        return None;
-    }
-    Some(eq)
 }
 
 pub(super) fn statement_tail(lhs: &str) -> &str {
@@ -205,11 +179,9 @@ fn function_item_head(source: &str, index: usize) -> Option<usize> {
 
 fn let_name_before_path(source: &str, head: usize) -> Option<String> {
     let path_start = path_prefix_start(source, head);
-    if path_start > 0 && source.as_bytes()[path_start - 1] == b'=' {
-        // Compacted `let name: Type =` — the type may itself contain `::`.
-        return super::super::sync_target_pact_let::let_binding_name(
-            source[..path_start - 1].trim_end(),
-        );
+    if let Some(eq) = value_eq(source.as_bytes(), path_start) {
+        // `let name =`, `let name: Type =`, and `name =` (no `let`).
+        return assign_target(source[..eq].trim_end());
     }
     super::super::sync_target_pact_let::typed_let_name_before_path(source, head)
 }
