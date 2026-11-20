@@ -134,19 +134,25 @@ jobs:
       actions: read
       attestations: read
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-        with:
-          ref: ${{ inputs.source_sha }}
-          persist-credentials: false
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - name: Check out trusted pipeline helpers
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ github.workflow_sha }}
           persist-credentials: false
-          path: .ci-control
+          allow-unsafe-pr-checkout: false
+          path: ${{ runner.temp }}/ci-control
           sparse-checkout: |
+            scripts/ci/materialize-git-sha.sh
             scripts/release
             scripts/lib
             .github/workflows
+      - name: Materialize the admitted candidate source
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ inputs.source_sha }}
+        run: bash "$RUNNER_TEMP/ci-control/scripts/ci/materialize-git-sha.sh" "$GITHUB_WORKSPACE"
+      - name: Park trusted helpers beside the candidate tree
+        run: mv "$RUNNER_TEMP/ci-control" .ci-control
       - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           cache: false
