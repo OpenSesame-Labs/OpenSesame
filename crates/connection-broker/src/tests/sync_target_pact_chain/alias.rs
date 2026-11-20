@@ -1,5 +1,5 @@
 //! Dispatch aliases: function items, reassignment, blocks, and calls.
-use super::super::sync_target_pact_norm::{function_spans, string_len};
+use super::super::sync_target_pact_norm::{function_spans, is_keyword_at, string_len};
 
 /// `(call_index, ident_len)` for `let name = Path::{send,execute}` function items.
 /// The binding is not a dispatch; only a later `name(…)` in that function is.
@@ -247,8 +247,61 @@ fn alias_call_len(
     let (fn_start, _) = innermost_span(spans, index)?;
     aliases
         .iter()
-        .any(|alias| alias.fn_start == fn_start && alias.at < index && alias.name == name)
+        .any(|alias| {
+            alias.fn_start == fn_start
+                && alias.at < index
+                && alias.name == name
+                && !alias_shadowed(source, alias, index)
+        })
         .then_some(name.len())
+}
+
+/// A nested `let dispatch = …` rebinding shadows an earlier send alias.
+fn alias_shadowed(source: &str, alias: &DispatchAlias, call: usize) -> bool {
+    let bytes = source.as_bytes();
+    let mut index = alias.at;
+    while index < call {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        if is_keyword_at(bytes, index, b"let") && let_rebinds_name(source, bytes, index, &alias.name) {
+            return true;
+        } else if is_keyword_at(bytes, index, alias.name.as_bytes())
+            && super::peel::eq_before(bytes, index + alias.name.len()).is_some()
+        {
+            return true;
+        }
+        index += 1;
+    }
+    false
+}
+
+fn let_rebinds_name(source: &str, bytes: &[u8], index: usize, name: &str) -> bool {
+    let mut at = index + 3;
+    while bytes.get(at).is_some_and(u8::is_ascii_whitespace) {
+        at += 1;
+    }
+    if is_keyword_at(bytes, at, b"mut") {
+        at += 3;
+        while bytes.get(at).is_some_and(u8::is_ascii_whitespace) {
+            at += 1;
+        }
+    }
+    if bytes.get(at) == Some(&b'(') {
+        return pattern_contains_name(&source[at..], name);
+    }
+    let start = at;
+    while at < bytes.len() && super::is_ident_byte(bytes[at]) {
+        at += 1;
+    }
+    &source[start..at] == name
+}
+
+fn pattern_contains_name(pattern: &str, name: &str) -> bool {
+    pattern
+        .split(|ch: char| !super::is_ident_char(ch))
+        .any(|part| part == name)
 }
 
 fn innermost_span(spans: &[(usize, usize)], index: usize) -> Option<(usize, usize)> {

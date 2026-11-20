@@ -131,7 +131,7 @@ fn p5_query_client_execute_is_a_send() {
     let sqlx = r#"async fn f() { query.execute(&self.pool).await?; }"#;
     assert_gaps(sqlx, (0, 0));
     let chain = r#"async fn f() { sqlx::query("select 1").execute(&pool).await?; }"#;
-    assert_gaps(chain, (1, 1));
+    assert_gaps(chain, (0, 0));
 }
 
 #[test]
@@ -210,6 +210,59 @@ fn p5_delegated_response_callee_is_a_body_read() {
         "drop(response) is the production discard: {reads:?}"
     );
     assert_clear("drop(&response)");
+}
+
+#[test]
+#[test]
+fn p5_redirect_policy_none_in_egress_clients() {
+    for src in [
+        include_str!("../lib.rs"),
+        include_str!("../constructor.rs"),
+        include_str!("../egress_client.rs"),
+    ] {
+        assert!(
+            src.contains("redirect::Policy::none()"),
+            "credentialed egress client must disable redirects"
+        );
+    }
+}
+
+#[test]
+fn p5_tuple_and_send_response_renames_are_body_reads() {
+    for sample in [
+        "let (reply,) = (response,); reply.text().await",
+        "let ((reply,),) = ((response,),); reply.bytes().await",
+        "let reply = request.send().await?; let body: reqwest::Body = reply.into();",
+        "let reply = if flag { response } else { other }; reply.into()",
+        "let leaked: reqwest::Body = response.try_into().unwrap();",
+        "<Response as TryInto<Body>>::try_into(response).unwrap()",
+    ] {
+        assert_read(sample);
+    }
+}
+
+#[test]
+fn p5_body_from_item_without_response_call_is_clear() {
+    assert_clear("let make_body = reqwest::Body::from;");
+    assert_read("let make_body = reqwest::Body::from; make_body(response)");
+}
+
+#[test]
+fn p5_dispatch_alias_shadowing_is_not_a_send() {
+    let sample = r#"async fn f() { let dispatch = RequestBuilder::send; { let dispatch = |_| (); dispatch(request).await?; } }"#;
+    assert_gaps(sample, (0, 0));
+}
+
+#[test]
+fn p5_as_str_before_send_stays_guarded() {
+    let sample = r#"async fn f() { let _ = url.as_str(); if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#;
+    assert_gaps(sample, (1, 0));
+}
+
+#[test]
+fn p5_build_request_multi_arg_fails_closed() {
+    let sample = r#"async fn f() { if safe.scheme() != "https" { return Err("x".into()); } let request = build_request(evil, safe); request.send().await?; }"#;
+    assert_gaps(sample, (1, 1));
 }
 
 #[test]
