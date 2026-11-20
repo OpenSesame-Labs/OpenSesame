@@ -90,38 +90,22 @@ python3 "$SCRATCH/spec/formal/spiffe/check-drift.py"
 run_spiffe_skip_lean_integration() {
   (
     cd "$SCRATCH"
+    # Same Rust integration suites as spec/formal/spiffe/verify.sh after the
+    # Lean correspondence step. No name filter: a new case in these binaries
+    # still runs. Lean is not invoked.
     cargo test --locked -p opensesame-spiffe-source --all-features \
-      --test withdrawal_policy --test trust_reduction_policy --test outage_policy -- \
-      no_identity_issued_on_the_stream_withdraws_and_recovers \
-      no_identity_denial_on_reconnect_withdraws_the_active_generation \
-      rejected_profile_with_removed_anchor_withdraws \
-      rejected_activation_after_reconnect_cannot_extend_the_outage \
-      invalid_profile_after_reconnect_cannot_end_the_outage_or_extend_its_deadline
+      --test synthetic_workload_api \
+      --test withdrawal_policy \
+      --test outage_policy \
+      --test trust_reduction_policy \
+      --test production_sink_policy
   )
 }
 
 if [[ "${OPENSESAME_FORMAL_SQUASH_SKIP_LEAN:-}" != "1" ]]; then
   (cd "$SCRATCH" && npm run verify:authority-formal && npm run verify:dpop-formal && npm run verify:spiffe-formal)
 else
-  # The full Lean verify scripts stay skipped. SPIFFE still runs vector
-  # correspondence when Lean is present, and always runs the Lean-independent
-  # integration tests that exercise withdrawal, trust reduction, and outage.
-  lean_bin="${OPENSESAME_LEAN_BIN:-lean}"
-  if command -v "$lean_bin" >/dev/null 2>&1; then
-    vectors="$(mktemp "${TMPDIR:-/tmp}/opensesame-spiffe-formal.XXXXXXXX")"
-    trap 'rm -f "$vectors"; git worktree remove -f "$SCRATCH" 2>/dev/null || rm -rf "$SCRATCH"' EXIT
-    (
-      cd "$SCRATCH/spec/formal/spiffe"
-      bash "$SCRATCH/spec/formal/check-axioms.sh" "$lean_bin" "$SCRATCH/spec/formal/spiffe/SpiffePolicy.lean"
-    ) > "$vectors"
-    (
-      cd "$SCRATCH"
-      OPENSESAME_SPIFFE_VECTORS="$vectors" cargo test --locked -p opensesame-spiffe-source --all-features --lib \
-        source::formal_tests::lean_vectors_match_the_sdk_classifier_and_outage_deadlines -- --ignored --exact
-    )
-  else
-    echo "formal-squash-merge-verify: Lean unavailable; skipping SPIFFE vector correspondence" >&2
-  fi
+  echo "formal-squash-merge-verify: skipping Lean; running SPIFFE Rust integration suites" >&2
   run_spiffe_skip_lean_integration
 fi
 echo "formal-squash-merge-verify: ok (base origin/main $MAIN)"
