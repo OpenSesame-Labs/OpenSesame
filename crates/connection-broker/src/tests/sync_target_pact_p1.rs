@@ -315,6 +315,20 @@ fn chunk01_bare_dispatch_after_if_or_loop_is_a_send() {
     assert_eq!(credentialed_send_https_gaps(not_send), (0, 0), "{not_send}");
 }
 
+/// Compaction must not weld `/` `*` into a block comment that swallows the
+/// rest of the function, nor `&` `&` into the `&&` the HTTPS guard splits on.
+#[test]
+fn chunk03_compact_source_keeps_token_boundaries() {
+    let compact = super::sync_target_pact_norm::compact_source(
+        "let x = a / *ptr; let y = & &z; let s = \"a / *ptr\";",
+    );
+    assert_eq!(compact, "let x=a/ *ptr;let y=& &z;let s=\"a / *ptr\";");
+    let read = r#"async fn f() { let x = a / *ptr; response.text().await; }"#;
+    assert!(!response_body_reads(read).is_empty(), "{read}");
+    let send = r#"async fn f() { let x = a / *ptr; client.get(evil).send().await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(send), (1, 1), "{send}");
+}
+
 /// Whitespace or a comment between the alias name and its argument list does
 /// not turn a call into a non-call.
 #[test]

@@ -14,7 +14,7 @@ mod lex;
 pub(crate) use lex::{
     find_code_byte, function_spans, is_keyword_at, match_brace, non_code_len, string_len,
 };
-use lex::{is_ident_char, skip_block_comment_nested, skip_comment};
+use lex::{gap_welds_tokens, is_ident_char, skip_block_comment_nested, skip_comment};
 
 pub(crate) fn normalize_scan_source(source: &str) -> String {
     compact_source(&strip_use_items(&strip_noise(source)))
@@ -312,19 +312,28 @@ fn split_use_as(item: &str) -> Option<(&str, &str)> {
     (alias == ident_at(alias) && !alias.is_empty()).then_some((path, alias))
 }
 
+/// Whitespace is deleted, but strings stay verbatim and a gap that would weld
+/// two tokens into one (`a / *ptr` gluing into a `/*` comment) keeps a space.
 pub(crate) fn compact_source(source: &str) -> String {
+    let bytes = source.as_bytes();
     let mut out = String::with_capacity(source.len());
-    let mut chars = source.chars().peekable();
-    while let Some(ch) = chars.next() {
-        if ch.is_whitespace() {
-            let prev_ident = out.chars().next_back().is_some_and(is_ident_char);
-            let next_ident = chars.peek().copied().is_some_and(is_ident_char);
-            if prev_ident && next_ident {
-                out.push(' ');
-            }
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            out.push_str(&source[index..index + len]);
+            index += len;
             continue;
         }
-        out.push(ch);
+        let ch = source[index..].chars().next().unwrap();
+        if ch.is_whitespace() {
+            let next = source[index + ch.len_utf8()..].chars().next();
+            if gap_welds_tokens(out.chars().next_back(), next) {
+                out.push(' ');
+            }
+        } else {
+            out.push(ch);
+        }
+        index += ch.len_utf8();
     }
     out
 }
