@@ -80,7 +80,7 @@ function newProfilePageFactory(harness) {
 
 export async function captureProfileRecords(
   browser,
-  { harness, devUrl, label, href, outRoot, check, digest },
+  { harness, label, href, outRoot, check, digest },
 ) {
   const newProfilePage = newProfilePageFactory(harness);
   const records = [];
@@ -143,7 +143,7 @@ export async function captureProfileRecords(
 
 export async function captureAdvancedMinimalWarning(
   browser,
-  { harness, devUrl, expectAdvanced, label, href, outRoot, check },
+  { harness, expectAdvanced, label, href, outRoot, check },
 ) {
   if (!expectAdvanced) return;
   const newProfilePage = newProfilePageFactory(harness);
@@ -162,7 +162,7 @@ export async function captureAdvancedMinimalWarning(
 
 export async function captureTutorialPauseEvidence(
   browser,
-  { harness, devUrl, label, href, outRoot, check, digest },
+  { harness, label, href, outRoot, check, digest },
   evidence,
 ) {
   const freshHarnessPage = harness
