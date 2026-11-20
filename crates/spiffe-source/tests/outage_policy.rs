@@ -200,6 +200,7 @@ async fn stalled_rpc_opening_cannot_extend_the_outage_deadline() {
         sink.clone(),
     );
     streaming(&handle, 1).await;
+    api.close_streams();
     api.stall_on_reconnect();
     let (since, deadline) = opened_outage(&handle).await;
     tokio::time::timeout(Duration::from_secs(2), async {
