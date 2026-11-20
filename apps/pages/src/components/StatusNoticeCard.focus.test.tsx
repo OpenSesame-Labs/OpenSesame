@@ -69,6 +69,38 @@ describe("a tray card whose act works in place (ADR 0221)", () => {
     expect(document.activeElement).toBe(document.body);
   });
 
+  it("draws one worded act as a labeled choice key", () => {
+    const resume = vi.fn();
+    const onOpen = vi.fn();
+    render(
+      card(
+        {
+          id: "tutorial.queue.vault.lock",
+          kind: "status",
+          tone: "info",
+          title: "Lock the vault",
+          body: "Queued.",
+          act: {
+            label: "Resume walkthrough",
+            worded: true,
+            opens: true,
+            run: resume,
+          },
+          createdAt: "2026-11-19T00:00:00Z",
+        },
+        onOpen,
+      ),
+    );
+    const key = screen.getByRole("button", { name: "Resume walkthrough" });
+    expect(key.className).toContain("choice");
+    expect(key.className).not.toContain("icon-btn");
+    expect(key.textContent).toBe("Resume walkthrough");
+    key.focus();
+    fireEvent.click(key);
+    expect(resume).toHaveBeenCalledTimes(1);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
   it("draws a worded pair as choice keys", () => {
     const pause = vi.fn();
     const only = vi.fn();
