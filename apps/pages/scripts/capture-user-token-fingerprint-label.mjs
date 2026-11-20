@@ -10,12 +10,12 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { findChromium } from "./duress/find-chromium.mjs";
+import { createHarness } from "./lib/static-origin-harness.mjs";
 import {
   appPaths,
   buildDist,
   resolveWalks,
 } from "./lib/verification-checklist-profiles.mjs";
-import { createHarness } from "./lib/static-origin-harness.mjs";
 
 const repoRoot = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -121,8 +121,7 @@ async function captureTokenLabel(harness, page, walk) {
 
 async function main() {
   prepareChromium();
-  const restore =
-    phase === "before" ? runBeforeLabelPatch() : () => undefined;
+  const restore = phase === "before" ? runBeforeLabelPatch() : () => undefined;
   const { appRoot, scriptsDir, profilesDir } = appPaths();
   try {
     const walks = resolveWalks(profilesDir);
