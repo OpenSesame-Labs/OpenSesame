@@ -98,7 +98,14 @@ function WordedActs({
     if (opens) return;
     if (wordedTray) {
       if (fromKeyboard) {
-        landFocus(firstControl(actionsRef.current));
+        queueMicrotask(() => {
+          const dialog = actionsRef.current?.closest('[role="dialog"]');
+          const close =
+            dialog?.querySelector<HTMLButtonElement>(
+              'button[aria-label="Close"]',
+            ) ?? null;
+          if (close) landFocus(close);
+        });
       }
       return;
     }

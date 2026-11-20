@@ -14,7 +14,11 @@ import { guideGoal, guideGoalIds } from "../tutorial/registry/goals.js";
 import { GUIDE_OVERLAY_ROUTES } from "../tutorial/registry/routes.js";
 import { loadGuidance } from "./guidance.js";
 import { hideToast, showToast } from "./notice-toast.js";
-import { dismissNotice, setStatusNotice } from "./notices.js";
+import {
+  dismissNotice,
+  removeStatusNotice,
+  setStatusNotice,
+} from "./notices.js";
 import {
   TUTORIAL_PAUSE_NOTICE,
   TUTORIAL_QUEUE_LIMIT,
@@ -27,6 +31,7 @@ import {
   sessionTutorialsPaused,
   setQueuedTutorials,
   setSessionTutorialsPaused,
+  storedQueuedGoalIds,
   tutorialHomeRoute,
   tutorialQueueNoticeId,
 } from "./tutorial-queue.js";
@@ -38,6 +43,12 @@ export const ONLY_THIS_TUTORIAL = "Only this one";
 type QueuedTutorialNoticeOptions = Readonly<{ toast?: boolean }>;
 
 const TRAY_ONLY_NOTICE: QueuedTutorialNoticeOptions = { toast: false };
+
+function suppressQueueNoticePresentation(goalId: string): void {
+  const id = tutorialQueueNoticeId(goalId);
+  hideToast(id);
+  removeStatusNotice(id);
+}
 
 let queueLibraryOptions: LibraryOptions = {};
 
@@ -73,8 +84,8 @@ function queueableGoal(goalId: string): boolean {
  */
 export function queueUnansweredWalkthroughs(): number {
   const answered = new Set(loadGuidance().tours);
-  const existing = listQueuedTutorials().map((item) => item.goalId);
-  const existingSet = new Set(existing);
+  const stored = storedQueuedGoalIds();
+  const existingSet = new Set(stored);
   const pending: string[] = [];
   for (const goalId of guideGoalIds()) {
     if (answered.has(goalId) && !existingSet.has(goalId)) continue;
@@ -82,9 +93,9 @@ export function queueUnansweredWalkthroughs(): number {
     if (!queueableGoal(goalId)) continue;
     pending.push(goalId);
   }
-  const room = Math.max(0, TUTORIAL_QUEUE_LIMIT - existing.length);
+  const room = Math.max(0, TUTORIAL_QUEUE_LIMIT - stored.length);
   const accepted = pending.slice(0, room);
-  setQueuedTutorials([...existing, ...accepted]);
+  setQueuedTutorials([...stored, ...accepted]);
   for (const goalId of accepted) {
     postQueuedTutorialNotice(goalId, TRAY_ONLY_NOTICE);
   }
@@ -183,7 +194,7 @@ export function refreshQueuedTutorialTrayNotices(): void {
     const goal = guideGoal(item.goalId);
     if (goal === null) continue;
     if (!queueableGoal(item.goalId)) {
-      dropQueueNotice(item.goalId);
+      suppressQueueNoticePresentation(item.goalId);
       continue;
     }
     postQueuedTutorialNotice(item.goalId, TRAY_ONLY_NOTICE);
