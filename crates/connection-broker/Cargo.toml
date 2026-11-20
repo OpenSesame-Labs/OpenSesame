@@ -61,7 +61,7 @@ uuid = { workspace = true }
 # The credential and identity types are named only to hand the signer its key.
 # 1.6.4 / 1.3.1 / 1.19.2 is the smithy-rs set whose aws-smithy-http (0.64.3)
 # no longer depends on unmaintained pin-utils (RUSTSEC-2026-0441).
-aws-sigv4 = { version = "=1.6.4", default-features = false, features = ["sign-http", "http1"] }
+aws-sigv4 = { version = "=1.6.5", default-features = false, features = ["sign-http", "http1"] }
 aws-credential-types = { version = "=1.3.1", default-features = false }
 aws-smithy-runtime-api = { version = "=1.21.0", default-features = false, features = ["client"] }
 # Bounded STS XML reading. Already in the lock through the KDBX bridge.
