@@ -242,7 +242,37 @@ fn free_call_url(expr: &str, index: usize) -> Option<&str> {
         return None;
     }
     let inner = call_inside(&expr[index..])?;
+    if call_arg_count(inner) != 1 {
+        return None;
+    }
     plain_ident(strip_ref(split_arg(inner, false)))
+}
+
+fn call_arg_count(args: &str) -> usize {
+    let bytes = args.as_bytes();
+    let (mut depth, mut index, mut start, mut count) = (0i32, 0usize, 0usize, 1usize);
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'(' | b'[' | b'{' | b'<' => depth += 1,
+            b')' | b']' | b'}' | b'>' if depth > 0 => depth -= 1,
+            b',' if depth == 0 => {
+                if !args[start..index].trim().is_empty() {
+                    count += 1;
+                }
+                start = index + 1;
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    if args[start..].trim().is_empty() && count > 1 {
+        count -= 1;
+    }
+    count
 }
 
 fn is_free_call(expr: &str, paren: usize) -> bool {

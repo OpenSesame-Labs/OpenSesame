@@ -11,7 +11,7 @@ mod lex;
 pub(crate) use lex::{
     find_code_byte, function_spans, is_keyword_at, match_brace, non_code_len, string_len,
 };
-use lex::{is_ident_char, skip_comment};
+use lex::{is_ident_char, skip_block_comment_nested, skip_comment};
 
 pub(crate) fn normalize_scan_source(source: &str) -> String {
     compact_source(&strip_use_items(&strip_noise(source)))
@@ -40,7 +40,11 @@ fn rewrite(source: &str, noise: bool) -> String {
             && bytes[index] == b'/'
             && matches!(bytes[index + 1], b'/' | b'*')
         {
-            index = skip_comment(bytes, index);
+            index = if bytes[index + 1] == b'*' {
+                skip_block_comment_nested(bytes, index)
+            } else {
+                skip_comment(bytes, index)
+            };
             out.push(' ');
             continue;
         }

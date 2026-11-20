@@ -35,15 +35,45 @@ pub(crate) fn non_code_len(bytes: &[u8], index: usize) -> Option<usize> {
 
 pub(super) fn skip_comment(bytes: &[u8], start: usize) -> usize {
     if bytes.get(start + 1) == Some(&b'/') {
-        let mut index = start + 2;
-        while index < bytes.len() && bytes[index] != b'\n' {
-            index += 1;
-        }
-        return index;
+        return skip_line_comment(bytes, start);
     }
+    skip_block_comment_flat(bytes, start)
+}
+
+fn skip_line_comment(bytes: &[u8], start: usize) -> usize {
+    let mut index = start + 2;
+    while index < bytes.len() && bytes[index] != b'\n' {
+        index += 1;
+    }
+    index
+}
+
+/// Rust block comments do not nest; the first `*/` ends the comment.
+pub(crate) fn skip_block_comment_flat(bytes: &[u8], start: usize) -> usize {
+    let mut index = start + 2;
+    while index + 1 < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        if bytes[index] == b'*' && bytes[index + 1] == b'/' {
+            return index + 2;
+        }
+        index += 1;
+    }
+    bytes.len()
+}
+
+/// Noise stripping treats fake `/* /* */ tail */` as one comment so hidden
+/// `.text()` cannot slip through after a spurious `*/`.
+pub(crate) fn skip_block_comment_nested(bytes: &[u8], start: usize) -> usize {
     let mut index = start + 2;
     let mut depth = 1i32;
-    while index + 1 < bytes.len() && depth > 0 {
+    while index + 1 < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
         if bytes[index] == b'/' && bytes[index + 1] == b'*' {
             depth += 1;
             index += 2;
@@ -52,15 +82,14 @@ pub(super) fn skip_comment(bytes: &[u8], start: usize) -> usize {
         if bytes[index] == b'*' && bytes[index + 1] == b'/' {
             depth -= 1;
             index += 2;
+            if depth == 0 {
+                return index;
+            }
             continue;
         }
         index += 1;
     }
-    if depth > 0 {
-        bytes.len()
-    } else {
-        index
-    }
+    bytes.len()
 }
 
 pub(crate) fn match_brace(bytes: &[u8], open: usize) -> Option<usize> {
@@ -217,4 +246,27 @@ fn is_ident_byte(byte: u8) -> bool {
 
 pub(super) fn is_ident_char(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || ch == '_'
+}
+
+#[cfg(test)]
+mod probes {
+    use super::{skip_block_comment_flat, skip_block_comment_nested};
+    use crate::tests::sync_target_pact_let::typed_let_name_before_path;
+
+    #[test]
+    fn p5_block_comment_does_not_nest() {
+        let bytes = br#"/* outer /* inner */ still */.text()"#;
+        let flat = skip_block_comment_flat(bytes, 0);
+        assert_eq!(&bytes[flat..], b" still */.text()");
+        let nested = skip_block_comment_nested(bytes, 0);
+        assert_eq!(&bytes[nested..], b".text()");
+    }
+
+    #[test]
+    fn p5_compound_assign_not_let_binding_eq() {
+        assert!(
+            crate::tests::sync_target_pact_let::binding_name_before("url += evil").is_none(),
+            "`+=` must not parse as a `let name =` binding"
+        );
+    }
 }
