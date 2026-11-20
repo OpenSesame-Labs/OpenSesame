@@ -114,6 +114,8 @@ export function SetupScreen({
     step || join ? "ceremony" : "choose",
   );
   const [pending, setPending] = useState<ConfigurationChoice | null>(null);
+  // Both confirm choices can run in one turn, before `pending` renders.
+  const committing = useRef(false);
   const frameRef = useRef<HTMLDivElement>(null);
   const { tabProps } = useRovingTabs({
     count: STEPS.length,
@@ -173,17 +175,26 @@ export function SetupScreen({
   }
 
   function commit(id: AppliedConfiguration) {
+    if (committing.current || pending || finishing) return;
+    committing.current = true;
+    dismissMinimalConfirm();
     setPending(id);
     void applySetupConfiguration(id)
       .then((result) => {
         if (result === "applied") finish([]);
-        else setPending(null);
+        else {
+          committing.current = false;
+          setPending(null);
+        }
       })
-      .catch(() => setPending(null));
+      .catch(() => {
+        committing.current = false;
+        setPending(null);
+      });
   }
 
   function choose(id: ConfigurationChoice) {
-    if (pending || finishing) return;
+    if (committing.current || pending || finishing) return;
     if (id === "custom") {
       dismissMinimalConfirm();
       setPhase("ceremony");
