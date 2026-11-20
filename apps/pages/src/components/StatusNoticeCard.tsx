@@ -71,6 +71,46 @@ function NoticeRetry({ notice, inFlow }: { notice: Notice; inFlow: boolean }) {
   );
 }
 
+function wordedPair(notice: Notice): boolean {
+  return notice.act?.worded === true && notice.alt?.worded === true;
+}
+
+function WordedActs({
+  notice,
+  onOpen,
+}: {
+  notice: Notice;
+  onOpen: () => void;
+}) {
+  const act = notice.act;
+  const alt = notice.alt;
+  if (!act || !alt) return null;
+  return (
+    <>
+      <button
+        type="button"
+        className="btn btn--primary btn--sm choice"
+        onClick={() => {
+          if (act.opens) onOpen();
+          act.run();
+        }}
+      >
+        {act.label}
+      </button>
+      <button
+        type="button"
+        className="btn btn--sm choice"
+        onClick={() => {
+          if (alt.opens) onOpen();
+          alt.run();
+        }}
+      >
+        {alt.label}
+      </button>
+    </>
+  );
+}
+
 function NoticeDismiss({
   notice,
   inFlow,
@@ -149,7 +189,9 @@ export function StatusNoticeCard({
             ) : null}
           </IconKey>
         ) : null}
-        {notice.act ? (
+        {wordedPair(notice) ? (
+          <WordedActs notice={notice} onOpen={onOpen} />
+        ) : notice.act ? (
           <IconKey
             label={notice.act.label}
             small

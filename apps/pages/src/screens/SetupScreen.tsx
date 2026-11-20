@@ -45,6 +45,10 @@ import {
   applySetupConfiguration,
 } from "./setup/apply-configuration.js";
 import { KeepIt } from "./setup/KeepIt.js";
+import {
+  dismissMinimalConfirm,
+  showMinimalConfirm,
+} from "./setup/minimal-confirm.js";
 import { SetupBrand } from "./setup/SetupBrand.js";
 import {
   type ConfigurationChoice,
@@ -152,6 +156,7 @@ export function SetupScreen({
   const verb = finishing ? "Saving…" : "Finish setup";
 
   function finish(skippedSteps: readonly SetupStep[]) {
+    dismissMinimalConfirm();
     // The answers already live in `settings.v1` — every step writes there as
     // it is touched, because the screens that read them do too. The record
     // only says which roads were taken and which were stepped past, so a
@@ -190,20 +195,29 @@ export function SetupScreen({
     finish([...skipped, ...STEPS.slice(index).map((step) => step.id)]);
   }
 
-  function choose(id: ConfigurationChoice) {
-    if (id === "custom") {
-      setPhase("ceremony");
-      return;
-    }
-    if (pending || finishing) return;
-    const applied: AppliedConfiguration = id;
+  function commit(id: AppliedConfiguration) {
     setPending(id);
-    void applySetupConfiguration(applied)
+    void applySetupConfiguration(id)
       .then((result) => {
         if (result === "applied") finish([]);
         else setPending(null);
       })
       .catch(() => setPending(null));
+  }
+
+  function choose(id: ConfigurationChoice) {
+    if (pending || finishing) return;
+    if (id === "custom") {
+      dismissMinimalConfirm();
+      setPhase("ceremony");
+      return;
+    }
+    if (id === "minimal") {
+      showMinimalConfirm(() => commit("minimal"));
+      return;
+    }
+    dismissMinimalConfirm();
+    commit(id);
   }
   function stepBack() {
     if (index <= 0) return;
@@ -227,7 +241,10 @@ export function SetupScreen({
               className="icon-btn setup__back"
               aria-label="Close"
               title="Close"
-              onClick={onDone}
+              onClick={() => {
+                dismissMinimalConfirm();
+                onDone();
+              }}
             >
               <IconX size={18} />
             </button>
