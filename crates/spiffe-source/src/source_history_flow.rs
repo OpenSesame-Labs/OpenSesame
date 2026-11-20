@@ -219,7 +219,11 @@ impl Loop {
                     status.not_after = Some(generation.not_after);
                     status.updated_at = Some(now);
                     status.outage_since = None;
-                    status.retain_until = Some(generation.not_after);
+                    // A live generation carries no outage ceiling: the stale
+                    // bound of the outage it ended must not bind it. The
+                    // effective deadline is unchanged — bounded_deadline
+                    // falls back to `not_after` when nothing is retained.
+                    status.retain_until = None;
                     status.last_error = None;
                     status.snapshots = status.snapshots.saturating_add(1);
                 });
@@ -250,7 +254,12 @@ impl Loop {
             .as_ref()
             .is_none_or(|active| generation.bundles.contains_all(&active.bundles));
         if safe {
-            self.update(|status| status.last_error = Some(code.to_owned()));
+            // With no retained generation a previous withdrawal reason (e.g.
+            // `trust_reduced`) already stands for this candidate; the refusal
+            // code only documents a live retain, never re-labels a withdraw.
+            if self.active.is_some() {
+                self.update(|status| status.last_error = Some(code.to_owned()));
+            }
         } else {
             self.withdraw(TransportError::TrustUnknown, Some("trust_reduced"));
         }

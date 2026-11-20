@@ -48,8 +48,10 @@ the source says so or their bounds run out.
   including a `PERMISSION_DENIED` status still wrapped as a transport error.
   An empty Workload API response withdraws with the same reason as an empty
   SVID list. `UNAVAILABLE`, connection errors and EOF take the outage path.
-  Dropping the source handle signals that loop to withdraw and stop; `Drop`
-  does not join the task (`stop` does).
+  Dropping the source handle retires its sink lease and signals that loop to
+  withdraw and stop; `Drop` does not join the task (`stop` does). Each
+  snapshot's trust history is written ahead of activation and fenced to the
+  claiming source owner.
   There is no alternate identity input: this source has no PEM, managed
   certificate, or shared operator identity to fall back to.
 * **Rotation** — a new key under the same SPIFFE ID is a new generation with
