@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { copyFileSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as nodeTest from "node:test";
+import { parse } from "yaml";
 import { imageLeaf, probePlan } from "../ci/oci-image-smoke.mjs";
 import { repoRootFromHere } from "./ci-changed-areas.mjs";
 
@@ -320,6 +323,50 @@ describe("GHCR image proof workflow", () => {
     assert.match(retired, /workflow_dispatch:/);
     assert.doesNotMatch(retired, /packages:\s*write/);
     assert.doesNotMatch(retired, /docker\/build-push-action/);
+  });
+
+  it("checks out .gitignore with biome.json for the Pages build", () => {
+    // The SAML worker freshness guard runs `biome format` during the Pages
+    // image build. biome.json sets vcs.useIgnoreFile, so Biome requires a
+    // root .gitignore in that sparse checkout (the Docker build context).
+    const job = parse(workflow).jobs["web-pwa-amd64"];
+    const checkout = job.steps.find((step) =>
+      String(step.uses ?? "").startsWith("actions/checkout@"),
+    );
+    const paths = String(checkout.with["sparse-checkout"])
+      .split("\n")
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+    assert.ok(paths.includes("/.gitignore"));
+    assert.ok(paths.includes("/biome.json"));
+  });
+
+  it("biome format needs a root .gitignore when biome.json is present", () => {
+    const fixture = mkdtempSync(join(tmpdir(), "ghcr-biome-ignore-"));
+    const biome = createRequire(join(root, "package.json")).resolve(
+      "@biomejs/biome/bin/biome",
+    );
+    const format = () =>
+      spawnSync(
+        process.execPath,
+        [biome, "format", "--stdin-file-path", join(fixture, "file.ts")],
+        {
+          cwd: fixture,
+          encoding: "utf8",
+          input: "export const n=1\n",
+        },
+      );
+    try {
+      copyFileSync(join(root, "biome.json"), join(fixture, "biome.json"));
+      const missing = format();
+      assert.notEqual(missing.status, 0);
+      assert.match(missing.stderr, /couldn't find an ignore file/);
+      copyFileSync(join(root, ".gitignore"), join(fixture, ".gitignore"));
+      const present = format();
+      assert.equal(present.status, 0, present.stderr);
+    } finally {
+      rmSync(fixture, { recursive: true, force: true });
+    }
   });
 });
 

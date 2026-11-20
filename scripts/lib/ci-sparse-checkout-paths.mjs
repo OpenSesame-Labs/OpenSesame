@@ -57,6 +57,22 @@ export const SPARSE_WORKSPACE_BUILD = Object.freeze([
   "/.dockerignore",
 ]);
 
+/**
+ * Pages image build runs the SAML worker freshness guard, which formats with
+ * Biome. `biome.json` sets `vcs.useIgnoreFile`, so the Docker context needs
+ * the root `.gitignore` beside `/biome.json`.
+ */
+const SPARSE_WEB_PWA_AMD64 = Object.freeze([
+  ...SPARSE_WORKSPACE_BUILD.slice(
+    0,
+    SPARSE_WORKSPACE_BUILD.indexOf("/biome.json") + 1,
+  ),
+  "/.gitignore",
+  ...SPARSE_WORKSPACE_BUILD.slice(
+    SPARSE_WORKSPACE_BUILD.indexOf("/biome.json") + 1,
+  ),
+]);
+
 /** Release scripts and mise, with no workspace install. */
 export const SPARSE_CD_RELEASE_SCRIPT = Object.freeze([
   "scripts/lib",
@@ -145,7 +161,7 @@ export const PROOF_CHECKOUT_PLAN = Object.freeze({
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
-    Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
+    Object.freeze({ paths: SPARSE_WEB_PWA_AMD64 }),
   ]),
 });
 
