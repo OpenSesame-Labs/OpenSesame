@@ -25,4 +25,41 @@ mod probes {
         let same = r#"async fn f() { let request = if cond { client.get(url) } else { client.get(url) }; if url.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#;
         assert_eq!(credentialed_send_https_gaps(same), (1, 0), "{same}");
     }
+
+    #[test]
+    fn council_p1_free_call_branches_and_comment_braces_fail_closed() {
+        let gaps = [
+            (
+                r#"async fn f() { let request = if cond { build(evil) } else { build(url) }; if url.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#,
+                (1, 1),
+            ),
+            (
+                r#"async fn f() { let request = if cond { build(url) } else { build(url) }; if url.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#,
+                (1, 0),
+            ),
+            (
+                r#"async fn f() { let request = build(url); if url.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#,
+                (1, 0),
+            ),
+            (
+                "async fn f() { if cond { // }\n request = client.get(url); } else { request = client.get(evil); } if url.scheme() != \"https\" { return Err(\"x\".into()); } request.send().await?; }",
+                (1, 1),
+            ),
+            (
+                "async fn f() { if cond { /* } */ request = client.get(url); } else { request = client.get(evil); } if url.scheme() != \"https\" { return Err(\"x\".into()); } request.send().await?; }",
+                (1, 1),
+            ),
+            (
+                r#"async fn f() { if cond { request = client.get(url); } else { request = client.get(evil); } if url.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#,
+                (1, 1),
+            ),
+            (
+                r#"async fn f() { if cond { request = client.get(url); } else { request = client.get(url); } if url.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#,
+                (1, 0),
+            ),
+        ];
+        for (sample, expected) in gaps {
+            assert_eq!(credentialed_send_https_gaps(sample), expected, "{sample}");
+        }
+    }
 }
