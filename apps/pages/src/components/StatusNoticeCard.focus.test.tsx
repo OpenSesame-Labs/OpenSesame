@@ -98,13 +98,14 @@ describe("a tray card whose act works in place (ADR 0221)", () => {
     expect(only).toHaveBeenCalledTimes(1);
   });
 
-  it("closes the sheet after a keyboard worded choice removes its card", () => {
+  it("closes the tray after a keyboard worded choice on a page toast", () => {
     const pause = vi.fn();
     const only = vi.fn();
     const onOpen = vi.fn();
     render(
       <MemoryRouter>
         <StatusNoticeCard
+          inFlow={false}
           notice={{
             id: "tutorial.pause.session",
             kind: "status",
