@@ -205,12 +205,11 @@ function useFirstVisitPlacement({
 }: Placement) {
   const [inline, setInline] = useState<InlineOffer | null>(null);
   useEffect(() => {
-    if (
-      !tutorialsMaySpeak(mode, paused) ||
-      !idle ||
-      (!gateScreen && gatePresent)
-    )
+    if (!tutorialsMaySpeak(mode, paused)) {
+      setInline(null);
       return;
+    }
+    if (!idle || (!gateScreen && gatePresent)) return;
     let timer: ReturnType<typeof setTimeout>;
     const speak = () => {
       // A sheet owns the screen, or an edit is under way: wait and ask again,

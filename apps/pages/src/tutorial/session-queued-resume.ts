@@ -1,4 +1,3 @@
-import { completeQueuedTutorial } from "@opensesame/app-core/lib/tutorial-queue.js";
 import { guideGoal } from "@opensesame/app-core/tutorial/registry/goals.js";
 import {
   GUIDE_OVERLAY_ROUTES,
@@ -37,19 +36,13 @@ export function createQueuedResumeHandlers(host: QueuedResumeHost) {
     return guideRouteWithin(state.route, homeRoute);
   }
 
-  function beginQueuedWalkthrough(
-    goalId: string,
-    guide: string,
-    homeRoute: string,
-  ): boolean {
+  function beginQueuedWalkthrough(guide: string, homeRoute: string): boolean {
     if (host.guideRunning() || host.queuedResumeLoading()) return false;
     if (!queuedResumeRouteOk(homeRoute)) return false;
     const beginAuthored = (loaded: SupportEngine) => {
       if (host.guideRunning()) return false;
       if (!queuedResumeRouteOk(homeRoute)) return false;
-      if (!host.runAuthoredProgram(loaded, guide)) return false;
-      completeQueuedTutorial(goalId);
-      return true;
+      return host.runAuthoredProgram(loaded, guide);
     };
     const engine = host.getEngine();
     if (engine) {
@@ -79,14 +72,16 @@ export function createQueuedResumeHandlers(host: QueuedResumeHost) {
   function flushPendingQueuedResume(): void {
     const pending = host.getPending();
     if (!pending) return;
-    const { goalId, guide, homeRoute } = pending;
+    const { guide, homeRoute } = pending;
     if (!queuedResumeRouteOk(homeRoute)) {
+      // Home was never reached. A later visit must not start this resume.
+      host.setPending(null);
       host.setQueuedResumeLoading(false);
       return;
     }
     host.setPending(null);
     host.setQueuedResumeLoading(false);
-    beginQueuedWalkthrough(goalId, guide, homeRoute);
+    beginQueuedWalkthrough(guide, homeRoute);
   }
 
   function resumeQueuedWalkthrough(
@@ -102,10 +97,45 @@ export function createQueuedResumeHandlers(host: QueuedResumeHost) {
       if (!host.getNavigator()?.(homeRoute)) return false;
       host.setQueuedResumeLoading(true);
       host.setPending({ goalId, guide, homeRoute });
-      void host.ensureEngine();
+      const era = host.loadGeneration();
+      const armedRoute = host.getState().route;
+      void host
+        .ensureEngine()
+        .then((loaded) => {
+          if (host.loadGeneration() !== era) return;
+          const pending = host.getPending();
+          if (pending?.goalId !== goalId || pending.homeRoute !== homeRoute) {
+            return;
+          }
+          if (!loaded) {
+            host.setPending(null);
+            host.setQueuedResumeLoading(false);
+            host.notifyFailure(SUPPORT_ERROR_TEXT.AGENT_UNAVAILABLE);
+            return;
+          }
+          if (!queuedResumeRouteOk(homeRoute)) return;
+          host.setPending(null);
+          host.setQueuedResumeLoading(false);
+          beginQueuedWalkthrough(guide, homeRoute);
+        })
+        .finally(() => {
+          if (host.loadGeneration() !== era) return;
+          const pending = host.getPending();
+          if (pending?.goalId !== goalId || pending.homeRoute !== homeRoute) {
+            return;
+          }
+          if (queuedResumeRouteOk(homeRoute)) return;
+          // Still off the tour's home. Release the reservation. Pending stays
+          // only while the route has not moved, so the home arrival can start
+          // it; a different route abandons it in the flush above.
+          if (host.getState().route !== armedRoute) {
+            host.setPending(null);
+          }
+          host.setQueuedResumeLoading(false);
+        });
       return true;
     }
-    return beginQueuedWalkthrough(goalId, guide, homeRoute);
+    return beginQueuedWalkthrough(guide, homeRoute);
   }
 
   return {
