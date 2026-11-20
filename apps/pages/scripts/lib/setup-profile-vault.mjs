@@ -10,8 +10,8 @@ import {
   sealLocalOnly,
   waitOpen,
 } from "./pages-journey.mjs";
-import { visibleClick } from "./verification-checklist-shot.mjs";
 import { assertProfileVaultDom } from "./setup-profile-vault-dom.mjs";
+import { visibleClick } from "./verification-checklist-shot.mjs";
 
 async function openSetupChoices(page, href) {
   await page.goto(href, { waitUntil: "domcontentloaded" });
