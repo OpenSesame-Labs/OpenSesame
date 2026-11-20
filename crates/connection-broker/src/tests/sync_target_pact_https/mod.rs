@@ -109,16 +109,21 @@ fn dispatch_len(rest: &str) -> Option<usize> {
 
 pub(super) fn strip_turbofish(after: &str) -> Option<&str> {
     let after = after.strip_prefix("::")?.strip_prefix('<')?;
-    let mut depth = 1i32;
+    let bytes = after.as_bytes();
+    let (mut depth, mut brace) = (1i32, 0i32);
     for (index, ch) in after.char_indices() {
         match ch {
-            '<' => depth += 1,
-            '>' => {
+            '{' => brace += 1,
+            '}' => brace = brace.saturating_sub(1),
+            // `->` is a return type (`fn() -> R`) and `>` inside `{…}` is a
+            // comparison (`{1 > 0}`); neither closes the turbofish.
+            '>' if brace == 0 && !(index > 0 && bytes[index - 1] == b'-') => {
                 depth -= 1;
                 if depth == 0 {
                     return Some(&after[index + ch.len_utf8()..]);
                 }
             }
+            '<' if brace == 0 => depth += 1,
             _ => {}
         }
     }

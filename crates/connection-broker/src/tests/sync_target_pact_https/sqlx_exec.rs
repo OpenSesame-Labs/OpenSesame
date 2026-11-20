@@ -9,28 +9,20 @@ use super::{is_ident_byte, is_ident_char};
 
 pub(super) fn receiver_is_sqlx(source: &str, execute_at: usize) -> bool {
     let recv = statement_receiver(source, execute_at);
-    if has_sqlx_query(recv) {
+    // The receiver itself must be the query at its head. A wrapper that
+    // merely contains `sqlx::query` (`wrap(sqlx::query("s"))`) is an HTTP
+    // chain, not a database call.
+    if initializer_is_sqlx(recv) {
         return true;
     }
     let name = trailing_ident(recv);
     !name.is_empty() && binding_is_sqlx(&source[..execute_at], &name)
 }
 
-/// `sqlx::query` / `sqlx::Query` as a path, not a substring of `not_sqlx::query`.
-fn has_sqlx_query(expr: &str) -> bool {
-    let bytes = expr.as_bytes();
-    let mut index = 0usize;
-    while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        if sqlx_query_at(expr, index) {
-            return true;
-        }
-        index += 1;
-    }
-    false
+/// The binding's value is a SQLx query. `wrap(sqlx::query(…))` only mentions
+/// SQLx inside the wrapper, so the bound value is still an HTTP client.
+fn initializer_is_sqlx(expr: &str) -> bool {
+    sqlx_query_at(query_head(expr.trim()), 0)
 }
 
 fn sqlx_query_at(expr: &str, index: usize) -> bool {
@@ -72,12 +64,8 @@ fn binding_is_sqlx(prefix: &str, name: &str) -> bool {
     false
 }
 
-/// The binding's value is a SQLx query. `wrap(sqlx::query(…))` only mentions
-/// SQLx inside the wrapper, so the bound value is still an HTTP client.
-fn initializer_is_sqlx(expr: &str) -> bool {
-    sqlx_query_at(query_head(expr.trim()), 0)
-}
-
+/// The expression with leading `&` / `&mut` and grouping parens peeled, so
+/// the head of the value is visible for the `sqlx::query` check.
 fn query_head(mut expr: &str) -> &str {
     loop {
         expr = expr.trim_start();
@@ -359,6 +347,9 @@ mod probes {
             r#"async fn f() { let client = wrap(sqlx::query("s")); client.execute(request).await?; }"#,
             r#"async fn f() { let client = wrap(sqlx::query("s")).ready(); client.execute(request).await?; }"#,
             r#"async fn f() { let query = sqlx::query("select 1"); let client = wrap(query); client.execute(request).await?; }"#,
+            r#"async fn f() { wrap(sqlx::query("s")).execute(request).await?; }"#,
+            r#"async fn f() { wrap(sqlx::query("s")).ready().execute(request).await?; }"#,
+            r#"async fn f() { let query = sqlx::query("select 1"); wrap(query).execute(request).await?; }"#,
         ];
         for sample in http {
             assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");

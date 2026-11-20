@@ -315,6 +315,33 @@ fn chunk01_bare_dispatch_after_if_or_loop_is_a_send() {
     assert_eq!(credentialed_send_https_gaps(not_send), (0, 0), "{not_send}");
 }
 
+/// Whitespace or a comment between the alias name and its argument list does
+/// not turn a call into a non-call.
+#[test]
+fn chunk01_gap_before_alias_call_parens_is_a_send() {
+    let hits = [
+        "fn f() { let dispatch = Path::send; dispatch (request); }",
+        "fn f() { let dispatch = Path::send; dispatch /* c */ (request); }",
+        "fn f() { let dispatch = Path::send; dispatch\n(request); }",
+        "fn f() { let dispatch = Path::send; dispatch::<T> (request); }",
+        "fn f() { let dispatch = Path::send; dispatch ::<T> (request); }",
+        "fn f() { let dispatch = Path::send; (dispatch) /* c */ (request); }",
+        "fn f() { let dispatch = Path::send; (dispatch) /* c */ ::<T> (request); }",
+    ];
+    for sample in hits {
+        assert_eq!(dispatch_alias_calls(sample).len(), 1, "{sample}");
+    }
+    let misses = [
+        "fn f() { let dispatch = Path::send; dispatch; }",
+        "fn f() { let dispatch = Path::send; dispatch /* (request) */; }",
+        "fn f() { let dispatch = Path::send; let other = dispatch; }",
+        "fn f() { let dispatch = Path::send; match dispatch { _ => () } }",
+    ];
+    for sample in misses {
+        assert!(dispatch_alias_calls(sample).is_empty(), "{sample}");
+    }
+}
+
 /// `/* ) */` and `/* , */` are not code, so the chain root stays the response.
 #[test]
 fn chunk01_comment_paren_keeps_response_root() {

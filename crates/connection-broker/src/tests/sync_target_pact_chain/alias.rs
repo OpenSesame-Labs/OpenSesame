@@ -179,7 +179,8 @@ fn trim_noise_ends(tail: &str) -> &str {
     &tail[start..end]
 }
 
-/// Whitespace and comments between a function item and its terminator.
+/// Whitespace and comments between a name and the next code byte: after a
+/// function item's terminator or before an alias call's argument list.
 fn skip_item_gap(after: &str) -> &str {
     let bytes = after.as_bytes();
     let mut index = 0usize;
@@ -281,11 +282,13 @@ fn alias_call_len(
     if name.is_empty() {
         return None;
     }
-    let mut after =
-        strip_turbofish(&source[index + name.len()..]).unwrap_or(&source[index + name.len()..]);
+    // Whitespace and comments before the argument list are not a boundary:
+    // `dispatch (request)` and `dispatch /* c */ (request)` are calls.
+    let mut after = skip_item_gap(&source[index + name.len()..]);
+    after = strip_turbofish(after).map(skip_item_gap).unwrap_or(after);
     while after.starts_with(')') {
-        after = &after[1..];
-        after = strip_turbofish(after).unwrap_or(after);
+        after = skip_item_gap(&after[1..]);
+        after = strip_turbofish(after).map(skip_item_gap).unwrap_or(after);
     }
     if !after.starts_with('(') {
         return None;

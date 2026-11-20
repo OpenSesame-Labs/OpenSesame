@@ -1,6 +1,11 @@
 //! Scheme predicate, closure-local `return`, and URL binding for the HTTPS guard.
 use super::super::sync_target_pact_norm::{is_keyword_at, match_brace, string_len};
-use super::{after_paren, ident_at, is_ident_byte, strip_turbofish};
+use super::{after_paren, ident_at, strip_turbofish};
+
+#[path = "guard_parse.rs"]
+mod guard_parse;
+
+use guard_parse::{last_rhs, url_parse_arg};
 
 pub(super) fn guarded(prefix: &str, dest: Option<&str>) -> bool {
     let bytes = prefix.as_bytes();
@@ -188,108 +193,6 @@ fn whole_scheme_neq(expr: &str) -> bool {
     scheme_at(expr.trim()).is_some()
 }
 
-fn last_rhs<'a>(source: &'a str, name: &str) -> Option<(&'a str, usize)> {
-    let bytes = source.as_bytes();
-    let mut index = 0usize;
-    let mut found = None;
-    while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        if is_keyword_at(bytes, index, name.as_bytes()) {
-            // `let parsed: Url = Url::parse(&url)` — `=` is not the next byte.
-            if let Some(eq) = super::bind::eq_after_name(bytes, index + name.len()) {
-                let end = super::bind::stmt_end(bytes, eq + 1);
-                found = Some((&source[eq + 1..end], end));
-                index = end;
-                continue;
-            }
-        }
-        index += 1;
-    }
-    found
-}
-
-fn url_parse_arg(rhs: &str) -> Option<&str> {
-    // The value comes from the outer `Url::parse`. A parse nested in
-    // `unwrap_or` / `unwrap_or_else` is only the fallback argument:
-    // `Url::parse(evil).unwrap_or(Url::parse(url).unwrap())` can still be `evil`.
-    let mut expr = rhs.trim();
-    while let Some(inner) = grouped_value(expr) {
-        expr = inner.trim();
-    }
-    let at = supplying_parse(expr)?;
-    plain_parse_arg(&expr[at..])
-}
-
-/// `Url::parse` at the head of the value. Stops before call arguments, so a
-/// nested parse cannot replace the outer argument.
-fn supplying_parse(expr: &str) -> Option<usize> {
-    let bytes = expr.as_bytes();
-    let mut index = 0usize;
-    while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        if url_parse_at(expr, index) {
-            return path_prefix(expr[..index].trim()).then_some(index);
-        }
-        match bytes[index] {
-            b'(' | b'{' | b'[' | b';' | b',' | b'=' => return None,
-            _ => index += 1,
-        }
-    }
-    None
-}
-
-/// `(expr).method()` groups `expr`. The parentheses are not a wrapper call.
-fn grouped_value(expr: &str) -> Option<&str> {
-    let rest = expr.trim().strip_prefix('(')?;
-    let after = super::after_paren(rest)?;
-    let tail = after.trim_start();
-    if !(tail.is_empty() || tail.starts_with(['.', '?'])) {
-        return None;
-    }
-    Some(rest[..rest.len() - after.len() - 1].trim())
-}
-
-/// Empty, or a path ending in `::` (`url::`, `foo::bar::`).
-fn path_prefix(prefix: &str) -> bool {
-    if prefix.is_empty() {
-        return true;
-    }
-    let bytes = prefix.as_bytes();
-    let mut index = 0usize;
-    loop {
-        if index >= bytes.len() || !is_ident_byte(bytes[index]) {
-            return false;
-        }
-        while index < bytes.len() && is_ident_byte(bytes[index]) {
-            index += 1;
-        }
-        if index == bytes.len() || !prefix[index..].starts_with("::") {
-            return false;
-        }
-        index += 2;
-        if index == bytes.len() {
-            return true;
-        }
-    }
-}
-
-fn url_parse_at(rhs: &str, index: usize) -> bool {
-    let bytes = rhs.as_bytes();
-    rhs[index..].starts_with("Url::parse(") && (index == 0 || !is_ident_byte(bytes[index - 1]))
-}
-
-fn plain_parse_arg(at_parse: &str) -> Option<&str> {
-    let inner = args_of(&at_parse["Url::parse".len()..])?;
-    let arg = strip_ref(first_arg(inner));
-    plain_ident(arg).is_some().then_some(arg)
-}
-
 fn peel(expr: &str) -> &str {
     if let Some(rest) = expr.strip_prefix('(') {
         if let Some(after) = after_paren(rest) {
@@ -417,52 +320,6 @@ fn plain_ident(expr: &str) -> Option<&str> {
     super::bind::plain_ident(expr)
 }
 
+#[path = "guard_probes.rs"]
 #[cfg(test)]
-mod probes {
-    use super::super::credentialed_send_https_gaps;
-
-    #[test]
-    fn p5_typed_parsed_url_guard_covers_send() {
-        let sample = r#"async fn f() { let parsed: Url = Url::parse(&url); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#;
-        assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
-        let qualified = r#"async fn f() { let parsed: url::Url = Url::parse(&url); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#;
-        assert_eq!(
-            credentialed_send_https_gaps(qualified),
-            (1, 0),
-            "{qualified}"
-        );
-    }
-
-    #[test]
-    fn p5_query_client_execute_is_a_send() {
-        let http = "async fn f() { let query = client; query.execute(request).await?; }";
-        assert_eq!(credentialed_send_https_gaps(http), (1, 1), "{http}");
-        let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let query = client; query.execute(request).await?; }";
-        assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
-        let db =
-            "async fn f() { let q = sqlx::query(\"select 1\"); q.execute(&self.pool).await?; }";
-        assert_eq!(credentialed_send_https_gaps(db), (0, 0), "{db}");
-        let spelled = "async fn f() { query.execute(&self.pool).await?; }";
-        assert_eq!(credentialed_send_https_gaps(spelled), (1, 1), "{spelled}");
-    }
-
-    #[test]
-    fn chunk02_unwrap_or_parse_binds_outer_url() {
-        let nested = [
-            r#"async fn f() { let parsed = Url::parse(evil).unwrap_or(Url::parse(url).unwrap()); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
-            r#"async fn f() { let parsed = Url::parse(&evil).unwrap_or_else(|_| Url::parse(url).unwrap()); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
-            r#"async fn f() { let parsed = url::Url::parse(evil).unwrap_or(Url::parse(&url).unwrap()); if parsed.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
-        ];
-        for sample in nested {
-            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
-        }
-        let kept = [
-            r#"async fn f() { let parsed = Url::parse(url).unwrap_or(Url::parse(fallback).unwrap()); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
-            r#"async fn f() { let parsed = url::Url::parse(&url).unwrap_or(Url::parse(evil).unwrap()); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
-            r#"async fn f() { let parsed = (Url::parse(&url)).unwrap(); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
-        ];
-        for sample in kept {
-            assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
-        }
-    }
-}
+mod guard_probes;
