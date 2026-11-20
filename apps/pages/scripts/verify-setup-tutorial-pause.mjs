@@ -20,7 +20,7 @@ import { mainPagesDist } from "./lib/setup-pause-main-dist.mjs";
 import { runBuildPhase } from "./lib/setup-pause-run-build.mjs";
 
 const devUrl = process.env.SETUP_PAUSE_DEV_URL ?? "";
-const ORIGIN = devUrl ? "" : "https://opensesame-labs.github.io";
+const ORIGIN = "https://opensesame-labs.github.io";
 const BASE = process.env.VITE_BASE ?? "/OpenSesame/";
 const outRoot =
   process.env.SETUP_PROFILE_OUT ?? "/opt/cursor/artifacts/setup-profiles";
