@@ -17,6 +17,7 @@ use std::time::Duration;
 use opensesame_domain::transport::{
     ServiceBindingSet, TransportError, TransportPolicy, TrustProfileKind, TrustProfileRef,
 };
+use opensesame_domain::CredentialStatus;
 use opensesame_ingress_evidence::{
     originating_peer_layer, BindingSetAdmission, IngressLimits, OriginatingPeerLayer,
 };
@@ -25,6 +26,7 @@ use opensesame_spiffe_source::{
     SourcePhase, SourceStatus, SpiffeSource, SpiffeSourceConfig, SpiffeSourceHandle, WaitError,
 };
 use opensesame_storage::Db;
+use opensesame_time::Utc;
 use opensesame_transport_security::env::{NativeIdentitySpec, NativeTrustSpec};
 use opensesame_transport_security::{
     env as tls_env, GenerationCandidate, TlsIdentity, TransportGenerations, TrustBundle,
@@ -40,14 +42,15 @@ use super::ManagedIdentityResolver;
 /// startup failure, not a reason to serve without one.
 pub const SPIFFE_FIRST_SVID_TIMEOUT: Duration = Duration::from_secs(30);
 
-/// A first SVID may bind only while the source is still serving it.
-/// [`SourcePhase::Withdrawn`] and [`SourcePhase::Stopped`] keep `generation`
-/// set (the number of the generation that ended), so a generation alone is
-/// not a usable identity.
+/// A first SVID may bind only when [`SourceStatus::credential_status`] is
+/// [`CredentialStatus::Configured`]. Withdrawal, stop, and expiry at
+/// `retain_until` or `not_after` (inclusive) are not a usable identity.
 #[must_use]
 pub(crate) fn spiffe_first_ready_to_bind(status: &SourceStatus) -> bool {
-    status.generation.is_some()
-        && !matches!(status.phase, SourcePhase::Withdrawn | SourcePhase::Stopped)
+    matches!(
+        status.credential_status(Utc::now()),
+        CredentialStatus::Configured { .. }
+    )
 }
 
 /// Terminal observation for the first-SVID wait: a served generation, or a
