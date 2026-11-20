@@ -4,11 +4,13 @@
 //! can list/create remotes after OAuth without seeing access tokens (ADR 0005/0032).
 
 use opensesame_domain::OrganizationId;
+use opensesame_invoke_through::scrub_credential_reflection;
 use serde_json::{json, Value};
 
 use crate::catalog::AuthMethod;
 use crate::error::{BrokerError, Result};
 use crate::model::ConnectionStatus;
+use crate::response_guard::{read_bounded_body, ResponseBodyError};
 use crate::store;
 use crate::token::TokenSet;
 use crate::ConnectionBroker;
@@ -401,28 +403,31 @@ impl ConnectionBroker {
         if let Some(body) = body {
             request = request.json(&body);
         }
-        let mut response = request.send().await.map_err(|e| e.to_string())?;
+        let mut response = request
+            .send()
+            .await
+            .map_err(|_| "upstream request failed".to_string())?;
         let status = response.status();
-        if response
-            .content_length()
-            .is_some_and(|length| length > MAX_JSON_RESPONSE_BYTES as u64)
-        {
-            return Err("upstream response exceeds the 1 MiB limit".into());
-        }
-        let mut bytes = Vec::new();
-        while let Some(chunk) = response.chunk().await.map_err(|e| e.to_string())? {
-            if bytes.len() + chunk.len() > MAX_JSON_RESPONSE_BYTES {
-                return Err("upstream response exceeds the 1 MiB limit".into());
-            }
-            bytes.extend_from_slice(&chunk);
-        }
-        let text = String::from_utf8(bytes).map_err(|e| e.to_string())?;
+        let bytes = read_bounded_body(&mut response, MAX_JSON_RESPONSE_BYTES)
+            .await
+            .map_err(|error| match error {
+                ResponseBodyError::TooLarge { .. } => {
+                    "upstream response exceeds the 1 MiB limit".to_string()
+                }
+                ResponseBodyError::Read => "could not read upstream response".to_string(),
+            })?;
+        // Treat the response body as hostile at the one sink that can return
+        // it. The shared scrub covers raw, partially/mixed percent, JSON and
+        // HTML encodings plus standard/URL-safe base64 at every alignment.
+        let (safe_bytes, credential_reflected) =
+            scrub_credential_reflection(bytes, &tokens.access_token);
+        let text = String::from_utf8(safe_bytes.to_vec())
+            .map_err(|_| "upstream response was not valid UTF-8".to_string())?;
         if !(200..300).contains(&status.as_u16()) {
-            let safe = text.replace(&tokens.access_token, "[REDACTED]");
-            let snippet: String = safe.chars().take(MAX_ERROR_SNIPPET).collect();
+            let snippet: String = text.chars().take(MAX_ERROR_SNIPPET).collect();
             return Err(format!("upstream {status}: {snippet}"));
         }
-        if text.contains(&tokens.access_token) {
+        if credential_reflected {
             return Err("upstream response contained the injected credential".into());
         }
         if text.trim().is_empty() {

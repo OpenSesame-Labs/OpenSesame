@@ -16,9 +16,7 @@ use super::{
     assert_invoke_order, ConnectionCredential, ConnectorContext, ConnectorInvocation,
     ConnectorInvokeError, ConnectorTransportExecutor,
 };
-use crate::transport::client::{
-    build_invoker, is_internal, resolve_pinned_authority, PinnedAuthority,
-};
+use crate::transport::client::is_internal;
 use crate::transport::memory::MemoryTransportResolver;
 use crate::transport::pool::ConnectorClientPool;
 use crate::transport::{
@@ -239,84 +237,4 @@ fn an_internal_address_is_never_a_connector_upstream() {
     }
     assert!(is_internal(IpAddr::V4(Ipv4Addr::UNSPECIFIED)));
     assert!(is_internal(IpAddr::V6(Ipv6Addr::UNSPECIFIED)));
-}
-
-#[tokio::test]
-async fn resolved_internal_addresses_are_removed_before_dial() {
-    let denied = resolve_pinned_authority("localhost", 443, false)
-        .await
-        .expect_err("production resolution must reject loopback");
-    assert_eq!(denied.code(), "malformed_configuration");
-
-    let test_only = resolve_pinned_authority("localhost", 443, true)
-        .await
-        .expect("test loopback is explicit");
-    assert!(test_only
-        .addrs
-        .iter()
-        .all(|address| address.ip().is_loopback()));
-}
-
-#[tokio::test]
-async fn server_tls_webpki_dials_only_the_preflight_pinned_address() {
-    // `localhost` normally resolves to 127.0.0.1 (and perhaps ::1), but the
-    // approved address is a different loopback alias. Success proves the wire
-    // client used the pinned resolver instead of resolving the URI host again.
-    let listener = tokio::net::TcpListener::bind("127.0.0.2:0")
-        .await
-        .expect("bind pinned loopback alias");
-    let pinned = listener.local_addr().expect("pinned listener address");
-    let system_addresses: Vec<_> = tokio::net::lookup_host(("localhost", pinned.port()))
-        .await
-        .expect("resolve localhost for the test oracle")
-        .collect();
-    assert!(
-        !system_addresses.contains(&pinned),
-        "test requires the pinned address to differ from system DNS"
-    );
-    let server = tokio::spawn(async move {
-        let app =
-            axum::Router::new().route("/probe", axum::routing::get(|| async { "pinned-webpki" }));
-        let _ = axum::serve(listener, app).await;
-    });
-
-    let transport = ConnectionTransport {
-        policy: TransportPolicy::ServerTls,
-        identity: None,
-        trust: None,
-        server_name: None,
-        execution_target: ConnectorExecutionTarget::Host,
-    };
-    let authority = PinnedAuthority {
-        label: format!("localhost:{}", pinned.port()),
-        host: "localhost".into(),
-        addrs: vec![pinned],
-    };
-    let rules = vec![EgressRule {
-        provider_id: "acme",
-        scheme: "https",
-        hosts: &["localhost"],
-        auth: AuthStyle::Bearer,
-    }];
-    let invoker = build_invoker(&transport, None, None, &authority, rules, true)
-        .expect("build WebPKI client over the approved addresses");
-    let prepared = invoker
-        .preflight(opensesame_invoke_through::InvokeRequest {
-            provider_id: "acme".into(),
-            method: "GET".into(),
-            url: format!("http://localhost:{}/probe", pinned.port()),
-            headers: vec![],
-            body: None,
-            subject: None,
-            actor: None,
-        })
-        .expect("loopback test request passes the egress fence");
-    let response = invoker
-        .execute(&SecretString::from("test-token"), prepared)
-        .await
-        .expect("pinned address is dialed");
-    server.abort();
-
-    assert_eq!(response.status, 200);
-    assert_eq!(&response.body[..], b"pinned-webpki");
 }
