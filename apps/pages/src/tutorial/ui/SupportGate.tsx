@@ -55,7 +55,7 @@ export function SupportGate(): ReactElement {
   }, [controller, route]);
 
   useEffect(() => {
-    controller.setNavigator(() => {});
+    controller.setNavigator(() => false);
   }, [controller]);
 
   return (

@@ -130,6 +130,25 @@ export function reportGuideActivation(id: GuideTargetId): void {
   fireActivation(id);
 }
 
+/**
+ * Hear `id` activate in the same turn as the click or key, before a lock
+ * tears the guide down. The wait in `observeGuideTarget` shares this signal.
+ */
+export function subscribeGuideActivation(
+  id: GuideTargetId,
+  listener: () => void,
+): () => void {
+  const listeners = activationListeners.get(id) ?? new Set();
+  listeners.add(listener);
+  activationListeners.set(id, listeners);
+  return () => {
+    const live = activationListeners.get(id);
+    if (!live) return;
+    live.delete(listener);
+    if (live.size === 0) activationListeners.delete(id);
+  };
+}
+
 export type MountOptions = Readonly<{
   /**
    * How the element is activated. `click` (the default) is a click or Enter /

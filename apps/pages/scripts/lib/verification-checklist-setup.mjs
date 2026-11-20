@@ -1,8 +1,9 @@
 /**
  * Front door, setup choices, and the no-account road into the vault.
  *
- * Minimal, Default and Full commit and return. Custom opens the capabilities
- * ceremony; Skip all still retires the door onto sign-in.
+ * Default and Full commit and return. Minimal warns first and commits only
+ * on "Use Minimal anyway". Custom opens the capabilities ceremony; Skip all
+ * still retires the door onto sign-in.
  */
 
 import { sealLocalOnly } from "./pages-journey.mjs";
@@ -17,10 +18,10 @@ import {
 const CHOICES = ["Minimal", "Default", "Full", "Custom"];
 
 export async function openDoor(page, shot, record, href = `${ORIGIN}${BASE}`) {
-  await page.goto(href, { waitUntil: "domcontentloaded" });
+  await page.goto(href, { waitUntil: "load" });
   await page
     .getByRole("button", { name: "Set up your own", exact: true })
-    .waitFor({ state: "visible", timeout: 20_000 });
+    .waitFor({ state: "visible", timeout: 60_000 });
   await shot("front-door");
   const skip = await page
     .getByRole("button", { name: "Skip sign-in and continue as guest" })
@@ -66,8 +67,7 @@ export async function captureChoices(page, shot, record) {
   mark(record, "U1-setup-keyboard", focused === "Minimal", focused);
 }
 
-async function finishCustom(page, shot, record, options = {}) {
-  const { enableConnectorsExternal = false } = options;
+async function finishCustom(page, shot, record) {
   await page
     .getByRole("tab", { name: "capabilities" })
     .waitFor({ timeout: 20_000 });
@@ -78,61 +78,44 @@ async function finishCustom(page, shot, record, options = {}) {
     /Use the minimal configuration/.test(ceremony),
     "capabilities tab",
   );
-  if (enableConnectorsExternal) {
-    await page
-      .getByRole("button", { name: /^Customize this installation/ })
-      .click();
-    await page.getByTestId("purpose-card-custom").click();
-    const pick = page
-      .getByTestId("capability-card-connectors.external")
-      .locator(".capcard__pick");
-    await pick.waitFor({ state: "visible", timeout: 30_000 });
-    if ((await pick.getAttribute("aria-pressed")) !== "true")
-      await pick.click();
-    await page.getByRole("button", { name: "Save on this device" }).click();
-    await page.getByTestId("capability-apply").click();
-    await page
-      .getByTestId("capability-outcome")
-      .waitFor({ state: "visible", timeout: 120_000 });
-    mark(
-      record,
-      "custom-connectors-external",
-      true,
-      "applied connectors.external",
-    );
-    await shot("setup-connectors-external");
-  } else {
-    const customize = page.getByRole("button", {
-      name: /^Customize this installation/,
-    });
-    const customized = await customize
+  const customize = page.getByRole("button", {
+    name: /^Customize this installation/,
+  });
+  const customized = await customize
+    .waitFor({ state: "visible", timeout: 8_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (customized) {
+    await customize.click();
+    const personal = page.getByRole("button", { name: /^Personal/ });
+    const personalSeen = await personal
       .waitFor({ state: "visible", timeout: 8_000 })
       .then(() => true)
       .catch(() => false);
-    if (customized) {
-      await customize.click();
-      const personal = page.getByRole("button", { name: /^Personal/ });
-      const personalSeen = await personal
-        .waitFor({ state: "visible", timeout: 8_000 })
-        .then(() => true)
-        .catch(() => false);
-      if (personalSeen) await personal.click();
-      await shot("setup-custom");
-    }
+    if (personalSeen) await personal.click();
+    await shot("setup-custom");
   }
   const left = await visibleClick(page, "button", "Skip all", 8_000);
   if (!left) await visibleClick(page, "button", "Close", 8_000);
 }
 
-export async function applySetupChoice(
-  page,
-  shot,
-  record,
-  choice,
-  options = {},
-) {
+async function confirmMinimal(page, shot, record) {
+  const confirm = page.getByRole("button", { name: "Use Minimal anyway" });
+  await confirm.first().waitFor({ state: "visible", timeout: 8_000 });
+  const warning = await shot("setup-minimal-warning");
+  mark(
+    record,
+    "minimal-confirm",
+    /Use Minimal anyway/.test(warning) && /Advanced/.test(warning),
+    "confirm after the warning",
+  );
+  await confirm.first().click();
+}
+
+export async function applySetupChoice(page, shot, record, choice) {
   await visibleClick(page, "button", choice);
-  if (choice === "Custom") await finishCustom(page, shot, record, options);
+  if (choice === "Minimal") await confirmMinimal(page, shot, record);
+  if (choice === "Custom") await finishCustom(page, shot, record);
   const where = await waitPastSetup(page);
   record.landed = where;
   if (where === "sign-in") {
