@@ -136,6 +136,18 @@ describe("tutorial queue", () => {
     expect(listQueuedTutorials()).toEqual([]);
   });
 
+  it("pause all queues every unanswered walkthrough", () => {
+    clearNotices();
+    noteTutorialDeclined("vault.lock", "Lock the vault");
+    expect(listQueuedTutorials()).toEqual([{ goalId: "vault.lock" }]);
+    const pause = listNotices().find(
+      (notice) => notice.id === TUTORIAL_PAUSE_NOTICE,
+    );
+    pause?.act?.run();
+    expect(sessionTutorialsPaused()).toBe(true);
+    expect(listQueuedTutorials().length).toBeGreaterThan(1);
+  });
+
   it("skips the pause prompt when the session is already paused", () => {
     setSessionTutorialsPaused(true);
     noteTutorialDeclined("settings.danger.review", "Tour Settings: Danger");

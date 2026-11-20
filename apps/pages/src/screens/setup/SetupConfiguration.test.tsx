@@ -57,6 +57,10 @@ describe("the configuration choice (ADR 0154)", () => {
     expect(
       screen.getByRole("button", { name: "Use Minimal anyway" }),
     ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Keep Default" }),
+    ).toBeTruthy();
+    expect(screen.getByText(/password, passkey, card, and note/)).toBeTruthy();
     fireEvent.click(
       screen.getByRole("button", { name: "Dismiss offer: Minimal" }),
     );
