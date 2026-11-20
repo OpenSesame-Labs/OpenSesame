@@ -330,10 +330,14 @@ fn contract_request_builder_json_is_not_a_body_read() {
 fn contract_response_into_and_headers_are_body_reads() {
     for sample in [
         "let leaked = response.into();",
+        "let leaked = (response).into();",
         "let body: reqwest::Body = res.into();",
         "response.headers().get(\"X-Secret\")",
         "res.headers().iter().next()",
         "let reply = response; reply.into()",
+        "let reply = (response); reply.into()",
+        "let reply: reqwest::Response = (response); reply.into()",
+        "fn steal(r: reqwest::Response) -> reqwest::Body { r.into() }",
     ] {
         assert_body_read(sample);
     }

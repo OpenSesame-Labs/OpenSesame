@@ -66,8 +66,12 @@ fn assigned_builder_url(prefix: &str, name: &str) -> Option<String> {
             let eq = index + name.len();
             if is_single_eq(bytes, eq) {
                 let end = stmt_end(bytes, eq + 1);
-                if let Some(url) = builder_url(&prefix[eq + 1..end]) {
+                let rhs = &prefix[eq + 1..end];
+                if let Some(url) = builder_url(rhs) {
                     found = Some(url.to_string());
+                } else if free_call(rhs) {
+                    // A call whose URL is not a plain ident cannot prove the guard.
+                    found = Some(String::new());
                 }
                 index = end;
                 continue;
@@ -79,6 +83,10 @@ fn assigned_builder_url(prefix: &str, name: &str) -> Option<String> {
 }
 
 fn builder_url(expr: &str) -> Option<&str> {
+    marked_url(expr).or_else(|| call_arg_url(expr))
+}
+
+fn marked_url(expr: &str) -> Option<&str> {
     const MARKS: &[&str] = &[
         ".request(",
         ".get(",
@@ -118,6 +126,117 @@ fn builder_url(expr: &str) -> Option<&str> {
         index += 1;
     }
     found
+}
+
+/// Last plain-ident argument of a free function call (`build_request(other)`).
+/// Method calls (`.json(&body)`) do not choose the URL.
+fn call_arg_url(expr: &str) -> Option<&str> {
+    let bytes = expr.as_bytes();
+    let mut index = 0usize;
+    let mut found = None;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        if bytes[index] == b'(' && is_free_call(expr, index) {
+            if let Some(inner) = call_inside(&expr[index..]) {
+                if let Some(url) = plain_ident(strip_ref(split_arg(inner, false))) {
+                    found = Some(url);
+                }
+            }
+        }
+        index += 1;
+    }
+    found
+}
+
+fn free_call(expr: &str) -> bool {
+    let bytes = expr.as_bytes();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        if bytes[index] == b'(' && is_free_call(expr, index) {
+            return true;
+        }
+        index += 1;
+    }
+    false
+}
+
+fn is_free_call(expr: &str, paren: usize) -> bool {
+    let bytes = expr.as_bytes();
+    if paren == 0 || !super::is_ident_byte(bytes[paren - 1]) {
+        return false;
+    }
+    let mut start = paren;
+    while start > 0 && super::is_ident_byte(bytes[start - 1]) {
+        start -= 1;
+    }
+    start == 0 || bytes[start - 1] != b'.'
+}
+
+/// `name` is assigned at brace depth 0 after the guard, so the checked value is not the sent one.
+pub(super) fn shadows(source: &str, name: &str) -> bool {
+    if name.is_empty() {
+        return false;
+    }
+    let bytes = source.as_bytes();
+    let mut depth = 0i32;
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'{' => depth += 1,
+            b'}' => depth -= 1,
+            _ if depth == 0 && is_keyword_at(bytes, index, name.as_bytes()) => {
+                if assigns_name(bytes, index + name.len()) {
+                    return true;
+                }
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    false
+}
+
+fn assigns_name(bytes: &[u8], mut at: usize) -> bool {
+    while at < bytes.len() && bytes[at].is_ascii_whitespace() {
+        at += 1;
+    }
+    if bytes.get(at) == Some(&b':') && bytes.get(at + 1) != Some(&b':') {
+        at = skip_ascription(bytes, at + 1);
+        while at < bytes.len() && bytes[at].is_ascii_whitespace() {
+            at += 1;
+        }
+    }
+    is_single_eq(bytes, at)
+}
+
+fn skip_ascription(bytes: &[u8], start: usize) -> usize {
+    let mut depth = 0i32;
+    let mut index = start;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'(' | b'[' | b'{' | b'<' => depth += 1,
+            b')' | b']' | b'}' | b'>' if depth > 0 => depth -= 1,
+            b'=' | b',' | b';' if depth == 0 => return index,
+            _ => {}
+        }
+        index += 1;
+    }
+    index
 }
 
 fn head_args(rest: &str) -> Option<&str> {

@@ -34,7 +34,14 @@ fn if_guard(prefix: &str, if_at: usize, dest: Option<&str>) -> bool {
     let Some(close) = match_brace(bytes, open) else {
         return false;
     };
-    depth0_return(&prefix[open + 1..close])
+    if !depth0_return(&prefix[open + 1..close]) {
+        return false;
+    }
+    if dest.is_some_and(|name| !name.is_empty() && super::bind::shadows(&prefix[close + 1..], name))
+    {
+        return false;
+    }
+    true
 }
 
 fn covers_dest(expr: &str, negated: bool, before: &str, dest: &str) -> bool {
@@ -150,7 +157,8 @@ fn url_parse_arg(rhs: &str) -> Option<&str> {
             index += len;
             continue;
         }
-        if rhs[index..].starts_with("Url::parse(") && (index == 0 || !is_ident_byte(bytes[index - 1]))
+        if rhs[index..].starts_with("Url::parse(")
+            && (index == 0 || !is_ident_byte(bytes[index - 1]))
         {
             if let Some(inner) = args_of(&rhs[index + "Url::parse".len()..]) {
                 let arg = strip_ref(first_arg(inner));
@@ -333,7 +341,9 @@ fn scheme_neq_end(source: &str, index: usize) -> Option<usize> {
 }
 
 fn https_cmp_len(tail: &str) -> Option<usize> {
-    let rest = tail.strip_prefix("!=").or_else(|| tail.strip_prefix(".ne"))?;
+    let rest = tail
+        .strip_prefix("!=")
+        .or_else(|| tail.strip_prefix(".ne"))?;
     let op = tail.len() - rest.len();
     let body = rest.trim_start_matches('(');
     if !body.starts_with("\"https\"") {

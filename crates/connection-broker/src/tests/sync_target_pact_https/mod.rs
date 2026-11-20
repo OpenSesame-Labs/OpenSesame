@@ -59,7 +59,10 @@ fn credentialed_dispatch_site(source: &str, index: usize) -> bool {
         .chars()
         .rev()
         .collect();
-    matches!(name.as_str(), "client" | "request" | "req" | "builder" | "http")
+    matches!(
+        name.as_str(),
+        "client" | "request" | "req" | "builder" | "http"
+    )
 }
 
 fn dispatch_site(source: &str, alias_calls: &[(usize, usize)], index: usize) -> Option<usize> {
@@ -263,6 +266,31 @@ mod dispatch_tests {
         assert_eq!(credentialed_send_https_gaps(db), (0, 0));
         let compacted_typed = "async fn f() { let dispatch:_=reqwest::RequestBuilder::send; dispatch(request).await?; }";
         assert_eq!(credentialed_send_https_gaps(compacted_typed), (1, 1));
+        let compacted_guarded = format!(
+            "async fn f() {{ {GUARD} let dispatch:_=reqwest::RequestBuilder::send; dispatch(request).await?; }}"
+        );
+        assert_eq!(credentialed_send_https_gaps(&compacted_guarded), (1, 0));
+    }
+
+    #[test]
+    fn qualified_type_on_dispatch_alias_is_a_send() {
+        let named = "async fn f() { let dispatch: SendFn = reqwest::RequestBuilder::send; dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(named), (1, 1));
+        let qualified = "async fn f() { let dispatch: reqwest::SendFn = reqwest::RequestBuilder::send; dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(qualified), (1, 1));
+        let path_form =
+            "async fn f() { let name::_ = reqwest::RequestBuilder::send; name(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(path_form), (0, 0));
+    }
+
+    #[test]
+    fn url_binding_fails_closed_for_unrelated_or_shadowed_destinations() {
+        let built = "async fn f() { if checked.scheme() != \"https\" { return Err(\"x\".into()); } let request = build_request(other); request.send().await?; }";
+        assert_eq!(credentialed_send_https_gaps(built), (1, 1));
+        let shadowed = "async fn f() { if url.scheme() != \"https\" { return Err(\"x\".into()); } let url = other; client.get(url).send().await?; }";
+        assert_eq!(credentialed_send_https_gaps(shadowed), (1, 1));
+        let other_dest = "async fn f() { let url = safe_https; if url.scheme() != \"https\" { return Err(\"x\".into()); } client.get(other).send().await?; }";
+        assert_eq!(credentialed_send_https_gaps(other_dest), (1, 1));
     }
 
     #[test]
@@ -303,13 +331,16 @@ mod dispatch_tests {
 
     #[test]
     fn parenthesized_dispatch_alias_is_a_send() {
-        let bare = "async fn f() { let dispatch = RequestBuilder::send; (dispatch)(request).await?; }";
+        let bare =
+            "async fn f() { let dispatch = RequestBuilder::send; (dispatch)(request).await?; }";
         assert_eq!(credentialed_send_https_gaps(bare), (1, 1));
-        let nested = "async fn f() { let dispatch = Client::execute; ((dispatch))(&client, request); }";
+        let nested =
+            "async fn f() { let dispatch = Client::execute; ((dispatch))(&client, request); }";
         assert_eq!(credentialed_send_https_gaps(nested), (1, 1));
         let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let dispatch = RequestBuilder::send; (dispatch)(request).await?; }";
         assert_eq!(credentialed_send_https_gaps(guarded), (1, 0));
-        let fish = "async fn f() { let dispatch = RequestBuilder::send; (dispatch)::<()>(request); }";
+        let fish =
+            "async fn f() { let dispatch = RequestBuilder::send; (dispatch)::<()>(request); }";
         assert_eq!(credentialed_send_https_gaps(fish), (1, 1));
     }
 
