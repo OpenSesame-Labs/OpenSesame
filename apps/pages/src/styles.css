@@ -2833,12 +2833,13 @@ body {
 }
 
 @keyframes slide-in {
+  /* Fade only. A translate moves action boxes for the whole 240ms, and a
+     check that samples them one after another sees an overlap that is not
+     on the page. */
   from {
-    transform: translateX(18px);
     opacity: 0;
   }
   to {
-    transform: none;
     opacity: 1;
   }
 }
@@ -3485,12 +3486,12 @@ fieldset.picker {
   }
 
   @keyframes slide-up {
+    /* Fade only, same reason as slide-in: a translate shifts boxes while
+       they are measured one after another. */
     from {
-      transform: translateY(28px);
       opacity: 0;
     }
     to {
-      transform: none;
       opacity: 1;
     }
   }

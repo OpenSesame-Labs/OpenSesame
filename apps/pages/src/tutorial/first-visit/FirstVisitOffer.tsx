@@ -151,14 +151,19 @@ function usePendingFirstVisit(
   useEffect(() => {
     return subscribeSessionTutorialsPaused(() => {
       if (!sessionTutorialsPaused()) return;
-      if (asked.current === null) return;
+      const pending = asked.current;
+      if (pending === null) return;
+      // A guide already on screen for another goal is not this row's to stop.
+      // The marker stays until this row's own tour appears, so a pause in
+      // between must not cancel whatever else is running.
+      if (running !== null && running !== pending.goal) return;
       // The engine may still be loading. stopGuide is a no-op until a guide
       // exists, and clearing the marker here lets that startGuide run with
       // nothing left to cancel it. The effect below stops the tour once it
       // appears, because this session is paused.
       support.stopGuide("superseded");
     });
-  }, [support]);
+  }, [support, running]);
 
   useEffect(() => {
     const pending = asked.current;

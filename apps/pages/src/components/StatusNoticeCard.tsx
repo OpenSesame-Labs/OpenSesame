@@ -103,9 +103,12 @@ function WordedActs({
   const runWorded = (opens: boolean | undefined, run: () => void) => {
     const fromKeyboard =
       actionsRef.current?.contains(document.activeElement) ?? false;
-    if (fromKeyboard) handBack = notice.id;
+    // An opening choice moves focus onto the page. A tray choice lands on
+    // Close. Arming hand-back on either path pulls focus back onto this
+    // card once its act disappears.
+    if (fromKeyboard && !opens && !wordedTray) handBack = notice.id;
     let trayClose: HTMLButtonElement | null = null;
-    if (wordedTray && fromKeyboard) {
+    if (!opens && wordedTray && fromKeyboard) {
       const dialog = actionsRef.current?.closest('[role="dialog"]');
       trayClose =
         dialog?.querySelector<HTMLButtonElement>(
@@ -116,9 +119,7 @@ function WordedActs({
     run();
     if (opens) return;
     if (wordedTray) {
-      if (trayClose) {
-        queueMicrotask(() => landFocus(trayClose));
-      }
+      if (trayClose) queueMicrotask(() => landFocus(trayClose));
       return;
     }
     onOpen();

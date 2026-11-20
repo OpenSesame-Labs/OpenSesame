@@ -194,6 +194,33 @@ describe("declining a first-visit offer", () => {
     expect(stops.count).toBe(0);
   });
 
+  it("does not supersede an accepted tour when the route changes and the session pauses", () => {
+    setGuidanceMode("auto");
+    const { support, set, stops } = stubSupportController("/settings/danger");
+    mount(support);
+    settle();
+    act(() => set({ guide: touring("settings.danger.review") }));
+    const accepted = stops.count;
+    act(() => set({ route: "/settings" }));
+    act(() => {
+      setSessionTutorialsPaused(true);
+    });
+    expect(stops.count).toBe(accepted);
+  });
+
+  it("does not stop a running tour this row did not ask for when the session pauses", () => {
+    setGuidanceMode("auto");
+    const { support, set, stops } = stubSupportController("/settings/danger");
+    mount(support);
+    settle();
+    act(() => set({ guide: touring("vault.lock") }));
+    const beforePause = stops.count;
+    act(() => {
+      setSessionTutorialsPaused(true);
+    });
+    expect(stops.count).toBe(beforePause);
+  });
+
   it("pause-all still stops an automatic tour that starts after the engine loads", () => {
     setGuidanceMode("auto");
     const { support, started, set, stops } =
