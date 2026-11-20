@@ -151,9 +151,21 @@ fn let_pattern_intro(before_paren: &str) -> bool {
 }
 
 fn ends_with_kw(source: &str, keyword: &str) -> bool {
-    source
-        .strip_suffix(keyword)
-        .is_some_and(|rest| rest.chars().next_back().is_none_or(|ch| !is_ident_char(ch)))
+    let Some(rest) = source.strip_suffix(keyword) else {
+        return false;
+    };
+    if rest.chars().next_back().is_some_and(is_ident_char) {
+        return false;
+    }
+    // `if let` / `while let` end in the keyword `let` but do not introduce a
+    // `let` binding. Those patterns must not become URL bindings.
+    if keyword == "let" {
+        let head = rest.trim_end();
+        if ends_with_kw(head, "if") || ends_with_kw(head, "while") {
+            return false;
+        }
+    }
+    true
 }
 
 pub(super) fn whole_tuple(lhs: &str) -> Option<&str> {
@@ -242,5 +254,27 @@ mod probes {
         assert_eq!(credentialed_send_https_gaps(decoy), (1, 1), "{decoy}");
         let kept = r#"async fn f() { let ((request,),) = ((client.get(url),),); if url.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#;
         assert_eq!(credentialed_send_https_gaps(kept), (1, 0), "{kept}");
+    }
+
+    #[test]
+    fn chunk02_if_let_tuple_is_not_a_url_binding() {
+        // `if let` / `while let` shadow only inside the condition. They must
+        // not replace the outer `request` builder, or the later send looks
+        // guarded by the pattern's URL.
+        let masked = [
+            r#"async fn f() { let request = client.get(evil); if url.scheme() != "https" { return Err("x".into()); } if let (request,) = (client.get(url),) { let _ = 1; } request.send().await?; }"#,
+            r#"async fn f() { let request = client.get(evil); if url.scheme() != "https" { return Err("x".into()); } while let (request,) = (client.get(url),) { break; } request.send().await?; }"#,
+            r#"async fn f() { let request = client.get(evil); if url.scheme() != "https" { return Err("x".into()); } if let mut (request,) = (client.get(url),) { let _ = 1; } request.send().await?; }"#,
+        ];
+        for sample in masked {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+        }
+        let kept = [
+            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } let (request,) = (client.get(url),); request.send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } let mut (request,) = (client.get(url),); request.send().await?; }"#,
+        ];
+        for sample in kept {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+        }
     }
 }
