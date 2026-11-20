@@ -80,7 +80,10 @@ export function createQueuedResumeHandlers(host: QueuedResumeHost) {
     const pending = host.getPending();
     if (!pending) return;
     const { goalId, guide, homeRoute } = pending;
-    if (!queuedResumeRouteOk(homeRoute)) return;
+    if (!queuedResumeRouteOk(homeRoute)) {
+      host.setQueuedResumeLoading(false);
+      return;
+    }
     host.setPending(null);
     host.setQueuedResumeLoading(false);
     beginQueuedWalkthrough(goalId, guide, homeRoute);
