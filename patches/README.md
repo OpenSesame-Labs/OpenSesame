@@ -160,8 +160,9 @@ repository's source-size ratchet; CI runs it alongside the other patch checks.
 The only source change requires KDBX4 binary timestamps to decode to exactly
 eight bytes and uses checked date arithmetic. This prevents malformed vault
 timestamps from panicking the importer or overflowing the representable date
-range. The original archive, licenses, and every unchanged source byte remain
-in the repository.
+range. The vendored `Cargo.lock` is omitted, as with sqlx-sqlite, so it
+cannot be mistaken for a workspace lockfile. The original archive, licenses,
+and every other unchanged source byte remain in the repository.
 
 `python3 scripts/security/verify-vendored-keepass.py` checks the published
 archive digest, full file inventory, exact patched-file digest, both Cargo path
