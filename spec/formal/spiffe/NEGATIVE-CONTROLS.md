@@ -32,6 +32,6 @@ no live repository source is edited.
 
 These controls demonstrate that the named tests detect these deliberately
 selected failures. They do not establish that all unsafe variants are detected,
-or do they prove SDK, cryptographic, scheduling, clock-jump, transport-sink,
+nor do they prove SDK, cryptographic, scheduling, clock-jump, transport-sink,
 or concurrent-execution refinement. The fake-API tests are distinct from the
 separately executed real-SPIRE reference test.
