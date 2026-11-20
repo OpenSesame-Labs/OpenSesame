@@ -7,9 +7,10 @@
 //! raw `r#` prefixes, and `use` items are normalized first; `as` aliases of
 //! `read_bounded_body` / `response_guard` are recorded before the `use` goes.
 
-/// Body reads on the credentialed sync path. `request.json(&…)` builder calls
-/// are removed. `Response::json`, `copy_to`, UFCS, function items, and
-/// `response_guard` helpers (including `as` aliases) stay forbidden.
+/// Body reads on the credentialed sync path. The `request.json(&…)` call head
+/// is removed and its payload stays visible. `Response::json`, `copy_to`, UFCS,
+/// function items, and `response_guard` helpers (including `as` aliases) stay
+/// forbidden.
 pub(crate) fn response_body_reads(source: &str) -> Vec<&'static str> {
     const PATTERNS: &[&str] = &[
         "response.text()",
@@ -153,9 +154,11 @@ pub(super) fn is_ident_char(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || ch == '_'
 }
 
-/// Drop each real `request.json(&…)` / `request.json::<T>(&…)` call, arguments
-/// included. `.json` inside a string stays. Deleting only `.json(&` would leave
-/// `payload)` and close an enclosing call before a later argument.
+/// Drop the `request.json` / `request.json::<T>` head and its parentheses.
+/// The argument list stays, so `request.json(&response.text())` still shows the
+/// body read. Dropping the parentheses keeps a later argument inside the
+/// enclosing call (`helper(request.json(&payload), &response)`). Deleting the
+/// arguments as well would hide that payload read. `.json` inside a string stays.
 fn without_request_builder_json(compact: &str) -> String {
     let bytes = compact.as_bytes();
     let mut out = String::with_capacity(compact.len());
@@ -166,14 +169,10 @@ fn without_request_builder_json(compact: &str) -> String {
             index += len;
             continue;
         }
-        if compact[index..].starts_with(".json") {
-            let after = &compact[index + ".json".len()..];
-            if ident_before(&compact[..index]) == "request" {
-                if let Some(kept) = after_request_builder_json(after) {
-                    index = compact.len() - kept.len();
-                    continue;
-                }
-            }
+        if let Some((inner, next)) = request_builder_json_args(compact, index) {
+            out.push_str(&without_request_builder_json(inner));
+            index = next;
+            continue;
         }
         let ch = compact[index..].chars().next().unwrap();
         out.push(ch);
@@ -182,14 +181,23 @@ fn without_request_builder_json(compact: &str) -> String {
     out
 }
 
-/// Source after the whole `request.json(&…)` call, when `after` is that call.
-fn after_request_builder_json(after: &str) -> Option<&str> {
+/// Argument list of `request.json(&…)` at `index`, and the index after the call.
+fn request_builder_json_args(compact: &str, index: usize) -> Option<(&str, usize)> {
+    if !compact[index..].starts_with(".json") {
+        return None;
+    }
+    if ident_before(&compact[..index]) != "request" {
+        return None;
+    }
+    let after = &compact[index + ".json".len()..];
     let call = strip_compact_turbofish(after).unwrap_or(after);
     if !call.starts_with("(&") {
         return None;
     }
     let close = match_call_paren(call)?;
-    Some(&call[close + 1..])
+    let inner = &call[1..close];
+    let next = compact.len() - call[close + 1..].len();
+    Some((inner, next))
 }
 
 fn match_call_paren(call: &str) -> Option<usize> {
@@ -273,6 +281,28 @@ mod probes {
                 "builder json alone is not a body read: {sample}"
             );
         }
+    }
+
+    #[test]
+    fn council_r3_request_json_keeps_payload_body_reads() {
+        let hits = [
+            "request.json(&response.text())",
+            "request.json(&response.bytes())",
+            "request.json::<T>(&response.text())",
+            "request.json(&format!(\"{:?}\", response))",
+            "request.json(&format!(\"{response:?}\"))",
+            "helper(request.json(&response.text()), status)",
+        ];
+        for sample in hits {
+            assert!(
+                reads(sample),
+                "payload body read must stay visible: {sample}"
+            );
+        }
+        assert!(!reads(
+            "request.json(&format!(\"{:?}\", response.status()))"
+        ));
+        assert!(!reads("request.json(&format!(\"{:?}\", status))"));
     }
 }
 

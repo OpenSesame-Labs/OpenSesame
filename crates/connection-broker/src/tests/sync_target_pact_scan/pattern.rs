@@ -139,7 +139,29 @@ fn is_allowlisted_ufcs_json_call(
         return false;
     }
     let after = super::strip_compact_turbofish(after).unwrap_or(after);
-    after.starts_with("(request,&") || after.starts_with("(&request")
+    allowlisted_builder_json_args(after)
+}
+
+/// `(request, &…)`, `(request,&…)`, and `(&request…)`. rustfmt leaves a space
+/// after the comma; compact source sometimes does too.
+fn allowlisted_builder_json_args(after: &str) -> bool {
+    let Some(rest) = after.trim_start().strip_prefix('(') else {
+        return false;
+    };
+    let rest = rest.trim_start();
+    if let Some(rest) = rest.strip_prefix('&') {
+        return rest.trim_start().starts_with("request");
+    }
+    let Some(rest) = rest.strip_prefix("request") else {
+        return false;
+    };
+    if rest.chars().next().is_some_and(super::is_ident_char) {
+        return false;
+    }
+    let Some(rest) = rest.trim_start().strip_prefix(',') else {
+        return false;
+    };
+    rest.trim_start().starts_with('&')
 }
 
 pub(super) fn response_type_alias_path(path: &str, aliases: &[String]) -> bool {
@@ -458,6 +480,49 @@ mod probes {
         for sample in hits {
             assert!(reads(sample), "body read: {sample}");
         }
+    }
+
+    #[test]
+    fn council_r3_ufcs_json_allows_rustfmt_comma_space() {
+        let aliases = Vec::new();
+        assert!(super::is_allowlisted_ufcs_json_call(
+            "reqwest::RequestBuilder",
+            "(request, &body)",
+            &aliases
+        ));
+        assert!(super::is_allowlisted_ufcs_json_call(
+            "reqwest::RequestBuilder",
+            "(request,&body)",
+            &aliases
+        ));
+        assert!(super::is_allowlisted_ufcs_json_call(
+            "<reqwest::RequestBuilder>",
+            "::<Value>(request, &body)",
+            &aliases
+        ));
+        assert!(super::is_allowlisted_ufcs_json_call(
+            "<RequestBuilder>",
+            "(&request, &body)",
+            &aliases
+        ));
+        assert!(!super::is_allowlisted_ufcs_json_call(
+            "reqwest::Response",
+            "(request, &body)",
+            &aliases
+        ));
+        assert!(!super::is_allowlisted_ufcs_json_call(
+            "notreqwest::RequestBuilder",
+            "(request, &body)",
+            &aliases
+        ));
+        assert!(!super::is_allowlisted_ufcs_json_call(
+            "reqwest::RequestBuilder",
+            "(request_builder, &body)",
+            &aliases
+        ));
+        assert!(!reads("reqwest::RequestBuilder::json(request, &body)"));
+        assert!(!reads("reqwest::RequestBuilder::json(request,&body)"));
+        assert!(reads("reqwest::RequestBuilder::json(response, &body)"));
     }
 }
 
