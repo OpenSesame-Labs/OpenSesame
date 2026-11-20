@@ -36,6 +36,7 @@ import {
   watchInviteArrivals,
 } from "@opensesame/app-core/lib/join/invite.js";
 import { kvHydrate } from "@opensesame/app-core/lib/kv.js";
+import { rehydrateTutorialQueueNotices } from "@opensesame/app-core/lib/tutorial-queue-present.js";
 import { lastVaultIsGuest } from "@opensesame/app-core/lib/last-vault.js";
 import {
   activeProject,
@@ -76,6 +77,7 @@ export const bootSeams = {
 async function hydrateBootConfiguration(): Promise<ParsedRuntimeConfig> {
   const runtimeConfig = await loadRuntimeConfig();
   await kvHydrate([...CORE_BOOT_KEYS]);
+  rehydrateTutorialQueueNotices();
   // A configured provider revalidates its assertion while the local vault
   // opens. Unconfigured installations make no identity request.
   restoreConfiguredIdentityAtBootIfPresent();
