@@ -139,7 +139,9 @@ test("candidate execution is isolated from token-bearing jobs", async () => {
     ).length,
     0,
   );
-  const mise = evidence.steps[1];
+  const mise = evidence.steps.find((step) =>
+    step.uses?.startsWith("jdx/mise-action@"),
+  );
   assert.equal(mise.with.working_directory, "${{ runner.temp }}");
   assert.equal(
     evidence.steps.some((step) => step.with?.path === "head"),

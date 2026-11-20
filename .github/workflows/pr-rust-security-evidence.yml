@@ -66,10 +66,12 @@ jobs:
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ github.workflow_sha }}
-          path: ${{ runner.temp }}/ci-tools
+          path: .ci-tools
           persist-credentials: false
           allow-unsafe-pr-checkout: false
           sparse-checkout: scripts/ci/materialize-git-sha.sh
+      - name: Park trusted helpers outside the workspace root
+        run: mv .ci-tools "$RUNNER_TEMP/ci-tools"
       - name: Install the explicit pinned Rust toolchain
         uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:

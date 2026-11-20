@@ -144,7 +144,10 @@ test("the manually dispatched workflow keeps PR execution away from credentials"
   );
   assert.ok(materialize);
   assert.match(materialize.run, /pr-visual-materialize-head\.sh/u);
-  assert.equal(materialize.env.PR_VISUAL_HEAD_SHA, "${{ steps.resolve.outputs.head_sha }}");
+  assert.equal(
+    materialize.env.PR_VISUAL_HEAD_SHA,
+    "${{ steps.resolve.outputs.head_sha }}",
+  );
   const tokenSteps = steps.filter((step) => step.env?.GH_TOKEN);
   assert.deepEqual(
     tokenSteps.map((step) => step.name),

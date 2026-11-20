@@ -29,6 +29,13 @@ describe("ci-dev-checks artifact-smoke untrusted checkout", () => {
     );
     expect(materialize?.env?.TARGET_SHA).toBe("${{ inputs.source_sha }}");
     expect(materialize?.run).toContain("materialize-git-sha.sh");
+    expect(checkouts(job)[0].with.path).toBe(".ci-control");
+    const park = job.steps.find((step) =>
+      step.name?.includes(
+        "Park trusted helpers outside the candidate checkout",
+      ),
+    );
+    expect(park?.run).toContain('mv .ci-control "$RUNNER_TEMP/ci-control"');
   });
 
   it("refuses an unsafe pull-request checkout on artifact-smoke checkouts", () => {

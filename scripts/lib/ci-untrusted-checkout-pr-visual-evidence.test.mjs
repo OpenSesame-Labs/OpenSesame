@@ -23,9 +23,11 @@ describe("pr-visual-evidence untrusted checkout", () => {
     const job = workflow.jobs.evidence;
     expect(checkouts(job)).toHaveLength(1);
     expect(checkouts(job)[0].with.path).toBe("base");
-    expect(job.steps.some((step) => step.run?.includes("pr-visual-materialize-head.sh"))).toBe(
-      true,
-    );
+    expect(
+      job.steps.some((step) =>
+        step.run?.includes("pr-visual-materialize-head.sh"),
+      ),
+    ).toBe(true);
   });
 
   it("refuses an unsafe pull-request checkout on actions/checkout", () => {

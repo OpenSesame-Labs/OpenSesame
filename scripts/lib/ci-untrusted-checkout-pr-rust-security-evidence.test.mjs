@@ -23,12 +23,14 @@ describe("pr-rust-security-evidence untrusted checkout", () => {
   it("installs Rust before materializing the pull-request head", () => {
     const evidence = workflow.jobs.evidence;
     const names = evidence.steps.map((step) => step.name ?? step.uses);
-    expect(names.slice(0, 4)).toEqual([
+    expect(names.slice(0, 5)).toEqual([
       "Check out trusted materialization helpers",
+      "Park trusted helpers outside the workspace root",
       "Install the explicit pinned Rust toolchain",
       "Materialize the exact PR head without actions/checkout",
       "Run the hardcoded exact-head security matrix",
     ]);
+    expect(checkouts(evidence)[0].with.path).toBe(".ci-tools");
     expect(checkouts(evidence).every((step) => step.with.path !== "head")).toBe(
       true,
     );
