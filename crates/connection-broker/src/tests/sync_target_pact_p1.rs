@@ -160,3 +160,73 @@ fn ufcs_from_into_headers_and_streams_are_body_reads() {
         );
     }
 }
+
+#[test]
+fn post_check_ufcs_replace_ref_and_tuple_assignment_is_not_guarded() {
+    let samples = [
+        r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } Url::set_scheme(&mut url, "http"); client.get(url).send().await?; }"#,
+        r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } std::mem::replace(&mut url, evil); client.get(url).send().await?; }"#,
+        r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } let u = &mut url; u.set_scheme("http"); client.get(url).send().await?; }"#,
+        r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } (url,) = (evil,); client.get(url).send().await?; }"#,
+    ];
+    for sample in samples {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+    }
+}
+
+#[test]
+fn reassigned_and_block_dispatch_aliases_are_credentialed_sends() {
+    let bare = r#"async fn f() { let dispatch = reqwest::RequestBuilder::send; let mut call = other_fn; call = dispatch; call(request).await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(bare), (1, 1));
+    let guarded = r#"async fn f() { if parsed.scheme() != "https" { return Err("x".into()); } let dispatch = reqwest::RequestBuilder::send; let mut call = other_fn; call = dispatch; call(request).await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(guarded), (1, 0));
+    let block = r#"async fn f() { let dispatch = reqwest::RequestBuilder::send; let call = { dispatch }; call(request).await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(block), (1, 1));
+    let block_guarded = r#"async fn f() { if parsed.scheme() != "https" { return Err("x".into()); } let dispatch = reqwest::RequestBuilder::send; let call = { dispatch }; call(request).await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(block_guarded), (1, 0));
+}
+
+#[test]
+fn destructured_request_binding_ignores_unrelated_scheme_guard() {
+    let decoy = r#"async fn f() { let parsed = Url::parse(safe).unwrap(); if parsed.scheme() != "https" { return Err("x".into()); } let (request,) = (client.get(evil),); request.send().await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(decoy), (1, 1));
+    let kept = r#"async fn f() { let (request,) = (client.get(url),); if url.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(kept), (1, 0));
+    let rebound = r#"async fn f() { if safe.scheme() != "https" { return Err("x".into()); } let (request, _) = (other, flag); request.send().await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(rebound), (1, 1));
+}
+
+#[test]
+fn logging_macros_and_ufcs_header_reads_are_metadata() {
+    for sample in [
+        r#"tracing::info!("{:?}", response)"#,
+        r#"log::debug!("{:?}", response)"#,
+        r#"anyhow!("{:?}", response)"#,
+        r#"tracing::info!(?response)"#,
+        r#"format!("{r:?}", r = response)"#,
+        r#"tracing::info!(field = ?response)"#,
+        "Response::headers::<http::HeaderMap>(&response)",
+        "reqwest::Response::headers_mut::<()>(&mut response)",
+        "<reqwest::Response>::headers(&response)",
+    ] {
+        let reads = response_body_reads(sample);
+        assert!(
+            !reads.is_empty(),
+            "provider metadata must stay discarded: {sample} -> {reads:?}"
+        );
+    }
+    for sample in [
+        r#"tracing::info!(sync_target_id = %row.id, project_id = %row.project_id, "sync target created")"#,
+        r#"log::debug!("{:?}", status)"#,
+        r#"format!("{r:?}", r = status)"#,
+        r#"tracing::info!("{:?}", response.status())"#,
+        r#"format!("{:?}", response.status())"#,
+        "reqwest::RequestBuilder::header(&request, \"Accept\", \"application/json\")",
+    ] {
+        let reads = response_body_reads(sample);
+        assert!(
+            reads.is_empty(),
+            "status and request headers are not response metadata: {sample} -> {reads:?}"
+        );
+    }
+}
