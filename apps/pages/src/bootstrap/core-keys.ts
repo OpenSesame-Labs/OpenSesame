@@ -17,6 +17,7 @@ import {
 } from "@opensesame/app-core/lib/local-guest.js";
 import { PROJECTS_KEY } from "@opensesame/app-core/lib/projects.js";
 import { TRAVEL_SAFE_KEY } from "@opensesame/app-core/lib/travel/safe-flags.js";
+import { TUTORIAL_QUEUE_KEY } from "@opensesame/app-core/lib/tutorial-queue.js";
 import { HELD_PACKS_KEY } from "@opensesame/app-core/lib/type-packs/held-cache.js";
 import { PACKS_KEY } from "@opensesame/app-core/lib/type-packs/persist.js";
 import {
@@ -64,6 +65,8 @@ export const CORE_BOOT_KEYS: readonly string[] = [
   // how tours are offered. Read at the front door, before any vault exists;
   // unhydrated, every reload would offer the first screen's tour again.
   GUIDANCE_KEY,
+  // Queued walkthroughs the person opted out of — restored after reload.
+  TUTORIAL_QUEUE_KEY,
   // Installation id, selection, receipt, policies, generation counter.
   ...CAPABILITY_BOOT_KEYS,
 ];

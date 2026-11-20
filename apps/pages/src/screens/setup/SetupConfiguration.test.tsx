@@ -3,6 +3,7 @@ import {
   double,
   installDoublePorts,
 } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
+import { clearNotices } from "@opensesame/app-core/lib/notices.js";
 import {
   cleanup,
   fireEvent,
@@ -10,8 +11,10 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ToastStack } from "../../components/ToastStack.js";
 import { SetupScreen } from "../SetupScreen.js";
 import { DEFAULT_EXTENSIONS } from "./default-extensions.js";
 import { resetSetupScreen } from "./test-harness.js";
@@ -29,14 +32,38 @@ const OPTIONAL_IDS = FIXTURE_CATALOG.capabilities
   .sort();
 
 beforeEach(() => resetSetupScreen(seams));
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  clearNotices();
+});
+
+function renderChoice(onDone: () => void) {
+  return render(
+    <MemoryRouter>
+      <ToastStack />
+      <SetupScreen onDone={onDone} />
+    </MemoryRouter>,
+  );
+}
 
 describe("the configuration choice (ADR 0154)", () => {
-  it("commits the minimal plan and finishes", async () => {
+  it("commits the minimal plan only after Use Minimal anyway", async () => {
     const onDone = vi.fn();
     const before = double.commits.length;
-    render(<SetupScreen onDone={onDone} />);
+    renderChoice(onDone);
     fireEvent.click(screen.getByRole("button", { name: /^Minimal$/ }));
+    expect(onDone).not.toHaveBeenCalled();
+    expect(double.commits).toHaveLength(before);
+    expect(
+      screen.getByRole("button", { name: "Use Minimal anyway" }),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Dismiss offer: Minimal" }),
+    );
+    expect(onDone).not.toHaveBeenCalled();
+    expect(double.commits).toHaveLength(before);
+    fireEvent.click(screen.getByRole("button", { name: /^Minimal$/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Use Minimal anyway" }));
     await waitFor(() => expect(onDone).toHaveBeenCalled());
     const draft = double.commits.at(-1)?.draft;
     expect(double.commits).toHaveLength(before + 1);
@@ -50,6 +77,35 @@ describe("the configuration choice (ADR 0154)", () => {
       service: false,
       skipped: [],
     });
+  });
+
+  it("drops the minimal warning when another road is taken", async () => {
+    const onDone = vi.fn();
+    const before = double.commits.length;
+    renderChoice(onDone);
+    fireEvent.click(screen.getByRole("button", { name: /^Minimal$/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Default$/ }));
+    await waitFor(() => expect(onDone).toHaveBeenCalled());
+    expect(double.commits).toHaveLength(before + 1);
+    expect(double.commits.at(-1)?.draft?.selectedOptional).toEqual([
+      ...DEFAULT_EXTENSIONS,
+    ]);
+    expect(
+      screen.queryByRole("button", { name: "Use Minimal anyway" }),
+    ).toBeNull();
+  });
+
+  it("opens the ceremony from Minimal without committing", () => {
+    const onDone = vi.fn();
+    const before = double.commits.length;
+    renderChoice(onDone);
+    fireEvent.click(screen.getByRole("button", { name: /^Minimal$/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Custom$/ }));
+    expect(
+      screen.getByRole("tab", { selected: true }).textContent?.trim(),
+    ).toBe("capabilities");
+    expect(onDone).not.toHaveBeenCalled();
+    expect(double.commits).toHaveLength(before);
   });
 
   it("commits the default extensions and asks for them to be fetched", async () => {
@@ -105,9 +161,13 @@ describe("the configuration choice (ADR 0154)", () => {
     // type without having been told.
     expect(
       screen.getByText(
-        /No password, card or note types until you turn them on/,
+        /^Advanced\. Plain secrets and files only\. No password, card or note types until you turn them on/,
       ),
     ).toBeTruthy();
+    const minimal = screen.getByRole("button", { name: /^Minimal$/ });
+    expect(minimal.className).toContain("road--advanced");
+    expect(minimal.className.includes("road--lead")).toBe(false);
+    expect(document.activeElement).not.toBe(minimal);
     // One line over the roads says the choice is not final.
     expect(screen.getByText(/can be changed later in\s+Settings/)).toBeTruthy();
   });
