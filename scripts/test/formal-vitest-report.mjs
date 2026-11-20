@@ -126,15 +126,11 @@ const oauthSecurityNames = [
   "signed federated state integrity accepts legacy static provenance only with a signed nonempty provider",
   ...["orgId", "byoId"].map(
     (field) =>
-      "signed federated state integrity rejects a legacy " +
-      field +
-      " cookie after its unsigned owner is stripped",
+      `signed federated state integrity rejects a legacy ${field} cookie after its unsigned owner is stripped`,
   ),
   ...["orgId", "byoId"].map(
     (field) =>
-      "refuses a stripped legacy " +
-      field +
-      " callback before trust lookup or exchange",
+      `refuses a stripped legacy ${field} callback before trust lookup or exchange`,
   ),
   "binds OAuth2 callbacks to the same static OAuth2 provider",
   "refuses a changed trust owner at the exchange's own lookup",

@@ -337,11 +337,7 @@
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": [
-        "npm",
-        "run",
-        "verify:source-lifetime-formal"
-      ]
+      "command": ["npm", "run", "verify:source-lifetime-formal"]
     },
     {
       "id": "source-trust-selection",
@@ -517,11 +513,7 @@
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": [
-        "npm",
-        "run",
-        "verify:source-trust-selection-formal"
-      ],
+      "command": ["npm", "run", "verify:source-trust-selection-formal"],
       "manifestProjection": {
         "path": "Cargo.toml",
         "package": "crates/gateway/Cargo.toml",
@@ -813,11 +805,7 @@
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": [
-        "npm",
-        "run",
-        "verify:spiffe-peer-domain-formal"
-      ]
+      "command": ["npm", "run", "verify:spiffe-peer-domain-formal"]
     },
     {
       "id": "nats-trust-rotation",
@@ -880,11 +868,7 @@
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": [
-        "npm",
-        "run",
-        "verify:nats-trust-formal"
-      ]
+      "command": ["npm", "run", "verify:nats-trust-formal"]
     },
     {
       "id": "source-history",
@@ -1222,11 +1206,7 @@
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": [
-        "npm",
-        "run",
-        "verify:source-history-formal"
-      ]
+      "command": ["npm", "run", "verify:source-history-formal"]
     }
   ]
 }
