@@ -341,5 +341,93 @@ class CliTests(unittest.TestCase):
             self.assertEqual(result.stdout, "")
 
 
+SHUTTLE_EDGE = """\
+version = 3
+
+[[package]]
+name = "opensesame-domain"
+version = "0.1.0"
+dependencies = ["shuttle"]
+
+[[package]]
+name = "opensesame-spiffe-source"
+version = "0.1.0"
+dependencies = [
+ "opensesame-domain",
+ "spiffe",
+]
+
+[[package]]
+name = "shuttle"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+dependencies = []
+
+[[package]]
+name = "spiffe"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+dependencies = []
+"""
+
+MINIMAL_ROOT = """\
+version = 3
+
+[[package]]
+name = "opensesame-spiffe-source"
+version = "0.1.0"
+dependencies = ["spiffe"]
+
+[[package]]
+name = "spiffe"
+version = "0.19.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+dependencies = []
+"""
+
+
+class IsolatedProjectionTests(unittest.TestCase):
+    def test_full_root_closure_includes_inactive_shuttle_edge(self):
+        """The SPIFFE drift hash is the full root closure, not `--dependency spiffe`."""
+        with tempfile.TemporaryDirectory() as tmp:
+            before = Path(tmp) / "before.lock"
+            after = Path(tmp) / "after.lock"
+            before.write_text(SHUTTLE_EDGE, encoding="utf-8")
+            after.write_text(SHUTTLE_EDGE.replace("a" * 64, "b" * 64, 1), encoding="utf-8")
+            full = subprocess.run(
+                [sys.executable, str(SCRIPT), "--root", ROOT, str(before), str(after)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            narrow = subprocess.run(
+                [sys.executable, str(SCRIPT), "--root", ROOT, "--dependency", "spiffe", str(before), str(after)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(full.returncode, 0, full.stderr)
+            self.assertEqual(narrow.returncode, 0, narrow.stderr)
+            self.assertEqual(json.loads(full.stdout), {"changed": True})
+            self.assertEqual(json.loads(narrow.stdout), {"changed": False})
+            before_graph = projection.read_lock(before)
+            full_hash = projection.projection_sha256(before_graph, ROOT)
+            narrow_hash = projection.projection_sha256(before_graph, ROOT, "spiffe")
+            self.assertNotEqual(full_hash, narrow_hash)
+
+    def test_projection_sha256_stable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            lock = Path(tmp) / "Cargo.lock"
+            lock.write_text(MINIMAL_ROOT, encoding="utf-8")
+            graph = projection.read_lock(lock)
+            first = projection.projection_sha256(graph, ROOT)
+            second = projection.projection_sha256(graph, ROOT)
+            self.assertEqual(first, second)
+            self.assertEqual(len(first), 64)
+
+
 if __name__ == "__main__":
     unittest.main()
