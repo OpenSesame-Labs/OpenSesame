@@ -513,6 +513,8 @@ impl StoreRoot {
         // has no sidecar yet. Retrying is safe if unlink is interrupted.
         let local = self.attachment_revision(name)?;
         let minimum = local.unwrap_or(0).max(state.revision);
+        // A recorded sidecar is not proof the caller can open the witnessed
+        // bytes. Authenticate the live manifest before any tombstone.
         if !state.deleted {
             let _ = self.open_manifest_at_witness(name, key)?;
         }

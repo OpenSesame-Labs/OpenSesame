@@ -165,17 +165,25 @@ fn removal_tombstone_survives_fresh_clone_and_interrupted_unlink() {
     add(&root, &key, "One/scan", b"first");
     let rel = attach_relative("One/scan").unwrap();
     let old = confined_read(&root.path, &rel).unwrap();
-    // Model a clone, where the local map is not tracked in Git.
-    std::fs::remove_file(root.path.join(ATTACHMENT_REVISION_FILE)).unwrap();
-    // Model a stop after the tombstone but before the manifest unlink.
+    assert!(root.attachment_revision("One/scan").unwrap().is_some());
+    // Stop after the tombstone and before the manifest unlink. The sidecar
+    // still holds the pre-tombstone counter, and the witness is not live.
     assert_eq!(
-        root.next_attachment_revision("One/scan", &key, None)
+        root.tombstone_attachment_witness("One/scan", &key, 1)
             .unwrap(),
         2
     );
     assert!(get(&root, &key, "One/scan").is_err());
     root.attach_rm("One/scan", &key).unwrap();
-    assert_eq!(root.attachment_revisions().unwrap()["One/scan"], 3);
+    assert_eq!(root.attachment_revisions().unwrap()["One/scan"], 2);
+    assert!(!root.path.join(&rel).exists());
+
+    // A fresh clone has no sidecar. Retrying still clears a restored manifest
+    // and does not resurrect it.
+    confined_write(&root.path, &rel, &old).unwrap();
+    std::fs::remove_file(root.path.join(ATTACHMENT_REVISION_FILE)).unwrap();
+    root.attach_rm("One/scan", &key).unwrap();
+    assert_eq!(root.attachment_revisions().unwrap()["One/scan"], 2);
     confined_write(&root.path, &rel, &old).unwrap();
     assert!(get(&root, &key, "One/scan").is_err());
 }
@@ -201,6 +209,27 @@ fn removal_without_a_counter_refuses_a_malformed_manifest() {
     confined_write(&root.path, &rel, b"corrupt").unwrap();
     assert!(root.attach_rm("One/scan", &key).is_err());
     assert_eq!(confined_read(&root.path, &rel).unwrap(), b"corrupt");
+}
+
+#[test]
+fn removal_tombstone_authenticates_live_manifest_when_sidecar_exists() {
+    let (_dir, root, key) = store();
+    add(&root, &key, "One/scan", b"first");
+    let rel = attach_relative("One/scan").unwrap();
+    assert!(root.attachment_revision("One/scan").unwrap().is_some());
+    let revisions = std::fs::read(root.path.join(ATTACHMENT_REVISION_FILE)).unwrap();
+    let witnessed = root.attachment_entry_state("One/scan", &key).unwrap();
+    assert!(!witnessed.deleted);
+    confined_write(&root.path, &rel, b"corrupt").unwrap();
+    assert!(root.attach_rm("One/scan", &key).is_err());
+    assert_eq!(confined_read(&root.path, &rel).unwrap(), b"corrupt");
+    assert_eq!(
+        std::fs::read(root.path.join(ATTACHMENT_REVISION_FILE)).unwrap(),
+        revisions
+    );
+    let after = root.attachment_entry_state("One/scan", &key).unwrap();
+    assert!(!after.deleted);
+    assert_eq!(after.revision, witnessed.revision);
 }
 
 #[test]
