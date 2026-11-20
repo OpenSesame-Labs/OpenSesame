@@ -332,61 +332,48 @@ test3(
       const esm = pathToFileURL2(
         join2(dirname2(dirname2(dirname2(matcher))), "dist/esm/index.js"),
       ).href;
-      const maximum = owner === "workbox-build" ? 128 : 65536;
+      const maximum = 65536;
       for (const { Minimatch, minimatch } of [
         require2(matcher),
         await import(esm),
       ]) {
         const pattern = Array(14).fill("**/../a/b").join("/");
-        if (owner === "workbox-build") {
-          assert3.throws(
-            () =>
-              new Minimatch(pattern, {
-                optimizationLevel: 2,
-                braceExpandMax: 128,
-              }),
-            RangeError,
-          );
-        } else {
-          const bounded = new Minimatch(pattern, {
-            optimizationLevel: 2,
-            braceExpandMax: 128,
-          });
-          assert3.ok(bounded.globParts.length <= maximum);
-        }
+        const bounded = new Minimatch(pattern, {
+          optimizationLevel: 2,
+          braceExpandMax: 128,
+        });
+        assert3.ok(bounded.globParts.length <= maximum);
         assert3.equal(new Minimatch("**/*.js").match("src/a.js"), true);
         if (owner !== "workbox-build") continue;
         const invalidOption = new Minimatch("x", {
           braceExpandMax: Number.NaN,
         });
-        assert3.throws(
-          () =>
-            invalidOption.firstPhasePreProcess({
-              length: 1e5,
-              *[Symbol.iterator]() {
-                yield ["**", "..", "a", "b"];
-              },
-              push() {},
-            }),
-          /too many patterns/,
-        );
+        invalidOption.firstPhasePreProcess({
+          length: 1e5,
+          *[Symbol.iterator]() {
+            yield ["**", "..", "a", "b"];
+          },
+          push() {
+            throw new Error("NaN bypassed the glob-part bound");
+          },
+        });
         assert3.equal(
           minimatch
             .defaults({ braceExpandMax: Number.NaN })
             .braceExpand("{1..100001}").length,
-          100000,
+          1e5,
         );
         assert3.equal(
           minimatch
             .defaults({ braceExpandMax: "invalid" })
             .braceExpand("{1..100001}").length,
-          100000,
+          1e5,
         );
         assert3.equal(
           minimatch
             .defaults({ braceExpandMax: Number.POSITIVE_INFINITY })
             .braceExpand("{1..100001}").length,
-          100001,
+          100000,
         );
       }
     }

@@ -70,7 +70,7 @@ jobs:
             --test-name-pattern="the lockfile installs every copy" \
             scripts/security/patched-dependencies.test.mjs
           node --test \
-            --test-name-pattern="glob 10, 11 and 13 stop|compatible minimatch 9 and 10" \
+            --test-name-pattern="glob 10, 11 and 13 stop|compatible minimatch 9 and 11" \
             scripts/security/removed-dependencies.test.mjs
           node --test \
             --test-name-pattern="backported glob and minimatch source maps" \

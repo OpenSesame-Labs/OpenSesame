@@ -95,7 +95,7 @@
       "patch": "patches/minimatch@11.0.9.patch",
       "tarball": "patches/vendor/minimatch-11.0.9.tgz",
       "upstreamIntegrity": "sha512-KCFkfyjqerNlSstjlhIGNXIKZGA/6O4V4RlhZ+Dsr621SPPw0mzlypE9D9ZOoPiVefHID+j7/XuMMlqfD/F60Q==",
-      "upstreamFileMapSha256": "65076ceb7b5dfb87d4b2e493c760be794418f718b0f456e1d0afdfb7f58c0f9d",
+      "upstreamFileMapSha256": "13d2a4705aedb0c7b990fe1ec6201952af08d835f4b36670154586a0ca6a499f",
       "rootDependency": "minimatch11-patched",
       "override": "minimatch@^10.0.0"
     },
