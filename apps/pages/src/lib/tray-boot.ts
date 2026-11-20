@@ -5,6 +5,10 @@ import {
   installTrayNoticePersistence,
   restoreTrayNoticeHistory,
 } from "@opensesame/app-core/lib/notice-tray-persist.js";
+import {
+  listNotices,
+  removeStatusNotice,
+} from "@opensesame/app-core/lib/notices.js";
 import { forgetSessionTutorialPause } from "@opensesame/app-core/lib/tutorial-queue.js";
 import {
   installTutorialQueueLibraryOptions,
@@ -19,6 +23,26 @@ function syncTutorialQueueGate(): void {
   installTutorialQueueLibraryOptions(buildTutorialGateOptions());
 }
 
+function vaultUnlocked(): boolean {
+  return vaultStore.getSnapshot().status === "unlocked";
+}
+
+/** Hide queued-tour rows without dequeuing. The locked gate's Resume is inert. */
+function suppressQueuedTutorialTrayRows(): void {
+  for (const notice of [...listNotices()]) {
+    if (!notice.id.startsWith("tutorial.queue.")) continue;
+    removeStatusNotice(notice.id);
+  }
+}
+
+function publishQueuedTutorialTray(): void {
+  if (!vaultUnlocked()) {
+    suppressQueuedTutorialTrayRows();
+    return;
+  }
+  refreshQueuedTutorialTrayNotices();
+}
+
 /** Seal tray history and restore it once the at-rest key is ready (ADR 0163). */
 export function bootTrayNotices(): void {
   syncTutorialQueueGate();
@@ -28,20 +52,27 @@ export function bootTrayNotices(): void {
   });
   void restoreTrayNoticeHistory().finally(() => {
     dismissMinimalConfirm();
+    if (!vaultUnlocked()) {
+      suppressQueuedTutorialTrayRows();
+      return;
+    }
     rehydrateTutorialQueueNotices();
   });
   // Optional tutorial goals register after this module runs; re-notice the queue
   // when contributions change so restored ids gain resume keys.
   subscribeContributions(() => {
     syncTutorialQueueGate();
-    refreshQueuedTutorialTrayNotices();
+    publishQueuedTutorialTray();
   });
   compositionStore.subscribe(() => {
     syncTutorialQueueGate();
-    refreshQueuedTutorialTrayNotices();
+    publishQueuedTutorialTray();
   });
   vaultStore.subscribe(() => {
-    if (vaultStore.getSnapshot().status !== "unlocked") return;
+    if (!vaultUnlocked()) {
+      suppressQueuedTutorialTrayRows();
+      return;
+    }
     syncTutorialQueueGate();
     refreshQueuedTutorialTrayNotices();
   });
