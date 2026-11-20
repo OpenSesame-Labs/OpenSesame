@@ -149,16 +149,25 @@ function usePendingFirstVisit(
   // it does (below), never at the moment it was asked for.
   const asked = useRef<Asked | null>(null);
   useEffect(() => {
+    return subscribeSessionTutorialsPaused(() => {
+      if (!sessionTutorialsPaused()) return;
+      const pending = asked.current;
+      if (pending === null) return;
+      asked.current = null;
+      support.stopGuide("superseded");
+    });
+  }, [support]);
+
+  useEffect(() => {
     const pending = asked.current;
     if (pending === null || running !== pending.goal) return;
     asked.current = null;
     const onItsScreens = pending.screens.some((screen) =>
       guideRouteWithin(route, screen),
     );
-    if (!onItsScreens || mode !== "auto") {
-      // It was started for a screen the person has left, or tours were
-      // switched off meanwhile: it does not start over the wrong controls.
-      // A tour's own first move (many begin by navigating) is not leaving.
+    if (!onItsScreens || mode !== "auto" || sessionTutorialsPaused()) {
+      // It was started for a screen the person has left, tours were switched
+      // off, or this session was paused while the engine was loading.
       support.stopGuide("superseded");
       return;
     }
