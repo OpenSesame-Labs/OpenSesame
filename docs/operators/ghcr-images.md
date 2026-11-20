@@ -148,6 +148,8 @@ present. The image does not embed a pepper, a token, or a database URL.
 `opensesame` compiles with `--target runtime`. The Dockerfile default is
 `runtime-from-prebuilt`, which the proof workflow builds from
 `ops/compose/prebuilt/opensesame` (mode 0755) and does not run cargo.
+That binary is `x86_64-unknown-linux-musl`. The Alpine runtime does not
+install a glibc compatibility layer.
 
 ```bash
 docker build -f ops/compose/Dockerfile --target runtime -t opensesame:local .

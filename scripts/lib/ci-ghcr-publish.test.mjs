@@ -157,7 +157,7 @@ function assertRunnerRustBuild(rust) {
     1,
   );
   assert.match(rust, /prefix-key: v0-rust\n/);
-  assert.match(rust, /shared-key: ghcr-opensesame-amd64\n/);
+  assert.match(rust, /shared-key: ghcr-opensesame-amd64-musl\n/);
   assert.match(rust, /cache-all-crates: true\n/);
   assert.match(rust, /cache-on-failure: true\n/);
   assert.match(
@@ -178,23 +178,23 @@ function assertRunnerRustBuild(rust) {
     rust,
     /CACHE_HIT: \$\{\{ steps\.rust-cache-ghcr\.outputs\.cache-hit \}\}\n/,
   );
-  assert.match(rust, /CACHE_PRIMARY_KEY: v0-rust-ghcr-opensesame-amd64\n/);
-  assert.match(rust, /MAIN_SEED_PREFIX: v0-rust-ghcr-opensesame-amd64-\n/);
+  assert.match(rust, /CACHE_PRIMARY_KEY: v0-rust-ghcr-opensesame-amd64-musl\n/);
+  assert.match(rust, /MAIN_SEED_PREFIX: v0-rust-ghcr-opensesame-amd64-musl-\n/);
   assert.equal(
     rust.match(/node scripts\/lib\/ci-cache-seed\.mjs\n/g)?.length,
     1,
   );
-  assert.match(rust, /name: Install mold and clang\n/);
-  assert.match(rust, /command -v mold/);
-  assert.match(rust, /command -v clang/);
   assert.match(
     rust,
-    /\[\[ -e "\$link_root\/bin\/ld\.mold" \|\| -e "\$link_root\/bin\/mold" \]\][\s\S]*?LD_LIBRARY_PATH=\$\{joined\}/,
+    /bash scripts\/ci\/prepare-musl\.sh "\$RUNNER_TEMP\/opensesame-musl"/,
   );
+  assert.match(rust, /source "\$RUNNER_TEMP\/opensesame-musl\/env\.sh"/);
+  assert.match(rust, /rustup target add x86_64-unknown-linux-musl\n/);
   assert.doesNotMatch(rust, /\bsudo\b/);
+  assert.doesNotMatch(rust, /fuse-ld=mold/);
   assert.match(
     rust,
-    /CARGO_INCREMENTAL: "0"\n {10}CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"\n {10}CARGO_PROFILE_RELEASE_DEBUG: "0"\n {10}CARGO_PROFILE_RELEASE_STRIP: symbols\n {10}RUSTFLAGS: "-C link-arg=-fuse-ld=mold"\n/,
+    /CARGO_INCREMENTAL: "0"\n {10}CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"\n {10}CARGO_PROFILE_RELEASE_DEBUG: "0"\n {10}CARGO_PROFILE_RELEASE_STRIP: symbols\n/,
   );
   assert.equal(
     join(
@@ -205,15 +205,25 @@ function assertRunnerRustBuild(rust) {
   );
   assert.match(
     rust,
-    /cargo build --release --locked -p opensesame-cli --bin opensesame\n/,
+    /cargo build --release --locked -p opensesame-cli --bin opensesame --target x86_64-unknown-linux-musl\n/,
+  );
+  assert.ok(
+    rust.indexOf('source "$RUNNER_TEMP/opensesame-musl/env.sh"') <
+      rust.indexOf(
+        "cargo build --release --locked -p opensesame-cli --bin opensesame --target x86_64-unknown-linux-musl",
+      ),
   );
   assert.doesNotMatch(rust, /cargo build --release -p opensesame-cli\n/);
   assert.match(rust, /name: opensesame-amd64-binary\n/);
   assert.match(
     rust,
-    /path: \$\{\{ env\.CARGO_TARGET_DIR \}\}\/release\/opensesame\n/,
+    /path: \$\{\{ env\.CARGO_TARGET_DIR \}\}\/x86_64-unknown-linux-musl\/release\/opensesame\n/,
   );
   assert.doesNotMatch(rust, /path: target\/release\/opensesame\n/);
+  assert.doesNotMatch(
+    rust,
+    /path: \$\{\{ env\.CARGO_TARGET_DIR \}\}\/release\/opensesame\n/,
+  );
 }
 
 /** The image job that packages the prebuilt binary without compiling it again. */
@@ -256,9 +266,15 @@ function assertCargoChefDockerfile(dockerfile) {
       ?.length,
     2,
   );
+  assert.equal(
+    dockerfile.match(/--target x86_64-unknown-linux-musl/g)?.length,
+    2,
+  );
+  assert.doesNotMatch(dockerfile, /gcompat/);
+  assert.doesNotMatch(dockerfile, /fuse-ld=mold/);
   assert.match(
     dockerfile,
-    /install -m 0755 target\/release\/opensesame \/usr\/local\/bin\/opensesame/,
+    /install -m 0755 target\/x86_64-unknown-linux-musl\/release\/opensesame \/usr\/local\/bin\/opensesame/,
   );
   assert.match(dockerfile, /COPY --from=builder \/usr\/local\/bin\/opensesame/);
   assert.doesNotMatch(
