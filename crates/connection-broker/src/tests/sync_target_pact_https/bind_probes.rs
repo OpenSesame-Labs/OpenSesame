@@ -150,4 +150,78 @@ mod probes {
             );
         }
     }
+
+    /// `;` / `{` / `}` inside a comment or string in an `if` / `else if`
+    /// header must not truncate the header into a plain block: the conditional
+    /// reassignment still merges fail-closed instead of leaking the arm URL
+    /// past a scheme guard that does not cover it.
+    #[test]
+    fn chunk02_header_comment_semicolon_keeps_branch_merge() {
+        let cases = [
+            (
+                "fn f() { request = client.get(evil); if cond /* ; */ { request = client.get(url); } request.send() }",
+                Some(""),
+            ),
+            (
+                "fn f() { request = client.get(evil); if cond /* } */ { request = client.get(url); } request.send() }",
+                Some(""),
+            ),
+            (
+                "fn f() { request = client.get(evil); if cond == \";\" { request = client.get(url); } request.send() }",
+                Some(""),
+            ),
+            (
+                "fn f() { request = client.get(evil); if cond == \"}\" { request = client.get(url); } request.send() }",
+                Some(""),
+            ),
+            (
+                "fn f() { request = client.get(evil); if c1 { request = client.get(evil); } else if c2 /* ; */ { request = client.get(url); } request.send() }",
+                Some(""),
+            ),
+        ];
+        for (sample, expected) in cases {
+            let open = sample.find('{').expect("fn body");
+            let at = sample.find(".send").expect("send");
+            assert_eq!(
+                super::super::dispatch_url(sample, open, at).as_deref(),
+                expected,
+                "{sample}"
+            );
+        }
+        let bless = "async fn f() { request = client.get(evil); if cond /* ; */ { request = client.get(url); } if url.scheme() != \"https\" { return Err(\"x\".into()); } request.send().await?; }";
+        assert_eq!(credentialed_send_https_gaps(bless), (1, 1), "{bless}");
+        let same = "async fn f() { request = client.get(evil); if cond /* ; */ { request = client.get(url); } else { request = client.get(url); } if url.scheme() != \"https\" { return Err(\"x\".into()); } request.send().await?; }";
+        assert_eq!(credentialed_send_https_gaps(same), (1, 0), "{same}");
+    }
+
+    /// `=> /* c */ {` is still a match arm brace, and a `}` inside an arm
+    /// comment must not demote it to `BraceKind::Block`; a trailing comment's
+    /// `=>` must not fake an arm either.
+    #[test]
+    fn chunk02_match_arm_comment_brace_stays_branch() {
+        let hits = [
+            "fn f() { match cond { _ => /* c */ { one(); } } }",
+            "fn f() { match cond { _ => /* } */ { one(); } } }",
+            "fn f() { match cond { S { x } => /* c */ { one(); } } }",
+        ];
+        for sample in hits {
+            let brace = sample.rfind('{').expect("arm brace");
+            assert!(
+                matches!(
+                    super::super::brace_kind(sample, brace),
+                    super::super::BraceKind::Branch
+                ),
+                "arm brace with comment must stay a branch: {sample}"
+            );
+        }
+        let decoy = "fn f() { stmt(); /* => */ { one(); } }";
+        let brace = decoy.rfind('{').expect("block brace");
+        assert!(
+            matches!(
+                super::super::brace_kind(decoy, brace),
+                super::super::BraceKind::Block
+            ),
+            "a comment's => must not fake a match arm: {decoy}"
+        );
+    }
 }

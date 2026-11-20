@@ -55,10 +55,7 @@ pub(super) fn else_follows(source: &str, mut at: usize) -> bool {
 
 pub(super) fn brace_kind(source: &str, brace: usize) -> BraceKind {
     let bytes = source.as_bytes();
-    let mut at = brace;
-    while at > 0 && bytes[at - 1].is_ascii_whitespace() {
-        at -= 1;
-    }
+    let at = code_end_before(source, brace);
     if at >= 2 && bytes[at - 2] == b'=' && bytes[at - 1] == b'>' {
         return BraceKind::Branch;
     }
@@ -71,20 +68,65 @@ pub(super) fn brace_kind(source: &str, brace: usize) -> BraceKind {
     }
 }
 
+/// `;` / `{` / `}` inside a comment or string is not a header break: the scan
+/// walks code bytes only, so `if /* ; */ cond {` keeps its `if` header.
 fn header_start(source: &str, end: usize) -> usize {
     let bytes = source.as_bytes();
     let mut at = end;
     let mut depth = 0i32;
     while at > 0 {
-        at -= 1;
-        match bytes[at] {
+        let Some(prev) = prev_code_byte(bytes, at) else {
+            return 0;
+        };
+        match bytes[prev] {
             b')' | b']' => depth += 1,
             b'(' | b'[' if depth > 0 => depth -= 1,
-            b';' | b'{' | b'}' if depth == 0 => return at + 1,
+            b';' | b'{' | b'}' if depth == 0 => return prev + 1,
             _ => {}
         }
+        at = prev;
     }
     0
+}
+
+/// End of the code span before `end`: whitespace, comments, and strings
+/// against `end` are skipped, so `=> /* c */ {` still reads the `=>` and a
+/// trailing comment's `=>` cannot fake a match arm.
+fn code_end_before(source: &str, end: usize) -> usize {
+    let bytes = source.as_bytes();
+    let mut index = 0usize;
+    let mut last = 0usize;
+    while index < end {
+        if let Some(len) = non_code_len(bytes, index) {
+            let span_end = index + len;
+            if span_end >= end {
+                break;
+            }
+            index = span_end;
+            continue;
+        }
+        let ch = source[index..].chars().next().expect("char at byte index");
+        if !ch.is_whitespace() {
+            last = index + ch.len_utf8();
+        }
+        index += ch.len_utf8();
+    }
+    last
+}
+
+/// Largest index of a code byte strictly before `end`.
+fn prev_code_byte(bytes: &[u8], end: usize) -> Option<usize> {
+    let mut index = 0usize;
+    let mut last = None;
+    while index < end {
+        if let Some(len) = non_code_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        last = Some(index);
+        index += 1;
+    }
+    last
 }
 
 fn first_header_keyword(header: &str) -> Option<&str> {
