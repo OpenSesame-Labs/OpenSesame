@@ -317,6 +317,12 @@ export function restorePersistedTrayNotices(restored: Notice[]): void {
   noticeSeams.restorePersistedTrayNotices(restored);
 }
 
+/** Remove a tray row without tutorial-queue dequeue side effects. */
+export function removeStatusNotice(id: string): void {
+  noticeSeams.dismissNotice(id);
+  hideDismissedTutorialToast(id);
+}
+
 export function dismissNotice(id: string): void {
   noticeSeams.dismissNotice(id);
   hideDismissedTutorialToast(id);
