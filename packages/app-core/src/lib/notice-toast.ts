@@ -66,7 +66,7 @@ export function toastOf(notice: Notice): ToastMessage {
     tone: notice.tone ?? "info",
     title: notice.title,
     body: notice.body,
-    open: notice.open,
+    ...(notice.open !== undefined ? { open: notice.open } : {}),
   };
   const { act } = notice;
   if (act?.worded !== true) return echo;
