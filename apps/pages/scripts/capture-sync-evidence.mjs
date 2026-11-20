@@ -22,15 +22,15 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
+import {
+  SHOP_PASSWORD,
+  SHOP_PWNED_RANGE_PREFIX,
+} from "./capture-sync-evidence-shop-fixture.mjs";
 import { doorGuest } from "./lib/front-door.mjs";
 import { phoneContext } from "./lib/mobile-contract.mjs";
 import { sealWithPin } from "./lib/pages-journey.mjs";
 import { createHarness } from "./lib/static-origin-harness.mjs";
 import { tailscaleServeDrive } from "./lib/tailscale-serve-drive.mjs";
-import {
-  SHOP_PASSWORD,
-  SHOP_PWNED_RANGE_PREFIX,
-} from "./capture-sync-evidence-shop-fixture.mjs";
 
 const origin = "https://opensesame-labs.github.io";
 const base = "/OpenSesame/";
