@@ -51,11 +51,14 @@ pub(crate) fn spiffe_first_ready_to_bind(status: &SourceStatus) -> bool {
 }
 
 /// Terminal observation for the first-SVID wait: a served generation, or a
-/// withdrawn or stopped source. The latter must refuse the bind.
+/// withdrawn or stopped source that already recorded one. Withdrawal or stop
+/// with no generation leaves the wait open until timeout. A settled withdrawal
+/// or stop must refuse the bind.
 #[must_use]
 pub(crate) fn spiffe_first_svid_settled(status: &SourceStatus) -> bool {
     spiffe_first_ready_to_bind(status)
-        || matches!(status.phase, SourcePhase::Withdrawn | SourcePhase::Stopped)
+        || (status.generation.is_some()
+            && matches!(status.phase, SourcePhase::Withdrawn | SourcePhase::Stopped))
 }
 
 /// Bind only a served generation. Withdrawal, stop, a deadline with no
@@ -311,7 +314,7 @@ fn load_trust(
 /// Start the Workload API source and wait for the first SVID. The listener
 /// is bound only while a generation is being served. A generation that was
 /// observed and then withdrawn or stopped before this wait returns refuses
-/// to bind.
+/// to bind. Withdrawal or stop before any generation does not end the wait.
 async fn start_spiffe(
     listener: &ListenerConfig,
 ) -> Result<(Arc<TransportGenerations>, SpiffeSourceHandle), TransportError> {
