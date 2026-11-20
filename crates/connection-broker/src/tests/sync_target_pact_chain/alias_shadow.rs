@@ -1,9 +1,12 @@
 //! Visible dispatch alias at a call site.
 //!
 //! A later `let` or assignment shadows an earlier send alias until that binding
-//! ends. A `let` inside a block does not kill the outer alias after the block.
-//! The establishing `let` does not shadow its own call, and a comment cannot
-//! fake a rebind — including the alias name inside a `let (` pattern.
+//! ends. A `let` inside a block does not kill the outer alias after the block,
+//! and neither does a conditional reassignment: `dispatch = other_fn` inside an
+//! `if` / `match` / `loop` arm only hides calls in that arm, because
+//! `Path::send` is still the live value outside it. The establishing `let`
+//! does not shadow its own call, and a comment cannot fake a rebind —
+//! including the alias name inside a `let (` pattern.
 
 use super::super::super::sync_target_pact_norm::{is_keyword_at, non_code_len, skip_until_semi};
 use super::{path_prefix_start, statement_tail, value_eq, DispatchAlias};
@@ -18,10 +21,11 @@ pub(super) fn alias_shadowed(source: &str, alias: &DispatchAlias, call: usize) -
         index = skip_until_semi(bytes, index);
     }
     let mut depth = 0i32;
-    // Depths of `let` shadows still in scope. An assignment sticks only when
-    // it targets the alias itself, not a block-local shadow.
+    // Depths of `let` shadows and reassignments still in scope. Both stick
+    // only inside the block that introduced them, and both target the alias
+    // itself, not a block-local shadow.
     let mut let_depths: Vec<i32> = Vec::new();
-    let mut assigned = false;
+    let mut assigned_depths: Vec<i32> = Vec::new();
     while index < call {
         if let Some(len) = non_code_len(bytes, index) {
             index += len;
@@ -34,19 +38,22 @@ pub(super) fn alias_shadowed(source: &str, alias: &DispatchAlias, call: usize) -
                 while let_depths.last().is_some_and(|live| *live > depth) {
                     let_depths.pop();
                 }
+                while assigned_depths.last().is_some_and(|live| *live > depth) {
+                    assigned_depths.pop();
+                }
             }
             _ if rebind_at(source, bytes, index, &alias.name) => {
                 if is_keyword_at(bytes, index, b"let") {
                     let_depths.push(depth);
                 } else if let_depths.is_empty() {
-                    assigned = true;
+                    assigned_depths.push(depth);
                 }
             }
             _ => {}
         }
         index += 1;
     }
-    assigned || !let_depths.is_empty()
+    !let_depths.is_empty() || !assigned_depths.is_empty()
 }
 
 /// `let name = …::send` introduces the alias. A `let` inside that initializer
@@ -144,4 +151,48 @@ fn pattern_contains_name(pattern: &str, name: &str) -> bool {
         index += 1;
     }
     false
+}
+
+#[cfg(test)]
+mod probes {
+    use super::super::dispatch_alias_calls;
+
+    /// A conditional rebind inside `if` / `match` / `loop` only hides calls
+    /// in that arm: outside it, `Path::send` is still the live alias value.
+    #[test]
+    fn chunk01_conditional_rebind_does_not_shadow_outer_call() {
+        let live = [
+            "fn f() { let dispatch = Path::send; if cond { dispatch = other_fn; } dispatch(request); }",
+            "fn f() { let dispatch = Path::send; if cond { dispatch = other_fn; } else { dispatch = other_fn; } dispatch(request); }",
+            "fn f() { let dispatch = Path::send; match x { _ => { dispatch = other_fn; } } dispatch(request); }",
+            "fn f() { let dispatch = Path::send; match x { 0 => dispatch = other_fn, _ => dispatch = other_fn, } dispatch(request); }",
+            "fn f() { let dispatch = Path::send; loop { dispatch = other_fn; break; } dispatch(request); }",
+            "fn f() { let dispatch = Path::send; while cond { dispatch = other_fn; } dispatch(request); }",
+            "fn f() { let dispatch = Path::send; for i in it { dispatch = other_fn; } dispatch(request); }",
+            "fn f() { let dispatch = Path::send; let f = || { dispatch = other_fn; }; dispatch(request); }",
+        ];
+        for sample in live {
+            assert_eq!(dispatch_alias_calls(sample).len(), 1, "{sample}");
+        }
+        let dead = [
+            "fn f() { let dispatch = Path::send; if cond { dispatch = other_fn; dispatch(request); } }",
+            "fn f() { let dispatch = Path::send; match x { _ => { dispatch = other_fn; dispatch(request); } } }",
+            "fn f() { let dispatch = Path::send; dispatch = other_fn; dispatch(request); }",
+        ];
+        for sample in dead {
+            assert!(dispatch_alias_calls(sample).is_empty(), "{sample}");
+        }
+        let gaps = r#"async fn f() { let dispatch = reqwest::RequestBuilder::send; if parsed.scheme() != "https" { return Err("x".into()); } if cond { dispatch = other_fn; } dispatch(request).await?; }"#;
+        assert_eq!(
+            crate::tests::sync_target_pact_https::credentialed_send_https_gaps(gaps),
+            (1, 0),
+            "{gaps}"
+        );
+        let bare = r#"async fn f() { let dispatch = reqwest::RequestBuilder::send; if cond { dispatch = other_fn; } dispatch(request).await?; }"#;
+        assert_eq!(
+            crate::tests::sync_target_pact_https::credentialed_send_https_gaps(bare),
+            (1, 1),
+            "{bare}"
+        );
+    }
 }

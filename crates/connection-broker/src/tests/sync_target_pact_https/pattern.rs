@@ -2,16 +2,18 @@
 use super::super::sync_target_pact_norm::string_len;
 use super::is_ident_char;
 
-/// `let (request,) = (client.get(evil),)` binds `request` to that element.
-/// `Some` means the name is a destructured binding. The URL may be empty when
-/// the element is not a builder call: that still must not fall through to an
-/// unresolved destination.
+/// `let (request,) = (client.get(evil),)` binds `request` to that element,
+/// and a statement-start reassignment `(request,) = (client.get(evil),)`
+/// rebinds it. `Some` means the name is a destructured binding, with `true`
+/// when a `let` introduced it and `false` for the assignment form. The URL
+/// may be empty when the element is not a builder call: that still must not
+/// fall through to an unresolved destination.
 pub(super) fn destructured_url(
     prefix: &str,
     name_at: usize,
     name: &str,
-) -> Option<(String, usize)> {
-    let (open, close) = let_tuple_around(prefix, name_at)?;
+) -> Option<(String, usize, bool)> {
+    let (open, close, is_let) = tuple_around(prefix, name_at)?;
     let path = bind_path(&prefix[open + 1..close], name)?;
     let bytes = prefix.as_bytes();
     let mut at = close + 1;
@@ -30,16 +32,22 @@ pub(super) fn destructured_url(
     let end = super::bind::stmt_end(bytes, at + 1);
     let piece = descend_rhs(prefix[at + 1..end].trim(), &path);
     let url = super::bind::builder_url(piece).unwrap_or("").to_string();
-    Some((url, end))
+    Some((url, end, is_let))
 }
 
-/// Outermost `let` tuple that contains `name_at`, including `((request,),)`.
-fn let_tuple_around(source: &str, name_at: usize) -> Option<(usize, usize)> {
+/// Outermost tuple pattern around `name_at`, including `((request,),)`, with
+/// whether a `let` introduced it. A tuple at statement start with no `let` is
+/// a reassignment: it rebinds the element like an assignment, not a
+/// block-local shadow.
+fn tuple_around(source: &str, name_at: usize) -> Option<(usize, usize, bool)> {
     let (mut open, _) = tuple_pattern_open(source, name_at)?;
     loop {
         let close = matching_close(source, open)?;
         if let_pattern_intro(&source[..open]) {
-            return Some((open, close));
+            return Some((open, close, true));
+        }
+        if statement_intro(&source[..open]) {
+            return Some((open, close, false));
         }
         let (outer, _) = tuple_pattern_open(source, open)?;
         if outer >= open {
@@ -47,6 +55,13 @@ fn let_tuple_around(source: &str, name_at: usize) -> Option<(usize, usize)> {
         }
         open = outer;
     }
+}
+
+/// The tuple opens a statement (`;`, `{`, or `}` right before it), the shape
+/// of a destructuring assignment `(request,) = …`.
+fn statement_intro(before_paren: &str) -> bool {
+    let last = before_paren.trim_end().as_bytes().last();
+    matches!(last, None | Some(b';' | b'{' | b'}'))
 }
 
 fn bind_path(inside: &str, name: &str) -> Option<Vec<usize>> {
@@ -272,6 +287,27 @@ mod probes {
         let kept = [
             r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } let (request,) = (client.get(url),); request.send().await?; }"#,
             r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } let mut (request,) = (client.get(url),); request.send().await?; }"#,
+        ];
+        for sample in kept {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+        }
+    }
+
+    #[test]
+    fn chunk02_tuple_reassignment_rebinds_builder_url() {
+        // `(request,) = (…)` is not a `let`, but it does rebind the element.
+        // Without it the stored URL stays `url`, and the post-guard send on
+        // the rebuilt `evil` request still looks guarded.
+        let decoy = [
+            r#"async fn f() { let (request,) = (client.get(url),); if url.scheme() != "https" { return Err("x".into()); } (request,) = (client.get(evil),); request.send().await?; }"#,
+            r#"async fn f() { let (request,) = (client.get(url),); (request,) = (client.get(evil),); if url.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#,
+        ];
+        for sample in decoy {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+        }
+        let kept = [
+            r#"async fn f() { let (request,) = (client.get(url),); if url.scheme() != "https" { return Err("x".into()); } (request,) = (client.get(url),); request.send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } let (request,) = (client.get(url),); request.send().await?; }"#,
         ];
         for sample in kept {
             assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
