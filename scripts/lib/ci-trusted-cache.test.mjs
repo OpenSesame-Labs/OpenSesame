@@ -185,6 +185,11 @@ describe("trusted install caches", () => {
       ),
     );
     assert.equal(cache?.includes("lookup-only: true"), false);
+    assert.ok(
+      cache?.includes(
+        "workspaces: . -> ../../../.cache/packages/cargo-target",
+      ),
+    );
     assert.ok(rust.includes("CACHE_NAME: rust"));
     assert.ok(rust.includes("CACHE_PROBE_DIR"));
     for (const name of workflows) {
