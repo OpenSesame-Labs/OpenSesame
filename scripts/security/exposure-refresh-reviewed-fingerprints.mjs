@@ -13,7 +13,11 @@ import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { encodeSourceDigest, POLICY_PATH, parsePolicy } from "../lib/exposure-policy.mjs";
+import {
+  encodeSourceDigest,
+  POLICY_PATH,
+  parsePolicy,
+} from "../lib/exposure-policy.mjs";
 
 function sha256File(root, rel) {
   const abs = resolve(root, rel);
@@ -57,7 +61,9 @@ function patchSourceDigestInPlace(text, rel, chunks) {
     ? `${keyLine.match(/^(\s+)/)[1]}  `
     : "      ";
   const closeIndent =
-    text.slice(close).match(/\n(\s*)\]/)?.[1] ?? keyLine.match(/^(\s+)/)?.[1] ?? "    ";
+    text.slice(close).match(/\n(\s*)\]/)?.[1] ??
+    keyLine.match(/^(\s+)/)?.[1] ??
+    "    ";
   const inner = chunks.map((part) => `${innerIndent}"${part}"`).join(",\n");
   const replacement = `[\n${inner}\n${closeIndent}]`;
   return text.slice(0, open) + replacement + text.slice(close + 1);
@@ -95,6 +101,9 @@ function main() {
   console.error(`wrote ${POLICY_PATH}`);
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (
+  process.argv[1] &&
+  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
   main();
 }
