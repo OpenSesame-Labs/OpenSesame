@@ -1,5 +1,5 @@
-import { type TutorialResumeStart } from "@opensesame/app-core/lib/tutorial-queue.js";
-import { type GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes.js";
+import type { TutorialResumeStart } from "@opensesame/app-core/lib/tutorial-queue.js";
+import type { GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes.js";
 /**
  * The composition root for in-product support.
  *
@@ -27,13 +27,13 @@ import type {
   SupportAgentAvailability,
   SupportComputerStep,
 } from "@opensesame/support-agent";
-import {
-  type GuideOrigin,
-  type SupportEngine,
-  type SupportHost,
-  type SupportTransport,
+import type {
+  GuideOrigin,
+  SupportEngine,
+  SupportHost,
+  SupportTransport,
 } from "./engine.js";
-import { type SupportWalkthrough } from "./session-grounding.js";
+import type { SupportWalkthrough } from "./session-grounding.js";
 
 export type {
   GuideOrigin,
