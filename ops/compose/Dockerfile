@@ -45,17 +45,14 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 # the prebuilt target does not depend on the chef compile.
 # Debian trixie (glibc 2.41). The GHCR binary is linked on the Ubuntu 24.04
 # runner (glibc 2.39). The bookworm chef binary from `runtime` also runs here.
-FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS debian-runtime
-RUN useradd -u 10001 -m app \
-  && apt-get update \
-  && apt-get -y upgrade --no-install-recommends \
-  && apt-get install -y --no-install-recommends ca-certificates curl libdbus-1-3 \
-  && rm -rf /var/lib/apt/lists/* \
+FROM alpine:3.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab AS alpine-runtime
+RUN apk add --no-cache ca-certificates curl dbus-libs gcompat libstdc++ \
+  && adduser -D -u 10001 app \
   && mkdir -p /var/lib/opensesame \
   && chown 10001:10001 /var/lib/opensesame
 
 # Local compile. Selects the builder binary. Compose uses this target.
-FROM debian-runtime AS runtime
+FROM alpine-runtime AS runtime
 COPY --from=builder /usr/local/bin/opensesame /usr/local/bin/opensesame
 # Default inspect version. CD passes --build-arg VERSION from the git tag or 0.0.0-next.
 ARG VERSION=0.0.0-local
@@ -80,7 +77,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
 
 # Default target. GHCR publish builds this stage. The binary is the CI file
 # ops/compose/prebuilt/opensesame, mode 0755, not the chef output.
-FROM debian-runtime AS runtime-from-prebuilt
+FROM alpine-runtime AS runtime-from-prebuilt
 COPY --chmod=0755 ops/compose/prebuilt/opensesame /usr/local/bin/opensesame
 ARG VERSION=0.0.0-local
 LABEL org.opencontainers.image.source="https://github.com/OpenSesame-Labs/OpenSesame" \

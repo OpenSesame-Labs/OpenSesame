@@ -1,14 +1,12 @@
 # Devcontainer image for OpenSesame.
-# The base is the digest-pinned Debian trixie devcontainer (no preinstalled Rust).
+# Alpine base (no Debian dpkg/status for OSV devcontainer scans).
 # Rust, Node, Go, Java, and Playwright come from `mise install --locked` only.
-# `apt-get -y upgrade --no-install-recommends` runs at image build so Debian
-# security fixes land here before the upstream tag is rebuilt.
 # updateContentCommand runs `mise install --locked`, which installs the tools
 # pinned in the workspace mise.toml and mise.lock.
 #
 # ghcr.io/devcontainers-extra/features/mise is not used. Its gh-release asset
 # filter matches both the glibc and musl tarballs for one mise version.
-FROM mcr.microsoft.com/devcontainers/base:debian-trixie@sha256:ea5711efc43c9337df558111d469df1dce5a94ae96e7eed341736e1c0417f180
+FROM mcr.microsoft.com/devcontainers/base:alpine@sha256:8be2a2435e239e24b160276c79704c3a4b9d8f261ef669fe99efe15f20cb9ee6
 
 USER root
 
@@ -42,17 +40,13 @@ ENV RUSTUP_HOME=/opt/mise/rustup
 ENV BASH_ENV=/etc/profile.d/mise.sh
 ENV PATH=/opt/mise/shims:/home/vscode/.local/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update \
-  && apt-get -y upgrade --no-install-recommends \
-  && apt-get install -y --no-install-recommends \
-    build-essential \
+RUN apk add --no-cache \
+    build-base \
     ca-certificates \
     curl \
     git \
-    pkg-config \
-    python3 \
-  && rm -rf /var/lib/apt/lists/*
+    pkgconf \
+    python3
 
 # Pinned GitHub release tarball. Same version and linux digests as the
 # Cursor Cloud image. The digest is checked before extraction.
@@ -61,10 +55,10 @@ ARG MISE_SHA256_LINUX_X64=0d41b60745a6273a80089c86f80d8729042d2f57f87fda70aecc7d
 ARG MISE_SHA256_LINUX_ARM64=c5a49a47f8184f5649f3d8685b408bd72325a823f41cf618c60f3ffc303090a1
 
 RUN set -eu; \
-  arch="$(dpkg --print-architecture)"; \
+  arch="$(uname -m)"; \
   case "$arch" in \
-    amd64) mise_target="linux-x64"; mise_sha="${MISE_SHA256_LINUX_X64}" ;; \
-    arm64) mise_target="linux-arm64"; mise_sha="${MISE_SHA256_LINUX_ARM64}" ;; \
+    x86_64) mise_target="linux-x64"; mise_sha="${MISE_SHA256_LINUX_X64}" ;; \
+    aarch64) mise_target="linux-arm64"; mise_sha="${MISE_SHA256_LINUX_ARM64}" ;; \
     *) echo "unsupported mise architecture: ${arch}" >&2; exit 1 ;; \
   esac; \
   archive="mise-v${MISE_VERSION}-${mise_target}.tar.gz"; \

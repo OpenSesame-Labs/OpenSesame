@@ -245,10 +245,10 @@ function assertCargoChefDockerfile(dockerfile) {
   assert.match(dockerfile, /cargo chef cook/);
   assert.match(
     dockerfile,
-    /FROM debian:trixie-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS debian-runtime\n/,
+    /FROM alpine:3\.21@sha256:bc21487101ae47172509130ee1092cc273a831968d64b617776d1f69c81e42ab AS alpine-runtime\n/,
   );
-  assert.match(dockerfile, /FROM debian-runtime AS runtime\n/);
-  assert.match(dockerfile, /FROM debian-runtime AS runtime-from-prebuilt\n/);
+  assert.match(dockerfile, /FROM alpine-runtime AS runtime\n/);
+  assert.match(dockerfile, /FROM alpine-runtime AS runtime-from-prebuilt\n/);
   assert.doesNotMatch(dockerfile, /debian:bookworm-slim/);
   assert.equal(
     dockerfile.match(/--mount=type=cache,target=\/src\/target,sharing=locked/g)

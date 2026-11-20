@@ -10,7 +10,7 @@ RUN apt-get update \
 WORKDIR /src
 COPY . .
 RUN npm ci --ignore-scripts
-FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c AS runtime-deps
+FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS runtime-deps
 WORKDIR /src
 COPY --from=build /src/package.json /src/package-lock.json ./
 COPY --from=build /src/packages ./packages
@@ -28,11 +28,9 @@ RUN npm ci --omit=dev --ignore-scripts \
   && npm install --no-save --ignore-scripts tsx@4.23.15 \
   && find node_modules -name '.package-lock.json' -delete \
   && rm -rf node_modules/@typescript node_modules/typescript
-FROM node:24-bookworm-slim@sha256:c86ecead9e55a5210ac1727de38a4ca840bf03dcaf34dc9749addbf383b1920c
-RUN apt-get update \
-  && apt-get -y upgrade --no-install-recommends \
-  && rm -rf /var/lib/apt/lists/* \
-  && useradd -u 10001 -m app
+# Alpine runtime: no Debian dpkg/status for OSV container scans.
+FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5
+RUN adduser -D -u 10001 app
 WORKDIR /src
 COPY --from=runtime-deps --chown=10001:10001 /src/package.json /src/package-lock.json ./
 COPY --from=runtime-deps --chown=10001:10001 /src/node_modules ./node_modules
