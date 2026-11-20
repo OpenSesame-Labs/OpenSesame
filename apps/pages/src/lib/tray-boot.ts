@@ -40,13 +40,9 @@ export function bootTrayNotices(): void {
     syncTutorialQueueGate();
     refreshQueuedTutorialTrayNotices();
   });
-  let vaultStatus = vaultStore.getSnapshot().status;
   vaultStore.subscribe(() => {
-    const status = vaultStore.getSnapshot().status;
-    if (vaultStatus !== "unlocked" && status === "unlocked") {
-      syncTutorialQueueGate();
-      refreshQueuedTutorialTrayNotices();
-    }
-    vaultStatus = status;
+    if (vaultStore.getSnapshot().status !== "unlocked") return;
+    syncTutorialQueueGate();
+    refreshQueuedTutorialTrayNotices();
   });
 }
