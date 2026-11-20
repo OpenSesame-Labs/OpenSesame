@@ -10,15 +10,16 @@ inductive Signal where
   deriving DecidableEq, Repr
 
 inductive Decision where
-  | noIdentity | permissionDenied | missingSvids | missingBundle | outage | malformed
+  | noIdentity | permissionDenied | unauthenticated | missingSvids | missingBundle | outage | malformed
   deriving DecidableEq, Repr
 
 def classify : Signal → Decision
   | .noIdentity => .noIdentity
-  | .permissionDenied | .unauthenticated => .permissionDenied
-  | .missingSvids => .missingSvids
+  | .permissionDenied => .permissionDenied
+  | .unauthenticated => .unauthenticated
+  | .missingSvids | .emptyResponse => .missingSvids
   | .missingBundle => .missingBundle
-  | .transport | .emptyResponse => .outage
+  | .transport => .outage
   | .malformedField | .invalidField => .malformed
 
 inductive Phase where
@@ -139,6 +140,7 @@ private def signals : List (String × Signal) := [
 private def decisionName : Decision → String
   | .noIdentity => "no_identity"
   | .permissionDenied => "permission_denied"
+  | .unauthenticated => "unauthenticated"
   | .missingSvids => "missing_svids"
   | .missingBundle => "missing_bundle"
   | .outage => "outage"
