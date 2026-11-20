@@ -54,12 +54,12 @@ An existing Lean executable can be selected with
 version and treats Lean warnings, including a `sorry`, as errors. Lean checks
 theorems and emits the cases; Vitest compares those cases to the real functions;
 finally the source-hash check fails on an unreviewed change to any covered file.
-It also compares those hashes to the declared reviewed commit; the commit and
-its source blobs must be present locally. Fetch the reviewed history if they
-are missing. The hashes detect drift. They do not prove the review or the model
-is correct.
+The hashes detect drift. They do not prove the review or the model is correct.
 The pre-push hook selects registered suites when their mapped implementation
-files occur in the commits being pushed, including changes later reverted. It
+files occur in the commits being pushed, including changes later reverted. For
+a suite with a registered Cargo.lock projection, it also selects changes to the
+reviewed dependency graph; lockfile-only graph selection conservatively includes
+inactive optional, development, and target-specific packages. It
 reads historical policy as data and checks each registry or requirements change
 against the requirements in that commit. Earlier registry history from before
 the requirements file existed is included in selection. If a changed path had
@@ -81,8 +81,6 @@ omit its mappings. The remote must be reachable for this comparison.
 If main moves while its missing history is fetched, the gate rejects the push
 and asks for a retry. A local hook cannot make its last remote read atomic with
 the server's eventual ref update; server-side policy remains necessary.
-Selected suites require a clean worktree with no `assume-unchanged` or
-`skip-worktree` index flags, so Git cannot hide proof-input changes.
 The shared Lean checker rejects unapproved axiom
 declarations and theorem dependencies; `propext` and `Quot.sound` are permitted
 Lean built-ins. See [the hook instructions](../../scripts/README.md).
@@ -126,139 +124,11 @@ claim of exhaustive inventory or Lean coverage:
 |---|---|---|
 | Federated sign-in. [Contract](../architecture/federated-signin.md). | [`federated-pending.ts`](../../packages/control-plane/src/interactions/federated-pending.ts) and [`interactions.ts`](../../packages/control-plane/src/routes/interactions.ts). | [FED-I1–I3](../../spec/formal/oauth/README.md) model signed pending-cookie binding, legacy provenance, and matching current trust. They do not prove PKCE, redirects, tokens, or protocol compliance. |
 | Interaction approval binding. [ADR 0084](../adr/0084-external-authorization-notifications.md). | [`interaction.ts`](../../packages/os-domain/src/machines/interaction.ts). | [APR-B1–B5](../../spec/formal/webauthn/README.md) model digest binding, expiry, lifecycle, and sequential consumption. WebAuthn cryptography and concurrent storage are outside the model. |
-| CLI app-integration assertion origin and presence. [CLI-WA1](#cli-wa1-cli-assertion-origin-and-presence). | [`webauthn_assertion.rs`](../../crates/cli-app-integration/src/webauthn_assertion.rs), called for registration and approval. | Unproved; separate from APR-B1–B5. |
-| Identity listener trust rotation. [Operator mTLS doc](../operators/mtls.md). | [`listener.ts`](../../packages/control-plane/src/transport/listener.ts), [`request-evidence.ts`](../../packages/control-plane/src/transport/request-evidence.ts). | [IDENTITY-TLS1](#identity-tls1-stale-transport-evidence-after-trust-rotation): **unproved**; Vitest regressions only. |
-| CLI app-integration credential registration and retries. [CLI-WA2](#cli-wa2-cli-credential-registration-and-retries). | [`register_webauthn`](../../crates/cli-app-integration/src/pairing/binding.rs). | Unproved; separate from APR-B1–B5. |
-| CLI app-integration restricted approvals. [CLI-WA3](#cli-wa3-restricted-cli-approvals). | [`ensure`](../../crates/cli-app-integration/src/lib.rs) and [`human_proof_verify`](../../crates/cli-app-integration/src/human_proof.rs). | Unproved; separate from APR-B1–B5. |
 | Interaction deadline admission. [ADR 0086](../adr/0086-wallet-native-interaction-layer.md). | [`interaction-clock.ts`](../../packages/control-plane/src/services/interaction-clock.ts) and the approval and consumption routes. | [CLOCK-1](../../spec/formal/interaction-clock/README.md) proves the sampled deadline predicate. The real-route tests cover selected pauses; commit-time expiry, atomic storage, and rollback are not proved. |
 | DPoP replay cache. RFC 9449. | [`replay.rs`](../../crates/proof/src/replay.rs). | [DPOP-R1](../../spec/formal/dpop/README.md) models the single-process cache under stated clock and atomicity assumptions; full DPoP validation is not proved. |
 | Grant delegation and replacement. [ADR 0036](../adr/0036-coverage-guided-fuzz-and-bounded-proofs.md). | [`grant.rs`](../../crates/domain/src/grant.rs) and its validators. | [AUTH-D1–D6](../../spec/formal/authority/README.md) model selected attenuation checks. Caller authentication, all constraint dimensions, and concurrent behavior are outside the model. A separate Kani harness checks a bounded interval case. |
-| Host API relay organization tenant isolation. [ADR 0046](../adr/0046-relayed-execution-and-authorization-inbox.md). | [`caller_scope`](../../crates/gateway/src/routes/relay_scope.rs) scopes inspection and denial in [`relay.rs`](../../crates/gateway/src/routes/relay.rs). | **RELAY-T1** is **unproved**. Sessions use their authenticated organization; operators use the bootstrap organization. Cross-organization inspection and denial return `not_found`. Disabled execution and result routes return 501 after authentication without disclosing tenant records. [`relay_tenant_tests.rs`](../../crates/gateway/src/routes/relay_tenant_tests.rs) exercises the boundary; the relay route suite passed before the latest main integration, and there is no Lean suite. |
-
-**RELAY-F1 — relay execution fails closed (unproved).** Until a holder can
-re-authorize at the effect boundary, the Host must not accept new relay work,
-deliver executable bytes, or approve execution. A relay-only or malformed-mode
-delegation must not fall back to broker invocation. Previously approved result
-reports must also be refused until current authority and result recording share
-a durable transaction. Broker-mode offers, claims and delegated exercise are
-temporarily refused because the stored mode has no independent authenticated
-binding. [ADR 0046](../adr/0046-relayed-execution-and-authorization-inbox.md)
-sets the intended contract. The gateway's `relay` and `intents_queue` routes and
-the broker's `delegation_mode` parser and `delegation_lineage` resolver enforce the temporary restriction;
-`relay_authority_tests.rs`, `relay_tenant_tests.rs`,
-`intents_relay_mode_tests.rs`, and `intents_legacy_queue_tests.rs` exercise
-selected boundaries, while
-`delegation_mode_tests.rs` checks malformed stored offers and delegations. The focused relay, delegated-invocation, task, and broker-mode regressions passed
-before the latest main integration; broker-mode regressions passed again on the
-updated base. No formal theorem proves the property.
-The restriction cannot recall previously disclosed requests or cancel effects
-already started. Restoring relay requires a separate holder-side authority fence.
-
-### CLI-WA1: CLI assertion origin and presence
-
-For a CLI app-integration assertion, the signed client data must name the exact
-origin bound to the pairing and must not describe a cross-origin ceremony. The
-signed authenticator data must contain the SHA-256 hash of that origin's
-hostname as RP ID and have both user-presence and user-verification flags set.
-This applies when attaching a credential and when approving a CLI request. It
-prevents accepting an otherwise valid assertion for another origin or RP, or
-one missing those flags. The relevant requirements are in
-[WebAuthn assertion verification](https://www.w3.org/TR/webauthn-3/#sctn-verifying-assertion)
-and [authenticator data](https://www.w3.org/TR/webauthn-3/#sec-authenticator-data).
-
-[`verify_passkey_assertion`](../../crates/cli-app-integration/src/webauthn_assertion.rs)
-checks these fields along with the challenge, signature and counter. Pairing
-supplies the expected origin, while Pages requests its hostname as the RP ID.
-This assumes the pairing and authenticator are trustworthy: client-supplied
-key material and flags do not establish authenticator provenance or hardware
-attestation. The current registration requests no attestation. A client-supplied
-`passkey` label is not evidence of hardware provenance.
-
-There is no formal theorem for CLI-WA1. The signed-fixture tests in
-[`webauthn_assertion_tests.rs`](../../crates/cli-app-integration/src/webauthn_assertion_tests.rs)
-exercise accepted and rejected cases through registration and approval. At the
-review based on `24096a75`, a direct Rust test harness passed all 62 crate
-tests using existing dependency artifacts; Cargo, daemon integration and
-real-browser interoperability had not yet been run for this change. Those
-tests do not prove authenticator provenance.
-
-### CLI-WA2: CLI credential registration and retries
-
-For one live pairing bearer, a verified registration may attach a credential
-only when none is attached. A subsequent verified retry must name the same
-credential ID and public key and cannot lower the highest observed sign count;
-a different credential requires a new operator-armed pairing. This prevents a
-replayed registration from rolling back the counter and a bearer holder from
-replacing an already attached key. The requirement extends the registration
-boundary in [ADR 0206](../adr/0206-device-key-trust-d7-2.md); WebAuthn's
-[assertion verification](https://www.w3.org/TR/webauthn-3/#sctn-verifying-assertion)
-describes sign-count handling.
-
-[`register_webauthn`](../../crates/cli-app-integration/src/pairing/binding.rs)
-checks the credential identity, verifies the assertion, and updates the maximum
-count while holding mutable access to the pairing store. Daemon callers hold
-the same mutex used for approval and counter updates. The protection lasts only
-for the in-memory pairing and does not authenticate the first key or provide
-hardware attestation; counterless authenticators cannot provide clone detection
-through the counter.
-
-There is no formal theorem for CLI-WA2. Signed cases in
-[`webauthn_registration_tests.rs`](../../crates/cli-app-integration/src/webauthn_registration_tests.rs)
-exercise retries, rollback, replacement and re-pairing. The direct Rust harness
-result and remaining integration limits are those recorded for CLI-WA1.
-
-### IDENTITY-TLS1: stale transport evidence after trust rotation
-
-After the Identity listener reloads client CA, originating trust, or service
-bindings, established socket peer evidence and already-buffered request evidence
-must not authorize new operations. Trusted ingress must not act as the originating
-client when forwarded evidence is missing or invalid.
-
-Implementation: trust generation in
-[`listener.ts`](../../packages/control-plane/src/transport/listener.ts);
-per-request expiry in
-[`request-evidence.ts`](../../packages/control-plane/src/transport/request-evidence.ts).
-
-Formal status: **unproved**. No Lean model or registry suite covers this
-transport boundary yet.
-
-Evidence: Vitest regressions in
-[`listener-rotation.test.ts`](../../packages/control-plane/src/transport/__tests__/listener-rotation.test.ts)
-(client CA, binding, originating-trust, credential-only reload, stale replay).
-
-### CLI-WA3: restricted CLI approvals
-
-Until authenticator provenance is established, CLI app-integration must refuse
-every verb, including unknown verbs, before creating or reusing an approval
-session, and reject either client-supplied proof label. This prevents a
-relabeled software assertion from approving plaintext reveal or command
-injection. The denied response carries a reason for newer clients while
-remaining a denial to older clients. A separately authorized run grant does not
-use this app-approval path.
-
-The native and TypeScript CLI clients also refuse locally before contacting a
-daemon or accepting an injected approval port. This prevents an older daemon's
-`approved` response from bypassing the pause when the CLI has been updated.
-An old CLI paired with an old daemon still lacks this protection until at least
-one side is updated.
-
-The pause is recorded in the
-[CLI integration conformance policy](../../spec/conformance/cli-app-integration.json).
-The Rust session store and proof verifier apply it; the TypeScript session
-model mirrors it. Tests cover signed assertions, preexisting pending requests,
-prior approved sessions, unknown verbs, an old approving daemon, injected
-approval ports and the refusal message. Legacy session
-lifecycle and app-approved CLI process success cases remain as dormant
-requirements and are exercised again only once app approval is safely restored;
-startup-template unit tests remain active. Re-enablement must invalidate
-existing pairings and enroll credentials under the new trust mechanism; it must
-not promote an unattested key registered during the pause. This property is unproved;
-the temporary refusal must not be described as authenticator attestation. In
-the `c7226a37` review, a direct Rust 1.97.1 harness passed 62 tests with one
-unrelated trusted-executable fixture skipped because its executable was under
-`/tmp`. The repository now pins Rust 1.99.0; Cargo and daemon integration tests
-under that toolchain remain to run. The affected TypeScript tests and CLI
-and app-core typechecks passed.
+| SPIFFE identity and trust withdrawal. [ADR 0132](../adr/0132-optional-mtls-and-workload-identity.md), [ADR 0223](../adr/0223-spiffe-withdrawal-under-ambiguous-snapshots.md). | [`source.rs`](../../crates/spiffe-source/src/source.rs), [`source_policy.rs`](../../crates/spiffe-source/src/source_policy.rs), and [`outage.rs`](../../crates/spiffe-source/src/outage.rs). | The [withdrawal model](../../spec/formal/spiffe/README.md) covers selected denial, trust-reduction, and outage-deadline decisions. It does not prove SDK behavior for arbitrary responses, implementation refinement, certificate verification, or hard real-time sink withdrawal. |
+| Source-owned transport lifetime. [ADR 0223](../adr/0223-spiffe-withdrawal-under-ambiguous-snapshots.md). | [`source_lifetime.rs`](../../crates/transport-security/src/source_lifetime.rs), [`source.rs`](../../crates/spiffe-source/src/source.rs), and the Host admission paths. | The [source-lifetime model](../../spec/formal/source-lifetime/README.md) covers selected owner, epoch, deadline, and quarantine transitions. Dual-clock behavior, actual trust-bundle comparisons, TLS key use, and restart persistence remain outside the Lean proof. |
 
 The session model abstracts token-prefix matching to a Boolean and does not
 prove the security of token generation or storage. The model also omits
