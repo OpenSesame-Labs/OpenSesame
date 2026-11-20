@@ -29,7 +29,7 @@
     },
     {
       "path": "crates/time/Cargo.toml",
-      "sha256": "e4a9a9b4c01997056381b0aaf1f21f44f269d7a52d75408920954acc664bbfb5"
+      "sha256": "dc04a0c3abb286be4ec9d2bfa38b82f44bd2657eaa314602ef86a1790e257a3b"
     },
     {
       "path": "crates/time/README.md",
@@ -309,7 +309,7 @@
     },
     {
       "path": "spec/formal/authority/Cargo.lock",
-      "sha256": "04a7bdbcd1a3e0b28a74c9f73b994441f844a10af4e0dc25d03a8f993bd4a765"
+      "sha256": "358a70605a03b4ed584d1ff98b2ead3fbf123551348be41ee39174e609bee564"
     },
     {
       "path": "spec/formal/authority/conformance.rs",
@@ -335,7 +335,7 @@
   "lock_projection": {
     "root": "opensesame-domain",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "786961109b512bbc4b8f44b9de42aef2b0d1b96be38c3b24caa482d2d179a440"
+    "sha256": "ae56da6ec2390a178520464564442bc73493d496de6f106010654ca33043acf5"
   },
   "workspace_projection": {
     "root": "opensesame-domain",
