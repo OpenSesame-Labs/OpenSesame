@@ -38,7 +38,7 @@ const suites = [
     name: "source-lifetime",
     model: "SourceLifetime.lean",
     first: "claim_quarantines",
-    vectors: 25,
+    vectors: 33,
   },
   {
     name: "source-trust-selection",
