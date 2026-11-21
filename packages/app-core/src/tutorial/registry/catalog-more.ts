@@ -6,15 +6,14 @@ export const GUIDE_TARGETS_MORE: readonly GuideTargetDescriptor[] = [
   {
     id: "settings.tailnet-sync",
     description:
-      "The Tailnet sync panel under Features › Networking, while Networking is on: pair this vault with a drive on the tailnet (the pair key opens a sheet where the code goes), see whether it is in step, sync now, or stop. The drive holds only the sealed vault.",
+      "Pair this vault with a tailnet drive, check its status, sync or disconnect. The drive stores the encrypted vault.",
     role: "ceremony",
     routes: ["/settings/features/networking"],
     capabilityId: "vault.drive.sync",
   },
   {
     id: "nav.settings.item-types",
-    description:
-      "The Item types Settings category. Opens the page that installs and configures vault item types.",
+    description: "Open Item types to install and configure vault item types.",
     role: "navigation",
     routes: ["/settings"],
     capabilityId: "vault.item_types.list",
@@ -22,15 +21,14 @@ export const GUIDE_TARGETS_MORE: readonly GuideTargetDescriptor[] = [
   {
     id: "settings.item-types",
     description:
-      "Switches built-in vault item types on or off, one switch per type: switching one on downloads and installs it, and nothing of it is in the app until then. A search field narrows the list; a type the vault already holds items of stays on and shows its count. Types a person wrote sit beneath, and a key opens the marketplaces, git repositories read for more types. Types are JSON manifests, not code paths.",
+      "Search and enable built-in item types. A type with existing items cannot be disabled. Manage custom types and repositories below the list.",
     role: "ceremony",
     routes: ["/settings"],
     capabilityId: "vault.item_types.install",
   },
   {
     id: "settings.install",
-    description:
-      "Installs this app on the device as a PWA, so it is available without a browser chrome.",
+    description: "Install OpenSesame as an app on this device.",
     role: "ceremony",
     routes: ["/settings"],
     capabilityId: "app.install",
@@ -38,7 +36,7 @@ export const GUIDE_TARGETS_MORE: readonly GuideTargetDescriptor[] = [
   {
     id: "vault.export",
     description:
-      "Opens the export sheet in the vault's path strip: one encrypted backup file of the sealed vault body plus its key-wrapping header, opened again with the unlock the vault already has, for moving to another device.",
+      "Opens the export sheet to save an encrypted vault backup. Use your existing vault unlock method to open the backup on another device.",
     role: "ceremony",
     routes: ["/vault"],
     capabilityId: "vault.export",

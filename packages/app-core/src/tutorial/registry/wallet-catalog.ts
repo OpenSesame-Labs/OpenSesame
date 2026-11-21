@@ -9,7 +9,7 @@ export const WALLET_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "nav.wallet",
     description:
-      "Rail entry that opens Wallet, where spending overview, budgets, passes and payment methods are reviewed.",
+      "Open Wallet to review budgets, spending, passes and payment methods.",
     role: "navigation",
     routes: [],
     capabilityId: "app.navigate",

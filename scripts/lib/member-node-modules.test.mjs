@@ -28,6 +28,11 @@ const ALLOWED = [
       "builds that layout in a temporary directory, to show a replaced SDK is refused",
   },
   {
+    path: "apps/pages/scripts/kdbx-worker-assets.test.mjs",
+    text: '"packages/app-core/node_modules/kdbxweb"',
+    reason: "builds a temporary isolated-layout fixture to verify worker pins",
+  },
+  {
     path: "apps/pages/scripts/lib/round8-profile-trees.test.mjs",
     text: '"packages/one/node_modules/inner/node_modules"',
     reason: "a temporary tree that shows only the outer node_modules is listed",

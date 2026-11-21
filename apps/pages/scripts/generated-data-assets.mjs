@@ -75,7 +75,7 @@ const capabilityTutorialDescriptor = Object.freeze({
     },
     {
       path: `${root}/packages/app-core/src/tutorial/registry/authority-help.ts`,
-      hash: "1d71b7f71ea0eeee824646c8046970822ab959221948589403b393297d89de5a",
+      hash: "4f167e9ac40a96addd300ddc723117777e40d05d64d1a9f24d5d683ddcbd072c",
     },
   ],
   valueHash: "5e949fc2903db2f7881705fef07edcc27b548431a8b3028b1e53a09df9e57ac5",
@@ -238,28 +238,28 @@ const generatedModules = Object.freeze([
   {
     kind: "literal-array",
     path: `${root}/packages/app-core/src/tutorial/registry/feature-catalog.ts`,
-    hash: "938d09ad737d08b2a9386c7647814216dcce964f06b29c03622edd67f4f2b13a",
+    hash: "aad6136f2a8ddfbcdabb14bfdc9b03d1a22e49d38a41f39df9fffcf250eba0e9",
     exportName: "FEATURE_TARGETS",
     assetName: "generated-data/tutorial-feature-targets.json",
   },
   {
     kind: "literal-array",
     path: `${root}/packages/app-core/src/tutorial/registry/vault-catalog.ts`,
-    hash: "8b020406f6ef63330e517b5b1ef07e1dd59b3d1c7da0893fe10aad81165a170c",
+    hash: "ed2669bcfcbfd2a9d08a591b9be6d6d37edea7963d0d1048150922442e6c8de8",
     exportName: "VAULT_TARGETS",
     assetName: "generated-data/tutorial-vault-targets.json",
   },
   {
     kind: "literal-array",
     path: `${root}/packages/app-core/src/tutorial/registry/integration-catalog.ts`,
-    hash: "fe202fc9e96c6da0f9fda214bdefb9f59161fec4258da94dc3555962684de067",
+    hash: "5fcf73f4a41454724d933db1ef0a0add81c6c47718d9e9bcdd63554ecc743b37",
     exportName: "INTEGRATION_TARGETS",
     assetName: "generated-data/tutorial-integration-targets.json",
   },
   {
     kind: "literal-array",
     path: `${root}/packages/app-core/src/tutorial/registry/shell-catalog.ts`,
-    hash: "007329104a7117c7c113ac92762352fa177f1d3f07c30e88c0a11ab40064ec67",
+    hash: "5cd00570720724e4150977a2ae437fe1da40bf665d68c8df52276b42bdb543b7",
     exportName: "SHELL_TARGETS",
     assetName: "generated-data/tutorial-shell-targets.json",
   },
@@ -276,7 +276,7 @@ const generatedModules = Object.freeze([
   {
     kind: "embedded-array",
     path: `${root}/packages/app-core/src/tutorial/registry/areas.ts`,
-    hash: "c6860f333a80ca97198ac5c34eae922c384d51062aa169a012aad9765295ea2a",
+    hash: "ad75f1195094955937317637b7059e36f1dca6445570a8de5efbd1992a72a63b",
     exportName: "TUTORIAL_AREAS",
     assetName: "generated-data/tutorial-areas.json",
     declaration: "export const TUTORIAL_AREAS: readonly TutorialArea[] =",
@@ -291,69 +291,52 @@ const generatedModules = Object.freeze([
     declaration: "const FIELD_GUIDANCE = new Map<string, FieldGuidance>(",
     expressionEnd: ");\n\nexport function fieldGuidance",
   },
+  // These modules retain runtime state, touch detection, or live imports:
+  // gate-goals, vault-item-goals, shell-tour-goals, and vault-create-goals.
+  // Keep them as JavaScript so JSON extraction cannot freeze their behavior.
   tutorialDataModule(
     "identity-goals",
-    "c9ad1c9b1160aec0babec4f12dd7d5779410e1ca69ca1f42c699bc326fc3ab5b",
+    "a57a48a5b1928c0b843474e1d00f65b45f285da0786fd00da3aa8cffd6f13a60",
     ["IDENTITY_GOALS", "IDENTITY_HELP"],
   ),
   tutorialDataModule(
     "feature-goals",
-    "2a5eac42ea8d4b3129ab19544f16d97c02ac8895d4d6882e57531217c4555408",
+    "50adeb08e0d9c15495f71ed6b706742961037abe43e28876f89c72c76b7eb835",
     ["FEATURE_GOALS", "FEATURE_TUTORIALS"],
   ),
   tutorialDataModule(
     "connections-goals",
-    "c334cf4879978e01d325da96948f8e18e842deff88d72eb450ca5f28b4a6631b",
+    "79a0863afa96562e7b33bef7242f0e0cc92f8e5becf4092b5dce3a20d4a16727",
     ["CONNECTIONS_GOALS", "CONNECTIONS_HELP"],
   ),
   tutorialDataModule(
-    "gate-goals",
-    "e0705e52924691255a929c74ab2e6d1ff3d260653a5444b08384608779a57672",
-    ["GATE_GOALS"],
-  ),
-  tutorialDataModule(
     "integration-goals",
-    "e6046a207b7149a72c6be4c817bb406df0d39c2b20192e505ed24554bdb3e4a9",
+    "3afecff986280b4316c932e4ff6be929e15a70c2541e98733e220890fc488191",
     ["INTEGRATION_GOALS", "INTEGRATION_TUTORIALS"],
   ),
   tutorialDataModule(
     "settings-goals",
-    "a4db9d6feb3426d02a00b623b39f46c480d433ae82a419389b5e12ddb6eb81f2",
+    "b436b2467b5f8b889011c6722ec0c3a73439c132c5a909893676539b37a0d1c4",
     ["SETTINGS_GOALS"],
   ),
   tutorialDataModule(
-    "vault-item-goals",
-    "2b4842d423ea9d339007da500819e6c65cefe27edb25481eb44277cd2fb7d4d5",
-    ["VAULT_ITEM_GOALS"],
-  ),
-  tutorialDataModule(
     "access-goals",
-    "224eb42e7a941591f8d7f5e56273e2ed0efbdb71894a036efcc18ca065059d48",
+    "af05e684a9bdaa9208884b94c3e074e45bf9890c785d95cb9b765e5df2127d12",
     ["ACCESS_GOALS", "ACCESS_HELP"],
   ),
   tutorialDataModule(
-    "shell-tour-goals",
-    "54c6ec850f5c4796a2867193363827aaa57ebb782fdd516bb72eec940d880247",
-    ["SHELL_TOUR_GOALS"],
-  ),
-  tutorialDataModule(
     "keyboard-goals",
-    "e98bf533568889985bf8cdac18940318ed4cd912b3db29dc0a5355ef0dabbc1b",
+    "f2713f15765192eff63b93dbbbf8de15f58eb0407b893e462efb9f53f927a8ee",
     ["KEYBOARD_GOALS"],
   ),
   tutorialDataModule(
-    "vault-create-goals",
-    "085fcc50e721d8514136e4b8026eb3b88f568454c8b202ba7620ae3914aace27",
-    ["FIRST_ITEM_GOAL", "CREATE_ITEM_GOAL"],
-  ),
-  tutorialDataModule(
     "duress-goals",
-    "97f5aba0312013c90decff7950bd020656577abe4184f8e1b4eb955d6fc42a66",
+    "18a04785c8dde1c3cfac5f8f668f669a45b7ae91cbdcec7f8147994d0ad33ab9",
     ["DURESS_GOALS", "DURESS_HELP"],
   ),
   tutorialDataModule(
     "section-nav-goals",
-    "e63e1a8e856713d5a00461c3a03fd6f2e272e22d7c80cd8a8a2c0ac563230eef",
+    "73e84986d1f05a616c29f979ea741d2876b73caf39abaa64f847faccd6414b9b",
     [
       "NAV_ACCESS_GOALS",
       "NAV_ACTIVITY_GOALS",
@@ -364,22 +347,22 @@ const generatedModules = Object.freeze([
   ),
   tutorialDataModule(
     "authority-help",
-    "1d71b7f71ea0eeee824646c8046970822ab959221948589403b393297d89de5a",
+    "4f167e9ac40a96addd300ddc723117777e40d05d64d1a9f24d5d683ddcbd072c",
     ["AUTHORITY_HELP", "AUTHORITY_GOALS", "AUTHORITY_TUTORIALS"],
   ),
   tutorialDataModule(
     "item-reference-help",
-    "a8c67f63f854506c4876efaf70a277296f076a2dd1045ea067a35cce0fa80038",
+    "8160b85723a61aa53135a5ef1e6b73529f64c45e60ac72018100549864980652",
     ["ITEM_REFERENCE_HELP"],
   ),
   tutorialDataModule(
     "environments-goal",
-    "e2de47281dddea82eee89001d4858b9e41c4318dda9568462bb0af79fa392ba1",
+    "851a6a9f6a39c6065af69759a245f5dd49e5de59bc1708124ed470d7a07cd115",
     ["ENVIRONMENTS_GOAL"],
   ),
   tutorialDataModule(
     "health-goal",
-    "fafd35f6952435dabeb22ec16b10e6f283806d75847ff28892a721e2c287433a",
+    "8e04f737787fc2d09df151d2e28d8200b4893be57652f93e02cb4c0286b02a28",
     ["HEALTH_REVIEW_GOAL"],
   ),
 ]);

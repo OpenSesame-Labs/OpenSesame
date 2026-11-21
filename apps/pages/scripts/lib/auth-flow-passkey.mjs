@@ -1,19 +1,238 @@
-// Passkey seal over a CDP virtual WebAuthn authenticator, two walks.
-//
-// Happy path: Chrome's virtual authenticator never emits PRF results, so the
-// page's extension output is stubbed the way
-// packages/app-core/src/lib/local-passkeys.test.ts stubs it — a deterministic
-// 32-byte value derived from the eval salt of the in-flight ceremony. Seal
-// with passkey lands inside the app; lock; Unlock with passkey opens it again.
-//
-// PRF off: no stub, so the platform ceremony ends prf_missing_output — and
-// the seal steps past it instead of failing: the Security key road is
-// selected and the tray says why in a plain line (info, not an error). No
-// error card, no sheet (the caret keeps its field), the seal screen stays
-// put. Walked on both ctap2 and ctap2_1 — neither virtual protocol emits
-// PRF results.
+// Native CTAP2.1 WebAuthn walks: real PRF success, unsupported-PRF fallback,
+// and a browser with WebAuthn absent. The older stub helper remains for its
+// separate fixture test.
 import { passTheDoor } from "./front-door.mjs";
+import { PIN } from "./pages-journey.mjs";
 import { expect } from "./patient-expect.mjs";
+import { AUTHENTICATOR } from "./quorum-browser-rig.mjs";
+import { checkLateSealScroll } from "./tutorial-gates.mjs";
+import { checkKeyboardViewport } from "./tutorial-keyboard-viewport.mjs";
+import {
+  checkControlReachable,
+  checkTutorialNextBlocked,
+  waitForPinTutorial,
+  waitForSecurityKey,
+} from "./tutorial-measure.mjs";
+
+export async function addTutorialAuthenticator(context, page, prf) {
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", {
+    options: {
+      ...AUTHENTICATOR,
+      transport: "internal",
+      hasResidentKey: true,
+      hasPrf: prf,
+    },
+  });
+}
+
+/** Seal through browser-backed PRF, or exercise every PIN fallback control. */
+export async function sealFirstVault(
+  page,
+  { step, check, phone, protection, label, out, width, keepShots },
+) {
+  const recovery = page.getByLabel(
+    "I understand this vault cannot be recovered.",
+  );
+  const next = page.locator(".coach__btn--go");
+  check(
+    await recovery.isVisible(),
+    `${protection} first vault: recovery acknowledgment is visible`,
+  );
+  await checkControlReachable(
+    page,
+    check,
+    recovery,
+    `${protection} recovery notice`,
+  );
+  if (protection !== "pin-only") {
+    await checkTutorialNextBlocked(page, check, next);
+    const passkeyTab = page.getByRole("tab", { name: "Passkey" });
+    await passkeyTab.waitFor({ state: "visible", timeout: 30_000 });
+    check(
+      (await passkeyTab.getAttribute("aria-selected")) === "true",
+      `${protection} first vault: passkey leads the seal`,
+    );
+    const deviceTab = page.getByRole("tab", { name: "This device" });
+    await deviceTab.waitFor({ state: "visible", timeout: 30_000 });
+    check(
+      (await deviceTab.getAttribute("aria-selected")) === "true",
+      `${protection} first vault: This device is the default passkey road`,
+    );
+    const sealPasskey = page.getByRole("button", {
+      name: "Seal with passkey",
+    });
+    check(
+      await sealPasskey.isVisible(),
+      `${protection} first vault: Seal with passkey is visible`,
+    );
+    await checkControlReachable(
+      page,
+      check,
+      sealPasskey,
+      `${protection} Seal with passkey`,
+    );
+    await recovery.check();
+    if (protection === "passkey") {
+      await sealPasskey.click();
+      return;
+    }
+    await sealPasskey.click();
+    await waitForSecurityKey(page, { out, width, label, keepShots });
+    check(
+      await page.getByRole("tab", { name: "Security key" }).isVisible(),
+      "first vault: unavailable device passkey offers Security key",
+    );
+    // Start the real cross-platform prompt, then choose PIN to cancel it as a
+    // person would when no security key is available.
+    await sealPasskey.click();
+    await page.getByRole("tab", { name: "PIN", exact: true }).click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[role="tab"][aria-selected="true"]')
+          ?.textContent?.trim() === "PIN",
+    );
+    check(
+      (await page
+        .getByText(
+          "This device's passkey cannot seal a vault. Security key is selected.",
+          { exact: true },
+        )
+        .count()) === 0,
+      "first vault: PIN selection clears the stale passkey notice",
+    );
+    // The passkey road's fallback is named by the held seal step, which waits
+    // for the unlock itself; the PIN fields are walked as tour steps only on
+    // the PIN-only road below, so fill and seal the way a person would here.
+    await page.getByLabel("Device PIN", { exact: true }).fill(PIN);
+    await page.getByLabel("Confirm PIN", { exact: true }).fill(PIN);
+    await page.getByRole("button", { name: "Seal with PIN" }).click();
+    return;
+  } else {
+    check(
+      (await page.getByRole("tab", { name: "Passkey" }).count()) === 0,
+      "PIN-only first vault: unavailable Passkey is not offered",
+    );
+    check(
+      (await page
+        .getByRole("tab", { name: "PIN", exact: true })
+        .getAttribute("aria-selected")) === "true",
+      "PIN-only first vault: PIN is selected",
+    );
+    await recovery.check();
+  }
+  await page.waitForFunction(
+    () =>
+      document
+        .querySelector('[role="tab"][aria-selected="true"]')
+        ?.textContent?.trim() === "PIN",
+  );
+  await page
+    .locator('[data-guide-targets~="unlock.seal-pin-entry"]')
+    .waitFor({ state: "visible" });
+  check(
+    (await page
+      .getByText(
+        "This device's passkey cannot seal a vault. Security key is selected.",
+        { exact: true },
+      )
+      .count()) === 0,
+    "first vault: PIN selection clears the stale passkey notice",
+  );
+  if (
+    (await page
+      .locator('.coach[data-coach-target="unlock.seal-actions"]')
+      .count()) === 1
+  ) {
+    check(
+      await page
+        .getByText("PIN is selected. Select Next.", { exact: true })
+        .isVisible(),
+      "first vault: an already-mounted PIN has an accurate Next instruction",
+    );
+    await checkControlReachable(
+      page,
+      check,
+      next,
+      `${protection} tutorial Next`,
+    );
+    check(
+      (await next.getAttribute("aria-disabled")) !== "true",
+      "first vault: held PIN tutorial Next is enabled",
+    );
+    await next.click();
+  }
+  await waitForPinTutorial(page, { out, width, label, keepShots });
+  await step("unlock.seal-pin-entry", 5, 16);
+  if (process.env.TUTORIALS_PIN_BACK === "1") {
+    await checkTutorialNextBlocked(page, check, next, "unlock.seal-pin-entry");
+    check(
+      await page.getByRole("button", { name: "Seal with PIN" }).isDisabled(),
+      "first vault: incomplete PIN details cannot seal the vault",
+    );
+  }
+  if (phone && process.env.TUTORIALS_KEYBOARD_VIEWPORT === "1") {
+    await checkKeyboardViewport(page, check, label, {
+      fieldLabel: "Device PIN",
+      target: "unlock.seal-pin-entry",
+      shot: "pin-keyboard",
+    });
+  }
+  await page.getByLabel("Device PIN", { exact: true }).fill(PIN);
+  await page.locator(".coach__btn--go").click();
+  await step("unlock.seal-pin-confirm", 6, 16);
+  if (process.env.TUTORIALS_PIN_BACK === "1") {
+    await checkTutorialNextBlocked(
+      page,
+      check,
+      next,
+      "unlock.seal-pin-confirm",
+    );
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await step("unlock.seal-pin-entry", 5, 16);
+    await next.click();
+    await step("unlock.seal-pin-confirm", 6, 16);
+  }
+  if (phone && process.env.TUTORIALS_KEYBOARD_VIEWPORT === "1") {
+    await checkKeyboardViewport(page, check, label, {
+      fieldLabel: "Confirm PIN",
+      target: "unlock.seal-pin-confirm",
+      shot: "confirm-pin-keyboard",
+    });
+  }
+  await page.getByLabel("Confirm PIN", { exact: true }).fill(PIN);
+  await page.locator(".coach__btn--go").click();
+  await step("unlock.seal-ack", 7, 16);
+  check(
+    await recovery.isChecked(),
+    "first vault: recovery acknowledgment remains selected",
+  );
+  await page.locator(".coach__btn--go").click();
+  await step("unlock.seal", 8, 16);
+  if (phone && page.viewportSize().width <= 320)
+    await checkLateSealScroll(page, step, check);
+  // The seal step is an action step, so its Next is aria-disabled — a person
+  // can still press it, and the card ignores the press. Playwright refuses to
+  // click an aria-disabled key, so deliver the press the way the browser does
+  // and prove both that the tour stayed on the seal and the screen did too.
+  await next.evaluate((button) => button.click());
+  check(
+    (await page.locator('.coach[data-coach-target="unlock.seal"]').count()) ===
+      1,
+    "first vault: a pressed Next cannot skip sealing the PIN vault",
+  );
+  check(
+    await page.getByRole("heading", { name: "Seal this device" }).isVisible(),
+    "first vault: Next cannot skip sealing the PIN vault",
+  );
+  if (keepShots)
+    await page.screenshot({
+      path: `${out}/${width}-first-vault-${protection}.png`,
+    });
+  await page.getByRole("button", { name: "Seal with PIN" }).click();
+}
 
 async function addVirtualAuthenticator(context, page, protocol) {
   const cdp = await context.newCDPSession(page);

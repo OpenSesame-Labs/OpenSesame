@@ -20,6 +20,45 @@ beforeEach(resetUnlockHarness);
 afterEach(cleanup);
 
 describe("UnlockScreen — guidance is drawn in the page, not trayed", () => {
+  it("binds the first-vault guide to the PIN controls a person can use", () => {
+    setupHolder.current = ANSWERED;
+    v.state = {
+      status: "empty",
+      header: null,
+      lockedOutUntil: null,
+      failedAttempts: 0,
+      durable: true,
+      awaitingSecondStep: false,
+    };
+    v.methods = ["password"];
+    v.host = { ok: true };
+    render(<UnlockScreen />);
+    goLocalOnly();
+    const pinTab = screen.getByRole("tab", { name: "PIN" });
+    expect(pinTab.getAttribute("data-guide-targets")).toContain(
+      "unlock.seal-pin",
+    );
+    expect(
+      pinTab.closest('[data-guide-targets~="unlock.methods"]'),
+    ).not.toBeNull();
+    chooseSealMethod("PIN");
+    expect(
+      screen.getByLabelText("Device PIN").getAttribute("data-guide-targets"),
+    ).toContain("unlock.seal-pin-entry");
+    expect(
+      screen.getByLabelText("Confirm PIN").getAttribute("data-guide-targets"),
+    ).toContain("unlock.seal-pin-confirm");
+    expect(
+      screen
+        .getByLabelText("I understand this vault cannot be recovered.")
+        .closest("label")
+        ?.getAttribute("data-guide-targets"),
+    ).toContain("unlock.seal-ack");
+    expect(submitButton().getAttribute("data-guide-targets")).toContain(
+      "unlock.seal",
+    );
+  });
+
   it("names the PIN format problem live beside the field on first run", () => {
     setupHolder.current = ANSWERED;
     v.state = {

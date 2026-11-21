@@ -34,15 +34,14 @@ export const CONNECTIONS_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "connections.reload",
     description:
-      "Re-reads the connection list. Use it after finishing an authorization somewhere else.",
+      "Reload the connection list after completing an authorization.",
     role: "action",
     routes: ["/connections"],
     capabilityId: "connections.list",
   },
   {
     id: "connections.connected",
-    description:
-      "The Connected panel: every provider connection this device currently holds, with its state and a way into its settings.",
+    description: "Review connected providers, their status and settings.",
     role: "surface",
     routes: ["/connections"],
     capabilityId: "connections.list",
@@ -50,39 +49,35 @@ export const CONNECTIONS_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "connections.attention",
     description:
-      "Panel listing connections that exist but cannot be used until a person finishes their authorization. Present only while at least one is unfinished.",
+      "Review connections that need authorization. This panel appears when a connection is unfinished.",
     role: "status",
     routes: ["/connections"],
     capabilityId: "connections.list",
   },
   {
     id: "connections.catalog",
-    description:
-      "The Add a connection panel: the provider catalog, grouped by category. Choosing a provider opens its own page.",
+    description: "Browse providers by category and select one to connect.",
     role: "surface",
     routes: ["/connections"],
     capabilityId: "providers.list",
   },
   {
     id: "connections.provider-picker",
-    description:
-      "The / search command over the provider catalog. Matches a provider name, a category or a connector identifier.",
+    description: "Search providers by name, category or connector ID.",
     role: "filter",
     routes: ["/connections"],
     capabilityId: "providers.list",
   },
   {
     id: "connections.back",
-    description:
-      "Returns from one connector's page to the full Connections list.",
+    description: "Return to the Connections list.",
     role: "navigation",
     routes: ["/connections"],
     capabilityId: null,
   },
   {
     id: "connections.authorize",
-    description:
-      "The Authorization panel on a connector's page. This is where a connection is approved, or where an existing one reports what it is.",
+    description: "Authorize a provider or review its existing authorization.",
     role: "ceremony",
     routes: ["/connections"],
     capabilityId: "connections.create",
@@ -90,7 +85,7 @@ export const CONNECTIONS_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "connections.revoke",
     description:
-      "Revokes a connection, cutting off every project and agent bound to it and asking the provider to invalidate the credential.",
+      "Revoke a connection and request that the provider invalidate its credential. Projects and agents using it lose access.",
     role: "action",
     routes: ["/connections"],
     capabilityId: "connections.remove",
@@ -98,7 +93,7 @@ export const CONNECTIONS_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "nav.connections",
     description:
-      "Rail entry that opens Connections, where provider connections are added, tested and revoked.",
+      "Open Connections to add, test and revoke provider connections.",
     role: "navigation",
     routes: [],
     capabilityId: "app.navigate",
