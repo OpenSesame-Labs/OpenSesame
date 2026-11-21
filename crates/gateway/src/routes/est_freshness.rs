@@ -19,14 +19,18 @@ pub(super) fn evidence_is_current(st: &AppState, verified: &VerifiedPeer) -> boo
 }
 
 /// Recheck the TLS connection that carried the request after every await.
-pub(super) fn transport_is_current(st: &AppState, extensions: &axum::http::Extensions) -> bool {
+#[cfg_attr(test, allow(dead_code))]
+pub(crate) fn transport_is_current(st: &AppState, extensions: &axum::http::Extensions) -> bool {
     st.transport.as_ref().is_none_or(|runtime| {
-        let expected = match extensions.get::<opensesame_transport_security::ListenerProvenance>() {
-            Some(opensesame_transport_security::ListenerProvenance::Tls { generation, .. }) => {
-                Some(*generation)
-            }
-            _ => None,
+        let Some(opensesame_transport_security::ListenerProvenance::Tls {
+            generation, ..
+        }) = extensions.get::<opensesame_transport_security::ListenerProvenance>()
+        else {
+            return false;
         };
-        runtime.generations.checked_current(expected).is_ok()
+        runtime
+            .generations
+            .checked_current(Some(*generation))
+            .is_ok()
     })
 }

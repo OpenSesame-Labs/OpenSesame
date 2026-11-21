@@ -206,3 +206,27 @@ async fn password_budget_rotation_after_await_refuses_old_tls_provenance() {
     resume.send(()).unwrap();
     assert_eq!(task.await.unwrap(), StatusCode::UNAUTHORIZED);
 }
+
+#[tokio::test]
+async fn est_password_path_fails_closed_without_tls_listener_provenance() {
+    let _guard = test_env::lock();
+    let mut state = sealed_state().await;
+    let roots = String::from_utf8(DisposableCa::new("clients").root_pem()).unwrap();
+    install_trust(&mut state, &roots);
+    assert!(state.transport.is_some());
+    let generations = &state.transport.as_ref().unwrap().generations;
+    generations
+        .activate(opensesame_transport_security::GenerationCandidate {
+            identity: generations.current().identity.clone(),
+            peer_trust: generations.current().peer_trust.clone(),
+            ..Default::default()
+        })
+        .unwrap();
+    assert!(
+        !crate::routes::est_freshness::transport_is_current(
+            &state,
+            &axum::http::Extensions::new(),
+        ),
+        "missing ListenerProvenance must not pass the live-generation fence",
+    );
+}

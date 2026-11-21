@@ -49,6 +49,36 @@ fn attached(state: &AppState, client_ca: &DisposableCa) -> Arc<TransportGenerati
 }
 
 #[tokio::test]
+async fn a_trust_write_refuses_when_the_source_fence_has_elapsed() {
+    use opensesame_time::{Duration, Utc};
+    let state = support::state().await;
+    let generations = attached(&state, &DisposableCa::new("clients"));
+    let owner = generations.source_owner();
+    let reserved = generations.claim_source(&owner).unwrap();
+    let epoch = generations
+        .activate_from_source(
+            &owner,
+            reserved,
+            GenerationCandidate {
+                identity: generations.current().identity.clone(),
+                peer_trust: generations.current().peer_trust.clone(),
+                own_trust: None,
+                identity_required: true,
+            },
+        )
+        .unwrap();
+    generations
+        .tighten_source_deadline(&owner, epoch, Utc::now() - Duration::seconds(1))
+        .unwrap();
+    assert!(generations.current().withdrawn.is_none());
+    let error = trust::put_cas(&state, one_profile(0), "operator", false)
+        .await
+        .expect_err("trust write after source expiry");
+    assert!(matches!(error, TrustError::Invalid(_)));
+    assert_eq!(error.code(), "evidence_expired");
+}
+
+#[tokio::test]
 async fn a_trust_write_does_not_resurrect_a_withdrawn_generation() {
     let state = support::state().await;
     let generations = attached(&state, &DisposableCa::new("clients"));
