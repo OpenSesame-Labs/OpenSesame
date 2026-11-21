@@ -1,4 +1,12 @@
 #!/usr/bin/env bash
+# This gate runs plain `cargo` instead of the formal_cargo workspace wrapper.
+# The formal_cargo freshness init rejects any workspace with local Cargo
+# patches, and main has carried two vendor patches since #2699, so every
+# formal_cargo suite fails at init on a patched workspace (rationale recorded
+# in commit e1142ec99). Running plain cargo keeps this gate executable; the
+# isolation-harness question is main-side and out of scope here. Reviewed-input
+# pinning is unchanged: check-drift.py runs below, before and after the
+# required regressions, still bind this suite to its reviewed source hashes.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/../../.." && pwd)"
 lean_bin="${OPENSESAME_LEAN_BIN:-lean}"
