@@ -159,9 +159,9 @@
     },
     {
       "path": "crates/transport-security/Cargo.toml",
-      "sha256": "74c6e322dfcd18a0b495b2ac88ed850afc2b165e80e5dbbeff4fda406a72d12e",
+      "sha256": "eddf59255b6f4b7469cbc16d05ef2c86c75a8703c16cc8e0f07288097f5f3de5",
       "base_blob": "7590761f7e7ef26959be40eeaa5b91fb8617eef2",
-      "reviewed_blob": "db3af157ffd3d1891dc8a41aca7b753aa3cf7c23"
+      "reviewed_blob": "1175f2eed9196a047fe0df74fb9ad9682ae00730"
     },
     {
       "path": "crates/transport-security/src/generations.rs",

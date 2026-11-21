@@ -134,7 +134,7 @@ async fn at_spiffe_withdraw_when_snapshot_drops_the_identity_then_recovers() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn at_spiffe_withdraw_when_own_bundle_is_removed() {
+async fn at_spiffe_empty_required_bundle_withdraws_the_last_generation() {
     let api = FakeWorkloadApi::start();
     let td = FakeTrustDomain::new(TD);
     let gateway = td.issue_svid(GW, Duration::from_mins(10));
