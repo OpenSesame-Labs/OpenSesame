@@ -54,6 +54,7 @@
     "verify:auth-formal": "bash scripts/test/auth-formal.sh",
     "verify:authority-formal": "bash spec/formal/authority/check.sh",
     "verify:deps-2846-webauthn": "npm exec -w @opensesame/pages -- vitest run scripts/saml-peer-ownership.test.mjs scripts/webauthn-browser-entry.test.mjs && npm test -w @opensesame/auth-upstream",
+    "verify:deps-2847-asn1js": "npm exec -w @opensesame/pages -- vitest run scripts/saml-peer-ownership.test.mjs scripts/webauthn-browser-entry.test.mjs && npm test -w @opensesame/auth-upstream",
     "verify:dpop-formal": "bash spec/formal/dpop/verify.sh",
     "verify:oauth-formal": "bash spec/formal/oauth/verify.sh",
     "verify:source-lifetime-formal": "bash spec/formal/source-lifetime/verify.sh",
