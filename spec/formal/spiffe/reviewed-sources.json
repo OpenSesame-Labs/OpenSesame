@@ -9,9 +9,9 @@
     },
     {
       "path": "crates/spiffe-source/src/source.rs",
-      "sha256": "568f8230e33923108ff5e5089f081dad2044b800f93b46c69562bd975d6222f5",
+      "sha256": "8e48c7a3cd797c8c84e980caf61aeb8e3c8a3e7b18bd5fd96adf7c51a71ca826",
       "base_blob": "6ff41f704f3262a8d0c3db87e1610fef483047f0",
-      "reviewed_blob": "07b5d87b8f27773c875465c1d5e1f523f4297bc9"
+      "reviewed_blob": "4a0c0e5cd799efb2776c8862cca8f3f50e024d58"
     },
     {
       "path": "crates/spiffe-source/src/source_policy.rs",
@@ -45,9 +45,9 @@
     },
     {
       "path": "crates/spiffe-source/src/fake/server.rs",
-      "sha256": "198bce58d92f3d4aed7e4217a9ffd6c96fd3d304adc50b87bdd9c3a34d05a9f7",
+      "sha256": "f610422cf044597353b7e9eec963af637fa648adf38716e9d5848f73f14be99d",
       "base_blob": "ab5aa8d6e7f8b180ada56442d0b90190a96eb7b5",
-      "reviewed_blob": "c9b74704acff8ac4fc6eac73d0e716ec9629c29a"
+      "reviewed_blob": "494cda791075ecad123f7dc2f4392879491979eb"
     },
     {
       "path": "crates/spiffe-source/tests/synthetic_workload_api.rs",
@@ -63,9 +63,9 @@
     },
     {
       "path": "crates/spiffe-source/tests/outage_policy.rs",
-      "sha256": "051fb3c52024f232f918bf82038b4b1bf2e26348093b74edf069bf08dca5d702",
+      "sha256": "64719b85da26c482c6a0f387bdbb7ab3ee8391c8e224f57032d82c2d5251bfa5",
       "base_blob": null,
-      "reviewed_blob": "a61d1e5469d3f54013d3c3e2af2c458dec036ce6"
+      "reviewed_blob": "f36e1ad6640dc87e367b6369b500c0d013c9a850"
     },
     {
       "path": "crates/spiffe-source/tests/trust_reduction_policy.rs",
