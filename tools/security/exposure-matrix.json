@@ -4438,14 +4438,14 @@
       "d01796b5"
     ],
     "packages/auth-upstream/package.json": [
-      "a90e5ac0",
-      "c7a6c3a2",
-      "88a9f889",
-      "5efc3b0a",
-      "bba5d6a2",
-      "5b111171",
-      "ecd45e7a",
-      "69d2bc21"
+      "c0685744",
+      "627d35a4",
+      "e063febb",
+      "9e64914f",
+      "c6bd1ccc",
+      "2393096c",
+      "436d87b5",
+      "c146176c"
     ],
     "packages/auth-upstream/src/browser.ts": [
       "5bbe4849",
