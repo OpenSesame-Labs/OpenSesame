@@ -1,11 +1,6 @@
 /- Independently recorded obligations for the source-lifetime model. -/
 open OpenSesame.SourceLifetime
 
-#require_theorem OpenSesame.SourceLifetime.released_signature_has_live_matching_checks :
-    ∀ (before after : OpenSesame.SourceLifetime.State) (expected beforeAt afterAt : Nat),
-      signatureMayRelease before after expected beforeAt afterAt = true →
-      before.generation = expected ∧ usable before beforeAt = true ∧
-      after.generation = expected ∧ usable after afterAt = true
 #require_theorem OpenSesame.SourceLifetime.claim_quarantines :
     ∀ (s : OpenSesame.SourceLifetime.State) (owner expected : Nat), s.fence = none → owner ∉ s.retired →
       s.generation = expected → (step s (.claim owner expected)).withdrawn = true

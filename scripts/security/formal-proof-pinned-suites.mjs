@@ -336,6 +336,11 @@ export const PINNED_FORMAL_SUITES = [
     proofs: [
       "spec/formal/source-lifetime/SourceLifetime.lean",
       "spec/formal/source-lifetime/required-theorems.lean",
+      "spec/formal/source-lifetime/verify.sh",
+      "spec/formal/source-lifetime/check-drift.py",
+      "spec/formal/source-lifetime/coverage.json",
+      "spec/formal/source-lifetime/negative-controls.py",
+      "spec/formal/source-lifetime/NEGATIVE-CONTROLS.md",
       "spec/formal/required-theorem-command.lean",
       "spec/formal/check-axioms.sh",
       "spec/formal/check-axioms.test.mjs",
