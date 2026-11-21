@@ -78,7 +78,7 @@
     },
     {
       "path": "crates/transport-security/src/guard.rs",
-      "sha256": "b4bee28991e9b3acd405e6d77f7debe890f0a7103d2ddc13a654ec20cab14109"
+      "sha256": "175f026c13b319801b5312cc42ce1377ba2103e10ca498888d3f2d2a9f2359fe"
     },
     {
       "path": "crates/transport-security/src/provenance.rs",
