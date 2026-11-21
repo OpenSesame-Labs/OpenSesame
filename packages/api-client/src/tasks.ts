@@ -76,10 +76,14 @@ export function tasksApi(ctx: HostRequestContext) {
 
     /** Spend a frozen intent by digest — the server holds the frozen bytes. */
     async invokeTaskIntent(intentDigest: string): Promise<BoundaryValue> {
-      return ctx.requestJson("task_intent_invoke", "/api/v1/tasks/invoke", {
-        method: "POST",
-        body: JSON.stringify({ intent_digest: intentDigest }),
-      });
+      return ctx.requestJsonLossless(
+        "task_intent_invoke",
+        "/api/v1/tasks/invoke",
+        {
+          method: "POST",
+          body: stringifyLosslessJson({ intent_digest: intentDigest }),
+        },
+      );
     },
 
     /** Recover the private opening after losing a task invocation response. */

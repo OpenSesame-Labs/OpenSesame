@@ -3,7 +3,7 @@ import { forAgent } from "./agent-payload.js";
 import { hostFetch } from "./host-api.js";
 import {
   INVOCATION_RESPONSE_TIMEOUT_MS,
-  readFreezeIntentResponse,
+  readInvocationResponse,
 } from "./invocation-response.js";
 import { projectInvocationResponse } from "./receipt-outcome.js";
 import {
@@ -48,7 +48,7 @@ export function registerInvokeTool(server: McpServer): void {
             intent_digest: intent.intentDigest,
           }),
         });
-        const body = await readFreezeIntentResponse(res);
+        const body = await readInvocationResponse(res);
         const projected = projectInvocationResponse(res.ok, body);
         if (projected.id !== undefined) {
           noteReservedReceiptId(taskRunId, projected.id);

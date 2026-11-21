@@ -1026,8 +1026,10 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RecoverTaskOpeningResponse" }
+        "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
   /tasks/{id}:
     parameters:
       - $ref: "#/components/parameters/TaskId"
