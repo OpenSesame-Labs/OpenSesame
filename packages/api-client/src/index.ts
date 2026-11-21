@@ -5,8 +5,10 @@ import {
   pushSyncBlobs,
   readSyncPage,
 } from "./sync-pages.js";
-export { pullSyncPages, readSyncPage } from "./sync-pages.js";
+
 export type { SyncPageCursor } from "./sync-pages.js";
+export { pullSyncPages, readSyncPage } from "./sync-pages.js";
+
 import {
   type AuthorizeRequest,
   type AuthorizeResponse,
@@ -73,6 +75,7 @@ import type { HostRequestContext } from "./http.js";
 import { receiptsApi } from "./receipts.js";
 import { relayApi } from "./relay.js";
 import { rotationsApi } from "./rotations.js";
+import { parseLosslessJson } from "./safe-json.js";
 import { tasksApi } from "./tasks.js";
 
 export interface ApiClientOptions {
@@ -738,7 +741,21 @@ export function createApiClient(options: ApiClientOptions) {
     return res.json();
   }
 
-  const requestContext: HostRequestContext = { request, requestJson };
+  async function requestJsonLossless(
+    op: string,
+    path: string,
+    init: RequestInit = {},
+  ): Promise<BoundaryValue> {
+    const res = await request(path, init);
+    if (!res.ok) throw await requestFailure(op, res);
+    return parseLosslessJson(await res.text());
+  }
+
+  const requestContext: HostRequestContext = {
+    request,
+    requestJson,
+    requestJsonLossless,
+  };
 
   return {
     ...core,
@@ -756,16 +773,16 @@ export function createApiClient(options: ApiClientOptions) {
 
 export type ApiClient = ReturnType<typeof createApiClient>;
 
+export { decodeAgentRun, decodeRunnerStepRequest } from "./agent-run-wire.js";
+export * from "./agent-runs.js";
+export type { IssueCertRequest } from "./certs.js";
+export type { ProjectChangelogQuery } from "./changelog.js";
+export type { NarrowDelegationRequest } from "./delegations.js";
+export { accessTokenHash, createDpopKeyPair } from "./dpop.js";
 export type { HostRequestContext } from "./http.js";
+export type { CreateRotationRequest } from "./rotations.js";
 export type {
   CreateTaskIntentRequest,
   StartTaskRequest,
   TaskCapability,
 } from "./tasks.js";
-export type { NarrowDelegationRequest } from "./delegations.js";
-export type { IssueCertRequest } from "./certs.js";
-export type { CreateRotationRequest } from "./rotations.js";
-export { accessTokenHash, createDpopKeyPair } from "./dpop.js";
-export type { ProjectChangelogQuery } from "./changelog.js";
-export * from "./agent-runs.js";
-export { decodeAgentRun, decodeRunnerStepRequest } from "./agent-run-wire.js";

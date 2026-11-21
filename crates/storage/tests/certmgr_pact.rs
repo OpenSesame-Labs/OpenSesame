@@ -242,7 +242,7 @@ fn pact_certificate_statuses_are_the_documented_set() {
 }
 
 #[test]
-fn pact_migrations_are_append_only_and_end_with_0040() {
+fn pact_migrations_are_append_only_and_end_with_0060() {
     let versions = migration_versions();
     assert_eq!(
         versions,

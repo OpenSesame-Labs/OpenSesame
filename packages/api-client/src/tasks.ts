@@ -1,5 +1,6 @@
 import type { BoundaryValue } from "@opensesame/os-domain";
 import type { HostRequestContext } from "./http.js";
+import { stringifyLosslessJson } from "./safe-json.js";
 
 export interface TaskCapability {
   action: string;
@@ -61,10 +62,14 @@ export function tasksApi(ctx: HostRequestContext) {
     async createTaskIntent(
       body: CreateTaskIntentRequest,
     ): Promise<BoundaryValue> {
-      return ctx.requestJson("task_intent_create", "/api/v1/tasks/intents", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
+      return ctx.requestJsonLossless(
+        "task_intent_create",
+        "/api/v1/tasks/intents",
+        {
+          method: "POST",
+          body: stringifyLosslessJson(body),
+        },
+      );
     },
 
     /** Spend a frozen intent by digest — the server holds the frozen bytes. */
@@ -80,12 +85,12 @@ export function tasksApi(ctx: HostRequestContext) {
       intent: BoundaryValue,
       intentDigest: string,
     ): Promise<BoundaryValue> {
-      return ctx.requestJson(
+      return ctx.requestJsonLossless(
         "task_intent_opening",
         "/api/v1/tasks/intent-opening",
         {
           method: "POST",
-          body: JSON.stringify({ intent, intent_digest: intentDigest }),
+          body: stringifyLosslessJson({ intent, intent_digest: intentDigest }),
         },
       );
     },

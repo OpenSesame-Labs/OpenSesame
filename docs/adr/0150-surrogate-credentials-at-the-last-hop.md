@@ -225,7 +225,8 @@ because a failed transport cannot prove the side effect did not occur. The
 response is bounded in size and time before parsing. Other receipt evidence
 remains available through the authorized Host receipt interface where
 disclosure is safe.
-MCP freeze and invocation responses are limited to 128 KiB and 15 seconds;
+MCP invocation responses are limited to 128 KiB and freeze responses to
+16 MiB, both within 15 seconds;
 an oversized or incomplete response is refused. Starting a replacement freeze
 clears any older frozen intent, so a failed replacement cannot accidentally
 execute the previous operation. A delayed freeze response cannot restore an

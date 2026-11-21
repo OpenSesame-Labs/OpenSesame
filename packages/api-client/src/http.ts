@@ -12,4 +12,14 @@ export interface HostRequestContext {
     path: string,
     init?: RequestInit,
   ): Promise<BoundaryValue>;
+  /**
+   * Same pipeline as requestJson, but integers outside JavaScript's safe
+   * range survive as bigint. Freeze/recovery payloads are signed digest
+   * inputs; rounding them would corrupt the recovery proof.
+   */
+  requestJsonLossless(
+    op: string,
+    path: string,
+    init?: RequestInit,
+  ): Promise<BoundaryValue>;
 }

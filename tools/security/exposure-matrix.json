@@ -276,7 +276,7 @@
         "crates/storage/tests/est_passphrase_budget.rs",
         "crates/storage/tests/certmgr_pact.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Source-lifetime review: the authenticated request rechecks its transport after the awaited password-budget reservation. Twelve EST certificate, freshness and TLS tests and five budget tests passed; source-lifetime clock and deadline controls passed in the integrated proof suite. Later policy and issuer awaits are not rechecked before issuance, so already-admitted enrollment may finish after withdrawal."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Source-lifetime review: the authenticated request rechecks its transport after the awaited password-budget reservation. Twelve EST certificate, freshness and TLS tests and five budget tests passed; source-lifetime clock and deadline controls passed in the integrated proof suite. Later policy and issuer awaits are not rechecked before issuance, so already-admitted enrollment may finish after withdrawal. 2026-11-20: council chunk 07 renamed the pact migration test pact_migrations_are_append_only_and_end_with_0040 to _0060 to match the migration 0060 assertion; no assertion, budget or enrollment logic changed. Passed: cargo test -p opensesame-storage --test certmgr_pact (9/9) and the full opensesame-storage suite (403) on the pinned Rust 1.99.0 toolchain."
     },
     {
       "id": "est-policy",
@@ -1388,14 +1388,14 @@
       "9861c64a"
     ],
     "crates/storage/tests/certmgr_pact.rs": [
-      "d895e470",
-      "41c81946",
-      "afcfea05",
-      "0790b90d",
-      "0e666c75",
-      "9ee8719d",
-      "2aa7da24",
-      "873364d4"
+      "6c6cafbb",
+      "460c5fe3",
+      "655c4771",
+      "a394cc64",
+      "a6265122",
+      "2bde5e9a",
+      "f4bff168",
+      "43624cfe"
     ],
     "packages/app-core/package.json": [
       "84a960cb",
