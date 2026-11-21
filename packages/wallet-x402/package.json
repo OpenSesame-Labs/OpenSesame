@@ -17,9 +17,9 @@
   "dependencies": {
     "@opensesame/os-domain": "*",
     "@opensesame/wallet-policy": "*",
-    "@x402/core": "2.30.0",
-    "@x402/evm": "2.30.0",
-    "viem": "2.57.16"
+    "@x402/core": "2.31.0",
+    "@x402/evm": "2.31.0",
+    "viem": "2.57.19"
   },
   "devDependencies": {
     "@types/node": "26.6.6",
