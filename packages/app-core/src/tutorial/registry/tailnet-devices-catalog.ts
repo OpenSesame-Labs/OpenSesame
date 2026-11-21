@@ -51,7 +51,7 @@ export const TAILNET_DEVICES_HELP: readonly HelpTopic[] = [
     id: "help.tailnet-devices",
     title: "How do I approve, rename or add a device on my tailnet?",
     answer:
-      "Run opensesame daemon tailnet connect on a machine in your tailnet with a Tailscale OAuth client or API token. Run opensesame daemon tailnet pair --origin with this page's address, then open the printed link. Manage devices under Identity → Devices, or select Add a device to create an auth key.",
+      "Run opensesame daemon tailnet connect on a machine in your tailnet with a Tailscale OAuth client or API token. Run opensesame daemon tailnet pair --origin with this page's address, then open the printed link. Manage devices under Identity › Devices, or select Add a device to create an auth key.",
     routes: [],
     goal: "identity.tailnet.devices.manage",
     keywords: [
