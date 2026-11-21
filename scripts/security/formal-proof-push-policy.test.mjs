@@ -1,8 +1,11 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 import { fixture, registry } from "./formal-proof-push-gate.test.fixture.mjs";
+
+const repoRoot = fileURLToPath(new URL("../../", import.meta.url));
 
 const requirements = JSON.parse(
   readFileSync(
@@ -17,10 +20,17 @@ function seedRequiredSuite(
   implementationPath = suite.implementation[0],
 ) {
   f.pin(requirements);
-  f.write(
-    "scripts/security/formal-proof-manifest-set.mjs",
-    readFileSync(new URL("./formal-proof-manifest-set.mjs", import.meta.url)),
-  );
+  for (const name of [
+    "formal-proof-manifest-set.mjs",
+    "formal-proof-lock-history.mjs",
+    "cargo-lock-projection.py",
+    "cargo-workspace-projection.py",
+    "cargo-workspace-multipackage.py",
+  ])
+    f.write(
+      `scripts/security/${name}`,
+      readFileSync(new URL(`./${name}`, import.meta.url)),
+    );
   f.write(manifest, JSON.stringify(requirements));
   f.write(registryPath, JSON.stringify(requirements));
   for (const proof of suite.proofs) f.write(proof, "proof\n");
@@ -213,7 +223,15 @@ test("overlapping SPIFFE and lifetime mappings both run, but an unrelated edit s
   );
   assert.deepEqual(
     selected.map((entry) => entry.id),
-    ["spiffe", "source-lifetime"],
+    [
+      "authority",
+      "spiffe",
+      "source-lifetime",
+      "source-trust-selection",
+      "spiffe-peer-domain",
+      "nats-trust-rotation",
+      "source-history",
+    ],
   );
   for (const changed of [path, "docs/unrelated.md"]) {
     const f = fixture(t);
@@ -221,7 +239,12 @@ test("overlapping SPIFFE and lifetime mappings both run, but an unrelated edit s
     for (const entry of selected)
       for (const proof of entry.proofs) f.write(proof, "proof\n");
     const base = f.commit();
-    f.write(changed, "changed\n");
+    f.write(
+      changed,
+      changed === path
+        ? `${readFileSync(join(repoRoot, changed), "utf8")}\n# touched\n`
+        : "changed\n",
+    );
     const target = f.commit();
     const result = f.run(f.tuple(target, base));
     assert.equal(result.status, 0, result.stderr);

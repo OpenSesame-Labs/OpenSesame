@@ -25,6 +25,19 @@ const helperPath = "scripts/security/cargo-lock-projection.py";
 const manifestHelperPath = "scripts/security/cargo-workspace-projection.py";
 const multiHelperPath = "scripts/security/cargo-workspace-multipackage.py";
 const manifestSetPath = "scripts/security/formal-proof-manifest-set.mjs";
+// The push gate selects projection suites through this module and the
+// projection helpers. All of them are executable gate inputs: a push that
+// weakens one could report the dependency projection unchanged and skip
+// every mapped suite. Each is validated against the incoming trusted main
+// revision before its output is trusted; any mismatch selects every
+// projection suite instead of trusting the comparison.
+const gateInputPaths = [
+  helperPath,
+  manifestHelperPath,
+  multiHelperPath,
+  manifestSetPath,
+  "scripts/security/formal-proof-lock-history.mjs",
+];
 
 function blob(root, revision, path, git) {
   const entry = decoder.decode(
@@ -39,6 +52,50 @@ function blob(root, revision, path, git) {
       `Formal lock projection requires regular ${path} at ${revision}`,
     );
   return { oid: match[2], data: git(root, ["cat-file", "blob", match[2]]) };
+}
+
+function revisionBlob(root, revision, path, git) {
+  const entry = decoder.decode(
+    git(root, ["ls-tree", "-z", revision, "--", path]),
+  );
+  const match =
+    /^(100644|100755) blob ([a-f0-9]{40}|[a-f0-9]{64})\t([^\0]+)\0$/u.exec(
+      entry,
+    );
+  return match && match[3] === path ? match[2] : null;
+}
+
+function regularWorktreeFile(root, path) {
+  let current = root;
+  const parts = path.split("/");
+  for (const [index, part] of parts.entries()) {
+    current = resolve(current, part);
+    try {
+      const stat = lstatSync(current);
+      if (index === parts.length - 1 ? !stat.isFile() : !stat.isDirectory())
+        return null;
+    } catch {
+      return null;
+    }
+  }
+  try {
+    return readFileSync(current);
+  } catch {
+    return null;
+  }
+}
+
+function gateInputsTrusted(root, change, git) {
+  const trusted = change?.policyBase;
+  if (!trusted || !oidPattern.test(trusted)) return false;
+  for (const path of gateInputPaths) {
+    const blobId = revisionBlob(root, trusted, path, git);
+    const bytes = regularWorktreeFile(root, path);
+    if (!blobId || !bytes) return false;
+    const recorded = git(root, ["cat-file", "blob", blobId]);
+    if (!recorded.equals(bytes)) return false;
+  }
+  return true;
 }
 
 function trustedHelper(root, head, git, path = helperPath) {
@@ -284,6 +341,13 @@ export function lockAffectedSuites(root, change, history, head, git) {
       .map(([kind, descriptor]) => ({ id: suite.id, kind, descriptor })),
   );
   if (!descriptors.length) return new Set();
+  if (!gateInputsTrusted(root, change, git)) {
+    // The projection helper, its manifest-set support, or this selector
+    // differs from the incoming trusted main revision. A weakened helper
+    // could report the projection unchanged and skip every mapped suite, so
+    // fail safe and select them all; the pushed contract is still checked.
+    return new Set(descriptors.map(({ id }) => id));
+  }
   const dir = mkdtempSync(join(tmpdir(), "formal-lock-"));
   try {
     const helpers = projectionHelpers(root, head, git, descriptors, dir);
