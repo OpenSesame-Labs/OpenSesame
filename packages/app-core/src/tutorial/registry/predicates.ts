@@ -18,7 +18,13 @@ import { isRemoteIdentityConfigured } from "../../lib/device-identity.js";
 import { currentSession } from "../../lib/identity.js";
 import { vaultStore } from "../../lib/vault/store.js";
 import { listAvailableUnlockMethods } from "../../lib/vault/unlock-methods.js";
-import { isOnline, page } from "../../ports.js";
+import { checkWebauthnHost } from "../../lib/vault/webauthn-host.js";
+import {
+  credentials,
+  isOnline,
+  page,
+  publicKeyCredentialApi,
+} from "../../ports.js";
 import {
   type GuideRouteId,
   guideRouteForPath,
@@ -247,6 +253,15 @@ export const GUIDE_PREDICATES: readonly GuidePredicateDescriptor[] = [
       "This vault has a key enrolled (password, PIN or passkey), so a second step has a key to guard.",
     read: () =>
       listAvailableUnlockMethods(vaultStore.getSnapshot().header).length > 0,
+  },
+  {
+    id: "vault.seal-passkey",
+    description:
+      "This browser can run a passkey ceremony, so sealing a vault leads with a passkey road and keeps the PIN as the fallback walk.",
+    read: () =>
+      checkWebauthnHost().ok &&
+      publicKeyCredentialApi() !== undefined &&
+      credentials()?.create !== undefined,
   },
   {
     id: "install.offered",

@@ -125,6 +125,7 @@ export const IDENTITY_GOALS: readonly GuideGoalDescriptor[] = [
       'wait route "/identity" timeout=15000',
       'focus "identity.providers" "Review the identity providers available for sign-in." side=bottom',
       'wait target "identity.register-idp" event=activate timeout=60000',
+      "end",
     ].join("\n"),
   },
   {
