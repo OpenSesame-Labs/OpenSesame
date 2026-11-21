@@ -31,6 +31,10 @@
  * `VERIFY_SKIP_BUILD=1` reuses `dist-profiles/mobile-tutorial-<build>/`.
  * `MOBILE_TUTORIAL_OUT` overrides the output root.
  *
+ * The dist is served at `localhost`, not `127.0.0.1`: browsers refuse WebAuthn
+ * ceremonies on a raw IP origin, and two of the walk's roads seal the first
+ * vault with a passkey, so the walk must stand on a DNS hostname.
+ *
  * The four profiles must not produce byte-identical shot sets: a profile
  * build that did not take (four identical digests) fails the run.
  */
@@ -51,7 +55,7 @@ import {
   createHarness,
   serveLoopbackDist,
 } from "./lib/static-origin-harness.mjs";
-import { runFirstVaultPass } from "./lib/tutorial-first-vault.mjs";
+import { runBeforeMobileBaseline } from "./lib/tutorial-before-mobile-baseline.mjs";
 import { createTutorialPageFactory } from "./lib/tutorial-page.mjs";
 import {
   buildDist,
@@ -123,6 +127,16 @@ function profileDigest(dir) {
   };
 }
 
+const workspaceRoot = path.resolve(defaultPagesRoot, "../..");
+if (phase === "before" && path.resolve(tree) !== path.resolve(workspaceRoot)) {
+  process.env.NODE_PATH = [
+    path.join(workspaceRoot, "node_modules"),
+    process.env.NODE_PATH ?? "",
+  ]
+    .filter(Boolean)
+    .join(path.delimiter);
+}
+
 const browser = await chromium.launch({
   executablePath: discovery.path,
   headless: true,
@@ -143,20 +157,32 @@ for (const walk of walks) {
   );
   // default and custom share the stock build; a buildKey already built in
   // this run is reused rather than rebuilt.
-  if (built.has(walk.buildKey)) process.env.VERIFY_SKIP_BUILD = "1";
-  buildDist({
-    appRoot: pagesRoot,
-    scriptsDir,
-    outDir: dist,
-    capabilityProfile: walk.capabilityProfile,
-  });
+  const reuseBuild = built.has(walk.buildKey);
+  if (reuseBuild) process.env.VERIFY_SKIP_BUILD = "1";
+  try {
+    buildDist({
+      appRoot: pagesRoot,
+      scriptsDir,
+      outDir: dist,
+      capabilityProfile: walk.capabilityProfile,
+    });
+  } finally {
+    if (reuseBuild) delete process.env.VERIFY_SKIP_BUILD;
+  }
   built.add(walk.buildKey);
   delete process.env.TUTORIALS_KEYBOARD_VIEWPORT;
   delete process.env.TUTORIALS_RECOVERY;
   delete process.env.TUTORIALS_PEPPER_BACK;
   delete process.env.TUTORIALS_GENERATION_FAILURE;
 
-  const server = await serveLoopbackDist({ dist, base: BASE });
+  // The passkey road needs a DNS hostname: browsers refuse WebAuthn on a raw
+  // IP origin, and two of this walk's roads seal with a passkey. The bytes are
+  // the same; only the host the person stands on changes.
+  const server = await serveLoopbackDist({
+    dist,
+    base: BASE,
+    host: "localhost",
+  });
   const profileOut = path.join(outDir, walk.name);
   mkdirSync(profileOut, { recursive: true });
   const harness = createHarness({
@@ -171,16 +197,29 @@ for (const walk of walks) {
   };
   try {
     const newPage = createTutorialPageFactory({ browser, devUrl: "", harness });
-    await runFirstVaultPass({
-      newPage,
-      width: 390,
-      origin: server.origin,
-      base: BASE,
-      check,
-      phone: true,
-      out: profileOut,
-      keepShots: true,
-    });
+    if (phase === "before") {
+      await runBeforeMobileBaseline({
+        newPage,
+        origin: server.origin,
+        base: BASE,
+        out: profileOut,
+        walk,
+      });
+    } else {
+      const { runFirstVaultPass } = await import(
+        "./lib/tutorial-first-vault.mjs"
+      );
+      await runFirstVaultPass({
+        newPage,
+        width: 390,
+        origin: server.origin,
+        base: BASE,
+        check,
+        phone: true,
+        out: profileOut,
+        keepShots: true,
+      });
+    }
   } finally {
     await server.close();
   }
@@ -228,13 +267,9 @@ if (unique.size === manifests.length && manifests.length > 1) {
   console.log(
     `\n[mobile-tutorial] all ${manifests.length} profile shot sets are distinct`,
   );
-} else if (unique.size > 1) {
-  console.log(
-    `\n[mobile-tutorial] ${unique.size} distinct shot sets of ${manifests.length} (default and custom share the stock build)`,
-  );
-} else {
+} else if (manifests.length > 1) {
   failures.push(
-    "all four profile shot sets are byte-identical — the profile build did not take",
+    `expected ${manifests.length} distinct profile shot sets, got ${unique.size} unique composite digests`,
   );
 }
 
