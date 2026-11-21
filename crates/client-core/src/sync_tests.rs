@@ -61,12 +61,29 @@ fn multi_device_cursor_monotonic() {
         epoch: e1,
     };
     let out = b.collect_outgoing(&since);
-    assert!(out.iter().all(|x| x.epoch > e1));
+    assert_eq!(out.len(), 2);
     for blob in &out {
         let json = serde_json::to_string(blob).unwrap();
         assert!(!json.contains("one"));
         assert!(!json.contains("two"));
     }
+}
+
+#[test]
+fn outgoing_reconciliation_includes_independent_lower_and_equal_epochs() {
+    let key = DeviceKey::generate();
+    let mut a = SyncStore::new("a");
+    let mut b = SyncStore::new("b");
+    a.put_local(&key, "a", b"a1").unwrap();
+    let b1 = b.put_local(&key, "b", b"b1").unwrap();
+    assert_eq!(a.cursor().epoch, b1.epoch);
+    assert_eq!(b.collect_outgoing(a.cursor()), vec![b1.clone()]);
+    a.put_local(&key, "a", b"a2").unwrap();
+    assert!(a.cursor().epoch > b1.epoch);
+    let outgoing = b.collect_outgoing(a.cursor());
+    assert_eq!(outgoing, vec![b1]);
+    a.apply_remote(&key, &outgoing).unwrap();
+    assert!(a.opaque_blobs().iter().any(|blob| blob.id == "b"));
 }
 
 #[test]
@@ -146,7 +163,7 @@ fn equal_epoch_conflicting_ciphertext_is_rejected() {
 fn empty_persisted_store_rejects_foreign_key_on_put() {
     let key = DeviceKey::generate();
     let foreign = DeviceKey::generate();
-    let mut store = SyncStore::new("empty-dev");
+    let store = SyncStore::new("empty-dev");
     let json = store.to_persisted_json(&key).unwrap();
     let mut loaded = SyncStore::from_persisted_json(&key, &json).unwrap();
     assert!(loaded.put_local(&foreign, "x", b"no").is_err());
@@ -198,6 +215,106 @@ fn persisted_metadata_and_key_changes_are_refused() {
         assert!(SyncStore::from_persisted_json(&key, &tampered.to_string()).is_err());
     }
     assert_eq!(store.to_persisted_json(&key).unwrap(), before);
+}
+
+#[test]
+fn empty_authenticated_stores_are_bound_to_their_key() {
+    let key = DeviceKey::generate();
+    let foreign = DeviceKey::generate();
+    let mut store = SyncStore::new("empty");
+    let json = store.to_persisted_json(&key).unwrap();
+    assert!(matches!(
+        store.to_persisted_json(&foreign),
+        Err(ClientCoreError::WrongKey)
+    ));
+    assert!(matches!(
+        store.put_local(&foreign, "item", b"wrong"),
+        Err(ClientCoreError::WrongKey)
+    ));
+    assert!(SyncStore::from_persisted_json(&foreign, &json).is_err());
+
+    let mut loaded = SyncStore::from_persisted_json(&key, &json).unwrap();
+    assert!(matches!(
+        loaded.put_local(&foreign, "item", b"wrong"),
+        Err(ClientCoreError::WrongKey)
+    ));
+    loaded.put_local(&key, "item", b"right").unwrap();
+
+    let legacy = r#"{"cursor":{"device_id":"legacy","epoch":0},"blobs":[]}"#;
+    let mut migrated = SyncStore::migrate_trusted_legacy_json(&key, legacy).unwrap();
+    assert!(matches!(
+        migrated.put_local(&foreign, "item", b"wrong"),
+        Err(ClientCoreError::WrongKey)
+    ));
+}
+
+#[test]
+fn concurrent_empty_serializers_cannot_bind_different_keys() {
+    let store = SyncStore::new("empty");
+    let first = DeviceKey::generate();
+    let second = DeviceKey::generate();
+    let barrier = std::sync::Barrier::new(2);
+    std::thread::scope(|scope| {
+        let a = scope.spawn(|| {
+            barrier.wait();
+            store.to_persisted_json(&first)
+        });
+        let b = scope.spawn(|| {
+            barrier.wait();
+            store.to_persisted_json(&second)
+        });
+        match (a.join().unwrap(), b.join().unwrap()) {
+            (Ok(json), Err(ClientCoreError::WrongKey)) => {
+                assert!(SyncStore::from_persisted_json(&first, &json).is_ok());
+            }
+            (Err(ClientCoreError::WrongKey), Ok(json)) => {
+                assert!(SyncStore::from_persisted_json(&second, &json).is_ok());
+            }
+            _ => panic!("exactly one key must bind the empty store"),
+        }
+    });
+}
+
+#[test]
+fn equal_epoch_conflicts_fail_atomically_but_identical_retries_succeed() {
+    let key = DeviceKey::generate();
+    let mut a = SyncStore::new("a");
+    let mut b = SyncStore::new("b");
+    let first = a.put_local(&key, "item", b"first").unwrap();
+    let second = b.put_local(&key, "item", b"second").unwrap();
+    let other = a.put_local(&key, "other", b"other").unwrap();
+    assert_eq!(first.epoch, second.epoch);
+
+    let mut destination = SyncStore::new("destination");
+    destination
+        .apply_remote(&key, std::slice::from_ref(&first))
+        .unwrap();
+    let before = destination.to_persisted_json(&key).unwrap();
+    assert!(matches!(
+        destination.apply_remote(&key, &[other.clone(), second.clone()]),
+        Err(ClientCoreError::InvalidBlob(_))
+    ));
+    assert_eq!(destination.to_persisted_json(&key).unwrap(), before);
+    assert_eq!(
+        destination
+            .apply_authenticated(&key, &[first.clone(), first.clone()])
+            .unwrap(),
+        0
+    );
+
+    let mut empty = SyncStore::new("empty");
+    assert!(matches!(
+        empty.apply_remote(&key, &[other, first.clone(), second]),
+        Err(ClientCoreError::InvalidBlob(_))
+    ));
+    assert!(empty.opaque_blobs().is_empty());
+    assert_eq!(empty.cursor().epoch, 0);
+    assert_eq!(
+        empty
+            .apply_authenticated(&key, &[first.clone(), first])
+            .unwrap(),
+        1
+    );
 }
 
 #[test]
@@ -329,7 +446,7 @@ fn legacy_migration_is_explicit_and_assigns_new_authenticated_epochs() {
     .to_string();
     assert!(SyncStore::from_persisted_json(&key, &legacy).is_err());
     assert!(SyncStore::migrate_trusted_legacy_json(&foreign, &legacy).is_err());
-    let mut migrated = SyncStore::migrate_trusted_legacy_json(&key, &legacy).unwrap();
+    let migrated = SyncStore::migrate_trusted_legacy_json(&key, &legacy).unwrap();
     let blobs = migrated.opaque_blobs();
     assert_eq!(blobs[0].epoch, 10);
     assert_eq!(open_sync_blob(&key, &blobs[0]).unwrap(), b"legacy-secret");

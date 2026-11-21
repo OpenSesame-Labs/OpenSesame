@@ -107,5 +107,6 @@ fn migrate(
         })
         .collect();
     sync_limits::validate_blobs(&migrated)?;
+    store.remember_key(store.checked_key(key)?)?;
     Ok(store)
 }
