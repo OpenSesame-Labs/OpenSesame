@@ -77,13 +77,17 @@ async fn lean_vectors_match_stored_trust_adoption_and_rotation() {
             },
         )
         .await;
-        assert!(trust::refresh(&state, opensesame_time::Utc::now()).await.unwrap());
+        assert!(trust::refresh(&state, opensesame_time::Utc::now())
+            .await
+            .unwrap());
         if rotated {
             generations
                 .activate_from_source(&owner, epoch, source)
                 .unwrap();
         }
-        let refreshed = trust::refresh(&state, opensesame_time::Utc::now()).await.unwrap();
+        let refreshed = trust::refresh(&state, opensesame_time::Utc::now())
+            .await
+            .unwrap();
         let current = generations.checked_current(None).unwrap();
         assert_eq!(
             current.peer_trust.contains_key(&old.profile),
@@ -122,7 +126,9 @@ async fn colliding_stored_name_is_quarantined_without_hiding_unrelated_trust() {
         profiles: vec![old.clone(), unrelated.clone()],
     };
     store(&state, &stored).await;
-    assert!(trust::refresh(&state, opensesame_time::Utc::now()).await.unwrap());
+    assert!(trust::refresh(&state, opensesame_time::Utc::now())
+        .await
+        .unwrap());
     let current = generations.checked_current(None).unwrap();
     assert!(!current.peer_trust.contains_key(&old.profile));
     assert!(current.peer_trust.contains_key(&unrelated.profile));
@@ -171,7 +177,9 @@ async fn source_rotation_reconciles_unrelated_trust_without_a_stored_revision_ch
         },
     )
     .await;
-    assert!(trust::refresh(&state, opensesame_time::Utc::now()).await.unwrap());
+    assert!(trust::refresh(&state, opensesame_time::Utc::now())
+        .await
+        .unwrap());
     let adopted = generations.current().number;
     assert!(generations
         .current()
@@ -184,7 +192,9 @@ async fn source_rotation_reconciles_unrelated_trust_without_a_stored_revision_ch
         .current()
         .peer_trust
         .contains_key(&unrelated.profile));
-    assert!(trust::refresh(&state, opensesame_time::Utc::now()).await.unwrap());
+    assert!(trust::refresh(&state, opensesame_time::Utc::now())
+        .await
+        .unwrap());
     let current = generations.checked_current(None).unwrap();
     assert!(current.number > adopted);
     assert!(current.peer_trust.contains_key(&unrelated.profile));
@@ -208,7 +218,9 @@ async fn generation_notification_reconciles_without_waiting_for_the_periodic_tic
         },
     )
     .await;
-    assert!(trust::refresh(&state, opensesame_time::Utc::now()).await.unwrap());
+    assert!(trust::refresh(&state, opensesame_time::Utc::now())
+        .await
+        .unwrap());
     let changes = generations.subscribe();
     let interval = std::time::Duration::from_mins(1);
     let ticks = tokio::time::interval_at(tokio::time::Instant::now() + interval, interval);
@@ -287,7 +299,9 @@ async fn rotation_after_swap_before_epoch_record_keeps_the_exact_installed_gener
             .with_trust_epoch(|epoch| epoch.generation),
         Some(installed)
     );
-    assert!(trust::refresh(&state, opensesame_time::Utc::now()).await.unwrap());
+    assert!(trust::refresh(&state, opensesame_time::Utc::now())
+        .await
+        .unwrap());
     let current = generations.checked_current(None).unwrap();
     assert!(current.peer_trust.contains_key(&unrelated.profile));
     assert_eq!(
