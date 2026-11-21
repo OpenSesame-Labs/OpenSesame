@@ -7,8 +7,8 @@ import { fileURLToPath } from "node:url";
 
 const pins = {
   packageSHA256:
-    "974eca0002cf8b1ebee2be042ffa633b058b95a0c7676987471105845211911a",
-  esmSHA256: "e75f7a75cc41a2286b0eebc0f8a459ccb7ac643c4d551f5163125eb4481f5aba",
+    "b48e30d7db7f9be89aecfd510c8d207ffcaf68209ae0a42e5740be593503a23e",
+  esmSHA256: "11572c36b68dcc8f036e8c02b3d55307250b11fbcb149f0aea5e03180bd35b37",
   applicationSHA256:
     "b3bd8776a9da2d2b10ffaf1ba9d82911b0bdd818abe2b0dda50d18b209f14c82",
   certificateSHA256:
@@ -24,7 +24,7 @@ const pins = {
       "745558c6a3677342c746243c4ae2c60189938759f60e3a9f4729467186da6d3e",
   },
   esmFiles: 42,
-  xmldsigjsVersion: "3.0.0",
+  xmldsigjsVersion: "3.1.0",
 };
 const sha = (value) => createHash("sha256").update(value).digest("hex");
 const implementationRoot = resolve(

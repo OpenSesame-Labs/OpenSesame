@@ -1,16 +1,20 @@
 {
-  "version": "1.0.6",
-  "packageVersion": "1.0.6",
-  "sourceCommit": "f2a8a93538f2c7b5a397500f7b25f461c3feb432",
-  "sri": "sha384-AfK1cgMDNaNLXRM3IkJv5zmnJ/sy+x4TM/LO4eaGsx/2766IQVLhXI+O98l3BBuF",
+  "version": "1.0.7",
+  "packageVersion": "1.0.7",
+  "sourceCommit": "ddf4ae23de792c67776eb4e5dc46475a792abb00",
+  "sri": "sha384-KlspCL1zISSJwb1jGIHViYytIyGTnjc3G+y5kfElDI09Fu7YWo5So2LUPiwC4TJn",
   "artifacts": [
     {
-      "path": "apps/pages/public/static-auth/1.0.6/opensesame-auth.min.js",
-      "sri": "sha384-AfK1cgMDNaNLXRM3IkJv5zmnJ/sy+x4TM/LO4eaGsx/2766IQVLhXI+O98l3BBuF"
+      "path": "apps/pages/public/static-auth/1.0.7/opensesame-auth.min.js",
+      "sri": "sha384-KlspCL1zISSJwb1jGIHViYytIyGTnjc3G+y5kfElDI09Fu7YWo5So2LUPiwC4TJn"
     },
     {
       "path": "apps/pages/public/auth.js",
       "sri": "sha384-3ja8qPvrKWHcFXbLAgIeUQVb3yVQO2kDbnomLIY1Jq/GR+Gnmf7WoUcvmFIbM8aq"
+    },
+    {
+      "path": "apps/pages/public/static-auth/1.0.6/opensesame-auth.min.js",
+      "sri": "sha384-AfK1cgMDNaNLXRM3IkJv5zmnJ/sy+x4TM/LO4eaGsx/2766IQVLhXI+O98l3BBuF"
     },
     {
       "path": "apps/pages/public/static-auth/1.0.5/opensesame-auth.min.js",

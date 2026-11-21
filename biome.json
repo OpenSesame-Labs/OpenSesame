@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.6.5/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.6.7/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -71,8 +71,9 @@
   "overrides": [
     {
       "includes": [
-        "apps/pages/public/static-auth/1.0.6/opensesame-auth.min.js",
+        "apps/pages/public/static-auth/1.0.7/opensesame-auth.min.js",
         "apps/pages/public/auth.js",
+        "apps/pages/public/static-auth/1.0.6/opensesame-auth.min.js",
         "apps/pages/public/static-auth/1.0.5/opensesame-auth.min.js",
         "apps/pages/public/static-auth/1.0.4/opensesame-auth.min.js",
         "apps/pages/public/static-auth/1.0.3/opensesame-auth.min.js"

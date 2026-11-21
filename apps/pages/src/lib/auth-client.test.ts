@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import source from "../../public/auth.js?raw";
 import compatibilityHash from "../../public/auth.js.sha384?raw";
 import previous from "../../public/static-auth/1.0.4/opensesame-auth.min.js?raw";
-import immutable from "../../public/static-auth/1.0.6/opensesame-auth.min.js?raw";
+import immutable from "../../public/static-auth/1.0.7/opensesame-auth.min.js?raw";
 import manifest from "../../public/static-auth/manifest.json";
 
 const hosted = {
