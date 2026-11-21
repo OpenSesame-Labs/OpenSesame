@@ -206,12 +206,8 @@ async fn build_with_security(
     let connection_broker = Arc::new(ConnectionBroker::new(db.pool().clone(), broker_config)?);
     // Community Wasm connectors (ADR 0065 §5): loaded only when the operator
     // configured a directory + pinned digests; any failure refuses boot.
-    crate::connector_egress::load_wasm_connectors(
-        &mut boot.broker.host,
-        &connection_broker,
-        connection_organization,
-    )
-    .await?;
+    crate::connector_egress::load_wasm_connectors(&mut boot.broker.host, &connection_broker)
+        .await?;
     let resolved = crate::taskbus_config::resolve(&db).await?;
     let task_bus = crate::taskbus_config::build_bus_or_unavailable(&resolved).await;
 

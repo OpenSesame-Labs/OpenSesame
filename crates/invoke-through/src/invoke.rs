@@ -35,6 +35,9 @@ use crate::tls::{build_client, build_pinned_webpki_client, HttpsClient, TlsClien
 #[path = "invoke_stub.rs"]
 pub(crate) mod stub;
 
+#[path = "invoke_dispatch.rs"]
+mod dispatch;
+
 /// Outbound body cap: generous for an API payload, useless for exfiltration.
 pub const DEFAULT_REQUEST_BODY_CAP: usize = 256 * 1024;
 /// Inbound body cap (ADR 0048 D7: the upstream response only, capped).
@@ -73,9 +76,9 @@ pub struct InvokeRequest {
     pub actor: Option<String>,
 }
 
-/// What the caller gets back: the upstream response and nothing else.
-/// Contains no credential material by construction — Debug is safe.
-#[derive(Debug)]
+/// The upstream response after bounded direct-reflection scrubbing.
+/// It can still contain transformed credentials and is not safe to disclose
+/// or log without an additional output policy.
 pub struct InvokeResponse {
     pub status: u16,
     /// Allowlisted response headers only.
@@ -84,11 +87,19 @@ pub struct InvokeResponse {
     pub receipt: ReceiptMeta,
 }
 
+impl std::fmt::Debug for InvokeResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("InvokeResponse")
+            .field("status", &self.status)
+            .finish_non_exhaustive()
+    }
+}
+
 /// Structured receipt metadata for one brokered call (ADR 0049 §5).
 ///
 /// `path` is the URL path **only** — query strings may carry secrets
 /// (presigned URLs, `?access_token=`) and are never recorded. Serialize this
-/// freely: by construction it cannot contain the credential.
+/// with the same care as other caller-supplied request metadata.
 #[derive(Debug, Clone, Serialize)]
 pub struct ReceiptMeta {
     pub provider_id: String,
@@ -113,6 +124,12 @@ pub struct Invoker {
     /// Every pre-connect check, separable so a caller can run it before any
     /// identity is resolved or credential opened.
     fence: EgressFence,
+    /// The authority and complete socket set approved before this client was
+    /// built. Hyper's resolver API is handed only a host name and may replace
+    /// the returned socket ports with the URI's port, so the request must
+    /// agree with every pinned socket before a credential is acquired or
+    /// materialized.
+    pinned: Option<(String, Vec<SocketAddr>)>,
     response_body_cap: usize,
     timeout: Duration,
 }
@@ -134,7 +151,7 @@ impl Invoker {
     /// [`Invoker::allow_http_for_tests`].
     #[must_use]
     pub fn with_rules(rules: Vec<EgressRule>) -> Self {
-        Self::from_client(build_client(None), rules)
+        Self::from_client(build_client(None), rules, None)
     }
 
     /// Broker over WebPKI and an address set an egress preflight already
@@ -147,7 +164,11 @@ impl Invoker {
         authority_host: &str,
         addresses: &[SocketAddr],
     ) -> Self {
-        Self::from_client(build_pinned_webpki_client(authority_host, addresses), rules)
+        Self::from_client(
+            build_pinned_webpki_client(authority_host, addresses),
+            rules,
+            Some((authority_host.to_ascii_lowercase(), addresses.to_vec())),
+        )
     }
 
     /// Broker over an explicit rule set and an injected, already-validated
@@ -157,13 +178,18 @@ impl Invoker {
     /// and body fences are exactly those of [`Invoker::with_rules`].
     #[must_use]
     pub fn with_tls(rules: Vec<EgressRule>, tls: &TlsClientSpec) -> Self {
-        Self::from_client(build_client(Some(tls)), rules)
+        Self::from_client(build_client(Some(tls)), rules, tls.pinned.clone())
     }
 
-    fn from_client(client: HttpsClient, rules: Vec<EgressRule>) -> Self {
+    fn from_client(
+        client: HttpsClient,
+        rules: Vec<EgressRule>,
+        pinned: Option<(String, Vec<SocketAddr>)>,
+    ) -> Self {
         Self {
             client,
             fence: EgressFence::new(rules, DEFAULT_REQUEST_BODY_CAP),
+            pinned: pinned.map(|(host, addresses)| (host.to_ascii_lowercase(), addresses)),
             response_body_cap: DEFAULT_RESPONSE_BODY_CAP,
             timeout: DEFAULT_TIMEOUT,
         }
@@ -209,7 +235,58 @@ impl Invoker {
     ///
     /// Returns an error when validation or the underlying operation fails.
     pub fn preflight(&self, req: InvokeRequest) -> Result<PreparedRequest, InvokeError> {
-        self.fence.preflight(req)
+        let prepared = self.fence.preflight(req)?;
+        self.validate_pinned_destination(&prepared)?;
+        Ok(prepared)
+    }
+
+    /// Pin the complete socket identity, not just its IP address. Hyper's
+    /// connector applies the URI port after resolution, so a resolver that
+    /// returns `127.0.0.1:4443` for an implicit `:443` request would otherwise
+    /// dial the approved IP on an unapproved port. Requiring every returned
+    /// socket to agree also prevents a mixed-port pin set from being widened
+    /// by that rewrite.
+    pub(crate) fn validate_pinned_destination(
+        &self,
+        prepared: &PreparedRequest,
+    ) -> Result<(), InvokeError> {
+        let Some((host, addresses)) = &self.pinned else {
+            return Ok(());
+        };
+        let requested_port = prepared.port().unwrap_or_else(|| {
+            if prepared.scheme.eq_ignore_ascii_case("https") {
+                443
+            } else {
+                80
+            }
+        });
+        if prepared.host != *host
+            || addresses.is_empty()
+            || addresses
+                .iter()
+                .any(|address| address.port() != requested_port)
+        {
+            return Err(InvokeError::EgressDenied {
+                provider: prepared.provider_id.clone(),
+                host: prepared.host.clone(),
+            });
+        }
+        Ok(())
+    }
+
+    /// The single socket port approved for `host`, when every pin agrees.
+    /// A mixed-port pin set approves nothing.
+    #[must_use]
+    pub fn pinned_port(&self, host: &str) -> Option<u16> {
+        let (pinned_host, addresses) = self.pinned.as_ref()?;
+        if !pinned_host.eq_ignore_ascii_case(host) || addresses.is_empty() {
+            return None;
+        }
+        let port = addresses[0].port();
+        addresses
+            .iter()
+            .all(|address| address.port() == port)
+            .then_some(port)
     }
 
     /// Execute a preflighted request with an acquired credential. The token
@@ -225,6 +302,10 @@ impl Invoker {
         token: &SecretString,
         prepared: PreparedRequest,
     ) -> Result<InvokeResponse, InvokeError> {
+        // Callers may use `fence()` directly so they can clear a request
+        // before loading credentials. Preserve that API, but repeat the
+        // client-specific pin check here before the token is exposed.
+        self.validate_pinned_destination(&prepared)?;
         if prepared.auth != AuthStyle::Bearer {
             return Err(InvokeError::UnsupportedProvider(prepared.provider_id));
         }
@@ -263,83 +344,6 @@ impl Invoker {
             builder = builder.header("user-agent", DEFAULT_USER_AGENT);
         }
         builder
-    }
-
-    /// Send a credentialed request and read the answer through every fence on
-    /// the way back: allowlisted headers, the body cap, the timeout, and the
-    /// reflection scrub over each needle.
-    pub(crate) async fn dispatch(
-        &self,
-        request: hyper::Request<Full<Bytes>>,
-        needles: &[Needles],
-        prepared: PreparedRequest,
-        started: Instant,
-    ) -> Result<InvokeResponse, InvokeError> {
-        let response = match tokio::time::timeout(self.timeout, self.client.request(request)).await
-        {
-            Ok(Ok(response)) => response,
-            Ok(Err(error)) => return Err(InvokeError::Transport(error.to_string())),
-            Err(_) => return Err(InvokeError::Timeout),
-        };
-        let status = response.status().as_u16();
-        // Built before anything upstream sent is read: every header and the
-        // body pass through it on the way back (ADR 0150 §4).
-        let mut credential_reflected = false;
-        let headers = response
-            .headers()
-            .iter()
-            .filter(|(name, _)| {
-                RESPONSE_HEADER_ALLOWLIST.contains(&name.as_str().to_ascii_lowercase().as_str())
-            })
-            .filter_map(|(name, value)| {
-                let (value, hit) = scrub_all(needles, value.to_str().ok()?.to_string());
-                credential_reflected |= hit;
-                Some((name.as_str().to_string(), value))
-            })
-            .collect();
-        // A 3xx is data, not an instruction: it is returned exactly like any
-        // other status. The client follows nothing on its own.
-        let body = match tokio::time::timeout(
-            self.timeout,
-            Limited::new(response.into_body(), self.response_body_cap).collect(),
-        )
-        .await
-        {
-            Ok(Ok(collected)) => collected.to_bytes(),
-            Ok(Err(error)) => {
-                // Limited boxes its errors: LengthLimitError means the cap was
-                // hit; anything else is the underlying body read failing (e.g.
-                // a truncated mid-body EOF), which is a transport fault.
-                if error
-                    .downcast_ref::<http_body_util::LengthLimitError>()
-                    .is_some()
-                {
-                    return Err(InvokeError::ResponseTooLarge {
-                        cap: self.response_body_cap,
-                    });
-                }
-                return Err(InvokeError::Transport(error.to_string()));
-            }
-            Err(_) => return Err(InvokeError::Timeout),
-        };
-        let (body, body_reflected) = scrub_needles(body, needles);
-        credential_reflected |= body_reflected;
-        Ok(InvokeResponse {
-            status,
-            headers,
-            body,
-            receipt: ReceiptMeta {
-                provider_id: prepared.provider_id,
-                scheme: prepared.scheme,
-                host: prepared.host,
-                path: prepared.path,
-                status,
-                latency_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
-                subject: prepared.subject,
-                actor: prepared.actor,
-                credential_reflected,
-            },
-        })
     }
 
     /// Preflight + acquire + execute in one step, for callers whose token

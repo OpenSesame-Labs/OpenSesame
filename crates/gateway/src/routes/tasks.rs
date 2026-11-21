@@ -16,6 +16,10 @@ use opensesame_time::{Duration, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+#[path = "tasks_claim.rs"]
+mod tasks_claim;
+use tasks_claim::claim_frozen_intent;
+
 use crate::app_state::AppState;
 use crate::middleware::auth::{
     parse_principal, require_demo_bootstrap, resolve_caller, resolve_caller_subject,
@@ -25,7 +29,7 @@ use crate::middleware::auth::{
 /// small by construction and capped to keep a chatty agent from growing it.
 const MAX_FROZEN_INTENTS: usize = 512;
 
-fn execution_bootstrap_for_organization(
+pub(super) fn execution_bootstrap_for_organization(
     st: &AppState,
     organization_id: &OrganizationId,
     principal_id: &PrincipalId,
@@ -44,6 +48,37 @@ fn execution_bootstrap_for_organization(
             "no grant and connection are configured for this organization",
         ));
     }
+    Ok(boot)
+}
+
+/// Load the configured root grant and prove that the durable row and ancestry
+/// fence still describe that exact grant. The process-local bootstrap is a
+/// routing hint, never current authority by itself.
+pub(super) async fn active_execution_bootstrap_for_organization(
+    st: &AppState,
+    organization_id: &OrganizationId,
+    principal_id: &PrincipalId,
+) -> Result<crate::app_state::Bootstrap, Response> {
+    let unavailable = || {
+        err_json(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "organization_execution_unavailable",
+            "no active grant and connection are configured for this organization",
+        )
+    };
+    let boot = execution_bootstrap_for_organization(st, organization_id, principal_id)?;
+    let stored = st
+        .db
+        .find_grant(&boot.grant.id)
+        .await
+        .map_err(|_| unavailable())?;
+    if stored.as_ref() != Some(&boot.grant) {
+        return Err(unavailable());
+    }
+    st.db
+        .assert_grant_chain_active(&boot.grant, Utc::now())
+        .await
+        .map_err(|_| unavailable())?;
     Ok(boot)
 }
 
@@ -250,7 +285,9 @@ pub async fn freeze_intent(
     // Name the authority this intent will execute under. A fresh `ActorId::new()`
     // named nothing, so the receipt's actor was meaningless and a grant narrowed to
     // one actor, project or connection could not tell whether it covered the call.
-    let boot = execution_bootstrap_for_organization(&st, &run.organization_id, &run.principal_id)?;
+    let boot =
+        active_execution_bootstrap_for_organization(&st, &run.organization_id, &run.principal_id)
+            .await?;
     let intent = FrozenIntentV2 {
         schema_version: FROZEN_INTENT_SCHEMA_VERSION,
         id: IntentId::new(),
@@ -285,8 +322,8 @@ pub async fn freeze_intent(
             "the configured grant does not cover this task authority",
         )
     })?;
-    // Custody of the frozen bytes stays here: execution later names the digest,
-    // it does not restate operation/resource/arguments.
+    let response = tasks_claim::frozen_response(&intent)?;
+    // Execution later names the digest; it does not restate the arguments.
     {
         let mut pending = st.frozen_intents.lock().map_err(|_| internal("lock"))?;
         pending.retain(|_, i| i.expires_at > now);
@@ -299,61 +336,13 @@ pub async fn freeze_intent(
         }
         pending.insert(intent.intent_digest.clone(), intent.clone());
     }
-    Ok((
-        StatusCode::CREATED,
-        Json(json!({
-            "intent_id": intent.id.to_string(),
-            "intent_digest": intent.intent_digest,
-            "task_run_id": intent.task_run_id.to_string(),
-            "task_state_version": intent.task_state_version,
-            "canonical_arguments": intent.canonical_arguments,
-        })),
-    )
-        .into_response())
+    Ok(response)
 }
 
 #[derive(Deserialize)]
 pub struct InvokeTaskBody {
     /// Digest returned by `POST /api/v1/tasks/intents`.
     pub intent_digest: String,
-}
-
-/// Execute a frozen intent under its task ceiling.
-///
-/// The legacy `/api/v1/intents` path builds an intent from whatever the caller
-/// sends, so a task-bound caller that used it spent no ceiling at all. Here the
-/// digest names bytes the server already holds, and the broker re-asserts the
-/// capability, task state version, and ceiling before anything executes.
-/// Take a frozen intent for the caller, spending it only when it is theirs.
-///
-/// Single use: a spent digest cannot be replayed into a second invocation. The
-/// ownership question is settled before the digest is spent — removing first
-/// would let anyone who learned a digest burn another principal's intent and
-/// collect a 404 for it, leaving the owner with nothing to invoke.
-///
-/// An intent that is absent and one that belongs to someone else are the same
-/// answer here, so a caller cannot use this to enumerate other principals' work.
-fn claim_frozen_intent(
-    pending: &mut std::collections::HashMap<String, FrozenIntentV2>,
-    digest: &str,
-    caller: &crate::middleware::auth::Caller,
-    execution_grant: &Grant,
-    now: opensesame_time::DateTime<Utc>,
-) -> Result<Option<FrozenIntentV2>, ()> {
-    pending.retain(|_, i| i.expires_at > now);
-    let Some(intent) = pending.get(digest) else {
-        return Ok(None);
-    };
-    if !caller.owns(&intent.principal_id) || !caller.in_organization(&intent.organization_id) {
-        return Ok(None);
-    }
-    if execution_grant.parent_grant_id.is_some()
-        || execution_grant.delegation_depth != 0
-        || opensesame_broker::assert_grant_covers_frozen_intent(execution_grant, intent).is_err()
-    {
-        return Err(());
-    }
-    Ok(pending.remove(digest))
 }
 
 pub async fn invoke_task(
@@ -363,16 +352,25 @@ pub async fn invoke_task(
 ) -> Result<Response, Response> {
     let caller = resolve_caller(&st, &headers)?;
     let subject = resolve_caller_subject(&st, &headers)?;
-    let boot = require_demo_bootstrap(&st)?;
+    let configured = require_demo_bootstrap(&st)?;
+    let boot =
+        active_execution_bootstrap_for_organization(&st, &configured.org, &configured.principal)
+            .await?;
+    let now = Utc::now();
     let intent = {
         let mut pending = st.frozen_intents.lock().map_err(|_| internal("lock"))?;
-        match claim_frozen_intent(
-            &mut pending,
-            &body.intent_digest,
-            &caller,
-            &boot.grant,
-            Utc::now(),
-        ) {
+        // Prove the receipt can be opened before the digest is spent. A
+        // malformed digest must not reach the broker, and must stay available
+        // to its owner.
+        if let Some(intent) = pending
+            .get(&body.intent_digest)
+            .filter(|intent| intent.expires_at > now)
+        {
+            if caller_may_spend_frozen(&caller, &boot.grant, intent) {
+                opening_can_be_prepared(&st, intent)?;
+            }
+        }
+        match claim_frozen_intent(&mut pending, &body.intent_digest, &caller, &boot.grant, now) {
             Ok(Some(intent)) => intent,
             Ok(None) => return Err(not_found("frozen intent")),
             Err(()) => {
@@ -388,6 +386,30 @@ pub async fn invoke_task(
         intent.operation.clone(),
         ResourceSelector::exact(intent.resource.clone()),
     );
+    let mut opening_intent = match serde_json::to_value(&intent) {
+        Ok(value) => value,
+        Err(_) => {
+            restore_frozen_intent(&st, intent);
+            return Err(internal("intent encoding"));
+        }
+    };
+    let Some(object) = opening_intent.as_object_mut() else {
+        restore_frozen_intent(&st, intent);
+        return Err(internal("intent encoding"));
+    };
+    object.remove("intent_digest");
+    let connection_policy_id =
+        match crate::routes::intents::bootstrap_connection_policy_for(&st, &boot) {
+            Ok(id) => id,
+            Err(response) => {
+                restore_frozen_intent(&st, intent);
+                return Err(response);
+            }
+        };
+    // Same digest retries the stored receipt. Keep the frozen intent until the
+    // caller actually receives the opening; a 503 after the effect must not
+    // force a new freeze, which would be a new idempotency key.
+    let recoverable = intent.clone();
     let receipt = st
         .broker
         .invoke_frozen(
@@ -396,7 +418,7 @@ pub async fn invoke_task(
                 intent,
                 grant: boot.grant.clone(),
                 subject,
-                connection_policy_id: "demo-conn".into(),
+                connection_policy_id,
                 required_capability: required,
                 lineage: None,
             },
@@ -409,7 +431,64 @@ pub async fn invoke_task(
                 opensesame_redaction::redact_text(&e.to_string()),
             )
         })?;
-    Ok((StatusCode::OK, Json(receipt)).into_response())
+    let response_body = match super::receipts::private_receipt_body(
+        &st,
+        &receipt,
+        &body.intent_digest,
+        &opening_intent,
+    ) {
+        Ok(response_body) => response_body,
+        Err(response) => {
+            restore_frozen_intent(&st, recoverable);
+            return Err(response);
+        }
+    };
+    Ok(super::receipts::private_response(
+        StatusCode::OK,
+        response_body,
+    ))
+}
+
+fn caller_may_spend_frozen(
+    caller: &crate::middleware::auth::Caller,
+    execution_grant: &Grant,
+    intent: &FrozenIntentV2,
+) -> bool {
+    caller.owns(&intent.principal_id)
+        && caller.in_organization(&intent.organization_id)
+        && execution_grant.parent_grant_id.is_none()
+        && execution_grant.delegation_depth == 0
+        && opensesame_broker::assert_grant_covers_frozen_intent(execution_grant, intent).is_ok()
+}
+
+fn opening_can_be_prepared(st: &AppState, intent: &FrozenIntentV2) -> Result<(), Response> {
+    st.broker
+        .signer
+        .intent_commitment(
+            &opensesame_domain::InvocationId::new(),
+            &intent.intent_digest,
+        )
+        .map_err(|_| opening_unavailable())?;
+    let opening = serde_json::to_value(intent).map_err(|_| internal("intent encoding"))?;
+    opening
+        .as_object()
+        .ok_or_else(|| internal("intent encoding"))?;
+    Ok(())
+}
+
+fn opening_unavailable() -> Response {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(json!({"error":"receipt_opening_unavailable"})),
+    )
+        .into_response()
+}
+
+fn restore_frozen_intent(st: &AppState, intent: FrozenIntentV2) {
+    let Ok(mut pending) = st.frozen_intents.lock() else {
+        return;
+    };
+    pending.insert(intent.intent_digest.clone(), intent);
 }
 
 #[derive(Deserialize)]
@@ -504,11 +583,8 @@ mod delegation_fence_tests;
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        claim_frozen_intent, invoke_task, start_task, CapabilityDto, InvokeTaskBody, StartTaskBody,
-    };
+    use super::claim_frozen_intent;
     use crate::middleware::auth::Caller;
-    use axum::{extract::State, http::StatusCode, Json};
     use opensesame_domain::{
         ActorId, FrozenIntentV2, Grant, GrantConstraints, GrantId, IntentId, OfflineUse,
         OrganizationId, PrincipalId, TaskRunId, FROZEN_INTENT_SCHEMA_VERSION,
@@ -783,107 +859,8 @@ mod tests {
         assert!(!caller(opensesame_domain::OrganizationRole::Member).can_configure_integrations());
         assert!(Caller::Operator.can_configure_integrations());
     }
-
-    #[tokio::test]
-    async fn identity_principal_id_starts_a_task_for_its_session() {
-        let state = crate::app_state::test_demo_state().await;
-        let bootstrap = state.bootstrap.lock().unwrap().clone().unwrap();
-        let identity_principal = format!("prn_{}", bootstrap.principal.as_uuid());
-        let headers = crate::app_state::test_session_headers(
-            &state,
-            &identity_principal,
-            bootstrap.org,
-            opensesame_domain::OrganizationRole::Member,
-        );
-
-        let response = start_task(
-            State(state),
-            headers,
-            Json(StartTaskBody {
-                principal_id: identity_principal,
-                organization_id: bootstrap.org.to_string(),
-                capabilities: vec![CapabilityDto {
-                    action: "repository.read".into(),
-                    resource: "repo:acme/catalog".into(),
-                }],
-                ttl_seconds: 60,
-            }),
-        )
-        .await
-        .unwrap();
-        assert_eq!(response.status(), StatusCode::CREATED);
-    }
-
-    #[tokio::test]
-    async fn invoking_a_legacy_mismatched_intent_does_not_consume_it() {
-        let state = crate::app_state::test_demo_state().await;
-        let bootstrap = state.bootstrap.lock().unwrap().clone().unwrap();
-        let organization_id = OrganizationId::new();
-        let frozen = intent(bootstrap.principal, organization_id, 5);
-        state
-            .frozen_intents
-            .lock()
-            .unwrap()
-            .insert(frozen.intent_digest.clone(), frozen.clone());
-        let headers = crate::app_state::test_session_headers(
-            &state,
-            &bootstrap.principal.to_string(),
-            organization_id,
-            opensesame_domain::OrganizationRole::Member,
-        );
-
-        let response = invoke_task(
-            State(state.clone()),
-            headers,
-            Json(InvokeTaskBody {
-                intent_digest: frozen.intent_digest.clone(),
-            }),
-        )
-        .await
-        .unwrap_err();
-
-        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
-        assert!(state
-            .frozen_intents
-            .lock()
-            .unwrap()
-            .contains_key(&frozen.intent_digest));
-    }
-
-    #[tokio::test]
-    async fn invoking_a_same_org_wrong_beneficiary_intent_does_not_consume_it() {
-        let state = crate::app_state::test_demo_state().await;
-        let bootstrap = state.bootstrap.lock().unwrap().clone().unwrap();
-        let mut frozen = intent(PrincipalId::new(), bootstrap.org, 5);
-        frozen.project_id = Some(bootstrap.project);
-        frozen.actor_id = bootstrap.actor;
-        frozen.connection_id = Some(bootstrap.connection);
-        state
-            .frozen_intents
-            .lock()
-            .unwrap()
-            .insert(frozen.intent_digest.clone(), frozen.clone());
-        let mut headers = axum::http::HeaderMap::new();
-        headers.insert(
-            "x-opensesame-operator",
-            state.operator_token.parse().unwrap(),
-        );
-
-        let response = invoke_task(
-            State(state.clone()),
-            headers,
-            Json(InvokeTaskBody {
-                intent_digest: frozen.intent_digest.clone(),
-            }),
-        )
-        .await
-        .unwrap_err();
-
-        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
-        assert!(state
-            .frozen_intents
-            .lock()
-            .unwrap()
-            .contains_key(&frozen.intent_digest));
-    }
 }
+
+#[cfg(test)]
+#[path = "tasks_identity_tests.rs"]
+mod identity_tests;

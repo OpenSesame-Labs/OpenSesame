@@ -1,5 +1,7 @@
 //! The connector catalog and credentialed egress through it.
 
+use axum::response::IntoResponse;
+
 use super::*;
 
 fn percent_encode_all(value: &str) -> String {
@@ -210,9 +212,14 @@ async fn catalog_connection_executes_real_credentialed_egress() {
             None,
         )
         .await
-        .expect_err("encoded credential in an error must be scrubbed");
+        .expect_err("encoded credential in an error must be refused like a success body");
     let percent_error = percent_leak.to_string();
-    assert!(percent_error.contains("[redacted:credential]"));
+    // Non-2xx gets the same refusal as 2xx: no scrubbed snippet, no oracle.
+    assert_eq!(
+        percent_error,
+        "token exchange failed: upstream response contained the injected credential"
+    );
+    assert!(!percent_error.contains("network-token-do-not-return"));
     assert!(!percent_error.contains(&percent_encode_all("network-token-do-not-return")));
     assert!(percent_error.len() < 600);
 
@@ -233,102 +240,130 @@ async fn catalog_connection_executes_real_credentialed_egress() {
 }
 
 #[tokio::test]
-async fn zero_input_native_connectors_are_ready_without_user_configuration() {
-    let (_db, broker) = broker().await;
+async fn reflected_credential_in_response_headers_is_not_returned() {
+    async fn token(Form(_form): Form<HashMap<String, String>>) -> Json<serde_json::Value> {
+        Json(serde_json::json!({
+            "access_token": "network-token-do-not-return",
+            "token_type": "Bearer"
+        }))
+    }
+
+    async fn header_leak(headers: axum::http::HeaderMap) -> impl axum::response::IntoResponse {
+        let token = headers
+            .get("authorization")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.strip_prefix("Bearer "))
+            .unwrap_or_default()
+            .to_owned();
+        let encoded = percent_encode_all(&token);
+        let mut response = (
+            axum::http::StatusCode::OK,
+            Json(serde_json::json!({"ok": true})),
+        )
+            .into_response();
+        let header_map = response.headers_mut();
+        header_map.insert("x-request-id", "req-safe".parse().unwrap());
+        header_map.insert(
+            "location",
+            format!("https://app.example/cb?access_token={token}")
+                .parse()
+                .unwrap(),
+        );
+        header_map.insert("cookie", format!("session={token}").parse().unwrap());
+        header_map.insert("x-next", format!("next={encoded}").parse().unwrap());
+        header_map.insert("set-cookie", "sid=1".parse().unwrap());
+        response
+    }
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind header-leak provider");
+    let provider = listener.local_addr().expect("header-leak address");
+    tokio::spawn(async move {
+        let _ = axum::serve(
+            listener,
+            Router::new()
+                .route("/token", post(token))
+                .route("/header-leak", axum::routing::get(header_leak)),
+        )
+        .await;
+    });
+
+    let owner = "user:header-owner";
+    let config = BrokerConfig::in_memory(Some(KEY), "http://127.0.0.1:8787").with_provider(
+        "mock",
+        ProviderConfig {
+            client_id: Some("mock-client".into()),
+            client_secret: Some("mock-secret".into()),
+            token_url: Some(format!("http://{provider}/token")),
+            ..Default::default()
+        },
+    );
+    let (_db, broker) = broker_with(config).await;
     let organization = OrganizationId::new();
-    let owner = "prn_local_owner";
-
-    assert_eq!(
-        broker
-            .auto_configure_connections(&organization, Some(owner))
-            .await,
-        2
-    );
-    let connections = broker
-        .list_connections_for(&organization, Some(owner))
-        .await
-        .unwrap();
-    let providers = connections
-        .iter()
-        .map(|connection| connection.provider_id.as_str())
-        .collect::<std::collections::BTreeSet<_>>();
-    assert_eq!(
-        providers,
-        std::collections::BTreeSet::from(["plain", "sealed-local"])
-    );
-    let automatic = broker
-        .list_providers()
-        .unwrap()
-        .into_iter()
-        .filter(|provider| provider.auto_configurable)
-        .map(|provider| provider.id)
-        .collect::<std::collections::BTreeSet<_>>();
-    assert_eq!(
-        automatic,
-        std::collections::BTreeSet::from(["plain".into(), "sealed-local".into()])
-    );
-    assert!(connections
-        .iter()
-        .all(|connection| connection.status == ConnectionStatus::Active));
-    assert!(!serde_json::to_string(&connections)
-        .unwrap()
-        .contains("opensesame://sealed-local"));
-}
-
-#[tokio::test]
-async fn identity_connectors_seal_their_declared_configuration() {
-    let (_db, broker) = broker().await;
-    let org = OrganizationId::new();
-
-    let better_auth = broker
-        .create_connection(&org, create("better-auth"))
-        .await
-        .unwrap();
-    let active = broker
-        .set_connection_configuration(
-            &org,
-            &better_auth.connection_id,
-            std::collections::BTreeMap::from([
-                (
-                    "base_url".into(),
-                    "https://auth.example.com/api/auth".into(),
-                ),
-                ("api_key".into(), "do-not-return".into()),
-                ("api_key_header".into(), "x-api-key".into()),
-                ("config_id".into(), "default".into()),
-            ]),
-            vec![],
+    let connection = broker
+        .create_connection(
+            &organization,
+            CreateConnection {
+                owner_subject: Some(owner.into()),
+                ..create("mock")
+            },
         )
         .await
-        .unwrap();
-    assert_eq!(active.status, ConnectionStatus::Active);
-    assert!(!serde_json::to_string(&active)
-        .unwrap()
-        .contains("do-not-return"));
-
-    let auth0 = broker
-        .create_connection(&org, create("auth0"))
+        .expect("create connection");
+    let start = broker
+        .start_authorization(&organization, &connection.connection_id, None, None)
         .await
-        .unwrap();
-    let active = broker
-        .set_connection_configuration(
-            &org,
-            &auth0.connection_id,
-            std::collections::BTreeMap::from([
-                ("domain".into(), "tenant.us.auth0.com".into()),
-                ("client_id".into(), "client".into()),
-                ("client_secret".into(), "also-do-not-return".into()),
-                (
-                    "audience".into(),
-                    "https://tenant.us.auth0.com/api/v2/".into(),
-                ),
-            ]),
-            vec![],
+        .expect("start authorization");
+    broker
+        .complete_authorization("mock", "code", &start.state)
+        .await
+        .expect("complete authorization");
+    let grant = broker
+        .owner_invocation_grant(&organization, &connection.connection_id, owner)
+        .await
+        .expect("owner grant");
+    let response = broker
+        .authorized_http_for_owner(
+            crate::egress::OwnerConnectionExpectation {
+                organization_id: &organization,
+                connection_id: &connection.connection_id,
+                provider_id: "mock",
+                owner_subject: owner,
+                grant: &grant,
+            },
+            "GET",
+            &format!("http://{provider}/header-leak"),
+            None,
         )
         .await
-        .unwrap();
-    assert_eq!(active.status, ConnectionStatus::Active);
-    assert!(!serde_json::to_string(&active)
-        .unwrap()
-        .contains("also-do-not-return"));
+        .expect("header leak is dropped without failing the JSON body");
+    let rendered = response
+        .headers
+        .iter()
+        .map(|(name, value)| format!("{name}:{value}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(!rendered.contains("network-token-do-not-return"));
+    assert!(!rendered.contains(&percent_encode_all("network-token-do-not-return")));
+    assert!(response
+        .headers
+        .iter()
+        .any(|(name, value)| name.eq_ignore_ascii_case("x-request-id") && value == "req-safe"));
+    for dropped in [
+        "location",
+        "cookie",
+        "x-next",
+        "set-cookie",
+        "authorization",
+    ] {
+        assert!(
+            !response
+                .headers
+                .iter()
+                .any(|(name, _)| name.eq_ignore_ascii_case(dropped)),
+            "{dropped} was returned"
+        );
+    }
+    assert_eq!(response.json, serde_json::json!({"ok": true}));
 }

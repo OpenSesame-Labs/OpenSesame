@@ -3484,6 +3484,9 @@ version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
  "ed25519-dalek 3.0.0",
+ "hex",
+ "hkdf",
+ "hmac",
  "opensesame-domain",
  "opensesame-redaction",
  "opensesame-time",
@@ -3605,6 +3608,7 @@ dependencies = [
  "opensesame-connector-host",
  "opensesame-domain",
  "opensesame-redaction",
+ "opensesame-sql",
  "opensesame-storage",
  "opensesame-task-access",
  "opensesame-time",

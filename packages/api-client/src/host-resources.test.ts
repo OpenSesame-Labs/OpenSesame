@@ -72,11 +72,18 @@ describe("api-client tasks", () => {
       idempotency_key: "idem_01J",
     });
     await client.invokeTaskIntent("digest_01J");
+    await client.recoverTaskIntentOpening({ nonce: "saved" }, "digest_01J");
 
     expect(calls[0]?.url).toBe("https://host.test:8787/api/v1/tasks/intents");
     expect(calls[0]?.body).toContain('"idempotency_key":"idem_01J"');
     expect(calls[1]?.url).toBe("https://host.test:8787/api/v1/tasks/invoke");
     expect(calls[1]?.body).toBe('{"intent_digest":"digest_01J"}');
+    expect(calls[2]?.url).toBe(
+      "https://host.test:8787/api/v1/tasks/intent-opening",
+    );
+    expect(calls[2]?.body).toBe(
+      '{"intent":{"nonce":"saved"},"intent_digest":"digest_01J"}',
+    );
   });
 
   it("maps task refusals to op-coded errors", async () => {

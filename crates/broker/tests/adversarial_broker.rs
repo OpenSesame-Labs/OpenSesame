@@ -8,6 +8,13 @@ use opensesame_storage::Db;
 use opensesame_time::{Duration, Utc};
 use serde_json::json;
 
+#[path = "adversarial_broker/invocation_binding.rs"]
+mod invocation_binding_tests;
+#[path = "adversarial_broker/outcome_indeterminate.rs"]
+mod outcome_indeterminate_tests;
+#[path = "adversarial_broker/outcome.rs"]
+mod outcome_tests;
+
 fn sample_grant(org: OrganizationId, principal: PrincipalId) -> Grant {
     let now = Utc::now();
     Grant {
@@ -129,7 +136,7 @@ async fn idempotency_must_not_duplicate_side_effects() {
         .unwrap();
     assert_eq!(r1.outcome, ReceiptOutcome::Succeeded);
     assert_eq!(r1.organization_id, Some(org));
-    assert_eq!(r1.receipt_schema_version, 3);
+    assert_eq!(r1.receipt_schema_version, 6);
 
     // Same idempotency key, new intent id — MUST return prior receipt, not re-execute.
     let mut intent2 = sample_intent(
@@ -161,7 +168,7 @@ async fn idempotency_must_not_duplicate_side_effects() {
         .unwrap();
     assert_eq!(r1.id, r2.id, "idempotent retry must return same receipt id");
     assert_eq!(r2.organization_id, Some(org));
-    assert_eq!(r2.receipt_schema_version, 3);
+    assert_eq!(r2.receipt_schema_version, 6);
     assert_eq!(receipts, 1, "must not create a second receipt");
     assert_eq!(
         inv_count, 1,
@@ -356,3 +363,6 @@ async fn receipt_roundtrip_prefixed_and_bare_id() {
     );
     broker.signer.verify_receipt(&receipt).unwrap();
 }
+
+#[path = "idempotency_binding/mod.rs"]
+mod idempotency_binding;

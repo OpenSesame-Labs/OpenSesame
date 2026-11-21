@@ -3,10 +3,21 @@
 The invocation broker for the Host / authority plane: the step between an
 authorized intent and a signed receipt. `Broker` checks that the intent is fresh
 and the grant active, that both belong to the same organization, that policy
-and quorum allow it and that the idempotency key is new — then runs the
-connector and signs an `InvocationReceipt`. A repeated idempotency key returns
-the receipt already stored, or fails as a conflict while the first attempt has
-none, instead of running twice.
+and quorum allow it — then reserves the idempotency key, runs the connector,
+and signs an `InvocationReceipt`. A retry returns the stored receipt only when
+the request and authority match the original and current policy still allows
+it. A different request or a first attempt without a receipt conflicts instead
+of running twice. Legacy invocations may retry with a new intent ID, nonce,
+timestamps, and signature; their operation, principal, key identity, grant,
+connection, parameters, and delegation context must match. Frozen invocations
+must use the same frozen intent digest and task context.
+
+Records created before request binding was introduced have no trustworthy
+fingerprint and cannot be replayed through the idempotency path. Reconcile the
+prior operation and its receipt before issuing a new key: a new key can repeat
+an external effect. Drain older broker processes during rollout; they can still
+create unbound records until upgraded. An older binary encountering a bound
+record cannot decode it and fails rather than returning its receipt.
 
 ## Where it fits
 
@@ -24,6 +35,13 @@ none, instead of running twice.
 - The frozen path never accepts a second, mutable parameter blob: it persists
   the digest, authorizes that digest, and executes the canonical arguments from
   the same intent.
+- A frozen intent id executes at most once, regardless of idempotency key.
+  `insert_bound_intent` runs before any connector execution and the `intents.id`
+  primary key rejects the second insert, so the same intent id replayed under a
+  fresh idempotency key fails there — the deterministic receipt id
+  (`ReceiptId::from_uuid(intent.id)`) is never written twice and the connector
+  never runs twice for one frozen intent. A same-key replay still returns the
+  stored receipt through the binding check above.
 
 ## Surface
 

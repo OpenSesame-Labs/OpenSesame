@@ -26,6 +26,7 @@ fn sign_and_verify() {
         id: ReceiptId::new(),
         invocation_id: InvocationId::new(),
         intent_digest: "sha256:x".into(),
+        idempotency_binding: None,
         principal_id: PrincipalId::new(),
         organization_id: None,
         actor_id: ActorId::new(),
@@ -65,6 +66,7 @@ fn tampered_receipt_fails_verify() {
         id: ReceiptId::new(),
         invocation_id: InvocationId::new(),
         intent_digest: "sha256:x".into(),
+        idempotency_binding: None,
         principal_id: PrincipalId::new(),
         organization_id: None,
         actor_id: ActorId::new(),
@@ -103,6 +105,7 @@ fn sample_receipt() -> InvocationReceipt {
         id: ReceiptId::new(),
         invocation_id: InvocationId::new(),
         intent_digest: "sha256:x".into(),
+        idempotency_binding: None,
         principal_id: PrincipalId::new(),
         organization_id: None,
         actor_id: ActorId::new(),
@@ -276,6 +279,7 @@ fn refuses_to_sign_secret_bearing_summary() {
         id: ReceiptId::new(),
         invocation_id: InvocationId::new(),
         intent_digest: "sha256:x".into(),
+        idempotency_binding: None,
         principal_id: PrincipalId::new(),
         organization_id: None,
         actor_id: ActorId::new(),
@@ -349,5 +353,38 @@ fn failed_or_partial_entropy_never_yields_a_signer() {
     }
     assert!(
         std::panic::catch_unwind(|| ReceiptSigner::generate_with_rng(&mut FailingRng)).is_err()
+    );
+}
+
+#[test]
+fn receipt_idempotency_commitment_is_keyed_and_stable() {
+    let signer = ReceiptSigner::from_seed(&[42; 32]);
+    let same = ReceiptSigner::from_seed(&[42; 32]);
+    let rotated = ReceiptSigner::from_seed(&[43; 32]);
+    let request = "sha256:request-fingerprint";
+    let commitment = signer.idempotency_commitment(request);
+    assert_eq!(
+        commitment,
+        "hmac-sha256:v1:8945841d293bcdc06143f338c661cbc28345ba3c719c10b33e4134a89192e567"
+    );
+    assert_eq!(commitment, same.idempotency_commitment(request));
+    assert_ne!(commitment, signer.idempotency_commitment("sha256:other"));
+    assert_ne!(commitment, rotated.idempotency_commitment(request));
+    let invocation = InvocationId::parse("00000000-0000-4000-8000-000000000001").unwrap();
+    let raw_digest = format!("sha256:{}", "a".repeat(64));
+    let opening = signer.intent_opening(&invocation);
+    let intent = signer.intent_commitment(&invocation, &raw_digest).unwrap();
+    assert_ne!(opening, commitment);
+    assert_eq!(
+        intent,
+        same.intent_commitment(&invocation, &raw_digest).unwrap()
+    );
+    assert_ne!(
+        intent,
+        rotated.intent_commitment(&invocation, &raw_digest).unwrap()
+    );
+    assert_eq!(
+        intent,
+        opensesame_domain::receipt_intent_commitment(&opening, &raw_digest).unwrap()
     );
 }

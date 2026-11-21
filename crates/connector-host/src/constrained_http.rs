@@ -20,9 +20,9 @@
 //!    header — it is refused, and the refusal is logged as a tripwire.
 //! 2. **Strip.** The header it arrived in is removed.
 //! 3. **Re-place.** [`Invoker::execute`] writes the connection's credential
-//!    into the one site the provider's egress rule names, and scrubs it from
-//!    whatever the upstream sends back. No text the caller wrote is ever
-//!    rewritten into a credential.
+//!    into the one site the provider's egress rule names. The broker scrubs
+//!    known reflections, and this interface withholds the upstream response.
+//!    No text the caller wrote is ever rewritten into a credential.
 //!
 //! The caller a surrogate is bound to is the connection-policy id the
 //! invocation arrives on (the `connection_id` of [`HostRuntime::invoke`]), so
@@ -32,7 +32,7 @@ mod params;
 mod tripwire;
 
 use std::collections::HashMap;
-use std::fmt::{self, Write as _};
+use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use bytes::Bytes;
@@ -42,7 +42,6 @@ use opensesame_invoke_through::{
 };
 use secrecy::SecretString;
 use serde_json::json;
-use sha2::{Digest, Sha256};
 
 use crate::{
     is_constrained_http, opensesame_param_digest, HostError, HostRuntime, InvokeRequest,
@@ -116,8 +115,6 @@ impl fmt::Debug for ConstrainedHttp {
 pub(crate) struct Admitted<'a> {
     prepared: PreparedRequest,
     material: &'a SecretString,
-    connection_ref: String,
-    method: String,
 }
 
 impl HostRuntime {
@@ -172,8 +169,8 @@ impl HostRuntime {
 
     /// Execute one L2 request through `invoker`: admit it through the ledger,
     /// clear it through the invoker's own fence, and let the invoker place the
-    /// connection's credential and scrub it from the response. The summary
-    /// is the upstream's status, allowlisted headers, body and receipt.
+    /// connection's credential. Only a fixed host-owned result reaches the
+    /// caller; the upstream response is not safe to disclose generically.
     ///
     /// # Errors
     ///
@@ -187,31 +184,49 @@ impl HostRuntime {
         req: &InvokeRequest,
         invoker: &Invoker,
     ) -> Result<InvokeResult, HostError> {
-        let (_, level) = self.checked_level(connection_id, req)?;
+        // The invoker's pinned socket for this host, when the URL names it,
+        // is the one non-default port the fences trust.
+        let approved_port = pinned_request_port(invoker, req);
+        let (_, level) = self.checked_level(connection_id, req, approved_port)?;
         if !is_constrained_http(level, req) {
             return Err(HostError::InvokeLevelDenied);
         }
-        let admitted =
-            self.admit_constrained_http(connection_id, req, now_unix(), Some(invoker.fence()))?;
+        let admitted = self.admit_constrained_http(
+            connection_id,
+            req,
+            now_unix(),
+            Some(invoker.fence()),
+            approved_port,
+            // The broker's durable effect fence owns delegated refusal for
+            // this entry point; no binding snapshot reaches it from here.
+            None,
+        )?;
         let response = invoker
             .execute(admitted.material, admitted.prepared)
             .await
-            .map_err(|error| HostError::Connector(error.to_string()))?;
-        Ok(summarize(
-            &admitted.connection_ref,
-            &admitted.method,
-            &response,
-        ))
+            .map_err(map_upstream_error)?;
+        Ok(opaque_http_result(&response))
     }
 
     /// Admission alone, shared by both entry points so there is one rule set.
+    ///
+    /// `binding` is the invocation snapshot the synchronous entry point
+    /// carries, when it carries one. Credentialed admission is owner
+    /// territory: a delegated binding is refused here regardless of any
+    /// inert-mock exemption the dispatch path applied, so the only route to
+    /// this host's credential material stays an owner invocation.
     pub(crate) fn admit_constrained_http(
         &self,
         caller: &str,
         req: &InvokeRequest,
         now_unix: u64,
         fence: Option<&EgressFence>,
+        approved_port: Option<u16>,
+        binding: Option<&crate::InvocationBinding>,
     ) -> Result<Admitted<'_>, HostError> {
+        if binding.is_some_and(crate::InvocationBinding::is_delegated) {
+            return Err(HostError::DelegatedExecutionUnavailable);
+        }
         if req.operation != req.authorized_operation {
             return Err(HostError::OperationMismatch);
         }
@@ -227,11 +242,18 @@ impl HostRuntime {
             .parse()
             .map_err(|_| HostError::DestinationDenied("invalid request URL".into()))?;
         let host = uri.host().unwrap_or_default().to_ascii_lowercase();
+        // A non-default port is misdirected unless it is the invoker's pinned
+        // socket for this host. Hiding only that approved port from the ledger
+        // keeps every other port on the default-port fence.
+        let ledger_port = match (uri.port_u16(), approved_port) {
+            (Some(port), Some(approved)) if port == approved && port != 443 => None,
+            (port, _) => port,
+        };
         let view = RequestView {
             method: &call.method,
             scheme: uri.scheme_str().unwrap_or_default(),
             host: &host,
-            port: uri.port_u16(),
+            port: ledger_port,
             path_and_query: uri
                 .path_and_query()
                 .map_or("/", http::uri::PathAndQuery::as_str),
@@ -284,9 +306,28 @@ impl HostRuntime {
         Ok(Admitted {
             prepared,
             material: &connection.material,
-            connection_ref: call.connection_ref,
-            method: call.method,
         })
+    }
+}
+
+/// Port the invoker has pinned for this request's host, when the URL names it.
+fn pinned_request_port(invoker: &Invoker, req: &InvokeRequest) -> Option<u16> {
+    let url = req.parameters.get("url")?.as_str()?;
+    let url = url::Url::parse(url).ok()?;
+    let host = url.host_str()?.to_ascii_lowercase();
+    let port = url.port_or_known_default()?;
+    let pinned = invoker.pinned_port(&host)?;
+    (pinned == port).then_some(port)
+}
+
+fn map_upstream_error(error: InvokeError) -> HostError {
+    match error {
+        // A pin or scheme refusal happens before the credential is placed on
+        // the wire. Keep it distinct from a transport failure.
+        InvokeError::EgressDenied { .. } | InvokeError::HttpsRequired(_) => {
+            HostError::DestinationDenied(error.to_string())
+        }
+        _ => HostError::Connector("upstream request failed".into()),
     }
 }
 
@@ -300,36 +341,16 @@ fn preflight_refusal(error: InvokeError) -> HostError {
     }
 }
 
-/// What the caller sees: the upstream response the broker already capped,
-/// filtered and scrubbed, and the receipt. The request digest covers the
-/// method and the receipt's scheme, host and path — never the query, never a
-/// header.
-fn summarize(connection_ref: &str, method: &str, response: &InvokeResponse) -> InvokeResult {
-    let receipt = &response.receipt;
-    let digest = Sha256::new()
-        .chain_update(method.to_ascii_uppercase())
-        .chain_update(b" ")
-        .chain_update(&receipt.scheme)
-        .chain_update(b"://")
-        .chain_update(&receipt.host)
-        .chain_update(&receipt.path)
-        .finalize();
-    let mut hex = String::with_capacity(digest.len() * 2);
-    for byte in digest {
-        let _ = write!(hex, "{byte:02x}");
-    }
+/// Convert a credentialed HTTP response into an opaque Host-internal result.
+/// A provider controls its headers and body even when reflection scrub found
+/// nothing, so neither is included. The `ok` bit is for internal settlement;
+/// credentialed outcomes must be withheld from untrusted API callers.
+#[must_use]
+pub fn opaque_http_result(response: &InvokeResponse) -> InvokeResult {
     InvokeResult {
         ok: (200..300).contains(&response.status),
-        safe_summary: json!({
-            "status": response.status,
-            "connection_ref": connection_ref,
-            "headers": response.headers,
-            "body": String::from_utf8_lossy(&response.body),
-            "receipt": receipt,
-            "credential_injected": true,
-            "credential_bytes_returned_to_guest": false,
-        }),
-        external_request_digest: Some(format!("sha256:{hex}")),
+        safe_summary: json!({ "result": "completed" }),
+        external_request_digest: None,
     }
 }
 

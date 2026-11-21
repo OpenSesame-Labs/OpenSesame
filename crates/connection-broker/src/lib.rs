@@ -20,6 +20,7 @@ mod constructor;
 pub mod crypto;
 pub mod custom_provider;
 pub mod delegation;
+pub mod delegation_invoke_budget;
 mod delegation_lineage;
 pub mod egress;
 pub mod error;
@@ -44,8 +45,7 @@ pub mod sync_target;
 pub mod token;
 pub mod transport;
 
-use std::collections::BTreeMap;
-use std::time::Duration;
+use std::{collections::BTreeMap, time::Duration};
 
 #[cfg(test)]
 use std::sync::{atomic::AtomicUsize, atomic::Ordering, Arc, Mutex};
@@ -67,7 +67,7 @@ pub use crate::changelog_hook::{
 };
 pub use crate::config::{BrokerConfig, ProviderConfig};
 pub use crate::custom_provider::{CreateCustomProvider, CustomAuthSpec, CUSTOM_PROVIDER_PREFIX};
-pub use crate::egress::GithubRepo;
+pub use crate::egress::{GithubRepo, OwnerEgressHttpResult};
 pub use crate::error::{BrokerError, Result};
 pub use crate::github_app::{
     build_manifest, convert_manifest_code, history_app_permissions, history_integration_scopes,

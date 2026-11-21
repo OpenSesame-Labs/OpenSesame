@@ -4,14 +4,14 @@ import { z } from "zod";
 import { forAgent } from "./agent-payload.js";
 import { daemonFetch, hostFetch } from "./host-api.js";
 import {
-  clearFrozenIntent,
   getTaskContext,
-  requireFrozenIntent,
   requireTaskRunId,
   setTaskContext,
   updateTaskFromResponse,
 } from "./task-context.js";
 import { registerActTools } from "./tools-act.js";
+import { registerFreezeTool } from "./tools-freeze.js";
+import { registerInvokeTool } from "./tools-invoke.js";
 import { registerReadTools } from "./tools-read.js";
 
 export const hostTools = [
@@ -67,17 +67,6 @@ const taskStateResponseSchema = z.object({
   capability_ceiling: z.array(capabilitySchema).max(64).optional(),
   current_capabilities: z.array(capabilitySchema).max(64).optional(),
   maximum_expires_at: z.string().datetime().optional(),
-});
-
-const intentResponseSchema = z.object({
-  intent_id: safeTokenSchema,
-  intent_digest: safeTokenSchema,
-  task_run_id: safeTokenSchema.optional(),
-  task_state_version: z.number().int().nonnegative().optional(),
-  canonical_arguments: z.unknown().optional(),
-});
-const intentAgentResponseSchema = intentResponseSchema.omit({
-  canonical_arguments: true,
 });
 
 const daemonStatusResponseSchema = z.object({
@@ -182,73 +171,7 @@ export function registerHostTools(server: McpServer): void {
     },
   );
 
-  server.tool(
-    "task_invoke",
-    "Freeze a task-bound intent (stores frozen intent in MCP task context)",
-    {
-      operation: z.string(),
-      resource: z.string(),
-      audience: z.string(),
-      arguments: z.record(z.string(), z.unknown()).default({}),
-      idempotency_key: z.string().optional(),
-    },
-    async ({
-      operation,
-      resource,
-      audience,
-      arguments: args,
-      idempotency_key,
-    }) => {
-      try {
-        const ctx = getTaskContext();
-        if (!ctx?.taskRunId) {
-          throw new Error("task_context_required");
-        }
-        const res = await hostFetch("/api/v1/tasks/intents", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            task_run_id: ctx.taskRunId,
-            expected_state_version: ctx.stateVersion,
-            operation,
-            resource,
-            audience,
-            arguments: args,
-            idempotency_key: idempotency_key ?? crypto.randomUUID(),
-          }),
-        });
-        const body = await res.json();
-        const intentResponse = intentResponseSchema.safeParse(body);
-        if (res.ok && intentResponse.success) {
-          setTaskContext({
-            taskRunId: ctx.taskRunId,
-            stateVersion:
-              intentResponse.data.task_state_version ?? ctx.stateVersion,
-            frozenIntent: {
-              intentId: intentResponse.data.intent_id,
-              intentDigest: intentResponse.data.intent_digest,
-              operation,
-              resource,
-              audience,
-              canonicalArguments:
-                intentResponse.data.canonical_arguments ?? args,
-            },
-          });
-        }
-        return {
-          content: textContent(
-            agentJson(body, res.ok, intentAgentResponseSchema),
-          ),
-          isError: !res.ok,
-        };
-      } catch (e) {
-        return toolError(
-          "task_invoke_failed",
-          e instanceof Error ? e : String(e),
-        );
-      }
-    },
-  );
+  registerFreezeTool(server);
 
   server.tool(
     "task_terminate",
@@ -329,48 +252,7 @@ export function registerHostTools(server: McpServer): void {
     }
   });
 
-  server.tool(
-    "task_invoke_l1",
-    "Execute the frozen task intent with the scoped agent capability; no operator authority",
-    {},
-    async () => {
-      try {
-        const taskRunId = requireTaskRunId();
-        const intent = requireFrozenIntent();
-        // Operation, resource, and arguments are whatever was frozen: letting the
-        // model restate them here would execute one call while presenting another
-        // call's digest.
-        const res = await hostFetch("/api/v1/tasks/invoke", {
-          method: "POST",
-          headers: {
-            "content-type": "application/json",
-            "x-opensesame-task-run-id": taskRunId,
-            "x-opensesame-intent-digest": intent.intentDigest,
-          },
-          body: JSON.stringify({
-            intent_digest: intent.intentDigest,
-          }),
-        });
-        const body = await res.json();
-        const errorResponse = errorResponseSchema.safeParse(body);
-        // The digest has been spent. Keeping it in context invites a second call
-        // that can only be refused, and describes authority that no longer exists.
-        clearFrozenIntent();
-        return {
-          content: textContent(forAgent(JSON.stringify(body) ?? "null")),
-          isError:
-            !res.ok ||
-            (errorResponse.success &&
-              errorResponse.data.error === "materialize_denied"),
-        };
-      } catch (e) {
-        return toolError(
-          "operator_invoke_failed",
-          e instanceof Error ? e : String(e),
-        );
-      }
-    },
-  );
+  registerInvokeTool(server);
 
   registerReadTools(server);
   registerActTools(server);
