@@ -71,6 +71,16 @@ async fn claim_survives_reopen_and_refuses_a_conflicting_binding() {
     assert_eq!(remaining(&reopened).await, "{\"invocations\":0}");
 }
 
+async fn claims_for(db: &Db, organization_id: &str) -> i64 {
+    sqlx::query_scalar(
+        "SELECT COUNT(*) FROM invocation_budget_claims WHERE organization_id = ?",
+    )
+    .bind(organization_id)
+    .fetch_one(db.pool())
+    .await
+    .unwrap()
+}
+
 #[tokio::test]
 async fn concurrent_exact_claims_spend_once_and_only_owner_can_refund() {
     let directory = tempfile::tempdir().unwrap();
@@ -103,20 +113,50 @@ async fn concurrent_exact_claims_spend_once_and_only_owner_can_refund() {
         1
     );
     assert_eq!(remaining(&db).await, "{\"invocations\":0}");
+    assert_eq!(claims_for(&db, "org").await, 1);
     second
         .release_invoke_budget_claim("org", "not-the-claim")
         .await
         .unwrap();
     assert_eq!(remaining(&db).await, "{\"invocations\":0}");
-    first
-        .release_invoke_budget_claim("org", &claim_id)
-        .await
-        .unwrap();
-    second
-        .release_invoke_budget_claim("org", &claim_id)
-        .await
-        .unwrap();
+    // An unknown claim id must leave the persisted claim untouched.
+    assert_eq!(claims_for(&db, "org").await, 1);
+    // Both holders race the release: the refund and the delete happen once.
+    let (released, rereleased) = tokio::join!(
+        first.release_invoke_budget_claim("org", &claim_id),
+        second.release_invoke_budget_claim("org", &claim_id),
+    );
+    released.unwrap();
+    rereleased.unwrap();
     assert_eq!(remaining(&db).await, "{\"invocations\":1}");
+    assert_eq!(claims_for(&db, "org").await, 0);
+}
+
+/// A claim that spent no delegation unit (no delegation bound) releases by
+/// deleting its row, without inventing a refund.
+#[tokio::test]
+async fn release_of_an_uncharged_claim_deletes_without_refunding() {
+    let db = Db::connect_memory().await.unwrap();
+    let holder = broker(&db);
+    let claim = holder
+        .claim_invoke_budget("org", "key", "binding", None)
+        .await
+        .unwrap();
+    let InvokeBudgetClaim::Reserved { claim_id } = claim else {
+        panic!("expected a reserved claim, got {claim:?}");
+    };
+    assert_eq!(claims_for(&db, "org").await, 1);
+    holder
+        .release_invoke_budget_claim("org", &claim_id)
+        .await
+        .unwrap();
+    assert_eq!(claims_for(&db, "org").await, 0);
+    // Releasing a claim that no longer exists stays a successful no-op.
+    holder
+        .release_invoke_budget_claim("org", &claim_id)
+        .await
+        .unwrap();
+    assert_eq!(claims_for(&db, "org").await, 0);
 }
 
 /// A delegation id without a readable invocation budget refuses the claim —

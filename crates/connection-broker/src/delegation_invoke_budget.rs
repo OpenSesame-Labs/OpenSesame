@@ -126,31 +126,27 @@ impl ConnectionBroker {
         claim_id: &str,
     ) -> Result<()> {
         let mut tx = self.pool.begin().await?;
-        // Obtain the write lock before reading, so two releases cannot refund
-        // the same unit or race a new claimant.
-        let locked = sqlx::query(
-            "UPDATE invocation_budget_claims SET claim_id = claim_id \
-             WHERE organization_id = ? AND claim_id = ?",
+        // DELETE ... RETURNING is the authoritative claim of this row: it takes
+        // the write lock and hands back the row's charge to exactly one
+        // caller, so two releases cannot refund the same unit or race a new
+        // claimant. A no-op UPDATE plus `rows_affected()` is not evidence the
+        // row exists: SQLite does not promise to count rows whose values do
+        // not change.
+        let deleted = sqlx::query(
+            "DELETE FROM invocation_budget_claims \
+             WHERE organization_id = ? AND claim_id = ? \
+             RETURNING charged, delegation_id, budget_key",
         )
         .bind(organization_id)
         .bind(claim_id)
-        .execute(&mut *tx)
-        .await?
-        .rows_affected();
-        if locked == 0 {
-            return Ok(());
-        }
-        let row = sqlx::query(
-            "SELECT delegation_id, budget_key, charged FROM invocation_budget_claims \
-             WHERE organization_id = ? AND claim_id = ?",
-        )
-        .bind(organization_id)
-        .bind(claim_id)
-        .fetch_one(&mut *tx)
+        .fetch_optional(&mut *tx)
         .await?;
-        if row.get::<i64, _>("charged") == 1 {
-            let delegation_id: String = row.try_get("delegation_id")?;
-            let budget_key: String = row.try_get("budget_key")?;
+        let Some(claim) = deleted else {
+            return Ok(());
+        };
+        if claim.get::<i64, _>("charged") == 1 {
+            let delegation_id: String = claim.try_get("delegation_id")?;
+            let budget_key: String = claim.try_get("budget_key")?;
             let serialized: String = sqlx::query_scalar(
                 "SELECT budget_remaining FROM connection_delegations WHERE id = ? AND organization_id = ?",
             )
@@ -171,13 +167,6 @@ impl ConnectionBroker {
                 .execute(&mut *tx)
                 .await?;
         }
-        sqlx::query(
-            "DELETE FROM invocation_budget_claims WHERE organization_id = ? AND claim_id = ?",
-        )
-        .bind(organization_id)
-        .bind(claim_id)
-        .execute(&mut *tx)
-        .await?;
         tx.commit().await?;
         Ok(())
     }
