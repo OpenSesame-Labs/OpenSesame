@@ -251,6 +251,12 @@ export const PINNED_FORMAL_SUITES = [
       path: "Cargo.lock",
       root: "opensesame-spiffe-source",
     },
+    manifestProjection: {
+      path: "Cargo.toml",
+      package: "crates/spiffe-source/Cargo.toml",
+      lock: "Cargo.lock",
+      root: "opensesame-spiffe-source",
+    },
     proofs: [
       "spec/formal/spiffe/SpiffePolicy.lean",
       "spec/formal/spiffe/required-theorems.lean",
@@ -331,7 +337,13 @@ export const PINNED_FORMAL_SUITES = [
     ],
     lockProjection: {
       path: "Cargo.lock",
-      root: "opensesame-spiffe-source",
+      root: "opensesame-gateway",
+    },
+    manifestProjection: {
+      path: "Cargo.toml",
+      package: "crates/gateway/Cargo.toml",
+      lock: "Cargo.lock",
+      root: "opensesame-gateway",
     },
     proofs: [
       "spec/formal/source-lifetime/SourceLifetime.lean",

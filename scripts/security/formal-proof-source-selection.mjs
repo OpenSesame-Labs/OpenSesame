@@ -293,6 +293,9 @@ export const NATS_TRUST_ROTATION_SUITE = {
   proofs: [
     "spec/formal/source-trust-selection/SourceTrustSelection.lean",
     "spec/formal/source-trust-selection/required-theorems.lean",
+    "spec/formal/source-trust-selection/verify.sh",
+    "spec/formal/source-trust-selection/check-drift.py",
+    "spec/formal/source-trust-selection/coverage.json",
     "spec/formal/required-theorem-command.lean",
     "spec/formal/check-axioms.sh",
     "spec/formal/check-axioms.test.mjs",
