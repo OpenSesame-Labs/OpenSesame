@@ -93,10 +93,16 @@ fn body(key: &str) -> InvokeBody {
 }
 
 async fn receipt_id(response: Response) -> String {
-    assert_eq!(response.status(), StatusCode::OK);
+    let status = response.status();
     let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
         .await
         .unwrap();
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "unexpected response: {}",
+        String::from_utf8_lossy(&bytes)
+    );
     serde_json::from_slice::<Value>(&bytes).unwrap()["id"]
         .as_str()
         .unwrap()
