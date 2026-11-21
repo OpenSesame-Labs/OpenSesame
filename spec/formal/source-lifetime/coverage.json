@@ -220,8 +220,8 @@
     },
     {
       "path": "crates/gateway/src/routes/mod.rs",
-      "sha256": "7daae5482877e363f056c33a5370bbd5afb69e80a66919c6e006078ba101332b",
-      "reviewed_blob": "ce258d6e906e0833a804d45fabeaa1faf0ee8835",
+      "sha256": "d7c3af66f8de9276c38735c6f2ca0bb1cbf59aa214ac87dd4874275d143fe740",
+      "reviewed_blob": "5e7014e760bab0d8edfb215d3868bb36a912a2ad",
       "base_blob": "8848d46dbe49bb9b65ad6466c88a036858ce5c92"
     },
     {
@@ -256,8 +256,8 @@
     },
     {
       "path": "crates/gateway/src/transport/status.rs",
-      "sha256": "31d0a4ed64fbe5bcc0003b95435f6c0c3cd62eb5f800c8286c022be5ee20f7f5",
-      "reviewed_blob": "a38f4fe1092e676edfb3480b8cfa0f1710cd5ddf",
+      "sha256": "daac445300f33a611b5354ee4bf9ea8f9a2c5637ed29ea485b231c49a9a37fce",
+      "reviewed_blob": "9e40569688c2d574579f910df0574c3cb35a7c24",
       "base_blob": "91fa385728b568d29f668b3b31afd7607a708aa5"
     },
     {
@@ -286,8 +286,8 @@
     },
     {
       "path": "crates/gateway/src/routes/est_freshness.rs",
-      "sha256": "34714a67bb85f6bbd7a198469aeef083bec2fe26378c34579db307e4e5598990",
-      "reviewed_blob": "551696bc1549fb4ccfda23cf222b0ab713ae297c",
+      "sha256": "e03f7d56c50cb057e7595b6149a3f22dd7ee714175cb718eab0115d74defbfba",
+      "reviewed_blob": "02301142fef5ea353fc2e3a09c45cd2e4e73fae6",
       "base_blob": null
     },
     {
@@ -328,8 +328,8 @@
     },
     {
       "path": "crates/gateway/src/transport/status_tests.rs",
-      "sha256": "1707285e321c8cdae0a36acd52632aaa980d9fb0bb2f17e57b2cd434f2d16503",
-      "reviewed_blob": "e5bd7b0ee4c0823d0426557a0dbba700a589ec4d",
+      "sha256": "59b1b65248d0246ae33365a3734148dc15b6a083780b161a12d3afb4d635702d",
+      "reviewed_blob": "1f71af738de81e313e3eee7849df4a97cb86fb99",
       "base_blob": null
     },
     {
@@ -340,8 +340,8 @@
     },
     {
       "path": "crates/gateway/src/transport/admission_source_tests.rs",
-      "sha256": "9499484a1ff0b5316764b85ec46a774c1310d741eeaba84ddde3e3ba4d9ebc0c",
-      "reviewed_blob": "2d992ffe3cbc725cf9416cbdc8920e15e596665f",
+      "sha256": "f303c3bafe2ac5cc412b965f4110ea824b931eced3dd86d74db0c735aada4db2",
+      "reviewed_blob": "80eb1dc509cd39df4f3c1948142843f285f1c50b",
       "base_blob": null
     },
     {
@@ -370,14 +370,14 @@
     },
     {
       "path": "crates/gateway/src/routes/est_certificate_proof_tests.rs",
-      "sha256": "fa524faefb174dc05995a737fd884117eb063d10622556bc0385967a83b464b1",
-      "reviewed_blob": "a61524d038259160daa4b248f0fb15f3ce747f2e",
+      "sha256": "95eaaaee8a1e6f6d9847cde8d6edcf423b019080bd420af35fcae24b4ff8a5d5",
+      "reviewed_blob": "885f18f46a944d75104d2557eb06bf301ee25747",
       "base_blob": "a61524d038259160daa4b248f0fb15f3ce747f2e"
     },
     {
       "path": "crates/gateway/src/routes/est_certificate_freshness_tests.rs",
-      "sha256": "b5467c138c699a82e5fe3118b02a29787d9c6f070ecc703f5cc30a92c9fd6a35",
-      "reviewed_blob": "6d474274fc52de10195cb34e33319319f1aee181",
+      "sha256": "ec77c61ba787ae0f57a0c9bb0aa4e672f3fa0b96a8a39996a0dfc279148938e7",
+      "reviewed_blob": "62f314e9d6e71670ed7bdc63d6231118434400d4",
       "base_blob": "f2f27e632cb33f479f76a42e5bd346a1485ddd6c"
     },
     {
