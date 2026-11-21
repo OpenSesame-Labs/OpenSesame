@@ -99,9 +99,11 @@ async fn independent_delegate_executor_is_refused_even_after_policy_allows_it() 
         parameters,
         lineage: Some(lineage),
     };
+    let intent_id = input.intent.id;
+    let idempotency_key = input.intent.idempotency_key.clone();
     let count = Arc::new(AtomicUsize::new(0));
     let effects = Arc::clone(&count);
-    let receipt = broker
+    let error = broker
         .invoke_with_bound(input, move |_| async move {
             effects.fetch_add(1, Ordering::SeqCst);
             Ok(InvokeResult {
@@ -111,14 +113,28 @@ async fn independent_delegate_executor_is_refused_even_after_policy_allows_it() 
             })
         })
         .await
-        .unwrap();
-    let state: String = sqlx::query_scalar("SELECT state FROM invocations WHERE id = ?")
-        .bind(receipt.invocation_id.to_string())
-        .fetch_one(broker.db.pool())
-        .await
-        .unwrap();
-    assert_eq!(state, "failed", "the policy must reach the executor fence");
+        .unwrap_err();
+    assert_eq!(
+        error.downcast_ref::<HostError>(),
+        Some(&HostError::DelegatedExecutionUnavailable)
+    );
+    assert!(!error.to_string().contains("Indeterminate"));
     assert_eq!(count.load(Ordering::SeqCst), 0);
+    assert_eq!(broker.db.count_receipts().await.unwrap(), 0);
+    assert_eq!(
+        broker
+            .db
+            .count_invocations_for_intent(&intent_id)
+            .await
+            .unwrap(),
+        0
+    );
+    assert!(broker
+        .db
+        .find_idempotent_intent(&org, &idempotency_key)
+        .await
+        .unwrap()
+        .is_none());
 }
 
 struct RecordingConnector(Arc<Mutex<Vec<(InvocationId, String, Option<ConnectionId>)>>>);

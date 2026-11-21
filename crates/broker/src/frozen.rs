@@ -97,7 +97,10 @@ pub(crate) fn legacy_intent(intent: &FrozenIntentV2) -> Result<Intent, DomainErr
     })
 }
 
-fn frozen_authz_request(input: &FrozenInvokeInput, intent: &FrozenIntentV2) -> AuthZenRequest {
+pub(crate) fn frozen_authz_request(
+    input: &FrozenInvokeInput,
+    intent: &FrozenIntentV2,
+) -> AuthZenRequest {
     AuthZenRequest {
         subject: AuthZenSubject {
             type_: "user".into(),

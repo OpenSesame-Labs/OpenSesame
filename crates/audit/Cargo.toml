@@ -9,6 +9,7 @@ license.workspace = true
 opensesame-domain = { path = "../domain" }
 opensesame-redaction = { path = "../redaction" }
 ed25519-dalek = { workspace = true }
+hex = { workspace = true }
 hkdf = { workspace = true }
 hmac = { workspace = true }
 rand = { workspace = true }

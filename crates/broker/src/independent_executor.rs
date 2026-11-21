@@ -40,14 +40,10 @@ impl Broker {
     {
         self.invoke_with_mode(
             input,
-            |binding| async move {
-                if binding.is_delegated() {
-                    return Err(HostError::DelegatedExecutionUnavailable);
-                }
-                execute(binding).await
-            },
+            |binding| async move { execute(binding).await },
             false,
             false,
+            true,
         )
         .await
     }

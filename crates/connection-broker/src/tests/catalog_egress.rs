@@ -1,5 +1,7 @@
 //! The connector catalog and credentialed egress through it.
 
+use axum::response::IntoResponse;
+
 use super::*;
 
 fn percent_encode_all(value: &str) -> String {
@@ -230,6 +232,135 @@ async fn catalog_connection_executes_real_credentialed_egress() {
     let oversized_error = oversized.to_string();
     assert!(oversized_error.contains("exceeds the 1 MiB limit"));
     assert!(oversized_error.len() < 160);
+}
+
+#[tokio::test]
+async fn reflected_credential_in_response_headers_is_not_returned() {
+    async fn token(Form(_form): Form<HashMap<String, String>>) -> Json<serde_json::Value> {
+        Json(serde_json::json!({
+            "access_token": "network-token-do-not-return",
+            "token_type": "Bearer"
+        }))
+    }
+
+    async fn header_leak(headers: axum::http::HeaderMap) -> impl axum::response::IntoResponse {
+        let token = headers
+            .get("authorization")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.strip_prefix("Bearer "))
+            .unwrap_or_default()
+            .to_owned();
+        let encoded = percent_encode_all(&token);
+        let mut response = (
+            axum::http::StatusCode::OK,
+            Json(serde_json::json!({"ok": true})),
+        )
+            .into_response();
+        let header_map = response.headers_mut();
+        header_map.insert("x-request-id", "req-safe".parse().unwrap());
+        header_map.insert(
+            "location",
+            format!("https://app.example/cb?access_token={token}")
+                .parse()
+                .unwrap(),
+        );
+        header_map.insert("cookie", format!("session={token}").parse().unwrap());
+        header_map.insert("x-next", format!("next={encoded}").parse().unwrap());
+        header_map.insert("set-cookie", "sid=1".parse().unwrap());
+        response
+    }
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind header-leak provider");
+    let provider = listener.local_addr().expect("header-leak address");
+    tokio::spawn(async move {
+        let _ = axum::serve(
+            listener,
+            Router::new()
+                .route("/token", post(token))
+                .route("/header-leak", axum::routing::get(header_leak)),
+        )
+        .await;
+    });
+
+    let owner = "user:header-owner";
+    let config = BrokerConfig::in_memory(Some(KEY), "http://127.0.0.1:8787").with_provider(
+        "mock",
+        ProviderConfig {
+            client_id: Some("mock-client".into()),
+            client_secret: Some("mock-secret".into()),
+            token_url: Some(format!("http://{provider}/token")),
+            ..Default::default()
+        },
+    );
+    let (_db, broker) = broker_with(config).await;
+    let organization = OrganizationId::new();
+    let connection = broker
+        .create_connection(
+            &organization,
+            CreateConnection {
+                owner_subject: Some(owner.into()),
+                ..create("mock")
+            },
+        )
+        .await
+        .expect("create connection");
+    let start = broker
+        .start_authorization(&organization, &connection.connection_id, None, None)
+        .await
+        .expect("start authorization");
+    broker
+        .complete_authorization("mock", "code", &start.state)
+        .await
+        .expect("complete authorization");
+    let grant = broker
+        .owner_invocation_grant(&organization, &connection.connection_id, owner)
+        .await
+        .expect("owner grant");
+    let response = broker
+        .authorized_http_for_owner(
+            crate::egress::OwnerConnectionExpectation {
+                organization_id: &organization,
+                connection_id: &connection.connection_id,
+                provider_id: "mock",
+                owner_subject: owner,
+                grant: &grant,
+            },
+            "GET",
+            &format!("http://{provider}/header-leak"),
+            None,
+        )
+        .await
+        .expect("header leak is dropped without failing the JSON body");
+    let rendered = response
+        .headers
+        .iter()
+        .map(|(name, value)| format!("{name}:{value}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(!rendered.contains("network-token-do-not-return"));
+    assert!(!rendered.contains(&percent_encode_all("network-token-do-not-return")));
+    assert!(response
+        .headers
+        .iter()
+        .any(|(name, value)| name.eq_ignore_ascii_case("x-request-id") && value == "req-safe"));
+    for dropped in [
+        "location",
+        "cookie",
+        "x-next",
+        "set-cookie",
+        "authorization",
+    ] {
+        assert!(
+            !response
+                .headers
+                .iter()
+                .any(|(name, _)| name.eq_ignore_ascii_case(dropped)),
+            "{dropped} was returned"
+        );
+    }
+    assert_eq!(response.json, serde_json::json!({"ok": true}));
 }
 
 #[tokio::test]

@@ -83,6 +83,7 @@ impl Broker {
             },
             false,
             disclose_outcome,
+            false,
         )
         .await
     }
@@ -103,6 +104,7 @@ impl Broker {
             },
             true,
             false,
+            false,
         )
         .await
     }
@@ -113,6 +115,7 @@ impl Broker {
         execute: E,
         replay_only: bool,
         disclose_outcome: bool,
+        reject_delegated: bool,
     ) -> anyhow::Result<InvocationReceipt>
     where
         E: FnOnce(InvocationBinding) -> F,
@@ -199,6 +202,13 @@ impl Broker {
         } else {
             None
         };
+        if let Some(auth) = authority.as_ref() {
+            if reject_delegated && auth.is_delegated() {
+                return Err(
+                    opensesame_connector_host::HostError::DelegatedExecutionUnavailable.into(),
+                );
+            }
+        }
         self.db
             .insert_bound_intent(&input.intent, &fingerprint)
             .await?;

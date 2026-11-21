@@ -99,14 +99,17 @@ pub async fn recover(State(st): State<AppState>, headers: HeaderMap, request: Re
         };
     let receipt = match st
         .broker
-        .recover_frozen_receipt(FrozenInvokeInput {
-            intent,
-            grant: boot.grant,
-            subject,
-            connection_policy_id,
-            required_capability: required,
-            lineage: None,
-        })
+        .recover_frozen_receipt(
+            st.task_engine.as_ref(),
+            FrozenInvokeInput {
+                intent,
+                grant: boot.grant,
+                subject,
+                connection_policy_id,
+                required_capability: required,
+                lineage: None,
+            },
+        )
         .await
     {
         Ok(receipt) => receipt,

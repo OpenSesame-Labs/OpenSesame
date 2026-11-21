@@ -32,6 +32,38 @@ pub struct OwnerEgressHttpResult {
     pub json: Value,
 }
 
+/// Drop credential-bearing response headers. `set-cookie`, `authorization`,
+/// and `www-authenticate` never leave this sink. Any other header that echoes
+/// the injected access token, in a form the reflection scrub recognizes, is
+/// omitted rather than returned redacted.
+fn retained_response_headers(
+    headers: &reqwest::header::HeaderMap,
+    access_token: &str,
+) -> Vec<(String, String)> {
+    headers
+        .iter()
+        .filter_map(|(name, value)| {
+            let lower = name.as_str().to_ascii_lowercase();
+            if matches!(
+                lower.as_str(),
+                "set-cookie" | "authorization" | "www-authenticate"
+            ) {
+                return None;
+            }
+            let value = value.to_str().ok()?;
+            let (scrubbed, reflected) = scrub_credential_reflection(
+                bytes::Bytes::copy_from_slice(value.as_bytes()),
+                access_token,
+            );
+            if reflected {
+                return None;
+            }
+            let safe = String::from_utf8(scrubbed.to_vec()).ok()?;
+            Some((name.to_string(), safe))
+        })
+        .collect()
+}
+
 impl ConnectionBroker {
     /// Perform an egress-constrained HTTP call with the connection's sealed
     /// bearer token. Response JSON is returned to the caller; tokens are not.
@@ -215,21 +247,7 @@ impl ConnectionBroker {
             .await
             .map_err(|_| "upstream request failed".to_string())?;
         let status = response.status();
-        let headers: Vec<(String, String)> = response
-            .headers()
-            .iter()
-            .filter_map(|(name, value)| {
-                let lower = name.as_str().to_ascii_lowercase();
-                if matches!(
-                    lower.as_str(),
-                    "set-cookie" | "authorization" | "www-authenticate"
-                ) {
-                    return None;
-                }
-                let value = value.to_str().ok()?.to_owned();
-                Some((name.to_string(), value))
-            })
-            .collect();
+        let headers = retained_response_headers(response.headers(), &tokens.access_token);
         let mut response = response;
         let bytes = read_bounded_body(&mut response, MAX_JSON_RESPONSE_BYTES)
             .await
@@ -264,5 +282,73 @@ impl ConnectionBroker {
             headers,
             json,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::retained_response_headers;
+    use reqwest::header::{HeaderMap, HeaderValue};
+
+    #[test]
+    fn reflected_credential_headers_are_dropped_and_safe_headers_remain() {
+        let token = "network-token-do-not-return";
+        let encoded: String = token.bytes().map(|byte| format!("%{byte:02X}")).collect();
+        let mut headers = HeaderMap::new();
+        headers.insert("x-request-id", HeaderValue::from_static("req-1"));
+        headers.insert("x-note", HeaderValue::from_static("plain"));
+        headers.insert(
+            "location",
+            HeaderValue::from_str(&format!("https://app.example/cb?access_token={token}")).unwrap(),
+        );
+        headers.insert(
+            "cookie",
+            HeaderValue::from_str(&format!("session={token}")).unwrap(),
+        );
+        headers.insert(
+            "x-next",
+            HeaderValue::from_str(&format!("next={encoded}")).unwrap(),
+        );
+        headers.insert("set-cookie", HeaderValue::from_static("sid=secret"));
+        headers.insert(
+            "authorization",
+            HeaderValue::from_static("Bearer something-else"),
+        );
+        headers.insert(
+            "www-authenticate",
+            HeaderValue::from_static("Bearer realm=api"),
+        );
+
+        let kept = retained_response_headers(&headers, token);
+        let rendered = kept
+            .iter()
+            .map(|(name, value)| format!("{name}:{value}"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        assert!(!rendered.contains(token));
+        assert!(!rendered
+            .to_ascii_lowercase()
+            .contains(&encoded.to_ascii_lowercase()));
+        assert!(kept
+            .iter()
+            .any(|(name, value)| name.eq_ignore_ascii_case("x-request-id") && value == "req-1"));
+        assert!(kept
+            .iter()
+            .any(|(name, value)| name.eq_ignore_ascii_case("x-note") && value == "plain"));
+        for dropped in [
+            "location",
+            "cookie",
+            "x-next",
+            "set-cookie",
+            "authorization",
+            "www-authenticate",
+        ] {
+            assert!(
+                !kept
+                    .iter()
+                    .any(|(name, _)| name.eq_ignore_ascii_case(dropped)),
+                "{dropped} was returned"
+            );
+        }
     }
 }

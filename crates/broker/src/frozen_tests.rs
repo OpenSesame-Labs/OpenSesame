@@ -4,8 +4,8 @@ use opensesame_authz::PolicyEngine;
 use opensesame_connector_host::HostRuntime;
 use opensesame_domain::{
     ActorId, ActorInstanceId, AuthorityContext, AuthorityContextId, AuthorityContextMode,
-    CapabilitySet, CeilingInput, ClientId, ConnectionId, GrantConstraints, GrantId, IntentId,
-    OfflineUse, OrganizationId, PrincipalId, ProjectId, ResourceSelector, TaskRunId,
+    CapabilitySet, CeilingInput, ClientId, ConnectionId, DomainError, GrantConstraints, GrantId,
+    IntentId, OfflineUse, OrganizationId, PrincipalId, ProjectId, ResourceSelector, TaskRunId,
     TaskTemplateId, FROZEN_INTENT_SCHEMA_VERSION,
 };
 use opensesame_storage::Db;
@@ -242,9 +242,51 @@ async fn frozen_receipts_bind_the_organization_across_idempotent_replay() {
         .await
         .unwrap_err();
     assert!(error.to_string().contains("different or missing binding"));
+    let recovered = broker
+        .recover_frozen_receipt(&tasks, invoke())
+        .await
+        .unwrap();
+    assert_eq!(recovered.id, first.id);
+    let mut revoked = invoke();
+    revoked.grant.revoked_at = Some(Utc::now());
+    let error = broker
+        .recover_frozen_receipt(&tasks, revoked)
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        error.downcast_ref::<DomainError>(),
+        Some(DomainError::GrantRevoked)
+    ));
+    let mut mutated = invoke();
+    mutated.intent.canonical_arguments = json!({"changed": true});
+    let error = broker
+        .recover_frozen_receipt(&tasks, mutated)
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        error.downcast_ref::<DomainError>(),
+        Some(DomainError::FrozenIntentDigestMismatch)
+    ));
     broker.policy.relationships = Default::default();
     let error = broker.invoke_frozen(&tasks, invoke()).await.unwrap_err();
     assert!(error.to_string().contains("current authorization denied"));
+    let error = broker
+        .recover_frozen_receipt(&tasks, invoke())
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("current authorization denied"));
+    broker
+        .policy
+        .relationships
+        .write("connection:demo-conn", "user", "user:demo");
+    tasks
+        .terminate_task(intent.task_run_id, intent.task_state_version, Utc::now())
+        .unwrap();
+    let error = broker
+        .recover_frozen_receipt(&tasks, invoke())
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("task run is not active"));
     assert_eq!(broker.db.count_receipts().await.unwrap(), 1);
 }
 
