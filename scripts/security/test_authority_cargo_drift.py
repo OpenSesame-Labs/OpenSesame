@@ -131,7 +131,8 @@ class AuthorityCargoDriftTest(unittest.TestCase):
 
     def test_unreviewed_build_script_fails_before_lean_or_cargo(self):
         for path in ("spec/formal/authority/check.sh", "scripts/security/cargo-workspace-projection.py",
-                     "scripts/security/cargo-lock-projection.py", "spec/formal/authority/check-drift.py",
+                     "scripts/security/cargo-lock-projection.py", "scripts/security/formal_coverage_drift.py",
+                     "spec/formal/authority/check-drift.py",
                      "rust-toolchain.toml"):
             destination = self.root / path
             destination.parent.mkdir(parents=True, exist_ok=True)
