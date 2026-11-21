@@ -2,7 +2,7 @@ import { isCreatableItemKind } from "@opensesame/app-core/lib/item-kinds.js";
 import {
   FIRST_VAULT_PACK_GUIDE,
   FIRST_VAULT_SHELL_GUIDE,
-  FIRST_VAULT_SIGNIN_GUIDE,
+  firstVaultSignInGuide,
 } from "@opensesame/app-core/tutorial/registry/first-vault-guide.js";
 import { useEffect } from "react";
 import type { SupportController } from "./session.js";
@@ -88,7 +88,7 @@ export function useFirstVaultGateHandoff(
       acknowledge();
       if (pendingSignIn) {
         void controller
-          .startGuide(FIRST_VAULT_SIGNIN_GUIDE, "authored")
+          .startGuide(firstVaultSignInGuide(), "authored")
           .finally(() => {
             if (active) pendingSignIn = false;
           });

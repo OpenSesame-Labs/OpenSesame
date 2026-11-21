@@ -156,6 +156,7 @@ function FilterSheet({
       <div
         ref={sheetRef}
         className="sheet"
+        // biome-ignore lint/a11y/useSemanticElements: sheet dialog chrome
         role="dialog"
         aria-label="Filter items"
         aria-modal="true"

@@ -63,7 +63,9 @@ export function firstVaultDisplayedGateStep(
 ): number {
   const tour = guide?.tour;
   if (!tour) return 0;
-  return tour.step + (tour.count === 6 ? 2 : 0);
+  // The sign-in continuation is six steps on the PIN road and two where the
+  // passkey seals in one ceremony; both resume after the door's two.
+  return tour.step + (tour.count === 6 || tour.count === 2 ? 2 : 0);
 }
 
 export function SupportGate(): ReactElement {
