@@ -36,9 +36,9 @@ describe("feature tours on a default plan", () => {
     const reset = FEATURE_GOALS.find(
       (goal) => goal.id === "feature.password-reset",
     )?.guide;
-    expect(ai).toContain("Settings → Features → AI");
-    expect(reset).toContain("Integrations → Password reset");
-    expect(reset).toContain("Features → AI");
+    expect(ai).toContain("Settings › Features › AI");
+    expect(reset).toContain("Integrations › Password reset");
+    expect(reset).toContain("Features › AI");
   });
 
   it("covers the sections that have no surface of their own", () => {

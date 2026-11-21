@@ -88,6 +88,28 @@ export async function sealFirstVault(
     // person would when no security key is available.
     await sealPasskey.click();
     await page.getByRole("tab", { name: "PIN", exact: true }).click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[role="tab"][aria-selected="true"]')
+          ?.textContent?.trim() === "PIN",
+    );
+    check(
+      (await page
+        .getByText(
+          "This device's passkey cannot seal a vault. Security key is selected.",
+          { exact: true },
+        )
+        .count()) === 0,
+      "first vault: PIN selection clears the stale passkey notice",
+    );
+    // The passkey road's fallback is named by the held seal step, which waits
+    // for the unlock itself; the PIN fields are walked as tour steps only on
+    // the PIN-only road below, so fill and seal the way a person would here.
+    await page.getByLabel("Device PIN", { exact: true }).fill(PIN);
+    await page.getByLabel("Confirm PIN", { exact: true }).fill(PIN);
+    await page.getByRole("button", { name: "Seal with PIN" }).click();
+    return;
   } else {
     check(
       (await page.getByRole("tab", { name: "Passkey" }).count()) === 0,

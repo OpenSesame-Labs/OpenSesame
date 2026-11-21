@@ -1,4 +1,6 @@
 /** The parts of the first-vault walkthrough share one title and goal. */
+import { isKnownGuidePredicate, readGuidePredicate } from "./state.js";
+
 export const FIRST_VAULT_PIN_STEPS = [
   'focus "unlock.seal-pin-entry" "Enter a PIN for this device." side=top',
   'focus "unlock.seal-pin-confirm" "Confirm your PIN." side=top',
@@ -9,11 +11,18 @@ export const FIRST_VAULT_PIN_STEPS = [
 export const FIRST_VAULT_SEAL_INSTRUCTION =
   "Accept the recovery notice and select Seal with passkey, if available. If it fails or is unavailable, select PIN.";
 
-const SIGN_IN_STEPS = [
+/** Every first-vault road is the same walk as far as the seal decision. */
+const ROAD_TO_SEAL = [
   'focus "unlock.local-only" "Select Use without an account to keep this vault on this device." side=top',
   'wait target "unlock.local-only" event=activate timeout=60000',
   'wait target "unlock.methods" event=appear timeout=60000',
-  `focus "unlock.seal-actions" "${FIRST_VAULT_SEAL_INSTRUCTION}" side=bottom`,
+] as const;
+
+const SEAL_DECISION = `focus "unlock.seal-actions" "${FIRST_VAULT_SEAL_INSTRUCTION}" side=bottom`;
+
+const SIGN_IN_STEPS = [
+  ...ROAD_TO_SEAL,
+  SEAL_DECISION,
   'wait target "unlock.seal-pin-entry" event=appear timeout=60000',
   ...FIRST_VAULT_PIN_STEPS,
   'wait state "vault.unlocked" is=true timeout=60000',
@@ -30,12 +39,37 @@ export const FIRST_VAULT_GATE_GUIDE = [
   "end",
 ].join("\n");
 
-export const FIRST_VAULT_SIGNIN_GUIDE = [
-  "guide/1",
-  'goal "gate.front-door"',
-  ...SIGN_IN_STEPS,
-  "end",
-].join("\n");
+/**
+ * The sign-in continuation the gate hands the seal ceremony.
+ *
+ * The passkey road and the PIN road are different walks from the seal
+ * decision on. A passkey seals in one ceremony, so its step holds until the
+ * vault is unlocked — waiting there for the PIN fields would stall the walk
+ * on the road the instruction leads with (ADR 0180). The PIN road walks its
+ * four fields, so it waits for the PIN entry the person is about to open.
+ * The road is read where the guide is composed, the way the gate goals read
+ * `vault.key-enrolled`: a guide is a fixed program, so the fork is chosen
+ * before the first step is drawn, never mid-walk.
+ */
+export function firstVaultSignInGuide(): string {
+  const passkey =
+    isKnownGuidePredicate("vault.seal-passkey") &&
+    readGuidePredicate("vault.seal-passkey");
+  return [
+    "guide/1",
+    'goal "gate.front-door"',
+    ...ROAD_TO_SEAL,
+    SEAL_DECISION,
+    ...(passkey
+      ? ['wait state "vault.unlocked" is=true timeout=60000']
+      : [
+          'wait target "unlock.seal-pin-entry" event=appear timeout=60000',
+          ...FIRST_VAULT_PIN_STEPS,
+          'wait state "vault.unlocked" is=true timeout=60000',
+        ]),
+    "end",
+  ].join("\n");
+}
 
 const PASSWORD_STEPS = [
   'navigate "/vault/list"',
