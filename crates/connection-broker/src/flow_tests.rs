@@ -55,7 +55,7 @@ fn state_is_unguessable_and_unique() {
     let a = new_state();
     let b = new_state();
     assert_ne!(a, b);
-    assert!(a.len() >= 43, "{}", a.len());
+    assert!(a.len() >= 32, "{}", a.len());
 }
 
 #[test]

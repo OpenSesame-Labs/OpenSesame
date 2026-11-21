@@ -279,7 +279,7 @@ impl ConnectionBroker {
     /// supplies the URL and must not be able to aim a credentialed request at
     /// an origin the connection never authorized.
     ///
-    /// Three things are deliberate. Redirects are not followed — a redirect
+    /// Two things are deliberate. Redirects are not followed — a redirect
     /// would replay the bearer token at an unapproved origin. The response
     /// body is not read: on failure the caller learns the status, not the
     /// provider's untrusted body, which may contain the injected credential.
