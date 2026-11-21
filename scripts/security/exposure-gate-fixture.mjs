@@ -148,11 +148,9 @@ export function installFormalGate(f) {
     "scripts/security/formal-proof-push-gate.mjs",
     "scripts/security/formal-proof-push-gate-registry.mjs",
     "scripts/security/formal-proof-push-history.mjs",
+    "scripts/security/formal-proof-lock-history.mjs",
     "scripts/security/formal-proof-remote-main.mjs",
     "scripts/security/formal-proof-required-suites.mjs",
-    "scripts/security/formal-proof-runner-history.mjs",
-    "scripts/security/formal-proof-runner-pins.mjs",
-    "scripts/security/formal-proof-runner-pins.json",
     "spec/formal/proof-registry.json",
     "spec/formal/proof-requirements.json",
   ])
