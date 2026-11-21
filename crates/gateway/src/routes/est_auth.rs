@@ -13,6 +13,18 @@ use opensesame_storage::{StoredCertificateProfile, StoredEstConfig};
 use opensesame_transport_security::PeerExtension;
 use std::collections::BTreeSet;
 
+/// The basis on which one enrollment attempt was admitted. The mint
+/// boundary re-runs the freshness fence for exactly the basis admission
+/// used: both bases share the live-transport fence, and the certificate
+/// basis must additionally still present current evidence.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(in crate::routes) enum Admission {
+    /// A verified client certificate the profile accepted.
+    Certificate,
+    /// The sealed bootstrap passphrase.
+    Passphrase,
+}
+
 /// Authenticates one enrollment attempt (see the module docs for the rules).
 pub(in crate::routes) async fn authenticate(
     st: &AppState,
@@ -21,7 +33,7 @@ pub(in crate::routes) async fn authenticate(
     config: &StoredEstConfig,
     profile: &StoredCertificateProfile,
     reenroll: bool,
-) -> Result<(), Response> {
+) -> Result<Admission, Response> {
     let live_transport = || freshness::transport_is_current(st, extensions);
     // Apply the same end-client requirement before BOTH inventory replacement
     // and bootstrap authentication. A proxy can itself be in the inventory;
@@ -52,7 +64,7 @@ pub(in crate::routes) async fn authenticate(
     // Certificate authentication is independent of the password budget: a
     // password guesser must not lock valid certificate holders out of renewal.
     if certificate_ok {
-        return Ok(());
+        return Ok(Admission::Certificate);
     }
     let password = basic_password(headers)
         .ok_or_else(|| www_authenticate("valid EST credentials are required"))?;
@@ -60,9 +72,37 @@ pub(in crate::routes) async fn authenticate(
         passphrase_budget::reserve(st, config, extensions).await?;
     }
     if passphrase_matches(st, &password, config)? && live_transport() {
-        return Ok(());
+        return Ok(Admission::Passphrase);
     }
     Err(www_authenticate("valid EST credentials are required"))
+}
+
+/// The mint boundary fence, re-run after the policy and issuer awaits: a
+/// source whose trust is withdrawn in that window — or evidence that lapses
+/// while the database is awaited — must not still mint. This is the
+/// freshness half of the admission proof; the credential proof admission
+/// already established is not re-examined here.
+pub(in crate::routes) fn mint_fence(
+    st: &AppState,
+    extensions: &Extensions,
+    admission: Admission,
+) -> Result<(), Response> {
+    let withdrawn = || {
+        www_authenticate("the request's transport trust was withdrawn; retry on a fresh connection")
+    };
+    if !freshness::transport_is_current(st, extensions) {
+        return Err(withdrawn());
+    }
+    if matches!(admission, Admission::Certificate) {
+        let current = extensions
+            .get::<PeerExtension>()
+            .map(|PeerExtension(verified)| verified.as_ref())
+            .is_some_and(|verified| evidence_is_current(st, verified));
+        if !current {
+            return Err(withdrawn());
+        }
+    }
+    Ok(())
 }
 
 /// True when the presented certificate is an active certificate of this
