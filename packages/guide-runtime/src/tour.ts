@@ -31,6 +31,7 @@ import type {
   GuideRuntimeStatus,
   GuideTourView,
 } from "./ports.js";
+import { alreadyHolds, observeWait, viewOf, watchStep } from "./tour-waits.js";
 
 export type TourCommand = "next" | "back" | "restart";
 
@@ -131,58 +132,6 @@ async function raceWith(
     side.abort();
     listener.stop();
   }
-}
-
-function viewOf(
-  plan: GuidePlan,
-  beat: GuideBeat,
-  degraded: boolean,
-  satisfied = false,
-) {
-  const view: GuideTourView = {
-    step: Math.min(beat.ordinal + 1, plan.stepCount),
-    count: plan.stepCount,
-    kind: beat.kind,
-    message: beat.message,
-    target: beat.target,
-    side: beat.side,
-    action: beat.until !== null && !satisfied,
-    degraded,
-    canBack: beat.ordinal > 0,
-  };
-  return view;
-}
-
-/** Settles when the program's own wait would settle; rejects on abort. */
-function observeWait(
-  ports: GuideRuntimePorts,
-  wait: WaitInstruction,
-  signal: AbortSignal,
-): Promise<void> {
-  if (wait.subject === "target") {
-    return ports.targets.observe(wait.target, wait.event, signal);
-  }
-  if (wait.subject === "route") return ports.routes.observe(wait.route, signal);
-  return ports.state.observe(wait.predicate, wait.expected, signal);
-}
-
-/**
- * Whether the wait is already true. A step that points at something the
- * person is already standing on must not skip itself — it holds for Next like
- * any other, and only a wait that is still to happen is theirs to satisfy.
- * An activation is an edge, so it is never already true.
- */
-function alreadyHolds(
-  ports: GuideRuntimePorts,
-  wait: WaitInstruction,
-): boolean {
-  if (wait.subject === "route") return ports.routes.current() === wait.route;
-  if (wait.subject === "state") {
-    return ports.state.read(wait.predicate) === wait.expected;
-  }
-  if (wait.event === "appear") return ports.targets.isMounted(wait.target);
-  if (wait.event === "disappear") return !ports.targets.isMounted(wait.target);
-  return false;
 }
 
 /** What a beat's entry decided: carry on to present it, or move the cursor. */
@@ -323,6 +272,22 @@ async function enter(
     : lightTarget(ctx, beat, beat.target);
 }
 
+function mustRecheck(
+  ports: GuideRuntimePorts,
+  wait: WaitInstruction | null,
+  held: boolean,
+  raced: Raced,
+): boolean {
+  if (!held) return false;
+  if (raced.kind === "observed") return true;
+  return (
+    raced.kind === "command" &&
+    raced.command === "next" &&
+    wait !== null &&
+    !alreadyHolds(ports, wait)
+  );
+}
+
 /** Holds a presented step until the person moves it, or does what it waits for. */
 async function holdBeat(
   ctx: TourContext,
@@ -332,21 +297,31 @@ async function holdBeat(
   const { host, run, plan } = ctx;
   const { ports } = host;
   const until = beat.until;
-  const holds = until !== null && alreadyHolds(ports, until);
-  host.publish(
-    run,
-    "waiting",
-    viewOf(plan, beat, degraded, holds),
-    beat.present < 0 ? beat.start : beat.present,
-  );
-  return raceWith(
-    host,
-    run,
-    until !== null && !holds && !degraded
-      ? (signal) => observeWait(ports, until, signal)
-      : null,
-    null,
-  );
+  let missing = degraded;
+  for (;;) {
+    const holds = until !== null && alreadyHolds(ports, until);
+    host.publish(
+      run,
+      "waiting",
+      viewOf(plan, beat, missing, holds),
+      beat.present < 0 ? beat.start : beat.present,
+    );
+    const target = missing ? beat.target : null;
+    const observe = watchStep(ports, until, target, holds);
+    const raced = await raceWith(host, run, observe, null);
+    if (target === null) {
+      if (mustRecheck(ports, until, holds, raced)) continue;
+      return raced;
+    }
+    if (raced.kind !== "observed") return raced;
+    // A control that returns should be lit again and its action observed;
+    // treating its appearance as the action would skip a required step.
+    const entry = await lightTarget(ctx, beat, target);
+    if (entry.kind === "stop") return { kind: "aborted" };
+    if (entry.kind === "move")
+      return { kind: "command", command: entry.command };
+    missing = entry.degraded;
+  }
 }
 
 function nextCursor(cursor: number, command: TourCommand): number {

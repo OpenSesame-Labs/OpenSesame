@@ -47,6 +47,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useGuidance } from "../../lib/use-guidance.js";
+import { firstVaultSignInPending } from "../first-vault-handoff.js";
 import { gateIsPresent, subscribeGatePresence } from "../gate-presence.js";
 import { useSupport } from "../session.js";
 import { useTutorialGate } from "../ui/use-tutorial-gate.js";
@@ -106,20 +107,7 @@ type Asked = Readonly<{
 /** The sentence under the tour's name. */
 export function offerBody(steps: number): string {
   const length = steps === 1 ? "1 step" : `${steps} steps`;
-  return `New here? This walkthrough takes ${length}, on the real controls. It only points — nothing changes unless you do it.`;
-}
-
-function compactOfferBody(steps: number): string {
-  const length = steps === 1 ? "1 step" : `${steps} steps`;
-  return `${length}. It only points; you make the changes.`;
-}
-
-function bodyForOffer(offer: InlineOffer): string {
-  return offer.host.dataset.firstVisitOffer === "gate" ||
-    offer.host.dataset.firstVisitOffer === "shell" ||
-    offer.host.closest(".gate-offer-frame") !== null
-    ? compactOfferBody(offer.steps)
-    : offerBody(offer.steps);
+  return `Follow ${length} to complete this task.`;
 }
 
 function offerHost(gateScreen: boolean): HTMLElement | null {
@@ -222,7 +210,11 @@ function useFirstVisitPlacement({
     const speak = () => {
       // A sheet owns the screen, or an edit is under way: wait and ask again,
       // since neither ending changes anything this effect depends on.
-      if (firstVisitSeams.modalOpen() || firstVisitSeams.editing()) {
+      if (
+        firstVaultSignInPending(route) ||
+        firstVisitSeams.modalOpen() ||
+        firstVisitSeams.editing()
+      ) {
         timer = setTimeout(speak, firstVisitSeams.retryMs);
         return;
       }
@@ -346,7 +338,7 @@ export function FirstVisitOffer({
   return inline && (gateScreen || !gatePresent) ? (
     <FirstVisitInlineOffer
       offer={inline}
-      body={bodyForOffer(inline)}
+      body={offerBody(inline.steps)}
       onClose={close}
     />
   ) : null;

@@ -7,6 +7,7 @@
 
 import type { ShellWrapperContribution } from "@opensesame/app-core/lib/capabilities/runtime-contract.js";
 import { registerTutorialRealm } from "@opensesame/app-core/tutorial/registry/optional-tutorials.test-support.js";
+import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
 import { fakeAgentAlwaysUnavailable } from "@opensesame/support-agent";
 import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -15,7 +16,12 @@ import { MemoryRouter } from "react-router";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { GateHelpSeat, GateHost } from "../gate-seat.js";
 import { supportSessionSeams, useSupportRoute } from "../session.js";
-import { SupportGate, supportGateSeams } from "./SupportGate.js";
+import {
+  SupportGate,
+  firstVaultDisplayedGateStep,
+  firstVaultSealingState,
+  supportGateSeams,
+} from "./SupportGate.js";
 import { buildEngine } from "./support-test-engine.js";
 
 const original = { ...supportSessionSeams };
@@ -115,6 +121,7 @@ describe("what the key opens", () => {
     const rows = sheet.querySelectorAll("[data-tutorial]");
     expect([...rows].map((row) => row.getAttribute("data-tutorial"))).toEqual([
       "gate.front-door",
+      "gate.guest",
       "gate.join",
     ]);
   });
@@ -142,7 +149,7 @@ describe("what the key opens", () => {
       .getAllByRole("button")
       .map((button) => button.textContent ?? "");
     expect(titles).not.toContain("Where do I lock the vault?");
-    expect(titles).toContain("The front door: two roads and Skip");
+    expect(titles).toContain("New password");
   });
 
   it("offers a Show me for written help only where its screen can start the tour", async () => {
@@ -167,5 +174,70 @@ describe("what the key opens", () => {
     expect(
       within(articleOf(written)).queryByRole("button", { name: "Show me" }),
     ).toBeNull();
+  });
+});
+
+describe("the first-vault sealing handoff", () => {
+  const guide = (
+    status: "running" | "waiting" | "done",
+    target?: string,
+  ): GuideRuntimeSnapshot =>
+    // SAFETY: this fixture supplies every field the sealing-state helper reads.
+    ({
+      status,
+      goal: "gate.front-door",
+      tour: target
+        ? { target, message: "Seal the vault.", step: 1, count: 8 }
+        : null,
+    }) as GuideRuntimeSnapshot;
+
+  it("disarms when Exit finishes the guide before sealing", () => {
+    expect(
+      firstVaultSealingState(true, guide("done", "unlock.methods"), false),
+    ).toBe(false);
+  });
+
+  it("arms on the action target used by the passkey-first step", () => {
+    expect(
+      firstVaultSealingState(
+        false,
+        guide("waiting", "unlock.seal-actions"),
+        false,
+      ),
+    ).toBe(true);
+  });
+
+  it("keeps the simultaneous successful-unlock handoff armed", () => {
+    expect(firstVaultSealingState(true, guide("done"), true)).toBe(true);
+  });
+
+  it("does not arm an unrelated unlock from an earlier guide step", () => {
+    expect(
+      firstVaultSealingState(
+        false,
+        guide("waiting", "unlock.local-only"),
+        true,
+      ),
+    ).toBe(false);
+  });
+
+  it("disarms when Back leaves the live sealing sequence", () => {
+    expect(
+      firstVaultSealingState(
+        true,
+        guide("waiting", "unlock.local-only"),
+        false,
+      ),
+    ).toBe(false);
+  });
+
+  it("includes setup progress after the sign-in controller replacement", () => {
+    const resumed = guide("waiting", "unlock.methods");
+    expect(
+      firstVaultDisplayedGateStep({
+        ...resumed,
+        tour: resumed?.tour ? { ...resumed.tour, step: 2, count: 6 } : null,
+      }),
+    ).toBe(4);
   });
 });

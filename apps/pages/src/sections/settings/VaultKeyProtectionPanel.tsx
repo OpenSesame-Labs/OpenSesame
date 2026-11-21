@@ -4,12 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { IconAlert, IconPlus } from "../../components/Icons.js";
 import { useVault, useVaultStore } from "../../lib/vault/hooks.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
+import { useVaultKeyProtectionActions } from "./useVaultKeyProtectionActions.js";
 import {
   type ProtectionSheetRequest,
   VaultKeyProtectionSheet,
 } from "./VaultKeyProtectionCeremonies.js";
 import { ProtectorRow } from "./VaultProtectorRow.js";
-import { useVaultKeyProtectionActions } from "./useVaultKeyProtectionActions.js";
 
 /**
  * Settings › Security › Vault key protection — the protectors enrolled on an
@@ -29,7 +29,9 @@ export function VaultKeyProtectionPanel({
   const { header, guest } = useVault();
   const store = useVaultStore();
   const [sheet, setSheet] = useState<ProtectionSheetRequest | null>(null);
-  const panelRef = useGuideTarget<HTMLElement>("settings.vault-key-protection");
+  const addRef = useGuideTarget<HTMLButtonElement>(
+    "settings.vault-key-protection",
+  );
   const view = useMemo(
     () => selectProtectionView({ header: guest ? null : header }),
     [guest, header],
@@ -57,7 +59,6 @@ export function VaultKeyProtectionPanel({
       <section
         className="panel set__security"
         id="vault-key-protection"
-        ref={panelRef}
         aria-labelledby="vault-key-protection-title"
       >
         <div className="panel__head">
@@ -66,6 +67,7 @@ export function VaultKeyProtectionPanel({
           </div>
           <div className="actions">
             <button
+              ref={addRef}
               type="button"
               className="icon-btn icon-btn--sm"
               aria-label="Add key protection method"

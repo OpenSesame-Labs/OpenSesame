@@ -100,3 +100,10 @@ export function resetGuidePredicatesForTest(): void {
   descriptors.clear();
   listeners.clear();
 }
+
+/** Use the primary pointer, not screen width, to choose instructional copy. */
+export function isTouchGuide(): boolean {
+  return (
+    isKnownGuidePredicate("shell.touch") && readGuidePredicate("shell.touch")
+  );
+}

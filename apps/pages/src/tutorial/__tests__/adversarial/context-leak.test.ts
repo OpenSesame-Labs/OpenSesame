@@ -263,7 +263,7 @@ describe("what a walkthrough puts on screen over that vault", () => {
       tour.controller.nextStep();
       await waitUntil(() =>
         (document.querySelector(".coach__text")?.textContent ?? "").includes(
-          "This is the lock.",
+          "Select Lock before leaving your device.",
         ),
       );
 
@@ -275,7 +275,7 @@ describe("what a walkthrough puts on screen over that vault", () => {
       for (const name of itemNames) {
         expect(drawn, `overlay carries ${name}`).not.toContain(name);
       }
-      expect(drawn).toContain("This is the lock.");
+      expect(drawn).toContain("Select Lock before leaving your device.");
     } finally {
       tour.unmount();
       engine.cancelGuide("user");

@@ -49,6 +49,7 @@ afterEach(() => {
 
 describe("who may read the motion sensor", () => {
   it("reads as unsupported where the browser has none", () => {
+    vi.stubGlobal("DeviceMotionEvent", undefined);
     expect(motionAccessSnapshot()).toBe("unsupported");
     const stop = listenForShake(vi.fn());
     stop();
