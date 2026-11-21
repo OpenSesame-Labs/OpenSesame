@@ -6960,34 +6960,34 @@
       "a12f8558"
     ],
     "crates/connection-broker/Cargo.toml": [
-      "d55a4347",
-      "09ccb635",
-      "17141d58",
-      "8ef99727",
-      "d532c2e8",
-      "cfa42fc8",
-      "12eacacf",
-      "79ca4e4c"
+      "4bf1510f",
+      "de0cd4a5",
+      "4e4cd84f",
+      "fe76ccb6",
+      "b5b991c6",
+      "8543f128",
+      "efaae27b",
+      "3a9e0ade"
     ],
     "crates/connection-broker/src/lib.rs": [
-      "5c82ad95",
-      "3433cc91",
-      "bfea3798",
-      "e2ea9dfb",
-      "2f6155b8",
-      "59586757",
-      "c07021df",
-      "17022d99"
+      "7681e8c1",
+      "e7a6232d",
+      "ef2bc957",
+      "dffc5867",
+      "d900a7b0",
+      "a12ca133",
+      "a53ff501",
+      "fd63f048"
     ],
     "crates/connection-broker/src/config.rs": [
-      "4e2535ca",
-      "e9f2e1e2",
-      "46a34000",
-      "a1ec9d83",
-      "cda3e5c3",
-      "36283f29",
-      "1bf3b918",
-      "fe29509e"
+      "a58e7d55",
+      "66ce0cd6",
+      "82129148",
+      "0c29fb4a",
+      "89762ac9",
+      "9863ca75",
+      "42ea558c",
+      "81e664a9"
     ],
     "crates/connection-broker/src/config_custom_egress.rs": [
       "37d7b208",
@@ -7010,14 +7010,14 @@
       "97f7339a"
     ],
     "crates/connection-broker/src/constructor.rs": [
-      "c022fb07",
-      "6db5c77c",
-      "664b2c4e",
-      "860e43c5",
-      "eaad9ccd",
-      "31563d26",
-      "5414f2e7",
-      "3c570132"
+      "5953540c",
+      "a30878e5",
+      "246a7313",
+      "21e00afc",
+      "18353b4a",
+      "085342e4",
+      "93db8b82",
+      "89657ece"
     ],
     "crates/connection-broker/src/store.rs": [
       "46faaeb3",
