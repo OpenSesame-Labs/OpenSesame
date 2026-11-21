@@ -15,13 +15,13 @@ const virtualId = "\0opensesame-simplewebauthn-browser";
 
 const pins = Object.freeze({
   "package.json":
-    "8285aa1d8c0e681e72415b6c1e66fc74b9357bb05958336b817a144d02fa4b44",
+    "2ecc3776356abc3180e27f16fd32b3680daaa68183f9716533d086dd326e903b",
   "esm/index.js":
-    "de015f7f564190fa3433d6d115389c98a63489884a04c6eecf86d1c793571c63",
+    "eb81c4ce867adf3f51feea07eea2c1721373e4f0182eaaca00a402dec31b4ad9",
   "esm/authentication/verifyAuthenticationResponse.js":
-    "31622302b14baca27db20b8cf3a5664eb9af8642ba47862370473f7890b6980b",
+    "f81ad465889e3bef9931191f3dbcb1f786828a8baf7571242c8889c65e373278",
   "esm/registration/verifyRegistrationResponse.js":
-    "e25ae978be3b14e4d8462d84924ceb93bf054692010409b52122bcdbf49d72b1",
+    "50e8d2e162f479841c3b1acca693d73ab53cdef0234520d4626366ff934761db",
 });
 
 const digest = (value) => createHash("sha256").update(value).digest("hex");
@@ -45,7 +45,7 @@ export function readWebAuthnBrowserInputs() {
   const manifest = JSON.parse(sources["package.json"].source);
   if (
     manifest.name !== "@simplewebauthn/server" ||
-    manifest.version !== "13.3.2"
+    manifest.version !== "14.1.0"
   ) {
     throw new Error("WebAuthn browser entry package pin mismatch");
   }
