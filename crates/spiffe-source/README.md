@@ -44,8 +44,12 @@ the source says so or their bounds run out.
   `evidence_expired`; reconnects use bounded, jittered exponential backoff.
   Reopening a stream or receiving rejected material does not reset the bound;
   only a successfully activated snapshot does.
-  A gRPC `UNAUTHENTICATED` or `PERMISSION_DENIED` response withdraws at once;
-  `UNAVAILABLE`, connection errors and EOF take the outage path.
+  A gRPC `UNAUTHENTICATED` or `PERMISSION_DENIED` response withdraws at once,
+  including a `PERMISSION_DENIED` status still wrapped as a transport error.
+  An empty Workload API response withdraws with the same reason as an empty
+  SVID list. `UNAVAILABLE`, connection errors and EOF take the outage path.
+  Dropping the source handle signals that loop to withdraw and stop; `Drop`
+  does not join the task (`stop` does).
   There is no alternate identity input: this source has no PEM, managed
   certificate, or shared operator identity to fall back to.
 * **Rotation** — a new key under the same SPIFFE ID is a new generation with
