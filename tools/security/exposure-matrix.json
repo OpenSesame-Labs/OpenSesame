@@ -1390,14 +1390,14 @@
       "9861c64a"
     ],
     "crates/storage/tests/certmgr_pact.rs": [
-      "817d04fa",
-      "0df8724d",
-      "a9648c39",
-      "a9c89c68",
-      "45e5ee2b",
-      "2051ffab",
-      "9b708231",
-      "b3e2a57f"
+      "2bbc3782",
+      "f26c56d5",
+      "4f358633",
+      "85f36793",
+      "f2e47850",
+      "2fec2e2d",
+      "63f1d9cd",
+      "6e788dd3"
     ],
     "packages/app-core/package.json": [
       "ff6d0078",
@@ -3180,14 +3180,14 @@
       "7301dfad"
     ],
     "crates/storage/src/migrations.rs": [
-      "5427e2a5",
-      "1adcce8b",
-      "9a30aa75",
-      "5be66679",
-      "31e52203",
-      "7bcc31f5",
-      "c4dbb582",
-      "89d9e17a"
+      "d735c33f",
+      "6b199fcd",
+      "a534ee1c",
+      "7def14b3",
+      "74827d89",
+      "f8dce057",
+      "87a5eae0",
+      "16415dc7"
     ],
     "crates/storage/tests/est_passphrase_budget.rs": [
       "c4e115a8",
@@ -6750,14 +6750,14 @@
       "a23325a7"
     ],
     "crates/gateway/src/app_state.rs": [
-      "05cab6d9",
-      "42fa31d7",
-      "a812bef8",
-      "3ef026d2",
-      "abfd1bea",
-      "e0573035",
-      "2739e904",
-      "348c5911"
+      "d13a8bd8",
+      "0e7aab7e",
+      "ce0e78a7",
+      "d5fbf754",
+      "7960f43f",
+      "e8a93b06",
+      "04009423",
+      "ba4b8607"
     ],
     "crates/gateway/src/testkit/mod.rs": [
       "18d8967d",
@@ -6820,14 +6820,14 @@
       "a47984b2"
     ],
     "crates/gateway/src/routes/session.rs": [
-      "6868b567",
-      "4fbc695e",
-      "ac302078",
-      "225d09a8",
-      "f312b320",
-      "b33d0ef7",
-      "6d6509c0",
-      "86c52cfc"
+      "dbbaece4",
+      "1310a382",
+      "cf491a7d",
+      "ca88bd79",
+      "b4792302",
+      "700ffc46",
+      "468bac81",
+      "2ade490b"
     ],
     "crates/gateway/src/routes/connections.rs": [
       "4ab1439a",
@@ -6840,24 +6840,24 @@
       "3bec49e5"
     ],
     "crates/gateway/src/routes/agent_capabilities.rs": [
-      "488be129",
-      "ed31bd51",
-      "d78af310",
-      "ee695241",
-      "1bf4fd9a",
-      "1d8ac157",
-      "3a1b734a",
-      "b191baab"
+      "7c4dc7ff",
+      "d922db49",
+      "7b3790b9",
+      "4bac0d16",
+      "ec822128",
+      "68b0ba8c",
+      "7f595b5d",
+      "a3948bd9"
     ],
     "crates/gateway/src/routes/browser_pairings.rs": [
-      "244bfdf9",
-      "957aefaf",
-      "63437504",
-      "cae79017",
-      "2214e3a2",
-      "fe81cee5",
-      "08ca38b5",
-      "a273adfa"
+      "96595e78",
+      "6ed3d3ee",
+      "88a8c075",
+      "90e87bb2",
+      "f4568137",
+      "6fa351e8",
+      "97c644cf",
+      "78dff4d9"
     ],
     "crates/gateway/src/browser_pairing_proof.rs": [
       "05ab8d32",
@@ -6870,14 +6870,14 @@
       "2feff855"
     ],
     "crates/gateway/src/middleware/mod.rs": [
-      "2389fc92",
-      "7348d2cb",
-      "472c54f4",
-      "ef02c862",
-      "e09c3705",
-      "8614481e",
-      "e696f27d",
-      "d40676bf"
+      "8172865e",
+      "65f2ffcc",
+      "624842e7",
+      "c02958f1",
+      "6eed4b6a",
+      "029fa902",
+      "4a69d28a",
+      "ca34cc09"
     ],
     "crates/gateway/src/middleware/auth.rs": [
       "79d3114a",
@@ -7030,14 +7030,14 @@
       "7555a60e"
     ],
     "crates/storage/src/lib.rs": [
-      "eafab5f9",
-      "688d370d",
-      "28e57a9d",
-      "c1423225",
-      "2b137cb2",
-      "2708ebd4",
-      "3c37578f",
-      "994db327"
+      "4259d6fe",
+      "f8a527e2",
+      "5586764a",
+      "6f189344",
+      "82f3bcc5",
+      "334ce7f2",
+      "2228cca3",
+      "94fc9c80"
     ],
     "crates/storage/src/tenancy.rs": [
       "10cd6d36",
