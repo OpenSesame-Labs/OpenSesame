@@ -86,6 +86,7 @@ async function firstVaultPass({
     out,
     width,
     keepShots,
+    setupChoice,
   });
   await makePassword(page, step, check, phone, label, protection);
 }
@@ -97,7 +98,7 @@ async function enterVault(
   check,
   phone,
   protection,
-  { out, width, keepShots },
+  { out, width, keepShots, setupChoice = "Default" },
 ) {
   await step("unlock.setup", 1);
   await page.locator(".coach__btn--go").focus();
@@ -113,8 +114,14 @@ async function enterVault(
     await page
       .getByRole("button", { name: "Set up your own", exact: true })
       .evaluate((button) => button.click());
-  await step(`setup.${setupChoice.toLowerCase()}`, 2);
-  await pickSetupChoice(page, setupChoice);
+  await step("setup.default", 2);
+  if (setupChoice === "Minimal" || setupChoice === "Full") {
+    await pickSetupChoice(page, setupChoice);
+  } else {
+    await page
+      .getByRole("button", { name: "Default", exact: true })
+      .evaluate((button) => button.click());
+  }
   await step("unlock.local-only", 3);
   await page.getByRole("button", { name: "Use without an account" }).click();
   await step("unlock.seal-actions", 4);
