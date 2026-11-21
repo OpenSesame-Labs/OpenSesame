@@ -254,6 +254,12 @@ export const PINNED_FORMAL_SUITES = [
     proofs: [
       "spec/formal/spiffe/SpiffePolicy.lean",
       "spec/formal/spiffe/required-theorems.lean",
+      "spec/formal/spiffe/verify.sh",
+      "spec/formal/spiffe/check-drift.py",
+      "spec/formal/spiffe/coverage.json",
+      "spec/formal/spiffe/reviewed-sources.json",
+      "spec/formal/spiffe/negative-controls.py",
+      "spec/formal/spiffe/NEGATIVE-CONTROLS.md",
       "spec/formal/required-theorem-command.lean",
       "spec/formal/check-axioms.sh",
       "spec/formal/check-axioms.test.mjs",
