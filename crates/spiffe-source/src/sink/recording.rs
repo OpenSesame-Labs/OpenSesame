@@ -72,6 +72,8 @@ struct RecordingLease {
     state: Arc<RecordingState>,
     active: bool,
     retired: bool,
+    wall_deadline: Option<DateTime<Utc>>,
+    monotonic_deadline: Option<Instant>,
 }
 
 impl GenerationSink for RecordingSink {
@@ -89,6 +91,8 @@ impl GenerationSink for RecordingSink {
             state: Arc::clone(&self.state),
             active: false,
             retired: false,
+            wall_deadline: None,
+            monotonic_deadline: None,
         }))
     }
 }
@@ -147,14 +151,26 @@ impl GenerationLease for RecordingLease {
 
     fn tighten(
         &mut self,
-        _deadline: DateTime<Utc>,
-        _monotonic_deadline: Instant,
+        deadline: DateTime<Utc>,
+        monotonic_deadline: Instant,
     ) -> Result<(), TransportError> {
         if self.retired {
-            Err(TransportError::GenerationStale)
-        } else {
-            Ok(())
+            return Err(TransportError::GenerationStale);
         }
+        let wall = self
+            .wall_deadline
+            .map_or(deadline, |cur| cur.min(deadline));
+        let mono = self
+            .monotonic_deadline
+            .map_or(monotonic_deadline, |cur| cur.min(monotonic_deadline));
+        if self.wall_deadline == Some(wall)
+            && self.monotonic_deadline == Some(mono)
+        {
+            return Ok(());
+        }
+        self.wall_deadline = Some(wall);
+        self.monotonic_deadline = Some(mono);
+        Ok(())
     }
 
     fn withdraw(&mut self, reason: TransportError) -> Result<(), TransportError> {
