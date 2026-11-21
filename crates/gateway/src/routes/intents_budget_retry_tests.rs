@@ -11,6 +11,9 @@ use std::sync::Arc;
 #[path = "intents_opening_log_tests.rs"]
 mod opening_log_tests;
 
+#[path = "intents_budget_retry_projection.rs"]
+mod projection;
+
 async fn fixture() -> (AppState, HeaderMap, OrganizationId, String) {
     let mut state = crate::app_state::test_demo_state().await;
     let boot = state.bootstrap.lock().unwrap().as_ref().unwrap().clone();
@@ -83,6 +86,7 @@ async fn fixture() -> (AppState, HeaderMap, OrganizationId, String) {
         )
         .await
         .unwrap());
+    projection::catch_up_openfga_projection(&state, &organization, &grant).await;
     (state, headers, boot.org, grant)
 }
 
