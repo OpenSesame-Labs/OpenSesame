@@ -1,11 +1,10 @@
 # Host source-trust history specification
 
-This suite is registered in the pre-push policy on this branch. The integrated
-Lean model and 76 Linux tests in 16 groups passed on commit `b1016221`,
-including the offline operator action and a real Host startup. A focused PEM
-collision witness was added afterward; the full suite and final pre-push
-invocation still need to be rerun with it. No live database migration or
-initialization has been performed.
+This suite is registered in the pre-push policy on this branch. On commit
+`0f964aa7`, the integrated check passed 25 pinned Lean theorem signatures,
+21 generated cases, and 77 Linux tests in 16 groups, including the offline
+operator action, a real Host startup, and the focused PEM collision witness.
+No live database migration or initialization has been performed.
 
 ## Security requirements and evidence
 
@@ -157,8 +156,13 @@ cleans it only after outstanding lock holders have exited.
 Pass `--drift-only` to run just the source, migration-module grammar and
 inventory, Cargo-target, and build-script drift controls without invoking Cargo.
 
-Before this can be shipped, rerun the full history suite and the real change-filtered
-pre-push invocation on the updated tree. The staged exposure matrix has passed.
+The real change-filtered pre-push invocation on `0f964aa7` passed its first
+five selected suites, including live NATS tests, but rustc could not create a
+thread during the final history suite because the environment had exhausted
+process capacity. The full history suite passed separately on the same commit.
+Before shipping, repeat the complete pre-push invocation in an environment with
+enough process capacity and complete independent review. The staged exposure
+matrix has passed.
 The registry, requirements, independent minimum, and affected source mappings
 include this suite. Native-Git tests cover selection for implementation
 changes, including reverted pushed changes, while proof-only changes do not run
