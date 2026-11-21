@@ -140,7 +140,8 @@ formal_cargo test --locked -p opensesame-gateway --lib \
   transport::source_history::coordinator::integration_tests | tee "$scratch/sqlite-source"
 check_tests "$scratch/sqlite-source" \
   transport::source_history::coordinator::integration_tests::committed_unpublished_name_survives_same_manager_owner_handoff \
-  transport::source_history::coordinator::integration_tests::initialized_host_retains_source_names_across_restart_and_pem_transition
+  transport::source_history::coordinator::integration_tests::initialized_host_retains_source_names_across_restart_and_pem_transition \
+  transport::source_history::coordinator::integration_tests::attested_history_blocks_pem_collision_after_reopen
 
 formal_cargo test --locked -p opensesame-gateway --lib \
   transport::config_tests | tee "$scratch/host-config"
