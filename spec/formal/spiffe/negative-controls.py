@@ -70,7 +70,7 @@ MUTATIONS = (
         'if status.code() == GrpcStatusCode::Unauthenticated =>\n        {\n            ApiAction::Denied("workload_api_denied")\n        }',
         "if status.code() == GrpcStatusCode::Unauthenticated =>\n        {\n            ApiAction::Outage\n        }",
         (
-            vector("classify\tunauthenticated\tpermission_denied"),
+            vector("classify\tunauthenticated\tunauthenticated"),
             integration("withdrawal_policy", "unauthenticated_on_reconnect_withdraws_the_active_generation", "expected prompt withdrawal"),
         ),
     ),
@@ -96,7 +96,7 @@ MUTATIONS = (
     ),
     Mutation(
         "source-compares-new-trust-to-itself",
-        "src/source.rs",
+        "src/source_loop.rs",
         "incoming.contains_all(&active.bundles)",
         "incoming.contains_all(&incoming)",
         (integration("trust_reduction_policy", "rejected_profile_with_removed_anchor_withdraws", "expected prompt withdrawal"),),
@@ -117,7 +117,7 @@ MUTATIONS = (
     ),
     Mutation(
         "retry-extends-retention",
-        "src/source.rs",
+        "src/source_loop.rs",
         "s.retain_until = Some(s.retain_until.map_or(r, |cur| cur.min(r)));",
         "s.retain_until = Some(s.retain_until.map_or(r, |cur| cur.max(r)));",
         (
@@ -127,7 +127,7 @@ MUTATIONS = (
     ),
     Mutation(
         "stalled-rpc-ignores-outage-deadline",
-        "src/source.rs",
+        "src/source_loop.rs",
         ".map(|active| bounded_deadline(active.not_after, self.status.borrow().retain_until))",
         ".map(|active| active.not_after)",
         (integration("outage_policy", "stalled_rpc_opening_cannot_extend_the_outage_deadline", "expected prompt withdrawal"),),
@@ -215,6 +215,42 @@ def archive_workspace(destination: Path, fds: tuple[int, ...] = ()) -> None:
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / relative, target)
 
+    # The reviewed-revision anchor and blob checks need a real repository in
+    # the scratch: origin/main for the ancestor assertion, and a local commit
+    # so `git cat-file blob` resolves every reviewed blob.
+    origin_url = subprocess.check_output(
+        ["git", "-C", str(ROOT), "remote", "get-url", "origin"],
+        text=True,
+        pass_fds=fds,
+    ).strip()
+    subprocess.run(["git", "init", "-q"], cwd=destination, check=True)
+    subprocess.run(["git", "remote", "add", "origin", origin_url], cwd=destination, check=True)
+    subprocess.run(
+        ["git", "fetch", "-q", "origin", "refs/heads/main:refs/remotes/origin/main"],
+        cwd=destination,
+        check=True,
+        pass_fds=fds,
+    )
+    subprocess.run(["git", "add", "-A"], cwd=destination, check=True)
+    # Local commit records the archived bytes. Do not sign: a caller with
+    # commit.gpgsign set must still be able to build this disposable repo.
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.email=negative-controls@example.invalid",
+            "-c",
+            "user.name=negative-controls",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "-qm",
+            "negative-controls scratch",
+        ],
+        cwd=destination,
+        check=True,
+    )
+
 
 def assert_caught(mutation: Mutation, witness: Witness, *, scratch: Path, env: dict[str, str], helper: dict) -> None:
     if witness.arguments == ("verify",):
@@ -258,6 +294,7 @@ def main() -> None:
         raise RuntimeError("Lean not found; activate the pinned Lean toolchain first")
     env = os.environ.copy()
     env.pop("OPENSESAME_FORMAL_SCRATCH_LOCK_FD", None)
+    env.pop("CARGO_TARGET_DIR", None)
     env["CARGO_INCREMENTAL"] = "0"
     env["CARGO_NET_OFFLINE"] = "true"
     require_success([sys.executable, "-I", "spec/formal/spiffe/check-drift.py"],
