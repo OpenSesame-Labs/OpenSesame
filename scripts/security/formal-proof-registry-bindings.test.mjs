@@ -74,15 +74,6 @@ for patched in workspace.get("patch", {}).get("crates-io", {}).values():
         }
 
 
-def owner(path):
-    best = None
-    for directory in packages:
-        if path == directory or path.startswith(directory + "/"):
-            if best is None or len(directory) > len(best):
-                best = directory
-    return best
-
-
 registry = json.loads((root / "spec/formal/proof-registry.json").read_text())
 roots = sorted(
     {
@@ -96,23 +87,7 @@ closures = {
     review_root: sorted({node.name for node, _, _ in graph.projection(review_root)})
     for review_root in roots
 }
-referenced = {}
-for suite in registry["suites"]:
-    names = set()
-    for path in suite["implementation"]:
-        directory = owner(path)
-        if directory:
-            names.add(packages[directory]["name"])
-    referenced[suite["id"]] = sorted(names)
-print(
-    json.dumps(
-        {
-            "packages": packages,
-            "closures": closures,
-            "referenced": referenced,
-        }
-    )
-)
+print(json.dumps({"packages": packages, "closures": closures}))
 `;
 
 function reviewedCargoFacts() {
