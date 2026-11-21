@@ -54,7 +54,8 @@ fn a_stopped_source_with_a_generation_is_identity_missing() {
     let stopped = status_with(SourcePhase::Stopped, Some(1));
     assert!(spiffe_first_svid_settled(&stopped));
     assert_eq!(
-        conclude_spiffe_first_svid(Ok(stopped), &live_generations(1)).expect_err("stopped source must not bind"),
+        conclude_spiffe_first_svid(Ok(stopped), &live_generations(1))
+            .expect_err("stopped source must not bind"),
         TransportError::IdentityMissing
     );
 }
@@ -71,7 +72,8 @@ fn a_generation_at_its_effective_deadline_is_not_ready() {
         "retain_until equality must not bind"
     );
     assert_eq!(
-        conclude_spiffe_first_svid(Ok(at_retention), &live_generations(2)).expect_err("retain_until equality"),
+        conclude_spiffe_first_svid(Ok(at_retention), &live_generations(2))
+            .expect_err("retain_until equality"),
         TransportError::IdentityMissing
     );
 
@@ -83,7 +85,8 @@ fn a_generation_at_its_effective_deadline_is_not_ready() {
         "not_after equality must not bind"
     );
     assert_eq!(
-        conclude_spiffe_first_svid(Ok(at_certificate), &live_generations(3)).expect_err("not_after equality"),
+        conclude_spiffe_first_svid(Ok(at_certificate), &live_generations(3))
+            .expect_err("not_after equality"),
         TransportError::IdentityMissing
     );
 }
@@ -110,7 +113,8 @@ async fn coalesced_watch_update_refuses_a_withdrawn_generation() {
     assert_eq!(observed.phase, SourcePhase::Withdrawn);
     assert!(spiffe_first_svid_settled(&observed));
     assert_eq!(
-        conclude_spiffe_first_svid(Ok(observed), &live_generations(1)).expect_err("coalesced withdrawal must not bind"),
+        conclude_spiffe_first_svid(Ok(observed), &live_generations(1))
+            .expect_err("coalesced withdrawal must not bind"),
         TransportError::IdentityMissing
     );
 }
@@ -127,9 +131,10 @@ fn prompt_withdrawal_before_any_generation_is_not_settled() {
     let withdrawn = status_with(SourcePhase::Withdrawn, None);
     assert!(
         conclude_spiffe_first_svid(
-        Err(WaitError::DeadlineElapsed(withdrawn)),
-        &live_generations(1),
-    ).is_err(),
+            Err(WaitError::DeadlineElapsed(withdrawn)),
+            &live_generations(1),
+        )
+        .is_err(),
         "wait should time out, not treat early withdrawal as settled"
     );
 }
@@ -140,10 +145,10 @@ fn a_deadline_with_no_generation_is_identity_missing() {
     assert!(!spiffe_first_svid_settled(&connecting));
     assert_eq!(
         conclude_spiffe_first_svid(
-        Err(WaitError::DeadlineElapsed(connecting)),
-        &live_generations(1),
-    )
-            .expect_err("deadline refuses the bind"),
+            Err(WaitError::DeadlineElapsed(connecting)),
+            &live_generations(1),
+        )
+        .expect_err("deadline refuses the bind"),
         TransportError::IdentityMissing
     );
 }

@@ -34,8 +34,12 @@ async fn expired_source_is_refused_at_service_admission() {
         operations::NATS_CALLOUT_DECIDE
     )
     .is_ok());
-    gens.tighten_source_deadline(&owner, epoch, Utc::now() - opensesame_time::Duration::seconds(1))
-        .unwrap();
+    gens.tighten_source_deadline(
+        &owner,
+        epoch,
+        Utc::now() - opensesame_time::Duration::seconds(1),
+    )
+    .unwrap();
     assert!(gens.current().withdrawn.is_none());
     let refused = require_service_caller(
         &st,
