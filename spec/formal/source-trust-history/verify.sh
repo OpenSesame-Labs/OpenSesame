@@ -4,7 +4,7 @@ set -euo pipefail
 root="$(cd "$(dirname "$0")/../../.." && pwd)"
 if [[ "${1:-}" == "--model-only" && "$#" == 1 ]]; then
   lean_bin="${OPENSESAME_LEAN_BIN:-lean}"
-  if [[ "$(<"$root/spec/formal/source-lifetime/lean-toolchain")" != "leanprover/lean4:v4.24.0" ]] ||
+  if [[ "$(<"$root/spec/formal/source-trust-history/lean-toolchain")" != "leanprover/lean4:v4.24.0" ]] ||
      ! command -v "$lean_bin" >/dev/null 2>&1 ||
      [[ "$("$lean_bin" --version)" != "Lean (version 4.24.0,"* ]]; then
     echo "source-trust-history: pinned Lean 4.24.0 is required" >&2

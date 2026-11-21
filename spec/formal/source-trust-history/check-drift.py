@@ -206,7 +206,7 @@ PATHS = [
     'scripts/security/test_formal_cargo_freshness.py',
     'spec/formal/source-trust-history/SourceTrustHistory.lean',
     'spec/formal/source-trust-history/required-theorems.lean',
-    'spec/formal/source-lifetime/lean-toolchain',
+    'spec/formal/source-trust-history/lean-toolchain',
     'spec/formal/source-trust-history/verify.sh',
     'spec/formal/source-trust-history/negative-controls.py',
     'spec/formal/required-theorem-command.lean',

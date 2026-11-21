@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "reviewed_revision": "94260f7078fb3b9a4f42658a2eab702c358c6042",
+  "reviewed_revision": "51809907c3f6914142d247b68d1ce0a7f607a98b",
   "reviewed_source_state": "Source hashes identify the reviewed history prototype after this base; they do not prove implementation refinement.",
   "sources": [
     {
@@ -93,23 +93,23 @@
     },
     {
       "path": "crates/spiffe-source/src/lib.rs",
-      "sha256": "50a975b67dc7764109f014d5ebfef1c283400e36c9525b1531d8010bf2b9a3cc"
+      "sha256": "0c8480f773ffe915c10e95733566e71258edee4043648d65d2c2e65d0f1056ac"
     },
     {
       "path": "crates/spiffe-source/src/source.rs",
-      "sha256": "3425ff54d43d7d3a218385af1b662fd4f8da644a7f3c1e423c41a809e59f8466"
+      "sha256": "021a25db40801d1e677c8487d7e54d48376001c04896f3f80a36157a7d531871"
     },
     {
       "path": "crates/spiffe-source/src/source_history_flow.rs",
-      "sha256": "ed64cbda5e27776bc2a83c755bb3fae0ed7686c4251e69dd0ccd17c15ea5c70c"
+      "sha256": "19b03ad54435eb1c95b382882ec52f19191ec5af75e1139b310e56616dbe05c2"
     },
     {
       "path": "crates/spiffe-source/src/source_handle.rs",
-      "sha256": "f870853088dba4b674b9bc5f265c50af8caa7a91873dac02ddb78b563cf5633f"
+      "sha256": "06ac228304b093c32f4c86b1aa5615f39da700b73037d035fe217359ad8f50a8"
     },
     {
       "path": "crates/spiffe-source/src/source_policy.rs",
-      "sha256": "faf81b2b4de6d9ded51f4663105ccb731ab9acd71a46e4ff48c4efd235ac516d"
+      "sha256": "e1e55cc0813805f8509320ce426feb435b07b2840acaf224f21174ff4e02e220"
     },
     {
       "path": "crates/spiffe-source/src/svid_profile.rs",
@@ -129,7 +129,7 @@
     },
     {
       "path": "crates/spiffe-source/src/status.rs",
-      "sha256": "40ca61fdbfc75663ffa2c0ae3a47b4d6399e285ff542ad8eedaa8bfdca4eb6ea"
+      "sha256": "850e9be7ea4bffa6d49d416cd7d2b1d027d8536c81e5bdcc5841275431bfabfd"
     },
     {
       "path": "crates/spiffe-source/src/snapshot.rs",
@@ -193,7 +193,7 @@
     },
     {
       "path": "crates/gateway/src/transport/mod.rs",
-      "sha256": "f6a89073d0edd8a1bd3c27fa69365fd5bb85449acdc2fbac5c74baa2ee1b8041"
+      "sha256": "34033997b096b90b2932e4563e057785c80f3accf4b823bc21f91e8a83828b8b"
     },
     {
       "path": "crates/gateway/src/transport/config.rs",
@@ -213,7 +213,7 @@
     },
     {
       "path": "crates/gateway/src/transport/runtime.rs",
-      "sha256": "aac4bd27d5003f9a9cf010cd38811472693ac9d8c6e9a26cf2397a393c8c08dc"
+      "sha256": "789d8d4b5acb25b546aa10913c20264295d33579b38e1e0d8abaa6061cf07153"
     },
     {
       "path": "crates/gateway/src/transport/source_history.rs",
@@ -301,7 +301,7 @@
     },
     {
       "path": "crates/spiffe-source/src/fake/server.rs",
-      "sha256": "1ddefac43b13ce36c38fa681dc0e38da0108c83e9b6874359212170ed486fa3b"
+      "sha256": "f610422cf044597353b7e9eec963af637fa648adf38716e9d5848f73f14be99d"
     },
     {
       "path": "crates/spiffe-source/tests/durable_history_policy.rs",
@@ -313,7 +313,7 @@
     },
     {
       "path": "crates/spiffe-source/tests/support/policy.rs",
-      "sha256": "ab0168f14c1bb5750582db83db9802a6403f94827a28ef4c59c232bf62f93357"
+      "sha256": "9638bccb672cc84eebf222265bd4bc85b951c5780ddde56b049bf0caebc385c2"
     },
     {
       "path": "crates/transport-security/tests/source_history_reservation.rs",
@@ -365,7 +365,7 @@
     },
     {
       "path": "scripts/security/formal-proof-source-history.mjs",
-      "sha256": "b13ecc6196d1234d34caaf42c8f483abf6cf2cc47f8ffc153d9a46b45cd59817"
+      "sha256": "7421ad98fc4e7b1c2b32a4d9edb484201e3d9fc4f386be85761eef2b3bda46f5"
     },
     {
       "path": "scripts/security/test_formal_cargo_freshness.py",
@@ -380,16 +380,16 @@
       "sha256": "21bf3cd4e96ee119c84b4612f51708a0f665d9ddb527d188b361b7c2c8f64aef"
     },
     {
-      "path": "spec/formal/source-lifetime/lean-toolchain",
+      "path": "spec/formal/source-trust-history/lean-toolchain",
       "sha256": "42779d67b81608af8a12aa4328d2ab47ca201925b3b2bd68369587b5340bb434"
     },
     {
       "path": "spec/formal/source-trust-history/verify.sh",
-      "sha256": "e2fa315a0c1068739394b1ac0126982081cf966062c76ab0e445f64770ada495"
+      "sha256": "8302c1e35fc1e73d58b72795bf5c1b03be958531227392790d5e6e6dd34847fc"
     },
     {
       "path": "spec/formal/source-trust-history/negative-controls.py",
-      "sha256": "1ef636fe1f031bdd0d4f341179e9da059a919cf75aafffded5c61e22590aaa20"
+      "sha256": "74b1d7c126fff89ee013e4e4b1248212697b27947122ff72503882f072e43bc6"
     },
     {
       "path": "spec/formal/required-theorem-command.lean",
@@ -397,7 +397,7 @@
     },
     {
       "path": "spec/formal/check-axioms.sh",
-      "sha256": "09af77ff4628334b9c0b90041a99487bf94eeac8876510976dd08cdce7406e68"
+      "sha256": "094d84b7e402edeb1bcf1830d6a49dea91d2cc75753d3beb7108f866996af35f"
     },
     {
       "path": "crates/storage/migrations/0001_init.sql",
@@ -697,7 +697,7 @@
     },
     {
       "path": "crates/connection-broker/Cargo.toml",
-      "sha256": "1a17de827b2c45b1bd00b6b18c88bb3e93d0d6e1eb67cff82c213124d6917551"
+      "sha256": "d55a434709ccb63517141d588ef99727d532c2e8cfa42fc812eacacf79ca4e4c"
     },
     {
       "path": "crates/connection-detect/Cargo.toml",
@@ -841,7 +841,7 @@
     },
     {
       "path": "crates/sql/Cargo.toml",
-      "sha256": "b2b3523673ba30c649f063d275a7bbc2abe26e55f8761fc2575f5d6bff754982"
+      "sha256": "6e4d5c2997c6aad77d1ac1a94c0e8c6489cc4ca298410401e986117b2e8f2bec"
     },
     {
       "path": "crates/storage/Cargo.toml",
@@ -889,7 +889,7 @@
     },
     {
       "path": "crates/time/Cargo.toml",
-      "sha256": "e4a9a9b4c01997056381b0aaf1f21f44f269d7a52d75408920954acc664bbfb5"
+      "sha256": "dc04a0c3abb286be4ec9d2bfa38b82f44bd2657eaa314602ef86a1790e257a3b"
     },
     {
       "path": "patches/vendor/sqlx-sqlite-0.9.0/Cargo.toml",
@@ -1179,13 +1179,13 @@
     },
     {
       "path": ".cargo/config.toml",
-      "sha256": null
+      "sha256": "321dba2f4926715cf7ff7e783033b11bb59cf0c5b4313f5343585a1a8ee31721"
     }
   ],
   "lock_projection": {
     "root": "opensesame-cli",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "033819b54b069628751ca58ed8367920618b9541c5f65c1b16e270ad867adda2"
+    "sha256": "b47fb14b7a56cc5ec2008ab0988096a0e13afecf0aeb601088bd9e16090534f0"
   },
   "workspace_projection": {
     "root": "opensesame-cli",

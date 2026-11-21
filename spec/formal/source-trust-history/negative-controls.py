@@ -218,7 +218,7 @@ def model_controls(scratch: Path, env: dict[str, str]) -> None:
 
     check("model baseline", None)
     changes = (
-        ("wrong Lean pin", "spec/formal/source-lifetime/lean-toolchain",
+        ("wrong Lean pin", "spec/formal/source-trust-history/lean-toolchain",
          "leanprover/lean4:v4.24.0", "leanprover/lean4:v0.0.0", "pinned Lean 4.24.0 is required"),
         ("wrong obligation count", "spec/formal/check-axioms.sh",
          "SourceTrustHistory.lean) suite=source-trust-history; required_count=25 ;;",
@@ -259,6 +259,17 @@ def drift_controls(scratch: Path, env: dict[str, str], isolation) -> None:
         check("unreviewed source", "review source drift: crates/gateway/src/transport/source_history.rs")
     finally:
         source.write_bytes(original)
+
+    # A toolchain bump for this suite's own proofs must be re-reviewed, not
+    # silently accepted because a sibling suite's pin still matches.
+    toolchain = scratch / "spec/formal/source-trust-history/lean-toolchain"
+    original_toolchain = toolchain.read_bytes()
+    try:
+        toolchain.write_bytes(original_toolchain.replace(b"v4.24.0", b"v0.2.40"))
+        check("unreviewed Lean toolchain",
+              "review source drift: spec/formal/source-trust-history/lean-toolchain")
+    finally:
+        toolchain.write_bytes(original_toolchain)
 
     # Even after its covered hash is changed, a different set of embedded
     # migrations must be explicitly reviewed before it can be executed.
