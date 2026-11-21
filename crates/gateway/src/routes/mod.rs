@@ -25,6 +25,9 @@ mod est_enrollment;
 mod est_records;
 pub(crate) mod est_server;
 mod est_wire;
+#[cfg(test)]
+#[path = "est_freshness.rs"]
+pub(crate) mod est_freshness;
 pub(crate) mod github_app;
 mod grant_offers;
 mod health;
