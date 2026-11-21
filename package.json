@@ -62,6 +62,7 @@
     "verify:spiffe-peer-domain-formal": "bash spec/formal/spiffe-peer-domain/verify.sh",
     "verify:spiffe-formal": "bash spec/formal/spiffe/verify.sh",
     "verify:webauthn-formal": "bash spec/formal/webauthn/verify.sh",
+    "verify:simplewebauthn-v14": "npm run verify:simplewebauthn-v14 -w @opensesame/auth-upstream",
     "verify:interaction-clock-formal": "bash spec/formal/interaction-clock/verify.sh",
     "test:redteam": "npm run redteam -w @opensesame/redteam",
     "test:visual": "npm run test:visual -w @opensesame/visual-contract",

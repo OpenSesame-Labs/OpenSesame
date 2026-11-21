@@ -23,7 +23,8 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "verify:simplewebauthn-v14": "vitest run src/__tests__/webauthn.test.ts src/__tests__/simplewebauthn-v14-surface.test.ts"
   },
   "dependencies": {
     "@opensesame/os-domain": "*",
