@@ -89,6 +89,13 @@ impl PreparedRequest {
     pub fn port(&self) -> Option<u16> {
         self.uri.port_u16()
     }
+
+    /// The explicit port or the default for the validated scheme.
+    #[must_use]
+    pub fn effective_port(&self) -> u16 {
+        self.port()
+            .unwrap_or(if self.scheme == "http" { 80 } else { 443 })
+    }
 }
 
 /// The fence's configuration: the rules it enforces and the two knobs tests

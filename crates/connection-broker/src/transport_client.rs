@@ -167,11 +167,10 @@ pub fn build_invoker(
     allow_loopback: bool,
 ) -> Result<Invoker, TransportError> {
     let Some(trust) = trust else {
-        // No configured trust profile: the connection uses the Host's ordinary
-        // Web PKI client. `mtls_required` never reaches here — `resolve_trust`
-        // refuses it — so this is only the `server_tls` path. The public WebPKI
-        // still verifies the URI hostname, while the dial is restricted to the
-        // addresses the preflight resolved and approved.
+        // No configured trust profile: WebPKI hostname verification still
+        // applies; only the dial is pinned to the vetted addresses so a
+        // second DNS lookup cannot rebind the credentialed request.
+        // `mtls_required` never reaches this branch.
         let invoker = Invoker::with_pinned_webpki(rules, &authority.host, &authority.addrs);
         return Ok(if allow_loopback {
             invoker.allow_http_for_tests()
@@ -203,6 +202,10 @@ pub fn build_invoker(
         invoker
     })
 }
+
+#[cfg(all(test, target_os = "linux"))]
+#[path = "transport_client_tests.rs"]
+mod tests;
 
 #[cfg(test)]
 mod address_tests {

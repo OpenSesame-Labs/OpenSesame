@@ -30,6 +30,7 @@
 //! looked like locators, and are resolved only through
 //! [`ClientIdentityResolver`](crate::transport::ClientIdentityResolver).
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -40,7 +41,7 @@ use opensesame_invoke_through::{
 use opensesame_transport_security::{TlsIdentity, TrustBundle};
 use secrecy::SecretString;
 
-use super::client::{build_invoker, resolve_pinned_authority, PinnedAuthority};
+use super::client::{build_invoker, is_internal, PinnedAuthority};
 use super::pool::{ConnectorClientPool, ConnectorPoolKey};
 use super::{
     ConnectionTransport, ConnectorResolvers, IdentityScope, TrustScope, PURPOSE_CONNECTOR_INVOKE,
@@ -213,6 +214,7 @@ impl ConnectorTransportExecutor {
         })?;
 
         // 6. Only now is the sealed credential opened, for this one request.
+        invoker.ensure_pinned_destination(&prepared)?;
         let token = credential.open_bearer(ctx).await?;
 
         // 7. The wire.
@@ -272,9 +274,33 @@ impl ConnectorTransportExecutor {
         &self,
         prepared: &PreparedRequest,
     ) -> Result<PinnedAuthority, TransportError> {
-        let host = prepared.host();
-        let port = prepared.port().unwrap_or(443);
-        resolve_pinned_authority(host, port, self.allow_loopback_for_tests).await
+        // Lowercased for the pinned record; `ensure_pinned_destination`
+        // compares hosts case-insensitively (`eq_ignore_ascii_case`), so a
+        // differently-cased request host still matches this pin.
+        let host = prepared.host().to_ascii_lowercase();
+        let port = prepared.effective_port();
+        let addrs: Vec<SocketAddr> = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            tokio::net::lookup_host((host.as_str(), port)),
+        )
+        .await
+        .map_err(|_| TransportError::malformed("connector authority resolution timed out"))?
+        .map_err(|_| TransportError::malformed("connector authority did not resolve"))?
+        .take(33)
+        .collect();
+        if addrs.is_empty()
+            || addrs.len() > 32
+            || (!self.allow_loopback_for_tests && addrs.iter().any(|addr| is_internal(addr.ip())))
+        {
+            return Err(TransportError::malformed(
+                "connector authority did not resolve exclusively to permitted addresses",
+            ));
+        }
+        Ok(PinnedAuthority {
+            label: format!("{host}:{port}"),
+            host,
+            addrs,
+        })
     }
 }
 

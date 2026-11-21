@@ -295,7 +295,31 @@ OPENSESAME_PROVIDER_<ID>_<FIELD>         # connection configuration or API key
 OPENSESAME_CONNECTION_KEY        # 32-byte base64; credential encryption key
 OPENSESAME_PUBLIC_URL            # base for building the callback redirect_uri (default http://127.0.0.1:8787)
 OPENSESAME_CONNECTION_REDIRECT_ALLOWLIST   # comma-separated post-consent return origins
+OPENSESAME_CUSTOM_PROVIDER_PRIVATE_ORIGINS # comma-separated HTTPS origins allowed to reach private networks
+OPENSESAME_CUSTOM_PROVIDER_TOKEN_ORIGINS   # comma-separated cross-origin custom OAuth token origins
 ```
+
+Custom-provider configuration belongs to a tenant; it does not grant access to
+the Host's private network. Before each custom-provider request or OAuth token
+exchange, the Host resolves the destination, rejects mixed or private DNS
+answers by default, and dials only the checked addresses without a proxy or
+redirects. An operator can explicitly permit an internal service with its
+exact scheme, hostname, and port in
+`OPENSESAME_CUSTOM_PROVIDER_PRIVATE_ORIGINS`, for example
+`https://vault.internal:8443`. A custom OAuth token endpoint on a different
+origin from the API additionally requires its exact origin in
+`OPENSESAME_CUSTOM_PROVIDER_TOKEN_ORIGINS`. Both settings are deployment-owned,
+read at startup, and are independent of tenant-supplied provider definitions.
+These grants are deployment-wide: any tenant allowed to create a custom
+provider can select an approved origin. Approve only services intended for
+all such tenants, or isolate Hosts when access must differ by organization.
+Unspecified, multicast, and broadcast destinations remain invalid. Existing
+custom providers that need these exceptions must be configured before use;
+their definitions are not deleted. DNS names may be registered before they
+resolve, but each connection is checked again immediately before use.
+The optional connector transport path has a separate public-address-only
+policy; the custom-provider private-origin grant does not enable private
+targets through that path.
 
 Without a usable `OPENSESAME_CONNECTION_KEY` the broker refuses to store credentials and every
 provider reports `configured: false` (naming the key in `missing_config`), rather than storing

@@ -67,6 +67,7 @@ impl Invoker {
         signer: &dyn RequestSigner,
         prepared: PreparedRequest,
     ) -> Result<InvokeResponse, InvokeError> {
+        self.ensure_pinned_destination(&prepared)?;
         if prepared.auth != AuthStyle::SigV4 {
             return Err(InvokeError::UnsupportedProvider(prepared.provider_id));
         }
