@@ -1770,14 +1770,14 @@
       "642b9c5d"
     ],
     "crates/gateway/src/routes/est_certificate_proof_tests.rs": [
-      "fa524fae",
-      "fb174dc0",
-      "5995a737",
-      "fd884117",
-      "eb063d10",
-      "622556bc",
-      "0385967a",
-      "83b464b1"
+      "95eaaaee",
+      "8a1e6f6d",
+      "9847cde8",
+      "d6edcf42",
+      "3b019080",
+      "bd420af3",
+      "5fcae24b",
+      "4ff8a5d5"
     ],
     "crates/gateway/src/routes/est_certificate_tls_tests.rs": [
       "419654a2",
@@ -1790,14 +1790,14 @@
       "717c457a"
     ],
     "crates/gateway/src/routes/est_certificate_freshness_tests.rs": [
-      "b5467c13",
-      "8c699a82",
-      "e5fe3118",
-      "b02a2978",
-      "7d9c6f07",
-      "0ecc703f",
-      "5cc30a92",
-      "c9fd6a35"
+      "ec77c61b",
+      "a787ae0f",
+      "57a0c9bb",
+      "0aa4e672",
+      "f3fa0b96",
+      "a8a39996",
+      "a0dfc279",
+      "148938e7"
     ],
     "crates/domain/src/lib.rs": [
       "2db2ace5",
@@ -2970,14 +2970,14 @@
       "a303b0a0"
     ],
     "crates/gateway/src/routes/mod.rs": [
-      "7daae548",
-      "2877e363",
-      "f056c33a",
-      "5370bbd5",
-      "afb69e80",
-      "a66919c6",
-      "e006078b",
-      "a101332b"
+      "d7c3af66",
+      "f8de9276",
+      "c38735c6",
+      "f2ca0bb1",
+      "cbf59aa2",
+      "14ac87dd",
+      "4874275d",
+      "143fe740"
     ],
     "crates/gateway/src/transport/admission.rs": [
       "97ee3c87",
@@ -3010,14 +3010,14 @@
       "89913c85"
     ],
     "crates/gateway/src/transport/boot_source_trust_tests.rs": [
-      "3c31af76",
-      "a565766f",
-      "d3eb03d9",
-      "77a22752",
-      "97c7d128",
-      "3d56d78b",
-      "f13de9da",
-      "69a70a40"
+      "bc3f0229",
+      "72371bab",
+      "586d3d6a",
+      "7364322d",
+      "dec9b0b5",
+      "178b0954",
+      "88c38666",
+      "849c2c0a"
     ],
     "crates/gateway/src/transport/boot_tests.rs": [
       "30dd640f",
@@ -3130,14 +3130,14 @@
       "1cf07153"
     ],
     "crates/gateway/src/transport/status.rs": [
-      "31d0a4ed",
-      "64fbe5bc",
-      "c0003b95",
-      "435f6c0c",
-      "3cd62eb5",
-      "f800c828",
-      "6c022be5",
-      "ee20f7f5"
+      "daac4453",
+      "00f33a61",
+      "1b5354ee",
+      "4bf9ea8f",
+      "9a2c5637",
+      "ed29ea48",
+      "5b231c49",
+      "a9a37fce"
     ],
     "crates/gateway/src/transport/test_support.rs": [
       "d7084b75",
@@ -7230,14 +7230,14 @@
       "6f36ed62"
     ],
     "crates/gateway/src/routes/est_freshness.rs": [
-      "34714a67",
-      "bb85f6bb",
-      "d7a19846",
-      "9aeef083",
-      "bec2fe26",
-      "378c3457",
-      "9db307e4",
-      "e5598990"
+      "e03f7d56",
+      "c50cb057",
+      "e7595b61",
+      "49a3f22d",
+      "d7ee7141",
+      "75cb718e",
+      "ab0115d7",
+      "4defbfba"
     ],
     "crates/gateway/src/routes/est_test_pause.rs": [
       "36c869c8",
@@ -7260,24 +7260,24 @@
       "83484ae5"
     ],
     "crates/gateway/src/transport/admission_source_tests.rs": [
-      "9499484a",
-      "1ff0b531",
-      "6764b85e",
-      "c46a774c",
-      "1310d741",
-      "eeaba84d",
-      "dde3e3ba",
-      "4d9ebc0c"
+      "f303c3ba",
+      "fe2ac5cc",
+      "412b965f",
+      "4110ea82",
+      "4b931ece",
+      "d3dd86d7",
+      "4db0c735",
+      "aada4db2"
     ],
     "crates/gateway/src/transport/status_tests.rs": [
-      "1707285e",
-      "321c8cda",
-      "e0a36acd",
-      "52632aaa",
-      "980d9fb0",
-      "bb2f17e5",
-      "7b2cd434",
-      "f2d16503"
+      "59b1b652",
+      "48d0246a",
+      "e33365a3",
+      "734148dc",
+      "15b6a083",
+      "780b161a",
+      "12d3afb4",
+      "d635702d"
     ],
     "crates/transport-security/src/generations.rs": [
       "626e1506",
@@ -7840,24 +7840,24 @@
       "7ed8abe4"
     ],
     "crates/gateway/src/transport_lifecycle/routes_tests.rs": [
-      "8fff72f8",
-      "872e0107",
-      "cf112399",
-      "1e0cabeb",
-      "8ccba24e",
-      "5f998fcf",
-      "5c0117ad",
-      "b5162fff"
+      "373004f9",
+      "6ff28ffa",
+      "eccd52a3",
+      "243cd81a",
+      "85b71b12",
+      "999e87cb",
+      "af5aff7f",
+      "63f7384f"
     ],
     "crates/gateway/src/transport_lifecycle/trust_history_tests.rs": [
-      "305735a4",
-      "c8235a90",
-      "d9a36c12",
-      "2ac66c43",
-      "f1e0c5e8",
-      "ea251ca4",
-      "193946c4",
-      "7580b8f2"
+      "de4a97c0",
+      "28587428",
+      "3660dcb5",
+      "925b4cbf",
+      "03769352",
+      "4a50bdd7",
+      "225d8e54",
+      "036352a0"
     ],
     "crates/gateway/src/transport_lifecycle/trust_store.rs": [
       "e107589e",
