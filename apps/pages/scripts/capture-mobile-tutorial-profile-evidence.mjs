@@ -65,6 +65,7 @@ import { BASE } from "./lib/verification-checklist-shot.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const defaultPagesRoot = path.join(here, "..");
+const workspaceRoot = path.resolve(defaultPagesRoot, "../..");
 
 function argValue(name) {
   const at = process.argv.indexOf(name);
@@ -128,7 +129,6 @@ function profileDigest(dir) {
   };
 }
 
-const workspaceRoot = path.resolve(defaultPagesRoot, "../..");
 const beforeSpawnEnv =
   phase === "before" && path.resolve(tree) !== path.resolve(workspaceRoot)
     ? {
