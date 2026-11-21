@@ -10,6 +10,49 @@ use super::{
     Row, StoredReceipt,
 };
 use crate::sealed;
+use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+
+/// Versioned digest of an invocation's authorization and operation context.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct IdempotencyFingerprint {
+    version: u8,
+    digest: String,
+}
+
+impl IdempotencyFingerprint {
+    /// Hash a canonical request binding under a dedicated domain.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when canonicalization fails.
+    pub fn from_request(binding: &Value) -> anyhow::Result<Self> {
+        Ok(Self {
+            version: 1,
+            digest: opensesame_domain::digest_json(&json!({
+                "domain": "OpenSesame/InvocationIdempotency/v1",
+                "binding": binding,
+            }))?,
+        })
+    }
+}
+
+/// A stored intent and its binding, absent only on pre-upgrade records.
+pub struct IdempotentIntent {
+    pub intent: Intent,
+    pub fingerprint: Option<IdempotencyFingerprint>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BoundIntent {
+    record_type: String,
+    intent: Intent,
+    fingerprint: IdempotencyFingerprint,
+}
+
+const BOUND_INTENT_TYPE: &str = "idempotent-intent-v1";
 
 impl Db {
     /// Persist an invocation intent and its idempotency key.
@@ -18,12 +61,35 @@ impl Db {
     ///
     /// Returns an error when serialization or insertion fails.
     pub async fn insert_intent(&self, intent: &Intent) -> anyhow::Result<()> {
+        self.insert_intent_json(intent, &serde_json::to_string(intent)?)
+            .await
+    }
+
+    /// Atomically reserve the key and its fingerprint in the sealed intent row.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the key was already reserved or insertion fails.
+    pub async fn insert_bound_intent(
+        &self,
+        intent: &Intent,
+        fingerprint: &IdempotencyFingerprint,
+    ) -> anyhow::Result<()> {
+        let body = serde_json::to_string(&BoundIntent {
+            record_type: BOUND_INTENT_TYPE.into(),
+            intent: intent.clone(),
+            fingerprint: fingerprint.clone(),
+        })?;
+        self.insert_intent_json(intent, &body).await
+    }
+
+    async fn insert_intent_json(&self, intent: &Intent, body: &str) -> anyhow::Result<()> {
         sqlx::query(
             "INSERT INTO intents (id, organization_id, body_json, idempotency_key, created_at) VALUES (?, ?, ?, ?, ?)",
         )
         .bind(intent.id.to_string())
         .bind(intent.organization_id.to_string())
-        .bind(sealed::seal_in(&intent.organization_id.to_string(), "intents.body_json", &intent.id.to_string(), &serde_json::to_string(intent)?))
+        .bind(sealed::seal_in(&intent.organization_id.to_string(), "intents.body_json", &intent.id.to_string(), body))
         .bind(&intent.idempotency_key)
         .bind(intent.issued_at.to_rfc3339())
         .execute(&self.pool)
@@ -199,6 +265,23 @@ impl Db {
         org: &OrganizationId,
         key: &str,
     ) -> anyhow::Result<Option<Intent>> {
+        Ok(self
+            .find_idempotent_intent(org, key)
+            .await?
+            .map(|record| record.intent))
+    }
+
+    /// Read an intent together with its stored binding, if present. It shares
+    /// the intent payload's at-rest protection when event sealing is enabled.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error for a malformed record or mismatched row binding.
+    pub async fn find_idempotent_intent(
+        &self,
+        org: &OrganizationId,
+        key: &str,
+    ) -> anyhow::Result<Option<IdempotentIntent>> {
         let row = sqlx::query(
             "SELECT id, body_json FROM intents WHERE organization_id = ? AND idempotency_key = ?",
         )
@@ -214,7 +297,30 @@ impl Db {
                     &r.get::<String, _>("id"),
                     &r.get::<String, _>("body_json"),
                 )?;
-                Some(serde_json::from_str(&body)?)
+                let value: Value = serde_json::from_str(&body)?;
+                let record = if value.get("record_type").is_some() {
+                    let bound: BoundIntent = serde_json::from_value(value)?;
+                    anyhow::ensure!(
+                        bound.record_type == BOUND_INTENT_TYPE,
+                        "unknown intent record type"
+                    );
+                    IdempotentIntent {
+                        intent: bound.intent,
+                        fingerprint: Some(bound.fingerprint),
+                    }
+                } else {
+                    IdempotentIntent {
+                        intent: serde_json::from_value(value)?,
+                        fingerprint: None,
+                    }
+                };
+                anyhow::ensure!(
+                    record.intent.id.to_string() == r.get::<String, _>("id")
+                        && record.intent.organization_id == *org
+                        && record.intent.idempotency_key == key,
+                    "stored intent does not match its idempotency row"
+                );
+                Some(record)
             }
             None => None,
         })
