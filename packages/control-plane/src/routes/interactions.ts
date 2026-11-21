@@ -27,6 +27,7 @@ import {
   mintProvisionalForInteraction,
   preferredProviderForDetails,
 } from "../interactions/handlers.js";
+import { normalizeIssuer } from "../interactions/issuer-normalization.js";
 import { beginOAuth2Auth } from "../interactions/oauth2.js";
 import { organizationHintForDetails } from "../interactions/organization-hint.js";
 import {
@@ -543,12 +544,15 @@ export function createInteractionRoutes(): Hono<
       throw error;
     }
 
-    // Resolved again rather than carried from the leg: the same read decides
-    // both what may be federated to and what its email claim is worth, and a
-    // value threaded through the pending cookie would be one a forged cookie
-    // could choose.
+    // Resolved again rather than carried from the leg: the same current read
+    // decides both what may be federated to and what its email claim is worth.
+    // The pending source is MAC-bound and must match this resolution below.
     const trust = await resolveTrustedIssuer(ctx, identity.issuer);
-    if (!trust || !callbackTrustMatchesPending(trust, pending)) {
+    if (
+      !trust ||
+      !callbackTrustMatchesPending(trust, pending) ||
+      normalizeIssuer(pending.issuer) !== normalizeIssuer(identity.issuer)
+    ) {
       return c.text("That sign-in provider is not trusted by this server", 403);
     }
 
@@ -665,27 +669,49 @@ export function createInteractionRoutes(): Hono<
     // itself already happened, and refusing here is what keeps a
     // deprovisioned employee out of the tenant.
     if (pending.orgId) {
-      const organization = await ctx.stores.organizations.get(pending.orgId);
-      if (organization) {
-        // A directory that pushed this subject into an owners group said so
-        // before the sign-in happened, and that is the tenant's answer about
-        // its own people — so it decides the role rather than `member` (C15).
-        const role = await provisionedRoleForSubject(
-          ctx,
-          organization.id,
-          identity.subject,
+      if (
+        trust.source !== "org" ||
+        trust.organizationId !== pending.orgId ||
+        normalizeIssuer(trust.issuer) !== normalizeIssuer(identity.issuer)
+      ) {
+        return c.text(
+          "That sign-in provider is not trusted by this server",
+          403,
         );
-        const joined = await jitJoinOrganization(ctx, {
-          organization,
-          principalId: accountId,
-          subject: identity.subject,
-          method: "sso",
-          correlationId,
-          ...(role !== undefined ? { role } : undefined),
-        });
-        if (!joined.ok) {
-          return c.text(joined.message, 403);
-        }
+      }
+      const organization = await ctx.stores.organizations.get(pending.orgId);
+      const configuredIssuer =
+        trust.method === "sso"
+          ? organization?.ssoIssuer
+          : organization?.samlIssuer;
+      if (
+        !organization ||
+        normalizeIssuer(configuredIssuer ?? "") !==
+          normalizeIssuer(trust.issuer)
+      ) {
+        return c.text(
+          "That sign-in provider is not trusted by this server",
+          403,
+        );
+      }
+      // A directory that pushed this subject into an owners group said so
+      // before the sign-in happened, and that is the tenant's answer about
+      // its own people — so it decides the role rather than `member` (C15).
+      const role = await provisionedRoleForSubject(
+        ctx,
+        organization.id,
+        identity.subject,
+      );
+      const joined = await jitJoinOrganization(ctx, {
+        organization,
+        principalId: accountId,
+        subject: identity.subject,
+        method: "sso",
+        correlationId,
+        ...(role !== undefined ? { role } : undefined),
+      });
+      if (!joined.ok) {
+        return c.text(joined.message, 403);
       }
     }
 
