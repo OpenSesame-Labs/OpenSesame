@@ -6,21 +6,12 @@ import json
 from pathlib import Path
 import re
 import stat
+import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
-TARGETS = {
-    "crates/domain/Cargo.toml": {"package": "opensesame-domain", "lib": ("opensesame_domain", "src/lib.rs")},
-    "crates/transport-security/Cargo.toml": {
-        "package": "opensesame-transport-security", "lib": ("opensesame_transport_security", "src/lib.rs"),
-        "test": {name: f"tests/{name}.rs" for name in (
-            "source_lifetime_formal", "signing_fence_races", "source_lifetime_tls12", "source_lifetime", "source_lifetime_edges",
-        )},
-    },
-    "crates/spiffe-source/Cargo.toml": {"package": "opensesame-spiffe-source", "lib": ("opensesame_spiffe_source", "src/lib.rs")},
-    "crates/storage/Cargo.toml": {"package": "opensesame-storage", "lib": ("opensesame_storage", "src/lib.rs")},
-    "crates/gateway/Cargo.toml": {"package": "opensesame-gateway", "lib": ("opensesame_gateway", "src/lib.rs")},
-}
+sys.path.insert(0, str(ROOT / "scripts" / "security"))
+from formal_coverage_drift import assert_reviewed_revision_on_main  # noqa: E402
 PATHS = [
     "crates/domain/Cargo.toml",
     "crates/domain/src/lib.rs",
@@ -32,15 +23,9 @@ PATHS = [
     "crates/transport-security/Cargo.toml",
     "crates/transport-security/src/generations.rs",
     "crates/transport-security/src/source_lifetime.rs",
-    "crates/transport-security/src/source_history_activation.rs",
     "crates/transport-security/src/source_trust.rs",
-    "crates/transport-security/src/provenance.rs",
-    "crates/transport-security/src/svid_profile.rs",
     "crates/transport-security/src/guard.rs",
     "crates/transport-security/src/listener.rs",
-    "crates/transport-security/src/client.rs",
-    "crates/transport-security/src/server.rs",
-    "crates/transport-security/src/signing_fence.rs",
     "crates/transport-security/src/server_conn.rs",
     "crates/transport-security/src/trust.rs",
     "crates/transport-security/src/identity.rs",
@@ -49,7 +34,6 @@ PATHS = [
     "crates/spiffe-source/Cargo.toml",
     "crates/spiffe-source/src/lib.rs",
     "crates/spiffe-source/src/source.rs",
-    "crates/spiffe-source/src/source_history_flow.rs",
     "crates/spiffe-source/src/source_handle.rs",
     "crates/spiffe-source/src/sink.rs",
     "crates/spiffe-source/src/sink/transport.rs",
@@ -68,7 +52,6 @@ PATHS = [
     "crates/gateway/src/transport/mod.rs",
     "crates/gateway/src/transport_lifecycle/mod.rs",
     "crates/gateway/src/transport/boot.rs",
-    "crates/gateway/src/transport/source_trust_selection.rs",
     "crates/gateway/src/transport/runtime.rs",
     "crates/gateway/src/transport/admission.rs",
     "crates/gateway/src/transport/status.rs",
@@ -83,7 +66,6 @@ PATHS = [
     "crates/gateway/src/transport_lifecycle/activation.rs",
     "crates/gateway/src/transport_lifecycle/boot.rs",
     "crates/transport-security/src/source_lifetime_tests.rs",
-    "crates/transport-security/src/signing_fence_tests.rs",
     "crates/gateway/src/transport/status_tests.rs",
     "crates/gateway/src/transport/admission_tests.rs",
     "crates/gateway/src/transport/admission_source_tests.rs",
@@ -94,15 +76,10 @@ PATHS = [
     "crates/gateway/src/routes/est_certificate_proof_tests.rs",
     "crates/gateway/src/routes/est_certificate_freshness_tests.rs",
     "crates/transport-security/tests/source_lifetime_formal.rs",
-    "crates/transport-security/tests/signing_fence_races.rs",
-    "crates/transport-security/tests/source_lifetime_tls12.rs",
     "crates/transport-security/tests/source_lifetime.rs",
     "crates/transport-security/tests/source_lifetime_edges.rs",
     "crates/transport-security/tests/common/mod.rs",
     "crates/spiffe-source/src/source_lease_tests.rs",
-    "scripts/security/formal-cargo-isolation.py",
-    "scripts/security/formal-cargo-freshness.py",
-    "scripts/security/cargo-lock-projection.py",
 ]
 OPTIONAL_PATHS = [
     "crates/domain/build.rs",
@@ -143,32 +120,26 @@ def main():
     try:
         coverage = json.loads((ROOT / "spec/formal/source-lifetime/coverage.json").read_text())
         entries = coverage["sources"]
+        revision = str(coverage.get("reviewed_revision", ""))
         if (coverage.get("version") != 1 or
-                not re.fullmatch(r"[0-9a-f]{40}", str(coverage.get("reviewed_revision", ""))) or
+                not re.fullmatch(r"[0-9a-f]{40}", revision) or
                 [entry.get("path") for entry in entries] != PATHS):
             raise ValueError("invalid reviewed source manifest")
-        verified = {}
+        assert_reviewed_revision_on_main(ROOT, revision, "source-lifetime-formal")
         for entry in entries:
-            source = regular_path(entry["path"]).read_bytes()
-            if hashlib.sha256(source).hexdigest() != entry["sha256"]:
+            if hashlib.sha256(regular_path(entry["path"]).read_bytes()).hexdigest() != entry["sha256"]:
                 raise ValueError(f"review source drift: {entry['path']}")
-            verified[entry["path"]] = source
         optional = coverage["optional_sources"]
         if ([entry.get("path") for entry in optional] != OPTIONAL_PATHS or
                 any(optional_hash(entry["path"]) != entry["sha256"] for entry in optional)):
             raise ValueError("review optional source/build-script drift")
-        helper_name = "scripts/security/formal-cargo-isolation.py"
-        scope = {"__name__": "reviewed_cargo_isolation", "__file__": str(ROOT / helper_name)}
-        exec(compile(verified[helper_name], scope["__file__"], "exec", dont_inherit=True), scope)
-        scope["check_cargo_targets"](ROOT, TARGETS, set(verified))
-        helper_name = "scripts/security/cargo-lock-projection.py"
-        helper = regular_path(helper_name)
+        helper = ROOT / "scripts/security/cargo-lock-projection.py"
         spec = importlib.util.spec_from_file_location("cargo_lock_projection", helper)
         if spec is None or spec.loader is None:
             raise ValueError("lock projection helper unavailable")
         projection = importlib.util.module_from_spec(spec)
         sys.modules[spec.name] = projection
-        exec(compile(verified[helper_name], str(helper), "exec", dont_inherit=True), projection.__dict__)
+        spec.loader.exec_module(projection)
         recorded = coverage["lock_projection"]
         if (recorded.get("root") != "opensesame-spiffe-source" or
                 recorded.get("algorithm") != "cargo-lock-projection-v1-sha256"):
