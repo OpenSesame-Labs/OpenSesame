@@ -1,4 +1,4 @@
-import type { BoundaryValue } from "@opensesame/os-domain";
+import { type BoundaryValue, overlapCast } from "@opensesame/os-domain";
 import type { HostRequestContext } from "./http.js";
 import { stringifyLosslessJson } from "./safe-json.js";
 
@@ -67,7 +67,9 @@ export function tasksApi(ctx: HostRequestContext) {
         "/api/v1/tasks/intents",
         {
           method: "POST",
-          body: stringifyLosslessJson(body),
+          // The request interface is a JSON boundary value at runtime; the
+          // lossless serializer takes the domain contract.
+          body: stringifyLosslessJson(overlapCast(body)),
         },
       );
     },

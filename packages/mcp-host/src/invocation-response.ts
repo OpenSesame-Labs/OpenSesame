@@ -23,6 +23,12 @@ type Readers = {
   reader?: ReadableStreamDefaultReader<Uint8Array>;
 };
 
+/** Body chunks in arrival order with their combined byte length. */
+type CollectedChunks = {
+  chunks: Uint8Array[];
+  total: number;
+};
+
 /** Prefer a BYOB reader; fall back where the stream does not offer one. */
 function acquireReaders(body: ReadableStream<Uint8Array>): Readers {
   try {
@@ -38,7 +44,7 @@ async function collectChunks(
   { byteReader, reader }: Readers,
   maxBytes: number,
   deadline: Promise<never>,
-): Promise<{ chunks: Uint8Array[]; total: number }> {
+): Promise<CollectedChunks> {
   // Do not reserve `maxBytes` up front. Freeze admission is 16 MiB; a short
   // body must not pin that much, and a chunk past the cap is not retained.
   const chunkLimit = 64 * 1024;

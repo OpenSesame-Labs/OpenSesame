@@ -89,9 +89,7 @@ describe("lossless JSON integers", () => {
       idempotency_key: "idem-1",
     });
     expect(calls[0]?.body).toContain('"amount":9007199254740993123456789');
-    const intent: BoundaryValue = overlapCast(
-      (frozen as { intent: unknown }).intent,
-    );
+    const intent: BoundaryValue = overlapCast(frozen).intent;
     expect(intent).toEqual({
       nonce: "n",
       canonical_arguments: { amount: BIG, count: 7 },

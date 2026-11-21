@@ -1,4 +1,5 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { JsonObject } from "@opensesame/os-domain";
 import { z } from "zod";
 import { hostFetch } from "./host-api.js";
 import {
@@ -42,7 +43,7 @@ type TaskInvokeArgs = {
   operation: string;
   resource: string;
   audience: string;
-  arguments: Record<string, unknown>;
+  arguments: JsonObject;
   idempotency_key?: string | undefined;
 };
 
@@ -131,7 +132,7 @@ export function registerFreezeTool(server: McpServer): void {
       operation: z.string(),
       resource: z.string(),
       audience: z.string(),
-      arguments: z.record(z.string(), z.unknown()).default({}),
+      arguments: z.record(z.string(), z.json()).default({}),
       idempotency_key: z.string().optional(),
     },
     async (args) => taskInvoke(args),

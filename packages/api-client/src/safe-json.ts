@@ -21,6 +21,12 @@ const ESCAPE = "~";
 
 const INTEGER_PATTERN = /^-?\d+$/;
 
+/** A copied string literal and the scan index just past its closing quote. */
+type StringLiteralScan = { chunk: string; next: number };
+
+/** A read number literal and the scan index just past its final character. */
+type NumberLiteralScan = { literal: string; next: number };
+
 /** Hide a caller's own sentinel-prefixed string from the reviver. */
 function escapeSentinelString(value: string): string {
   return value.startsWith(SENTINEL)
@@ -71,10 +77,7 @@ function quoteUnsafeIntegers(text: string): string {
 }
 
 /** Copy one string literal, opening quote through closing quote, verbatim. */
-function copyStringLiteral(
-  text: string,
-  start: number,
-): { chunk: string; next: number } {
+function copyStringLiteral(text: string, start: number): StringLiteralScan {
   let index = start + 1;
   while (index < text.length) {
     const char = text[index] ?? "";
@@ -91,10 +94,7 @@ function copyStringLiteral(
 }
 
 /** Read one JSON number literal starting at `start`. */
-function readNumberLiteral(
-  text: string,
-  start: number,
-): { literal: string; next: number } {
+function readNumberLiteral(text: string, start: number): NumberLiteralScan {
   let end = start;
   if (text[end] === "-") end += 1;
   while (end < text.length && /[0-9]/.test(text[end] ?? "")) end += 1;
@@ -155,7 +155,7 @@ function emit(value: BoundaryValue): string {
  * receives the exact digits it originally signed over. Throws on values JSON
  * cannot express; silent coercion would corrupt a signed digest input.
  */
-export function stringifyLosslessJson(value: unknown): string {
+export function stringifyLosslessJson(value: BoundaryValue): string {
   const boundary: BoundaryValue = overlapCast(value);
   return emit(boundary);
 }
