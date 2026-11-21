@@ -218,7 +218,12 @@ BUILD_PATHS = [str(Path(path).with_name("build.rs")) for path in MANIFESTS]
 OPTIONAL_PATHS = ["apps/Cargo.toml", "crates/Cargo.toml", *BUILD_PATHS, ".cargo/config", ".cargo/config.toml"]
 # A changed crate root could shadow include_str or redirect the module. Update
 # this trusted pin only with a separate review of migration name resolution.
-MIGRATION_ROOT_SHA256 = "98e0b2b10bb691e03068f0cb5b1a4f6f71674d3676cd6f7c1b08dacc95196856"
+# 2026-11-21 review: main #2725 changed `mod invocations` to `pub mod
+# invocations` (visibility only; the module already resolved to
+# src/invocations.rs). Migrations are still the literal MIGRATIONS table in
+# src/migrations.rs with include_str! paths, and this root change cannot
+# shadow or redirect them, so the pin moves to the reviewed current bytes.
+MIGRATION_ROOT_SHA256 = "eafab5f9688d370d28e57a9dc14232252b137cb22708ebd43c37578f994db327"
 CARGO_TARGETS = {
     'apps/cli/Cargo.toml': {'package': 'opensesame-cli',
         'bin': {'opensesame': 'src/main.rs'},
