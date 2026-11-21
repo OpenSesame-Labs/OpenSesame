@@ -168,6 +168,10 @@ type Modules = Awaited<ReturnType<typeof loadModules>>;
 /** The deterministic runtime, over the registries this build declares. */
 function buildRuntime(mods: Modules, host: SupportHost) {
   const { targets, routes, predicateState } = mods;
+  // No `reducedMotion` hand-off: the scroll renderer only ever scrolls with
+  // `behavior: "auto"` (instant), so there is no smooth scroll for a
+  // `prefers-reduced-motion` preference to suppress. Reduced-motion is
+  // satisfied by construction, not by a toggle.
   const renderer = mods.rendering.createScrollRenderer({
     resolveElement: targets.resolveGuideTargetElement,
   });

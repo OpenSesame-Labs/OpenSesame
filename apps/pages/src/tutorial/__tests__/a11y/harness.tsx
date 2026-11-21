@@ -135,6 +135,9 @@ export function mountSupport(options: SupportHarnessOptions): SupportHarness {
   });
   const fixtures = mountFixtures(options.targets ?? []);
   liveFixtures = fixtures;
+  // A11y note: reduced-motion holds without wiring here — the scroll renderer
+  // only scrolls instantly (`behavior: "auto"`), so there is no smooth scroll
+  // to suppress under `prefers-reduced-motion`.
   const renderer = createScrollRenderer({
     resolveElement: resolveGuideTargetElement,
   });
