@@ -229,6 +229,10 @@ async fn an_upstream_error_cannot_reflect_the_credential() {
     assert!(text.contains("400"));
     assert!(!text.contains("race-access"));
     assert!(!text.contains("cmFjZS1hY2Nlc3MtMQ=="));
+    assert!(
+        text.len() < 128,
+        "a status-only error stays bounded, no provider text escapes: {text}"
+    );
     assert_eq!(seen.lock().unwrap().auth[0], "Bearer race-access-1");
 }
 

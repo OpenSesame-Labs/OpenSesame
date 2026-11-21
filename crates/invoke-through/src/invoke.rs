@@ -29,7 +29,7 @@ use crate::error::InvokeError;
 use crate::fence::{EgressFence, PreparedRequest};
 use crate::scrub::{scrub_needles, scrub_needles_str, Needles};
 use crate::source::TokenSource;
-use crate::tls::{build_client, build_pinned_client, HttpsClient, TlsClientSpec};
+use crate::tls::{build_client, HttpsClient, TlsClientSpec};
 
 #[path = "invoke_pinning.rs"]
 mod pinning;
@@ -151,7 +151,9 @@ impl Invoker {
         authority_host: &str,
         addresses: &[SocketAddr],
     ) -> Self {
-        Self::from_client(build_pinned_client(authority_host, addresses), rules)
+        // `with_pinned` also records the approved host and addresses so
+        // `ensure_pinned_destination` binds every preflighted request to them.
+        Self::with_pinned(rules, authority_host, addresses)
     }
 
     /// Broker over an explicit rule set and an injected, already-validated

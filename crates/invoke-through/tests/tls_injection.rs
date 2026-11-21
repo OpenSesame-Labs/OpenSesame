@@ -329,7 +329,8 @@ async fn a_pinned_client_dials_nothing_but_its_authority() {
     )
     .await
     .expect_err("not the pinned authority");
-    assert!(matches!(err, InvokeError::Transport(_)), "{err}");
+    // The pinned-destination check fires at preflight, before any dial.
+    assert!(matches!(err, InvokeError::EgressDenied { .. }), "{err}");
     assert_eq!(served.seen.hits.load(Ordering::SeqCst), 0);
 }
 
