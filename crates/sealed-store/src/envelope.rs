@@ -254,6 +254,12 @@ pub(crate) fn open_osseal_for_path(
 
 /// Open only the old unbound format for an explicit, trusted-source migration.
 /// Authenticity of the bytes does not establish their logical name or age.
+///
+/// Legacy envelopes predate positive revision accounting — the old reader
+/// reported revision 0 for every one of them — so the revision carried here
+/// may be zero. It only feeds the associated-data digest check; the rebound
+/// blob always receives a fresh, positive revision from the witness state,
+/// and the ordinary readers still reject revision 0.
 pub(crate) fn open_legacy_for_trusted_migration(
     blob: &[u8],
     content_key: &ItemDataKey,
@@ -263,14 +269,14 @@ pub(crate) fn open_legacy_for_trusted_migration(
     }
     let body: OssealBody = serde_json::from_slice(&blob[OSSEAL_MAGIC.len()..])
         .map_err(|e| StoreError::Crypto(e.to_string()))?;
-    let revision = body.envelope.ad.revision;
-    if revision == 0 {
-        return Err(StoreError::Crypto("entry revision must be positive".into()));
-    }
     decrypt_item_with_ad(
         content_key,
         &body.envelope,
-        &store_ad_in(COLLECTION_ENTRIES, LEGACY_ITEM_ID, revision),
+        &store_ad_in(
+            COLLECTION_ENTRIES,
+            LEGACY_ITEM_ID,
+            body.envelope.ad.revision,
+        ),
     )
     .map_err(|e| StoreError::Crypto(e.to_string()))
 }

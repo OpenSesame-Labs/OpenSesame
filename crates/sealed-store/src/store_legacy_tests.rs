@@ -79,6 +79,27 @@ fn explicit_migration_binds_the_verified_name_and_rejects_replay() {
 }
 
 #[test]
+fn trusted_migration_opens_legacy_envelopes_without_a_revision() {
+    let (dir, root, key) = setup();
+    // Pre-migration envelopes predate positive revision accounting; the old
+    // reader reported revision 0 for every one of them. The trusted migration
+    // must still open such a blob, while ordinary readers keep refusing it.
+    let old = legacy_blob(&key, b"revision zero legacy\n", 0);
+    fs::write(dir.path().join("Dev/a.osseal"), &old).unwrap();
+    assert!(root.show("Dev/a", &key).is_err());
+    assert!(!dir.path().join(".opensesame-revisions.json").exists());
+
+    root.migrate_legacy_entry_trusting_name("Dev/a", &key)
+        .unwrap();
+    root.migrate_rollback_anchor(&key).unwrap();
+    assert_eq!(
+        root.show("Dev/a", &key).unwrap().secret,
+        "revision zero legacy"
+    );
+    assert_eq!(root.revisions().unwrap().get("Dev/a"), Some(&1));
+}
+
+#[test]
 fn the_old_generic_item_id_cannot_collide_with_a_real_entry_name() {
     let (dir, root, key) = setup();
     // Earlier name-bound versions could also create this literal name with
