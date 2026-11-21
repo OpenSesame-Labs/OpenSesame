@@ -7518,14 +7518,14 @@
       "78bc126b"
     ],
     "crates/transport-security/tests/source_lifetime.rs": [
-      "8b5992d1",
-      "377c243f",
-      "a5ba3c95",
-      "52cdbfee",
-      "7ad88a7e",
-      "364c56ff",
-      "0ab51f77",
-      "8aa7f5dd"
+      "6aa6b649",
+      "2f010519",
+      "6ad6c8a6",
+      "5ebd9862",
+      "9461eb07",
+      "73d41591",
+      "93430d68",
+      "85fabf38"
     ],
     "crates/transport-security/tests/source_lifetime_edges.rs": [
       "919e5a39",
@@ -7988,14 +7988,14 @@
       "0c72191d"
     ],
     "crates/spiffe-source/src/source.rs": [
-      "7b0cbb48",
-      "503427cc",
-      "dd3cc67d",
-      "fe972bd6",
-      "25046246",
-      "8fc569ec",
-      "0c84600a",
-      "f22d7021"
+      "021a25db",
+      "40801d1e",
+      "677c8487",
+      "d7e54d48",
+      "376001c0",
+      "4896f3f8",
+      "0a36157a",
+      "7d531871"
     ],
     "crates/spiffe-source/src/source_history_flow.rs": [
       "19b03ad5",
