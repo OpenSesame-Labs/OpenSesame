@@ -72,18 +72,19 @@ export function recordPendingInvocationRecovery(
   intent: FrozenIntentContext,
 ): void {
   if (!current) return;
+  const pendingInvocationRecovery: PendingInvocationRecovery = {
+    intentId: intent.intentId,
+    intentDigest: intent.intentDigest,
+    operation: intent.operation,
+    resource: intent.resource,
+    audience: intent.audience,
+  };
+  if (intent.reservedReceiptId !== undefined) {
+    pendingInvocationRecovery.reservedReceiptId = intent.reservedReceiptId;
+  }
   current = {
     ...current,
-    pendingInvocationRecovery: {
-      intentId: intent.intentId,
-      intentDigest: intent.intentDigest,
-      operation: intent.operation,
-      resource: intent.resource,
-      audience: intent.audience,
-      ...(intent.reservedReceiptId !== undefined
-        ? { reservedReceiptId: intent.reservedReceiptId }
-        : {}),
-    },
+    pendingInvocationRecovery,
   };
 }
 

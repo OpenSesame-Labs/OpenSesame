@@ -7,6 +7,8 @@ import {
 } from "./invocation-response.js";
 import { isHostReceiptId } from "./receipt-outcome.js";
 import {
+  type FrozenIntentContext,
+  type TaskContext,
   clearFrozenIntent,
   getTaskContext,
   setTaskContext,
@@ -20,9 +22,11 @@ export function registerFreezeTool(server: McpServer): void {
     task_run_id: safeTokenSchema.optional(),
     task_state_version: z.number().int().nonnegative().optional(),
     canonical_arguments: z.unknown().optional(),
+    receipt_id: z.string().optional(),
   });
   const intentAgentResponseSchema = intentResponseSchema.omit({
     canonical_arguments: true,
+    receipt_id: true,
   });
   server.tool(
     "task_invoke",
@@ -73,35 +77,32 @@ export function registerFreezeTool(server: McpServer): void {
           throw new Error("freeze_refused");
         const projected = agentJson(body, true, intentAgentResponseSchema);
         if (getTaskContext() !== freezeContext) throw new Error("task_changed");
-        const receiptId =
-          typeof body === "object" &&
-          body !== null &&
-          "receipt_id" in body &&
-          typeof body.receipt_id === "string" &&
-          isHostReceiptId(body.receipt_id)
-            ? body.receipt_id
-            : undefined;
+        const parsedReceiptId = intentResponse.data.receipt_id;
         const preserved =
           freezeContext?.taskRunId === ctx.taskRunId
             ? freezeContext.pendingInvocationRecovery
             : undefined;
-        setTaskContext({
-          ...(preserved ? { pendingInvocationRecovery: preserved } : {}),
+        const frozenIntent: FrozenIntentContext = {
+          intentId: intentResponse.data.intent_id,
+          intentDigest: intentResponse.data.intent_digest,
+          operation,
+          resource,
+          audience,
+          canonicalArguments: intentResponse.data.canonical_arguments ?? args,
+        };
+        if (parsedReceiptId !== undefined && isHostReceiptId(parsedReceiptId)) {
+          frozenIntent.reservedReceiptId = parsedReceiptId;
+        }
+        const next: TaskContext = {
           taskRunId: ctx.taskRunId,
           stateVersion:
             intentResponse.data.task_state_version ?? ctx.stateVersion,
-          frozenIntent: {
-            intentId: intentResponse.data.intent_id,
-            intentDigest: intentResponse.data.intent_digest,
-            operation,
-            resource,
-            audience,
-            canonicalArguments: intentResponse.data.canonical_arguments ?? args,
-            ...(receiptId !== undefined
-              ? { reservedReceiptId: receiptId }
-              : {}),
-          },
-        });
+          frozenIntent,
+        };
+        if (preserved !== undefined) {
+          next.pendingInvocationRecovery = preserved;
+        }
+        setTaskContext(next);
         return {
           content: textContent(projected),
           isError: false,
