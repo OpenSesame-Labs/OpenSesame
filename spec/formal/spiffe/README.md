@@ -28,6 +28,10 @@ rooted at `opensesame-spiffe-source` (no `--dependency` filter), alongside
 reviewed source hashes bound to git blobs. A fake
 Workload API test also exercises withdrawal and recovery through the production
 `TransportGenerationsSink` and checks the resulting manager state.
+When a reduced-trust snapshot withdraws the current generation and its
+replacement is then refused, the test waits for that refusal and checks that
+the source remains withdrawn. The later rejection is the last reported error;
+the sink event records the earlier trust withdrawal.
 
 Run `bash spec/formal/spiffe/verify.sh` from the repository root after installing
 Lean as pinned by `lean-toolchain` and the repository's Rust toolchain. Set
