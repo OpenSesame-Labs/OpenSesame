@@ -139,7 +139,7 @@ test("a changed closure later reverted in pushed history still selects the suite
   expectPush(f, true);
 });
 
-test("a new policy and root require runner metadata first", (t) => {
+test("a newly introduced root and policy select the proof suite", (t) => {
   const f = fixture(t);
   f.write("Cargo.lock", lock({ root: false }));
   installHook(f);
@@ -164,10 +164,7 @@ test("a new policy and root require runner metadata first", (t) => {
   f.write("spec/formal/spiffe/proof", "proof\n");
   f.write("Cargo.lock", lock());
   f.commit();
-  const result = push(f, "HEAD", "refs/heads/main");
-  assert.notEqual(result.status, 0, result.stdout);
-  assert.match(result.stderr, /formal runner .*missing/i);
-  assert.deepEqual(f.commands(), []);
+  expectPush(f, true);
 });
 
 test("removing a root selects the suite; absence in both revisions does not", (t) => {
@@ -366,9 +363,40 @@ test("bad lock input, missing helper, and dishonest Python output cannot skip pr
     }
     const result = push(f, "HEAD", "refs/heads/main");
     assert.notEqual(result.status, 0, kind);
-    assert.match(result.stderr, /lock projection/i, kind);
+    assert.match(result.stderr, /lock projection|clean worktree/i, kind);
     assert.deepEqual(f.commands(), []);
   }
+});
+
+test("a committed weakened lock helper cannot skip the mapped proof suites", (t) => {
+  const { f } = initialize(t);
+  f.write("Cargo.lock", lock({ sdk: "e" }));
+  f.write(
+    "scripts/security/cargo-lock-projection.py",
+    'print("{\\"changed\\":false}")\n',
+  );
+  f.commit();
+  const result = push(f, "HEAD", "refs/heads/main");
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(f.commands(), ["run verify:spiffe"]);
+});
+
+test("a committed weakened lock selector cannot skip the mapped proof suites", (t) => {
+  // The trusted controller gate runs against a worktree whose lock-history
+  // selector was rewritten. The selector is an executable gate input, so it
+  // is validated against the incoming trusted main revision; on mismatch
+  // every projection suite is selected instead of trusting the comparison.
+  const { f, base } = initialize(t);
+  f.write("Cargo.lock", lock({ sdk: "e" }));
+  f.write(
+    "scripts/security/formal-proof-lock-history.mjs",
+    'export function lockAffectedSuites() { return new Set(); }\n',
+  );
+  f.commit();
+  const head = f.git("rev-parse", "HEAD");
+  const result = f.run(f.tuple(head, base));
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(f.commands(), ["run verify:spiffe"]);
 });
 
 test("native push executes the verified helper even if its source changes afterward", (t) => {
