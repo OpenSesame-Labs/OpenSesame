@@ -73,6 +73,21 @@ describe("task_invoke_l1 receipt outcomes", () => {
     else process.env.OPENSESAME_HOST_API = originalHost;
   });
 
+  it("refuses success without a receipt id", async () => {
+    setFetchForTests(
+      async () =>
+        new Response(
+          JSON.stringify({ outcome: "succeeded", receipt_schema_version: 6 }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+    );
+    const result = resultSchema.parse(await invokeHandler()({}));
+    expect(result.isError).toBe(true);
+  });
+
   it.each([
     { outcome: "succeeded", status: 200, isError: false },
     { outcome: "failed", status: 200, isError: true },
