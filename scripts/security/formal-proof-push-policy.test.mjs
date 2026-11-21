@@ -235,6 +235,37 @@ test("overlapping authority, SPIFFE, and lifetime mappings all run, but an unrel
 });
 
 
+test("signing implementation changes select the lifetime proof without selecting proof-only edits", (t) => {
+  const suite = requirements.suites.find(
+    (entry) => entry.id === "source-lifetime",
+  );
+  const implementation = [
+    "crates/transport-security/src/client.rs",
+    "crates/transport-security/src/server.rs",
+    "crates/transport-security/src/signing_fence.rs",
+  ];
+  for (const path of implementation)
+    assert.ok(suite.implementation.includes(path));
+  for (const changed of [
+    ...implementation,
+    suite.proofs[0],
+    "docs/unrelated.md",
+  ]) {
+    const f = fixture(t);
+    seedRequiredSuite(f, suite);
+    const base = f.commit();
+    f.write(changed, "changed\n");
+    const target = f.commit();
+    const result = f.run(f.tuple(target, base));
+    assert.equal(result.status, 0, `${changed}: ${result.stderr}`);
+    assert.deepEqual(
+      f.commands(),
+      implementation.includes(changed) ? [`run ${suite.command[2]}`] : [],
+    );
+  }
+});
+
+
 test("a historical base may predate a newly registered suite", (t) => {
   const f = fixture(t);
   const suite = requirements.suites.find((entry) => entry.id === "oauth");
