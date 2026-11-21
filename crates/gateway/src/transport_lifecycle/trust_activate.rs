@@ -95,6 +95,12 @@ fn prepare_with_quarantine(
     if let Some(reason) = &current.withdrawn {
         return Err(TrustError::Withdrawn(reason.clone()));
     }
+    generations
+        .checked_current(Some(current.number))
+        .map_err(|error| match error {
+            TransportError::GenerationStale => TrustError::GenerationChanged,
+            other => TrustError::Invalid(other),
+        })?;
     let source = generations
         .source_trust(current.number)
         .map_err(TrustError::Invalid)?;
