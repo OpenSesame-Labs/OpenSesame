@@ -11,6 +11,7 @@ use chacha20poly1305::{
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
+use std::sync::OnceLock;
 use thiserror::Error;
 use zeroize::Zeroizing;
 use zeroize::{Zeroize, ZeroizeOnDrop};
@@ -176,7 +177,7 @@ pub struct SyncStore {
     /// id -> (epoch, ciphertext)
     pub(crate) entries: BTreeMap<String, (u64, Vec<u8>)>,
     pub(crate) cursor: SyncCursor,
-    key_guard: Option<Zeroizing<[u8; 32]>>,
+    key_guard: OnceLock<Zeroizing<[u8; 32]>>,
 }
 
 impl SyncStore {
@@ -187,7 +188,7 @@ impl SyncStore {
                 device_id: device_id.into(),
                 epoch: 0,
             },
-            key_guard: None,
+            key_guard: OnceLock::new(),
         }
     }
 
@@ -201,7 +202,7 @@ impl SyncStore {
         let guard = blake3::keyed_hash(key.as_bytes(), b"OpenSesame sync store key v2");
         if self
             .key_guard
-            .as_ref()
+            .get()
             .is_some_and(|known| blake3::Hash::from(**known) != guard)
         {
             return Err(ClientCoreError::WrongKey);
@@ -209,8 +210,14 @@ impl SyncStore {
         Ok(guard)
     }
 
-    fn remember_key(&mut self, guard: blake3::Hash) {
-        self.key_guard = Some(Zeroizing::new(*guard.as_bytes()));
+    fn remember_key(&self, guard: blake3::Hash) -> Result<(), ClientCoreError> {
+        let known = self
+            .key_guard
+            .get_or_init(|| Zeroizing::new(*guard.as_bytes()));
+        if blake3::Hash::from(**known) != guard {
+            return Err(ClientCoreError::WrongKey);
+        }
+        Ok(())
     }
 
     ///
@@ -234,10 +241,10 @@ impl SyncStore {
             .ok_or(ClientCoreError::EpochExhausted)?;
         let blob = sync_auth::seal_blob(key, id, epoch, plaintext)?;
         sync_limits::validate_capacity(&self.entries, std::slice::from_ref(&blob))?;
+        self.remember_key(guard)?;
         self.entries
             .insert(blob.id.clone(), (epoch, blob.ciphertext.clone()));
         self.cursor.epoch = epoch;
-        self.remember_key(guard);
         Ok(blob)
     }
 
@@ -265,7 +272,8 @@ impl SyncStore {
     }
 
     /// Authenticate every remote blob before applying any of them.
-    /// Higher authenticated epoch wins; equal epoch with different ciphertext is an error.
+    /// Last-writer-wins by higher authenticated epoch. Different ciphertexts
+    /// at the same item and epoch are a conflict, not a retry.
     ///
     /// # Errors
     ///
@@ -280,11 +288,12 @@ impl SyncStore {
         Ok(self.cursor.clone())
     }
 
+    /// Return a full reconciliation set. A scalar epoch from another device
+    /// cannot safely identify all items it has already seen.
     #[must_use]
-    pub fn collect_outgoing(&self, since: &SyncCursor) -> Vec<SyncBlob> {
+    pub fn collect_outgoing(&self, _since: &SyncCursor) -> Vec<SyncBlob> {
         self.entries
             .iter()
-            .filter(|(_, (ep, _))| *ep > since.epoch)
             .map(|(id, (epoch, ct))| SyncBlob {
                 id: id.clone(),
                 epoch: *epoch,
@@ -305,7 +314,7 @@ impl SyncStore {
     /// # Errors
     ///
     /// Returns an error when validation or the underlying operation fails.
-    pub fn to_persisted_json(&mut self, key: &DeviceKey) -> Result<String, ClientCoreError> {
+    pub fn to_persisted_json(&self, key: &DeviceKey) -> Result<String, ClientCoreError> {
         let guard = self.checked_key(key)?;
         let blobs: Vec<SyncBlob> = self
             .entries
@@ -327,6 +336,7 @@ impl SyncStore {
         let json =
             serde_json::to_string(&p).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
         sync_limits::check_json_size(json.len())?;
+        self.remember_key(guard)?;
         Ok(json)
     }
 
@@ -354,6 +364,7 @@ impl SyncStore {
             ));
         }
         store.cursor.epoch = p.cursor.epoch;
+        store.remember_key(store.checked_key(key)?)?;
         Ok(store)
     }
 }
