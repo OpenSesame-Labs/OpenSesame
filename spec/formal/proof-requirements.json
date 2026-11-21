@@ -17,7 +17,11 @@
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": ["npm", "run", "verify:auth-formal"]
+      "command": [
+        "npm",
+        "run",
+        "verify:auth-formal"
+      ]
     },
     {
       "id": "oauth",
@@ -37,7 +41,11 @@
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": ["npm", "run", "verify:oauth-formal"]
+      "command": [
+        "npm",
+        "run",
+        "verify:oauth-formal"
+      ]
     },
     {
       "id": "webauthn",
@@ -54,7 +62,11 @@
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": ["npm", "run", "verify:webauthn-formal"]
+      "command": [
+        "npm",
+        "run",
+        "verify:webauthn-formal"
+      ]
     },
     {
       "id": "interaction-clock",
@@ -84,7 +96,11 @@
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": ["npm", "run", "verify:interaction-clock-formal"]
+      "command": [
+        "npm",
+        "run",
+        "verify:interaction-clock-formal"
+      ]
     },
     {
       "id": "authority",
@@ -190,7 +206,11 @@
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": ["npm", "run", "verify:authority-formal"]
+      "command": [
+        "npm",
+        "run",
+        "verify:authority-formal"
+      ]
     },
     {
       "id": "dpop",
@@ -211,7 +231,11 @@
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": ["npm", "run", "verify:dpop-formal"]
+      "command": [
+        "npm",
+        "run",
+        "verify:dpop-formal"
+      ]
     },
     {
       "id": "spiffe",
@@ -255,7 +279,11 @@
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": ["npm", "run", "verify:spiffe-formal"]
+      "command": [
+        "npm",
+        "run",
+        "verify:spiffe-formal"
+      ]
     },
     {
       "id": "source-lifetime",
@@ -333,11 +361,20 @@
       "proofs": [
         "spec/formal/source-lifetime/SourceLifetime.lean",
         "spec/formal/source-lifetime/required-theorems.lean",
+        "spec/formal/source-lifetime/verify.sh",
+        "spec/formal/source-lifetime/check-drift.py",
+        "spec/formal/source-lifetime/coverage.json",
+        "spec/formal/source-lifetime/negative-controls.py",
+        "spec/formal/source-lifetime/NEGATIVE-CONTROLS.md",
         "spec/formal/required-theorem-command.lean",
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": ["npm", "run", "verify:source-lifetime-formal"]
+      "command": [
+        "npm",
+        "run",
+        "verify:source-lifetime-formal"
+      ]
     },
     {
       "id": "source-trust-selection",
@@ -513,7 +550,11 @@
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": ["npm", "run", "verify:source-trust-selection-formal"],
+      "command": [
+        "npm",
+        "run",
+        "verify:source-trust-selection-formal"
+      ],
       "manifestProjection": {
         "path": "Cargo.toml",
         "package": "crates/gateway/Cargo.toml",
@@ -805,7 +846,11 @@
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": ["npm", "run", "verify:spiffe-peer-domain-formal"]
+      "command": [
+        "npm",
+        "run",
+        "verify:spiffe-peer-domain-formal"
+      ]
     },
     {
       "id": "nats-trust-rotation",
@@ -868,7 +913,11 @@
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": ["npm", "run", "verify:nats-trust-formal"]
+      "command": [
+        "npm",
+        "run",
+        "verify:nats-trust-formal"
+      ]
     },
     {
       "id": "source-history",
@@ -1206,7 +1255,11 @@
         "spec/formal/check-axioms.sh",
         "spec/formal/check-axioms.test.mjs"
       ],
-      "command": ["npm", "run", "verify:source-history-formal"]
+      "command": [
+        "npm",
+        "run",
+        "verify:source-history-formal"
+      ]
     }
   ]
 }
