@@ -84,6 +84,14 @@ const suiteMinimums = {
     "spec/formal/webauthn/vitest.config.ts",
     "spec/formal/webauthn/negative-controls.py",
   ],
+  "interaction-clock": [
+    "spec/formal/interaction-clock/verify.sh",
+    "spec/formal/interaction-clock/check-drift.mjs",
+    "spec/formal/interaction-clock/check-report.mjs",
+    "scripts/test/formal-vitest-report.mjs",
+    "spec/formal/interaction-clock/vitest.config.ts",
+    "spec/formal/interaction-clock/negative-controls.py",
+  ],
   authority: [
     "spec/formal/authority/check.sh",
     "spec/formal/authority/check-drift.py",

@@ -206,66 +206,6 @@ test("a new or transient local build script selects its covered proof suites", (
   }
 });
 
-test("overlapping authority, SPIFFE, and lifetime mappings all run, but an unrelated edit skips", (t) => {
-  const path = "crates/domain/Cargo.toml";
-  const selected = requirements.suites.filter((entry) =>
-    entry.implementation.includes(path),
-  );
-  assert.deepEqual(
-    selected.map((entry) => entry.id),
-    ["authority", "spiffe", "source-lifetime"],
-  );
-  for (const changed of [path, "docs/unrelated.md"]) {
-    const f = fixture(t);
-    seedRequiredSuite(f, selected[0]);
-    for (const entry of selected)
-      for (const proof of entry.proofs) f.write(proof, "proof\n");
-    const base = f.commit();
-    f.write(changed, "changed\n");
-    const target = f.commit();
-    const result = f.run(f.tuple(target, base));
-    assert.equal(result.status, 0, result.stderr);
-    assert.deepEqual(
-      f.commands(),
-      changed === path
-        ? selected.map((entry) => `run ${entry.command[2]}`)
-        : [],
-    );
-  }
-});
-
-
-test("signing implementation changes select the lifetime proof without selecting proof-only edits", (t) => {
-  const suite = requirements.suites.find(
-    (entry) => entry.id === "source-lifetime",
-  );
-  const implementation = [
-    "crates/transport-security/src/client.rs",
-    "crates/transport-security/src/server.rs",
-    "crates/transport-security/src/signing_fence.rs",
-  ];
-  for (const path of implementation)
-    assert.ok(suite.implementation.includes(path));
-  for (const changed of [
-    ...implementation,
-    suite.proofs[0],
-    "docs/unrelated.md",
-  ]) {
-    const f = fixture(t);
-    seedRequiredSuite(f, suite);
-    const base = f.commit();
-    f.write(changed, "changed\n");
-    const target = f.commit();
-    const result = f.run(f.tuple(target, base));
-    assert.equal(result.status, 0, `${changed}: ${result.stderr}`);
-    assert.deepEqual(
-      f.commands(),
-      implementation.includes(changed) ? [`run ${suite.command[2]}`] : [],
-    );
-  }
-});
-
-
 test("a new suite needs runner metadata after a historical base", (t) => {
   const f = fixture(t);
   const suite = requirements.suites.find((entry) => entry.id === "oauth");
@@ -453,4 +393,61 @@ test("historical requirements are parsed as data, never executed", (t) => {
   assert.match(result.stderr, /Invalid formal proof requirements/);
   assert.equal(existsSync(marker), false);
   assert.deepEqual(f.commands(), []);
+});
+
+test("durable history and shared source modules select only their mapped proofs", (t) => {
+  const cases = [
+    [
+      "crates/gateway/src/transport/source_history/file_lock.rs",
+      ["source-history"],
+    ],
+    [
+      "crates/spiffe-source/src/source_history_flow.rs",
+      ["spiffe", "source-lifetime", "source-trust-selection", "source-history"],
+    ],
+    [
+      "crates/transport-security/src/source_history_activation.rs",
+      [
+        "spiffe",
+        "source-lifetime",
+        "source-trust-selection",
+        "spiffe-peer-domain",
+        "source-history",
+      ],
+    ],
+    ["spec/formal/source-trust-history/SourceTrustHistory.lean", []],
+    ["docs/unrelated.md", []],
+  ];
+  const history = requirements.suites.find(
+    (entry) => entry.id === "source-history",
+  );
+  assert.ok(history);
+  for (const [path, expected] of cases) {
+    const selected = requirements.suites.filter((entry) =>
+      entry.implementation.includes(path),
+    );
+    assert.deepEqual(
+      selected.map((entry) => entry.id),
+      expected,
+      path,
+    );
+    for (const reverted of [false, true]) {
+      const f = fixture(t);
+      seedRequiredSuite(f, history);
+      for (const entry of selected)
+        for (const proof of entry.proofs) f.write(proof, "proof\n");
+      f.write(path, "before\n");
+      const base = f.commit();
+      f.write(path, "changed\n");
+      f.commit();
+      if (reverted) f.write(path, "before\n");
+      const target = reverted ? f.commit() : f.git("rev-parse", "HEAD").trim();
+      const result = f.run(f.tuple(target, base));
+      assert.equal(result.status, 0, `${path}: ${result.stderr}`);
+      assert.deepEqual(
+        f.commands(),
+        selected.map((entry) => `run ${entry.command[2]}`),
+      );
+    }
+  }
 });

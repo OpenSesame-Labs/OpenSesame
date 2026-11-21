@@ -226,5 +226,21 @@
     ],
     [".cargo"],
     []
+  ],
+  [
+    "suite",
+    "interaction-clock",
+    "verify:interaction-clock-formal",
+    [
+      "spec/formal/interaction-clock/verify.sh",
+      "spec/formal/interaction-clock/check-drift.mjs",
+      "spec/formal/interaction-clock/check-report.mjs",
+      "scripts/test/formal-vitest-report.mjs",
+      "spec/formal/interaction-clock/vitest.config.ts",
+      "spec/formal/interaction-clock/negative-controls.py",
+      "spec/formal/interaction-clock/required-theorems.lean"
+    ],
+    [],
+    []
   ]
 ]
