@@ -51,6 +51,37 @@ pub(super) fn execution_bootstrap_for_organization(
     Ok(boot)
 }
 
+/// Load the configured root grant and prove that the durable row and ancestry
+/// fence still describe that exact grant. The process-local bootstrap is a
+/// routing hint, never current authority by itself.
+pub(super) async fn active_execution_bootstrap_for_organization(
+    st: &AppState,
+    organization_id: &OrganizationId,
+    principal_id: &PrincipalId,
+) -> Result<crate::app_state::Bootstrap, Response> {
+    let unavailable = || {
+        err_json(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "organization_execution_unavailable",
+            "no active grant and connection are configured for this organization",
+        )
+    };
+    let boot = execution_bootstrap_for_organization(st, organization_id, principal_id)?;
+    let stored = st
+        .db
+        .find_grant(&boot.grant.id)
+        .await
+        .map_err(|_| unavailable())?;
+    if stored.as_ref() != Some(&boot.grant) {
+        return Err(unavailable());
+    }
+    st.db
+        .assert_grant_chain_active(&boot.grant, Utc::now())
+        .await
+        .map_err(|_| unavailable())?;
+    Ok(boot)
+}
+
 #[derive(Deserialize)]
 pub struct StartTaskBody {
     pub principal_id: String,
@@ -254,7 +285,12 @@ pub async fn freeze_intent(
     // Name the authority this intent will execute under. A fresh `ActorId::new()`
     // named nothing, so the receipt's actor was meaningless and a grant narrowed to
     // one actor, project or connection could not tell whether it covered the call.
-    let boot = execution_bootstrap_for_organization(&st, &run.organization_id, &run.principal_id)?;
+    let boot = active_execution_bootstrap_for_organization(
+        &st,
+        &run.organization_id,
+        &run.principal_id,
+    )
+    .await?;
     let intent = FrozenIntentV2 {
         schema_version: FROZEN_INTENT_SCHEMA_VERSION,
         id: IntentId::new(),
@@ -319,7 +355,13 @@ pub async fn invoke_task(
 ) -> Result<Response, Response> {
     let caller = resolve_caller(&st, &headers)?;
     let subject = resolve_caller_subject(&st, &headers)?;
-    let boot = require_demo_bootstrap(&st)?;
+    let configured = require_demo_bootstrap(&st)?;
+    let boot = active_execution_bootstrap_for_organization(
+        &st,
+        &configured.org,
+        &configured.principal,
+    )
+    .await?;
     let intent = {
         let mut pending = st.frozen_intents.lock().map_err(|_| internal("lock"))?;
         match claim_frozen_intent(

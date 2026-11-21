@@ -18,7 +18,7 @@ use opensesame_connector_host::{
 };
 use sha2::{Digest, Sha256};
 
-#[path = "wasm_runtime_egress.rs"]
+#[path = "wasm_runtime/egress.rs"]
 mod egress;
 
 /// A component of the connector world. Layout notes:
