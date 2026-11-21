@@ -144,19 +144,29 @@ impl Broker {
             }),
         };
 
-        let decision = self.policy.decide(
-            &authz_req,
-            Some(&input.grant),
-            input.lineage.as_ref(),
-            AvailabilityClass::A3ExternalSideEffect,
-        )?;
+        // Binding conflicts fail here, before any authorization work. Only
+        // successful replays re-evaluate policy: a cached receipt is returned
+        // solely when the request would still be authorized today (intentional
+        // budget/audit semantics — a replay never skips the current check).
         if let Some(receipt) = self.prior_receipt(&input.intent, &fingerprint).await? {
+            let decision = self.policy.decide(
+                &authz_req,
+                Some(&input.grant),
+                input.lineage.as_ref(),
+                AvailabilityClass::A3ExternalSideEffect,
+            )?;
             anyhow::ensure!(
                 decision.decision,
                 "idempotency conflict: current authorization denied"
             );
             return Ok(receipt);
         }
+        let decision = self.policy.decide(
+            &authz_req,
+            Some(&input.grant),
+            input.lineage.as_ref(),
+            AvailabilityClass::A3ExternalSideEffect,
+        )?;
         self.db
             .insert_bound_intent(&input.intent, &fingerprint)
             .await?;
