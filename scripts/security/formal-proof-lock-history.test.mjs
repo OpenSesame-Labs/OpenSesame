@@ -393,7 +393,7 @@ test("a committed weakened lock selector cannot skip the mapped proof suites", (
   f.write("Cargo.lock", lock({ sdk: "e" }));
   f.write(
     "scripts/security/formal-proof-lock-history.mjs",
-    'export function lockAffectedSuites() { return new Set(); }\n',
+    "export function lockAffectedSuites() { return new Set(); }\n",
   );
   f.commit();
   const head = f.git("rev-parse", "HEAD");
