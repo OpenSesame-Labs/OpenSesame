@@ -10,12 +10,11 @@ use serde_json::{json, Map, Value};
 
 use crate::config::BrokerConfig;
 use crate::error::BrokerError;
-use crate::response_guard::{read_bounded_body, ResponseBodyError};
 use crate::Result;
 
 pub const GITHUB_APP_REGISTER_URL: &str = "https://github.com/settings/apps/new";
 pub const GITHUB_APP_MANIFEST_CONVERSIONS: &str = "https://api.github.com/app-manifests";
-const MAX_CONVERSION_RESPONSE_BYTES: usize = 256 * 1024;
+const MAX_MANIFEST_CONVERSION_BYTES: usize = 256 * 1024;
 
 /// GitHub App client ids are `Iv1.` / `Iv23`… Classic OAuth apps use other forms.
 #[must_use]
@@ -190,7 +189,7 @@ pub async fn convert_manifest_code(
     http: &reqwest::Client,
     code: &str,
 ) -> Result<GithubAppCredentials> {
-    convert_manifest_code_at(http, GITHUB_APP_MANIFEST_CONVERSIONS, code).await
+    convert_manifest_at(http, GITHUB_APP_MANIFEST_CONVERSIONS, code).await
 }
 
 fn manifest_conversion_url(base: &str, code: &str) -> Result<url::Url> {
@@ -213,12 +212,12 @@ fn manifest_conversion_url(base: &str, code: &str) -> Result<url::Url> {
     Ok(url)
 }
 
-pub(crate) async fn convert_manifest_code_at(
+async fn convert_manifest_at(
     http: &reqwest::Client,
-    endpoint: &str,
+    base: &str,
     code: &str,
 ) -> Result<GithubAppCredentials> {
-    let url = manifest_conversion_url(endpoint, code)?;
+    let url = manifest_conversion_url(base, code)?;
     let mut res = http
         .post(url)
         .header("Accept", "application/vnd.github+json")
@@ -228,27 +227,41 @@ pub(crate) async fn convert_manifest_code_at(
         .await
         .map_err(|e| BrokerError::ExchangeFailed(e.without_url().to_string()))?;
     let status = res.status();
-    if !(200..300).contains(&status.as_u16()) {
+    if !status.is_success() {
         return Err(BrokerError::ExchangeFailed(format!(
             "GitHub App manifest conversion failed ({status})"
         )));
     }
-    let body = read_bounded_body(&mut res, MAX_CONVERSION_RESPONSE_BYTES)
+    let too_large =
+        || BrokerError::ExchangeFailed("GitHub App conversion response too large".into());
+    if res
+        .content_length()
+        .is_some_and(|n| n > MAX_MANIFEST_CONVERSION_BYTES as u64)
+    {
+        return Err(too_large());
+    }
+    let mut bytes = zeroize::Zeroizing::new(Vec::new());
+    while let Some(chunk) = res
+        .chunk()
         .await
-        .map_err(|error| match error {
-            ResponseBodyError::TooLarge { .. } => BrokerError::ExchangeFailed(
-                "GitHub App conversion response exceeds size limit".into(),
-            ),
-            ResponseBodyError::Read => {
-                BrokerError::ExchangeFailed("could not read GitHub App conversion response".into())
-            }
-        })?;
-    let (body, reflected) = scrub_credential_reflection(body, code);
+        .map_err(|e| BrokerError::ExchangeFailed(e.without_url().to_string()))?
+    {
+        if chunk.len() > MAX_MANIFEST_CONVERSION_BYTES.saturating_sub(bytes.len()) {
+            return Err(too_large());
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    // A conversion answer that embeds the one-time code — raw, percent- or
+    // otherwise encoded — would persist a single-use secret inside the sealed
+    // credentials (name, html_url). Refuse it rather than parse it.
+    let (body, reflected) =
+        scrub_credential_reflection(bytes::Bytes::copy_from_slice(&bytes), code);
     if reflected {
         return Err(BrokerError::ExchangeFailed(
             "GitHub App conversion response reflected the one-time code".into(),
         ));
     }
+    // Serde's error text can include the rejected value, which may be secret.
     serde_json::from_slice(&body)
         .map_err(|_| BrokerError::ExchangeFailed("invalid GitHub App conversion response".into()))
 }
