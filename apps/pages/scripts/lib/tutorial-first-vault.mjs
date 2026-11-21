@@ -14,8 +14,8 @@ import {
   revisitPepper,
   saveAndCopyPassword,
 } from "./tutorial-pepper.mjs";
-import { pickSetupChoice } from "./verification-checklist-setup.mjs";
 import { readStep, startTutorial } from "./tutorial-walk.mjs";
+import { pickSetupChoice } from "./verification-checklist-setup.mjs";
 
 export async function runFirstVaultPass({
   newPage,
