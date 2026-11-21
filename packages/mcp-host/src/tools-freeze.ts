@@ -97,7 +97,9 @@ export function registerFreezeTool(server: McpServer): void {
             resource,
             audience,
             canonicalArguments: intentResponse.data.canonical_arguments ?? args,
-            ...(receiptId !== undefined ? { reservedReceiptId: receiptId } : {}),
+            ...(receiptId !== undefined
+              ? { reservedReceiptId: receiptId }
+              : {}),
           },
         });
         return {

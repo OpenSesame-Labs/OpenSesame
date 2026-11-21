@@ -61,9 +61,9 @@ describe("task-context edges", () => {
       getTaskContext()?.pendingInvocationRecovery?.reservedReceiptId,
     ).toBeUndefined();
     noteReservedReceiptId("t-1", "018fbd8a-1e78-7a3c-9c24-1ebd832b8dcb");
-    expect(
-      getTaskContext()?.pendingInvocationRecovery?.reservedReceiptId,
-    ).toBe("018fbd8a-1e78-7a3c-9c24-1ebd832b8dcb");
+    expect(getTaskContext()?.pendingInvocationRecovery?.reservedReceiptId).toBe(
+      "018fbd8a-1e78-7a3c-9c24-1ebd832b8dcb",
+    );
   });
 
   it("keeps invocation recovery when the same task refreshes", () => {
