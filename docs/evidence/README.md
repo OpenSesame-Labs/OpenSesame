@@ -81,3 +81,4 @@ inputs, not implementation approval receipts.
 | Directory | What it shows |
 |---|---|
 | [`portable-drop/pages/web/`](portable-drop/pages/web/README.md) | Portable sharing on Pages |
+| [`user-token-fingerprint-label/pages/web/`](user-token-fingerprint-label/pages/web/README.md) | User token fingerprint label (PR #2823) |
