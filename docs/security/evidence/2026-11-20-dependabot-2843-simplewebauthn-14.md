@@ -1,6 +1,6 @@
 # Dependabot #2843 — @simplewebauthn/server 13.3.2 → 14.1.0 (PR #2859)
 
-Date: 2026-11-20. Branch: `cursor/dependabot-2843-simplewebauthn-dd2c`, head `133e6536d0fb55a1b72f313b4d89ed9028247494` (Dependabot #2843). This note records the source review behind the council follow-up on chunks 02/03/06, extended after the council hold with chunks 05/07 at head `9eec25e09d032b9cbf10875526d0461c512baf24`. It contains no secrets, tokens, or credential material.
+Date: 2026-11-20. Branch: `cursor/dependabot-2843-simplewebauthn-dd2c`, head `133e6536d0fb55a1b72f313b4d89ed9028247494` (Dependabot #2843). This note records the source review behind the council follow-up on chunks 02/03/06, extended after the council hold with chunks 05/07 at head `9eec25e09d032b9cbf10875526d0461c512baf24`, and again for the r7 chunk-blind hold on chunks 05/06 (migration wiring in the bumped manifests). It contains no secrets, tokens, or credential material.
 
 ## What changed
 
@@ -74,6 +74,17 @@ npm run lint                                                                    
 npm run audit:exposure                                                              # exposure matrix: CLEAN (working tree; 20 surfaces, 671 reviewed sources)
 npm test -w @opensesame/pages -- webauthn-browser-entry                             # see run log
 node --test --test-name-pattern="the lockfile installs every copy" scripts/security/patched-dependencies.test.mjs  # 1 passed
+```
+
+## Council hold r7 — chunks 05 & 06 (closed 2026-11-20)
+
+**Chunk-blind hold closure — migration wiring in the same files the version bumps touch.** Council chunks 05 (root `package.json` dev pin) and 06 (`packages/auth-upstream/package.json` runtime dep) saw only the 13.3.2 → 14.1.0 line because a per-file chunk is blind to its siblings; the wiring now lives in those same files so no cross-file inference is needed. `@opensesame/auth-upstream` gained `verify:simplewebauthn-v14` (`vitest run src/__tests__/webauthn.test.ts src/__tests__/simplewebauthn-v14-surface.test.ts`), and the new `src/__tests__/simplewebauthn-v14-surface.test.ts` runs against the installed package to assert the v14 exports the call sites use (`generateRegistrationOptions`, `generateAuthenticationOptions`, `verifyRegistrationResponse`, `verifyAuthenticationResponse`) exist, that the `src/simplewebauthn.ts` seam object is bound to exactly the installed verification exports (so `src/passkey-verification.ts` provably exercises the bumped surface), and that the resolved `@simplewebauthn/server` is 14.x — a silent future downgrade fails this gate. Root `package.json` carries the one-line delegation `verify:simplewebauthn-v14` (`npm run verify:simplewebauthn-v14 -w @opensesame/auth-upstream`) adjacent to `verify:webauthn-formal`, placing the migration wiring in the same manifest chunk 05 reviews. The compile-side half of the call-site check remains the strict workspace typecheck below (the test file itself follows the package convention of being transpiled by vitest, not compiled by `tsc`). Verification on this branch, every command exit 0:
+
+```text
+npm run typecheck                                                 # turbo: 73 tasks successful, 73 total
+npm test -w @opensesame/auth-upstream                             # Test Files 18 passed (18), Tests 109 passed (109)
+npm run verify:simplewebauthn-v14 -w @opensesame/auth-upstream    # Test Files 2 passed (2), Tests 13 passed (13)
+npm run verify:simplewebauthn-v14                                 # root delegation, same 13 tests, exit 0
 ```
 
 ## Limits
