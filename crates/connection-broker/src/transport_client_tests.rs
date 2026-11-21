@@ -42,7 +42,7 @@ async fn web_pki_client_dials_the_checked_address_without_resolving_again() {
     };
     let rules = vec![EgressRule {
         provider_id: "github",
-        scheme: "https",
+        scheme: "http",
         hosts: &["localhost"],
         auth: AuthStyle::Bearer,
     }];

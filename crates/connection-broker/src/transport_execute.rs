@@ -274,6 +274,9 @@ impl ConnectorTransportExecutor {
         &self,
         prepared: &PreparedRequest,
     ) -> Result<PinnedAuthority, TransportError> {
+        // Lowercased for the pinned record; `ensure_pinned_destination`
+        // compares hosts case-insensitively (`eq_ignore_ascii_case`), so a
+        // differently-cased request host still matches this pin.
         let host = prepared.host().to_ascii_lowercase();
         let port = prepared.effective_port();
         let addrs: Vec<SocketAddr> = tokio::time::timeout(
