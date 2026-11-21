@@ -72,6 +72,13 @@ export function registerFreezeTool(server: McpServer): void {
           throw new Error("freeze_refused");
         const projected = agentJson(body, true, intentAgentResponseSchema);
         if (getTaskContext() !== freezeContext) throw new Error("task_changed");
+        const receiptId =
+          typeof body === "object" &&
+          body !== null &&
+          "receipt_id" in body &&
+          typeof body.receipt_id === "string"
+            ? body.receipt_id
+            : undefined;
         setTaskContext({
           taskRunId: ctx.taskRunId,
           stateVersion:
@@ -83,6 +90,7 @@ export function registerFreezeTool(server: McpServer): void {
             resource,
             audience,
             canonicalArguments: intentResponse.data.canonical_arguments ?? args,
+            reservedReceiptId: receiptId,
           },
         });
         return {

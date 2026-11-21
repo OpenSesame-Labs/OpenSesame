@@ -2,7 +2,7 @@ use super::enabled::{accepts_binding, bridge_for_test};
 use crate::app_state::test_demo_state;
 use opensesame_connector_host::wasm::{EgressRequest, HostEgress};
 use opensesame_connector_host::InvocationBinding;
-use opensesame_domain::{DetachedProof, Intent, IntentId, InvocationId, OrganizationId};
+use opensesame_domain::{DetachedProof, Intent, IntentId, InvocationId};
 use opensesame_time::{Duration, Utc};
 use serde_json::json;
 use std::sync::Arc;
@@ -49,13 +49,9 @@ async fn owner_wasm_egress_requires_the_intended_durable_connection_and_tenant()
         None,
     )
     .unwrap();
-    assert_eq!(
-        accepts_binding(&bound, boot.org, id, id),
-        Some(boot.connection)
-    );
-    assert!(accepts_binding(&bound, OrganizationId::new(), id, id).is_none());
-    assert!(accepts_binding(&bound, boot.org, "different-policy", id).is_none());
-    assert!(accepts_binding(&bound, boot.org, id, "other-provider").is_none());
+    assert_eq!(accepts_binding(&bound, id, id), Some(boot.connection));
+    assert!(accepts_binding(&bound, "different-policy", id).is_none());
+    assert!(accepts_binding(&bound, id, "other-provider").is_none());
     let other_policy = InvocationBinding::from_intent(
         InvocationId::new(),
         &intent,
@@ -65,11 +61,11 @@ async fn owner_wasm_egress_requires_the_intended_durable_connection_and_tenant()
         None,
     )
     .unwrap();
-    assert!(accepts_binding(&other_policy, boot.org, "other-policy", id).is_none());
+    assert!(accepts_binding(&other_policy, "other-policy", id).is_none());
 
     // Exercise the real bridge with a mismatched policy. It must refuse
     // before attempting to resolve or use any connection credential.
-    let bridge = bridge_for_test(Arc::clone(&state.connection_broker), boot.org, id);
+    let bridge = bridge_for_test(Arc::clone(&state.connection_broker), id);
     let request = EgressRequest {
         method: "GET".into(),
         url: "https://api.github.com/repos".into(),
@@ -96,5 +92,5 @@ async fn owner_wasm_egress_requires_the_intended_durable_connection_and_tenant()
         None,
     )
     .unwrap();
-    assert!(accepts_binding(&unscoped, boot.org, id, id).is_none());
+    assert!(accepts_binding(&unscoped, id, id).is_none());
 }

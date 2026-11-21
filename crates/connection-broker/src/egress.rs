@@ -20,7 +20,7 @@ use client::credentialed_client;
 
 #[path = "egress_json.rs"]
 mod json_egress;
-pub use json_egress::OwnerConnectionExpectation;
+pub use json_egress::{OwnerConnectionExpectation, OwnerEgressHttpResult};
 
 #[path = "egress_github.rs"]
 mod github;
