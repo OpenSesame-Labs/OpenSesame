@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 import {
+  extractModuleSpecifiers,
   readWebAuthnBrowserInputs,
   readWebAuthnImportClosure,
   renderWebAuthnBrowserEntry,
@@ -23,6 +24,22 @@ test("the pins cover exactly the static import closure of the verification leave
       !closure.includes(relativePath),
   );
   assert.deepEqual(stale, []);
+});
+
+test("the import walker never trusts comments, strings, or dynamic imports", () => {
+  const source = [
+    '// import fake from "./fake-comment.js";',
+    '/* export { fake } from "./fake-block.js"; */',
+    'const doc = "import lies from \\"./fake-string.js\\";";',
+    "const tpl = `export { x } from './fake-template.js'`;",
+    'import("./fake-dynamic.js");',
+    "import { real } from './real.js';",
+    "export { other } from '../other.js';",
+  ].join("\n");
+  assert.deepEqual(extractModuleSpecifiers(source), [
+    "./real.js",
+    "../other.js",
+  ]);
 });
 
 test("the browser entry retains the exact official verification functions", async () => {
