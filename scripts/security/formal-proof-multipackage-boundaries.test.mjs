@@ -193,7 +193,7 @@ test("a dirty or symlinked manifest helper cannot hide a relevant workspace chan
     assert.notEqual(result.status, 0, `${kind}: ${result.stdout}`);
     assert.match(
       result.stderr,
-      /helper (differs|is missing or not a regular file)/i,
+      /runner .* (differs from committed HEAD|is not a regular file)/i,
     );
     assert.deepEqual(f.commands(), []);
   }

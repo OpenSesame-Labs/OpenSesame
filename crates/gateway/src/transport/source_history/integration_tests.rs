@@ -4,13 +4,12 @@ use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use opensesame_domain::transport::TrustProfileKind;
 use opensesame_spiffe_source::fake::{FakeTrustDomain, FakeWorkloadApi, IssuedSvid};
 use opensesame_spiffe_source::{SourcePhase, SpiffeSource, SpiffeSourceConfig, SpiffeSourceHandle};
 use opensesame_transport_security::env::{NativeIdentitySpec, NativeTrustSpec};
-use opensesame_transport_security::TrustBundle;
-use rustls_pki_types::CertificateDer;
 use tokio::sync::{mpsc, Semaphore};
+
+use crate::transport::test_support::{local_bundle, local_candidate};
 
 use super::*;
 
@@ -41,25 +40,6 @@ async fn streaming_after(handle: &SpiffeSourceHandle, prior: u64) -> u64 {
         .expect("source did not activate")
         .generation
         .unwrap()
-}
-
-fn local_candidate(generations: &TransportGenerations) -> GenerationCandidate {
-    let current = generations.current();
-    GenerationCandidate {
-        identity: current.identity.clone(),
-        peer_trust: current.peer_trust.clone(),
-        own_trust: None,
-        identity_required: true,
-    }
-}
-
-fn local_bundle(name: &str, ca: &FakeTrustDomain) -> TrustBundle {
-    TrustBundle::from_der(
-        TrustProfileRef::new(name).unwrap(),
-        TrustProfileKind::PrivateRoot,
-        vec![CertificateDer::from(ca.bundle_der())],
-    )
-    .unwrap()
 }
 
 async fn initialized(db: &Db, scope: &Arc<Scope>) {
@@ -229,6 +209,27 @@ async fn initialized_host_retains_source_names_across_restart_and_pem_transition
     )
     .await;
     api.shutdown().await;
+}
+
+#[tokio::test]
+async fn attested_history_blocks_pem_collision_after_reopen() {
+    let dir = tempfile::tempdir().unwrap();
+    let url = format!("sqlite:{}?mode=rwc", dir.path().join("host.db").display());
+    let db = opensesame_storage::Db::connect_sqlite(&url).await.unwrap();
+    let document = br#"{"owner":"host-tls","actor":"operator","change_ref":"upgrade","names":["partner.test"]}"#;
+    crate::transport::source_history::coordinator::initialize_host_history(
+        &url,
+        document.to_vec(),
+        true,
+    )
+    .await
+    .unwrap();
+    db.pool().close().await;
+    drop(db);
+
+    let reopened = opensesame_storage::Db::connect_sqlite(&url).await.unwrap();
+    let (pem, managed, resolver, bindings_only) = history_configs(dir.path());
+    exercise_local_sources(&reopened, pem, managed, &resolver, bindings_only).await;
 }
 
 async fn exercise_source_restart(

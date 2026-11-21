@@ -206,14 +206,15 @@ test("a new or transient local build script selects its covered proof suites", (
   }
 });
 
-test("a historical base may predate a newly registered suite", (t) => {
+test("a new suite needs runner metadata after a historical base", (t) => {
   const f = fixture(t);
   const suite = requirements.suites.find((entry) => entry.id === "oauth");
   seedRequiredSuite(f, suite);
   const target = f.commit();
   const result = f.run(f.tuple(target, f.base));
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(f.commands(), ["run verify:oauth-formal"]);
+  assert.notEqual(result.status, 0, result.stdout);
+  assert.match(result.stderr, /formal runner .*missing/i);
+  assert.deepEqual(f.commands(), []);
 });
 test("registry changes cannot add unpinned or remove required coverage", (t) => {
   for (const kind of [

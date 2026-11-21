@@ -11,6 +11,18 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  MINIMUM_SHARED_RUNNERS,
+  hasRunnerMinimum,
+  minimumForSuite,
+  parseRunnerInventory,
+} from "./formal-proof-runner-pins.mjs";
+
+const productionInventory = parseRunnerInventory(
+  readFileSync(new URL("./formal-proof-runner-pins.json", import.meta.url)),
+);
+const PINNED_FORMAL_RUNNERS = productionInventory.suites;
+const SHARED_FORMAL_RUNNERS = productionInventory.shared;
 
 export const script = fileURLToPath(
   new URL("./formal-proof-push-gate.mjs", import.meta.url),
@@ -42,6 +54,8 @@ function setupController(controller) {
     "formal-proof-push-gate-registry.mjs",
     "formal-proof-push-history.mjs",
     "formal-proof-lock-history.mjs",
+    "formal-proof-runner-history.mjs",
+    "formal-proof-runner-pins.mjs",
     "formal-proof-manifest-set.mjs",
     "formal-proof-source-selection.mjs",
     "formal-proof-spiffe-peer-domain.mjs",
@@ -61,7 +75,54 @@ function setupController(controller) {
 
 function pinController(controller, repo, write) {
   return (policy) => {
+    for (const suite of policy.suites) {
+      if (
+        hasRunnerMinimum(suite.id) &&
+        Array.isArray(suite.proofs) &&
+        !suite.proofs.some((path) => path.endsWith("/required-theorems.lean"))
+      ) {
+        const signature = PINNED_FORMAL_RUNNERS[suite.id].files.find((path) =>
+          path.endsWith("/required-theorems.lean"),
+        );
+        suite.proofs = [...suite.proofs, signature];
+      }
+    }
     const contents = `export const PINNED_FORMAL_SUITES = ${JSON.stringify(policy.suites)};\n`;
+    const formal = policy.suites.some(
+      (suite) =>
+        hasRunnerMinimum(suite.id) ||
+        (Array.isArray(suite.proofs) &&
+          suite.proofs.some((path) =>
+            path.endsWith("/required-theorems.lean"),
+          )),
+    );
+    const shared = formal
+      ? [...MINIMUM_SHARED_RUNNERS, "scripts/test/shared-runner.sh"]
+      : [".npmrc", "scripts/test/shared-runner.sh"];
+    const suites = policy.suites.map((suite) => {
+      const protectedSuite =
+        Array.isArray(suite.proofs) &&
+        (hasRunnerMinimum(suite.id) ||
+          suite.proofs.some((path) =>
+            path.endsWith("/required-theorems.lean"),
+          ));
+      const minimum = protectedSuite
+        ? minimumForSuite(suite)
+        : { files: [], cargoConfigDirs: [], optionalFiles: [] };
+      return [
+        "suite",
+        suite.id,
+        suite.command?.[2],
+        [...new Set([`scripts/test/${suite.id}-runner.sh`, ...minimum.files])],
+        minimum.cargoConfigDirs,
+        minimum.optionalFiles,
+      ];
+    });
+    const runnerContents = JSON.stringify([
+      "formal-proof-runners-v1",
+      ["shared", shared],
+      ...suites,
+    ]);
     writeFileSync(
       join(controller, "security/formal-proof-pinned-suites.mjs"),
       contents,
@@ -70,7 +131,54 @@ function pinController(controller, repo, write) {
       existsSync(join(repo, "scripts/security/formal-proof-pinned-suites.mjs"))
     )
       write("scripts/security/formal-proof-pinned-suites.mjs", contents);
+    writeFileSync(
+      join(controller, "security/formal-proof-runner-pins.json"),
+      runnerContents,
+    );
+    write("scripts/security/formal-proof-runner-pins.json", runnerContents);
+    for (const suite of policy.suites) {
+      const path = `scripts/test/${suite.id}-runner.sh`;
+      if (!existsSync(join(repo, path))) write(path, "#!/bin/sh\nexit 0\n");
+    }
+    if (!existsSync(join(repo, "scripts/test/shared-runner.sh")))
+      write("scripts/test/shared-runner.sh", "#!/bin/sh\nexit 0\n");
+    if (formal)
+      for (const path of new Set([
+        ...shared,
+        ...suites.flatMap((row) => row[3]),
+      ])) {
+        if (path === "scripts/security/formal-proof-pinned-suites.mjs")
+          write(path, contents);
+        else if (!existsSync(join(repo, path)))
+          write(path, readFileSync(new URL(`../../${path}`, import.meta.url)));
+      }
   };
+}
+
+function setupFixtureFiles(write) {
+  write(".npmrc", "ignore-scripts=true\n");
+  write(
+    "scripts/security/formal-proof-manifest-set.mjs",
+    readFileSync(new URL("./formal-proof-manifest-set.mjs", import.meta.url)),
+  );
+  const scripts = {
+    "verify:a": "bash scripts/test/a-runner.sh",
+    "verify:b": "bash scripts/test/b-runner.sh",
+    "verify:alternate": "bash scripts/test/a-runner.sh",
+    "verify:spiffe": "bash scripts/test/spiffe-runner.sh",
+  };
+  for (const [id, runner] of Object.entries(PINNED_FORMAL_RUNNERS))
+    scripts[runner.script] = `bash scripts/test/${id}-runner.sh`;
+  write("package.json", JSON.stringify({ scripts }));
+  for (const id of ["auth", "oauth", "webauthn", "authority", "dpop", "spiffe"])
+    write(`scripts/test/${id}-runner.sh`, "#!/bin/sh\nexit 0\n");
+  write("src/a", "a0\n");
+  write("src/b", "b0\n");
+  write("src/other", "other\n");
+  write("spec/formal/a/proof", "a proof\n");
+  write("spec/formal/b/proof", "b proof\n");
+  write("spec/formal/proof-registry.json", JSON.stringify(registry));
+  write("spec/formal/proof-requirements.json", JSON.stringify(registry));
 }
 
 export function fixture(t) {
@@ -104,13 +212,7 @@ export function fixture(t) {
   // that controller when simulating a reviewed policy change.
   const pin = pinController(controller, repo, write);
   pin(registry);
-  write("src/a", "a0\n");
-  write("src/b", "b0\n");
-  write("src/other", "other\n");
-  write("spec/formal/a/proof", "a proof\n");
-  write("spec/formal/b/proof", "b proof\n");
-  write("spec/formal/proof-registry.json", JSON.stringify(registry));
-  write("spec/formal/proof-requirements.json", JSON.stringify(registry));
+  setupFixtureFiles(write);
   const commit = () => {
     git("add", "-A");
     git("-c", "commit.gpgsign=false", "commit", "-qm", "change");
@@ -201,6 +303,8 @@ export function installHook(f) {
   );
   for (const name of [
     "formal-proof-lock-history.mjs",
+    "formal-proof-runner-history.mjs",
+    "formal-proof-runner-pins.mjs",
     "formal-proof-manifest-set.mjs",
     "formal-proof-source-selection.mjs",
     "formal-proof-spiffe-peer-domain.mjs",
@@ -220,6 +324,10 @@ export function installHook(f) {
   f.write(
     "scripts/security/formal-proof-pinned-suites.mjs",
     readFileSync(join(f.controller, "security/formal-proof-pinned-suites.mjs")),
+  );
+  f.write(
+    "scripts/security/formal-proof-runner-pins.json",
+    readFileSync(join(f.controller, "security/formal-proof-runner-pins.json")),
   );
   f.write(
     "scripts/lib/json-boundary.mjs",
@@ -258,4 +366,35 @@ export function push(f, source, destination, status = "0") {
       },
     },
   );
+}
+
+export function productionFixture(t, id, setup = () => {}) {
+  const f = fixture(t);
+  const suite = { ...registry.suites[0], id };
+  suite.command = ["npm", "run", PINNED_FORMAL_RUNNERS[id].script];
+  const policy = { version: 1, suites: [suite] };
+  f.pin(policy);
+  f.write("spec/formal/proof-registry.json", JSON.stringify(policy));
+  f.write("spec/formal/proof-requirements.json", JSON.stringify(policy));
+  installHook(f);
+  const root = new URL("../../", import.meta.url);
+  const paths = [...SHARED_FORMAL_RUNNERS, ...PINNED_FORMAL_RUNNERS[id].files];
+  for (const path of paths)
+    if (!existsSync(join(f.repo, path)))
+      f.write(path, readFileSync(new URL(path, root)));
+  f.write(
+    "scripts/security/formal-proof-runner-pins.json",
+    readFileSync(new URL("./formal-proof-runner-pins.json", import.meta.url)),
+  );
+  setup(f);
+  f.commit();
+  f.git(
+    "-c",
+    "core.hooksPath=/dev/null",
+    "push",
+    "-q",
+    "origin",
+    "HEAD:refs/heads/main",
+  );
+  return f;
 }
