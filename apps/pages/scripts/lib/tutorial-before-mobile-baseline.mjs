@@ -64,6 +64,11 @@ export async function runBeforeMobileBaseline({
       path: path.join(out, "390-before-post-setup.png"),
       animations: "disabled",
     });
+    const failed = record.checks.filter((check) => !check.ok);
+    if (failed.length > 0) {
+      const detail = failed.map((c) => `${c.id}: ${c.detail}`).join("; ");
+      throw new Error(`before mobile baseline checks failed: ${detail}`);
+    }
   } finally {
     await context.close();
   }
