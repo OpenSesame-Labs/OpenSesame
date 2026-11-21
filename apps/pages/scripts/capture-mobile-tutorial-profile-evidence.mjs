@@ -14,7 +14,7 @@
  *   npm run capture:mobile-tutorial-profiles -w @opensesame/pages
  *
  * Output lands in
- * `/cursor/stores/bot/sweep/council/pr-<pr>-shots-<head8>/<phase>/<profile>/`
+ * `<workspace>/work/mobile-tutorial-evidence/pr-<pr>-shots-<head8>/<phase>/<profile>/`
  * where `<head8>` is the built tree's `git rev-parse --short=8 HEAD` — the
  * merge commit for the default `after` phase, main's head for `before`.
  *
@@ -96,7 +96,12 @@ const head = execFileSync(
 const prLabel = process.env.MOBILE_TUTORIAL_PR ?? "2878";
 const outRoot =
   process.env.MOBILE_TUTORIAL_OUT ??
-  path.join("/cursor/stores/bot/sweep/council", `pr-${prLabel}-shots-${head}`);
+  path.join(
+    workspaceRoot,
+    "work",
+    "mobile-tutorial-evidence",
+    `pr-${prLabel}-shots-${head}`,
+  );
 const outDir = path.join(outRoot, phase);
 
 const discovery = findChromium();
