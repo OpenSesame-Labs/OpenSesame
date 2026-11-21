@@ -16,9 +16,9 @@
     "max-statements": 40
   },
   "totals": {
-    "files": 464,
-    "violations": 725,
-    "oversizedLines": 218110
+    "files": 454,
+    "violations": 715,
+    "oversizedLines": 214700
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -253,12 +253,6 @@
     "crates/breach-intel/src/event.rs": {
       "max-lines": 452
     },
-    "crates/broker/src/frozen_tests.rs": {
-      "max-lines": 413
-    },
-    "crates/broker/tests/adversarial_broker/outcome.rs": {
-      "max-lines": 458
-    },
     "crates/ceremony/src/capture.rs": {
       "max-lines": 506
     },
@@ -295,9 +289,6 @@
     "crates/connection-broker/src/sync_target.rs": {
       "max-lines": 796
     },
-    "crates/connection-broker/src/tests/catalog_egress.rs": {
-      "max-lines": 470
-    },
     "crates/connection-broker/src/tests/connection_lifecycle.rs": {
       "max-lines": 878
     },
@@ -332,7 +323,7 @@
       "max-lines": 1324
     },
     "crates/connector-host/src/wasm.rs": {
-      "max-lines": 724
+      "max-lines": 627
     },
     "crates/daemon/src/cli_probe.rs": {
       "max-lines": 675
@@ -375,9 +366,6 @@
     },
     "crates/gateway/src/cert_issuers/registry.rs": {
       "max-lines": 493
-    },
-    "crates/gateway/src/connector_egress_owner_tests.rs": {
-      "max-lines": 469
     },
     "crates/gateway/src/lifecycle/responders.rs": {
       "max-lines": 411
@@ -443,10 +431,7 @@
       "max-lines": 461
     },
     "crates/gateway/src/routes/tasks.rs": {
-      "max-lines": 968
-    },
-    "crates/gateway/src/routes/tasks_opening_tests.rs": {
-      "max-lines": 513
+      "max-lines": 866
     },
     "crates/gateway/src/security/delivery.rs": {
       "max-lines": 691
@@ -459,12 +444,6 @@
     },
     "crates/human-vault/src/lib.rs": {
       "max-lines": 784
-    },
-    "crates/invoke-through/src/invoke.rs": {
-      "max-lines": 449
-    },
-    "crates/invoke-through/src/invoke_tests.rs": {
-      "max-lines": 417
     },
     "crates/invoke-through/src/surrogate.rs": {
       "max-lines": 406
@@ -595,11 +574,8 @@
       "max-lines-per-function": 1
     },
     "packages/api-client/src/index.ts": {
-      "max-lines": 788,
+      "max-lines": 766,
       "max-lines-per-function": 1
-    },
-    "packages/api-client/src/safe-json.ts": {
-      "complexity": 1
     },
     "packages/app-core/src/browser/native-implicit-session.ts": {
       "max-lines-per-function": 1
@@ -1248,13 +1224,7 @@
     "packages/mcp-client/src/server.ts": {
       "max-lines-per-function": 1
     },
-    "packages/mcp-host/src/invocation-response.ts": {
-      "complexity": 1
-    },
     "packages/mcp-host/src/tools-act.ts": {
-      "max-lines-per-function": 1
-    },
-    "packages/mcp-host/src/tools-freeze.ts": {
       "max-lines-per-function": 1
     },
     "packages/mcp-host/src/tools-handlers.test.ts": {

@@ -5,10 +5,8 @@ export const MAX_INVOCATION_RESPONSE_BYTES = 128 * 1024;
 export const MAX_FREEZE_INTENT_RESPONSE_BYTES = 16 * 1024 * 1024;
 export const INVOCATION_RESPONSE_TIMEOUT_MS = 15_000;
 
-async function readBoundedJsonResponse(
-  response: Response,
-  maxBytes: number,
-): Promise<BoundaryValue> {
+/** Refuse early when the declared length already exceeds the cap. */
+function assertDeclaredLength(response: Response, maxBytes: number): void {
   const declared = response.headers.get("content-length");
   if (
     declared !== null &&
@@ -18,28 +16,34 @@ async function readBoundedJsonResponse(
     void response.body?.cancel().catch(() => undefined);
     throw new Error("invocation response exceeds limit");
   }
-  if (!response.body) throw new Error("invocation response is empty");
+}
+
+type Readers = {
+  byteReader?: ReadableStreamBYOBReader;
+  reader?: ReadableStreamDefaultReader<Uint8Array>;
+};
+
+/** Prefer a BYOB reader; fall back where the stream does not offer one. */
+function acquireReaders(body: ReadableStream<Uint8Array>): Readers {
+  try {
+    return { byteReader: body.getReader({ mode: "byob" }) };
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
+    return { reader: body.getReader() };
+  }
+}
+
+/** Read every chunk under the cap and the deadline, in arrival order. */
+async function collectChunks(
+  { byteReader, reader }: Readers,
+  maxBytes: number,
+  deadline: Promise<never>,
+): Promise<{ chunks: Uint8Array[]; total: number }> {
   // Do not reserve `maxBytes` up front. Freeze admission is 16 MiB; a short
   // body must not pin that much, and a chunk past the cap is not retained.
   const chunkLimit = 64 * 1024;
-  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
-  let byteReader: ReadableStreamBYOBReader | undefined;
-  try {
-    byteReader = response.body.getReader({ mode: "byob" });
-  } catch (error) {
-    if (!(error instanceof TypeError)) throw error;
-    reader = response.body.getReader();
-  }
-  const active = byteReader ?? reader;
   const chunks: Uint8Array[] = [];
   let total = 0;
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(
-      () => reject(new Error("invocation response timed out")),
-      INVOCATION_RESPONSE_TIMEOUT_MS,
-    );
-  });
   const accept = (value: Uint8Array) => {
     if (value.byteLength > maxBytes - total) {
       throw new Error("invocation response exceeds limit");
@@ -48,22 +52,43 @@ async function readBoundedJsonResponse(
     chunks.push(value);
     total += value.byteLength;
   };
-  try {
-    if (byteReader) {
-      while (true) {
-        const size = Math.min(chunkLimit, maxBytes - total + 1);
-        const buffer = new Uint8Array(size);
-        const result = await Promise.race([byteReader.read(buffer), deadline]);
-        if (result.done) break;
-        accept(result.value);
-      }
-    } else if (reader) {
-      while (true) {
-        const result = await Promise.race([reader.read(), deadline]);
-        if (result.done) break;
-        accept(result.value);
-      }
+  if (byteReader) {
+    while (true) {
+      const size = Math.min(chunkLimit, maxBytes - total + 1);
+      const result = await Promise.race([
+        byteReader.read(new Uint8Array(size)),
+        deadline,
+      ]);
+      if (result.done) break;
+      accept(result.value);
     }
+  } else if (reader) {
+    while (true) {
+      const result = await Promise.race([reader.read(), deadline]);
+      if (result.done) break;
+      accept(result.value);
+    }
+  }
+  return { chunks, total };
+}
+
+async function readBoundedJsonResponse(
+  response: Response,
+  maxBytes: number,
+): Promise<BoundaryValue> {
+  assertDeclaredLength(response, maxBytes);
+  if (!response.body) throw new Error("invocation response is empty");
+  const readers = acquireReaders(response.body);
+  const active = readers.byteReader ?? readers.reader;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(
+      () => reject(new Error("invocation response timed out")),
+      INVOCATION_RESPONSE_TIMEOUT_MS,
+    );
+  });
+  try {
+    const { chunks, total } = await collectChunks(readers, maxBytes, deadline);
     const bytes = new Uint8Array(total);
     let offset = 0;
     for (const chunk of chunks) {

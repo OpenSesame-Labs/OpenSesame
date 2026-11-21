@@ -332,6 +332,10 @@ mod binding_tests;
 #[path = "connector_egress_owner_tests.rs"]
 mod owner_tests;
 
+#[cfg(all(test, feature = "wasm-connectors"))]
+#[path = "connector_egress_owner_wasm_tests.rs"]
+mod owner_wasm_tests;
+
 /// Feature-off build: the operator asking for connectors is a hard error —
 /// never a silent no-op.
 ///

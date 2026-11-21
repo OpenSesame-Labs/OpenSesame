@@ -12,6 +12,8 @@ use serde_json::json;
 mod invocation_binding_tests;
 #[path = "adversarial_broker/outcome.rs"]
 mod outcome_tests;
+#[path = "adversarial_broker/outcome_indeterminate.rs"]
+mod outcome_indeterminate_tests;
 
 fn sample_grant(org: OrganizationId, principal: PrincipalId) -> Grant {
     let now = Utc::now();

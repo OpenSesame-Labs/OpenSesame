@@ -35,6 +35,28 @@ describe("lossless JSON integers", () => {
     );
   });
 
+  it("round-trips caller strings that start with the sentinel byte-exact", () => {
+    const colliding = [
+      "__opensesame_lossless_int__",
+      "__opensesame_lossless_int__123",
+      "__opensesame_lossless_int__-42",
+      "__opensesame_lossless_int__9007199254740993123456789",
+      "__opensesame_lossless_int__~already-escaped",
+      "__opensesame_lossless_int__text",
+    ];
+    for (const value of colliding) {
+      expect(parseLosslessJson(stringifyLosslessJson(value))).toBe(value);
+    }
+    const nested = { marker: colliding, deep: [{ k: colliding[2] }] };
+    expect(parseLosslessJson(stringifyLosslessJson(nested))).toEqual(nested);
+  });
+
+  it("strict parse refuses a sentinel string it cannot classify", () => {
+    expect(() =>
+      parseLosslessJson('"__opensesame_lossless_int__not-an-integer"'),
+    ).toThrow("lossless_json_sentinel_collision");
+  });
+
   it("preserves frozen-intent integers through freeze and recovery", async () => {
     const digest = `sha256:${"b".repeat(64)}`;
     const calls: { url: string; body: string }[] = [];

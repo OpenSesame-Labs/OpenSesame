@@ -388,3 +388,7 @@ mod tests;
 #[cfg(test)]
 #[path = "frozen_outcome_tests.rs"]
 mod outcome_tests;
+
+#[cfg(test)]
+#[path = "frozen_schema_tests.rs"]
+mod schema_tests;

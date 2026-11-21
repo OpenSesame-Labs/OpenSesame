@@ -71,11 +71,10 @@ import { certsApi } from "./certs.js";
 import { changelogApi } from "./changelog.js";
 import { delegationsApi } from "./delegations.js";
 import { createDpopKeyPair } from "./dpop.js";
-import type { HostRequestContext } from "./http.js";
+import { type HostRequestContext, jsonRequests } from "./http.js";
 import { receiptsApi } from "./receipts.js";
 import { relayApi } from "./relay.js";
 import { rotationsApi } from "./rotations.js";
-import { parseLosslessJson } from "./safe-json.js";
 import { tasksApi } from "./tasks.js";
 
 export interface ApiClientOptions {
@@ -731,30 +730,9 @@ export function createApiClient(options: ApiClientOptions) {
     },
   };
 
-  async function requestJson(
-    op: string,
-    path: string,
-    init: RequestInit = {},
-  ): Promise<BoundaryValue> {
-    const res = await request(path, init);
-    if (!res.ok) throw await requestFailure(op, res);
-    return res.json();
-  }
-
-  async function requestJsonLossless(
-    op: string,
-    path: string,
-    init: RequestInit = {},
-  ): Promise<BoundaryValue> {
-    const res = await request(path, init);
-    if (!res.ok) throw await requestFailure(op, res);
-    return parseLosslessJson(await res.text());
-  }
-
   const requestContext: HostRequestContext = {
     request,
-    requestJson,
-    requestJsonLossless,
+    ...jsonRequests(request, requestFailure),
   };
 
   return {
