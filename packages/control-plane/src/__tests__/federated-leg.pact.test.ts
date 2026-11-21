@@ -221,8 +221,10 @@ describe("PACT — federated route ordering", () => {
     ]);
   });
 
-  it("joins the organization only after the principal is resolved", () => {
+  it("joins only after provenance and principal resolution", () => {
     assertSourceOrder(routesSource, [
+      "resolveTrustedIssuer(ctx, identity.issuer)",
+      "callbackTrustMatchesPending(trust, pending)",
       "externalIdentities.findByTuple",
       "if (pending.orgId)",
       "jitJoinOrganization",
