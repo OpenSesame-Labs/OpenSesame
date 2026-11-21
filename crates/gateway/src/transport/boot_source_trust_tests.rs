@@ -3,10 +3,10 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use axum::{routing::get, Router};
-use opensesame_time::Utc;
 use opensesame_domain::transport::{
     ServiceBindingSet, TlsVersion, TrustProfileKind, TrustProfileRef,
 };
+use opensesame_time::Utc;
 use opensesame_transport_security::testkit::DisposableCa;
 use opensesame_transport_security::{
     client_config, ClientProfile, GenerationCandidate, NativeIdentitySpec, NativeTrustSpec,
