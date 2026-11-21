@@ -86,21 +86,21 @@ export async function finishCustom(page, shot, record) {
     .then(() => true)
     .catch(() => false);
   if (customized) {
-    await customize.evaluate((button) => button.click());
+    await customize.click();
     const personal = page.getByRole("button", { name: /^Personal/ });
     const personalSeen = await personal
       .waitFor({ state: "visible", timeout: 8_000 })
       .then(() => true)
       .catch(() => false);
-    if (personalSeen) await personal.evaluate((button) => button.click());
+    if (personalSeen) await personal.click();
     await shot("setup-custom");
   }
   const skipAll = page.getByRole("button", { name: "Skip all", exact: true });
   const close = page.getByRole("button", { name: "Close", exact: true });
   if (await skipAll.isVisible().catch(() => false)) {
-    await skipAll.evaluate((button) => button.click());
+    await skipAll.click();
   } else if (await close.isVisible().catch(() => false)) {
-    await close.evaluate((button) => button.click());
+    await close.click();
   }
 }
 
@@ -114,14 +114,19 @@ export async function confirmMinimal(page, shot, record) {
     /Use Minimal anyway/.test(warning) && /Advanced/.test(warning),
     "confirm after the warning",
   );
-  await confirm.first().evaluate((button) => button.click());
+  await confirm.first().click();
 }
 
-/** Clicks a setup road through coach dim; used by capture on main and after walks. */
+/**
+ * Clicks a setup road with a real pointer click; used by capture on main and
+ * after walks. The coach dim passes pointer events through, so Playwright
+ * actionability holds — and the walk fails if anything actually covers the
+ * control.
+ */
 export async function pickSetupChoice(page, choice, { shot, record } = {}) {
   const choiceButton = page.getByRole("button", { name: choice, exact: true });
   await choiceButton.waitFor({ state: "visible", timeout: 15_000 });
-  await choiceButton.evaluate((button) => button.click());
+  await choiceButton.click();
   const shotFn = shot ?? (async () => "");
   const rec = record ?? { checks: [] };
   if (choice === "Minimal") await confirmMinimal(page, shotFn, rec);
