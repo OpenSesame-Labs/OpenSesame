@@ -2,12 +2,28 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 import {
   readWebAuthnBrowserInputs,
+  readWebAuthnImportClosure,
   renderWebAuthnBrowserEntry,
   validateWebAuthnBrowserSource,
   webAuthnBrowserEntry,
+  webAuthnPinnedPaths,
 } from "./webauthn-browser-entry.mjs";
 
 const input = readWebAuthnBrowserInputs();
+
+test("the pins cover exactly the static import closure of the verification leaves", () => {
+  const closure = readWebAuthnImportClosure(input.packageRoot);
+  const pinned = new Set(webAuthnPinnedPaths);
+  const unpinned = closure.filter((relativePath) => !pinned.has(relativePath));
+  assert.deepEqual(unpinned, []);
+  const stale = webAuthnPinnedPaths.filter(
+    (relativePath) =>
+      relativePath !== "package.json" &&
+      relativePath !== "esm/index.js" &&
+      !closure.includes(relativePath),
+  );
+  assert.deepEqual(stale, []);
+});
 
 test("the browser entry retains the exact official verification functions", async () => {
   const source = renderWebAuthnBrowserEntry(input);

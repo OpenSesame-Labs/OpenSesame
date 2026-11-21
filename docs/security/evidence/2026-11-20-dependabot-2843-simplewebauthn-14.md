@@ -10,7 +10,7 @@ Date: 2026-11-20. Branch: `cursor/dependabot-2843-simplewebauthn-dd2c`, head `13
 | `package-lock.json` | SWA 14.1.0 with integrity hash; new transitive deps `@peculiar/asn1-asym-key`, `@peculiar/asn1-x509-post-quantum`, nested `@peculiar/x509` 2.2.0, `reflect-metadata` |
 | `packages/auth-upstream/package.json` | SWA 13.3.2 → 14.1.0 (runtime dep) |
 | `packages/auth-upstream/src/webauthn.ts` | v13→v14 type rename `AuthenticatorTransportFuture` → `AuthenticatorTransport` (3 sites) |
-| `apps/pages/scripts/webauthn-browser-entry.mjs` | Browser-entry pins refreshed for 14.1.0: version gate plus new SHA-256 pins for `package.json`, `esm/index.js`, `verifyAuthenticationResponse.js`, `verifyRegistrationResponse.js` |
+| `apps/pages/scripts/webauthn-browser-entry.mjs` | Browser-entry pins refreshed for 14.1.0: version gate plus SHA-256 pins for `package.json`, the `esm/index.js` barrel guard, and every file in the static relative-import closure of the two verification leaves (76 files); the build refuses to run if the installed closure grows without a pin |
 | `tools/security/exposure-matrix.json` | Reviewed-source fingerprint for `packages/auth-upstream/package.json` updated |
 
 ## Review findings
