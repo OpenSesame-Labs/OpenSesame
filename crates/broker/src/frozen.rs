@@ -392,3 +392,7 @@ mod outcome_tests;
 #[cfg(test)]
 #[path = "frozen_schema_tests.rs"]
 mod schema_tests;
+
+#[cfg(test)]
+#[path = "frozen_idempotency_tests.rs"]
+mod idempotency_tests;

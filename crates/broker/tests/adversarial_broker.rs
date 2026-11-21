@@ -10,10 +10,10 @@ use serde_json::json;
 
 #[path = "adversarial_broker/invocation_binding.rs"]
 mod invocation_binding_tests;
-#[path = "adversarial_broker/outcome.rs"]
-mod outcome_tests;
 #[path = "adversarial_broker/outcome_indeterminate.rs"]
 mod outcome_indeterminate_tests;
+#[path = "adversarial_broker/outcome.rs"]
+mod outcome_tests;
 
 fn sample_grant(org: OrganizationId, principal: PrincipalId) -> Grant {
     let now = Utc::now();
