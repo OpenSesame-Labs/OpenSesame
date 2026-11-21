@@ -35,6 +35,13 @@ record cannot decode it and fails rather than returning its receipt.
 - The frozen path never accepts a second, mutable parameter blob: it persists
   the digest, authorizes that digest, and executes the canonical arguments from
   the same intent.
+- A frozen intent id executes at most once, regardless of idempotency key.
+  `insert_bound_intent` runs before any connector execution and the `intents.id`
+  primary key rejects the second insert, so the same intent id replayed under a
+  fresh idempotency key fails there — the deterministic receipt id
+  (`ReceiptId::from_uuid(intent.id)`) is never written twice and the connector
+  never runs twice for one frozen intent. A same-key replay still returns the
+  stored receipt through the binding check above.
 
 ## Surface
 

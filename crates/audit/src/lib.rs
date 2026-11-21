@@ -1,3 +1,27 @@
+//! Receipt signing, verification, and keyed commitments.
+//!
+//! One Ed25519 signing key (seed from `OPENSESAME_RECEIPT_SIGNING_KEY`) signs
+//! every receipt. The same key also roots the two keyed commitments a receipt
+//! carries — the idempotency binding and the intent opening — via
+//! [`ReceiptSigner::keyed_commitment`]: HKDF-SHA-256 over the signing-key bytes
+//! with a per-family salt and a per-family purpose label, then HMAC-SHA-256 of
+//! the committed value.
+//!
+//! Domain separation is by construction: each commitment family uses its own
+//! salt and purpose, so the derived keys are independent of one another and of
+//! the signing key (HKDF expand output is not the input key material), and the
+//! commitments are HMAC outputs — no Ed25519 operation — so a published
+//! commitment or opening is neither an offline oracle for other values nor
+//! material toward a forged signature.
+//!
+//! The signing key has a single owner: the authority host process. It is never
+//! serialized, exported, or shared; only [`ReceiptSigner::open_receipt_intent`]
+//! hands out a derived opening, and only after re-verifying the receipt. One
+//! provisioned secret roots both signing and commitments deliberately — it
+//! matches the repository's HKDF-from-a-root pattern
+//! (`docs/security/key-hierarchy.md`) and keeps rotation to a single key,
+//! while a retired key stays verifiable through its public half in
+//! [`ReceiptVerifier`].
 use base64::{
     engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
     Engine,
@@ -207,6 +231,15 @@ impl ReceiptSigner {
 
     /// Return the opening only for a receipt signed by this active signer.
     /// A verifier must protect the opening and verify the receipt signature.
+    ///
+    /// Caller contract: authenticate and authorize the requester against the
+    /// receipt's principal and organization *before* calling this (the gateway
+    /// resolves the caller and confirms ownership first), and treat the
+    /// returned opening as private material — its holder can open the
+    /// receipt's intent commitment, so it travels only in private responses to
+    /// the principal it belongs to. This method re-verifies the receipt under
+    /// this signer's key and refuses receipts without an opaque result; it
+    /// never executes or re-executes anything.
     ///
     /// # Errors
     /// Returns an error for an invalid receipt or a receipt under another key.
