@@ -64,6 +64,10 @@ it("shares the certificate parser and ASN.1 registry with WebAuthn", () => {
 
   expect(version(upstream, "asn1js")).toBe("4.0.0");
 
+  const registry = realpathSync(core.resolve("asn1js"));
+  expect(realpathSync(upstream.resolve("asn1js"))).toBe(registry);
+  expect(realpathSync(simplewebauthn.resolve("asn1js"))).toBe(registry);
+
   for (const name of [
     "@peculiar/x509",
     "@peculiar/asn1-rsa",
