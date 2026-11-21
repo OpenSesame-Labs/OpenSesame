@@ -42,7 +42,7 @@
     },
     {
       "path": "crates/transport-security/Cargo.toml",
-      "sha256": "74c6e322dfcd18a0b495b2ac88ed850afc2b165e80e5dbbeff4fda406a72d12e"
+      "sha256": "eddf59255b6f4b7469cbc16d05ef2c86c75a8703c16cc8e0f07288097f5f3de5"
     },
     {
       "path": "crates/transport-security/src/lib.rs",
@@ -122,7 +122,7 @@
     },
     {
       "path": "crates/transport-security/src/guard.rs",
-      "sha256": "b4bee28991e9b3acd405e6d77f7debe890f0a7103d2ddc13a654ec20cab14109"
+      "sha256": "175f026c13b319801b5312cc42ce1377ba2103e10ca498888d3f2d2a9f2359fe"
     },
     {
       "path": "crates/transport-security/src/testkit/mod.rs",
@@ -745,7 +745,7 @@
       },
       {
         "path": "crates/transport-security/Cargo.toml",
-        "sha256": "74c6e322dfcd18a0b495b2ac88ed850afc2b165e80e5dbbeff4fda406a72d12e"
+        "sha256": "eddf59255b6f4b7469cbc16d05ef2c86c75a8703c16cc8e0f07288097f5f3de5"
       },
       {
         "path": "crates/xkeys/Cargo.toml",
