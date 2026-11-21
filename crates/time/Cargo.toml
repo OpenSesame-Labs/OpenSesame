@@ -14,9 +14,12 @@ sqlx = ["dep:sqlx-core", "dep:sqlx-postgres", "dep:sqlx-sqlite"]
 [dependencies]
 serde = { workspace = true }
 time = { workspace = true }
-sqlx-core = { version = "0.9.0", default-features = false, features = ["time"], optional = true }
-sqlx-postgres = { version = "0.9.0", default-features = false, features = ["time"], optional = true }
-sqlx-sqlite = { version = "0.9.0", default-features = false, features = ["bundled"], optional = true }
+sqlx-core = { version = "=0.9.0", default-features = false, features = ["time"], optional = true }
+sqlx-postgres = { version = "=0.9.0", default-features = false, features = ["time"], optional = true }
+# Pinned to the reviewed vendored patch at patches/vendor/sqlx-sqlite-0.9.0; an
+# open "0.9" requirement would let the registry resolve 0.9.1 and silently
+# disable the [patch.crates-io] override.
+sqlx-sqlite = { version = "=0.9.0", default-features = false, features = ["bundled"], optional = true }
 
 [dev-dependencies]
 proptest = { workspace = true }

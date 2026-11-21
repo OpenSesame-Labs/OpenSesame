@@ -10,15 +10,16 @@ inductive Signal where
   deriving DecidableEq, Repr
 
 inductive Decision where
-  | noIdentity | permissionDenied | missingSvids | missingBundle | outage | malformed
+  | noIdentity | permissionDenied | unauthenticated | missingSvids | missingBundle | outage | malformed
   deriving DecidableEq, Repr
 
 def classify : Signal → Decision
   | .noIdentity => .noIdentity
-  | .permissionDenied | .unauthenticated => .permissionDenied
-  | .missingSvids => .missingSvids
+  | .permissionDenied => .permissionDenied
+  | .unauthenticated => .unauthenticated
+  | .missingSvids | .emptyResponse => .missingSvids
   | .missingBundle => .missingBundle
-  | .transport | .emptyResponse => .outage
+  | .transport => .outage
   | .malformedField | .invalidField => .malformed
 
 inductive Phase where
@@ -50,6 +51,12 @@ theorem missing_bundle_withdraws (phase : Phase) :
 
 theorem malformed_snapshot_withdraws (phase : Phase) :
     step phase (.failure (classify .malformedField)) = .withdrawn := rfl
+
+theorem empty_response_withdraws (phase : Phase) :
+    step phase (.failure (classify .emptyResponse)) = .withdrawn := rfl
+
+theorem invalid_field_withdraws (phase : Phase) :
+    step phase (.failure (classify .invalidField)) = .withdrawn := rfl
 
 theorem transient_transport_is_outage : classify .transport = .outage := rfl
 
@@ -109,6 +116,14 @@ theorem retry_cannot_extend_deadline (notAfter previous since maxStale : Nat) :
     retryDeadline notAfter previous since maxStale ≤ previous := by
   exact Nat.min_le_left _ _
 
+theorem retry_bounded_by_certificate (notAfter previous since maxStale : Nat) :
+    retryDeadline notAfter previous since maxStale ≤ notAfter := by
+  exact Nat.le_trans (Nat.min_le_right _ _) (outage_bounded_by_certificate _ _ _)
+
+theorem retry_bounded_by_freshness (notAfter previous since maxStale : Nat) :
+    retryDeadline notAfter previous since maxStale ≤ since + maxStale := by
+  exact Nat.le_trans (Nat.min_le_right _ _) (outage_bounded_by_freshness _ _ _)
+
 theorem effective_bounded_by_certificate (notAfter retainUntil : Nat) :
     effectiveDeadline notAfter retainUntil ≤ notAfter := by
   exact Nat.min_le_left _ _
@@ -119,7 +134,9 @@ theorem effective_bounded_by_retention (notAfter retainUntil : Nat) :
 
 theorem expired_is_not_usable (now deadline : Nat) (h : deadline ≤ now) :
     usableAt now deadline = false := by
-  simp [usableAt, Nat.not_lt.mpr h]
+  unfold usableAt
+  simp only [decide_eq_false_iff_not]
+  exact Nat.not_lt.mpr h
 
 theorem status_expired_at_retention (now notAfter retainUntil : Nat)
     (h : retainUntil ≤ now) : usableAt now (effectiveDeadline notAfter retainUntil) = false := by
@@ -139,6 +156,7 @@ private def signals : List (String × Signal) := [
 private def decisionName : Decision → String
   | .noIdentity => "no_identity"
   | .permissionDenied => "permission_denied"
+  | .unauthenticated => "unauthenticated"
   | .missingSvids => "missing_svids"
   | .missingBundle => "missing_bundle"
   | .outage => "outage"

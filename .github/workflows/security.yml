@@ -175,6 +175,7 @@ jobs:
           python3 scripts/security/test_vendored_sqlx.py
           python3 scripts/security/verify-vendored-keepass.py
           python3 scripts/security/test_vendored_keepass.py
+          python3 scripts/security/test_cargo_lock_projection.py
 
   osv-scanner:
     name: OSV-Scanner (lockfiles)
