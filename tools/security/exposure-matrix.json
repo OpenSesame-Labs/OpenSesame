@@ -52,7 +52,7 @@
         "packages/control-plane/src/__tests__/claims-present.test.ts",
         "packages/app-core/src/lib/vault/drop-present.test.ts"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-21: classified dependency-only change to packages/control-plane/package.json for the Dependabot npm-minor-and-patch batch #2855 (hono 4.13.16 to 4.13.18, @hono/node-server 2.1.6 to 2.1.8, jose 6.2.15 to 6.2.17, nodemailer 10.3.1 to 10.5.0, @electric-sql/pglite 0.5.15 to 0.5.16); no route, store or policy code changed. Regressions executed at the bump head: claims-drop-completion.security.test.ts, claims-drop-code.security.test.ts and claims-present.test.ts (20 tests in 3 files), os-domain claim-token.test.ts and claim-token-extended.test.ts (23 tests in 2), app-core drop-present.test.ts within a 12-file targeted run (161 tests); npm run audit:exposure CLEAN after the rotation. The manifest fingerprint is deterministic output of the reviewed byte change, not a blind refresh."
     },
     {
       "id": "portable-secret-drop",
@@ -129,7 +129,7 @@
         "packages/ceremony-kit/src/claim-link.test.ts",
         "packages/ceremony-kit/src/claim-stash.test.ts"
       ],
-      "review": "The hosted share link exposes its payload key without the separate code. Only the server-withheld ciphertext is code-gated; this key cannot borrow that protection."
+      "review": "The hosted share link exposes its payload key without the separate code. Only the server-withheld ciphertext is code-gated; this key cannot borrow that protection. 2026-11-21: classified dependency-only change to packages/app-core/package.json for the Dependabot npm-minor-and-patch batch #2855 (better-auth 1.7.22, jose 6.2.17, xmldsigjs/xml-core 3.1.0, hash-wasm 4.13.0, effect 4.1.4, ai 7.0.172, @azure/msal-browser 5.29.1, @vercel/connect 2.9.2, @scure/bip32 2.4.0, fake-indexeddb 6.2.8, @ai-sdk/provider 4.0.38); no link, stash or drop code changed. Regressions executed at the bump head: drop.test.ts, arrival.test.ts, link.test.ts, stash.test.ts and route-model.test.ts, plus the full ceremony-kit suite incl. claim-link and claim-stash (268 tests in 20 files); npm run audit:exposure CLEAN after the rotation. The manifest fingerprint is deterministic output of the reviewed byte change, not a blind refresh."
     },
     {
       "id": "portable-link-key",
@@ -173,7 +173,7 @@
         "packages/ceremony-kit/src/claim-link.test.ts",
         "packages/ceremony-kit/src/claim-stash.test.ts"
       ],
-      "review": "The fragment exposes the payload key without the code. The portable manifest containing the payload ciphertext remains protected by the independent code-derived AEAD envelope."
+      "review": "The fragment exposes the payload key without the code. The portable manifest containing the payload ciphertext remains protected by the independent code-derived AEAD envelope. 2026-11-21: classified dependency-only change to packages/app-core/package.json for the Dependabot npm-minor-and-patch batch #2855 (same reviewed bump set recorded under hosted-link-key); no portable-drop code changed. Regressions executed at the bump head: drop.test.ts, arrival.test.ts, link.test.ts, stash.test.ts and route-model.test.ts, plus the full ceremony-kit suite (268 tests in 20 files); npm run audit:exposure CLEAN after the rotation. The manifest fingerprint is deterministic output of the reviewed byte change, not a blind refresh."
     },
     {
       "id": "account-totp",
@@ -1115,7 +1115,7 @@
         "packages/auth-upstream/src/__tests__/webauthn.test.ts",
         "packages/sdk-browser/src/webauthn.test.ts"
       ],
-      "review": "LOCAL device-owner process custody only. Original session/scope and transport-bound completions retain ownership; cancel, expiry and lock synchronously revoke provisional key/body/VFS custody. Before configured factors and trusted quorum complete, a revocable private IAM handle permits only bounded policy/directory/credential reads and genuine WebAuthn assertion-counter advancement, with no ordinary VFS, key export or consumable IAM sign-in evidence. Activation and leases publish once under their original owner; metadata, preferences and device-key reconciliation retain operation checks. Bound regressions use genuine sealed stores, real contact assertions and controlled completion boundaries. Copied vault artifacts with primary unlock material can be decrypted outside this local gate: this is neither offline cryptographic quorum nor global lifecycle enforcement. Source fingerprints require deliberate source-path review and executed relevant regressions after every change; they do not prove crash atomicity or cancel already accepted physical writes. 2026-11-10: classification-cross.ts gains one shared rule, for lib/tailscale-key-prefix. That module holds only the provider's key-prefix strings and a function that joins them; the native Tailscale connector and tailnet devices both import it, and until now it matched no rule, so the classification test failed on main. The rule grants no capability and changes no existing rule, including the private-IAM and WebAuthn helper rules this row binds. Passed: every test under apps/pages/src/lib/capabilities (204 tests in 24 files), classification.test.ts among them. 2026-11-20: classified dependency-only change to packages/auth-upstream/package.json for @simplewebauthn/server 14.1.0; regressions packages/auth-upstream/src/__tests__/webauthn.test.ts, apps/pages/scripts/webauthn-browser-entry.test.mjs, npm run audit:exposure CLEAN. Fingerprints for packages/auth-upstream/package.json bindings are deterministic output, not a blind refresh. 2026-11-20: packages/auth-upstream/package.json gained the verify:simplewebauthn-v14 script, wiring the pinned v14 surface regression (webauthn.test.ts and simplewebauthn-v14-surface.test.ts) into scripts/verify; dependency pins, exports and custody behavior are unchanged from the classified 14.1.0 bump. Regressions executed after the change: npm run verify:simplewebauthn-v14 -w @opensesame/auth-upstream passed (13 tests in 2 files) and npm test -w @opensesame/auth-upstream passed (109 tests in 18 files); the manifest fingerprint was rotated to the reviewed file, deterministic output of the reviewed byte change, and npm run audit:exposure is CLEAN against it. 2026-11-21: PR #2860 rebased onto post-#2859 main; classified dependency-only manifest changes for the @peculiar/x509 3.1.0 hoist — packages/auth-upstream/package.json asn1js 3.1.0 to 4.0.0 (the single hoisted copy the root overrides force) and packages/app-core/package.json @peculiar/x509 1.14.3 to 3.1.0 plus its verify:x509-3 script line. No custody, authority, egress or admission logic changed and the bindings are unchanged. Regressions executed at the rebased head before rotating: pages pin gates saml-peer-ownership.test.mjs and webauthn-browser-entry.test.mjs (2 files, 7 tests), npm test -w @opensesame/auth-upstream (18 files, 109 tests), npm run verify:x509-3 -w @opensesame/app-core (10 files, 229 tests), npm test -w ./tools/mock-upstream-idp (11 files, 68 tests), and npm run audit:exposure CLEAN; fingerprints for both manifests rotated to the reviewed files."
+      "review": "LOCAL device-owner process custody only. Original session/scope and transport-bound completions retain ownership; cancel, expiry and lock synchronously revoke provisional key/body/VFS custody. Before configured factors and trusted quorum complete, a revocable private IAM handle permits only bounded policy/directory/credential reads and genuine WebAuthn assertion-counter advancement, with no ordinary VFS, key export or consumable IAM sign-in evidence. Activation and leases publish once under their original owner; metadata, preferences and device-key reconciliation retain operation checks. Bound regressions use genuine sealed stores, real contact assertions and controlled completion boundaries. Copied vault artifacts with primary unlock material can be decrypted outside this local gate: this is neither offline cryptographic quorum nor global lifecycle enforcement. Source fingerprints require deliberate source-path review and executed relevant regressions after every change; they do not prove crash atomicity or cancel already accepted physical writes. 2026-11-10: classification-cross.ts gains one shared rule, for lib/tailscale-key-prefix. That module holds only the provider's key-prefix strings and a function that joins them; the native Tailscale connector and tailnet devices both import it, and until now it matched no rule, so the classification test failed on main. The rule grants no capability and changes no existing rule, including the private-IAM and WebAuthn helper rules this row binds. Passed: every test under apps/pages/src/lib/capabilities (204 tests in 24 files), classification.test.ts among them. 2026-11-20: classified dependency-only change to packages/auth-upstream/package.json for @simplewebauthn/server 14.1.0; regressions packages/auth-upstream/src/__tests__/webauthn.test.ts, apps/pages/scripts/webauthn-browser-entry.test.mjs, npm run audit:exposure CLEAN. Fingerprints for packages/auth-upstream/package.json bindings are deterministic output, not a blind refresh. 2026-11-20: packages/auth-upstream/package.json gained the verify:simplewebauthn-v14 script, wiring the pinned v14 surface regression (webauthn.test.ts and simplewebauthn-v14-surface.test.ts) into scripts/verify; dependency pins, exports and custody behavior are unchanged from the classified 14.1.0 bump. Regressions executed after the change: npm run verify:simplewebauthn-v14 -w @opensesame/auth-upstream passed (13 tests in 2 files) and npm test -w @opensesame/auth-upstream passed (109 tests in 18 files); the manifest fingerprint was rotated to the reviewed file, deterministic output of the reviewed byte change, and npm run audit:exposure is CLEAN against it. 2026-11-21: PR #2860 rebased onto post-#2859 main; classified dependency-only manifest changes for the @peculiar/x509 3.1.0 hoist — packages/auth-upstream/package.json asn1js 3.1.0 to 4.0.0 (the single hoisted copy the root overrides force) and packages/app-core/package.json @peculiar/x509 1.14.3 to 3.1.0 plus its verify:x509-3 script line. No custody, authority, egress or admission logic changed and the bindings are unchanged. Regressions executed at the rebased head before rotating: pages pin gates saml-peer-ownership.test.mjs and webauthn-browser-entry.test.mjs (2 files, 7 tests), npm test -w @opensesame/auth-upstream (18 files, 109 tests), npm run verify:x509-3 -w @opensesame/app-core (10 files, 229 tests), npm test -w ./tools/mock-upstream-idp (11 files, 68 tests), and npm run audit:exposure CLEAN; fingerprints for both manifests rotated to the reviewed files. 2026-11-21: classified dependency-only manifest changes for the Dependabot npm-minor-and-patch batch #2855: packages/app-core/package.json and packages/auth-upstream/package.json better-auth 1.7.18 to 1.7.22, packages/app-core/package.json jose 6.2.15 to 6.2.17, packages/sdk-browser/package.json jose 6.2.15 to 6.2.17 plus the Biome 2.6.7 formatting of its files array; auth-upstream keeps @simplewebauthn/server 14.1.0 and the v14 surface script from #2859, and no custody, activation or WebAuthn code changed. Regressions executed at the bump head: npm test -w @opensesame/auth-upstream (109 tests in 18 files, including webauthn.test.ts and simplewebauthn-v14-surface.test.ts), npm test -w @opensesame/sdk-browser (118 tests in 13 files, including webauthn.test.ts), app-core store-unlock-activation.test.ts, store-passkey.test.ts and store-second-step.test.ts within a 12-file targeted run (161 tests); npm run audit:exposure CLEAN after the rotation. The manifest fingerprints are deterministic output of the reviewed byte changes, not a blind refresh. 2026-11-21: PR #2855 rebased onto post-#2860 main; packages/app-core/package.json and packages/auth-upstream/package.json now carry both reviewed sets — the #2860 pins (@peculiar/x509 3.1.0 with its verify:x509-3 script, asn1js 4.0.0) and the #2855 batch bumps above — with no other bytes changed; fingerprints rotated to the combined manifests."
     },
     {
       "id": "native-provider-custody",
@@ -1273,7 +1273,7 @@
         "apps/pages/src/modules/connectors.external/native-oauth-resource-runtime.integration.test.tsx",
         "packages/sdk-browser/src/client.test.ts"
       ],
-      "review": "Local admitted provider-result custody. Reviewed original transport and captured revision through private record reads, authenticated decryption, final revision locks, generic API resources, configured OAuth publication and registered API dispatch with or without a caller signal. Actual held-WebCrypto/Web-Lock/physical-close/public-mapping regressions and live-value positives plus bound provider, PKCE, storage and bridge consumers. No copied-secret revocation or global lifecycle claim."
+      "review": "Local admitted provider-result custody. Reviewed original transport and captured revision through private record reads, authenticated decryption, final revision locks, generic API resources, configured OAuth publication and registered API dispatch with or without a caller signal. Actual held-WebCrypto/Web-Lock/physical-close/public-mapping regressions and live-value positives plus bound provider, PKCE, storage and bridge consumers. No copied-secret revocation or global lifecycle claim. 2026-11-21: classified dependency-only manifest changes for the Dependabot npm-minor-and-patch batch #2855: packages/app-core/package.json (@azure/msal-browser 5.28.0 to 5.29.1 with the batch set recorded under hosted-link-key) and packages/sdk-browser/package.json (jose 6.2.15 to 6.2.17, plus the Biome 2.6.7 formatting of its files array); no connector, key or transport code changed. Regressions executed at the bump head: packages/sdk-browser/src/client.test.ts within the full sdk-browser suite (118 tests in 13 files); app-core native-bitwarden-crypto.test.ts, native-azure-ac.test.ts and native-api-http.test.ts within a 12-file targeted run (161 tests); npm run audit:exposure CLEAN after the rotation. The manifest fingerprints are deterministic output of the reviewed byte changes, not a blind refresh."
     }
   ],
   "sources": {
@@ -1398,14 +1398,14 @@
       "b3e2a57f"
     ],
     "packages/app-core/package.json": [
-      "84a960cb",
-      "73aaa16f",
-      "27b91cb3",
-      "2212b2b2",
-      "5b96eb3b",
-      "62628e46",
-      "f8322d40",
-      "1edc4235"
+      "ff6d0078",
+      "c269d7b4",
+      "eca4393e",
+      "957a066d",
+      "de3383de",
+      "2a6e2ef2",
+      "b9220759",
+      "ddde9c6c"
     ],
     "packages/app-core/src/lib/claims/arrival.ts": [
       "5e98e948",
@@ -1668,14 +1668,14 @@
       "27a312bd"
     ],
     "packages/control-plane/package.json": [
-      "645222e6",
-      "49debf15",
-      "3c32a27a",
-      "1fc08db5",
-      "ee583d0f",
-      "72c565ec",
-      "e58ca1c6",
-      "e79e300e"
+      "ec042d86",
+      "28882068",
+      "632f4d09",
+      "b05ab3d0",
+      "dabe6bcb",
+      "781d31d5",
+      "1d22c5a7",
+      "963314d7"
     ],
     "packages/os-domain/package.json": [
       "e3dcffdf",
@@ -4438,14 +4438,14 @@
       "d01796b5"
     ],
     "packages/auth-upstream/package.json": [
-      "506f514e",
-      "39207d45",
-      "2b685e43",
-      "4a0854cc",
-      "4eac80e1",
-      "978e3237",
-      "f035cda1",
-      "bdaa0054"
+      "603836a8",
+      "5efa3c2b",
+      "9254268b",
+      "47386bad",
+      "80e409c0",
+      "55c60f1e",
+      "4970b398",
+      "ec2ab992"
     ],
     "packages/auth-upstream/src/browser.ts": [
       "5bbe4849",
@@ -4478,14 +4478,14 @@
       "42d75070"
     ],
     "packages/sdk-browser/package.json": [
-      "d299217c",
-      "d8df197e",
-      "5ed61acc",
-      "e11d3e6b",
-      "ec99cdd5",
-      "1658cbfd",
-      "fbd4e208",
-      "76d5a3ed"
+      "2ba86b53",
+      "4d59bf57",
+      "fa6d5470",
+      "bb815061",
+      "deabfd15",
+      "70380ecf",
+      "230b71a3",
+      "daf6a788"
     ],
     "packages/sdk-browser/src/index.ts": [
       "c41cc32a",

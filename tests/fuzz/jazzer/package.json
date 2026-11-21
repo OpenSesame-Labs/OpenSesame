@@ -11,7 +11,7 @@
     "test:fuzz:batch": "tsx src/run.ts"
   },
   "dependencies": {
-    "@env-spec/parser": "0.6.2",
+    "@env-spec/parser": "0.6.3",
     "@opensesame/audit": "*",
     "@opensesame/auth-upstream": "*",
     "@opensesame/capability-composition": "*",
