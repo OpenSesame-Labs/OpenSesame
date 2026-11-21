@@ -187,7 +187,9 @@ async fn trust_status_reports_quarantine_and_a_changed_serving_generation() {
         )
         .await
         .unwrap();
-    assert!(trust::refresh(&state, opensesame_time::Utc::now()).await.unwrap());
+    assert!(trust::refresh(&state, opensesame_time::Utc::now())
+        .await
+        .unwrap());
     let (status, body) = call(&state, "GET", TRUST, operator(&state), None).await;
     assert_eq!(status, StatusCode::OK, "{body}");
     assert_eq!(body["trust_application"]["reconciled"], true);
