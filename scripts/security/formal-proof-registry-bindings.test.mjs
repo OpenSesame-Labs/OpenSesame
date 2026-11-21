@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { test } from "node:test";
+import { isString } from "../lib/json-boundary.mjs";
 import { PINNED_FORMAL_SUITES } from "./formal-proof-pinned-suites.mjs";
 import {
   assertProofFiles,
@@ -168,9 +169,8 @@ test("registry, requirements, and the reviewed minimum agree", () => {
   const scripts = npmScripts();
   for (const suite of registry.suites) {
     assertProofFiles(root, suite);
-    assert.equal(
-      typeof scripts[suite.command[2]],
-      "string",
+    assert.ok(
+      isString(scripts[suite.command[2]]),
       `${suite.id}: command npm run ${suite.command[2]} is not a root npm script`,
     );
   }
