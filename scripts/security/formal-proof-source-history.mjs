@@ -215,7 +215,7 @@ export const SOURCE_HISTORY_SUITE = {
   proofs: [
     "spec/formal/source-trust-history/SourceTrustHistory.lean",
     "spec/formal/source-trust-history/required-theorems.lean",
-    "spec/formal/source-lifetime/lean-toolchain",
+    "spec/formal/source-trust-history/lean-toolchain",
     "spec/formal/required-theorem-command.lean",
     "spec/formal/check-axioms.sh",
     "spec/formal/check-axioms.test.mjs",
