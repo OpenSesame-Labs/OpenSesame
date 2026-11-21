@@ -93,7 +93,10 @@ match each other and the trusted minimum on suite IDs, implementation paths,
 proof files, and commands. All three require review; their agreement alone does
 not establish that a proof covers an implementation. Pushes also compare changed
 paths with the advertised remote main policy so stale branches cannot silently
-omit its mappings. The remote must be reachable for this comparison.
+omit its mappings. The remote must be reachable for this comparison. The hook
+uses the push URL supplied by Git for both history and remote-main policy,
+including when the fetch URL differs. Direct invocation with a remote name
+requires exactly one configured push URL; ambiguous destinations fail closed.
 If main moves while its missing history is fetched, the gate rejects the push
 and asks for a retry. A local hook cannot make its last remote read atomic with
 the server's eventual ref update; server-side policy remains necessary.
