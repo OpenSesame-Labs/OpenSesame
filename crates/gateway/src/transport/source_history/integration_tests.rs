@@ -4,13 +4,12 @@ use std::collections::BTreeSet;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-use opensesame_domain::transport::TrustProfileKind;
 use opensesame_spiffe_source::fake::{FakeTrustDomain, FakeWorkloadApi, IssuedSvid};
 use opensesame_spiffe_source::{SourcePhase, SpiffeSource, SpiffeSourceConfig, SpiffeSourceHandle};
 use opensesame_transport_security::env::{NativeIdentitySpec, NativeTrustSpec};
-use opensesame_transport_security::TrustBundle;
-use rustls_pki_types::CertificateDer;
 use tokio::sync::{mpsc, Semaphore};
+
+use crate::transport::test_support::{local_bundle, local_candidate};
 
 use super::*;
 
@@ -41,25 +40,6 @@ async fn streaming_after(handle: &SpiffeSourceHandle, prior: u64) -> u64 {
         .expect("source did not activate")
         .generation
         .unwrap()
-}
-
-fn local_candidate(generations: &TransportGenerations) -> GenerationCandidate {
-    let current = generations.current();
-    GenerationCandidate {
-        identity: current.identity.clone(),
-        peer_trust: current.peer_trust.clone(),
-        own_trust: None,
-        identity_required: true,
-    }
-}
-
-fn local_bundle(name: &str, ca: &FakeTrustDomain) -> TrustBundle {
-    TrustBundle::from_der(
-        TrustProfileRef::new(name).unwrap(),
-        TrustProfileKind::PrivateRoot,
-        vec![CertificateDer::from(ca.bundle_der())],
-    )
-    .unwrap()
 }
 
 async fn initialized(db: &Db, scope: &Arc<Scope>) {

@@ -286,24 +286,8 @@ async fn resolve_distributed_task_authority(task_database_url: &str) -> bool {
 }
 
 #[cfg(test)]
-pub mod test_env {
-    use std::sync::Mutex;
-
-    static LOCK: Mutex<()> = Mutex::new(());
-
-    /// Build a fixture while process-global deployment settings are stable.
-    pub async fn build(args: super::Args) -> anyhow::Result<super::AppState> {
-        let _guard = lock();
-        super::build_test(args).await
-    }
-
-    /// Serialize tests that mutate process env (`OPENSESAME_*`, `NATS_URL`, …).
-    pub fn lock() -> std::sync::MutexGuard<'static, ()> {
-        LOCK.lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-    }
-}
-
+#[path = "app_state_test_env.rs"]
+pub mod test_env;
 #[cfg(test)]
 pub async fn build_test(args: Args) -> anyhow::Result<AppState> {
     let secret = || {

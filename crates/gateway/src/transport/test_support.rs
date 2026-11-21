@@ -301,6 +301,32 @@ pub async fn wait_for_history_owner() {
     );
 }
 
+pub fn local_candidate(generations: &TransportGenerations) -> GenerationCandidate {
+    let current = generations.current();
+    GenerationCandidate {
+        identity: current.identity.clone(),
+        peer_trust: current.peer_trust.clone(),
+        own_trust: None,
+        identity_required: true,
+    }
+}
+
+pub fn local_bundle(
+    name: &str,
+    ca: &opensesame_spiffe_source::fake::FakeTrustDomain,
+) -> opensesame_transport_security::TrustBundle {
+    use opensesame_domain::transport::TrustProfileKind;
+    use opensesame_transport_security::TrustBundle;
+    use rustls_pki_types::CertificateDer;
+
+    TrustBundle::from_der(
+        TrustProfileRef::new(name).unwrap(),
+        TrustProfileKind::PrivateRoot,
+        vec![CertificateDer::from(ca.bundle_der())],
+    )
+    .unwrap()
+}
+
 /// Configured non-source startup paths for a file-backed history test.
 pub fn history_configs(
     dir: &std::path::Path,
