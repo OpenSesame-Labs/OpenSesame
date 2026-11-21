@@ -20,6 +20,7 @@ mod constructor;
 pub mod crypto;
 mod custom_egress;
 pub mod custom_provider;
+/// `create_custom_provider` (custom OAuth/API-key provider registration) lives here.
 mod custom_provider_registration;
 pub mod delegation;
 mod delegation_lineage;

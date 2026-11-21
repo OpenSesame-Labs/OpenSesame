@@ -167,10 +167,11 @@ pub fn build_invoker(
     allow_loopback: bool,
 ) -> Result<Invoker, TransportError> {
     let Some(trust) = trust else {
-        // No configured trust profile: the connection uses the Host's ordinary
-        // Web PKI client. It must still dial the vetted addresses rather than
-        // resolve the host again. `mtls_required` never reaches this branch.
-        let invoker = Invoker::with_pinned(rules, &authority.host, &authority.addrs);
+        // No configured trust profile: WebPKI hostname verification still
+        // applies; only the dial is pinned to the vetted addresses so a
+        // second DNS lookup cannot rebind the credentialed request.
+        // `mtls_required` never reaches this branch.
+        let invoker = Invoker::with_pinned_webpki(rules, &authority.host, &authority.addrs);
         return Ok(if allow_loopback {
             invoker.allow_http_for_tests()
         } else {
