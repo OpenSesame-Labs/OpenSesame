@@ -81,9 +81,21 @@
       "base_blob": null
     },
     {
+      "path": "crates/transport-security/src/provenance.rs",
+      "sha256": "0f1d34869a87336891c06625c74426814f7097dbdc5cbb357ef53abf075856e5",
+      "reviewed_blob": "347b419f8016efb92d4e564b22e132e30f4e34d1",
+      "base_blob": "347b419f8016efb92d4e564b22e132e30f4e34d1"
+    },
+    {
+      "path": "crates/transport-security/src/svid_profile.rs",
+      "sha256": "b13202dee43322cf226cb8b202aecfba83ae993dc4a160e4caec3dcf2cafb38c",
+      "reviewed_blob": "f7b730d1268d680fd26fc7628469c8c6dbecf30c",
+      "base_blob": null
+    },
+    {
       "path": "crates/transport-security/src/guard.rs",
-      "sha256": "e6dd79ed1141562e105ea2150d83ab67c4b175cc86e49965a1681f7c2d335a64",
-      "reviewed_blob": "4e18a491097eb40271077e69763cab4b868c93ca",
+      "sha256": "175f026c13b319801b5312cc42ce1377ba2103e10ca498888d3f2d2a9f2359fe",
+      "reviewed_blob": "5484cdf517157d391feca88ae50f85526da129a9",
       "base_blob": "1199779d7cb4a93cb73addcd40490cc5af1bebd9"
     },
     {
@@ -91,6 +103,24 @@
       "sha256": "66d35c810ea8f7f23e7df5b7f363b8920a07c71c83e6fa94139f6ca9579517ae",
       "reviewed_blob": "46fa0a221941f1abae212c03d3718a4cd2f560f9",
       "base_blob": "a6a2aa26452336db2ddca743b113199169b9270a"
+    },
+    {
+      "path": "crates/transport-security/src/client.rs",
+      "sha256": "a3e38ba0c474758f907f9771f739df3e0f8fc5ac177ddd20aebec85125012c7b",
+      "reviewed_blob": "9c6aaf87cf0f2b409f8c6d1e46a890133c7fb46c",
+      "base_blob": "479a8888cd76067e420a4224af53d0f635ac6762"
+    },
+    {
+      "path": "crates/transport-security/src/server.rs",
+      "sha256": "4c805865d6aa3f98c9b3afa0489d5e8f368bb01a284d88d68efc92c755237c45",
+      "reviewed_blob": "63b2f9abfb581b1a52377df05f0b623b0a205da1",
+      "base_blob": "737fedc2e0dff001b0cfbca057a1ea2318599e7c"
+    },
+    {
+      "path": "crates/transport-security/src/signing_fence.rs",
+      "sha256": "5c38a5c37314c68013604df4084699b13ba4ff1ff4c0ef43d2e442f117a6b8ab",
+      "reviewed_blob": "b10b648bb22952afc92ccfbf87bf783f7b8ec4a7",
+      "base_blob": null
     },
     {
       "path": "crates/transport-security/src/server_conn.rs",
@@ -139,6 +169,12 @@
       "sha256": "021a25db40801d1e677c8487d7e54d48376001c04896f3f80a36157a7d531871",
       "reviewed_blob": "5b542a961df0aa2bc007ce105e373e16131e9a7a",
       "base_blob": "6ff41f704f3262a8d0c3db87e1610fef483047f0"
+    },
+    {
+      "path": "crates/spiffe-source/src/source_history_flow.rs",
+      "sha256": "19b03ad54435eb1c95b382882ec52f19191ec5af75e1139b310e56616dbe05c2",
+      "reviewed_blob": "a7943094838167b816064fad304b5596d53dea7e",
+      "base_blob": null
     },
     {
       "path": "crates/spiffe-source/src/source_handle.rs",
@@ -249,6 +285,12 @@
       "base_blob": "3e960ebeb6480d0058dd2fef9a655f6d25235577"
     },
     {
+      "path": "crates/gateway/src/transport/source_trust_selection.rs",
+      "sha256": "7043906e50f23d117756072d1ab16b3e200f331b3eacb6507a25b102e7f6bc3e",
+      "reviewed_blob": "e67da008aa6c66eeb7fe8cbbdb5ed853923f2966",
+      "base_blob": null
+    },
+    {
       "path": "crates/gateway/src/transport/runtime.rs",
       "sha256": "789d8d4b5acb25b546aa10913c20264295d33579b38e1e0d8abaa6061cf07153",
       "reviewed_blob": "6d73b592bca340d8409614fec5554020616d8239",
@@ -333,6 +375,12 @@
       "base_blob": null
     },
     {
+      "path": "crates/transport-security/src/signing_fence_tests.rs",
+      "sha256": "388e13ae2da6e4ecd7a9c5b97a21f56615b8c7242906583919c4ae38bd2960ba",
+      "reviewed_blob": "0862dc79f9176d037f7d71b9ad6a6dc39aa062e3",
+      "base_blob": null
+    },
+    {
       "path": "crates/gateway/src/transport/status_tests.rs",
       "sha256": "59b1b65248d0246ae33365a3734148dc15b6a083780b161a12d3afb4d635702d",
       "reviewed_blob": "1f71af738de81e313e3eee7849df4a97cb86fb99",
@@ -393,6 +441,18 @@
       "base_blob": null
     },
     {
+      "path": "crates/transport-security/tests/signing_fence_races.rs",
+      "sha256": "9dab78ed09e5a9ce945eda2ea748333d048c078598dbf9d9eb5604f978bc126b",
+      "reviewed_blob": "cb8c92ecb1661a2dc4e2990a70bedba443f3bfce",
+      "base_blob": null
+    },
+    {
+      "path": "crates/transport-security/tests/source_lifetime_tls12.rs",
+      "sha256": "643587302519fec24f69cbfd1618805b5e8c137df660b60e65091e90fe17231c",
+      "reviewed_blob": "7a96db536c66e620bc8988894e16a4b7213d9d4a",
+      "base_blob": null
+    },
+    {
       "path": "crates/transport-security/tests/source_lifetime.rs",
       "sha256": "6aa6b6492f0105196ad6c8a65ebd98629461eb0773d4159193430d6885fabf38",
       "reviewed_blob": "4025294572861439481fdb28f0f40ebcbf6b1a0b",
@@ -414,6 +474,24 @@
       "path": "crates/spiffe-source/src/source_lease_tests.rs",
       "sha256": "ae807d2e206dfd123afe10c6f561593fc39ce262774bde870c2f2e6aadb7f264",
       "reviewed_blob": "0409250cf6f13e931aa52795416d3689df5cd56f",
+      "base_blob": null
+    },
+    {
+      "path": "scripts/security/formal-cargo-isolation.py",
+      "sha256": "f0d313d9895adc193afc26ae954b90bceb94deda66da239199c527eaf628eeda",
+      "reviewed_blob": "b8e717016bf2334cbbe6bf514b322cb97bc9513f",
+      "base_blob": null
+    },
+    {
+      "path": "scripts/security/formal-cargo-freshness.py",
+      "sha256": "246565be88eb0c64a17a8c2551906c06698d07a0df76b69aea7f27e7aa63bf5c",
+      "reviewed_blob": "21190ac37bf0f739a273e0475f395a7183cff58c",
+      "base_blob": null
+    },
+    {
+      "path": "scripts/security/cargo-lock-projection.py",
+      "sha256": "85ebc3052f5be51de19f50af0b131d3e0a02496259ed5d59d209ed797ef79b6a",
+      "reviewed_blob": "c5bc0abd2c133fc3f2f43a5354721e9fdd9e6031",
       "base_blob": null
     }
   ],
