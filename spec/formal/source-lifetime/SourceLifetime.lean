@@ -32,6 +32,19 @@ def usable (s : State) (now : Nat) : Bool :=
       | none => false
       | some deadline => !f.expired && decide (now < deadline)
 
+-- This models the two checks around the synchronous signer. It does not
+-- model the signing operation or anything that happens after the last check.
+def signatureMayRelease (before after : State) (expected beforeAt afterAt : Nat) : Bool :=
+  decide (before.generation = expected) && usable before beforeAt &&
+  decide (after.generation = expected) && usable after afterAt
+
+theorem released_signature_has_live_matching_checks
+    (before after : State) (expected beforeAt afterAt : Nat)
+    (h : signatureMayRelease before after expected beforeAt afterAt = true) :
+    before.generation = expected ∧ usable before beforeAt = true ∧
+    after.generation = expected ∧ usable after afterAt = true := by
+  simpa [signatureMayRelease, and_assoc] using h
+
 def observe (s : State) (now : Nat) : State :=
   if s.withdrawn then s
   else match s.fence with
@@ -223,6 +236,15 @@ def main : IO Unit := do
         let result := step active (.ordinary same trust now)
         let latched := result.fence.any (fun f => f.expired)
         IO.println s!"ordinary\t{bit same}\t{bit trust}\t{now}\t{result.generation}\t{bit latched}"
+  for initiallyUsable in [false, true] do
+    for transition in [0, 1, 2, 3] do
+      let before := if initiallyUsable then active else step active (.tighten 1 3 0)
+      let after := match transition with
+        | 0 => before
+        | 1 => step before (.tighten 1 3 0)
+        | 2 => step before (.withdraw 1 3)
+        | _ => step before (.activate 1 3 20)
+      IO.println s!"sign\t{bit initiallyUsable}\t{transition}\t{bit (signatureMayRelease before after 3 5 5)}"
 
 end OpenSesame.SourceLifetime
 
