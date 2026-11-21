@@ -3,6 +3,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { test } from "node:test";
+import { isString } from "../lib/json-boundary.mjs";
 import { PINNED_FORMAL_SUITES } from "./formal-proof-pinned-suites.mjs";
 import {
   assertProofFiles,
@@ -168,10 +169,10 @@ test("registry, requirements, and the reviewed minimum agree", () => {
   const scripts = npmScripts();
   for (const suite of registry.suites) {
     assertProofFiles(root, suite);
-    assert.equal(
-      typeof scripts[suite.command[2]],
-      "string",
-      `${suite.id}: command npm run ${suite.command[2]} is not a root npm script`,
+    const scriptName = suite.command[2];
+    assert.ok(
+      isString(scriptName) && Object.hasOwn(scripts, scriptName),
+      `${suite.id}: command npm run ${isString(scriptName) ? scriptName : "(invalid)"} is not a root npm script`,
     );
   }
 });
@@ -252,7 +253,12 @@ test("a suite that borrows another suite's proofs pins the shared harness", () =
   const scripts = npmScripts();
   const byId = new Map(registry.suites.map((suite) => [suite.id, suite]));
   for (const suite of registry.suites) {
-    const script = scripts[suite.command[2]];
+    const scriptName = suite.command[2];
+    assert.ok(
+      isString(scriptName) && Object.hasOwn(scripts, scriptName),
+      `${suite.id}: command npm run ${isString(scriptName) ? scriptName : "(invalid)"} is not a root npm script`,
+    );
+    const script = scripts[scriptName];
     const executed = [...script.matchAll(scriptPathPattern)].map(
       (match) => match[0],
     );
