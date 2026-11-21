@@ -8,10 +8,11 @@ use opensesame_time::{DateTime, Utc};
 use spiffe::transport::{GrpcStatusCode, TransportError as SdkTransportError};
 use spiffe::WorkloadApiError;
 
-use super::{apply_outage, bounded_deadline, classify_api_failure, ApiAction};
+use super::source_loop::apply_outage;
+use super::source_policy::{classify_api_failure, ApiAction};
 use crate::bundles::TrustDomainBundles;
 use crate::fake::FakeTrustDomain;
-use crate::outage::retention_deadline;
+use crate::outage::{bounded_deadline, retention_deadline};
 use crate::status::{SourcePhase, SourceStatus};
 
 fn api_error(name: &str) -> WorkloadApiError {
