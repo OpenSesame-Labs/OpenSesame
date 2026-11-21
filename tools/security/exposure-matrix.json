@@ -7,10 +7,19 @@
       "area": "hosted-drop",
       "flow": "hosted-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["ciphertext", "guess-oracle"],
+      "artifacts": [
+        "ciphertext",
+        "guess-oracle"
+      ],
       "verification": "server",
-      "controls": ["mandatory-proof", "bearer-before-budget"],
-      "guarantees": ["single-use", "expiry"],
+      "controls": [
+        "mandatory-proof",
+        "bearer-before-budget"
+      ],
+      "guarantees": [
+        "single-use",
+        "expiry"
+      ],
       "enforcement": "authoritative",
       "entropyBits": 40,
       "minSecretBytes": 0,
@@ -60,9 +69,15 @@
       "area": "portable-drop",
       "flow": "portable-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["ciphertext"],
+      "artifacts": [
+        "ciphertext"
+      ],
       "verification": "code-aead",
-      "controls": ["code-derived-aead", "bounded-kdf", "cryptographic-random"],
+      "controls": [
+        "code-derived-aead",
+        "bounded-kdf",
+        "cryptographic-random"
+      ],
       "guarantees": [],
       "enforcement": "advisory",
       "entropyBits": 80,
@@ -94,7 +109,9 @@
       "area": "portable-drop",
       "flow": "hosted-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["payload-key"],
+      "artifacts": [
+        "payload-key"
+      ],
       "verification": "none",
       "controls": [],
       "guarantees": [],
@@ -137,7 +154,9 @@
       "area": "portable-drop",
       "flow": "portable-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["payload-key"],
+      "artifacts": [
+        "payload-key"
+      ],
       "verification": "none",
       "controls": [],
       "guarantees": [],
@@ -181,9 +200,13 @@
       "area": "account-totp",
       "flow": "account-totp",
       "observer": "authenticated",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
-      "controls": ["mandatory-proof"],
+      "controls": [
+        "mandatory-proof"
+      ],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -227,9 +250,15 @@
       "area": "est-enrollment",
       "flow": "est-password",
       "observer": "public",
-      "artifacts": ["public-certificate", "guess-oracle"],
+      "artifacts": [
+        "public-certificate",
+        "guess-oracle"
+      ],
       "verification": "server",
-      "controls": ["mandatory-proof", "trusted-budget-source"],
+      "controls": [
+        "mandatory-proof",
+        "trusted-budget-source"
+      ],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -284,9 +313,13 @@
       "area": "est-enrollment",
       "flow": "est-policy",
       "observer": "authenticated",
-      "artifacts": ["authority-api"],
+      "artifacts": [
+        "authority-api"
+      ],
       "verification": "signature",
-      "controls": ["preserve-policy-on-omission"],
+      "controls": [
+        "preserve-policy-on-omission"
+      ],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
@@ -296,7 +329,9 @@
         "crates/gateway/src/routes/est_server.rs",
         "crates/gateway/src/routes/est_config_policy.rs"
       ],
-      "regressions": ["crates/gateway/src/routes/est_server_tests_budget.rs"],
+      "regressions": [
+        "crates/gateway/src/routes/est_server_tests_budget.rs"
+      ],
       "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
     },
     {
@@ -305,9 +340,15 @@
       "area": "est-enrollment",
       "flow": "est-client-certificate",
       "observer": "network-peer",
-      "artifacts": ["public-certificate", "certificate-binding"],
+      "artifacts": [
+        "public-certificate",
+        "certificate-binding"
+      ],
       "verification": "signature",
-      "controls": ["originating-client-proof", "exact-bootstrap-trust"],
+      "controls": [
+        "originating-client-proof",
+        "exact-bootstrap-trust"
+      ],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -348,7 +389,9 @@
       "area": "host-admission",
       "flow": "host-testkit-listener",
       "observer": "network-peer",
-      "artifacts": ["authority-api"],
+      "artifacts": [
+        "authority-api"
+      ],
       "verification": "none",
       "controls": [
         "all-listeners-classified",
@@ -423,7 +466,9 @@
       "area": "host-admission",
       "flow": "host-listeners",
       "observer": "network-peer",
-      "artifacts": ["authority-api"],
+      "artifacts": [
+        "authority-api"
+      ],
       "verification": "none",
       "controls": [
         "all-listeners-classified",
@@ -550,16 +595,24 @@
       "area": "host-admission",
       "flow": "certificate-binding",
       "observer": "authenticated",
-      "artifacts": ["certificate-binding"],
+      "artifacts": [
+        "certificate-binding"
+      ],
       "verification": "signature",
-      "controls": ["originating-client-proof"],
+      "controls": [
+        "originating-client-proof"
+      ],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
       "minSecretBytes": 0,
       "budget": null,
-      "implementation": ["crates/gateway/src/transport/proof.rs"],
-      "regressions": ["crates/gateway/src/transport/proof_tests.rs"],
+      "implementation": [
+        "crates/gateway/src/transport/proof.rs"
+      ],
+      "regressions": [
+        "crates/gateway/src/transport/proof_tests.rs"
+      ],
       "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
     },
     {
@@ -568,7 +621,9 @@
       "area": "bitwarden",
       "flow": "bitwarden-account",
       "observer": "public",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -662,7 +717,10 @@
       "area": "bitwarden",
       "flow": "bitwarden-send",
       "observer": "link-holder",
-      "artifacts": ["ciphertext", "guess-oracle"],
+      "artifacts": [
+        "ciphertext",
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -712,7 +770,9 @@
       "area": "bitwarden",
       "flow": "bitwarden-api-key",
       "observer": "public",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -754,7 +814,9 @@
       "area": "bitwarden",
       "flow": "bitwarden-device-code",
       "observer": "public",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -797,7 +859,12 @@
       "area": "bitwarden",
       "flow": "bitwarden-import",
       "observer": "device-owner",
-      "artifacts": ["ciphertext", "code-verifier", "raw-secret", "otp-seed"],
+      "artifacts": [
+        "ciphertext",
+        "code-verifier",
+        "raw-secret",
+        "otp-seed"
+      ],
       "verification": "none",
       "controls": [
         "confined-import-paths",
@@ -854,9 +921,13 @@
       "area": "signing-keys",
       "flow": "public-signing-keys",
       "observer": "public",
-      "artifacts": ["public-key"],
+      "artifacts": [
+        "public-key"
+      ],
       "verification": "none",
-      "controls": ["public-parameter-allowlist"],
+      "controls": [
+        "public-parameter-allowlist"
+      ],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
@@ -910,7 +981,12 @@
       "area": "local-vault-activation",
       "flow": "local-vault-activation",
       "observer": "device-owner",
-      "artifacts": ["ciphertext", "payload-key", "raw-secret", "private-key"],
+      "artifacts": [
+        "ciphertext",
+        "payload-key",
+        "raw-secret",
+        "private-key"
+      ],
       "verification": "client-only",
       "controls": [
         "original-owner-lifetime",
@@ -1123,7 +1199,11 @@
       "area": "native-provider-custody",
       "flow": "native-provider-custody",
       "observer": "device-owner",
-      "artifacts": ["ciphertext", "payload-key", "raw-secret"],
+      "artifacts": [
+        "ciphertext",
+        "payload-key",
+        "raw-secret"
+      ],
       "verification": "client-only",
       "controls": [
         "original-provider-transport",
@@ -1388,14 +1468,14 @@
       "9861c64a"
     ],
     "crates/storage/tests/certmgr_pact.rs": [
-      "817d04fa",
-      "0df8724d",
-      "a9648c39",
-      "a9c89c68",
-      "45e5ee2b",
-      "2051ffab",
-      "9b708231",
-      "b3e2a57f"
+      "d895e470",
+      "41c81946",
+      "afcfea05",
+      "0790b90d",
+      "0e666c75",
+      "9ee8719d",
+      "2aa7da24",
+      "873364d4"
     ],
     "packages/app-core/package.json": [
       "84a960cb",
@@ -2968,14 +3048,14 @@
       "a303b0a0"
     ],
     "crates/gateway/src/routes/mod.rs": [
-      "0f134c3e",
-      "ba8b3d79",
-      "216ae2d4",
-      "e2d60acb",
-      "79da7bb6",
-      "47a3aa49",
-      "4f05fb21",
-      "a21658ef"
+      "3b72fde9",
+      "06723d4d",
+      "f86cb904",
+      "346314d0",
+      "d9fb3ab5",
+      "c2bb5b01",
+      "afc8cd51",
+      "a059d97f"
     ],
     "crates/gateway/src/transport/admission.rs": [
       "97ee3c87",
@@ -3178,14 +3258,14 @@
       "7301dfad"
     ],
     "crates/storage/src/migrations.rs": [
-      "5427e2a5",
-      "1adcce8b",
-      "9a30aa75",
-      "5be66679",
-      "31e52203",
-      "7bcc31f5",
-      "c4dbb582",
-      "89d9e17a"
+      "f88231ae",
+      "2e253b1b",
+      "08785ac5",
+      "054710a8",
+      "8175d80e",
+      "834066e2",
+      "a61f6643",
+      "ba76bcd3"
     ],
     "crates/storage/tests/est_passphrase_budget.rs": [
       "c4e115a8",
@@ -6888,14 +6968,14 @@
       "d51aea81"
     ],
     "crates/gateway/src/middleware/agent_grants.rs": [
-      "17a299e6",
-      "38c26761",
-      "58bd97d0",
-      "a24ce47e",
-      "17c1f5d7",
-      "d26454fb",
-      "6d5addd3",
-      "ad429a91"
+      "a6e58569",
+      "a3c92256",
+      "0358efb3",
+      "94c398d6",
+      "4500de1e",
+      "971a99c7",
+      "ef34b9a0",
+      "f922b405"
     ],
     "crates/gateway/src/middleware/browser_grants.rs": [
       "cde1d0c9",
@@ -6908,14 +6988,14 @@
       "8e99e5c0"
     ],
     "crates/gateway/src/middleware/browser_user_routes.rs": [
-      "634a2058",
-      "8f1dc48c",
-      "a6ef2455",
-      "e5f765cf",
-      "650b8c24",
-      "a3679d41",
-      "7ba5dab1",
-      "5e1e864a"
+      "361e9a2a",
+      "c63e5bf0",
+      "0760b6bf",
+      "93c66b6e",
+      "d48d60c1",
+      "a59a7c44",
+      "d53ee219",
+      "8a496c90"
     ],
     "crates/gateway/src/middleware/public_enrollment.rs": [
       "148b6c76",
@@ -6968,14 +7048,14 @@
       "79ca4e4c"
     ],
     "crates/connection-broker/src/lib.rs": [
-      "b1c269fd",
-      "937e0b2d",
-      "45c40cc9",
-      "9c1e2c22",
-      "324e61ce",
-      "d7fbd6f6",
-      "f1a4b65e",
-      "68c715a3"
+      "b636faf5",
+      "10f2ada2",
+      "e831b7a5",
+      "8f5d983e",
+      "59922fde",
+      "7be97fd1",
+      "4c42cfe0",
+      "01a64063"
     ],
     "crates/connection-broker/src/config.rs": [
       "cf4e017e",
@@ -7008,14 +7088,14 @@
       "7555a60e"
     ],
     "crates/storage/src/lib.rs": [
-      "98e0b2b1",
-      "0bb691e0",
-      "3068f0cb",
-      "5b1a4f6f",
-      "71674d36",
-      "76cd6f7c",
-      "1b08dacc",
-      "95196856"
+      "eafab5f9",
+      "688d370d",
+      "28e57a9d",
+      "c1423225",
+      "2b137cb2",
+      "2708ebd4",
+      "3c37578f",
+      "994db327"
     ],
     "crates/storage/src/tenancy.rs": [
       "10cd6d36",
@@ -7068,14 +7148,14 @@
       "95cc0ffe"
     ],
     "crates/audit/src/lib.rs": [
-      "623075cb",
-      "94127726",
-      "1832b652",
-      "66834a35",
-      "782369d3",
-      "74837797",
-      "42095611",
-      "c91ac387"
+      "1b8c9dac",
+      "35191131",
+      "e18d2f23",
+      "f830fc11",
+      "16bd3c5b",
+      "141f8527",
+      "10df97ee",
+      "5486bf1a"
     ],
     "crates/authz/src/engine.rs": [
       "45441f7f",
@@ -7088,24 +7168,24 @@
       "07b6b84b"
     ],
     "crates/connector-host/src/lib.rs": [
-      "d7b555cc",
-      "28dda0ba",
-      "316ee3e4",
-      "819294e1",
-      "ee514c1c",
-      "aec78eac",
-      "a0e2bfb4",
-      "bf259842"
+      "6a1d6a47",
+      "07aa3ddd",
+      "7c29223c",
+      "44b7f1d0",
+      "ba3bbbe3",
+      "52d28629",
+      "262fd806",
+      "aa3c4888"
     ],
     "crates/connector-host/src/constrained_http.rs": [
-      "1077414d",
-      "785a2430",
-      "3d1e815f",
-      "1c08cb67",
-      "a1718783",
-      "02a137e7",
-      "7c30f95f",
-      "9090dd85"
+      "9677897d",
+      "3d3008f9",
+      "60842ef2",
+      "ad359c12",
+      "01419732",
+      "da1017df",
+      "46730390",
+      "ef92091f"
     ],
     "crates/invoke-through/src/surrogate.rs": [
       "9e6f0519",
