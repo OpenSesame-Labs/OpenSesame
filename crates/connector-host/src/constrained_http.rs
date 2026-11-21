@@ -184,17 +184,22 @@ impl HostRuntime {
         req: &InvokeRequest,
         invoker: &Invoker,
     ) -> Result<InvokeResult, HostError> {
-        let (_, level) = self.checked_level(connection_id, req)?;
+        // The invoker's pinned socket for this host, when the URL names it,
+        // is the one non-default port the fences trust.
+        let approved_port = pinned_request_port(invoker, req);
+        let (_, level) = self.checked_level(connection_id, req, approved_port)?;
         if !is_constrained_http(level, req) {
             return Err(HostError::InvokeLevelDenied);
         }
-        let approved_port = pinned_request_port(invoker, req);
         let admitted = self.admit_constrained_http(
             connection_id,
             req,
             now_unix(),
             Some(invoker.fence()),
             approved_port,
+            // The broker's durable effect fence owns delegated refusal for
+            // this entry point; no binding snapshot reaches it from here.
+            None,
         )?;
         let response = invoker
             .execute(admitted.material, admitted.prepared)
@@ -204,6 +209,12 @@ impl HostRuntime {
     }
 
     /// Admission alone, shared by both entry points so there is one rule set.
+    ///
+    /// `binding` is the invocation snapshot the synchronous entry point
+    /// carries, when it carries one. Credentialed admission is owner
+    /// territory: a delegated binding is refused here regardless of any
+    /// inert-mock exemption the dispatch path applied, so the only route to
+    /// this host's credential material stays an owner invocation.
     pub(crate) fn admit_constrained_http(
         &self,
         caller: &str,
@@ -211,7 +222,11 @@ impl HostRuntime {
         now_unix: u64,
         fence: Option<&EgressFence>,
         approved_port: Option<u16>,
+        binding: Option<&crate::InvocationBinding>,
     ) -> Result<Admitted<'_>, HostError> {
+        if binding.is_some_and(crate::InvocationBinding::is_delegated) {
+            return Err(HostError::DelegatedExecutionUnavailable);
+        }
         if req.operation != req.authorized_operation {
             return Err(HostError::OperationMismatch);
         }

@@ -123,6 +123,18 @@ pub fn assert_component_trusted(
 /// Returns an error when the URL is invalid, non-HTTPS, private, or outside
 /// the configured egress policy.
 pub fn assert_destination_allowed(policy: &HostPolicy, raw_url: &str) -> Result<(), HostError> {
+    assert_destination_allowed_with_pin(policy, raw_url, None)
+}
+
+/// [`assert_destination_allowed`] with the one port the invoker pinned for
+/// this host judged at the scheme default — the same trust the surrogate
+/// ledger extends an approved socket. Every other port stays behind the
+/// default-port fence, and the invoker re-proves the pin before connecting.
+pub(crate) fn assert_destination_allowed_with_pin(
+    policy: &HostPolicy,
+    raw_url: &str,
+    pinned_port: Option<u16>,
+) -> Result<(), HostError> {
     let url = Url::parse(raw_url).map_err(|_| HostError::DestinationDenied(raw_url.into()))?;
     if url.scheme() != "https" {
         return Err(HostError::DestinationDenied(raw_url.into()));
@@ -131,9 +143,16 @@ pub fn assert_destination_allowed(policy: &HostPolicy, raw_url: &str) -> Result<
     if is_blocked_host(host) {
         return Err(HostError::PrivateAddress);
     }
+    let judged = if pinned_port.is_some_and(|pin| url.port() == Some(pin) && pin != 443) {
+        let mut normalized = url.clone();
+        let _ = normalized.set_port(None);
+        normalized
+    } else {
+        url
+    };
     policy
         .egress
-        .allows_url(raw_url)
+        .allows_url(judged.as_str())
         .map_err(|e| HostError::DestinationDenied(e.to_string()))?;
     Ok(())
 }
@@ -437,17 +456,20 @@ impl HostRuntime {
     /// The checks every invocation passes before anything runs: a connector
     /// is bound, a named destination is allowed, the component is trusted,
     /// and the level is neither materialization nor above the policy's
-    /// ceiling.
+    /// ceiling. `approved_port` carries the invoker's pinned socket for the
+    /// named host, when there is one, so the destination fence and the
+    /// surrogate ledger extend the same trust.
     fn checked_level(
         &self,
         connection_id: &str,
         req: &InvokeRequest,
+        approved_port: Option<u16>,
     ) -> Result<(&dyn Connector, InvokeLevel), HostError> {
         let connector = self.connector(connection_id).ok_or_else(|| {
             HostError::Connector(format!("connection {connection_id} has no connector"))
         })?;
         if let Some(url) = req.parameters.get("url").and_then(|v| v.as_str()) {
-            assert_destination_allowed(&self.policy, url)?;
+            assert_destination_allowed_with_pin(&self.policy, url, approved_port)?;
         }
         let digest = self
             .component_digest(connection_id)
@@ -680,9 +702,7 @@ mod tests {
             connection_ref: "demo-conn".into(),
         };
         let binding = binding_for(&request).unwrap();
-        let res = rt
-            .invoke_bound("demo-conn", &request, &binding)
-            .unwrap();
+        let res = rt.invoke_bound("demo-conn", &request, &binding).unwrap();
         assert!(res.ok);
         assert_eq!(res.safe_summary["pr_number"], 42);
     }
@@ -732,6 +752,40 @@ mod tests {
             assert_destination_allowed(&p, "https://evil.example/x"),
             Err(HostError::DestinationDenied(_))
         ));
+    }
+
+    #[test]
+    fn the_invokers_pinned_port_is_the_one_non_default_port_allowed() {
+        let p = HostPolicy::default();
+        // Without the pin, a non-default port is a different authority.
+        assert!(matches!(
+            assert_destination_allowed_with_pin(
+                &p,
+                "https://api.github.com:8443/v",
+                Some(8443 - 1)
+            ),
+            Err(HostError::DestinationDenied(_))
+        ));
+        // With the pin, the same URL is judged at the scheme default.
+        assert!(assert_destination_allowed_with_pin(
+            &p,
+            "https://api.github.com:8443/v",
+            Some(8443)
+        )
+        .is_ok());
+        // The pin never widens the host, the scheme, or the SSRF fence.
+        assert!(matches!(
+            assert_destination_allowed_with_pin(&p, "https://evil.example:8443/v", Some(8443)),
+            Err(HostError::DestinationDenied(_))
+        ));
+        assert!(matches!(
+            assert_destination_allowed_with_pin(&p, "http://api.github.com:8443/v", Some(8443)),
+            Err(HostError::DestinationDenied(_))
+        ));
+        assert_eq!(
+            assert_destination_allowed_with_pin(&p, "https://169.254.169.254:8443/v", Some(8443)),
+            Err(HostError::PrivateAddress)
+        );
     }
 
     #[test]
@@ -800,9 +854,7 @@ mod tests {
                 connection_ref: "demo-conn".into(),
             };
             let binding = binding_for(&request).unwrap();
-            assert!(rt
-                .invoke_bound("demo-conn", &request, &binding)
-                .is_err());
+            assert!(rt.invoke_bound("demo-conn", &request, &binding).is_err());
         }
     }
 

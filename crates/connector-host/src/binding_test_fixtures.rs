@@ -86,9 +86,7 @@ pub(crate) fn owner() -> (Intent, Grant, InvokeRequest) {
 }
 
 /// Build a binding that matches `request` for synchronous mock dispatch tests.
-pub(crate) fn binding_for(
-    request: &InvokeRequest,
-) -> Result<InvocationBinding, HostError> {
+pub(crate) fn binding_for(request: &InvokeRequest) -> Result<InvocationBinding, HostError> {
     let now = Utc::now();
     let organization = OrganizationId::new();
     let principal = PrincipalId::new();

@@ -224,7 +224,7 @@ async fn pinned_destination_refuses_a_mismatched_listener_port() {
         .await
         .expect_err("port mismatch must be refused");
     assert!(
-        matches!(error, HostError::DestinationDenied(message) if message.contains("api.github.com")),
+        matches!(error, HostError::DestinationDenied(ref message) if message.contains("api.github.com")),
         "{error:?}"
     );
     assert!(upstream.seen.hits().is_empty());

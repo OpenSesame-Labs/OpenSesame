@@ -117,6 +117,28 @@ mod enabled {
             })
             .map_err(|_| "owner egress unavailable".to_owned())
         }
+
+        /// Headers that never cross from an upstream response into a Wasm
+        /// guest. The broker's egress sink already drops these; this second
+        /// drop is at the one boundary that faces guest memory, so a broker
+        /// regression or a future `OwnerEgressHttpResult` producer cannot
+        /// hand a credential-shaped header to untrusted code.
+        fn guest_safe_headers(headers: Vec<(String, String)>) -> Vec<(String, String)> {
+            headers
+                .into_iter()
+                .filter(|(name, _)| {
+                    !matches!(
+                        name.to_ascii_lowercase().as_str(),
+                        "set-cookie"
+                            | "authorization"
+                            | "www-authenticate"
+                            | "proxy-authenticate"
+                            | "proxy-authorization"
+                            | "cookie"
+                    )
+                })
+                .collect()
+        }
     }
 
     impl HostEgress for GatewayEgress {
@@ -131,10 +153,14 @@ mod enabled {
             let connection = accepts_binding(binding, connection_ref, &self.registered_provider)
                 .ok_or_else(|| "invocation binding denied".to_owned())?;
             let upstream = self.run_egress(&connection.to_string(), binding, &req)?;
+            // A body that cannot be encoded is an error, not an empty body a
+            // guest would read as "no result".
+            let body = serde_json::to_vec(&upstream.json)
+                .map_err(|_| "upstream response could not be encoded".to_owned())?;
             Ok(EgressResponse {
                 status: upstream.status,
-                headers: upstream.headers,
-                body: serde_json::to_vec(&upstream.json).unwrap_or_default(),
+                headers: Self::guest_safe_headers(upstream.headers),
+                body,
             })
         }
 
@@ -169,6 +195,33 @@ mod enabled {
                 "host-oauth.authenticated-request is not yet open to community connectors (ADR 0065 §8)"
                     .into(),
             )
+        }
+    }
+
+    #[cfg(test)]
+    mod guest_boundary_tests {
+        use super::GatewayEgress;
+
+        #[test]
+        fn credential_shaped_headers_never_reach_the_guest() {
+            let headers = vec![
+                ("X-Request-Id".to_owned(), "req-1".to_owned()),
+                ("Set-Cookie".to_owned(), "sid=1".to_owned()),
+                ("set-cookie".to_owned(), "sid=2".to_owned()),
+                ("Authorization".to_owned(), "Bearer echoed".to_owned()),
+                ("WWW-Authenticate".to_owned(), "Bearer realm=api".to_owned()),
+                (
+                    "Proxy-Authenticate".to_owned(),
+                    "Basic realm=proxy".to_owned(),
+                ),
+                (
+                    "Proxy-Authorization".to_owned(),
+                    "Bearer internal".to_owned(),
+                ),
+                ("Cookie".to_owned(), "theme=dark".to_owned()),
+            ];
+            let kept = GatewayEgress::guest_safe_headers(headers);
+            assert_eq!(kept, vec![("X-Request-Id".to_owned(), "req-1".to_owned())]);
         }
     }
 

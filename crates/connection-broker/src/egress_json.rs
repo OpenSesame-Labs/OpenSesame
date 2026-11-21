@@ -32,10 +32,12 @@ pub struct OwnerEgressHttpResult {
     pub json: Value,
 }
 
-/// Drop credential-bearing response headers. `set-cookie`, `authorization`,
-/// and `www-authenticate` never leave this sink. Any other header that echoes
-/// the injected access token, in a form the reflection scrub recognizes, is
-/// omitted rather than returned redacted.
+/// Drop credential-bearing response headers. `set-cookie`,
+/// `proxy-authenticate`, `proxy-authorization`, `cookie`, `authorization`,
+/// and `www-authenticate` never leave this sink, whatever they carry — the
+/// static drop does not wait for a reflection match. Any other header that
+/// echoes the injected access token, in a form the reflection scrub
+/// recognizes, is omitted rather than returned redacted.
 fn retained_response_headers(
     headers: &reqwest::header::HeaderMap,
     access_token: &str,
@@ -46,7 +48,12 @@ fn retained_response_headers(
             let lower = name.as_str().to_ascii_lowercase();
             if matches!(
                 lower.as_str(),
-                "set-cookie" | "authorization" | "www-authenticate"
+                "set-cookie"
+                    | "authorization"
+                    | "www-authenticate"
+                    | "proxy-authenticate"
+                    | "proxy-authorization"
+                    | "cookie"
             ) {
                 return None;
             }
@@ -264,12 +271,15 @@ impl ConnectionBroker {
             scrub_credential_reflection(bytes, &tokens.access_token);
         let text = String::from_utf8(safe_bytes.to_vec())
             .map_err(|_| "upstream response was not valid UTF-8".to_string())?;
+        // The same refusal guards error bodies and success bodies: a
+        // non-2xx response that echoes the credential is refused outright,
+        // not returned as a scrubbed diagnostic snippet.
+        if credential_reflected {
+            return Err("upstream response contained the injected credential".into());
+        }
         if !(200..300).contains(&status.as_u16()) {
             let snippet: String = text.chars().take(MAX_ERROR_SNIPPET).collect();
             return Err(format!("upstream {status}: {snippet}"));
-        }
-        if credential_reflected {
-            return Err("upstream response contained the injected credential".into());
         }
         let json = if text.trim().is_empty() {
             json!({})
@@ -343,6 +353,37 @@ mod tests {
             "authorization",
             "www-authenticate",
         ] {
+            assert!(
+                !kept
+                    .iter()
+                    .any(|(name, _)| name.eq_ignore_ascii_case(dropped)),
+                "{dropped} was returned"
+            );
+        }
+    }
+
+    #[test]
+    fn credential_shaped_headers_are_dropped_even_without_reflection() {
+        // The static drop list does not wait for the token to appear: a
+        // proxy challenge or a benign-looking cookie is credential-shaped
+        // and never leaves the sink, whatever its value.
+        let token = "network-token-do-not-return";
+        let mut headers = HeaderMap::new();
+        headers.insert("x-request-id", HeaderValue::from_static("req-1"));
+        headers.insert(
+            "proxy-authenticate",
+            HeaderValue::from_static("Basic realm=proxy"),
+        );
+        headers.insert(
+            "proxy-authorization",
+            HeaderValue::from_static("Bearer internal-service"),
+        );
+        headers.insert("cookie", HeaderValue::from_static("theme=dark"));
+        let kept = retained_response_headers(&headers, token);
+        assert!(kept
+            .iter()
+            .any(|(name, _)| name.eq_ignore_ascii_case("x-request-id")));
+        for dropped in ["proxy-authenticate", "proxy-authorization", "cookie"] {
             assert!(
                 !kept
                     .iter()

@@ -43,14 +43,18 @@ impl HostRuntime {
         req: &InvokeRequest,
         binding: Option<&InvocationBinding>,
     ) -> Result<InvokeResult, HostError> {
-        let (connector, level) = self.checked_level(connection_id, req)?;
+        let (connector, level) = self.checked_level(connection_id, req, None)?;
         if is_constrained_http(level, req) {
+            // The binding travels into admission itself: credentialed
+            // admission refuses a delegated snapshot even where the
+            // inert-mock exemption below admits synchronous mock dispatch.
             self.admit_constrained_http(
                 connection_id,
                 req,
                 constrained_http::now_unix(),
                 None,
                 None,
+                binding,
             )?;
             return Err(HostError::Connector(constrained_http::NEEDS_BROKER.into()));
         }

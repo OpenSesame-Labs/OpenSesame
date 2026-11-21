@@ -83,29 +83,33 @@ impl ConnectionBroker {
             .fetch_optional(&mut *tx)
             .await?
             .ok_or(BrokerError::ConnectionNotFound)?;
-            if let Some(serialized) = row.get::<Option<String>, _>("budget_remaining") {
-                let mut budgets: BTreeMap<String, i64> = serde_json::from_str(&serialized)?;
-                if let Some(remaining) = budgets.get_mut(BUDGET_INVOCATIONS) {
-                    if *remaining <= 0 {
-                        return Err(BrokerError::Invalid("budget exhausted: invocations".into()));
-                    }
-                    *remaining -= 1;
-                    sqlx::query(
-                        "UPDATE connection_delegations SET budget_remaining = ? WHERE id = ?",
-                    )
-                    .bind(serde_json::to_string(&budgets)?)
-                    .bind(delegation_id)
-                    .execute(&mut *tx)
-                    .await?;
-                    sqlx::query(
-                        "UPDATE invocation_budget_claims SET charged = 1, budget_key = ? WHERE claim_id = ?",
-                    )
-                    .bind(BUDGET_INVOCATIONS)
-                    .bind(&claim_id)
-                    .execute(&mut *tx)
-                    .await?;
-                }
+            // Fail closed on a delegation that carries no readable budget: a
+            // NULL column or a budget map without `invocations` refuses the
+            // claim exactly like an exhausted one, rather than spending a
+            // unit nobody decremented.
+            let serialized = row
+                .get::<Option<String>, _>("budget_remaining")
+                .ok_or_else(|| BrokerError::Invalid("delegation budget missing".into()))?;
+            let mut budgets: BTreeMap<String, i64> = serde_json::from_str(&serialized)?;
+            let remaining = budgets
+                .get_mut(BUDGET_INVOCATIONS)
+                .ok_or_else(|| BrokerError::Invalid("budget exhausted: invocations".into()))?;
+            if *remaining <= 0 {
+                return Err(BrokerError::Invalid("budget exhausted: invocations".into()));
             }
+            *remaining -= 1;
+            sqlx::query("UPDATE connection_delegations SET budget_remaining = ? WHERE id = ?")
+                .bind(serde_json::to_string(&budgets)?)
+                .bind(delegation_id)
+                .execute(&mut *tx)
+                .await?;
+            sqlx::query(
+                "UPDATE invocation_budget_claims SET charged = 1, budget_key = ? WHERE claim_id = ?",
+            )
+            .bind(BUDGET_INVOCATIONS)
+            .bind(&claim_id)
+            .execute(&mut *tx)
+            .await?;
         }
         tx.commit().await?;
         Ok(InvokeBudgetClaim::Reserved { claim_id })

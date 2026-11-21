@@ -5,6 +5,7 @@ use crate::app_state::test_demo_state;
 use axum::{
     extract::State,
     http::{header, HeaderMap, StatusCode},
+    response::IntoResponse,
     routing::get,
     Json, Router,
 };
@@ -295,11 +296,23 @@ async fn owner_wasm_egress_preserves_upstream_status_and_headers() {
             Router::new().route(
                 "/created",
                 get(|| async {
-                    (
+                    let mut response = (
                         StatusCode::CREATED,
                         [(header::CONTENT_TYPE, "application/json")],
                         Json(json!({"created": true})),
                     )
+                        .into_response();
+                    // Credential-shaped headers on a success response: the
+                    // broker sink drops them and the guest boundary drops
+                    // them again, whatever either layer misses.
+                    let headers = response.headers_mut();
+                    headers.insert(header::SET_COOKIE, "sid=upstream-secret".parse().unwrap());
+                    headers.insert(
+                        header::WWW_AUTHENTICATE,
+                        "Bearer realm=api".parse().unwrap(),
+                    );
+                    headers.insert("proxy-authenticate", "Basic realm=proxy".parse().unwrap());
+                    response
                 }),
             ),
         )
@@ -439,6 +452,15 @@ async fn owner_wasm_egress_preserves_upstream_status_and_headers() {
             .any(|(name, _)| name.eq_ignore_ascii_case("content-type")),
         "guest sees upstream response headers"
     );
+    for stripped in ["set-cookie", "www-authenticate", "proxy-authenticate"] {
+        assert!(
+            !response
+                .headers
+                .iter()
+                .any(|(name, _)| name.eq_ignore_ascii_case(stripped)),
+            "{stripped} reached the guest"
+        );
+    }
     assert_eq!(
         serde_json::from_slice::<Value>(&response.body).unwrap(),
         json!({"created": true})

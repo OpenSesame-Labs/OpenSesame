@@ -56,12 +56,7 @@ async fn recover(state: &AppState, headers: &HeaderMap, value: &Value) -> Respon
         .unwrap()
 }
 
-async fn routed_post(
-    state: &AppState,
-    headers: &HeaderMap,
-    uri: &str,
-    value: &Value,
-) -> Response {
+async fn routed_post(state: &AppState, headers: &HeaderMap, uri: &str, value: &Value) -> Response {
     let mut request = axum::http::Request::builder()
         .method("POST")
         .uri(uri)
@@ -196,8 +191,11 @@ async fn routed_agent_invocation_gets_its_opening_but_cannot_use_recovery() {
     let mut agent = HeaderMap::new();
     agent.insert(
         "authorization",
-        HeaderValue::from_str(&format!("Bearer {}", token["access_token"].as_str().unwrap()))
-            .unwrap(),
+        HeaderValue::from_str(&format!(
+            "Bearer {}",
+            token["access_token"].as_str().unwrap()
+        ))
+        .unwrap(),
     );
     agent.insert(
         "x-opensesame-agent-client",
@@ -500,8 +498,8 @@ async fn frozen_invocation_discloses_opening_only_to_its_owner() {
         headers.clone(),
         axum::extract::Path(task_id.into()),
     )
-        .await
-        .unwrap();
+    .await
+    .unwrap();
     assert!(!body(detail).await.to_string().contains(opening));
 
     state

@@ -224,19 +224,30 @@ impl GuestState {
         }
     }
 
-    /// Guest HTTP must stay inside the captured intent. The binding's audience
-    /// host is the only host the guest may name, and the guest may not supply
-    /// credential headers — the host injects those.
+    /// Guest HTTP must stay inside the captured intent. The binding's
+    /// audience is the only origin the guest may name — compared as scheme,
+    /// host, and effective port, with no userinfo on the guest URL — and the
+    /// guest may not supply credential headers; the host injects those.
     fn bound_http<'a>(&'a self, req: &host_http::Request) -> Result<&'a InvocationBinding, String> {
         let binding = self.egress_binding()?;
         if req.method.is_empty() || req.method.chars().any(char::is_whitespace) {
             return Err("invocation binding mismatch".to_owned());
         }
         let target = url::Url::parse(&req.url).map_err(|_| "destination denied".to_owned())?;
-        if let Ok(audience) = url::Url::parse(binding.audience()) {
-            if audience.host_str().is_some() && audience.host_str() != target.host_str() {
-                return Err("invocation binding mismatch".to_owned());
-            }
+        // Pinning fails closed: an audience that does not parse, or parses
+        // without a host, pins nothing and therefore admits nothing. A port
+        // the intent never named is a different origin, and userinfo is a
+        // credential channel the guest does not get.
+        let audience = url::Url::parse(binding.audience())
+            .map_err(|_| "invocation binding mismatch".to_owned())?;
+        if audience.host_str().is_none()
+            || target.scheme() != audience.scheme()
+            || target.host_str() != audience.host_str()
+            || target.port_or_known_default() != audience.port_or_known_default()
+            || !target.username().is_empty()
+            || target.password().is_some()
+        {
+            return Err("invocation binding mismatch".to_owned());
         }
         if req.headers.iter().any(|(name, _)| {
             let name = name.to_ascii_lowercase();
@@ -356,15 +367,18 @@ impl host_oauth::Host for GuestState {
         request: host_oauth::TokenRequest,
     ) -> Result<Resource<types::AccessTokenHandle>, String> {
         let binding = self.egress_binding()?;
-        if request
-            .resource
-            .as_deref()
-            .is_some_and(|resource| resource != binding.resource())
-            || request
-                .audience
-                .as_deref()
-                .is_some_and(|audience| audience != binding.audience())
+        // The guest must name the bound resource and audience itself: an
+        // omitted field is not "whatever the binding says", it is an unnamed
+        // target, and the request is refused.
+        if request.resource.as_deref() != Some(binding.resource())
+            || request.audience.as_deref() != Some(binding.audience())
         {
+            return Err("invocation binding mismatch".to_owned());
+        }
+        // Nothing in a binding pins OAuth scopes, so a guest-named scope is
+        // an unrestricted scope. Do not forward one: the empty list — no
+        // scope claimed — is all an unpinned invocation may ask for.
+        if !request.scopes.is_empty() {
             return Err("invocation binding mismatch".to_owned());
         }
         let handle = self.egress.oauth_acquire(
@@ -372,7 +386,7 @@ impl host_oauth::Host for GuestState {
             &self.connection_ref,
             request.resource.as_deref(),
             request.audience.as_deref(),
-            &request.scopes,
+            &[],
         )?;
         self.issued_tokens.push(handle);
         Ok(Resource::new_own(handle))

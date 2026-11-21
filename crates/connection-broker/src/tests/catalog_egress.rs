@@ -212,9 +212,14 @@ async fn catalog_connection_executes_real_credentialed_egress() {
             None,
         )
         .await
-        .expect_err("encoded credential in an error must be scrubbed");
+        .expect_err("encoded credential in an error must be refused like a success body");
     let percent_error = percent_leak.to_string();
-    assert!(percent_error.contains("[redacted:credential]"));
+    // Non-2xx gets the same refusal as 2xx: no scrubbed snippet, no oracle.
+    assert_eq!(
+        percent_error,
+        "token exchange failed: upstream response contained the injected credential"
+    );
+    assert!(!percent_error.contains("network-token-do-not-return"));
     assert!(!percent_error.contains(&percent_encode_all("network-token-do-not-return")));
     assert!(percent_error.len() < 600);
 

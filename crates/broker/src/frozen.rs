@@ -5,7 +5,8 @@ use opensesame_connector_host::{InvocationBinding, InvokeRequest};
 use opensesame_domain::{
     receipt_delegation_chain, AvailabilityClass, Capability, DetachedProof, DomainError,
     FrozenIntentV2, Grant, Intent, Invocation, InvocationReceipt, InvocationState, ReceiptId,
-    ReceiptOutcome, ResourceSelector, ValidatedGrantChain, OPAQUE_RESULT_RECEIPT_SCHEMA_VERSION,
+    ReceiptOutcome, ResourceSelector, ValidatedGrantChain, FROZEN_INTENT_SCHEMA_VERSION,
+    OPAQUE_RESULT_RECEIPT_SCHEMA_VERSION,
 };
 use opensesame_task_access::{TaskAccessEngine, TaskStore};
 use opensesame_time::Utc;
@@ -147,6 +148,12 @@ impl Broker {
         // using it; recomputing in place would accept post-freeze mutation.
         input.intent.assert_digest()?;
         let intent = input.intent.clone();
+        // Same gate as `recover_frozen_receipt`: a well-digest intent of an
+        // unknown schema version is not one this broker froze.
+        anyhow::ensure!(
+            intent.schema_version == FROZEN_INTENT_SCHEMA_VERSION,
+            "unsupported frozen intent"
+        );
 
         assert_grant_covers_frozen_intent(&input.grant, &intent)?;
 
