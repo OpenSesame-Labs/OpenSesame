@@ -544,7 +544,7 @@
         "crates/gateway/src/transport_lifecycle/trust_tests.rs",
         "crates/spiffe-source/tests/production_sink_policy.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Relay route registrations remain mounted, but heartbeat, submission, executable delivery, approval and result reporting fail closed. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. One listener configuration, 14 transport configuration and 6 listener boot tests passed. This does not add a listener or a fallback. Source-lifetime review: service admission refuses an expired source; status reports quarantined and expired generations unloaded and preserves revocation precedence. The focused admission, status and source-owned trust collision tests and integrated deadline controls passed. The listener wraps its signer and preclaim session cache with generation checks; source-owned listeners disable resumption. Signer, resumption-race and TLS 1.2/1.3 regressions exercise those boundaries. Testkit files support those regressions and add no production authority. An in-flight key operation or a signature released immediately before withdrawal cannot be revoked, and already-admitted work is not cancelled. Standalone client and server configurations are outside the listener fence. Host source-trust selection requires the generation-bound authoritative source bundle with the requested profile and kind. On the reviewed predecessor, all 16 selector correspondence vectors, the exact two-bundle return control, and the live reconstructed-manager TLS regression passed. The correspondence module is compiled only for tests and adds no production authority. That regression reuses an in-memory store; it is not a process restart or a real Workload API test. Durable source history remains a separate boundary. Peer-domain review: a SPIFFE bundle carries its explicit domain, certificate validation and SVID checks precede peer evidence, and service binding uses exact SPIFFE identity with separate leaf revocation. The configured Host source domain must match the authoritative selected bundle. The peer-domain, live TLS admission, resumption/rotation, forwarded-evidence and wrong-domain controls passed; the correspondence proves only its stated Boolean properties, not Rust refinement. The NATS client opts into a one-use server verifier with TLS resumption disabled; existing host-listener verification remains unchanged. Source-history review: the registered history suite passed 76 Linux tests in 16 groups on b1016221, including SQLite union and cancellation, the cooperative file lease, offline attestation, a real bindings-only Host startup, source supersession, stored-trust quarantine and reconciliation. A focused PEM collision witness was added afterward and passed separately; the full suite needs a rerun with it. The Host-process case does not prove secure-listener or request-guard enforcement. The complete attestation, continuous database identity and cooperative trusted filesystem are assumptions; raw writers, older binaries, backup rollback and physical power-loss durability are not proved. Windows-only startup and initializer refusal tests have not been run on Windows. The proof suite separately pins the executed migration inventory; its hashes do not establish implementation refinement. 2026-11-20 restack repair: the pins for guard.rs, identity.rs, tests/source_lifetime.rs, testkit/{mod,ca,leaf}.rs, tests/spiffe_peer_rotation.rs and human-vault/src/lib.rs matched no blob on this branch (stale since their introduction). identity.rs, the testkit helpers and human-vault/src/lib.rs are byte-identical to the reviewed merge-base. The guard.rs branch change is fail-closed: peer credential/trust and listener-provenance generations must equal the current generation, and withdrawal and source-deadline enforcement moved into checked_current. tests/source_lifetime.rs and tests/spiffe_peer_rotation.rs are new branch regressions for source-owned expiry and SPIFFE domain rebinding across rotation. A latent compile break in tests/source_lifetime.rs was fixed (Duration::nanoseconds does not exist in opensesame_time; milliseconds(1) preserves the inclusive-latch intent). The full opensesame-transport-security suite with the testkit feature passed (118 tests) and the opensesame-human-vault suite passed before re-pinning all eight files to the reviewed blobs."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Relay route registrations remain mounted, but heartbeat, submission, executable delivery, approval and result reporting fail closed. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. One listener configuration, 14 transport configuration and 6 listener boot tests passed. This does not add a listener or a fallback. Source-lifetime review: service admission refuses an expired source; status reports quarantined and expired generations unloaded and preserves revocation precedence. The focused admission, status and source-owned trust collision tests and integrated deadline controls passed. The listener wraps its signer and preclaim session cache with generation checks; source-owned listeners disable resumption. Signer, resumption-race and TLS 1.2/1.3 regressions exercise those boundaries. Testkit files support those regressions and add no production authority. An in-flight key operation or a signature released immediately before withdrawal cannot be revoked, and already-admitted work is not cancelled. Standalone client and server configurations are outside the listener fence. Host source-trust selection requires the generation-bound authoritative source bundle with the requested profile and kind. On the reviewed predecessor, all 16 selector correspondence vectors, the exact two-bundle return control, and the live reconstructed-manager TLS regression passed. The correspondence module is compiled only for tests and adds no production authority. That regression reuses an in-memory store; it is not a process restart or a real Workload API test. Durable source history remains a separate boundary. Peer-domain review: a SPIFFE bundle carries its explicit domain, certificate validation and SVID checks precede peer evidence, and service binding uses exact SPIFFE identity with separate leaf revocation. The configured Host source domain must match the authoritative selected bundle. The peer-domain, live TLS admission, resumption/rotation, forwarded-evidence and wrong-domain controls passed; the correspondence proves only its stated Boolean properties, not Rust refinement. The NATS client opts into a one-use server verifier with TLS resumption disabled; existing host-listener verification remains unchanged. Source-history review: before the final lint changes, the registered history suite passed 76 Linux tests in 16 groups, including SQLite union and cancellation, the cooperative file lease, offline attestation, a real bindings-only Host startup, source supersession, stored-trust quarantine and reconciliation. The lint-corrected source still needs the full suite rerun. The Host-process case does not prove secure-listener or request-guard enforcement. The complete attestation, continuous database identity and cooperative trusted filesystem are assumptions; raw writers, older binaries, backup rollback and physical power-loss durability are not proved. Windows-only startup and initializer refusal tests have not been run on Windows. The proof suite separately pins the executed migration inventory; its hashes do not establish implementation refinement."
     },
     {
       "id": "certificate-binding",
@@ -1790,14 +1790,14 @@
       "717c457a"
     ],
     "crates/gateway/src/routes/est_certificate_freshness_tests.rs": [
-      "3c208e0a",
-      "21e79722",
-      "cf5eef0d",
-      "161bc169",
-      "029a9e41",
-      "a7ac598c",
-      "c17284b2",
-      "bb1d80b4"
+      "b5467c13",
+      "8c699a82",
+      "e5fe3118",
+      "b02a2978",
+      "7d9c6f07",
+      "0ecc703f",
+      "5cc30a92",
+      "c9fd6a35"
     ],
     "crates/domain/src/lib.rs": [
       "2db2ace5",
@@ -2860,14 +2860,14 @@
       "d49fa90d"
     ],
     "crates/gateway/src/config.rs": [
-      "7732beba",
-      "4593fc00",
-      "e2c7cc5f",
-      "c38d87d5",
-      "94771c7a",
-      "98f3de0a",
-      "d2efa186",
-      "0d887a47"
+      "4c58e95b",
+      "a3471dd0",
+      "2df38b07",
+      "16e6bf53",
+      "35e64b9e",
+      "e154936b",
+      "d1710188",
+      "4b81e7b6"
     ],
     "crates/gateway/src/config_listener_tests.rs": [
       "af16ae93",
@@ -2970,14 +2970,14 @@
       "a303b0a0"
     ],
     "crates/gateway/src/routes/mod.rs": [
-      "0f134c3e",
-      "ba8b3d79",
-      "216ae2d4",
-      "e2d60acb",
-      "79da7bb6",
-      "47a3aa49",
-      "4f05fb21",
-      "a21658ef"
+      "7daae548",
+      "2877e363",
+      "f056c33a",
+      "5370bbd5",
+      "afb69e80",
+      "a66919c6",
+      "e006078b",
+      "a101332b"
     ],
     "crates/gateway/src/transport/admission.rs": [
       "97ee3c87",
@@ -3130,24 +3130,24 @@
       "1cf07153"
     ],
     "crates/gateway/src/transport/status.rs": [
-      "daac4453",
-      "00f33a61",
-      "1b5354ee",
-      "4bf9ea8f",
-      "9a2c5637",
-      "ed29ea48",
-      "5b231c49",
-      "a9a37fce"
+      "31d0a4ed",
+      "64fbe5bc",
+      "c0003b95",
+      "435f6c0c",
+      "3cd62eb5",
+      "f800c828",
+      "6c022be5",
+      "ee20f7f5"
     ],
     "crates/gateway/src/transport/test_support.rs": [
-      "d7084b75",
-      "682ee7d4",
-      "bb5ff3a6",
-      "1b7fc31c",
-      "308bf6e5",
-      "fbfbcab7",
-      "69028291",
-      "a2a7f218"
+      "37882a8e",
+      "d18219ed",
+      "f5f5d399",
+      "fc230eb9",
+      "d4f6bd91",
+      "7d8eda4c",
+      "5f5dc0ac",
+      "e5ecf321"
     ],
     "crates/storage/migrations/0057_est_passphrase_budget.sql": [
       "9efda976",
@@ -6750,14 +6750,14 @@
       "a23325a7"
     ],
     "crates/gateway/src/app_state.rs": [
-      "05cab6d9",
-      "42fa31d7",
-      "a812bef8",
-      "3ef026d2",
-      "abfd1bea",
-      "e0573035",
-      "2739e904",
-      "348c5911"
+      "34dce58b",
+      "e53b456f",
+      "ff2dbfaf",
+      "f5ef1cf5",
+      "c2336c07",
+      "d130c0fc",
+      "1634e2a1",
+      "091d45f2"
     ],
     "crates/gateway/src/testkit/mod.rs": [
       "18d8967d",
@@ -7230,14 +7230,14 @@
       "6f36ed62"
     ],
     "crates/gateway/src/routes/est_freshness.rs": [
-      "6f0ab862",
-      "2f867144",
-      "78dde33c",
-      "ade85c00",
-      "979c3892",
-      "b52d9190",
-      "fe8f132b",
-      "acb3875a"
+      "34714a67",
+      "bb85f6bb",
+      "d7a19846",
+      "9aeef083",
+      "bec2fe26",
+      "378c3457",
+      "9db307e4",
+      "e5598990"
     ],
     "crates/gateway/src/routes/est_test_pause.rs": [
       "36c869c8",
@@ -7290,14 +7290,14 @@
       "ca31101f"
     ],
     "crates/transport-security/src/source_lifetime.rs": [
-      "3f6cd17b",
-      "0ffd8373",
-      "ef9067f6",
-      "6c30f1a3",
-      "3f2d8570",
-      "fe9918aa",
-      "44d804a9",
-      "3deee613"
+      "c180e8c9",
+      "6ccf81e1",
+      "97337674",
+      "044aea24",
+      "9748d560",
+      "a1757caf",
+      "5642d447",
+      "922959bb"
     ],
     "crates/transport-security/src/source_lifetime_tests.rs": [
       "b4ae3455",
@@ -7320,24 +7320,24 @@
       "f3e46fc0"
     ],
     "crates/gateway/src/transport_lifecycle/trust_activate.rs": [
-      "c9bfd5e7",
-      "ade759c7",
-      "76e48b7e",
-      "6eb721b4",
-      "f1652ec9",
-      "824f02bb",
-      "53c1a307",
-      "6bdbf1f5"
+      "67b97e9c",
+      "2b45cf90",
+      "03fc706e",
+      "3aafddab",
+      "1c77ae3c",
+      "cab7b3a7",
+      "5bb5dd2c",
+      "f0796db1"
     ],
     "crates/gateway/src/transport_lifecycle/trust_generation_tests.rs": [
-      "f4583b7e",
-      "2ee8d45e",
-      "4aa2f3ee",
-      "401f3faf",
-      "92af2fe9",
-      "ab27c068",
-      "1534ea01",
-      "f15a719c"
+      "6435c614",
+      "d94e2fd7",
+      "0e779196",
+      "691614cc",
+      "f4321eeb",
+      "d189a0cc",
+      "e1813f1e",
+      "d88b2885"
     ],
     "crates/gateway/src/transport_lifecycle/trust_source_tests.rs": [
       "a9569037",
@@ -7370,14 +7370,14 @@
       "25012c7b"
     ],
     "crates/transport-security/src/guard.rs": [
-      "b4bee289",
-      "91e9b3ac",
-      "d405e6d7",
-      "7f7debe8",
-      "90f0a710",
-      "3d2ddc13",
-      "a654ec20",
-      "cab14109"
+      "e6dd79ed",
+      "1141562e",
+      "105ea215",
+      "0d83ab67",
+      "c4b175cc",
+      "86e49965",
+      "a1681f7c",
+      "2d335a64"
     ],
     "crates/transport-security/src/identity.rs": [
       "90310fc5",
@@ -7800,14 +7800,14 @@
       "8b63ebd8"
     ],
     "crates/gateway/src/transport/source_history/integration_tests.rs": [
-      "96eb078b",
-      "852a06f1",
-      "471a0dfc",
-      "9be6a267",
-      "41449fa6",
-      "c5956fa6",
-      "53b870ca",
-      "853a8941"
+      "ad96b8f5",
+      "488352fa",
+      "5263e149",
+      "bad352c1",
+      "98073e63",
+      "fef8244b",
+      "0c8ecb6d",
+      "0f8cbbfa"
     ],
     "crates/gateway/src/transport/source_history/tests.rs": [
       "3e2c3f91",
