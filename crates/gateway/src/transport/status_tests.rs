@@ -1,8 +1,8 @@
 //! A fenced generation must not appear installed or healthy.
 use super::*;
-use opensesame_time::{Duration, Utc};
 use crate::transport::test_support;
 use opensesame_domain::transport::TransportError;
+use opensesame_time::{Duration, Utc};
 use opensesame_transport_security::testkit::DisposableCa;
 use opensesame_transport_security::{GenerationCandidate, TransportGenerations};
 use std::sync::Arc;
@@ -44,8 +44,12 @@ fn quarantine_and_expiry_are_unloaded_with_revocation_precedence() {
         .activate_from_source(&owner, reserved, candidate)
         .unwrap();
     assert!(matches!(status().runtime, RuntimeStatus::Loaded { .. }));
-    gens.tighten_source_deadline(&owner, epoch, Utc::now() - opensesame_time::Duration::seconds(1))
-        .unwrap();
+    gens.tighten_source_deadline(
+        &owner,
+        epoch,
+        Utc::now() - opensesame_time::Duration::seconds(1),
+    )
+    .unwrap();
     let expired = status();
     assert!(matches!(expired.runtime, RuntimeStatus::NotLoaded));
     assert!(matches!(
