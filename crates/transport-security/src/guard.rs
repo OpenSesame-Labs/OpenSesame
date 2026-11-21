@@ -60,7 +60,7 @@ pub fn check_peer_freshness(
     if peer.credential_generation() != current.number || peer.trust_generation() != current.number {
         return Err(TransportError::GenerationStale);
     }
-    if Utc::now() > peer.usable_until() {
+    if Utc::now() >= peer.usable_until() {
         return Err(TransportError::EvidenceExpired);
     }
     let thumbprint = peer.leaf_thumbprint_sha256();
