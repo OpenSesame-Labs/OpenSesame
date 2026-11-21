@@ -1,13 +1,14 @@
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { overlapCast, readString } from "@opensesame/os-domain";
 import {
   generateAuthenticationOptions,
   generateRegistrationOptions,
   verifyAuthenticationResponse,
   verifyRegistrationResponse,
 } from "@simplewebauthn/server";
+import { describe, expect, it } from "vitest";
 import { simpleWebAuthnSeams } from "../simplewebauthn.js";
 
 const require = createRequire(import.meta.url);
@@ -20,12 +21,9 @@ function installedServerVersion(): string {
   for (;;) {
     const candidate = join(dir, "package.json");
     if (existsSync(candidate)) {
-      const manifest = JSON.parse(readFileSync(candidate, "utf8")) as {
-        name?: string;
-        version?: string;
-      };
-      if (manifest.name === "@simplewebauthn/server") {
-        return manifest.version ?? "";
+      const manifest = overlapCast(JSON.parse(readFileSync(candidate, "utf8")));
+      if (readString(manifest.name) === "@simplewebauthn/server") {
+        return readString(manifest.version) ?? "";
       }
     }
     const parent = dirname(dir);
@@ -42,10 +40,10 @@ describe("simplewebauthn v14 surface", () => {
   });
 
   it("exposes the v14 entry points the webauthn call sites use", () => {
-    expect(typeof generateRegistrationOptions).toBe("function");
-    expect(typeof generateAuthenticationOptions).toBe("function");
-    expect(typeof verifyRegistrationResponse).toBe("function");
-    expect(typeof verifyAuthenticationResponse).toBe("function");
+    expect(generateRegistrationOptions).toBeTypeOf("function");
+    expect(generateAuthenticationOptions).toBeTypeOf("function");
+    expect(verifyRegistrationResponse).toBeTypeOf("function");
+    expect(verifyAuthenticationResponse).toBeTypeOf("function");
   });
 
   it("binds the verification seam to exactly the installed v14 exports", () => {
