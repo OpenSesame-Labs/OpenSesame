@@ -17,10 +17,17 @@ function seedRequiredSuite(
   implementationPath = suite.implementation[0],
 ) {
   f.pin(requirements);
-  f.write(
-    "scripts/security/formal-proof-manifest-set.mjs",
-    readFileSync(new URL("./formal-proof-manifest-set.mjs", import.meta.url)),
-  );
+  for (const name of [
+    "formal-proof-manifest-set.mjs",
+    "formal-proof-lock-history.mjs",
+    "cargo-lock-projection.py",
+    "cargo-workspace-projection.py",
+    "cargo-workspace-multipackage.py",
+  ])
+    f.write(
+      `scripts/security/${name}`,
+      readFileSync(new URL(`./${name}`, import.meta.url)),
+    );
   f.write(manifest, JSON.stringify(requirements));
   f.write(registryPath, JSON.stringify(requirements));
   for (const proof of suite.proofs) f.write(proof, "proof\n");
