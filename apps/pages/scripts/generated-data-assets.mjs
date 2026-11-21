@@ -296,12 +296,12 @@ const generatedModules = Object.freeze([
   // Keep them as JavaScript so JSON extraction cannot freeze their behavior.
   tutorialDataModule(
     "identity-goals",
-    "c480f855b17dbdf88a924433c6441a2425816ba09905e9aae29a29e3f3198e8e",
+    "a57a48a5b1928c0b843474e1d00f65b45f285da0786fd00da3aa8cffd6f13a60",
     ["IDENTITY_GOALS", "IDENTITY_HELP"],
   ),
   tutorialDataModule(
     "feature-goals",
-    "488d62db43b0326ef22777554e7a681623f2e4ebfcb39379e2613945a0c64bfd",
+    "50adeb08e0d9c15495f71ed6b706742961037abe43e28876f89c72c76b7eb835",
     ["FEATURE_GOALS", "FEATURE_TUTORIALS"],
   ),
   tutorialDataModule(
