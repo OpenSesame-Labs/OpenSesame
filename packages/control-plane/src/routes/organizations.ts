@@ -49,7 +49,7 @@ import {
   samlConfigurationError,
 } from "./org-issuer-guard.js";
 import { bindOrgJoinIdentity } from "./org-join-identity.js";
-import { type OrgOwnerSource, asOrgOwner } from "./org-owner-gate.js";
+import { asActiveOrgOwner, asOrgOwner } from "./org-owner-gate.js";
 // One direction of a deliberate cycle: SCIM is per-organization, so its router
 // reuses this module's membership helpers, and this module asks it what role a
 // provisioned subject joins at. Both are functions called per request, never at
@@ -71,8 +71,9 @@ export {
 export const organizationRoutes = new Hono<{ Variables: Variables }>();
 organizationRoutes.onError(organizationIssuerErrorHandler);
 
-/** Membership authority retires with the organization (ADR 0178). */
-const MEMBER_ADMIN: OrgOwnerSource = { param: "id", liveness: "active" };
+// Suspending an organization preserves its memberships without granting their
+// owners authority to inspect or change the membership until reactivation.
+const MEMBER_ADMIN = { param: "id" };
 
 /**
  * The public tenant lookup is unauthenticated and does a durable read plus an
@@ -778,7 +779,7 @@ organizationRoutes.patch("/:id", requirePrincipal(), async (c) =>
 );
 
 organizationRoutes.get("/:id/members", requirePrincipal(), async (c) =>
-  asOrgOwner(c, MEMBER_ADMIN, async ({ ctx, org }) => {
+  asActiveOrgOwner(c, MEMBER_ADMIN, async ({ ctx, org }) => {
     const members = (
       await ctx.stores.organizationMemberships.listByOrganization(org.value)
     ).map(membershipResponse);
@@ -790,7 +791,7 @@ organizationRoutes.post("/:id/members", requirePrincipal(), async (c) => {
   const ctx = c.get("ctx");
   const organizationId = c.req.param("id");
   return serializeMembershipMutation(ctx, organizationId, () =>
-    asOrgOwner(c, MEMBER_ADMIN, async ({ org, proof, actor }) => {
+    asActiveOrgOwner(c, MEMBER_ADMIN, async ({ org, proof, actor }) => {
       const principalId = actor.value;
       const parsed = AddOrganizationMemberRequestSchema.safeParse(
         await c.req.json(),
@@ -843,7 +844,7 @@ organizationRoutes.patch(
     const ctx = c.get("ctx");
     const organizationId = c.req.param("id");
     return serializeMembershipMutation(ctx, organizationId, () =>
-      asOrgOwner(c, MEMBER_ADMIN, async ({ org, proof, actor }) => {
+      asActiveOrgOwner(c, MEMBER_ADMIN, async ({ org, proof, actor }) => {
         const actorPrincipalId = actor.value;
         const targetPrincipalId = c.req.param("principalId");
         const target = await getMembership(
@@ -912,7 +913,7 @@ organizationRoutes.delete(
     const ctx = c.get("ctx");
     const organizationId = c.req.param("id");
     return serializeMembershipMutation(ctx, organizationId, () =>
-      asOrgOwner(c, MEMBER_ADMIN, async ({ org, proof, actor }) => {
+      asActiveOrgOwner(c, MEMBER_ADMIN, async ({ org, proof, actor }) => {
         const actorPrincipalId = actor.value;
         const targetPrincipalId = c.req.param("principalId");
         const target = await getMembership(
