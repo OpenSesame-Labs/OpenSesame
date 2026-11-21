@@ -237,6 +237,10 @@ export async function saveAndCopyPassword(
       .grantPermissions(["clipboard-read", "clipboard-write"], { origin });
     await rest.click();
   }
+  // The walk orients on the saved item's list before it closes: the copy
+  // step's activate moves to the list step, which advances on Next.
+  await step("vault.list", first + 7);
+  await page.locator(".coach__btn--go").click();
   await page
     .getByText("Copied. Paste it into the password field.")
     .waitFor({ timeout: 15000 });

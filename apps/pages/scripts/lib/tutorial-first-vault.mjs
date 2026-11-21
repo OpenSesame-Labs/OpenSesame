@@ -77,7 +77,7 @@ async function firstVaultPass({
     .getByRole("button", { name: "Set up your own" })
     .waitFor({ timeout: 30000 });
   const label = `${protection} first vault`;
-  const step = tutorialStepChecker(page, check, phone, 12, label, readStep, {
+  const step = tutorialStepChecker(page, check, phone, 13, label, readStep, {
     out,
     width,
     keepShots,
@@ -147,7 +147,7 @@ async function makePassword(page, step, check, phone, label, protection) {
   // walks the four seal fields as tour steps.
   const pinOnly = protection === "pin-only";
   const first = pinOnly ? 9 : 5;
-  const total = pinOnly ? 16 : 12;
+  const total = pinOnly ? 17 : 13;
   const expected = `Step ${first} of ${total}`;
   try {
     await page.waitForFunction(
@@ -331,7 +331,7 @@ export async function firstItemPass({
     page,
     check,
     phone,
-    8,
+    9,
     "first item",
     readStep,
     { out, width, keepShots },

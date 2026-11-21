@@ -1,7 +1,7 @@
 import {
-  FIRST_VAULT_GATE_GUIDE,
   FIRST_VAULT_PIN_STEPS,
   FIRST_VAULT_SEAL_INSTRUCTION,
+  firstVaultGateGuide,
 } from "./first-vault-guide.js";
 import type { GuideGoalDescriptor } from "./goal-types.js";
 import { isKnownGuidePredicate, readGuidePredicate } from "./state.js";
@@ -22,7 +22,11 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
     id: "gate.front-door",
     title: "New password",
     routes: ["/unlock/door"],
-    guide: FIRST_VAULT_GATE_GUIDE,
+    // Composed when the tour starts, so the seal road is read live: a
+    // passkey browser never waits for the PIN fields (ADR 0180).
+    get guide() {
+      return firstVaultGateGuide();
+    },
   },
   {
     id: "gate.guest",

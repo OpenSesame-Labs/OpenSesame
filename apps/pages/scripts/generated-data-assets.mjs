@@ -238,7 +238,7 @@ const generatedModules = Object.freeze([
   {
     kind: "literal-array",
     path: `${root}/packages/app-core/src/tutorial/registry/feature-catalog.ts`,
-    hash: "aad6136f2a8ddfbcdabb14bfdc9b03d1a22e49d38a41f39df9fffcf250eba0e9",
+    hash: "d21ec9fffef3f7c2c7e28015c95a2c288eb057dea717aea741457c5b73809a2a",
     exportName: "FEATURE_TARGETS",
     assetName: "generated-data/tutorial-feature-targets.json",
   },

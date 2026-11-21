@@ -8,6 +8,7 @@ import {
   firstVaultGateSteps,
   firstVaultSignInPending,
   preserveFirstVaultGate,
+  resetFirstVaultHandoff,
   takeFirstVaultGuide,
   useFirstVaultGateHandoff,
   useFirstVaultHandoff,
@@ -38,7 +39,9 @@ const signInGuide = {
 
 afterEach(() => {
   cleanup();
-  takeFirstVaultGuide();
+  // Module state is shared across this file's tests; nothing may leak one
+  // test's ceremony into the next.
+  resetFirstVaultHandoff();
 });
 
 function SignInGate({ controller }: { controller: SupportController }) {

@@ -1,4 +1,5 @@
 import { isCreatableItemKind } from "@opensesame/app-core/lib/item-kinds.js";
+import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import {
   FIRST_VAULT_PACK_GUIDE,
   FIRST_VAULT_SHELL_GUIDE,
@@ -29,6 +30,18 @@ export function continueFirstVaultGuide(gateSteps = 8): void {
   pending = true;
   pendingGateSteps = gateSteps;
   for (const listener of [...listeners]) listener();
+}
+
+/** An unlocked vault owes no sign-in continuation: the ceremony completed. */
+export function clearFirstVaultSignInHandoff(): void {
+  pendingSignIn = false;
+}
+
+/** Drops every owed first-vault continuation. Lock and tests call this. */
+export function resetFirstVaultHandoff(): void {
+  pending = false;
+  pendingSignIn = false;
+  pendingGateSteps = 8;
 }
 
 function takeFirstVaultSteps(): number | null {
@@ -103,6 +116,11 @@ export function useFirstVaultGateHandoff(
 export function useFirstVaultHandoff(controller: SupportController): void {
   useEffect(() => {
     let active = true;
+    // A vault that locks again before the continuation ran owes nothing: the
+    // first-vault walk restarts from the gate the next time around.
+    const stopLock = vaultStore.onLock(() => {
+      resetFirstVaultHandoff();
+    });
     const resume = () => {
       queueMicrotask(() => {
         if (!active) return;
@@ -133,6 +151,7 @@ export function useFirstVaultHandoff(controller: SupportController): void {
       active = false;
       stop();
       stopGuide();
+      stopLock();
     };
   }, [controller]);
 }

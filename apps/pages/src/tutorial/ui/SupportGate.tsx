@@ -17,6 +17,7 @@ import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
 import { type ReactElement, useEffect, useState } from "react";
 import { type SupportHost, loadBrowserEngine } from "../engine.js";
 import {
+  clearFirstVaultSignInHandoff,
   continueFirstVaultGuide,
   preserveFirstVaultGate,
   useFirstVaultGateHandoff,
@@ -100,9 +101,14 @@ export function SupportGate(): ReactElement {
       const unlocked = vaultStore.getSnapshot().status === "unlocked";
       sealing = firstVaultSealingState(sealing, guide, unlocked);
       if (sealing) sealingStep = firstVaultDisplayedGateStep(guide);
-      if (unlocked && sealing && guide?.goal === "gate.front-door") {
-        sealing = false;
-        continueFirstVaultGuide(sealingStep || 8);
+      if (unlocked) {
+        // The vault opened: no sign-in continuation is owed any more, and
+        // the shell continuation below is the only handoff still armed.
+        clearFirstVaultSignInHandoff();
+        if (sealing && guide?.goal === "gate.front-door") {
+          sealing = false;
+          continueFirstVaultGuide(sealingStep || 8);
+        }
       }
     };
     const stopGuide = controller.subscribe(check);
