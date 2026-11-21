@@ -17,7 +17,8 @@ use opensesame_time::Utc;
 use serde_json::json;
 
 use super::super::intents_budget::{
-    release_authority_budget_hold, settle_authority_budget_hold, AuthorityBudgetHold,
+    ensure_effect_allowed, invocation_budget_binding, release_authority_budget_hold,
+    settle_authority_budget_hold, settle_replayed_invoke, InvokeBudgetHold,
 };
 use super::{execute_invocation, not_found, ConstrainedHttpInput, ResolvedInvocation};
 use crate::app_state::AppState;
@@ -53,7 +54,7 @@ struct QueuedInvoke {
     resolved: ResolvedInvocation,
     invoke_input: InvokeInput,
     constrained_http: Option<ConstrainedHttpInput>,
-    authority_hold: Option<AuthorityBudgetHold>,
+    authority_hold: Option<InvokeBudgetHold>,
     level: u8,
 }
 
@@ -73,7 +74,7 @@ pub(super) async fn dispatch_or_hold(
     resolved: ResolvedInvocation,
     invoke_input: InvokeInput,
     constrained_http: Option<ConstrainedHttpInput>,
-    authority_hold: Option<AuthorityBudgetHold>,
+    authority_hold: Option<InvokeBudgetHold>,
     level: u8,
 ) -> Response {
     #[cfg(test)]
@@ -167,28 +168,75 @@ async fn finish_dispatch(
     resolved: ResolvedInvocation,
     invoke_input: InvokeInput,
     constrained_http: Option<ConstrainedHttpInput>,
-    authority_hold: Option<AuthorityBudgetHold>,
+    authority_hold: Option<InvokeBudgetHold>,
     level: u8,
 ) -> Response {
     if let Err(response) = reauthorize(st, &resolved, &invoke_input.subject).await {
         release_authority_budget_hold(st, authority_hold).await;
         return response;
     }
+    if let Err(response) = ensure_effect_allowed(
+        st,
+        &resolved,
+        constrained_http.is_some(),
+        authority_hold.is_none(),
+    ) {
+        release_authority_budget_hold(st, authority_hold).await;
+        return response;
+    }
     #[cfg(test)]
     hold::record_side_effect();
-    let result = execute_invocation(st, org, &resolved, invoke_input, constrained_http).await;
+    let replay = if authority_hold.is_none() {
+        invocation_budget_binding(st, &invoke_input)
+            .ok()
+            .map(|fingerprint| (invoke_input.intent.idempotency_key.clone(), fingerprint))
+    } else {
+        None
+    };
+    // A request without its own hold is a replay, even if the stored intent
+    // disappears while it waits: it must never fall through to new work.
+    let replay_only = authority_hold.is_none();
+    let idempotency_key = invoke_input.intent.idempotency_key.clone();
+    let result = execute_invocation(
+        st,
+        org,
+        &resolved,
+        invoke_input,
+        constrained_http,
+        replay_only,
+    )
+    .await;
+    if result.is_ok() {
+        if let Some((key, fingerprint)) = replay {
+            settle_replayed_invoke(st, &org.to_string(), &key, &fingerprint).await;
+        }
+    }
     settle_authority_budget_hold(st, authority_hold).await;
     match result {
         Ok(receipt) => {
-            let mut body = serde_json::to_value(&receipt).unwrap_or(json!({}));
-            if let Some(obj) = body.as_object_mut() {
-                if let Some(connection_ref) = &st.connection_ref {
-                    obj.insert("connection_ref".into(), json!(connection_ref.handle.uri()));
-                }
-                obj.insert("invoke_level".into(), json!(level));
-                obj.insert("credential_bytes_returned".into(), json!(false));
+            let original = match st.db.find_idempotent_intent(&org, &idempotency_key).await {
+                Ok(Some(record)) => record.intent,
+                _ => return opening_unavailable(),
+            };
+            let digest = match original.digest() {
+                Ok(digest) => digest,
+                Err(_) => return opening_unavailable(),
+            };
+            let mut body = match super::super::receipts::private_receipt_body(
+                st, &receipt, &digest, &original,
+            ) {
+                Ok(body) => body,
+                Err(response) => return response,
+            };
+            let Some(obj) = body.as_object_mut() else {
+                return opening_unavailable();
+            };
+            if let Some(connection_ref) = &st.connection_ref {
+                obj.insert("connection_ref".into(), json!(connection_ref.handle.uri()));
             }
-            (StatusCode::OK, Json(body)).into_response()
+            obj.insert("invoke_level".into(), json!(level));
+            obj.insert("credential_bytes_returned".into(), json!(false));
+            super::super::receipts::private_response(StatusCode::OK, body)
         }
         Err(error) => {
             let msg = opensesame_redaction::redact_text(&error.to_string());
@@ -199,6 +247,14 @@ async fn finish_dispatch(
                 .into_response()
         }
     }
+}
+
+fn opening_unavailable() -> Response {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(json!({"error":"receipt_opening_unavailable"})),
+    )
+        .into_response()
 }
 
 #[cfg(test)]

@@ -30,13 +30,14 @@ pub use enabled::load_wasm_connectors;
 mod enabled {
     use super::{ENV_CONNECTOR_DIR, ENV_TOKEN_ORIGINS, ENV_TRUSTED_DIGESTS};
     use anyhow::Context;
-    use opensesame_connection_broker::ConnectionBroker;
+    use opensesame_connection_broker::{egress::OwnerConnectionExpectation, ConnectionBroker};
     use opensesame_connector_host::manifest::ConnectorManifest;
     use opensesame_connector_host::wasm::{
         EgressRequest, EgressResponse, GuestLimits, HostEgress, WasmConnector,
     };
-    use opensesame_connector_host::HostRuntime;
-    use opensesame_domain::OrganizationId;
+    use opensesame_connector_host::{HostRuntime, InvocationBinding};
+    use opensesame_domain::{ConnectionId, OrganizationId};
+    use opensesame_time::Utc;
     use std::sync::Arc;
 
     /// Bridges guest `host-http` calls onto the connection broker — the one
@@ -51,13 +52,48 @@ mod enabled {
     struct GatewayEgress {
         broker: Arc<ConnectionBroker>,
         organization: OrganizationId,
+        registered_provider: String,
         handle: tokio::runtime::Handle,
+    }
+
+    pub(super) fn accepts_binding(
+        binding: &InvocationBinding,
+        organization: OrganizationId,
+        connection_ref: &str,
+        registered_provider: &str,
+    ) -> Option<ConnectionId> {
+        let connection = binding.connection_id()?;
+        if binding.is_delegated()
+            || binding.organization_id() != organization
+            || binding.connection_policy_id() != connection_ref
+            || registered_provider != connection_ref
+            || binding.grant().connection_id != Some(connection)
+            || binding.grant().assert_active(Utc::now()).is_err()
+        {
+            return None;
+        }
+        Some(connection)
+    }
+
+    #[cfg(test)]
+    pub(super) fn bridge_for_test(
+        broker: Arc<ConnectionBroker>,
+        organization: OrganizationId,
+        registered_provider: &str,
+    ) -> impl HostEgress {
+        GatewayEgress {
+            broker,
+            organization,
+            registered_provider: registered_provider.to_owned(),
+            handle: tokio::runtime::Handle::current(),
+        }
     }
 
     impl GatewayEgress {
         fn run_json(
             &self,
             connection_id: &str,
+            binding: &InvocationBinding,
             req: &EgressRequest,
         ) -> Result<serde_json::Value, String> {
             let body = if req.body.is_empty() {
@@ -68,45 +104,41 @@ mod enabled {
                         .map_err(|_| "request body must be JSON".to_owned())?,
                 )
             };
-            let broker = Arc::clone(&self.broker);
-            let organization = self.organization;
-            let connection = connection_id.to_owned();
-            let method = req.method.clone();
-            let url = req.url.clone();
             tokio::task::block_in_place(|| {
-                self.handle.block_on(fetch_json(
-                    broker,
-                    organization,
-                    connection,
-                    method,
-                    url,
+                self.handle.block_on(self.broker.authorized_json_for_owner(
+                    OwnerConnectionExpectation {
+                        organization_id: &self.organization,
+                        connection_id,
+                        provider_id: &self.registered_provider,
+                        owner_subject: binding.subject(),
+                        grant: binding.grant(),
+                    },
+                    &req.method,
+                    &req.url,
                     body,
                 ))
             })
+            .map_err(|_| "owner egress unavailable".to_owned())
         }
-    }
-
-    async fn fetch_json(
-        broker: Arc<ConnectionBroker>,
-        organization: OrganizationId,
-        connection: String,
-        method: String,
-        url: String,
-        body: Option<serde_json::Value>,
-    ) -> Result<serde_json::Value, String> {
-        broker
-            .authorized_json(&organization, &connection, &method, &url, body)
-            .await
-            .map_err(|e| format!("egress failed: {e}"))
     }
 
     impl HostEgress for GatewayEgress {
         fn authorized_request(
             &self,
+            binding: &InvocationBinding,
             connection_ref: &str,
             req: EgressRequest,
         ) -> Result<EgressResponse, String> {
-            let value = self.run_json(connection_ref, &req)?;
+            // The connector and provider share the registered manifest ID;
+            // the durable connection is a separate, invocation-bound UUID.
+            let connection = accepts_binding(
+                binding,
+                self.organization,
+                connection_ref,
+                &self.registered_provider,
+            )
+            .ok_or_else(|| "invocation binding denied".to_owned())?;
+            let value = self.run_json(&connection.to_string(), binding, &req)?;
             Ok(EgressResponse {
                 status: 200,
                 headers: vec![],
@@ -114,12 +146,18 @@ mod enabled {
             })
         }
 
-        fn sign(&self, _purpose: &str, _digest: &[u8]) -> Result<Vec<u8>, String> {
+        fn sign(
+            &self,
+            _binding: &InvocationBinding,
+            _purpose: &str,
+            _digest: &[u8],
+        ) -> Result<Vec<u8>, String> {
             Err("host-crypto.sign is not yet open to community connectors (ADR 0065 §8)".into())
         }
 
         fn oauth_acquire(
             &self,
+            _binding: &InvocationBinding,
             _connection_ref: &str,
             _resource: Option<&str>,
             _audience: Option<&str>,
@@ -130,6 +168,7 @@ mod enabled {
 
         fn authenticated_request(
             &self,
+            _binding: &InvocationBinding,
             _connection_ref: &str,
             _token_handle: u32,
             _req: EgressRequest,
@@ -174,12 +213,6 @@ mod enabled {
         )
         .with_context(|| format!("invalid {ENV_TOKEN_ORIGINS}"))?;
 
-        let egress: Arc<dyn HostEgress> = Arc::new(GatewayEgress {
-            broker: Arc::clone(broker),
-            organization,
-            handle: tokio::runtime::Handle::current(),
-        });
-
         let mut loaded = 0usize;
         for entry in std::fs::read_dir(&dir).with_context(|| format!("read {dir}"))? {
             let path = entry?.path();
@@ -194,6 +227,13 @@ mod enabled {
                 .with_context(|| format!("read {}", manifest_path.display()))?;
             let manifest = ConnectorManifest::from_yaml(&manifest_text)
                 .with_context(|| format!("parse {}", manifest_path.display()))?;
+            let registered_provider = manifest.metadata.id.clone();
+            let egress: Arc<dyn HostEgress> = Arc::new(GatewayEgress {
+                broker: Arc::clone(broker),
+                organization,
+                registered_provider: registered_provider.clone(),
+                handle: tokio::runtime::Handle::current(),
+            });
             // A local component file wins (operator override); otherwise the
             // component is pulled from the manifest's digest-addressed OCI
             // reference — the digest check in WasmConnector::load re-verifies
@@ -221,6 +261,10 @@ mod enabled {
             .map_err(|e| anyhow::anyhow!("load {}: {e}", path.display()))?;
 
             let id = opensesame_connector_host::Connector::id(&connector).to_owned();
+            anyhow::ensure!(
+                id == registered_provider,
+                "connector registration identity changed"
+            );
             host.register_connector(Arc::new(connector))
                 .map_err(|e| anyhow::anyhow!("register {id}: {e}"))?;
             host.bind_connection(id.clone(), &id)
@@ -234,6 +278,14 @@ mod enabled {
         Ok(())
     }
 }
+
+#[cfg(all(test, feature = "wasm-connectors"))]
+#[path = "connector_egress_binding_tests.rs"]
+mod binding_tests;
+
+#[cfg(all(test, feature = "wasm-connectors"))]
+#[path = "connector_egress_owner_tests.rs"]
+mod owner_tests;
 
 /// Feature-off build: the operator asking for connectors is a hard error —
 /// never a silent no-op.

@@ -1,15 +1,20 @@
 mod frozen;
+mod frozen_recovery;
+mod idempotency;
+mod independent_executor;
 
 pub use frozen::{assert_grant_covers_frozen_intent, FrozenInvokeInput};
+pub use idempotency::legacy_fingerprint as invocation_fingerprint;
 
 use opensesame_audit::ReceiptSigner;
 use opensesame_authz::{
     AuthZenAction, AuthZenRequest, AuthZenResource, AuthZenSubject, PolicyEngine,
 };
-use opensesame_connector_host::{HostRuntime, InvokeRequest};
+use opensesame_connector_host::{HostRuntime, InvocationBinding, InvokeRequest};
 use opensesame_domain::{
     AvailabilityClass, DomainError, Grant, Intent, Invocation, InvocationId, InvocationReceipt,
     InvocationState, ReceiptId, ReceiptOutcome, ValidatedGrantChain,
+    OPAQUE_RESULT_RECEIPT_SCHEMA_VERSION,
 };
 use opensesame_storage::Db;
 use opensesame_time::Utc;
@@ -34,28 +39,6 @@ pub struct InvokeInput {
 }
 
 impl Broker {
-    async fn prior_receipt(
-        &self,
-        intent: &Intent,
-        conflict_message: &str,
-    ) -> anyhow::Result<Option<InvocationReceipt>> {
-        let existing = self
-            .db
-            .find_intent_by_idempotency(&intent.organization_id, &intent.idempotency_key)
-            .await?;
-        if existing.is_none() {
-            return Ok(None);
-        }
-        if let Some(receipt) = self
-            .db
-            .find_receipt_by_idempotency(&intent.organization_id, &intent.idempotency_key)
-            .await?
-        {
-            return Ok(Some(receipt));
-        }
-        anyhow::bail!(conflict_message.to_string())
-    }
-
     fn begin_invocation(
         intent_id: opensesame_domain::IntentId,
         now: opensesame_time::DateTime<Utc>,
@@ -91,30 +74,48 @@ impl Broker {
             connection_ref: input.connection_policy_id.clone(),
         };
         let connection_policy_id = input.connection_policy_id.clone();
-        self.invoke_with(input, || async {
-            self.host.invoke(&connection_policy_id, &request)
-        })
+        let disclose_outcome = self.host.permits_outcome_disclosure(&connection_policy_id);
+        self.invoke_with_mode(
+            input,
+            |binding| async move {
+                self.host
+                    .invoke_bound(&connection_policy_id, &request, &binding)
+            },
+            false,
+            disclose_outcome,
+        )
         .await
     }
 
-    /// Run an invocation with an authority-owned asynchronous executor.
-    ///
-    /// The closure is called only after freshness, grant, policy, quorum, and
-    /// idempotency checks pass. This is the path for credentialed network
-    /// connectors, whose egress cannot run inside the synchronous component
-    /// host.
+    /// Return a prior receipt only after checking the current authorization
+    /// and the exact request binding. Never start new provider work.
     ///
     /// # Errors
     ///
-    /// Returns an error when validation, authorization, execution, or durable
-    /// receipt persistence fails.
-    pub async fn invoke_with<E, F>(
+    /// Returns an error when authorization fails or no matching receipt exists.
+    pub async fn replay(&self, input: InvokeInput) -> anyhow::Result<InvocationReceipt> {
+        self.invoke_with_mode(
+            input,
+            |_| async {
+                Err(opensesame_connector_host::HostError::Connector(
+                    "replay cannot execute".into(),
+                ))
+            },
+            true,
+            false,
+        )
+        .await
+    }
+
+    async fn invoke_with_mode<E, F>(
         &self,
         input: InvokeInput,
         execute: E,
+        replay_only: bool,
+        disclose_outcome: bool,
     ) -> anyhow::Result<InvocationReceipt>
     where
-        E: FnOnce() -> F,
+        E: FnOnce(InvocationBinding) -> F,
         F: std::future::Future<
             Output = Result<
                 opensesame_connector_host::InvokeResult,
@@ -136,23 +137,11 @@ impl Broker {
             );
         }
 
-        if let Some(receipt) = self
-            .prior_receipt(
-                &input.intent,
-                "idempotency conflict: prior intent has no receipt yet",
-            )
-            .await?
-        {
-            return Ok(receipt);
-        }
-        self.db.insert_intent(&input.intent).await?;
-
         let expected = Intent::parameters_hash(&input.parameters)?;
         if expected != input.intent.normalized_parameters_hash {
             anyhow::bail!("parameter digest mismatch");
         }
-
-        let mut inv = Self::begin_invocation(input.intent.id, now)?;
+        let fingerprint = idempotency::legacy_fingerprint(&input)?;
 
         let authz_req = AuthZenRequest {
             subject: AuthZenSubject {
@@ -183,9 +172,38 @@ impl Broker {
             input.lineage.as_ref(),
             AvailabilityClass::A3ExternalSideEffect,
         )?;
+        if let Some(receipt) = self
+            .prior_receipt(&input.intent, &fingerprint, None)
+            .await?
+        {
+            anyhow::ensure!(
+                decision.decision,
+                "idempotency conflict: current authorization denied"
+            );
+            return Ok(receipt);
+        }
+        anyhow::ensure!(
+            !replay_only,
+            "idempotency conflict: no prior invocation to replay"
+        );
+        let mut inv = Self::begin_invocation(input.intent.id, now)?;
+        let authority = if decision.decision {
+            Some(InvocationBinding::from_intent(
+                inv.id,
+                &input.intent,
+                &input.grant,
+                &input.subject,
+                &input.connection_policy_id,
+                input.lineage.as_ref(),
+            )?)
+        } else {
+            None
+        };
+        self.db
+            .insert_bound_intent(&input.intent, &fingerprint)
+            .await?;
         if !decision.decision {
             inv.transition(InvocationState::Denied, Utc::now())?;
-            self.db.insert_invocation(&inv).await?;
             let receipt = self.finish_receipt(
                 &input,
                 &inv,
@@ -193,8 +211,7 @@ impl Broker {
                     decision_id: &decision.decision_id,
                     policy_digest: &decision.policy_version_digest,
                     outcome: ReceiptOutcome::Denied,
-                    summary: json!({"reason": decision.context}),
-                    ext: None,
+                    binding: fingerprint.digest(),
                     connector_digest: self.host.component_digest(&input.connection_policy_id),
                     delegation_chain: opensesame_domain::receipt_delegation_chain(
                         &input.grant,
@@ -202,16 +219,23 @@ impl Broker {
                     ),
                 },
             )?;
-            self.db.insert_receipt(&receipt).await?;
+            self.db
+                .insert_denied_invocation_with_receipt(&inv, &receipt)
+                .await?;
             return Ok(receipt);
         }
 
         self.execute_authorized(
             &input,
-            inv,
+            (
+                inv,
+                authority.ok_or_else(|| anyhow::anyhow!("missing invocation context"))?,
+            ),
             &decision.decision_id,
             &decision.policy_version_digest,
+            fingerprint.digest(),
             execute,
+            disclose_outcome,
         )
         .await
     }
@@ -219,13 +243,15 @@ impl Broker {
     async fn execute_authorized<E, F>(
         &self,
         input: &InvokeInput,
-        mut invocation: Invocation,
+        invocation: (Invocation, InvocationBinding),
         decision_id: &str,
         policy_digest: &str,
+        binding: &str,
         execute: E,
+        disclose_outcome: bool,
     ) -> anyhow::Result<InvocationReceipt>
     where
-        E: FnOnce() -> F,
+        E: FnOnce(InvocationBinding) -> F,
         F: std::future::Future<
             Output = Result<
                 opensesame_connector_host::InvokeResult,
@@ -233,30 +259,34 @@ impl Broker {
             >,
         >,
     {
+        let (mut invocation, authority) = invocation;
         invocation.transition(InvocationState::Authorized, Utc::now())?;
         invocation.transition(InvocationState::Leased, Utc::now())?;
         invocation.lease_owner = Some("worker-local".into());
         invocation.transition(InvocationState::Executing, Utc::now())?;
         self.db.insert_invocation(&invocation).await?;
 
-        let result = execute().await;
+        let result = execute(authority).await;
 
-        let (outcome, summary, ext) = match result {
+        let outcome = match result {
             Ok(r) => {
-                invocation.transition(InvocationState::Succeeded, Utc::now())?;
-                (
-                    ReceiptOutcome::Succeeded,
-                    r.safe_summary,
-                    r.external_request_digest,
-                )
+                let (state, outcome) = if r.ok {
+                    (InvocationState::Succeeded, ReceiptOutcome::Succeeded)
+                } else {
+                    (InvocationState::Failed, ReceiptOutcome::Failed)
+                };
+                invocation.transition(state, Utc::now())?;
+                outcome
             }
-            Err(e) => {
+            Err(_) => {
                 invocation.transition(InvocationState::Failed, Utc::now())?;
-                // Connector errors echo upstream URLs and headers; receipts are
-                // durable and readable, so the text is redacted before it lands.
-                let msg = opensesame_redaction::redact_text(&e.to_string());
-                (ReceiptOutcome::Failed, json!({"error": msg}), None)
+                ReceiptOutcome::Failed
             }
+        };
+        let outcome = if disclose_outcome {
+            outcome
+        } else {
+            ReceiptOutcome::Indeterminate
         };
 
         let receipt = self.finish_receipt(
@@ -266,8 +296,7 @@ impl Broker {
                 decision_id,
                 policy_digest,
                 outcome,
-                summary,
-                ext,
+                binding,
                 connector_digest: self.host.component_digest(&input.connection_policy_id),
                 delegation_chain: opensesame_domain::receipt_delegation_chain(
                     &input.grant,
@@ -275,12 +304,14 @@ impl Broker {
                 ),
             },
         )?;
-        // Fail the invocation instead of panicking the process: a summary that
-        // trips the leak check must never be persisted, but it is not a crash.
+        // Retain the existing leak check as a defense if the receipt contract
+        // evolves; schema 6 currently permits no result summary at all.
         if !receipt.assert_no_secret_leak() {
             anyhow::bail!("receipt summary rejected by secret-leak check");
         }
-        self.db.insert_receipt(&receipt).await?;
+        self.db
+            .finish_executing_invocation(&invocation, &receipt)
+            .await?;
         Ok(receipt)
     }
 
@@ -293,7 +324,10 @@ impl Broker {
         let receipt = InvocationReceipt {
             id: ReceiptId::new(),
             invocation_id: inv.id,
-            intent_digest: input.intent.digest()?,
+            intent_digest: self
+                .signer
+                .intent_commitment(&inv.id, &input.intent.digest()?)?,
+            idempotency_binding: Some(self.signer.idempotency_commitment(parts.binding)),
             principal_id: input.intent.principal_id,
             organization_id: Some(input.intent.organization_id),
             actor_id: input.intent.actor_id,
@@ -309,15 +343,15 @@ impl Broker {
             approval_id: None,
             credential_handle_id: None,
             connector_component_digest: parts.connector_digest.map(str::to_owned),
-            external_request_digest: parts.ext,
+            external_request_digest: None,
             external_response_digest: None,
             started_at: inv.created_at,
             completed_at: Utc::now(),
             outcome: parts.outcome,
-            safe_result_summary: Some(parts.summary),
+            safe_result_summary: None,
             authority_key_id: String::new(),
             signature: String::new(),
-            receipt_schema_version: 3,
+            receipt_schema_version: OPAQUE_RESULT_RECEIPT_SCHEMA_VERSION,
             task_run_id: None,
             task_state_version: None,
             task_state_digest: None,
@@ -330,8 +364,7 @@ pub(crate) struct FinishReceiptParts<'a> {
     decision_id: &'a str,
     policy_digest: &'a str,
     outcome: ReceiptOutcome,
-    summary: Value,
-    ext: Option<String>,
+    binding: &'a str,
     connector_digest: Option<&'a str>,
     delegation_chain: Vec<opensesame_domain::GrantId>,
 }
