@@ -128,6 +128,7 @@ async fn terminal_state_and_receipt_commit_once_together() {
     for (state, outcome) in [
         (InvocationState::Succeeded, ReceiptOutcome::Succeeded),
         (InvocationState::Failed, ReceiptOutcome::Failed),
+        (InvocationState::Cancelled, ReceiptOutcome::Cancelled),
     ] {
         let (db, organization) = setup().await;
         let (intent, executing, receipt) =
@@ -158,7 +159,11 @@ async fn terminal_state_and_receipt_commit_once_together() {
 
 #[tokio::test]
 async fn opaque_indeterminate_receipt_preserves_the_private_terminal_state() {
-    for state in [InvocationState::Succeeded, InvocationState::Failed] {
+    for state in [
+        InvocationState::Succeeded,
+        InvocationState::Failed,
+        InvocationState::Cancelled,
+    ] {
         let (db, organization) = setup().await;
         let (intent, executing, mut receipt) = evidence(
             organization,

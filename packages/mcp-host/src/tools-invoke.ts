@@ -50,13 +50,8 @@ export function registerInvokeTool(server: McpServer): void {
         });
         const body = await readFreezeIntentResponse(res);
         const projected = projectInvocationResponse(res.ok, body);
-        if (
-          typeof body === "object" &&
-          body !== null &&
-          "id" in body &&
-          typeof body.id === "string"
-        ) {
-          noteReservedReceiptId(body.id);
+        if (projected.id !== undefined) {
+          noteReservedReceiptId(taskRunId, projected.id);
         }
         return {
           content: textContent(forAgent(JSON.stringify(projected))),

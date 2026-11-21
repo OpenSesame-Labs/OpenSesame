@@ -1,7 +1,12 @@
-//! Constrained HTTP pinning and a real TLS provider response. The production
-//! surrogate path refuses a mismatched pinned port; a separately preflighted
-//! test-mode request reaches an ephemeral listener and exercises the same
-//! opaque result projection on a transformed credential response.
+//! L2 constrained HTTP end to end (ADR 0150): the host admits a placeholder
+//! through its ledger and the invoke-through broker sends the request to a
+//! real TLS upstream standing in for `api.github.com`.
+//!
+//! What the upstream sees is the proof. The credential arrives exactly once,
+//! in the one header the provider's rule names; the placeholder never arrives,
+//! because its header is stripped rather than rewritten; and an upstream that
+//! echoes or reversibly encodes what it was sent does not appear in the host
+//! result. A pinned socket on another port is refused before any byte is sent.
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -11,8 +16,8 @@ use axum::response::Response;
 use axum::routing::any;
 use axum::Router;
 use opensesame_connector_host::{
-    opaque_http_result, opensesame_param_digest, HostError, HostRuntime, InvokeRequest,
-    RefusalCode, SurrogateSite, SurrogateSpec,
+    opensesame_param_digest, HostError, HostRuntime, InvokeRequest, RefusalCode, SurrogateSite,
+    SurrogateSpec,
 };
 use opensesame_domain::transport::{
     TlsVersion, TransportError, TransportPolicy, TrustProfileKind, TrustProfileRef,
@@ -35,6 +40,8 @@ const MATERIAL: &str = "CANARY-e2e-material-9f2c41";
 #[derive(Clone, Debug)]
 struct Hit {
     authorization: Vec<String>,
+    /// The target, every header name and value, and the body, run together.
+    everything: String,
 }
 
 #[derive(Clone, Default)]
@@ -49,7 +56,10 @@ impl Seen {
 /// Records the request, then echoes its `Authorization` in the body and a
 /// reversible encoding in both the body and an allowlisted response header.
 async fn reflect(State(seen): State<Seen>, req: Request) -> Response {
-    let (parts, _) = req.into_parts();
+    let (parts, body) = req.into_parts();
+    let body = axum::body::to_bytes(body, 1 << 20)
+        .await
+        .unwrap_or_default();
     let authorization: Vec<String> = parts
         .headers
         .get_all("authorization")
@@ -57,8 +67,15 @@ async fn reflect(State(seen): State<Seen>, req: Request) -> Response {
         .filter_map(|value| value.to_str().ok())
         .map(str::to_owned)
         .collect();
+    let mut everything = parts.uri.to_string();
+    for (name, value) in &parts.headers {
+        everything.push_str(name.as_str());
+        everything.push_str(value.to_str().unwrap_or_default());
+    }
+    everything.push_str(&String::from_utf8_lossy(&body));
     seen.0.lock().expect("lock").push(Hit {
         authorization: authorization.clone(),
+        everything,
     });
     let echoed = authorization.join(",");
     let reversed: String = echoed.chars().rev().collect();
@@ -186,6 +203,18 @@ fn repo_read(placeholder: &str) -> Value {
     })
 }
 
+fn repo_read_on_port(placeholder: &str, port: u16) -> Value {
+    json!({
+        "url": format!("https://api.github.com:{port}/repos/acme/x"),
+        "connection_ref": CONNECTION,
+        "headers": [
+            ["accept", "application/vnd.github+json"],
+            ["authorization", format!("Bearer {placeholder}")],
+        ],
+        "body": "note=owner",
+    })
+}
+
 #[tokio::test]
 async fn pinned_destination_refuses_a_mismatched_listener_port() {
     let upstream = upstream().await;
@@ -194,9 +223,9 @@ async fn pinned_destination_refuses_a_mismatched_listener_port() {
         .invoke_constrained_http(CALLER, &request(repo_read(&ph)), &invoker(&upstream))
         .await
         .expect_err("port mismatch must be refused");
-    assert_eq!(
-        error,
-        HostError::Connector("upstream request failed".into())
+    assert!(
+        matches!(error, HostError::DestinationDenied(message) if message.contains("api.github.com")),
+        "{error:?}"
     );
     assert!(upstream.seen.hits().is_empty());
 }
@@ -204,33 +233,45 @@ async fn pinned_destination_refuses_a_mismatched_listener_port() {
 #[tokio::test]
 async fn real_tls_response_cannot_disclose_a_transformed_credential() {
     let upstream = upstream().await;
-    let invoker = invoker(&upstream);
-    let prepared = invoker
-        .preflight(opensesame_invoke_through::InvokeRequest {
-            provider_id: "github".into(),
-            method: "GET".into(),
-            url: format!("https://{HOST}:{}/repos/acme/x", upstream.addr.port()),
-            headers: vec![],
-            body: None,
-            subject: None,
-            actor: None,
-        })
-        .unwrap();
-    let response = invoker
-        .execute(&SecretString::from(MATERIAL), prepared)
+    let (host, ph) = host();
+    let result = host
+        .invoke_constrained_http(
+            CALLER,
+            &request(repo_read_on_port(&ph, upstream.addr.port())),
+            &invoker(&upstream),
+        )
         .await
         .expect("sent");
     let hits = upstream.seen.hits();
-    assert_eq!(hits.len(), 1);
+    assert_eq!(hits.len(), 1, "exactly one request left the host");
     assert_eq!(hits[0].authorization, vec![format!("Bearer {MATERIAL}")]);
+    assert_eq!(
+        hits[0]
+            .authorization
+            .iter()
+            .filter(|value| value.contains(MATERIAL))
+            .count(),
+        1,
+        "the credential is placed once"
+    );
+    assert!(
+        !hits[0].everything.contains(&ph),
+        "the placeholder is stripped, never forwarded or rewritten: {}",
+        hits[0].everything
+    );
+    assert!(
+        hits[0].everything.contains("note=owner"),
+        "the request body is recorded: {}",
+        hits[0].everything
+    );
     let reversed: String = MATERIAL.chars().rev().collect();
-    assert!(String::from_utf8_lossy(&response.body).contains(&reversed));
-    let result = opaque_http_result(&response);
-    let summary = result.safe_summary.to_string();
-    assert!(!summary.contains(MATERIAL), "{summary}");
-    assert!(!summary.contains(&reversed));
+    let disclosed = format!("{result:?}{}", result.safe_summary);
+    assert!(!disclosed.contains(MATERIAL), "{disclosed}");
+    assert!(!disclosed.contains(&reversed), "{disclosed}");
+    assert!(!disclosed.contains(&ph), "{disclosed}");
     assert_eq!(result.safe_summary, json!({"result":"completed"}));
     assert!(result.external_request_digest.is_none());
+    assert!(result.ok);
 }
 
 #[tokio::test]

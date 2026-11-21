@@ -285,12 +285,9 @@ pub async fn freeze_intent(
     // Name the authority this intent will execute under. A fresh `ActorId::new()`
     // named nothing, so the receipt's actor was meaningless and a grant narrowed to
     // one actor, project or connection could not tell whether it covered the call.
-    let boot = active_execution_bootstrap_for_organization(
-        &st,
-        &run.organization_id,
-        &run.principal_id,
-    )
-    .await?;
+    let boot =
+        active_execution_bootstrap_for_organization(&st, &run.organization_id, &run.principal_id)
+            .await?;
     let intent = FrozenIntentV2 {
         schema_version: FROZEN_INTENT_SCHEMA_VERSION,
         id: IntentId::new(),
@@ -356,21 +353,24 @@ pub async fn invoke_task(
     let caller = resolve_caller(&st, &headers)?;
     let subject = resolve_caller_subject(&st, &headers)?;
     let configured = require_demo_bootstrap(&st)?;
-    let boot = active_execution_bootstrap_for_organization(
-        &st,
-        &configured.org,
-        &configured.principal,
-    )
-    .await?;
+    let boot =
+        active_execution_bootstrap_for_organization(&st, &configured.org, &configured.principal)
+            .await?;
+    let now = Utc::now();
     let intent = {
         let mut pending = st.frozen_intents.lock().map_err(|_| internal("lock"))?;
-        match claim_frozen_intent(
-            &mut pending,
-            &body.intent_digest,
-            &caller,
-            &boot.grant,
-            Utc::now(),
-        ) {
+        // Prove the receipt can be opened before the digest is spent. A
+        // malformed digest must not reach the broker, and must stay available
+        // to its owner.
+        if let Some(intent) = pending
+            .get(&body.intent_digest)
+            .filter(|intent| intent.expires_at > now)
+        {
+            if caller_may_spend_frozen(&caller, &boot.grant, intent) {
+                opening_can_be_prepared(&st, intent)?;
+            }
+        }
+        match claim_frozen_intent(&mut pending, &body.intent_digest, &caller, &boot.grant, now) {
             Ok(Some(intent)) => intent,
             Ok(None) => return Err(not_found("frozen intent")),
             Err(()) => {
@@ -386,14 +386,30 @@ pub async fn invoke_task(
         intent.operation.clone(),
         ResourceSelector::exact(intent.resource.clone()),
     );
-    let mut opening_intent =
-        serde_json::to_value(&intent).map_err(|_| internal("intent encoding"))?;
-    opening_intent
-        .as_object_mut()
-        .ok_or_else(|| internal("intent encoding"))?
-        .remove("intent_digest");
+    let mut opening_intent = match serde_json::to_value(&intent) {
+        Ok(value) => value,
+        Err(_) => {
+            restore_frozen_intent(&st, intent);
+            return Err(internal("intent encoding"));
+        }
+    };
+    let Some(object) = opening_intent.as_object_mut() else {
+        restore_frozen_intent(&st, intent);
+        return Err(internal("intent encoding"));
+    };
+    object.remove("intent_digest");
     let connection_policy_id =
-        crate::routes::intents::bootstrap_connection_policy_for(&st, &boot)?;
+        match crate::routes::intents::bootstrap_connection_policy_for(&st, &boot) {
+            Ok(id) => id,
+            Err(response) => {
+                restore_frozen_intent(&st, intent);
+                return Err(response);
+            }
+        };
+    // Same digest retries the stored receipt. Keep the frozen intent until the
+    // caller actually receives the opening; a 503 after the effect must not
+    // force a new freeze, which would be a new idempotency key.
+    let recoverable = intent.clone();
     let receipt = st
         .broker
         .invoke_frozen(
@@ -415,13 +431,64 @@ pub async fn invoke_task(
                 opensesame_redaction::redact_text(&e.to_string()),
             )
         })?;
-    let body = super::receipts::private_receipt_body(
+    let response_body = match super::receipts::private_receipt_body(
         &st,
         &receipt,
         &body.intent_digest,
         &opening_intent,
-    )?;
-    Ok(super::receipts::private_response(StatusCode::OK, body))
+    ) {
+        Ok(response_body) => response_body,
+        Err(response) => {
+            restore_frozen_intent(&st, recoverable);
+            return Err(response);
+        }
+    };
+    Ok(super::receipts::private_response(
+        StatusCode::OK,
+        response_body,
+    ))
+}
+
+fn caller_may_spend_frozen(
+    caller: &crate::middleware::auth::Caller,
+    execution_grant: &Grant,
+    intent: &FrozenIntentV2,
+) -> bool {
+    caller.owns(&intent.principal_id)
+        && caller.in_organization(&intent.organization_id)
+        && execution_grant.parent_grant_id.is_none()
+        && execution_grant.delegation_depth == 0
+        && opensesame_broker::assert_grant_covers_frozen_intent(execution_grant, intent).is_ok()
+}
+
+fn opening_can_be_prepared(st: &AppState, intent: &FrozenIntentV2) -> Result<(), Response> {
+    st.broker
+        .signer
+        .intent_commitment(
+            &opensesame_domain::InvocationId::new(),
+            &intent.intent_digest,
+        )
+        .map_err(|_| opening_unavailable())?;
+    let opening = serde_json::to_value(intent).map_err(|_| internal("intent encoding"))?;
+    opening
+        .as_object()
+        .ok_or_else(|| internal("intent encoding"))?;
+    Ok(())
+}
+
+fn opening_unavailable() -> Response {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(json!({"error":"receipt_opening_unavailable"})),
+    )
+        .into_response()
+}
+
+fn restore_frozen_intent(st: &AppState, intent: FrozenIntentV2) {
+    let Ok(mut pending) = st.frozen_intents.lock() else {
+        return;
+    };
+    pending.insert(intent.intent_digest.clone(), intent);
 }
 
 #[derive(Deserialize)]

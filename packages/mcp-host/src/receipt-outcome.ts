@@ -18,14 +18,20 @@ const receiptOutcome = z.object({
 // into model output, including when an older Host returns a legacy receipt.
 const receiptId =
   /^(?:receipt:)?[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Host receipt ids are UUIDs, optionally prefixed with `receipt:`. */
+export function isHostReceiptId(value: string): boolean {
+  return receiptId.test(value);
+}
+
 const agentReceipt = receiptOutcome.extend({
-  id: z.string().regex(receiptId).optional(),
+  id: z.string().regex(receiptId),
   receipt_schema_version: z.literal(6),
 });
-type ProjectedInvocationResponse = Pick<
-  z.infer<typeof agentReceipt>,
-  "outcome" | "id"
->;
+type ProjectedInvocationResponse = {
+  outcome: z.infer<typeof agentReceipt>["outcome"];
+  id?: z.infer<typeof agentReceipt>["id"];
+};
 
 /** Only the outcome and Host-issued evidence handle cross into agent output. */
 export function projectInvocationResponse(
@@ -36,8 +42,5 @@ export function projectInvocationResponse(
   const receipt = agentReceipt.safeParse(body);
   if (!receipt.success) return { outcome: "indeterminate" };
   const { outcome, id } = receipt.data;
-  if (outcome !== "indeterminate" && id === undefined) {
-    return { outcome: "indeterminate" };
-  }
-  return id === undefined ? { outcome } : { outcome, id };
+  return { outcome, id };
 }

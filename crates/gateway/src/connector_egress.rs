@@ -36,7 +36,7 @@ mod enabled {
         EgressRequest, EgressResponse, GuestLimits, HostEgress, WasmConnector,
     };
     use opensesame_connector_host::{HostRuntime, InvocationBinding};
-    use opensesame_domain::{ConnectionId, OrganizationId};
+    use opensesame_domain::ConnectionId;
     use opensesame_time::Utc;
     use std::sync::Arc;
 
@@ -99,6 +99,7 @@ mod enabled {
                         .map_err(|_| "request body must be JSON".to_owned())?,
                 )
             };
+            // Per-invocation tenant. Never the process-startup demo or nil org.
             let organization = binding.organization_id();
             tokio::task::block_in_place(|| {
                 self.handle.block_on(self.broker.authorized_http_for_owner(
@@ -181,7 +182,6 @@ mod enabled {
     pub async fn load_wasm_connectors(
         host: &mut HostRuntime,
         broker: &Arc<ConnectionBroker>,
-        organization: OrganizationId,
     ) -> anyhow::Result<()> {
         let Ok(dir) = std::env::var(ENV_CONNECTOR_DIR) else {
             return Ok(());
@@ -219,7 +219,8 @@ mod enabled {
             let manifest = ConnectorManifest::from_yaml(&manifest_text)
                 .with_context(|| format!("parse {}", manifest_path.display()))?;
             let registered_provider = manifest.metadata.id.clone();
-            let _ = organization;
+            // Organization is taken from each invocation binding. A startup
+            // demo or nil organization must not be captured on the egress bridge.
             let egress: Arc<dyn HostEgress> = Arc::new(GatewayEgress {
                 broker: Arc::clone(broker),
                 registered_provider: registered_provider.clone(),
@@ -289,7 +290,6 @@ mod owner_tests;
 pub async fn load_wasm_connectors(
     _host: &mut opensesame_connector_host::HostRuntime,
     _broker: &std::sync::Arc<opensesame_connection_broker::ConnectionBroker>,
-    _organization: opensesame_domain::OrganizationId,
 ) -> anyhow::Result<()> {
     anyhow::ensure!(
         std::env::var(ENV_CONNECTOR_DIR).is_err(),

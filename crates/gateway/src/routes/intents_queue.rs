@@ -196,7 +196,36 @@ async fn finish_dispatch(
     // A request without its own hold is a replay, even if the stored intent
     // disappears while it waits: it must never fall through to new work.
     let replay_only = authority_hold.is_none();
-    let idempotency_key = invoke_input.intent.idempotency_key.clone();
+    // Open from the persisted intent on replay so the digest matches the stored
+    // receipt. A freshly minted nonce must not change the disclosed opening.
+    let opening_intent = if replay_only {
+        match st
+            .db
+            .find_idempotent_intent(&org, &invoke_input.intent.idempotency_key)
+            .await
+        {
+            Ok(Some(record)) => record.intent,
+            _ => invoke_input.intent.clone(),
+        }
+    } else {
+        invoke_input.intent.clone()
+    };
+    let opening_digest = match opening_intent.digest() {
+        Ok(digest) => digest,
+        Err(_) => {
+            release_authority_budget_hold(st, authority_hold).await;
+            return opening_unavailable();
+        }
+    };
+    if st
+        .broker
+        .signer
+        .intent_commitment(&opensesame_domain::InvocationId::new(), &opening_digest)
+        .is_err()
+    {
+        release_authority_budget_hold(st, authority_hold).await;
+        return opening_unavailable();
+    }
     let result = execute_invocation(
         st,
         org,
@@ -206,29 +235,25 @@ async fn finish_dispatch(
         replay_only,
     )
     .await;
-    if result.is_ok() {
-        if let Some((key, fingerprint)) = replay {
-            settle_replayed_invoke(st, &org.to_string(), &key, &fingerprint).await;
-        }
-    }
-    settle_authority_budget_hold(st, authority_hold).await;
     match result {
         Ok(receipt) => {
-            let original = match st.db.find_idempotent_intent(&org, &idempotency_key).await {
-                Ok(Some(record)) => record.intent,
-                _ => return opening_unavailable(),
-            };
-            let digest = match original.digest() {
-                Ok(digest) => digest,
-                Err(_) => return opening_unavailable(),
-            };
             let mut body = match super::super::receipts::private_receipt_body(
-                st, &receipt, &digest, &original,
+                st,
+                &receipt,
+                &opening_digest,
+                &opening_intent,
             ) {
                 Ok(body) => body,
-                Err(response) => return response,
+                Err(response) => {
+                    // The effect and receipt are already durable. Do not release
+                    // the idempotency claim: a same-key retry must replay it.
+                    // A new key is a different request and is not started here.
+                    settle_completed_invoke(st, &org, replay, authority_hold).await;
+                    return response;
+                }
             };
             let Some(obj) = body.as_object_mut() else {
+                settle_completed_invoke(st, &org, replay, authority_hold).await;
                 return opening_unavailable();
             };
             if let Some(connection_ref) = &st.connection_ref {
@@ -236,9 +261,11 @@ async fn finish_dispatch(
             }
             obj.insert("invoke_level".into(), json!(level));
             obj.insert("credential_bytes_returned".into(), json!(false));
+            settle_completed_invoke(st, &org, replay, authority_hold).await;
             super::super::receipts::private_response(StatusCode::OK, body)
         }
         Err(error) => {
+            settle_authority_budget_hold(st, authority_hold).await;
             let msg = opensesame_redaction::redact_text(&error.to_string());
             (
                 StatusCode::FORBIDDEN,
@@ -247,6 +274,18 @@ async fn finish_dispatch(
                 .into_response()
         }
     }
+}
+
+async fn settle_completed_invoke(
+    st: &AppState,
+    org: &OrganizationId,
+    replay: Option<(String, String)>,
+    authority_hold: Option<InvokeBudgetHold>,
+) {
+    if let Some((key, fingerprint)) = replay {
+        settle_replayed_invoke(st, &org.to_string(), &key, &fingerprint).await;
+    }
+    settle_authority_budget_hold(st, authority_hold).await;
 }
 
 fn opening_unavailable() -> Response {

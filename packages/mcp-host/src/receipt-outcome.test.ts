@@ -265,6 +265,49 @@ describe("task_invoke_l1 receipt outcomes", () => {
     );
   });
 
+  it("keeps pending recovery across a successful freeze and drops a non-uuid receipt id", async () => {
+    setTaskContext({
+      taskRunId: "t-1",
+      stateVersion: 1,
+      pendingInvocationRecovery: {
+        intentId: "i-old",
+        intentDigest: "sha256:old",
+        operation: "read",
+        resource: "r1",
+        audience: "https://api.example.test",
+        reservedReceiptId: "018fbd8a-1e78-7a3c-9c24-1ebd832b8dcb",
+      },
+    });
+    setFetchForTests(
+      async () =>
+        new Response(
+          JSON.stringify({
+            intent_id: "i-1",
+            intent_digest: "sha256:abc",
+            task_state_version: 2,
+            canonical_arguments: {},
+            receipt_id: "not-a-uuid",
+          }),
+          { status: 201, headers: { "content-type": "application/json" } },
+        ),
+    );
+    const result = resultSchema.parse(
+      await toolHandler("task_invoke")({
+        operation: "read",
+        resource: "r1",
+        audience: "https://api.example.test",
+        arguments: {},
+      }),
+    );
+    expect(result.isError).toBe(false);
+    expect(getTaskContext()?.pendingInvocationRecovery).toMatchObject({
+      intentId: "i-old",
+      reservedReceiptId: "018fbd8a-1e78-7a3c-9c24-1ebd832b8dcb",
+    });
+    expect(getTaskContext()?.frozenIntent?.reservedReceiptId).toBeUndefined();
+    expect(getTaskContext()?.frozenIntent?.intentId).toBe("i-1");
+  });
+
   it("does not expose malformed frozen response bytes in an exception", async () => {
     setTaskContext({
       taskRunId: "t-1",
@@ -375,5 +418,38 @@ describe("task_invoke_l1 receipt outcomes", () => {
     expect(result.isError).toBe(true);
     expect(result.content[0]?.text).not.toContain("1-ssecca-ecar");
     expect(result.content[0]?.text).toContain("indeterminate");
+    expect(
+      getTaskContext()?.pendingInvocationRecovery?.reservedReceiptId,
+    ).toBeUndefined();
+  });
+
+  it("does not attach a late receipt id to a different task", async () => {
+    let release: (response: Response) => void = () => {
+      throw new Error("invoke was not sent");
+    };
+    let sent = false;
+    setFetchForTests(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve;
+          sent = true;
+        }),
+    );
+    const pending = invokeHandler()({});
+    await vi.waitFor(() => expect(sent).toBe(true));
+    setTaskContext({ taskRunId: "t-2", stateVersion: 2 });
+    release(
+      new Response(
+        JSON.stringify({
+          id: "018fbd8a-1e78-7a3c-9c24-1ebd832b8dcb",
+          outcome: "succeeded",
+          receipt_schema_version: 6,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    const result = resultSchema.parse(await pending);
+    expect(result.isError).toBe(false);
+    expect(getTaskContext()).toEqual({ taskRunId: "t-2", stateVersion: 2 });
   });
 });

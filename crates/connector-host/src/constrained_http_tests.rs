@@ -64,7 +64,7 @@ fn get(headers: &Value) -> Value {
 }
 
 fn admit(host: &HostRuntime, params: Value) -> Result<(), HostError> {
-    host.admit_constrained_http(CALLER, &request(params), now_unix(), None)
+    host.admit_constrained_http(CALLER, &request(params), now_unix(), None, None)
         .map(|_| ())
 }
 

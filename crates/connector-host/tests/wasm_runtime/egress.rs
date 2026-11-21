@@ -1,7 +1,7 @@
 //! An actual component import exercises the binding from guest to host.
 
 use super::*;
-use opensesame_connector_host::InvocationBinding;
+use opensesame_connector_host::{HostError, InvocationBinding};
 use opensesame_domain::{
     ActorId, ConnectionId, DetachedProof, Grant, GrantConstraints, GrantId, Intent, IntentId,
     InvocationId, OfflineUse, OrganizationId, PrincipalId,
@@ -73,7 +73,10 @@ impl HostEgress for RecordingBackend {
     }
 }
 
-fn owner_binding(request: &InvokeRequest, invocation: InvocationId) -> InvocationBinding {
+pub(super) fn owner_binding(
+    request: &InvokeRequest,
+    invocation: InvocationId,
+) -> InvocationBinding {
     let now = Utc::now();
     let organization = OrganizationId::new();
     let principal = PrincipalId::new();
@@ -167,12 +170,16 @@ fn real_component_import_requires_and_preserves_invocation_binding() {
         GuestLimits::default(),
     )
     .expect("the component imports real host HTTP");
-    let request = request("echo.read");
+    let mut request = request("echo.read");
+    // The guest's hardcoded URL must sit on the bound audience host.
+    request.audience = "https://api.github.com".into();
 
-    // The same guest runs in each case. It ignores the import result and
-    // returns Ok, so the backend recording, not the guest result, proves
-    // whether an egress operation was actually permitted.
-    assert!(connector.invoke(&request).unwrap().ok);
+    // Unbound invoke must not start the guest or mint a successful receipt
+    // after the HTTP import is denied.
+    assert!(matches!(
+        connector.invoke(&request),
+        Err(HostError::InvocationBindingMismatch)
+    ));
     assert!(backend.0.lock().unwrap().is_empty());
 
     let first = InvocationId::new();

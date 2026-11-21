@@ -19,8 +19,19 @@ async function readBoundedJsonResponse(
     throw new Error("invocation response exceeds limit");
   }
   if (!response.body) throw new Error("invocation response is empty");
-  const reader = response.body.getReader();
-  const bytes = new Uint8Array(maxBytes);
+  // Do not reserve `maxBytes` up front. Freeze admission is 16 MiB; a short
+  // body must not pin that much, and a chunk past the cap is not retained.
+  const chunkLimit = 64 * 1024;
+  let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  let byteReader: ReadableStreamBYOBReader | undefined;
+  try {
+    byteReader = response.body.getReader({ mode: "byob" });
+  } catch (error) {
+    if (!(error instanceof TypeError)) throw error;
+    reader = response.body.getReader();
+  }
+  const active = byteReader ?? reader;
+  const chunks: Uint8Array[] = [];
   let total = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
   const deadline = new Promise<never>((_resolve, reject) => {
@@ -29,22 +40,41 @@ async function readBoundedJsonResponse(
       INVOCATION_RESPONSE_TIMEOUT_MS,
     );
   });
-  try {
-    while (true) {
-      const result = await Promise.race([reader.read(), deadline]);
-      if (result.done) break;
-      if (result.value.byteLength > bytes.length - total)
-        throw new Error("invocation response exceeds limit");
-      bytes.set(result.value, total);
-      total += result.value.byteLength;
+  const accept = (value: Uint8Array) => {
+    if (value.byteLength > maxBytes - total) {
+      throw new Error("invocation response exceeds limit");
     }
-    const text = new TextDecoder("utf-8", { fatal: true }).decode(
-      bytes.subarray(0, total),
-    );
+    if (value.byteLength === 0) return;
+    chunks.push(value);
+    total += value.byteLength;
+  };
+  try {
+    if (byteReader) {
+      while (true) {
+        const size = Math.min(chunkLimit, maxBytes - total + 1);
+        const buffer = new Uint8Array(size);
+        const result = await Promise.race([byteReader.read(buffer), deadline]);
+        if (result.done) break;
+        accept(result.value);
+      }
+    } else if (reader) {
+      while (true) {
+        const result = await Promise.race([reader.read(), deadline]);
+        if (result.done) break;
+        accept(result.value);
+      }
+    }
+    const bytes = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     return overlapCast(JSON.parse(text));
   } finally {
     clearTimeout(timer);
-    void reader.cancel().catch(() => undefined);
+    void active?.cancel().catch(() => undefined);
   }
 }
 

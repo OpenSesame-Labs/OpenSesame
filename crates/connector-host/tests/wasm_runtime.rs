@@ -14,8 +14,10 @@ use opensesame_connector_host::wasm::{
     EgressRequest, EgressResponse, GuestLimits, HostEgress, WasmConnector,
 };
 use opensesame_connector_host::{
-    opensesame_param_digest, Connector, HostError, HostPolicy, InvokeRequest,
+    opensesame_param_digest, Connector, HostError, HostPolicy, InvocationBinding, InvokeRequest,
+    InvokeResult,
 };
+use opensesame_domain::InvocationId;
 use sha2::{Digest, Sha256};
 
 #[path = "wasm_runtime/egress.rs"]
@@ -200,6 +202,14 @@ fn request(operation: &str) -> InvokeRequest {
     }
 }
 
+fn invoke_owner(
+    connector: &WasmConnector,
+    request: &InvokeRequest,
+) -> Result<InvokeResult, HostError> {
+    let binding: InvocationBinding = egress::owner_binding(request, InvocationId::new());
+    connector.invoke_bound(request, &binding)
+}
+
 fn load_echo(limits: GuestLimits) -> WasmConnector {
     let bytes = ECHO_WAT.as_bytes();
     let manifest = manifest_for(bytes);
@@ -216,7 +226,11 @@ fn loads_describes_and_invokes() {
     assert_eq!(connector.component_digest(), digest_of(ECHO_WAT.as_bytes()));
     assert!(connector.operations().contains(&"echo.read"));
 
-    let result = connector.invoke(&request("echo.read")).expect("invoke ok");
+    assert!(matches!(
+        connector.invoke(&request("echo.read")),
+        Err(HostError::InvocationBindingMismatch)
+    ));
+    let result = invoke_owner(&connector, &request("echo.read")).expect("invoke ok");
     assert!(result.ok);
     assert_eq!(
         result.safe_summary,
@@ -244,7 +258,7 @@ fn guest_json_cannot_enter_the_result_or_digest() {
         GuestLimits::default(),
     )
     .expect("guest loads");
-    let result = connector.invoke(&request("echo.read")).unwrap();
+    let result = invoke_owner(&connector, &request("echo.read")).unwrap();
     assert_eq!(
         result.safe_summary,
         serde_json::json!({"result":"completed"})
@@ -315,7 +329,7 @@ fn an_infinite_loop_burns_out_its_fuel() {
         fuel: 500_000,
         ..GuestLimits::default()
     });
-    let err = connector.invoke(&request("spin")).expect_err("must trap");
+    let err = invoke_owner(&connector, &request("spin")).expect_err("must trap");
     assert!(
         matches!(&err, HostError::Connector(m) if m.contains("fuel exhausted")),
         "{err:?}"
@@ -330,7 +344,7 @@ fn the_wall_clock_deadline_interrupts_a_spinning_guest() {
         ..GuestLimits::default()
     });
     let started = std::time::Instant::now();
-    let err = connector.invoke(&request("spin")).expect_err("must trap");
+    let err = invoke_owner(&connector, &request("spin")).expect_err("must trap");
     assert!(
         matches!(&err, HostError::Connector(m) if m.contains("deadline exceeded")),
         "{err:?}"

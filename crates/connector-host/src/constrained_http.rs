@@ -188,12 +188,18 @@ impl HostRuntime {
         if !is_constrained_http(level, req) {
             return Err(HostError::InvokeLevelDenied);
         }
-        let admitted =
-            self.admit_constrained_http(connection_id, req, now_unix(), Some(invoker.fence()))?;
+        let approved_port = pinned_request_port(invoker, req);
+        let admitted = self.admit_constrained_http(
+            connection_id,
+            req,
+            now_unix(),
+            Some(invoker.fence()),
+            approved_port,
+        )?;
         let response = invoker
             .execute(admitted.material, admitted.prepared)
             .await
-            .map_err(|_| HostError::Connector("upstream request failed".into()))?;
+            .map_err(map_upstream_error)?;
         Ok(opaque_http_result(&response))
     }
 
@@ -204,6 +210,7 @@ impl HostRuntime {
         req: &InvokeRequest,
         now_unix: u64,
         fence: Option<&EgressFence>,
+        approved_port: Option<u16>,
     ) -> Result<Admitted<'_>, HostError> {
         if req.operation != req.authorized_operation {
             return Err(HostError::OperationMismatch);
@@ -220,11 +227,18 @@ impl HostRuntime {
             .parse()
             .map_err(|_| HostError::DestinationDenied("invalid request URL".into()))?;
         let host = uri.host().unwrap_or_default().to_ascii_lowercase();
+        // A non-default port is misdirected unless it is the invoker's pinned
+        // socket for this host. Hiding only that approved port from the ledger
+        // keeps every other port on the default-port fence.
+        let ledger_port = match (uri.port_u16(), approved_port) {
+            (Some(port), Some(approved)) if port == approved && port != 443 => None,
+            (port, _) => port,
+        };
         let view = RequestView {
             method: &call.method,
             scheme: uri.scheme_str().unwrap_or_default(),
             host: &host,
-            port: uri.port_u16(),
+            port: ledger_port,
             path_and_query: uri
                 .path_and_query()
                 .map_or("/", http::uri::PathAndQuery::as_str),
@@ -278,6 +292,27 @@ impl HostRuntime {
             prepared,
             material: &connection.material,
         })
+    }
+}
+
+/// Port the invoker has pinned for this request's host, when the URL names it.
+fn pinned_request_port(invoker: &Invoker, req: &InvokeRequest) -> Option<u16> {
+    let url = req.parameters.get("url")?.as_str()?;
+    let url = url::Url::parse(url).ok()?;
+    let host = url.host_str()?.to_ascii_lowercase();
+    let port = url.port_or_known_default()?;
+    let pinned = invoker.pinned_port(&host)?;
+    (pinned == port).then_some(port)
+}
+
+fn map_upstream_error(error: InvokeError) -> HostError {
+    match error {
+        // A pin or scheme refusal happens before the credential is placed on
+        // the wire. Keep it distinct from a transport failure.
+        InvokeError::EgressDenied { .. } | InvokeError::HttpsRequired(_) => {
+            HostError::DestinationDenied(error.to_string())
+        }
+        _ => HostError::Connector("upstream request failed".into()),
     }
 }
 

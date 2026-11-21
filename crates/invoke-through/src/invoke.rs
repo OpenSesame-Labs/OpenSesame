@@ -271,6 +271,21 @@ impl Invoker {
         Ok(())
     }
 
+    /// The single socket port approved for `host`, when every pin agrees.
+    /// A mixed-port pin set approves nothing.
+    #[must_use]
+    pub fn pinned_port(&self, host: &str) -> Option<u16> {
+        let (pinned_host, addresses) = self.pinned.as_ref()?;
+        if !pinned_host.eq_ignore_ascii_case(host) || addresses.is_empty() {
+            return None;
+        }
+        let port = addresses[0].port();
+        addresses
+            .iter()
+            .all(|address| address.port() == port)
+            .then_some(port)
+    }
+
     /// Execute a preflighted request with an acquired credential. The token
     /// is placed into exactly one sensitive header and dropped with the
     /// request; the response is the upstream's status, allowlisted headers,

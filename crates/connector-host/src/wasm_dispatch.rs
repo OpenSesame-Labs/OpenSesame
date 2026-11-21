@@ -29,6 +29,11 @@ impl Connector for WasmConnector {
         binding: &InvocationBinding,
     ) -> Result<InvokeResult, HostError> {
         binding.assert_request(binding.connection_policy_id(), req)?;
+        // Delegated authority is refused before the component is instantiated.
+        // A guest that never reaches an import must still not start.
+        if binding.is_delegated() {
+            return Err(HostError::DelegatedExecutionUnavailable);
+        }
         self.invoke_context(req, Some(binding))
     }
 }
@@ -58,6 +63,16 @@ impl WasmConnector {
         // component cannot ride an old approval.
         if !self.policy.trusted_digests.contains(&self.digest) {
             return Err(HostError::UntrustedComponent);
+        }
+        // Unbound and delegated calls stop here, before `fresh_instance`.
+        // Dispatcher checks above still run so a malformed request is not
+        // reported as a missing binding.
+        match binding {
+            None => return Err(HostError::InvocationBindingMismatch),
+            Some(binding) if binding.is_delegated() => {
+                return Err(HostError::DelegatedExecutionUnavailable);
+            }
+            Some(_) => {}
         }
 
         let (mut store, instance) = self.fresh_instance(&req.connection_ref, binding)?;

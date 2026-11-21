@@ -204,6 +204,8 @@ struct GuestState {
     outbound_hosts: HashSet<String>,
     connection_ref: String,
     binding: Option<InvocationBinding>,
+    /// Token handles this invocation acquired. A guest-chosen handle is not authority.
+    issued_tokens: Vec<u32>,
     egress: Arc<dyn HostEgress>,
     max_response_bytes: usize,
 }
@@ -220,6 +222,32 @@ impl GuestState {
             Some(_) => Err("invocation binding mismatch".to_owned()),
             None => Err("invocation binding required".to_owned()),
         }
+    }
+
+    /// Guest HTTP must stay inside the captured intent. The binding's audience
+    /// host is the only host the guest may name, and the guest may not supply
+    /// credential headers — the host injects those.
+    fn bound_http<'a>(&'a self, req: &host_http::Request) -> Result<&'a InvocationBinding, String> {
+        let binding = self.egress_binding()?;
+        if req.method.is_empty() || req.method.chars().any(char::is_whitespace) {
+            return Err("invocation binding mismatch".to_owned());
+        }
+        let target = url::Url::parse(&req.url).map_err(|_| "destination denied".to_owned())?;
+        if let Ok(audience) = url::Url::parse(binding.audience()) {
+            if audience.host_str().is_some() && audience.host_str() != target.host_str() {
+                return Err("invocation binding mismatch".to_owned());
+            }
+        }
+        if req.headers.iter().any(|(name, _)| {
+            let name = name.to_ascii_lowercase();
+            matches!(
+                name.as_str(),
+                "authorization" | "proxy-authorization" | "cookie"
+            )
+        }) {
+            return Err("invocation binding mismatch".to_owned());
+        }
+        Ok(binding)
     }
 
     /// The runtime's egress fence: HTTPS + SSRF checks + `HostPolicy`
@@ -284,8 +312,9 @@ impl host_http::Host for GuestState {
         req: host_http::Request,
     ) -> Result<host_http::Response, String> {
         self.assert_guest_destination(&req.url)?;
+        let binding = self.bound_http(&req)?;
         let resp = self.egress.authorized_request(
-            self.egress_binding()?,
+            binding,
             &self.connection_ref,
             EgressRequest {
                 method: req.method,
@@ -310,10 +339,13 @@ impl bindings::opensesame::connector::host_crypto::Host for GuestState {
         purpose: String,
         digest: Vec<u8>,
     ) -> Result<Vec<u8>, String> {
-        if purpose.trim().is_empty() {
-            return Err("sign requires a purpose".to_owned());
+        let binding = self.egress_binding()?;
+        // Signing purpose is the bound operation. A guest cannot retarget the
+        // key at a purpose the intent did not name.
+        if purpose != binding.operation() {
+            return Err("invocation binding mismatch".to_owned());
         }
-        self.egress.sign(self.egress_binding()?, &purpose, &digest)
+        self.egress.sign(binding, &purpose, &digest)
     }
 }
 
@@ -323,13 +355,26 @@ impl host_oauth::Host for GuestState {
         _connection: Resource<types::ConnectionHandle>,
         request: host_oauth::TokenRequest,
     ) -> Result<Resource<types::AccessTokenHandle>, String> {
+        let binding = self.egress_binding()?;
+        if request
+            .resource
+            .as_deref()
+            .is_some_and(|resource| resource != binding.resource())
+            || request
+                .audience
+                .as_deref()
+                .is_some_and(|audience| audience != binding.audience())
+        {
+            return Err("invocation binding mismatch".to_owned());
+        }
         let handle = self.egress.oauth_acquire(
-            self.egress_binding()?,
+            binding,
             &self.connection_ref,
             request.resource.as_deref(),
             request.audience.as_deref(),
             &request.scopes,
         )?;
+        self.issued_tokens.push(handle);
         Ok(Resource::new_own(handle))
     }
 
@@ -340,8 +385,12 @@ impl host_oauth::Host for GuestState {
         request: host_http::Request,
     ) -> Result<host_http::Response, String> {
         self.assert_guest_destination(&request.url)?;
+        let binding = self.bound_http(&request)?;
+        if !self.issued_tokens.contains(&token.rep()) {
+            return Err("invocation binding mismatch".to_owned());
+        }
         let resp = self.egress.authenticated_request(
-            self.egress_binding()?,
+            binding,
             &self.connection_ref,
             token.rep(),
             EgressRequest {
@@ -505,6 +554,7 @@ impl WasmConnector {
                 .collect(),
             connection_ref: connection_ref.to_owned(),
             binding: binding.cloned(),
+            issued_tokens: Vec::new(),
             egress: Arc::clone(&self.egress),
             max_response_bytes: self.limits.max_response_bytes,
         };
@@ -604,6 +654,7 @@ mod tests {
             outbound_hosts: outbound.iter().map(|h| (*h).to_owned()).collect(),
             connection_ref: "conn://test".into(),
             binding: None,
+            issued_tokens: Vec::new(),
             egress: Arc::new(NoEgress),
             max_response_bytes: 1024,
         }

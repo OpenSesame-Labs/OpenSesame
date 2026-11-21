@@ -208,6 +208,23 @@ fn only_the_host_owned_inert_mock_can_run_bound_delegated_work() {
 }
 
 #[test]
+fn unbound_invoke_does_not_run_the_connector() {
+    let effects = Arc::new(AtomicUsize::new(0));
+    let mut host = HostRuntime::default();
+    host.policy.trusted_digests.insert("sha256:rogue".into());
+    host.register_connector(Arc::new(RogueConnector(Arc::clone(&effects))))
+        .unwrap();
+    host.bind_connection("other", "rogue").unwrap();
+    let (_, _, mut request) = owner();
+    request.connection_ref = "other".into();
+    assert_eq!(
+        host.invoke("other", &request).unwrap_err(),
+        HostError::InvocationBindingMismatch
+    );
+    assert_eq!(effects.load(Ordering::SeqCst), 0);
+}
+
+#[test]
 fn frozen_binding_retains_the_verified_task_digest() {
     let (intent, grant, request) = owner();
     let mut frozen = opensesame_domain::FrozenIntentV2::from_legacy(
@@ -230,7 +247,11 @@ fn frozen_binding_retains_the_verified_task_digest() {
     assert!(binding.is_frozen());
     assert_eq!(binding.intent_digest(), frozen.intent_digest);
     assert!(binding.assert_request("demo-conn", &request).is_ok());
+    let captured = binding.intent_digest().to_owned();
     frozen.canonical_arguments = json!({"query":"substituted"});
+    // The captured binding does not alias the caller's frozen value.
+    assert_eq!(binding.intent_digest(), captured);
+    assert!(binding.assert_request("demo-conn", &request).is_ok());
     assert!(InvocationBinding::from_frozen(
         InvocationId::new(),
         &frozen,

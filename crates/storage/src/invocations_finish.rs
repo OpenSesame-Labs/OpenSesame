@@ -23,7 +23,9 @@ fn validate_pair(invocation: &Invocation, receipt: &InvocationReceipt) -> anyhow
             || (receipt.outcome == ReceiptOutcome::Indeterminate
                 && matches!(
                     invocation.state,
-                    InvocationState::Succeeded | InvocationState::Failed
+                    InvocationState::Succeeded
+                        | InvocationState::Failed
+                        | InvocationState::Cancelled
                 )
                 && receipt.has_opaque_result()),
         "receipt outcome does not match invocation"

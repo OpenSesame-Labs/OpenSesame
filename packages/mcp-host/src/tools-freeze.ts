@@ -5,6 +5,7 @@ import {
   INVOCATION_RESPONSE_TIMEOUT_MS,
   readFreezeIntentResponse,
 } from "./invocation-response.js";
+import { isHostReceiptId } from "./receipt-outcome.js";
 import {
   clearFrozenIntent,
   getTaskContext,
@@ -76,10 +77,16 @@ export function registerFreezeTool(server: McpServer): void {
           typeof body === "object" &&
           body !== null &&
           "receipt_id" in body &&
-          typeof body.receipt_id === "string"
+          typeof body.receipt_id === "string" &&
+          isHostReceiptId(body.receipt_id)
             ? body.receipt_id
             : undefined;
+        const preserved =
+          freezeContext?.taskRunId === ctx.taskRunId
+            ? freezeContext.pendingInvocationRecovery
+            : undefined;
         setTaskContext({
+          ...(preserved ? { pendingInvocationRecovery: preserved } : {}),
           taskRunId: ctx.taskRunId,
           stateVersion:
             intentResponse.data.task_state_version ?? ctx.stateVersion,
@@ -90,7 +97,7 @@ export function registerFreezeTool(server: McpServer): void {
             resource,
             audience,
             canonicalArguments: intentResponse.data.canonical_arguments ?? args,
-            reservedReceiptId: receiptId,
+            ...(receiptId !== undefined ? { reservedReceiptId: receiptId } : {}),
           },
         });
         return {

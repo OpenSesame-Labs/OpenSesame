@@ -1,7 +1,7 @@
-use crate::{opensesame_param_digest, InvokeRequest};
+use crate::{opensesame_param_digest, HostError, InvocationBinding, InvokeRequest};
 use opensesame_domain::{
     ActorId, ConnectionId, DetachedProof, Grant, GrantConstraints, GrantId, Intent, IntentId,
-    OfflineUse, OrganizationId, PrincipalId, ValidatedGrantChain,
+    InvocationId, OfflineUse, OrganizationId, PrincipalId, ValidatedGrantChain,
 };
 use opensesame_time::{Duration, Utc};
 use serde_json::json;
@@ -83,6 +83,91 @@ pub(crate) fn owner() -> (Intent, Grant, InvokeRequest) {
         },
     };
     (intent, grant, request)
+}
+
+/// Build a binding that matches `request` for synchronous mock dispatch tests.
+pub(crate) fn binding_for(
+    request: &InvokeRequest,
+) -> Result<InvocationBinding, HostError> {
+    let now = Utc::now();
+    let organization = OrganizationId::new();
+    let principal = PrincipalId::new();
+    let connection = ConnectionId::new();
+    let mut req = request.clone();
+    if req.invoke_level.is_none() {
+        req.invoke_level = Some(1);
+    }
+    if req.connection_ref.is_empty() {
+        req.connection_ref = "demo-conn".into();
+    }
+    let grant = Grant {
+        id: GrantId::new(),
+        version: 1,
+        issuer_principal_id: principal,
+        beneficiary_principal_id: principal,
+        actor_id: None,
+        client_id: None,
+        actor_instance_id: None,
+        proof_key_thumbprint: None,
+        organization_id: organization,
+        project_id: None,
+        environment_id: None,
+        connection_id: Some(connection),
+        actions: vec![req.operation.clone()],
+        resources: vec![req.resource.clone()],
+        constraints: GrantConstraints {
+            audiences: vec![req.audience.clone()],
+            not_before: None,
+            expires_at: now + Duration::hours(1),
+            required_assurance: None,
+            authentication_max_age_seconds: None,
+            allowed_networks: vec![],
+            parameter_rules_digest: None,
+            budgets: Default::default(),
+            maximum_delegation_depth: 1,
+            offline_use: OfflineUse::Forbidden,
+            raw_credential_export: false,
+        },
+        parent_grant_id: None,
+        delegation_depth: 0,
+        created_at: now,
+        revoked_at: None,
+    };
+    let intent = Intent {
+        id: IntentId::new(),
+        organization_id: organization,
+        project_id: None,
+        principal_id: principal,
+        actor_id: ActorId::new(),
+        actor_instance_id: None,
+        client_id: None,
+        operator_id: None,
+        connection_id: Some(connection),
+        operation: req.operation.clone(),
+        resource: req.resource.clone(),
+        audience: req.audience.clone(),
+        normalized_parameters_hash: req.parameters_digest.clone(),
+        body_hash: None,
+        nonce: "nonce".into(),
+        idempotency_key: "key".into(),
+        issued_at: now,
+        expires_at: now + Duration::minutes(5),
+        parent_invocation_id: None,
+        delegation_chain: vec![],
+        proof: DetachedProof {
+            algorithm: "test".into(),
+            key_thumbprint: "test".into(),
+            signature: "test".into(),
+        },
+    };
+    InvocationBinding::from_intent(
+        InvocationId::new(),
+        &intent,
+        &grant,
+        "user:owner",
+        "demo-conn",
+        None,
+    )
 }
 
 pub(crate) fn delegated() -> (Intent, Grant, InvokeRequest, ValidatedGrantChain) {

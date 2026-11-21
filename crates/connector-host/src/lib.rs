@@ -664,23 +664,24 @@ mod tests {
 
     #[test]
     fn mock_invoke_ok() {
+        use crate::binding_test_fixtures::binding_for;
+
         let rt = HostRuntime::default();
         let params = json!({"title": "hi"});
         let digest = opensesame_param_digest(&params);
+        let request = InvokeRequest {
+            operation: "pull_request.create".into(),
+            resource: "repo:acme/catalog".into(),
+            audience: "https://api.github.com".into(),
+            parameters: params,
+            parameters_digest: digest,
+            authorized_operation: "pull_request.create".into(),
+            invoke_level: Some(1),
+            connection_ref: "demo-conn".into(),
+        };
+        let binding = binding_for(&request).unwrap();
         let res = rt
-            .invoke(
-                "demo-conn",
-                &InvokeRequest {
-                    operation: "pull_request.create".into(),
-                    resource: "repo:acme/catalog".into(),
-                    audience: "https://api.github.com".into(),
-                    parameters: params,
-                    parameters_digest: digest,
-                    authorized_operation: "pull_request.create".into(),
-                    invoke_level: Some(1),
-                    connection_ref: String::new(),
-                },
-            )
+            .invoke_bound("demo-conn", &request, &binding)
             .unwrap();
         assert!(res.ok);
         assert_eq!(res.safe_summary["pr_number"], 42);
@@ -688,43 +689,37 @@ mod tests {
 
     #[test]
     fn operation_mismatch_denied() {
-        let rt = HostRuntime::default();
+        let mock = MockConnector;
         let params = json!({});
-        let err = rt
-            .invoke(
-                "demo-conn",
-                &InvokeRequest {
-                    operation: "pull_request.create".into(),
-                    resource: "r".into(),
-                    audience: "https://api.github.com".into(),
-                    parameters: params.clone(),
-                    parameters_digest: opensesame_param_digest(&params),
-                    authorized_operation: "repository.read".into(),
-                    invoke_level: None,
-                    connection_ref: String::new(),
-                },
-            )
+        let err = mock
+            .invoke(&InvokeRequest {
+                operation: "pull_request.create".into(),
+                resource: "r".into(),
+                audience: "https://api.github.com".into(),
+                parameters: params.clone(),
+                parameters_digest: opensesame_param_digest(&params),
+                authorized_operation: "repository.read".into(),
+                invoke_level: Some(1),
+                connection_ref: "demo-conn".into(),
+            })
             .unwrap_err();
         assert_eq!(err, HostError::OperationMismatch);
     }
 
     #[test]
     fn param_digest_mismatch_denied() {
-        let rt = HostRuntime::default();
-        let err = rt
-            .invoke(
-                "demo-conn",
-                &InvokeRequest {
-                    operation: "repository.read".into(),
-                    resource: "r".into(),
-                    audience: "https://api.github.com".into(),
-                    parameters: json!({"a": 1}),
-                    parameters_digest: "sha256:nope".into(),
-                    authorized_operation: "repository.read".into(),
-                    invoke_level: None,
-                    connection_ref: String::new(),
-                },
-            )
+        let mock = MockConnector;
+        let err = mock
+            .invoke(&InvokeRequest {
+                operation: "repository.read".into(),
+                resource: "r".into(),
+                audience: "https://api.github.com".into(),
+                parameters: json!({"a": 1}),
+                parameters_digest: "sha256:nope".into(),
+                authorized_operation: "repository.read".into(),
+                invoke_level: Some(1),
+                connection_ref: "demo-conn".into(),
+            })
             .unwrap_err();
         assert_eq!(err, HostError::ParameterDigestMismatch);
     }
@@ -750,22 +745,23 @@ mod tests {
 
     #[test]
     fn ssrf_via_url_parameter_blocked() {
+        use crate::binding_test_fixtures::binding_for;
+
         let rt = HostRuntime::default();
         let params = json!({"url": "https://169.254.169.254/latest"});
+        let request = InvokeRequest {
+            operation: "repository.read".into(),
+            resource: "r".into(),
+            audience: "https://api.github.com".into(),
+            parameters: params.clone(),
+            parameters_digest: opensesame_param_digest(&params),
+            authorized_operation: "repository.read".into(),
+            invoke_level: Some(1),
+            connection_ref: "demo-conn".into(),
+        };
+        let binding = binding_for(&request).unwrap();
         let err = rt
-            .invoke(
-                "demo-conn",
-                &InvokeRequest {
-                    operation: "repository.read".into(),
-                    resource: "r".into(),
-                    audience: "https://api.github.com".into(),
-                    parameters: params.clone(),
-                    parameters_digest: opensesame_param_digest(&params),
-                    authorized_operation: "repository.read".into(),
-                    invoke_level: None,
-                    connection_ref: String::new(),
-                },
-            )
+            .invoke_bound("demo-conn", &request, &binding)
             .unwrap_err();
         assert_eq!(err, HostError::PrivateAddress);
     }
@@ -782,6 +778,8 @@ mod tests {
 
     #[test]
     fn mock_error_modes() {
+        use crate::binding_test_fixtures::binding_for;
+
         let rt = HostRuntime::default();
         for op in [
             "error.transient",
@@ -791,42 +789,38 @@ mod tests {
             "error.indeterminate",
         ] {
             let params = json!({});
+            let request = InvokeRequest {
+                operation: op.into(),
+                resource: "r".into(),
+                audience: "https://api.github.com".into(),
+                parameters: params.clone(),
+                parameters_digest: opensesame_param_digest(&params),
+                authorized_operation: op.into(),
+                invoke_level: Some(1),
+                connection_ref: "demo-conn".into(),
+            };
+            let binding = binding_for(&request).unwrap();
             assert!(rt
-                .invoke(
-                    "demo-conn",
-                    &InvokeRequest {
-                        operation: op.into(),
-                        resource: "r".into(),
-                        audience: "a".into(),
-                        parameters: params.clone(),
-                        parameters_digest: opensesame_param_digest(&params),
-                        authorized_operation: op.into(),
-                        invoke_level: None,
-                        connection_ref: String::new(),
-                    }
-                )
+                .invoke_bound("demo-conn", &request, &binding)
                 .is_err());
         }
     }
 
     #[test]
     fn materialize_denied_even_on_mock() {
-        let rt = HostRuntime::default();
+        let mock = MockConnector;
         let params = json!({});
-        let err = rt
-            .invoke(
-                "demo-conn",
-                &InvokeRequest {
-                    operation: "credential.resolve".into(),
-                    resource: "r".into(),
-                    audience: "a".into(),
-                    parameters: params.clone(),
-                    parameters_digest: opensesame_param_digest(&params),
-                    authorized_operation: "credential.resolve".into(),
-                    invoke_level: Some(3),
-                    connection_ref: String::new(),
-                },
-            )
+        let err = mock
+            .invoke(&InvokeRequest {
+                operation: "credential.resolve".into(),
+                resource: "r".into(),
+                audience: "a".into(),
+                parameters: params.clone(),
+                parameters_digest: opensesame_param_digest(&params),
+                authorized_operation: "credential.resolve".into(),
+                invoke_level: Some(3),
+                connection_ref: "demo-conn".into(),
+            })
             .unwrap_err();
         assert_eq!(err, HostError::MaterializeDenied);
     }

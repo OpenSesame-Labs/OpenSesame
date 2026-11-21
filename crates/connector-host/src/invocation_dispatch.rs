@@ -45,7 +45,13 @@ impl HostRuntime {
     ) -> Result<InvokeResult, HostError> {
         let (connector, level) = self.checked_level(connection_id, req)?;
         if is_constrained_http(level, req) {
-            self.admit_constrained_http(connection_id, req, constrained_http::now_unix(), None)?;
+            self.admit_constrained_http(
+                connection_id,
+                req,
+                constrained_http::now_unix(),
+                None,
+                None,
+            )?;
             return Err(HostError::Connector(constrained_http::NEEDS_BROKER.into()));
         }
         if !connector.operations().contains(&req.operation.as_str()) {
@@ -59,7 +65,10 @@ impl HostRuntime {
             // This registration is owned by the host and is synchronously inert.
             Some(_) if self.is_inert_builtin_mock(connection_id) => connector.invoke(req),
             Some(binding) => connector.invoke_bound(req, binding),
-            None => connector.invoke(req),
+            // A public invoke without a captured binding is not an authorized
+            // dispatch. Substitution checks and delegated refusal live on the
+            // bound path; do not run the connector until that path is taken.
+            None => Err(HostError::InvocationBindingMismatch),
         }
     }
 }

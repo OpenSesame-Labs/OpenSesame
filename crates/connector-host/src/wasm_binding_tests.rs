@@ -70,6 +70,7 @@ fn state(binding: Option<InvocationBinding>, egress: Arc<RecordingEgress>) -> Gu
         outbound_hosts: ["api.github.com".to_owned()].into_iter().collect(),
         connection_ref: "demo-conn".into(),
         binding,
+        issued_tokens: Vec::new(),
         egress,
         max_response_bytes: 1024,
     }
@@ -90,7 +91,7 @@ fn exercise_all(state: &mut GuestState) -> [bool; 4] {
         bindings::opensesame::connector::host_crypto::Host::sign(
             state,
             Resource::new_own(0),
-            "test".into(),
+            "repository.read".into(),
             vec![1],
         )
         .is_ok(),
@@ -191,4 +192,68 @@ fn guest_cannot_retarget_a_valid_binding_to_another_connection() {
     guest.connection_ref = "other".into();
     assert_eq!(exercise_all(&mut guest), [false; 4]);
     assert!(recorder.0.lock().unwrap().is_empty());
+}
+
+#[test]
+fn guest_cannot_substitute_method_url_headers_purpose_or_token_handle() {
+    let (intent, grant, _) = owner();
+    let binding = InvocationBinding::from_intent(
+        InvocationId::new(),
+        &intent,
+        &grant,
+        "user:owner",
+        "demo-conn",
+        None,
+    )
+    .unwrap();
+    let recorder = Arc::new(RecordingEgress::default());
+    let mut guest = state(Some(binding), Arc::clone(&recorder));
+
+    let mut other_host = request();
+    other_host.url = "https://evil.example/repos".into();
+    assert!(
+        host_http::Host::authorized_request(&mut guest, Resource::new_own(0), other_host).is_err()
+    );
+
+    let mut credential_header = request();
+    credential_header.headers = vec![("Authorization".into(), "Bearer stolen".into())];
+    assert!(host_http::Host::authorized_request(
+        &mut guest,
+        Resource::new_own(0),
+        credential_header
+    )
+    .is_err());
+
+    assert!(bindings::opensesame::connector::host_crypto::Host::sign(
+        &mut guest,
+        Resource::new_own(0),
+        "other-purpose".into(),
+        vec![1],
+    )
+    .is_err());
+
+    let mut widened = host_oauth::TokenRequest {
+        resource: Some("repo:example/two".into()),
+        audience: None,
+        scopes: vec![],
+    };
+    assert!(host_oauth::Host::acquire(&mut guest, Resource::new_own(0), widened).is_err());
+    widened = host_oauth::TokenRequest {
+        resource: None,
+        audience: Some("https://other.example".into()),
+        scopes: vec![],
+    };
+    assert!(host_oauth::Host::acquire(&mut guest, Resource::new_own(0), widened).is_err());
+
+    assert!(host_oauth::Host::authenticated_request(
+        &mut guest,
+        Resource::new_own(0),
+        Resource::new_own(99),
+        request(),
+    )
+    .is_err());
+    assert!(recorder.0.lock().unwrap().is_empty());
+
+    assert!(exercise_all(&mut guest) == [true; 4]);
+    assert_eq!(recorder.0.lock().unwrap().len(), 4);
 }

@@ -1,3 +1,5 @@
+import { isHostReceiptId } from "./receipt-outcome.js";
+
 export interface FrozenIntentContext {
   intentId: string;
   intentDigest: string;
@@ -78,13 +80,20 @@ export function recordPendingInvocationRecovery(
       operation: intent.operation,
       resource: intent.resource,
       audience: intent.audience,
-      reservedReceiptId: intent.reservedReceiptId,
+      ...(intent.reservedReceiptId !== undefined
+        ? { reservedReceiptId: intent.reservedReceiptId }
+        : {}),
     },
   };
 }
 
-export function noteReservedReceiptId(receiptId: string): void {
-  if (!current?.pendingInvocationRecovery) return;
+export function noteReservedReceiptId(
+  taskRunId: string,
+  receiptId: string,
+): void {
+  if (!current || current.taskRunId !== taskRunId) return;
+  if (!current.pendingInvocationRecovery) return;
+  if (!isHostReceiptId(receiptId)) return;
   current = {
     ...current,
     pendingInvocationRecovery: {
@@ -116,8 +125,11 @@ export function updateTaskFromResponse(
     taskRunId: body.task_run_id,
     stateVersion: body.state_version,
   };
-  if (current?.taskRunId === body.task_run_id && current.frozenIntent) {
-    next.frozenIntent = current.frozenIntent;
+  if (current?.taskRunId === body.task_run_id) {
+    if (current.frozenIntent) next.frozenIntent = current.frozenIntent;
+    if (current.pendingInvocationRecovery) {
+      next.pendingInvocationRecovery = current.pendingInvocationRecovery;
+    }
   }
   current = next;
 }
