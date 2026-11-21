@@ -29,7 +29,7 @@ function x509ImplementationDigest(owner) {
 
 it("resolves each XML signature peer at its pinned compatible version", () => {
   const sdk = createRequire(core.resolve("xmldsigjs"));
-  expect(version(sdk, "xml-core")).toBe("3.0.0");
+  expect(version(sdk, "xml-core")).toBe("3.1.0");
   expect(version(sdk, "asn1js")).toBe("4.0.0");
   expect(version(sdk, "pkijs")).toBe("4.0.1");
 });
