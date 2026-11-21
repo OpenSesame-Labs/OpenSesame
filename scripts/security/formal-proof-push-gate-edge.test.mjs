@@ -7,7 +7,6 @@ import {
   fixture,
   installHook,
   nil,
-  productionFixture,
   push,
 } from "./formal-proof-push-gate.test.fixture.mjs";
 
