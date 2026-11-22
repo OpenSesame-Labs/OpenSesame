@@ -6,8 +6,8 @@ matches against. This repo tracks no `.agents/` or other harness dot
 entries: your dotfiles link each of these into the discovery path your tool
 reads. Third-party skills are **install output, not source**: they
 are restored into the gitignored `.agents/skills/` (plus harness mirrors) by
-`scripts/dev/install-agent-skills.sh` — run at every devcontainer start, or
-`npm run skills:install` locally — from the catalogue in
+`scripts/dev/install-agent-skills.sh` — only when a maintainer explicitly runs
+`npm run skills:install`, never at container start — from the catalogue in
 [`skills-lock.json`](../skills-lock.json), and every harness root is
 gitignored outright.
 

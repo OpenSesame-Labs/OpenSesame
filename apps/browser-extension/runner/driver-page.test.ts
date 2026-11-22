@@ -103,4 +103,13 @@ describe("screenshot_redacted", () => {
       await step({ step: "screenshot_redacted", epoch: 0, mask_selectors: [] }),
     ).toEqual({ outcome: "failed", error: "transport" });
   });
+
+  it("reports a refused step when the browser cannot prove a masked capture", async () => {
+    const { step, pages } = await setup();
+    await open(step);
+    pages.capture = async () => "unsupported";
+    expect(
+      await step({ step: "screenshot_redacted", epoch: 0, mask_selectors: [] }),
+    ).toEqual({ outcome: "failed", error: "refused" });
+  });
 });
