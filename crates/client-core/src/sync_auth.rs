@@ -66,24 +66,18 @@ pub(crate) fn seal_blob(
             "invalid sync identity or epoch",
         ));
     }
-    blob.ciphertext
-        .extend(seal_with_nonce(
-            key,
-            plaintext,
-            &aad(&blob.id, epoch),
-            random_nonce()?,
-        )?);
+    blob.ciphertext.extend(seal_with_nonce(
+        key,
+        plaintext,
+        &aad(&blob.id, epoch),
+        random_nonce()?,
+    )?);
     Ok(blob)
 }
 
 const MIGRATION_NONCE_DOMAIN: &[u8] = b"OpenSesame sync migration seal nonce v1\0";
 
-fn migration_seal_nonce(
-    key: &DeviceKey,
-    id: &str,
-    epoch: u64,
-    plaintext: &[u8],
-) -> [u8; 24] {
+fn migration_seal_nonce(key: &DeviceKey, id: &str, epoch: u64, plaintext: &[u8]) -> [u8; 24] {
     let content_tag = blake3::keyed_hash(key.as_bytes(), plaintext);
     let mut material = Vec::with_capacity(
         MIGRATION_NONCE_DOMAIN.len() + 8 + id.len() + 8 + content_tag.as_bytes().len(),
@@ -118,11 +112,7 @@ pub(crate) fn seal_blob_deterministic(
             "sync plaintext exceeds the blob limit",
         ));
     }
-    if id.is_empty()
-        || id.len() > MAX_SYNC_ID_BYTES
-        || epoch == 0
-        || epoch > i64::MAX as u64
-    {
+    if id.is_empty() || id.len() > MAX_SYNC_ID_BYTES || epoch == 0 || epoch > i64::MAX as u64 {
         return Err(ClientCoreError::InvalidBlob(
             "invalid sync identity or epoch",
         ));

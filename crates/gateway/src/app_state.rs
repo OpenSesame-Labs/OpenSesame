@@ -166,6 +166,22 @@ async fn build_with_security(
 ) -> anyhow::Result<AppState> {
     // Refuse an unusable configured PDP before opening persistent state.
     let openfga = OpenFgaClient::from_env()?;
+    let transport_config =
+        crate::transport::config::TransportConfig::from_env().map_err(anyhow::Error::new)?;
+    #[cfg(windows)]
+    if !transport_config.is_unconfigured() {
+        anyhow::bail!("configured Host transport requires a supported durable history lease");
+    }
+    #[cfg(not(windows))]
+    let options =
+        crate::transport::source_history::file_lock::claim_url(&args.database_url, true, true)?;
+    #[cfg(not(windows))]
+    let db = match options {
+        Some(options) => Db::connect_sqlite_options(options, true).await?,
+        None if args.database_url == "sqlite::memory:" => Db::connect_memory().await?,
+        None => Db::connect_sqlite(&args.database_url).await?,
+    };
+    #[cfg(windows)]
     let db = if args.database_url == "sqlite::memory:" {
         Db::connect_memory().await?
     } else {
@@ -199,8 +215,6 @@ async fn build_with_security(
     let resolved = crate::taskbus_config::resolve(&db).await?;
     let task_bus = crate::taskbus_config::build_bus_or_unavailable(&resolved).await;
 
-    let transport_config =
-        crate::transport::config::TransportConfig::from_env().map_err(anyhow::Error::new)?;
     // A partially configured approver refuses to start (ADR 0159): it would
     // otherwise fail at the first escalation, hours into a rotation.
     let approver =
@@ -272,24 +286,8 @@ async fn resolve_distributed_task_authority(task_database_url: &str) -> bool {
 }
 
 #[cfg(test)]
-pub mod test_env {
-    use std::sync::Mutex;
-
-    static LOCK: Mutex<()> = Mutex::new(());
-
-    /// Build a fixture while process-global deployment settings are stable.
-    pub async fn build(args: super::Args) -> anyhow::Result<super::AppState> {
-        let _guard = lock();
-        super::build_test(args).await
-    }
-
-    /// Serialize tests that mutate process env (`OPENSESAME_*`, `NATS_URL`, …).
-    pub fn lock() -> std::sync::MutexGuard<'static, ()> {
-        LOCK.lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-    }
-}
-
+#[path = "app_state_test_env.rs"]
+pub mod test_env;
 #[cfg(test)]
 pub async fn build_test(args: Args) -> anyhow::Result<AppState> {
     let secret = || {

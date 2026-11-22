@@ -19,10 +19,11 @@ account or organization effects. See the
 | FED-I1 | The current domain-separated MAC input binds the encoded payload and verifier binding. | `current_message_binds_payload`, `current_message_binds_verifier` | `encodePending` and `decodePending` use a tag over the exact encoded payload and the scrypt-bound verifier; the security test changes each field and an unknown future field. |
 | FED-I2 | A legacy tag requires a nonempty signed static-provider ID and cannot authorize organization, bring-your-own, or unknown provenance that its MAC did not cover. | `legacy_rejects_missing_provider`, `legacy_rejects_organization`, `legacy_rejects_byo`, `legacy_rejects_unknown`, `legacy_rejects_invalid_tag`, `legacy_byo_strip_rejected`, `legacy_organization_strip_rejected`, `legacy_static_signed_provider_accepted` | Thirty-two Lean-generated tag and provenance cases exercise `decodePending`; separate regressions strip unsigned organization and BYO IDs. |
 | FED-I3 | For OIDC, every supplied provider, bring-your-own, or organization identifier must match the source and identifier of current trust. Without provenance only a static source is accepted. | `accepted_provider_matches`, `accepted_byo_matches`, `accepted_organization_matches`, `missing_provenance_only_static` | Eighty-one Lean-generated cases exercise `trustMatchesPending`. Hosted-route tests cover a normal organization sign-in and issuer reassignment during an in-flight sign-in. An exchange-level test changes trust after the initial lookup and checks that the lookup selecting credentials refuses before discovery. |
+| FED-I4 | The v3 MAC binds the scrypt verifier digest, not the wire encoding of the PKCE verifier. | `wire_encoding_does_not_change_mac_binding` | `encodePending` writes only `verifierEnc` when a pepper is present (`OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER` defaults on; merge after QA confirms the fleet can unseal). Explicit `sealVerifierOnWire: false` is the plaintext rollout-off shape. Decode still accepts plaintext, sealed, and legacy v3 cookies and rejects mixed fields. Security tests cover both wire shapes and production route options. |
 
-`coverage.json` records the reviewed base commit, which predates the fix, and
-hashes identifying the reviewed pending-state, exchange and callback bytes. The
-hashes signal unreviewed drift; they are not proof of correctness. The legacy
+`coverage.json` records the reviewed base commit and hashes identifying the
+reviewed pending-state, exchange and callback bytes. The hashes signal
+unreviewed drift; they are not proof of correctness. The legacy
 format is accepted only when its payload has no fields outside the old signed
 field set and carries a nonempty signed provider ID. Explicit default `kind`
 remains equivalent to its absence; absent and empty provider IDs are both
@@ -37,12 +38,19 @@ Run with Lean 4.24.0 and the repository's Node dependencies:
 ```sh
 npm run verify:oauth-formal
 python3 spec/formal/oauth/negative-controls.py
+node --test spec/formal/oauth/check-hosted-flow-report.test.mjs
+python3 spec/formal/oauth/hosted-flow-negative-controls.py
 ```
 
 Set `OPENSESAME_LEAN_BIN` to the Lean executable when it is not on `PATH`. The
 check rejects Lean warnings and theorem dependencies on unapproved axioms,
 compares model vectors with the actual TypeScript functions, runs the hosted
-flow regressions, and checks source hashes. The scratch negative controls remove
+flow regressions, requires both named hosted-flow tests to pass in Vitest's JSON
+report, and checks source hashes. A filtered run that skips or renames either
+test fails the gate, including a run that selects no tests. The hosted-flow
+negative controls rename and skip each case and exercise the complete gate from
+a scratch tree; unchanged source and dependencies are linked, while mutations
+are made only to a copied test file. The other scratch negative controls remove
 the current payload binding, allow legacy provenance or a missing signed
 provider, skip the legacy MAC, and remove the current organization-ID comparison; each must trigger a failing assertion. The normal
 gate refuses the mutation override.

@@ -1,11 +1,18 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import {
   fixture,
   installHook,
+  productionFixture,
   push,
   registry,
 } from "./formal-proof-push-gate.test.fixture.mjs";
@@ -125,6 +132,47 @@ function prepareMovingMain(f) {
   return { advertised, newer };
 }
 
+test("an existing push uses the destination main policy, not the fetch remote", (t) => {
+  const f = fixture(t);
+  installHook(f);
+  const fetchRemote = f.remote;
+  const pushRemote = join(f.dir, "push-policy.git");
+  f.git("init", "--bare", "-q", pushRemote);
+  for (const ref of ["main", "stale"])
+    f.git(
+      "-c",
+      "core.hooksPath=/dev/null",
+      "push",
+      "-q",
+      pushRemote,
+      `HEAD:refs/heads/${ref}`,
+    );
+  f.remote = pushRemote;
+  const { advertised } = prepareMovingMain(f);
+  f.remote = fetchRemote;
+  f.git("remote", "set-url", "--push", "origin", pushRemote);
+  const previous = f.git("rev-parse", "HEAD");
+  f.write("src/other", "stale implementation\n");
+  const target = f.commit();
+  const result = push(f, "HEAD", "refs/heads/stale");
+  assert.notEqual(result.status, 0);
+  assert.match(
+    result.stderr,
+    /removes required formal proof mapping a: src\/other/,
+  );
+  const direct = f.run(f.tuple(target, previous, "refs/heads/stale"));
+  assert.notEqual(direct.status, 0);
+  assert.match(
+    direct.stderr,
+    /removes required formal proof mapping a: src\/other/,
+  );
+  assert.equal(
+    spawnSync("git", ["cat-file", "-e", advertised], { cwd: f.repo }).status,
+    0,
+  );
+  assert.deepEqual(f.commands(), []);
+});
+
 function pushWhileMainMoves(f, newer) {
   const realGit = execFileSync("which", ["git"], { encoding: "utf8" }).trim();
   writeFileSync(
@@ -209,6 +257,116 @@ test("a main update during fetch is rejected even if the old commit remains reac
       spawnSync(realGit, ["cat-file", "-e", advertised], { cwd: f.repo })
         .status,
       0,
+    );
+    assert.deepEqual(f.commands(), []);
+  }
+});
+
+function tamperInventory(f, kind, id, pins, rows) {
+  if (kind === "remove-self") {
+    rows[1][1] = [".npmrc"];
+    rows.find((row) => row[0] === "suite" && row[1] === "auth")[3] = [
+      "package.json",
+    ];
+    f.write(pins, JSON.stringify(rows));
+  } else if (kind === "valid-inventory-edit") {
+    rows[1][1].push("package.json");
+    f.write(pins, JSON.stringify(rows));
+  } else if (kind === "minimum-signature" || kind === "transient-weakened") {
+    const suite = rows.find((row) => row[0] === "suite" && row[1] === id);
+    suite[3] = suite[3].filter(
+      (path) => !path.endsWith("/required-theorems.lean"),
+    );
+    f.write(pins, JSON.stringify(rows));
+  } else if (kind === "minimum-runner") {
+    const suite = rows.find((row) => row[0] === "suite" && row[1] === id);
+    suite[3] = suite[3].filter(
+      (path) => path !== "scripts/test/auth-formal.sh",
+    );
+    f.write(pins, JSON.stringify(rows));
+  } else if (kind === "minimum-shared") {
+    rows[1][1] = rows[1][1].filter(
+      (path) => path !== "spec/formal/check-axioms.sh",
+    );
+    f.write(pins, JSON.stringify(rows));
+  } else if (kind === "minimum-cargo" || kind === "minimum-sentinel") {
+    const suite = rows.find((row) => row[0] === "suite" && row[1] === id);
+    suite[kind === "minimum-cargo" ? 4 : 5] = [];
+    f.write(pins, JSON.stringify(rows));
+  } else if (kind === "duplicate") {
+    rows.push(rows.find((row) => row[0] === "suite" && row[1] === "auth"));
+    f.write(pins, JSON.stringify(rows));
+  } else if (kind === "symlink") {
+    rmSync(join(f.repo, pins));
+    symlinkSync("elsewhere", join(f.repo, pins));
+  } else f.write(pins, "{");
+}
+
+test("invalid or weakened inventory fails closed", (t) => {
+  for (const kind of [
+    "remove-self",
+    "valid-inventory-edit",
+    "malformed",
+    "duplicate",
+    "symlink",
+    "malformed-only",
+    "minimum-signature",
+    "minimum-runner",
+    "minimum-shared",
+    "minimum-cargo",
+    "minimum-sentinel",
+    "transient-malformed",
+    "transient-weakened",
+  ]) {
+    const metadata =
+      kind.startsWith("minimum-") || kind.startsWith("transient-");
+    const id =
+      kind === "minimum-cargo" || kind === "minimum-sentinel"
+        ? "authority"
+        : "auth";
+    const f = productionFixture(t, id);
+    if (metadata) {
+      const policy = JSON.parse(
+        readFileSync(
+          join(f.repo, "spec/formal/proof-requirements.json"),
+          "utf8",
+        ),
+      );
+      const signature = `spec/formal/${id}/required-theorems.lean`;
+      if (!policy.suites[0].proofs.includes(signature))
+        policy.suites[0].proofs.push(signature);
+      f.pin(policy);
+      for (const name of ["proof-registry", "proof-requirements"])
+        f.write(`spec/formal/${name}.json`, JSON.stringify(policy));
+      f.commit();
+      f.git(
+        "-c",
+        "core.hooksPath=/dev/null",
+        "push",
+        "-q",
+        "origin",
+        "HEAD:refs/heads/main",
+      );
+    }
+    const pins = "scripts/security/formal-proof-runner-pins.json";
+    const original = readFileSync(join(f.repo, pins), "utf8");
+    const rows = JSON.parse(original);
+    if (kind !== "malformed-only" && !metadata) {
+      f.write("src/a", "changed\n");
+      f.write("scripts/test/auth-formal.sh", "#!/bin/sh\nexit 0\n");
+    }
+    tamperInventory(f, kind, id, pins, rows);
+    f.commit();
+    if (kind.startsWith("transient-")) {
+      f.write(pins, original);
+      f.commit();
+    }
+    const result = push(f, "HEAD", "refs/heads/main");
+    assert.notEqual(result.status, 0, kind);
+    assert.match(
+      result.stderr,
+      /formal runner inventory|formal-proof-runner-pins\.json/i,
+      kind,
     );
     assert.deepEqual(f.commands(), []);
   }

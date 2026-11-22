@@ -11,9 +11,10 @@
 //!
 //! The trust boundary, stated once: a policy-violating CSR is refused whole
 //! (`policy_denied`), never narrowed. The issuing key leaves sealed custody
-//! only inside the signer this handler borrows. Everything the response
-//! carries is public material — RFC 7030 moves it in `certs-only` PKCS#7
-//! precisely because it is public.
+//! only inside the signer this handler borrows. Admission is re-proved at
+//! the mint boundary, after the policy and issuer awaits. Everything the
+//! response carries is public material — RFC 7030 moves it in `certs-only`
+//! PKCS#7 precisely because it is public.
 //!
 //! Routes (via [`routes`], allowlisted in `contract.rs`):
 //!
@@ -40,7 +41,9 @@ use serde_json::json;
 
 use super::est_enrollment;
 use super::est_records::{enrollment_error, p7_response, record_issued};
-use super::est_wire::{authenticate, ca_chain_pem, decode_csr_body, load_issuer, load_profile};
+use super::est_wire::{
+    authenticate, ca_chain_pem, decode_csr_body, load_issuer, load_profile, mint_fence,
+};
 use crate::app_state::AppState;
 use crate::middleware::auth::{resolve_caller, resolve_caller_organization};
 
@@ -323,10 +326,11 @@ async fn enroll(
         Ok(found) => found,
         Err(response) => return response,
     };
-    if let Err(response) = authenticate(st, headers, &extensions, &config, &profile, reenroll).await
+    let admission = match authenticate(st, headers, &extensions, &config, &profile, reenroll).await
     {
-        return response;
-    }
+        Ok(admission) => admission,
+        Err(response) => return response,
+    };
     let csr_der = match decode_csr_body(&body) {
         Ok(der) => der,
         Err(response) => return response,
@@ -373,13 +377,19 @@ async fn enroll(
         Ok(material) => material,
         Err(response) => return response,
     };
+    // The policy and issuer loads awaited the database; admission can have
+    // been withdrawn in that window. Re-run the fence before the signer runs.
+    #[cfg(test)]
+    super::est_wire::test_pause::point(&profile.organization_id, "mint").await;
+    if let Err(response) = mint_fence(st, &extensions, admission) {
+        return response;
+    }
     let issued = match est_enrollment::issue(&issuer_pem, &issuer_key, &csr_der, &request) {
         Ok(issued) => issued,
         Err(error) => return enrollment_error(error),
     };
     let common_name = facts.subject.cn.clone().unwrap_or_default();
-    let san_json = serde_json::to_string(&facts.sans).unwrap_or_else(|_| "[]".into());
-    if let Err(error) = record_issued(st, &profile, &issued, &common_name, san_json).await {
+    if let Err(error) = record_issued(st, &profile, &issued, &common_name, &facts.sans).await {
         return internal(error, "record enrolled certificate");
     }
     match est_enrollment::response_p7(&issued) {

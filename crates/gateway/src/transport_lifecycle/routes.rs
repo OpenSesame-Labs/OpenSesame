@@ -174,17 +174,44 @@ pub async fn get_trust(State(state): State<AppState>, headers: HeaderMap) -> Res
     let now = opensesame_time::Utc::now();
     match trust::load(&state).await {
         Ok(stored) => {
+            let stored_revision = stored.revision;
             let base: Vec<String> = state
                 .transport_lifecycle
                 .base_trust()
                 .keys()
                 .map(|profile| profile.name.clone())
                 .collect();
+            let (applied_revision, applied_generation, quarantined) =
+                state.transport_lifecycle.with_trust_epoch(|epoch| {
+                    (
+                        epoch.revision,
+                        epoch.generation,
+                        epoch
+                            .quarantined
+                            .iter()
+                            .map(|profile| profile.name.clone())
+                            .collect::<Vec<_>>(),
+                    )
+                });
+            let serving_generation = state
+                .transport_lifecycle
+                .generations()
+                .and_then(|generations| generations.checked_current(None).ok())
+                .map(|generation| generation.number);
             (
                 StatusCode::OK,
                 Json(json!({
                     "trust": stored,
                     "deployment_plane_profiles": base,
+                    "trust_application": {
+                        "revision": applied_revision,
+                        "generation": applied_generation,
+                        "serving_generation": serving_generation,
+                        "reconciled": applied_generation.is_some()
+                            && applied_generation == serving_generation
+                            && applied_revision == stored_revision,
+                        "quarantined_stored_profiles": quarantined,
+                    },
                     // A configured CRL past its nextUpdate reads `degraded`
                     // here; it is never silently treated as fresh.
                     "revocation": crl::status(&state, now),

@@ -65,6 +65,89 @@ it("tracks the visual viewport when a mobile keyboard opens or shifts it", () =>
   expect(result.current).toMatchObject({ offsetLeft: 75, rightOffset: 120 });
 });
 
+it("probes and places through one coordinate story when pinch zoom offsets the visual viewport", () => {
+  let nextFrame: FrameRequestCallback = () => {};
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    nextFrame = callback;
+    return 1;
+  });
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+  // A pinch-zoomed phone: the visual viewport shows [60,540]x[120,920] of
+  // the layout viewport, so its offset from the layout origin is non-zero.
+  const viewport = Object.assign(new EventTarget(), {
+    width: 480,
+    height: 800,
+    scale: 2,
+    offsetLeft: 60,
+    offsetTop: 120,
+  });
+  vi.stubGlobal("visualViewport", viewport);
+  vi.stubGlobal("innerWidth", 540);
+  vi.stubGlobal("innerHeight", 920);
+  const button = document.createElement("button");
+  button.getBoundingClientRect = () => new DOMRect(100, 200, 120, 60);
+  document.body.append(button);
+  const card = document.createElement("div");
+  card.getBoundingClientRect = () => new DOMRect(0, 0, 200, 80);
+  document.body.append(card);
+  // jsdom ships no hit testing; stand in for it and record the coordinates
+  // it is asked about, so the probe's coordinate space is the assertion.
+  const prior = document.elementsFromPoint;
+  const probed: Array<[number, number]> = [];
+  // The original is restored before the test ends.
+  // SAFETY: the double implements elementsFromPoint's same (x, y) => Element[] contract.
+  document.elementsFromPoint = ((x: number, y: number) => {
+    probed.push([x, y]);
+    return [button];
+  }) as typeof document.elementsFromPoint;
+  const unbind = mountGuideTarget("item.edit", button);
+  const ref = { current: card };
+  const tour = {
+    kind: "point",
+    target: "item.edit",
+    side: "top",
+    message: "Edit",
+    step: 1,
+    count: 3,
+    action: true,
+    degraded: false,
+    canBack: false,
+  } satisfies GuideTourView;
+  const { result, unmount } = renderHook(() =>
+    useCoachLayout(1, tour, ref, false),
+  );
+
+  act(() => nextFrame(0));
+
+  // The probe asks in the layout viewport's client coordinates — the space
+  // `getBoundingClientRect` and pointer `clientX`/`clientY` report — with
+  // no offset added or removed: the rect's centre is (160, 230) there.
+  expect(probed.some(([x, y]) => x === 160 && y === 230)).toBe(true);
+  expect(probed.length).toBeGreaterThan(0);
+  // The hole stays in the same layout coordinates the rect was read in.
+  expect(result.current.hole).toEqual({
+    left: 94,
+    top: 194,
+    width: 132,
+    height: 72,
+  });
+  // The card was placed against the visual viewport's frame — target at
+  // (34,74) padded, card below it at (12,160) there — and carried back to
+  // the layout frame the fixed-positioned card is drawn in.
+  expect(result.current.placement).toEqual({
+    kind: "anchored",
+    left: 72,
+    top: 280,
+    facing: "top",
+    notch: 88,
+  });
+  unmount();
+  unbind();
+  document.elementsFromPoint = prior;
+  button.remove();
+  card.remove();
+});
+
 it("scrolls a returning target into view once without following later scrolling", () => {
   let nextFrame: FrameRequestCallback = () => {};
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {

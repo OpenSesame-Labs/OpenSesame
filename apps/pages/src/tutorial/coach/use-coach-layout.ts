@@ -8,6 +8,8 @@ import { padded } from "./CoachParts.js";
 import {
   type Box,
   CONSTRAINED_CARD_HEIGHT,
+  NARROW_VIEWPORT_WIDTH,
+  SHORT_VIEWPORT_HEIGHT,
   clearOfDock,
   phoneCardHeightLimit,
   placeCoach,
@@ -128,7 +130,11 @@ function targetForPlacement(
     offsetTop: number;
   },
 ): Box | null {
-  if (rect === null || viewport.width >= 230 || viewport.height >= 110)
+  if (
+    rect === null ||
+    viewport.width >= NARROW_VIEWPORT_WIDTH ||
+    viewport.height >= SHORT_VIEWPORT_HEIGHT
+  )
     return paddedRect;
   return {
     ...rect,
@@ -141,13 +147,51 @@ function sizeFlags(
   viewport: { width: number; height: number; scale: number },
   maxHeight: number | undefined,
 ) {
-  const narrow = viewport.width < 230;
+  const narrow = viewport.width < NARROW_VIEWPORT_WIDTH;
   return {
     narrow,
-    short: narrow && viewport.height < 110 && viewport.scale > 1,
+    short:
+      narrow && viewport.height < SHORT_VIEWPORT_HEIGHT && viewport.scale > 1,
     constrained:
       narrow ||
       (maxHeight !== undefined && maxHeight < CONSTRAINED_CARD_HEIGHT),
+  };
+}
+
+type ViewportFrame = { offsetLeft: number; offsetTop: number };
+
+/**
+ * One coordinate space per consumer, with the conversions between them
+ * named. `visibleTargetRect` and `getBoundingClientRect` report in the
+ * layout viewport's client coordinates — the space `elementsFromPoint` and
+ * pointer `clientX`/`clientY` use, so the uncovered probe and the measured
+ * rect can never disagree. `placeCoach` works in the visual viewport's
+ * frame (its viewport is the visual size), so a target rect crosses in
+ * through `toVisualFrame`. The card, ring and dim are `position: fixed`,
+ * which positions against the layout viewport, so every placement crosses
+ * back out through `toLayoutFrame`. With no pinch zoom the visual viewport
+ * sits at the layout viewport's origin, the offsets are zero and both
+ * directions are the identity.
+ */
+function toVisualFrame<T extends { left: number; top: number }>(
+  box: T,
+  viewport: ViewportFrame,
+): T {
+  return {
+    ...box,
+    left: box.left - viewport.offsetLeft,
+    top: box.top - viewport.offsetTop,
+  };
+}
+
+function toLayoutFrame<T extends { left: number; top: number }>(
+  box: T,
+  viewport: ViewportFrame,
+): T {
+  return {
+    ...box,
+    left: box.left + viewport.offsetLeft,
+    top: box.top + viewport.offsetTop,
   };
 }
 
@@ -176,14 +220,8 @@ export function useCoachLayout(
   const insets = useSafeInsets();
   const size = useMeasured(card, `${stepKey}:${tour.message}:${phone}`);
   const box = rect === null ? null : padded(rect);
-  const relativeBox =
-    box === null
-      ? null
-      : {
-          ...box,
-          left: box.left - viewport.offsetLeft,
-          top: box.top - viewport.offsetTop,
-        };
+  // Cross into the visual viewport's frame for placement (see toVisualFrame).
+  const relativeBox = box === null ? null : toVisualFrame(box, viewport);
   const placementBox = targetForPlacement(rect, relativeBox, viewport);
   const relativePlacement =
     size === null
@@ -196,26 +234,21 @@ export function useCoachLayout(
           phone,
           insets,
         });
+  // Cross back out for the fixed-positioned card (see toLayoutFrame). A
+  // docked card is placed by the CSS offsets in `viewportDockStyle`, which
+  // already carry the visual viewport's frame, so it does not shift here.
   const placement =
     relativePlacement && relativePlacement.kind !== "dock"
-      ? {
-          ...relativePlacement,
-          left: relativePlacement.left + viewport.offsetLeft,
-          top: relativePlacement.top + viewport.offsetTop,
-        }
+      ? toLayoutFrame(relativePlacement, viewport)
       : relativePlacement;
   const relativeHole =
     relativeBox !== null && size !== null && placement?.kind === "dock"
       ? clearOfDock(relativeBox, viewport, size, placement.edge, insets)
       : relativeBox;
+  // The ring and the dim panels are fixed-positioned too: back to layout
+  // frame, where the measured rect and the probe coordinates already are.
   const hole =
-    relativeHole === null
-      ? null
-      : {
-          ...relativeHole,
-          left: relativeHole.left + viewport.offsetLeft,
-          top: relativeHole.top + viewport.offsetTop,
-        };
+    relativeHole === null ? null : toLayoutFrame(relativeHole, viewport);
   const maxHeight = phone
     ? phoneCardHeightLimit(viewport, placementBox, insets)
     : undefined;

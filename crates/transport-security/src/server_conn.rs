@@ -12,7 +12,10 @@ use hyper_util::rt::{TokioExecutor, TokioIo, TokioTimer};
 use hyper_util::server::conn::auto::Builder;
 use hyper_util::server::graceful::Watcher;
 use opensesame_domain::transport::attest::AttestedPeer;
-use opensesame_domain::transport::{EvidenceSource, TlsVersion, TransportError, VerifiedPeer};
+use opensesame_domain::transport::{
+    EvidenceSource, PeerIdentitySelector, TlsVersion, TransportError, TrustProfileKind,
+    VerifiedPeer,
+};
 use opensesame_time::{DateTime, Utc};
 use rustls::server::ServerConnection;
 use rustls::ProtocolVersion;
@@ -63,6 +66,9 @@ async fn handshake(
         .await
         .map_err(|_| malformed("handshake timed out"))?
         .map_err(|e| classify_io_error(&e))?;
+    // The prepared acceptor may have become stale while the handshake was
+    // in flight. Do not publish peer evidence for a retired source epoch.
+    generations.checked_current(Some(prepared.number))?;
     let (_, connection) = accepted.get_ref();
     if matches!(
         connection.handshake_kind(),
@@ -123,9 +129,15 @@ fn attest(
     let remaining = (leaf.not_after - now).to_std().unwrap_or(Duration::ZERO);
     let usable_for = profile.limits.usable_for.min(remaining);
     let usable_until = now + opensesame_time::Duration::from_std(usable_for).unwrap_or_default();
-    AttestedPeer {
+    let identities = if trust.kind() == TrustProfileKind::SpiffeTrustDomain {
+        let id = leaf.spiffe_id.clone().ok_or(TransportError::TrustUnknown)?;
+        vec![PeerIdentitySelector::SpiffeId(id)]
+    } else {
+        leaf.selectors.clone()
+    };
+    let evidence = AttestedPeer {
         source: EvidenceSource::DirectTls,
-        identities: leaf.selectors.clone(),
+        identities,
         leaf_thumbprint_sha256: leaf.thumbprint_sha256.clone(),
         not_before: leaf.not_before,
         not_after: leaf.not_after,
@@ -138,8 +150,12 @@ fn attest(
         authenticated_at: now,
         usable_until,
         ingress: None,
+    };
+    if trust.kind() == TrustProfileKind::SpiffeTrustDomain {
+        evidence.into_verified_spiffe()
+    } else {
+        evidence.into_verified()
     }
-    .into_verified()
 }
 
 /// Handshake, then serve HTTP on the connection until it closes, idles out,

@@ -110,6 +110,27 @@ describe("file parts", () => {
     expect(await store.listObjects()).toEqual([]);
   });
 
+  it("rejects non-integer part and size limits before writing a part", async () => {
+    const store = memoryObjectStore();
+    const base = {
+      name: "big.bin",
+      mediaType: "application/octet-stream",
+      bytes: text("12345"),
+      stores: [store],
+    };
+    for (const partBytes of [Number.NaN, Number.POSITIVE_INFINITY, 0.5, 0]) {
+      await expect(sealFile({ ...base, partBytes })).rejects.toThrow(
+        "invalid file part size",
+      );
+    }
+    for (const maxBytes of [Number.NaN, Number.POSITIVE_INFINITY, -1, 0.5]) {
+      await expect(sealFile({ ...base, maxBytes })).rejects.toThrow(
+        "invalid file size limit",
+      );
+    }
+    expect(await store.listObjects()).toEqual([]);
+  });
+
   it("refuses attacker-sized manifests and part arrays before reading stores", async () => {
     const never: ObjectStore = {
       async putObject() {

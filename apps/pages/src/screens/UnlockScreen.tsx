@@ -573,7 +573,9 @@ function UnlockForm({
                   disabled={lockedFor > 0}
                   onClick={() => {
                     cancelPasskeyCeremony();
-                    if (id === "pin") dismissNotice("unlock:authenticator");
+                    // The fallback notice steers toward one road; any other
+                    // tab — PIN or not — replaces that steer, so it goes.
+                    dismissNotice("unlock:authenticator");
                     setMethod(id);
                     setError(null);
                     setConfirm("");

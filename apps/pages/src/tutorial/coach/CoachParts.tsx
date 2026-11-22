@@ -4,6 +4,7 @@
  * no state of its own.
  */
 
+import { FIRST_VAULT_PIN_STEPS } from "@opensesame/app-core/tutorial/registry/first-vault-guide.js";
 import {
   isKnownGuidePredicate,
   readGuidePredicate,
@@ -24,7 +25,7 @@ import {
   IconX,
 } from "../../components/Icons.js";
 import type { SupportController } from "../session.js";
-import type { Box, CoachPlacement } from "./placement.js";
+import { type Box, type CoachPlacement, isTightViewport } from "./placement.js";
 
 /** How far the aperture stands off the control it lights. */
 export const APERTURE_PAD = 6;
@@ -55,6 +56,22 @@ export function coachMessage(
 
 type TourProgress = { offset: number; count: number };
 
+/**
+ * First-vault meter lengths, pinned to the authored walks in
+ * `@opensesame/app-core/tutorial/registry/first-vault-guide.ts`: the door
+ * walks two setup steps plus a two-step road to the seal decision, the PIN
+ * road then walks `FIRST_VAULT_PIN_STEPS`' seal fields where the passkey road
+ * seals in one ceremony, and the shell continuation is the nine-step password
+ * walk. CoachHud.test.tsx re-derives these from the authored guides, so an
+ * edit that changes a walk's length fails the meter test instead of drifting
+ * the counter silently.
+ */
+const FIRST_VAULT_PASSKEY_GATE_STEPS = 4;
+const FIRST_VAULT_PIN_SEAL_STEPS = FIRST_VAULT_PIN_STEPS.length;
+const FIRST_VAULT_PIN_GATE_STEPS =
+  FIRST_VAULT_PASSKEY_GATE_STEPS + FIRST_VAULT_PIN_SEAL_STEPS;
+const FIRST_VAULT_SHELL_STEPS = 9;
+
 /** Join the adaptive gate phase to its first-vault shell continuation. */
 export function firstVaultTourProgress(
   target: string | null,
@@ -69,9 +86,20 @@ export function firstVaultTourProgress(
     "unlock.seal-ack",
     "unlock.seal",
   ].includes(target ?? "");
-  if (count === 8 && !gateTarget)
+  // The shell continuation is the nine-step password walk — save waits for
+  // the saved item, the copy step, and the list the item lands in.
+  if (count === FIRST_VAULT_SHELL_STEPS && !gateTarget)
     return { offset: gateSteps, count: gateSteps + count };
-  return { offset: count === 6 ? 2 : 0, count: pinTarget ? 16 : 12 };
+  // The gate phase and the sign-in continuation show the whole projected
+  // walk: the passkey road's total until the PIN fields open, the PIN road's
+  // from then on. The sign-in continuation resumes after the door's two
+  // setup steps: six steps on the PIN road, two where the passkey seals in
+  // one ceremony.
+  const signIn = count === 6 || count === 2;
+  const roadSteps = pinTarget
+    ? FIRST_VAULT_PIN_GATE_STEPS
+    : FIRST_VAULT_PASSKEY_GATE_STEPS;
+  return { offset: signIn ? 2 : 0, count: roadSteps + FIRST_VAULT_SHELL_STEPS };
 }
 
 export function padded(box: Box): Box {
@@ -171,6 +199,9 @@ export function counterOf(tour: GuideTourView): string {
   return tour.count > 0 ? `Step ${tour.step} of ${tour.count}` : "";
 }
 
+/** The coach exit key, found by attribute so focus never depends on copy. */
+export const COACH_EXIT_SELECTOR = "[data-coach-exit]";
+
 export function Head({
   titleId,
   title,
@@ -194,7 +225,12 @@ export function Head({
         {title}
       </h2>
       <span className="coach__count">{counter}</span>
-      <IconKey small label="Exit tutorial" onClick={() => support.stopGuide()}>
+      <IconKey
+        small
+        label="Exit tutorial"
+        data-coach-exit=""
+        onClick={() => support.stopGuide()}
+      >
         <IconX size={15} />
       </IconKey>
     </header>
@@ -320,7 +356,7 @@ export function viewportDockStyle(
     left: `calc(0.5rem + ${viewport.offsetLeft}px)`,
     right: `calc(0.5rem + ${viewport.rightOffset}px)`,
   };
-  const edge = viewport.width < 230 && viewport.height < 220 ? "0px" : "0.5rem";
+  const edge = isTightViewport(viewport) ? "0px" : "0.5rem";
   if (placement.edge === "top") {
     return {
       ...horizontal,
@@ -358,12 +394,13 @@ export function canReturn(
     )
       return true;
     return (
-      tour.count === 8 &&
+      tour.count === 9 &&
       [
         "editor.password-options",
         "editor.pepper-options",
         "editor.generate-password",
         "item.editor.save",
+        "vault.list",
       ].includes(tour.target ?? "")
     );
   }

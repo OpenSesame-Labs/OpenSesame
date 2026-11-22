@@ -136,6 +136,14 @@ pub fn retention_deadline(
     }
 }
 
+/// Apply an existing retention limit without exceeding the certificate expiry.
+pub(crate) fn bounded_deadline(
+    not_after: DateTime<Utc>,
+    retain_until: Option<DateTime<Utc>>,
+) -> DateTime<Utc> {
+    retain_until.map_or(not_after, |until| until.min(not_after))
+}
+
 #[cfg(test)]
 #[path = "outage_tests.rs"]
 mod tests;

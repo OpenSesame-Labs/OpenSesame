@@ -11,7 +11,6 @@
  * `CONNECT_CONFORMANCE_OUT=<file>` writes the per-connector results as
  * evidence.
  */
-import { createHash } from "node:crypto";
 import { writeFileSync } from "node:fs";
 import { applyConnectCallbackBase } from "@opensesame/app-core/lib/connect-callback.js";
 import type { DraftState } from "@opensesame/app-core/lib/connect-draft.js";
@@ -22,12 +21,12 @@ import {
   connectPlans,
   isConnectable,
 } from "@opensesame/app-core/lib/connect-plan.js";
+import { setVercelConnectAuth } from "@opensesame/app-core/lib/vercel-connect.js";
 import {
   authorizeConnectorAs,
   checkConnectorToken,
   createConfiguredConnector,
 } from "@opensesame/app-core/lib/vercel-connect-manage.js";
-import { setVercelConnectAuth } from "@opensesame/app-core/lib/vercel-connect.js";
 import {
   type JsonValue,
   isJsonObject,
@@ -35,12 +34,13 @@ import {
 } from "@opensesame/os-domain";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { handleCallback } from "../../../server/callback.mjs";
-import { VERIFY_TARGETS } from "../../../server/connect-verify-targets.generated.mjs";
 import {
   resolveTarget,
   verifyWithToken,
 } from "../../../server/connect-verify.mjs";
+import { VERIFY_TARGETS } from "../../../server/connect-verify-targets.generated.mjs";
 import { handleManage } from "../../../server/manage.mjs";
+import { fingerprintOf } from "../../../server/token-fingerprint.mjs";
 import { assertTokenProof } from "./conformance-proof.js";
 import { CONNECT_ORIGIN, ConnectEmulator } from "./connect-emulator.js";
 import { ProviderEmulator, type ProviderProfile } from "./provider-emulator.js";
@@ -198,10 +198,8 @@ describe("every connector acquires a person's token", () => {
     const providerCallsBeforeCheck = [...provider.log];
     const check = await checkConnectorToken(connection.connectionId, PERSON);
     const issued = [...provider.issued, ...provider.apiKeys];
-    // A truncated SHA-256 fingerprint, only to recognise the same token
-    // without logging it — not password storage or verification.
-    const fingerprints = issued.map((token) =>
-      createHash("sha256").update(token).digest("hex").slice(0, 12),
+    const fingerprints = await Promise.all(
+      issued.map((token) => fingerprintOf(token)),
     );
     expect(fingerprints).toContain(check.fingerprint);
     assertTokenProof({

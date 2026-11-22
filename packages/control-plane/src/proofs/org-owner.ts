@@ -20,6 +20,11 @@ import type { AppStores } from "../state.js";
 const OrgOwner = defineProof("OrgOwner");
 export interface OrgOwner<A, O> extends Proof<"OrgOwner", [A, O]> {}
 
+// Membership and provisioning writes need evidence of the stricter active
+// state, not just the repair-oriented not-deleted owner proof.
+const ActiveOrgOwner = defineProof("ActiveOrgOwner");
+export interface ActiveOrgOwner<A, O> extends Proof<"ActiveOrgOwner", [A, O]> {}
+
 /**
  * Which organization states still let an owner act.
  *
@@ -66,4 +71,18 @@ export async function orgOwner<A, O>(
     return { ok: false, status: 403, error: "owner_required" };
   }
   return { ok: true, proof: OrgOwner.prove(actor, org), organization };
+}
+
+export async function activeOrgOwner<A, O>(
+  stores: Pick<AppStores, "organizations" | "organizationMemberships">,
+  actor: Named<A, ActorId>,
+  org: Named<O, OrganizationId>,
+) {
+  const verdict = await orgOwner(stores, actor, org, "active");
+  if (!verdict.ok) return verdict;
+  return {
+    ok: true as const,
+    proof: ActiveOrgOwner.prove(actor, org),
+    organization: verdict.organization,
+  };
 }

@@ -9,11 +9,24 @@
  * meter, and what happens to a step whose control is not on screen.
  */
 
+import {
+  FIRST_VAULT_PIN_STEPS,
+  FIRST_VAULT_SHELL_GUIDE,
+  firstVaultGateGuide,
+  firstVaultSignInGuide,
+} from "@opensesame/app-core/tutorial/registry/first-vault-guide.js";
+import { guideGoalIds } from "@opensesame/app-core/tutorial/registry/goals.js";
+import { registerGuidePredicates } from "@opensesame/app-core/tutorial/registry/predicates.js";
+import { mergedGuideRoutes } from "@opensesame/app-core/tutorial/registry/routes.js";
+import { guidePredicateIds } from "@opensesame/app-core/tutorial/registry/state.js";
+import { guideTargetIds } from "@opensesame/app-core/tutorial/registry/targets.js";
+import { AUTHORED_GUIDE_LIMITS, compileGuide } from "@opensesame/guide-lang";
 import type { GuideTourView } from "@opensesame/guide-runtime";
+import { planGuideSteps } from "@opensesame/guide-runtime";
 import { fakeAgentAlwaysUnavailable } from "@opensesame/support-agent";
 import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it } from "vitest";
 import {
   disposeSupport,
   mountSupport,
@@ -26,7 +39,7 @@ import { coachMessage, firstVaultTourProgress } from "./CoachParts.js";
 afterEach(disposeSupport);
 
 it("tells an already-mounted PIN road how to leave the held wait", () => {
-  // SAFETY: coachMessage reads only these complete GuideTourView fields.
+  // SAFETY: this fixture satisfies GuideTourView for coachMessage; it only branches on step/kind/action/degraded.
   const tour = {
     step: 4,
     count: 8,
@@ -76,27 +89,63 @@ const counter = (card: HTMLElement) =>
   card.querySelector(".coach__count")?.textContent ?? "";
 
 describe("the tutorial card", () => {
+  // The meter's fixed lengths must move with the authored walks: a guide
+  // edit that adds or drops a step changes the planner's stepCount, and this
+  // test then fails until the meter constants in CoachParts are re-aligned.
+  beforeAll(() => {
+    // The authored guides wait on registry state; compiling them for the
+    // length checks below needs the predicate vocabulary declared.
+    registerGuidePredicates();
+  });
+
+  function plannedSteps(source: string): number {
+    const compiled = compileGuide(
+      source,
+      {
+        goals: guideGoalIds(),
+        targets: guideTargetIds(),
+        routes: mergedGuideRoutes().map((route) => route.id),
+        predicates: guidePredicateIds(),
+      },
+      AUTHORED_GUIDE_LIMITS,
+    );
+    expect(compiled.ok).toBe(true);
+    if (!compiled.ok) return -1;
+    return planGuideSteps(compiled.program).stepCount;
+  }
+
   it("keeps passkey and PIN first-vault progress contiguous", () => {
-    expect(firstVaultTourProgress("unlock.methods", 8, 8)).toEqual({
+    expect(firstVaultTourProgress("unlock.methods", 9, 8)).toEqual({
       offset: 0,
-      count: 12,
+      count: 13,
     });
-    expect(firstVaultTourProgress("unlock.seal-actions", 8, 8)).toEqual({
+    expect(firstVaultTourProgress("unlock.seal-actions", 9, 8)).toEqual({
       offset: 0,
-      count: 12,
+      count: 13,
     });
-    expect(firstVaultTourProgress("unlock.seal-pin-entry", 8, 8)).toEqual({
+    expect(firstVaultTourProgress("unlock.seal-pin-entry", 9, 8)).toEqual({
       offset: 0,
-      count: 16,
+      count: 17,
     });
-    expect(firstVaultTourProgress(null, 8, 4)).toEqual({
+    expect(firstVaultTourProgress(null, 9, 4)).toEqual({
       offset: 4,
-      count: 12,
+      count: 13,
     });
-    expect(firstVaultTourProgress(null, 8, 8)).toEqual({
+    expect(firstVaultTourProgress(null, 9, 8)).toEqual({
       offset: 8,
-      count: 16,
+      count: 17,
     });
+  });
+
+  it("pins the meter's gate and shell lengths to the authored walks", () => {
+    // No WebAuthn host in this environment, so the door's own walk is the
+    // PIN road: two setup steps, the road to the seal decision, then the
+    // four PIN seal fields. The passkey road is the same walk without them,
+    // and the shell continuation is the nine-step password walk.
+    expect(plannedSteps(firstVaultGateGuide())).toBe(8);
+    expect(plannedSteps(firstVaultSignInGuide())).toBe(6);
+    expect(FIRST_VAULT_PIN_STEPS.length).toBe(4);
+    expect(plannedSteps(FIRST_VAULT_SHELL_GUIDE)).toBe(9);
   });
 
   it("has Next on every step and Done on the closing card", async () => {

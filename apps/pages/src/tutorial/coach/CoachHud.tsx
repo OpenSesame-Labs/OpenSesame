@@ -221,6 +221,7 @@ function CoachCard({
         height: shortScroll ? maxHeight : undefined,
         minHeight: awaitingAction ? Math.min(maxHeight ?? 52, 52) : undefined,
       }}
+      // biome-ignore lint/a11y/useSemanticElements: a native <dialog open> would inert the page, and a tour must leave it live.
       role="dialog"
       aria-modal="false"
       aria-labelledby={titleId}

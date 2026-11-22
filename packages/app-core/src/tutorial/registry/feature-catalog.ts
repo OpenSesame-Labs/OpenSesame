@@ -50,7 +50,7 @@ export const FEATURE_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "feature.certificates",
     description:
-      "Configure certificate administration when approved by the operator’s plan.",
+      "Configure certificate administration when approved by the operator's plan.",
     role: "surface",
     routes: ["/settings/features"],
     capabilityId: null,
@@ -148,7 +148,7 @@ export const FEATURE_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "feature.local-notifications",
     description:
-      "Enable this device’s request list, notification bell and system notifications.",
+      "Enable this device's request list, notification bell and system notifications.",
     role: "surface",
     routes: ["/settings/features"],
     capabilityId: null,
@@ -156,7 +156,7 @@ export const FEATURE_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "feature.telemetry",
     description:
-      "Enable usage and error telemetry when approved by the operator’s plan.",
+      "Enable usage and error telemetry when approved by the operator's plan.",
     role: "surface",
     routes: ["/settings/features"],
     capabilityId: null,

@@ -17,7 +17,7 @@ export const ACCESS_GOALS: readonly GuideGoalDescriptor[] = [
       'wait state "vault.unlocked" is=true timeout=60000',
       'navigate "/access/shares"',
       'wait route "/access/shares" timeout=15000',
-      'focus "access.grant-access" "Select Grant access, then choose the recipient, resource, policy and duration." side=bottom',
+      'focus "access.grant-access" "Select Add in Identity shares, then choose the recipient, resource, policy and duration." side=bottom',
       'wait target "access.grant-ceremony" event=appear timeout=60000',
     ].join("\n"),
   },

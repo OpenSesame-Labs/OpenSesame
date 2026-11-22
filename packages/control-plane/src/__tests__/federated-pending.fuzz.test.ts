@@ -1,3 +1,5 @@
+import { createHash, createHmac, scryptSync } from "node:crypto";
+import { overlapCast } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import {
@@ -41,6 +43,18 @@ function makeRng(seed: number): () => number {
 const FIELDS = ["issuer", "state", "nonce", "verifier"] as const;
 /** v2 provenance (C3). Optional by contract — a v1 cookie must still decode. */
 const OPTIONAL_FIELDS = ["providerId", "byoId", "orgId"] as const;
+const WIRE_PENDING_KEYS = new Set([
+  "issuer",
+  "state",
+  "nonce",
+  "verifier",
+  "verifierEnc",
+  "kind",
+  "providerId",
+  "byoId",
+  "orgId",
+]);
+
 const pendingSchema = z.object({
   issuer: z.string(),
   state: z.string(),
@@ -66,6 +80,44 @@ function randomString(rng: () => number, maxLen: number): string {
     out += alphabet[Math.floor(rng() * alphabet.length)] ?? "a";
   }
   return out;
+}
+
+function randomId(rng: () => number): string {
+  return randomString(rng, 12) || "id";
+}
+
+function encodeLegacySigned(
+  pending: PendingFederatedAuth,
+  secret: string,
+): string {
+  const salt = createHash("sha256")
+    .update(secret)
+    .update("\0opensesame:fed-pending-verifier\0")
+    .update(pending.state)
+    .update(pending.nonce)
+    .digest()
+    .subarray(0, 16);
+  const verifierBound = scryptSync(pending.verifier, salt, 32, {
+    N: 32768,
+    r: 8,
+    p: 1,
+    maxmem: 64 * 1024 * 1024,
+  }).toString("base64url");
+  const integrity = [
+    pending.issuer,
+    pending.state,
+    pending.nonce,
+    verifierBound,
+    pending.kind ?? "oidc",
+    pending.providerId ?? "",
+  ].join("\x1f");
+  const signature = createHmac("sha256", secret)
+    .update(integrity)
+    .digest("base64url");
+  const payload = Buffer.from(JSON.stringify(pending), "utf8").toString(
+    "base64url",
+  );
+  return `${payload}.${signature}`;
 }
 
 function isWellFormed(
@@ -146,8 +198,12 @@ describe("FUZZ — decodePending survives arbitrary cookie bytes", () => {
       const decoded = decodePending(raw);
       expect(decoded === undefined || isWellFormed(decoded)).toBe(true);
 
-      // The contract is exact: every field present AND a string, or nothing.
-      const shouldDecode = pendingSchema.safeParse(candidate).success;
+      // The contract is exact: known keys only, every field present AND a string.
+      const onlyKnownKeys = Object.keys(candidate).every((key) =>
+        WIRE_PENDING_KEYS.has(key),
+      );
+      const shouldDecode =
+        onlyKnownKeys && pendingSchema.safeParse(candidate).success;
       expect(decoded !== undefined).toBe(shouldDecode);
     }
   });
@@ -175,20 +231,26 @@ describe("FUZZ — decodePending survives arbitrary cookie bytes", () => {
   it("round-trips any well-formed record it accepts", () => {
     const rng = makeRng(0xfeed_face);
     for (let i = 0; i < 5_000; i++) {
+      const provenance = Math.floor(rng() * 4);
       const pending: PendingFederatedAuth = {
         issuer: randomString(rng, 40),
         state: randomString(rng, 40),
         nonce: randomString(rng, 40),
         verifier: randomString(rng, 60),
-        // Each v2 field is present or absent independently: a cookie from
-        // before the field existed, and one from the leg that added it, are
-        // both live at once during a deploy.
-        ...(rng() < 0.5
-          ? { kind: rng() < 0.5 ? "oidc" : "oauth2" }
+        // A cookie has one provenance source, or none for a v1 leg that was
+        // already in flight during a deploy. Sources never compose.
+        ...(provenance === 1
+          ? {
+              kind: rng() < 0.5 ? ("oidc" as const) : ("oauth2" as const),
+              providerId: randomId(rng),
+            }
           : undefined),
-        ...(rng() < 0.4 ? { providerId: randomString(rng, 12) } : undefined),
-        ...(rng() < 0.3 ? { byoId: randomString(rng, 12) } : undefined),
-        ...(rng() < 0.3 ? { orgId: randomString(rng, 12) } : undefined),
+        ...(provenance === 2
+          ? { kind: "oidc" as const, byoId: randomId(rng) }
+          : undefined),
+        ...(provenance === 3
+          ? { kind: "oidc" as const, orgId: randomId(rng) }
+          : undefined),
       };
       const decoded = decodePending(encodePending(pending));
       expect(decoded).toEqual(pending);
@@ -197,5 +259,77 @@ describe("FUZZ — decodePending survives arbitrary cookie bytes", () => {
       // no absent field resurrected as a present `undefined`.
       expect(decodePending(encodePending(decoded))).toEqual(pending);
     }
+  });
+
+  it("binds tenant provenance into signed cookies", () => {
+    const secret = "pending-cookie-test-secret";
+    const signed = encodePending(
+      {
+        issuer: "https://issuer.example",
+        state: "state",
+        nonce: "nonce",
+        verifier: "verifier",
+        kind: "oidc",
+        orgId: "org_original",
+      },
+      secret,
+    );
+    expect(decodePending(signed, secret)?.orgId).toBe("org_original");
+    const split = signed.lastIndexOf(".");
+    const payload: PendingFederatedAuth = overlapCast(
+      JSON.parse(
+        Buffer.from(signed.slice(0, split), "base64url").toString("utf8"),
+      ),
+    );
+    const rewritten = Buffer.from(
+      JSON.stringify({ ...payload, orgId: "org_target" }),
+      "utf8",
+    ).toString("base64url");
+    expect(
+      decodePending(`${rewritten}${signed.slice(split)}`, secret),
+    ).toBeUndefined();
+  });
+
+  it("accepts only safe previous-release signatures", () => {
+    const secret = "pending-cookie-test-secret";
+    const legacy = {
+      issuer: "https://issuer.example",
+      state: "state",
+      nonce: "nonce",
+      verifier: "verifier",
+    };
+    const staticPending = {
+      ...legacy,
+      kind: "oidc" as const,
+      providerId: "static-provider",
+    };
+    // A v1 cookie carries no signed provenance at all, and an old BYO or org
+    // cookie stripped of its unsigned id is indistinguishable from one — so
+    // only a previous-release cookie with a bound static provider continues,
+    // and everything else restarts.
+    expect(
+      decodePending(encodeLegacySigned(legacy, secret), secret),
+    ).toBeUndefined();
+    expect(
+      decodePending(encodeLegacySigned(staticPending, secret), secret),
+    ).toEqual(staticPending);
+    expect(
+      decodePending(
+        encodeLegacySigned(
+          { ...legacy, kind: "oidc", orgId: "org_original" },
+          secret,
+        ),
+        secret,
+      ),
+    ).toBeUndefined();
+    expect(
+      decodePending(
+        encodeLegacySigned(
+          { ...legacy, kind: "oidc", byoId: "byo_original" },
+          secret,
+        ),
+        secret,
+      ),
+    ).toBeUndefined();
   });
 });

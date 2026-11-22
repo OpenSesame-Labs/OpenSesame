@@ -2,22 +2,22 @@ import { isString, overlapCast } from "@opensesame/os-domain";
 import { Hono } from "hono";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
-import { type OrgOwnerSource, asOrgOwner } from "./org-owner-gate.js";
+import { asActiveOrgOwner } from "./org-owner-gate.js";
 import { putGroupRoleMapping } from "./scim-groups.js";
 
 export const scimMappingAdminRoutes = new Hono<{ Variables: Variables }>();
 
-/** SCIM mapping changes require a live organization (ADR 0178). */
-const OWNER: OrgOwnerSource = {
+// A mapping can grant owner authority to provisioned users, so it has the same
+// active-organization requirement as the SCIM provisioning routes.
+const OWNER = {
   param: "organizationId",
-  liveness: "active",
 };
 
 scimMappingAdminRoutes.get(
   "/:organizationId/scim/mappings",
   requirePrincipal(),
   async (c) =>
-    asOrgOwner(c, OWNER, async ({ ctx, organization }) => {
+    asActiveOrgOwner(c, OWNER, async ({ ctx, organization }) => {
       const mappings = await ctx.stores.scim.mappings.listByOrganization(
         organization.id,
       );
@@ -29,7 +29,7 @@ scimMappingAdminRoutes.put(
   "/:organizationId/scim/mappings/:groupId",
   requirePrincipal(),
   async (c) =>
-    asOrgOwner(c, OWNER, async ({ ctx, org, proof, organization }) => {
+    asActiveOrgOwner(c, OWNER, async ({ ctx, org, proof, organization }) => {
       const groupId = decodeURIComponent(c.req.param("groupId") ?? "");
       const body = overlapCast(await c.req.json().catch(() => ({})));
       const role = isString(body.role) ? body.role : "";

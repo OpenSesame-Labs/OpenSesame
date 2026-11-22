@@ -1,6 +1,6 @@
 ---
 name: verify-auth-formal
-description: Check and maintain OpenSesame's Lean models and implementation correspondence for authentication, authorization, federation, replay prevention, delegation, and approval binding. Use when covered code or its security requirements change, or when asked to verify or extend these proofs.
+description: Check and maintain OpenSesame's Lean models and implementation correspondence for authentication, authorization, federation, replay prevention, delegation, approval binding, SPIFFE withdrawal, source-owned transport lifetime, Host source-trust selection and history, SPIFFE peer-domain admission, and NATS trust rotation. Use when covered code or its security requirements change, or when asked to verify or extend these proofs.
 ---
 
 # Verify authentication and authorization properties

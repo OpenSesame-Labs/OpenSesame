@@ -23,15 +23,15 @@
 import { constants as cryptoConstants } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import https from "node:https";
-import type { AddressInfo } from "node:net";
+import type { AddressInfo, Socket } from "node:net";
 import type { TLSSocket } from "node:tls";
 import {
   type TransportListenerConfig,
   type TransportMaterial,
   loadTransportMaterial,
 } from "./config.js";
-import { stripForwardedEvidence } from "./ingress-evidence-adapter.js";
 import { resolveOriginating } from "./ingress.js";
+import { stripForwardedEvidence } from "./ingress-evidence-adapter.js";
 import {
   type TlsVersion,
   type VerifiedPeer,
@@ -48,16 +48,30 @@ export const PLAIN_LISTENER_ID = "identity-plain";
 /** `usable_until` bound for direct peers: an hour, or the cert's remainder. */
 export const DEFAULT_USABLE_FOR_MS = 60 * 60 * 1000;
 
-const peers = new WeakMap<object, VerifiedPeer>();
+const peers = new WeakMap<
+  Socket,
+  { peer: VerifiedPeer; current: () => boolean }
+>();
 
-/** The verified peer of a socket, or none (plain listener, no client cert). */
-export function peerOf(socket: unknown): VerifiedPeer | undefined {
-  return socket !== null && typeof socket === "object"
-    ? peers.get(socket)
-    : undefined;
+/**
+ * The verified peer of a Node socket, or none.
+ *
+ * Callers that receive an unparsed socket parse it to `Socket` at that
+ * boundary. A plain listener, a missing client certificate, and a socket
+ * this registry does not hold all resolve to none.
+ */
+export function peerOf(socket: Socket): VerifiedPeer | undefined {
+  const entry = peers.get(socket);
+  return entry?.current() ? entry.peer : undefined;
 }
 
 export type RawDispatcher = (req: IncomingMessage, res: ServerResponse) => void;
+
+/** Credential and trust generations after a reload. */
+export interface TransportGenerations {
+  credentialGeneration: number;
+  trustGeneration: number;
+}
 
 export interface TransportListener {
   server: https.Server;
@@ -68,14 +82,12 @@ export interface TransportListener {
   start(): Promise<AddressInfo>;
   /**
    * Explicit renewal (ID-ROTATION): re-read and re-validate key, cert, CA and
-   * bindings, then swap the secure context. In-flight requests and already
-   * established connections are untouched; new handshakes use the new
-   * material. A candidate that fails validation leaves the old one serving.
+   * bindings, then swap the secure context. Server-certificate-only renewal
+   * leaves established connections alone. A client trust, ingress trust, or
+   * binding change invalidates old evidence and closes existing connections,
+   * including handshakes in progress. A rejected candidate changes nothing.
    */
-  restartTransport(): Promise<{
-    credentialGeneration: number;
-    trustGeneration: number;
-  }>;
+  restartTransport(): Promise<TransportGenerations>;
   credentialGeneration(): number;
   trustGeneration(): number;
   close(): Promise<void>;
@@ -102,6 +114,7 @@ interface ListenerState {
   usableForMs: number;
   credentialGeneration: number;
   trustGeneration: number;
+  connections: Set<Socket>;
   onPeerError?: ((code: string) => void) | undefined;
 }
 
@@ -142,21 +155,24 @@ function registerPeer(state: ListenerState, socket: TLSSocket): void {
   const leaf = socket.getPeerX509Certificate();
   if (!leaf) return;
   try {
-    peers.set(
-      socket,
-      attestPeer({
-        source: "direct_tls",
-        leaf,
-        trustProfile: { name: state.config.trustProfile },
-        trustGeneration: state.trustGeneration,
-        credentialGeneration: state.credentialGeneration,
-        listener: TLS_LISTENER_ID,
-        policy: state.config.policy,
-        tlsVersion: tlsVersionOf(socket),
-        authenticatedAt: state.clock(),
-        usableForMs: state.usableForMs,
-      }),
-    );
+    const peer = attestPeer({
+      source: "direct_tls",
+      leaf,
+      trustProfile: { name: state.config.trustProfile },
+      trustGeneration: state.trustGeneration,
+      credentialGeneration: state.credentialGeneration,
+      listener: TLS_LISTENER_ID,
+      policy: state.config.policy,
+      tlsVersion: tlsVersionOf(socket),
+      authenticatedAt: state.clock(),
+      usableForMs: state.usableForMs,
+    });
+    peers.set(socket, {
+      peer,
+      current: () =>
+        peer.trustGeneration() === state.trustGeneration &&
+        peer.usableAt(state.clock()),
+    });
   } catch (error) {
     // A peer we cannot attest is a peer we do not serve.
     state.onPeerError?.(error instanceof Error ? error.message : "attest");
@@ -169,10 +185,10 @@ function prepareRequest(
   state: ListenerState,
   req: IncomingMessage,
 ): RequestEvidence {
-  // SAFETY: requests on an https.Server arrive on the TLSSocket the
-  // handshake ran on; the registry lookup is by object identity.
+  // SAFETY: the https.Server contract delivers this request on the TLSSocket the handshake ran on.
   const socket: TLSSocket = req.socket as TLSSocket;
   const peer = peerOf(socket);
+  const trustGeneration = state.trustGeneration;
   const base = {
     provenance: {
       kind: "tls" as const,
@@ -182,6 +198,7 @@ function prepareRequest(
     },
     bindings: state.material.bindings,
     clock: state.clock,
+    isCurrent: () => state.trustGeneration === trustGeneration,
     ...(peer ? { peer } : undefined),
   };
   if (state.config.policy !== "trusted_ingress") {
@@ -220,16 +237,24 @@ function prepareRequest(
 function restart(
   state: ListenerState,
   server: https.Server,
-): { credentialGeneration: number; trustGeneration: number } {
+): TransportGenerations {
   const candidate = loadTransportMaterial(state.config, state.clock());
-  server.setSecureContext(secureContextOf(candidate));
   const trustChanged =
     candidate.clientCaPem !== state.material.clientCaPem ||
+    candidate.ingressTrustPem !== state.material.ingressTrustPem ||
     JSON.stringify(candidate.bindings) !==
       JSON.stringify(state.material.bindings);
+  // setSecureContext resets TLS options as well as credentials. Preserve the
+  // configured minimum protocol and disabled tickets across every renewal.
+  server.setSecureContext(serverOptions(state.config, candidate));
   state.material = candidate;
   state.credentialGeneration += 1;
-  if (trustChanged) state.trustGeneration += 1;
+  if (trustChanged) {
+    state.trustGeneration += 1;
+    // Include raw sockets: a handshake started under the previous context
+    // must not finish later and be attested under the new trust generation.
+    for (const socket of state.connections) socket.destroy();
+  }
   return {
     credentialGeneration: state.credentialGeneration,
     trustGeneration: state.trustGeneration,
@@ -241,7 +266,7 @@ function bind(server: https.Server, config: TransportListenerConfig) {
     server.once("error", reject);
     server.listen(config.port, config.host, () => {
       server.off("error", reject);
-      // SAFETY: a listening TCP server always reports an AddressInfo.
+      // SAFETY: Node's listening TCP server contract reports an AddressInfo.
       resolve(server.address() as AddressInfo);
     });
   });
@@ -258,6 +283,7 @@ export function createTransportListener(
     usableForMs: options.usableForMs ?? DEFAULT_USABLE_FOR_MS,
     credentialGeneration: 1,
     trustGeneration: 1,
+    connections: new Set(),
     onPeerError: options.onPeerError,
   };
   const server = https.createServer(
@@ -271,9 +297,15 @@ export function createTransportListener(
     "resumeSession",
     (_id: Buffer, done: (err: null, data: null) => void) => done(null, null),
   );
-  server.on("secureConnection", (socket: TLSSocket) =>
-    registerPeer(state, socket),
-  );
+  const track = (socket: Socket) => {
+    state.connections.add(socket);
+    socket.once("close", () => state.connections.delete(socket));
+  };
+  server.on("connection", track);
+  server.on("secureConnection", (socket: TLSSocket) => {
+    track(socket);
+    registerPeer(state, socket);
+  });
   return {
     server,
     config: state.config,

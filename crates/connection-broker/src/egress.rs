@@ -3,10 +3,11 @@
 //! Used by capability setup (e.g. GitHub private password-store repos) so Pages
 //! can list/create remotes after OAuth without seeing access tokens (ADR 0005/0032).
 
+use std::time::Duration;
+
 use opensesame_domain::OrganizationId;
 use opensesame_invoke_through::scrub_credential_reflection;
 use serde_json::{json, Value};
-use std::time::Duration;
 
 use crate::catalog::AuthMethod;
 use crate::error::{BrokerError, Result};
@@ -18,10 +19,9 @@ use crate::ConnectionBroker;
 
 #[path = "egress_client.rs"]
 mod client;
-use client::credentialed_client;
-
 #[path = "egress_github.rs"]
 mod github;
+use client::credentialed_client;
 use github::{map_github_repo_create_error, parse_github_repo, parse_github_repo_list};
 
 /// Characters of an upstream error body kept for diagnostics. A provider error
@@ -41,6 +41,24 @@ const RESERVED_HEADERS: &[&str] = &[
     "host",
     "transfer-encoding",
 ];
+
+/// Build the no-proxy, no-redirect client for one credentialed request.
+/// Catalog providers get the DNS-pinned client that resolved the approved
+/// authority once; custom providers get the operator-policy client that vets
+/// every DNS answer (ADR 0115).
+async fn credentialed_egress_client(
+    config: &crate::config::BrokerConfig,
+    provider_id: &str,
+    url: &str,
+    timeout: Duration,
+) -> Result<reqwest::Client> {
+    if provider_id.starts_with(crate::CUSTOM_PROVIDER_PREFIX) {
+        let endpoint = url::Url::parse(url)
+            .map_err(|_| BrokerError::Invalid("malformed custom provider URL".into()))?;
+        return config.custom_egress().client(&endpoint, timeout).await;
+    }
+    credentialed_client(url, timeout).await
+}
 
 fn credential_header(auth: &AuthMethod, tokens: &TokenSet) -> Result<(String, String)> {
     match auth {
@@ -221,7 +239,9 @@ impl ConnectionBroker {
         // opened. The resulting client uses only those addresses and bypasses
         // process proxies, so neither DNS rebinding nor a proxy can redirect
         // the credentialed connection.
-        let client = credentialed_client(url, Duration::from_secs(20)).await?;
+        let client =
+            credentialed_egress_client(&self.config, &row.provider_id, url, Duration::from_secs(20))
+                .await?;
 
         let key = *self.sealing_key()?;
         let credential = store::get_credential(&self.pool, &row.id)
@@ -259,11 +279,10 @@ impl ConnectionBroker {
     /// supplies the URL and must not be able to aim a credentialed request at
     /// an origin the connection never authorized.
     ///
-    /// Three things are deliberate. Redirects are not followed — a redirect
-    /// would replay the bearer token at an unapproved origin. Error bodies are
-    /// never read or returned because a hostile provider can reflect the
-    /// injected credential in one. And no part of the credential is ever
-    /// returned or logged: on failure the caller learns only the status.
+    /// Two things are deliberate. Redirects are not followed — a redirect
+    /// would replay the bearer token at an unapproved origin. The response
+    /// body is not read: on failure the caller learns the status, not the
+    /// provider's untrusted body, which may contain the injected credential.
     ///
     /// # Errors
     ///
@@ -292,17 +311,13 @@ impl ConnectionBroker {
             .allows_url(url)
             .map_err(|e| BrokerError::Invalid(e.to_string()))?;
 
-        for (name, _) in extra_headers {
-            if RESERVED_HEADERS
-                .iter()
-                .any(|reserved| name.eq_ignore_ascii_case(reserved))
-            {
-                return Err(BrokerError::Invalid(format!(
-                    "caller may not set the {name} header on a credentialed upload"
-                )));
-            }
-        }
-        let client = credentialed_client(url, Duration::from_secs(60)).await?;
+        // Resolve and pin the approved authority before the credential is
+        // opened. The resulting client uses only those addresses and bypasses
+        // process proxies, so neither DNS rebinding nor a proxy can redirect
+        // the credentialed connection.
+        let client =
+            credentialed_egress_client(&self.config, &row.provider_id, url, Duration::from_secs(60))
+                .await?;
 
         let key = *self.sealing_key()?;
         let credential = store::get_credential(&self.pool, &row.id)
@@ -319,6 +334,19 @@ impl ConnectionBroker {
             .header("Content-Type", "application/octet-stream")
             .header("User-Agent", "OpenSesame-Host/0.1");
         for (name, value) in extra_headers {
+            // Headers are appended, not set, so a caller passing `Authorization`
+            // would add a second one beside ours rather than replace it —
+            // leaving which credential the provider honours up to the provider.
+            // Today there is one caller passing one constant name; this is here
+            // so that stays safe when there are more.
+            if RESERVED_HEADERS
+                .iter()
+                .any(|reserved| name.eq_ignore_ascii_case(reserved))
+            {
+                return Err(BrokerError::Invalid(format!(
+                    "caller may not set the {name} header on a credentialed upload"
+                )));
+            }
             req = req.header(name.as_str(), value.as_str());
         }
 
@@ -326,7 +354,7 @@ impl ConnectionBroker {
             .body(body)
             .send()
             .await
-            .map_err(|_| BrokerError::ExchangeFailed("upstream request failed".into()))?;
+            .map_err(|e| BrokerError::ExchangeFailed(e.without_url().to_string()))?;
         let status = response.status();
         if status.is_redirection() {
             // Following this would hand the bearer token to wherever the
@@ -336,6 +364,9 @@ impl ConnectionBroker {
             )));
         }
         if !status.is_success() {
+            // An upstream can reflect the injected credential in any encoding
+            // and can stream an unbounded error. Neither is safe to retain or
+            // return, so do not read the body at all.
             return Err(BrokerError::ExchangeFailed(format!("upstream {status}")));
         }
         Ok(())
@@ -403,69 +434,8 @@ impl ConnectionBroker {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn token() -> TokenSet {
-        TokenSet {
-            access_token: "do-not-return".into(),
-            refresh_token: None,
-            token_type: "test".into(),
-            expires_at: None,
-            scopes: Vec::new(),
-            configuration: std::collections::BTreeMap::default(),
-        }
-    }
-
-    #[test]
-    fn places_oauth_and_api_key_credentials_from_catalog_auth() {
-        let oauth = AuthMethod::OpenRouterPkce {
-            authorize_url: "https://openrouter.ai/auth".into(),
-            exchange_url: "https://openrouter.ai/api/v1/auth/keys".into(),
-        };
-        assert_eq!(
-            credential_header(&oauth, &token()).unwrap(),
-            ("Authorization".into(), "Bearer do-not-return".into())
-        );
-
-        let api_key = AuthMethod::ApiKey {
-            header: "X-Api-Key".into(),
-            value_prefix: "Key ".into(),
-        };
-        assert_eq!(
-            credential_header(&api_key, &token()).unwrap(),
-            ("X-Api-Key".into(), "Key do-not-return".into())
-        );
-        assert!(credential_header(&AuthMethod::Configuration, &token()).is_err());
-    }
-
-    #[test]
-    fn parses_private_repo() {
-        let v = json!({
-            "name": "opensesame-passwords",
-            "full_name": "alice/opensesame-passwords",
-            "private": true,
-            "clone_url": "https://github.com/alice/opensesame-passwords.git",
-            "html_url": "https://github.com/alice/opensesame-passwords",
-            "default_branch": "main"
-        });
-        let repo = parse_github_repo(&v).unwrap();
-        assert!(repo.private);
-        assert_eq!(repo.name, "opensesame-passwords");
-        assert!(repo.clone_url.to_ascii_lowercase().ends_with(".git"));
-    }
-
-    #[test]
-    fn maps_integration_forbidden_to_actionable_hint() {
-        let mapped = map_github_repo_create_error(BrokerError::ExchangeFailed(
-            "upstream 403 Forbidden: {\"message\":\"Resource not accessible by integration\"}"
-                .into(),
-        ));
-        assert_eq!(mapped.code(), "invalid_request");
-        assert!(mapped.hint().contains("Install the tenant GitHub App"));
-        assert!(mapped.hint().contains("Re-authorize"));
-    }
-}
+#[path = "egress_tests.rs"]
+mod tests;
 
 #[cfg(test)]
 mod reserved_header_tests {

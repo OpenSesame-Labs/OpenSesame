@@ -48,16 +48,16 @@ export async function sealFirstVault(
   );
   if (protection !== "pin-only") {
     await checkTutorialNextBlocked(page, check, next);
+    const passkeyTab = page.getByRole("tab", { name: "Passkey" });
+    await passkeyTab.waitFor({ state: "visible", timeout: 30_000 });
     check(
-      (await page
-        .getByRole("tab", { name: "Passkey" })
-        .getAttribute("aria-selected")) === "true",
+      (await passkeyTab.getAttribute("aria-selected")) === "true",
       `${protection} first vault: passkey leads the seal`,
     );
+    const deviceTab = page.getByRole("tab", { name: "This device" });
+    await deviceTab.waitFor({ state: "visible", timeout: 30_000 });
     check(
-      (await page
-        .getByRole("tab", { name: "This device" })
-        .getAttribute("aria-selected")) === "true",
+      (await deviceTab.getAttribute("aria-selected")) === "true",
       `${protection} first vault: This device is the default passkey road`,
     );
     const sealPasskey = page.getByRole("button", {
@@ -80,11 +80,36 @@ export async function sealFirstVault(
     }
     await sealPasskey.click();
     await waitForSecurityKey(page, { out, width, label, keepShots });
-    check(true, "first vault: unavailable device passkey offers Security key");
+    check(
+      await page.getByRole("tab", { name: "Security key" }).isVisible(),
+      "first vault: unavailable device passkey offers Security key",
+    );
     // Start the real cross-platform prompt, then choose PIN to cancel it as a
     // person would when no security key is available.
     await sealPasskey.click();
     await page.getByRole("tab", { name: "PIN", exact: true }).click();
+    await page.waitForFunction(
+      () =>
+        document
+          .querySelector('[role="tab"][aria-selected="true"]')
+          ?.textContent?.trim() === "PIN",
+    );
+    check(
+      (await page
+        .getByText(
+          "This device's passkey cannot seal a vault. Security key is selected.",
+          { exact: true },
+        )
+        .count()) === 0,
+      "first vault: PIN selection clears the stale passkey notice",
+    );
+    // The passkey road's fallback is named by the held seal step, which waits
+    // for the unlock itself; the PIN fields are walked as tour steps only on
+    // the PIN-only road below, so fill and seal the way a person would here.
+    await page.getByLabel("Device PIN", { exact: true }).fill(PIN);
+    await page.getByLabel("Confirm PIN", { exact: true }).fill(PIN);
+    await page.getByRole("button", { name: "Seal with PIN" }).click();
+    return;
   } else {
     check(
       (await page.getByRole("tab", { name: "Passkey" }).count()) === 0,
@@ -140,7 +165,7 @@ export async function sealFirstVault(
     await next.click();
   }
   await waitForPinTutorial(page, { out, width, label, keepShots });
-  await step("unlock.seal-pin-entry", 5, 16);
+  await step("unlock.seal-pin-entry", 5, 17);
   if (process.env.TUTORIALS_PIN_BACK === "1") {
     await checkTutorialNextBlocked(page, check, next, "unlock.seal-pin-entry");
     check(
@@ -157,7 +182,7 @@ export async function sealFirstVault(
   }
   await page.getByLabel("Device PIN", { exact: true }).fill(PIN);
   await page.locator(".coach__btn--go").click();
-  await step("unlock.seal-pin-confirm", 6, 16);
+  await step("unlock.seal-pin-confirm", 6, 17);
   if (process.env.TUTORIALS_PIN_BACK === "1") {
     await checkTutorialNextBlocked(
       page,
@@ -166,9 +191,9 @@ export async function sealFirstVault(
       "unlock.seal-pin-confirm",
     );
     await page.getByRole("button", { name: "Back", exact: true }).click();
-    await step("unlock.seal-pin-entry", 5, 16);
+    await step("unlock.seal-pin-entry", 5, 17);
     await next.click();
-    await step("unlock.seal-pin-confirm", 6, 16);
+    await step("unlock.seal-pin-confirm", 6, 17);
   }
   if (phone && process.env.TUTORIALS_KEYBOARD_VIEWPORT === "1") {
     await checkKeyboardViewport(page, check, label, {
@@ -179,16 +204,25 @@ export async function sealFirstVault(
   }
   await page.getByLabel("Confirm PIN", { exact: true }).fill(PIN);
   await page.locator(".coach__btn--go").click();
-  await step("unlock.seal-ack", 7, 16);
+  await step("unlock.seal-ack", 7, 17);
   check(
     await recovery.isChecked(),
     "first vault: recovery acknowledgment remains selected",
   );
   await page.locator(".coach__btn--go").click();
-  await step("unlock.seal", 8, 16);
+  await step("unlock.seal", 8, 17);
   if (phone && page.viewportSize().width <= 320)
     await checkLateSealScroll(page, step, check);
-  await page.locator(".coach__btn--go").click();
+  // The seal step is an action step, so its Next is aria-disabled — a person
+  // can still press it, and the card ignores the press. Playwright refuses to
+  // click an aria-disabled key, so deliver the press the way the browser does
+  // and prove both that the tour stayed on the seal and the screen did too.
+  await next.evaluate((button) => button.click());
+  check(
+    (await page.locator('.coach[data-coach-target="unlock.seal"]').count()) ===
+      1,
+    "first vault: a pressed Next cannot skip sealing the PIN vault",
+  );
   check(
     await page.getByRole("heading", { name: "Seal this device" }).isVisible(),
     "first vault: Next cannot skip sealing the PIN vault",

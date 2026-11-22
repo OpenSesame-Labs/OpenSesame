@@ -19,7 +19,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 beforeAll(() => registerGuidePredicates());
 
 describe("the guided first item", () => {
-  it("waits for the saved password and a copy action before finishing", () => {
+  it("cannot finish its Save step until the vault holds the item, then copies and stands over the list", () => {
     const compiled = compileGuide(
       FIRST_ITEM_GOAL.guide,
       {
@@ -36,11 +36,13 @@ describe("the guided first item", () => {
     const saveBeat = plan.beats.find(
       (beat) => beat.target === "item.editor.save",
     );
+    // A save that seals is the only thing that makes this true — a rejected
+    // press, Cancel and Escape never do.
     expect(saveBeat?.until).toMatchObject({
       kind: "wait",
-      subject: "target",
-      target: "item.copy-generated",
-      event: "appear",
+      subject: "state",
+      predicate: "vault.has-items",
+      expected: true,
     });
     const copyBeat = plan.beats.find(
       (beat) => beat.target === "item.copy-generated",
@@ -51,10 +53,29 @@ describe("the guided first item", () => {
       target: "item.copy-generated",
       event: "activate",
     });
+    // The copy control exists only on the saved item; its appearance is the
+    // way into the copy step, so the step is never drawn before the save.
+    const copyPreamble = compiled.program.instructions.slice(
+      copyBeat?.start ?? 0,
+      copyBeat?.present ?? 0,
+    );
+    expect(
+      copyPreamble.some(
+        (instruction) =>
+          instruction.kind === "wait" &&
+          instruction.subject === "target" &&
+          instruction.target === "item.copy-generated" &&
+          instruction.event === "appear",
+      ),
+    ).toBe(true);
     expect(copyBeat?.ordinal).toBeGreaterThan(saveBeat?.ordinal ?? -1);
+    const listBeat = plan.beats.find((beat) => beat.target === "vault.list");
+    expect(listBeat).toBeDefined();
+    expect(listBeat?.ordinal).toBeGreaterThan(copyBeat?.ordinal ?? -1);
+    expect(listBeat?.route).toBe("/vault/list");
     const close = plan.beats[plan.beats.length - 1];
     expect(close?.kind).toBe("close");
-    expect(close?.ordinal).toBeGreaterThan(copyBeat?.ordinal ?? -1);
+    expect(close?.ordinal).toBeGreaterThan(listBeat?.ordinal ?? -1);
   });
 
   it("opens the phone list pane before pointing at New item", () => {

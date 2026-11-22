@@ -32,6 +32,7 @@ jobs:
           ref: ${{ github.sha }}
           path: base
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           fetch-depth: 1
       - name: Resolve a current same-repository PR
         id: resolve
@@ -43,24 +44,14 @@ jobs:
           gh api "repos/$GITHUB_REPOSITORY/pulls/$PR_VISUAL_NUMBER" > "$RUNNER_TEMP/pr-visual-pull.json"
           gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$PR_VISUAL_DEFAULT_BRANCH" > "$RUNNER_TEMP/pr-visual-branch.json"
           node base/scripts/ci/pr-visual-ref.mjs "$RUNNER_TEMP/pr-visual-pull.json" "$RUNNER_TEMP/pr-visual-branch.json"
-      - name: Check out the exact PR head
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-        with:
-          ref: ${{ steps.resolve.outputs.head_sha }}
-          path: head
-          persist-credentials: false
-          fetch-depth: 1
       - name: Require matching dependency and native pins
         env:
           PR_VISUAL_HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
         run: |
           test "$(git -C base rev-parse HEAD)" = "$PR_VISUAL_BASE_SHA"
-          test "$(git -C head rev-parse HEAD)" = "$PR_VISUAL_HEAD_SHA"
-          for checkout in base head; do
-            if git -C "$checkout" config --local --get-regexp 'http\..*\.extraheader' > /dev/null; then
-              echo "$checkout checkout unexpectedly persisted credentials" >&2; exit 1
-            fi
-          done
+          if git -C base config --local --get-regexp 'http\..*\.extraheader' > /dev/null; then
+            echo "base checkout unexpectedly persisted credentials" >&2; exit 1
+          fi
           git -C base fetch --no-tags --depth=1 origin "$PR_VISUAL_HEAD_SHA"
           if ! git -C base diff --quiet "$PR_VISUAL_BASE_SHA" "$PR_VISUAL_HEAD_SHA" -- \
             package.json package-lock.json npm-shrinkwrap.json .npmrc \
@@ -70,7 +61,7 @@ jobs:
             echo 'Dependency or native pins differ; use a separately reviewed evidence path.' >&2
             exit 1
           fi
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           working_directory: base
           install_args: node@24
@@ -96,6 +87,11 @@ jobs:
       - name: Prepare the pinned native distribution from trusted base source
         working-directory: base/apps/pages
         run: node --input-type=module -e 'import("./scripts/tailscale-wasm-assets.mjs").then((m) => m.loadTailscaleAssets())'
+      - name: Materialize the exact PR head after trusted setup
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_VISUAL_HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}
+        run: bash base/scripts/ci/pr-visual-materialize-head.sh head
       - name: Build both exact revisions in restricted containers
         env:
           PR_VISUAL_HEAD_SHA: ${{ steps.resolve.outputs.head_sha }}

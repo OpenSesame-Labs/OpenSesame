@@ -179,7 +179,7 @@ export function measureZoomedKeyboard(id) {
       a.bottom <= v.offsetTop + v.height,
     readable: scrollCard
       ? text.clientHeight >= line &&
-        textBox.bottom <= a.top + 1 &&
+        textBox.bottom <= a.bottom + 1 &&
         card.scrollTop > 0 &&
         card.scrollTop + card.clientHeight >= card.scrollHeight - 1
       : text.clientHeight + 1 >= line &&

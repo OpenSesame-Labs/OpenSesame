@@ -128,6 +128,25 @@ export function reportGuideActivation(id: GuideTargetId): void {
   fireActivation(id);
 }
 
+/**
+ * Hear `id` activate in the same turn as the click or key, before a lock
+ * tears the guide down. The wait in `observeGuideTarget` shares this signal.
+ */
+export function subscribeGuideActivation(
+  id: GuideTargetId,
+  listener: () => void,
+): () => void {
+  const listeners = activationListeners.get(id) ?? new Set();
+  listeners.add(listener);
+  activationListeners.set(id, listeners);
+  return () => {
+    const live = activationListeners.get(id);
+    if (!live) return;
+    live.delete(listener);
+    if (live.size === 0) activationListeners.delete(id);
+  };
+}
+
 export type MountOptions = Readonly<{
   /**
    * How the element is activated. `click` (the default) is a click or Enter /
@@ -231,6 +250,13 @@ export function resolveGuideTargetElement(
   id: GuideTargetId,
 ): HTMLElement | null {
   const candidates = mounted.get(id) ?? [];
+  // A candidate with a visible box wins outright. A pointable candidate whose
+  // box is clipped away (scrolled out of a scrollport, an entrance animation
+  // still drawing) survives only as the scrollable fallback: callers resolve
+  // here in order to *act* — `focus` scrolls the returned element into view
+  // before the step is shown — so the fallback hands the runtime something it
+  // can bring on screen. Satisfaction is a different question; an `appear`
+  // wait must not settle on this fallback, see `observeGuideTarget`.
   let scrollable: HTMLElement | null = null;
   for (const candidate of candidates) {
     if (!isPointable(candidate.element)) continue;
@@ -238,6 +264,21 @@ export function resolveGuideTargetElement(
     scrollable ??= candidate.element;
   }
   return scrollable;
+}
+
+/**
+ * Whether any candidate is pointable and has a visible box right now — the
+ * question an `appear` wait actually asks. `isMountedGuideTarget` answers a
+ * looser one through the resolver's scrollable fallback above: "can the
+ * runtime bring this on screen". Settling `appear` on that would point the
+ * next instruction at a control a person cannot see yet.
+ */
+function hasVisibleGuideTargetBox(id: GuideTargetId): boolean {
+  for (const candidate of mounted.get(id) ?? []) {
+    if (!isPointable(candidate.element)) continue;
+    if (visibleTargetRect(candidate.element) !== null) return true;
+  }
+  return false;
 }
 
 export function guideTargetDescriptor(
@@ -311,10 +352,13 @@ export function observeGuideTarget(
     // Pointability, not registration — the same question `focus` asks. The
     // rail and the phone tab bar both register their copy of a destination,
     // so a wait satisfied by mere registration would resolve on the hidden
-    // one and hand the next instruction a control nobody can see.
+    // one and hand the next instruction a control nobody can see. `appear`
+    // is stricter still: the resolver's scrollable fallback can return a
+    // pointable element whose box is clipped, so satisfaction waits for a
+    // candidate with a visible box.
     const satisfied = () =>
       event === "appear"
-        ? isMountedGuideTarget(id)
+        ? hasVisibleGuideTargetBox(id)
         : event === "disappear"
           ? !isMountedGuideTarget(id)
           : false;

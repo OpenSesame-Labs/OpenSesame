@@ -5,9 +5,9 @@ import {
   resolveGuideTargetElement,
 } from "@opensesame/app-core/tutorial/registry/targets.js";
 /** @vitest-environment jsdom */
-import { cleanup, fireEvent, render } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { useGuideTarget } from "./react.jsx";
 
 /**
@@ -154,6 +154,13 @@ describe("waiting for a target to appear", () => {
       );
     }
     render(<RailRow />);
+    // jsdom lays nothing out, so stub the box a visible control reports; the
+    // appear wait settles on `visibleTargetRect`, not on the resolver's
+    // pointable-element fallback.
+    vi.spyOn(
+      screen.getByText("visible-row"),
+      "getBoundingClientRect",
+    ).mockReturnValue(new DOMRect(0, 0, 120, 40));
 
     await waiting;
     expect(settled).toBe(true);

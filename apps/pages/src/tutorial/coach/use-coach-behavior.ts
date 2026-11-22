@@ -8,6 +8,7 @@ import {
 } from "react";
 import { contextMenuOpen, statusBubbleOpen } from "../../lib/keymap-targets.js";
 import type { SupportController } from "../session.js";
+import { COACH_EXIT_SELECTOR } from "./CoachParts.js";
 
 /** How long a step change glides, matching `--coach-glide` in the stylesheet. */
 const GLIDE_MS = 300;
@@ -137,9 +138,7 @@ export function useCoachFocus(
       lastInputInCard.current
     ) {
       const focus = actionOnly
-        ? card.current?.querySelector<HTMLButtonElement>(
-            'button[aria-label="Exit tutorial"]',
-          )
+        ? card.current?.querySelector<HTMLButtonElement>(COACH_EXIT_SELECTOR)
         : primary.current;
       focus?.focus({ preventScroll: true });
     }

@@ -62,6 +62,7 @@ introduces its own (mTLS, plugins) names them where they are used.
 |---|---|
 | [Serving Bitwarden clients](bitwarden-compat.md) | Point `bw` and the Bitwarden apps at the Host, and move people over from vaultwarden or Bitwarden: Argon2id, signups, the importer, scope. |
 | [Optional mTLS and workload identity](mtls.md) | Per-hop TLS profiles, service bindings, SPIFFE, NATS and ingress references. |
+| [Host source-trust history](source-trust-history.md) | Offline complete-history attestation, startup, migration boundaries and recovery. |
 | [Security alerting](security-alerting.md) | Routing security notices to Alertmanager, PagerDuty, syslog and the built-in notifier. |
 | [Notification channels](notification-channels.md) | Where people are asked to approve, and what each channel can be trusted with. |
 | [Live sessions across networks](live-sessions.md) | Tunnel addresses, STUN/TURN, relay only and the code carriers (Nostr, MQTT, NATS, ntfy) a live session may use; every one optional. |

@@ -7,8 +7,8 @@ import { fileURLToPath } from "node:url";
 
 const pins = {
   packageSHA256:
-    "974eca0002cf8b1ebee2be042ffa633b058b95a0c7676987471105845211911a",
-  esmSHA256: "e75f7a75cc41a2286b0eebc0f8a459ccb7ac643c4d551f5163125eb4481f5aba",
+    "b48e30d7db7f9be89aecfd510c8d207ffcaf68209ae0a42e5740be593503a23e",
+  esmSHA256: "11572c36b68dcc8f036e8c02b3d55307250b11fbcb149f0aea5e03180bd35b37",
   applicationSHA256:
     "b3bd8776a9da2d2b10ffaf1ba9d82911b0bdd818abe2b0dda50d18b209f14c82",
   certificateSHA256:
@@ -24,7 +24,7 @@ const pins = {
       "745558c6a3677342c746243c4ae2c60189938759f60e3a9f4729467186da6d3e",
   },
   esmFiles: 42,
-  xmldsigjsVersion: "3.0.0",
+  xmldsigjsVersion: "3.1.0",
 };
 const sha = (value) => createHash("sha256").update(value).digest("hex");
 const implementationRoot = resolve(
@@ -125,7 +125,7 @@ export function readSamlBrowserCryptoInputs(root) {
   const x509Root = resolve(dirname(x509Path), "..");
   match(
     sha(readFileSync(resolve(x509Root, "package.json"))),
-    "27719c7f479804be63667f9157eed53f3b5ccb44e070067dfcc084ef06996866",
+    "62e7ee55bc254005f6ac592930804213880b0fc0f62e43bb8a34d7573f1b71f8",
     "shared certificate package",
   );
   const x509Package = JSON.parse(
@@ -135,7 +135,7 @@ export function readSamlBrowserCryptoInputs(root) {
   const sharedCertificate = resolve(x509Root, x509Module);
   match(
     sha(readFileSync(sharedCertificate)),
-    "f2cc5db5de63f76b35d9c63cc49fbed40731691313da4ec196dfd06516b8821f",
+    "3c4b3557e06a494350243a9064d16a1b1aecda4863b81cba8b6ba4706cad613a",
     "shared certificate implementation",
   );
   const reflection = readReflectionInputs(sharedCertificate);

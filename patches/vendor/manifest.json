@@ -91,12 +91,12 @@
       "rootDependency": "minimatch9-patched",
       "override": "minimatch@^9.0.4"
     },
-    "minimatch@10.2.6": {
-      "patch": "patches/minimatch@10.2.6.patch",
-      "tarball": "patches/vendor/minimatch-10.2.6.tgz",
-      "upstreamIntegrity": "sha512-vpLQEs+VLCr1nU0BXS07maYoFwlDAH0gngQuuttxIwutDFEMHq2blX+8vpgxDdK3J1PwjCJiep77OitTZ4Ll1A==",
-      "upstreamFileMapSha256": "ec7dedd81a230e32846519e0d9eb00f9336ddafda12d003a471d396ed734e7e3",
-      "rootDependency": "minimatch10-patched",
+    "minimatch@11.0.9": {
+      "patch": "patches/minimatch@11.0.9.patch",
+      "tarball": "patches/vendor/minimatch-11.0.9.tgz",
+      "upstreamIntegrity": "sha512-KCFkfyjqerNlSstjlhIGNXIKZGA/6O4V4RlhZ+Dsr621SPPw0mzlypE9D9ZOoPiVefHID+j7/XuMMlqfD/F60Q==",
+      "upstreamFileMapSha256": "13d2a4705aedb0c7b990fe1ec6201952af08d835f4b36670154586a0ca6a499f",
+      "rootDependency": "minimatch11-patched",
       "override": "minimatch@^10.0.0"
     },
     "@joshwooding/vite-plugin-react-docgen-typescript@0.7.0": {

@@ -57,7 +57,7 @@ export const IDENTITY_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "identity.org-signin",
     description:
-      "Review the organization’s sign-in provider, email domains and provisioning tokens. Only an owner can change them.",
+      "Review the organization's sign-in provider, email domains and provisioning tokens. Only an owner can change them.",
     role: "action",
     routes: ["/identity"],
     capabilityId: "identity.org_signin.upstream.manage",

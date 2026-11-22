@@ -64,8 +64,9 @@ Common, un-prefixed:
 | `OPENSESAME_MAPPING_AUTH` | `shared_secret` \| `mtls` on both Host and Identity. | Both a token and a certificate configured without this variable: startup error on both sides. `mtls` without `OPENSESAME_MAPPING_TLS_*` (Host) or a bound mapping principal (Identity): refuse to start. |
 | `OPENSESAME_NATS_CALLOUT_AUTH` | `shared_secret` \| `mtls`. `shared_secret` is accepted only on the plain listener (`existing_local`). | `mtls` without a `nats_auth_bridge` binding: every callout is denied. |
 | `OPENSESAME_NATS_AUTH` | `none` \| `nkey` \| `creds`, with `OPENSESAME_NATS_NKEY_SEED_FILE` / `OPENSESAME_NATS_CREDS_FILE`. Authorization credentials, separate from the TLS identity. | Missing file: connect refused; no anonymous fallback. |
-| `OPENSESAME_NATS_REQUIRE_TLS` | `1` refuses any plaintext server, including one learned from INFO on reconnect. | Unset on a networked deployment: the client will accept whatever the server offers. Set it. |
+| `OPENSESAME_NATS_REQUIRE_TLS` | `1` refuses any plaintext server, including one learned from INFO on reconnect. | An environment-selected plaintext policy requires an explicit false value. A TLS trust, identity, server expectation or credential still requires TLS. |
 | `OPENSESAME_NATS_TLS_FIRST` | `1` performs the TLS handshake before the INFO line where server and client both support it. | Server without `tls.handshake_first`: connect fails; do not remove the flag, fix the server. |
+| `OPENSESAME_NATS_MAX_RECONNECTS` | Retry limit for an explicit NATS transport configuration; `0` means unlimited for ordinary sessions. | Injected sessions cap this at one server selection per initial connection or reconnect cycle. This setting alone is refused, as are nonassertive settings such as `AUTH=none` or `TLS_FIRST=0` without an explicit plaintext choice. |
 
 The Host's existing knobs keep their meaning: `OPENSESAME_IDENTITY_API`,
 `OPENSESAME_MAPPING_PRIVATE_ENDPOINT`,
@@ -240,6 +241,48 @@ export OPENSESAME_NATS_TLS_SERVER_NAME=nats.example
 export OPENSESAME_NATS_AUTH=nkey
 export OPENSESAME_NATS_NKEY_SEED_FILE=/etc/opensesame/host.nk
 ```
+
+NATS refuses incomplete TLS identity and credential settings rather than
+silently selecting plaintext, and refuses conflicting source companions such
+as a SPIFFE trust domain alongside a PEM trust file. Server expectations, an
+explicit TLS minimum, a CRL file and provisioning credentials require a TLS
+policy with trust.
+Nonempty `OPENSESAME_NATS_REQUIRE_TLS` and `OPENSESAME_NATS_TLS_FIRST` accept
+`1`, `true`, `yes`, `on`, `0`, `false`, `no` or `off`; other values are errors.
+When a PEM trust or identity file is configured, load that file rather than
+also supplying injected material for the same role. Injection is for a
+source-managed identity or SPIFFE trust, or a public policy without a locator;
+the caller is responsible for selecting the intended keys and anchors.
+An injected SPIFFE client identity must match the configured
+`OPENSESAME_NATS_TLS_SPIFFE_ID` and satisfy the client SVID profile when a
+session is opened. A stored identity reference contains no SPIFFE-ID locator;
+the caller must select the intended ID, but the SVID profile still applies to a
+SPIFFE reference. These checks do not establish source provenance or prevent
+reuse after source withdrawal.
+When using `OPENSESAME_NATS_TLS_CRL_FILE`, supply exactly one PEM-encoded
+`X509 CRL` block with only whitespace outside the block, and do not also inject
+a bundle containing a CRL. Multiple lists are refused because the current
+verifier otherwise uses only the first authoritative list. An unreadable,
+empty, truncated or malformed CRL file also prevents a connection.
+After changing a CRL, CA file or client identity, or withdrawing source
+material, rotate to accepted replacement material or close and recreate the
+NATS task bus. File-backed sessions automatically reconnect with their captured
+TLS material. A session with injected trust or identity instead refuses another
+TLS handshake after its first server-certificate verification attempt; a
+disconnect or failed first attempt therefore requires explicit rotation or
+recreation. Such sessions also cap async-nats at one server selection per
+initial connection or reconnect cycle; a selection may try multiple resolved
+addresses. This can limit initial multi-server failover and shorten a configured
+retry limit. DNS
+resolution occurs outside the SDK's per-address timeout, so this is not a
+hard deadline for a stalled resolver or its background task. Existing
+connections continue, and a failed rotation keeps the
+accepted session and material active. An implicit rotation reuses previously
+accepted injected material, so its caller must ensure that material is current.
+The client does not prove the source or generation of injected keys or trust.
+After publishing a replacement session, rotation makes a drain enqueue attempt
+bounded to two seconds plus scheduling. Neither successful enqueue nor timeout
+establishes that the prior connection or background task has closed.
 
 Server: the reference configurations live in `ops/nats/`. Two client-admission
 profiles are shipped and they are not interchangeable:
@@ -449,6 +492,14 @@ chains is a refusal.
 - **SPIFFE:** the Workload API stream drives generations; no other renewal
   logic runs on those identities.
 
+The Identity listener's `restartTransport()` API preserves open connections
+when only its server certificate changes. When the client CA, originating
+client trust, or service bindings change, it invalidates evidence from the
+old trust generation and closes existing connections, including handshakes
+in progress. Clients must reconnect and retry interrupted requests. Identity
+does not watch these files or invoke this API automatically; operators should
+restart the Identity process to apply file changes.
+
 A new generation invalidates pooled client connections authenticated under the
 old one. Status shows `runtime.loaded.generation` so you can see which one is
 live. A rotated certificate keeps the service's principal, bindings, quotas
@@ -462,7 +513,7 @@ and audit lineage: the binding matches by name selector, and only a
 | New handshakes | The revoke verb writes the thumbprint to the durable revoked-leaf denylist (`host_kv` `transport.revoked_leaves`), then to `denied_thumbprints` on every stored binding (binding revision bump, CAS retried on a lost race); or remove the root; optionally `P_CRL_FILE` | The next connection attempt in the process that took the write; other gateway processes sharing the store adopt the denylist and the new binding revision within 15 s (`REFRESH_INTERVAL`) or on their next binding read or write. The denylist is read before a restarted gateway serves (an unreadable denylist stops boot) and is consulted for every binding, including one created after the revocation. If either durable write cannot be applied the verb answers with an error (`409 stale_revision` after bounded retries, `409 denylist_full`, `409 denylist_quota`, `500 storage_error`), not `200` — the leaf is already refused in the process that took the call, and a denylist that refuses the entry still lets the binding write, the facts and the notice run first; repeat the revocation, which is idempotent. The denylist holds at most 4,096 live entries: each records its revoker and the leaf's `not_after`, entries more than 24 h past `not_after` are pruned in the same conditional write, one organization holds at most 256, and tenants together never take the last 1,024, so a tenant cannot crowd out the operator. |
 | Clients behind a trusted ingress | The same revoked-leaf hook is applied to the forwarded originating leaf, and a certificate-bound token naming a revoked leaf is refused (`evidence_revoked`) | The next forwarded request. |
 | Existing native HTTP connections | Every protected request re-resolves the binding and rechecks `denied_thumbprints`, the trust and credential generations, and `usable_until` (`authenticated_at + min(usable_for, certificate remaining)`) | The next protected request on that connection, and unconditionally when `usable_until` passes. |
-| NATS sessions | The callout response carries an authorization expiry the **server** enforces by disconnecting; the client's own timer is not relied on | The expiry issued at admission; shorten it in the callout policy if you need a tighter bound. A reissued decision on reconnect goes through admission again. |
+| NATS sessions | The callout response carries an authorization expiry the **server** enforces by disconnecting; the client's own timer is not relied on | The expiry issued at admission; shorten it in the callout policy if you need a tighter bound. A file-backed reconnect or an injected-session rotation goes through admission again. |
 | OpenBao tokens | The token's TTL, or `auth/token/revoke` | The token's own lifetime. Certificate revocation leaves it valid. |
 | OAuth access tokens | Token lifetime; RFC 7009 revocation on Identity. A certificate-bound token's `cnf` names the old leaf, so a rotated certificate cannot use it and a new token must be acquired | The token's own lifetime. |
 | Browser application cache and local vault | None from here. Cached code keeps running; the vault opens with its local protectors | Never, by remote action. |
@@ -482,9 +533,10 @@ device.
   is unaffected.
 - **Identity unreachable from the Host (mapping):** authentication of callers
   that need mapping fails closed, as it does today.
-- **NATS unreachable:** the task bus reconnects only to servers that satisfy
-  the same identity policy; a plaintext or wrong-name server offered on
-  reconnect is refused and the process does not switch to the memory bus.
+- **NATS unreachable:** file-backed sessions reconnect only to servers that
+  satisfy the captured identity policy. Injected sessions require explicit
+  rotation or recreation after disconnect. A plaintext or wrong-name server
+  is refused, and the process does not switch to the memory bus.
 - **Ingress unreachable:** browser-facing traffic stops; the origin does not
   open a direct browser listener to compensate.
 - **Trust generation removed while connections are open:** those connections

@@ -15,8 +15,14 @@ import {
   saveAndCopyPassword,
 } from "./tutorial-pepper.mjs";
 import { readStep, startTutorial } from "./tutorial-walk.mjs";
+import { pickSetupChoice } from "./verification-checklist-setup.mjs";
 
-export async function runFirstVaultPass({ newPage, width, ...options }) {
+export async function runFirstVaultPass({
+  newPage,
+  width,
+  setupChoice = "Default",
+  ...options
+}) {
   for (const protection of ["passkey", "fallback", "pin-only"]) {
     const { page, context } = await newPage(width);
     try {
@@ -25,6 +31,7 @@ export async function runFirstVaultPass({ newPage, width, ...options }) {
         context,
         width,
         protection,
+        setupChoice,
         ...options,
       });
     } catch (error) {
@@ -49,6 +56,7 @@ async function firstVaultPass({
   width,
   keepShots,
   protection,
+  setupChoice,
 }) {
   await context.addInitScript(() =>
     Object.defineProperty(navigator, "webdriver", { get: () => false }),
@@ -69,7 +77,7 @@ async function firstVaultPass({
     .getByRole("button", { name: "Set up your own" })
     .waitFor({ timeout: 30000 });
   const label = `${protection} first vault`;
-  const step = tutorialStepChecker(page, check, phone, 12, label, readStep, {
+  const step = tutorialStepChecker(page, check, phone, 13, label, readStep, {
     out,
     width,
     keepShots,
@@ -78,6 +86,7 @@ async function firstVaultPass({
     out,
     width,
     keepShots,
+    setupChoice,
   });
   await makePassword(page, step, check, phone, label, protection);
 }
@@ -89,7 +98,7 @@ async function enterVault(
   check,
   phone,
   protection,
-  { out, width, keepShots },
+  { out, width, keepShots, setupChoice = "Default" },
 ) {
   await step("unlock.setup", 1);
   await page.locator(".coach__btn--go").focus();
@@ -101,9 +110,18 @@ async function enterVault(
   );
   if (phone && page.viewportSize().width <= 390)
     await checkZoomViewport(page, check);
-  else await page.getByRole("button", { name: "Set up your own" }).click();
+  else
+    await page
+      .getByRole("button", { name: "Set up your own", exact: true })
+      .evaluate((button) => button.click());
   await step("setup.default", 2);
-  await page.getByRole("button", { name: "Default", exact: true }).click();
+  if (setupChoice === "Minimal" || setupChoice === "Full") {
+    await pickSetupChoice(page, setupChoice);
+  } else {
+    await page
+      .getByRole("button", { name: "Default", exact: true })
+      .evaluate((button) => button.click());
+  }
   await step("unlock.local-only", 3);
   await page.getByRole("button", { name: "Use without an account" }).click();
   await step("unlock.seal-actions", 4);
@@ -123,8 +141,13 @@ async function enterVault(
 }
 
 async function makePassword(page, step, check, phone, label, protection) {
-  const first = protection === "passkey" ? 5 : 9;
-  const total = protection === "passkey" ? 12 : 16;
+  // The passkey road's seal — sealed straight through or fallen back to PIN —
+  // holds the seal step until the vault unlocks, so the shell continuation
+  // begins right after the gate's four walked steps. Only the PIN-only road
+  // walks the four seal fields as tour steps.
+  const pinOnly = protection === "pin-only";
+  const first = pinOnly ? 9 : 5;
+  const total = pinOnly ? 17 : 13;
   const expected = `Step ${first} of ${total}`;
   try {
     await page.waitForFunction(
@@ -308,7 +331,7 @@ export async function firstItemPass({
     page,
     check,
     phone,
-    8,
+    9,
     "first item",
     readStep,
     { out, width, keepShots },

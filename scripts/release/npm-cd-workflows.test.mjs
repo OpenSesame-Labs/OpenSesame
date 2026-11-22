@@ -183,11 +183,11 @@ test("staged npm packages are checked locally while Pages smoke remains active",
   assert.doesNotMatch(pwaSmoke, /CD_REGISTRY_VERSION_CONFIRMED/);
   assert.doesNotMatch(
     read("scripts/release/cd-pwa-preview-smoke/run.mjs"),
-    /runHurl\("registry\.hurl"/,
+    /runHurl\(\s*"registry\.hurl"/,
   );
   assert.match(
     read("scripts/release/cd-pwa-preview-smoke/run.mjs"),
-    /runHurl\("pages\.hurl"/,
+    /runHurl\(\s*"pages\.hurl"/,
   );
   assert.match(
     read("scripts/release/prepare-cli-release.mjs"),
