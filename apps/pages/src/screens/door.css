@@ -67,6 +67,20 @@
   display: contents;
 }
 
+.door__guest-action {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.door__guest-action > .status-mark[data-touch-twin] {
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+}
+
 /* The third road — a vault that begins from a file — sits under the pair,
    across both columns: it is another kind of road, not a third of a row. */
 .road--wide {

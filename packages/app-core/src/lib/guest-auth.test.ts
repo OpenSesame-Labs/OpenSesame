@@ -2,6 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { sessionStore } from "../ports.js";
 import {
+  FRESH_GUEST_SIGN_OUT_MESSAGE,
+  FRESH_GUEST_STATUS_UNKNOWN_MESSAGE,
   adoptFederatedIdentity,
   continueAsGuest,
   guestAuthDependencies,
@@ -12,29 +14,38 @@ import { IdentityError } from "./identity.js";
 import { clearNotices, listNotices } from "./notices.js";
 
 const connectProvisional = vi.fn();
+const connectFreshProvisional = vi.fn();
 const rebindSession = vi.fn();
 const identityJson = vi.fn();
 const currentSession = vi.fn();
 const createGuest = vi.fn();
 const vaultStatus = vi.fn();
 const loadFederationSession = vi.fn();
+const resumeSession = vi.fn();
+const inspectRemoteSession = vi.fn();
 const isRemoteIdentityConfigured = vi.fn(() => true);
+const mintGuestPerson = guestAuthDependencies.mintGuestPerson;
 
 Object.assign(guestAuthDependencies, {
   rebindSession,
   connectProvisional,
+  connectFreshProvisional,
   isRemoteIdentityConfigured,
   identityJson,
   currentSession,
   createGuest,
   vaultStatus,
   loadFederationSession,
+  resumeSession,
+  inspectRemoteSession,
 });
 
 beforeEach(() => {
+  guestAuthDependencies.mintGuestPerson = mintGuestPerson;
   clearNotices();
   sessionStorage.clear();
   connectProvisional.mockReset();
+  connectFreshProvisional.mockReset();
   rebindSession.mockReset();
   rebindSession.mockResolvedValue(undefined);
   identityJson.mockReset();
@@ -45,6 +56,10 @@ beforeEach(() => {
   vaultStatus.mockReturnValue("unlocked");
   loadFederationSession.mockReset();
   loadFederationSession.mockReturnValue(null);
+  resumeSession.mockReset();
+  resumeSession.mockResolvedValue(null);
+  inspectRemoteSession.mockReset();
+  inspectRemoteSession.mockResolvedValue({ kind: "absent" });
   isRemoteIdentityConfigured.mockReset();
   isRemoteIdentityConfigured.mockReturnValue(true);
   connectProvisional.mockResolvedValue({
@@ -52,11 +67,21 @@ beforeEach(() => {
     accessToken: "guest-tok",
     issuerOrigin: "http://127.0.0.1:18788",
   });
-  currentSession.mockReturnValue({
-    principalId: "prn_guest",
-    accessToken: "guest-tok",
-    issuerOrigin: "http://127.0.0.1:18788",
+  connectFreshProvisional.mockImplementation(async () => {
+    const inspected = await inspectRemoteSession();
+    if (inspected.kind === "unknown") {
+      throw new Error(FRESH_GUEST_STATUS_UNKNOWN_MESSAGE);
+    }
+    if (inspected.kind === "present" || currentSession()) {
+      throw new Error(FRESH_GUEST_SIGN_OUT_MESSAGE);
+    }
+    return {
+      principalId: "prn_guest",
+      accessToken: "guest-tok",
+      issuerOrigin: "http://127.0.0.1:18788",
+    };
   });
+  currentSession.mockReturnValue(null);
   identityJson.mockResolvedValue({
     principalId: "prn_guest",
     identity: { assurance: "verified" },
@@ -154,6 +179,11 @@ describe("linkGuestAccount", () => {
   it("uses the active guest session without persisting its bearer", async () => {
     await continueAsGuest();
     connectProvisional.mockClear();
+    currentSession.mockReturnValue({
+      principalId: "prn_guest",
+      accessToken: "guest-tok",
+      issuerOrigin: "http://127.0.0.1:18788",
+    });
     await linkGuestAccount("id.token.here");
     expect(connectProvisional).not.toHaveBeenCalled();
     // Guest principal stays; bearer still must not.
@@ -205,6 +235,11 @@ const PENDING_LINK_KEY = "opensesame:federation:pending-link";
 describe("adoptFederatedIdentity", () => {
   it("opens a guest vault on first run, then attaches the identity", async () => {
     vaultStatus.mockReturnValue("empty");
+    currentSession.mockReturnValue({
+      principalId: "prn_member",
+      accessToken: "member-tok",
+      issuerOrigin: "http://127.0.0.1:18788",
+    });
     await adoptFederatedIdentity("id.token.here");
     expect(createGuest).toHaveBeenCalledTimes(1);
     expect(identityJson).toHaveBeenCalledWith(

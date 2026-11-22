@@ -5,6 +5,13 @@
  * part key lives in that manifest. Ciphertext lives in an object store. Each
  * part is written to every store in the list; a read uses the first store
  * that still has it.
+ *
+ * A manifest written now records `partBytes`, the plaintext part size its
+ * sealer used, and every part is held to it (at most 1 MiB, 1 MiB + 16 bytes
+ * encrypted). A v1 manifest without `partBytes` predates those bounds: only
+ * when reading one is an encrypted part accepted up to the drive daemon's
+ * former limit of 1 MiB + 1,024 bytes, so existing attachments stay readable.
+ * Nothing seals a part that large.
  */
 
 import {
@@ -22,7 +29,11 @@ export const FILE_PART_BYTES = 1_048_576;
 export const MAX_FILE_BYTES = 1_073_741_824;
 export const MAX_FILE_PARTS = 4_096;
 export const MAX_FILE_MANIFEST_CHARS = 1_048_576;
+/** The GCM authentication tag adds 16 bytes to each encrypted part. */
 export const MAX_ENCRYPTED_FILE_PART_BYTES = FILE_PART_BYTES + 16;
+/** Read-only allowance for parts named by a legacy (unmarked) v1 manifest. */
+export const MAX_LEGACY_ENCRYPTED_FILE_PART_BYTES = FILE_PART_BYTES + 1024;
+const LEGACY_PART_BYTES = MAX_LEGACY_ENCRYPTED_FILE_PART_BYTES - 16;
 
 export type ObjectStore = {
   putObject(key: string, body: Uint8Array): Promise<void>;
@@ -45,6 +56,8 @@ export type FileManifest = {
   readonly mediaType: string;
   readonly size: number;
   readonly key: string;
+  /** Plaintext bytes per part; absent only on a legacy v1 manifest. */
+  readonly partBytes?: number;
   readonly parts: readonly FilePartRef[];
 };
 
@@ -96,6 +109,13 @@ function manifestHeader(
   const mediaType = readString(parsed.mediaType);
   const key = readString(parsed.key);
   const size = wholeSize(parsed.size);
+  const declared = wholeSize(parsed.partBytes);
+  if (
+    parsed.partBytes !== undefined &&
+    (declared === undefined || declared < 1 || declared > FILE_PART_BYTES)
+  )
+    return undefined;
+  const partBytes = declared ?? LEGACY_PART_BYTES;
   if (
     name === undefined ||
     mediaType === undefined ||
@@ -107,11 +127,18 @@ function manifestHeader(
     !/^[A-Za-z0-9+/]{43}=$/u.test(key) ||
     (size === 0) !== (partLength === 0) ||
     (size > 0 && partLength > size) ||
-    partLength < Math.ceil(size / FILE_PART_BYTES)
+    partLength < Math.ceil(size / partBytes)
   ) {
     return undefined;
   }
-  return { v: 1, name, mediaType, size, key };
+  return {
+    v: 1,
+    name,
+    mediaType,
+    size,
+    key,
+    ...(declared === undefined ? undefined : { partBytes: declared }),
+  };
 }
 
 function filePartRef(value: JsonValue): FilePartRef | undefined {
@@ -271,8 +298,14 @@ export async function sealFile(input: {
     mediaType: input.mediaType,
     size: input.bytes.byteLength,
     key: encoded,
+    partBytes,
     parts,
   });
+}
+
+/** The largest plaintext part this manifest may name. */
+function partLimit(manifest: FileManifest): number {
+  return manifest.partBytes ?? LEGACY_PART_BYTES;
 }
 
 async function openOne(
@@ -281,9 +314,10 @@ async function openOne(
   index: number,
   count: number,
   stores: readonly ObjectStore[],
+  limit: number,
 ): Promise<Uint8Array> {
   const body = await getReplica(stores, ref.key);
-  if (body.byteLength > MAX_ENCRYPTED_FILE_PART_BYTES) throw new Error(MISSING);
+  if (body.byteLength > limit + 16) throw new Error(MISSING);
   try {
     return await gcmOpen(
       key,
@@ -305,17 +339,18 @@ export async function openFile(
   if (manifest === undefined) throw new Error(MISSING);
   const key = await keyFromManifest(manifest.key);
   const count = manifest.parts.length;
+  const limit = partLimit(manifest);
   const bytes = new Uint8Array(manifest.size);
   let offset = 0;
   try {
     for (let index = 0; index < count; index += 1) {
       const ref = manifest.parts[index];
       if (ref === undefined) throw new Error(MISSING);
-      const opened = await openOne(key, ref, index, count, stores);
+      const opened = await openOne(key, ref, index, count, stores, limit);
       try {
         if (
           opened.byteLength === 0 ||
-          opened.byteLength > FILE_PART_BYTES ||
+          opened.byteLength > limit ||
           opened.byteLength > bytes.byteLength - offset
         )
           throw new Error(MISSING);

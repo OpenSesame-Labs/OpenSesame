@@ -12,7 +12,9 @@ import {
   validatedToken,
 } from "./browser-pairing-wire.js";
 import { mayPairLocalAuthority } from "./deployment-profile.js";
+import { HostSessionError } from "./identity-session-types.js";
 import { localNetworkFetch } from "./local-network-fetch.js";
+import { loadSettings } from "./settings.js";
 
 export {
   BrowserPairingError,
@@ -26,6 +28,38 @@ export type BrowserGrant = {
   expiresAt: number;
   capabilities: string[];
 };
+
+export function hostApiBase(): string {
+  return loadSettings().hostApi.replace(/\/$/, "");
+}
+
+export function hasApprovedHost(hostApi: string): boolean {
+  return Boolean(hostApi) && currentBrowserGrant(hostApi) !== null;
+}
+
+export function requireApprovedHostSession(hostApi: string): BrowserGrant {
+  const active = hostApi ? currentBrowserGrant(hostApi) : null;
+  if (!active)
+    throw new HostSessionError(
+      "setup_required",
+      "This browser has no approved grant for that action.",
+    );
+  return active;
+}
+
+export async function fetchApprovedHost(
+  hostApi: string,
+  path: string,
+  init: RequestInit,
+): Promise<Response> {
+  try {
+    return await pairedHostFetch(hostApi, path, init);
+  } catch (error) {
+    if (error instanceof BrowserPairingError)
+      throw new HostSessionError("setup_required", error.message);
+    throw error;
+  }
+}
 /**
  * What a pairing asks the operator for: ciphertext sync, or — for the join
  * ceremony (ADR 0136) — to join, which a passkey check widens to the join

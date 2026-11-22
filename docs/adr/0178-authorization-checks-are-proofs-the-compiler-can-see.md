@@ -122,6 +122,8 @@ the findings as they stood at that refactor.
 - **`agents.ts` registration checks a project role but not visibility**, so a
   member of an expired project can still register an agent there.
 - **The SCIM role-mapping `PUT` writes no audit event.**
+  This drift was subsequently addressed: mapping changes and neutral-mapping
+  removal now append audit events.
 - **Personal-project rules differ per route** (`409
   personal_project_not_shareable` on add, `personal_project_immutable` on
   remove, nothing on role change).

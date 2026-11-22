@@ -18,7 +18,7 @@
   "totals": {
     "files": 438,
     "violations": 695,
-    "oversizedLines": 211860
+    "oversizedLines": 211838
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -378,9 +378,6 @@
     "crates/gateway/src/routes/agents.rs": {
       "max-lines": 440
     },
-    "crates/gateway/src/routes/attachments.rs": {
-      "max-lines": 900
-    },
     "crates/gateway/src/routes/backup.rs": {
       "max-lines": 551
     },
@@ -622,7 +619,7 @@
       "max-lines": 495
     },
     "packages/app-core/src/lib/identity.ts": {
-      "max-lines": 648
+      "max-lines": 642
     },
     "packages/app-core/src/lib/idp-registry.ts": {
       "complexity": 1
@@ -868,7 +865,7 @@
       "complexity": 1
     },
     "packages/control-plane/src/__tests__/principals-edge.test.ts": {
-      "max-lines": 476
+      "max-lines": 474
     },
     "packages/control-plane/src/__tests__/projects-edge.test.ts": {
       "max-lines": 816
@@ -1047,7 +1044,7 @@
     },
     "packages/control-plane/src/routes/principals.ts": {
       "complexity": 2,
-      "max-lines": 667,
+      "max-lines": 653,
       "max-lines-per-function": 3
     },
     "packages/control-plane/src/routes/projects.ts": {

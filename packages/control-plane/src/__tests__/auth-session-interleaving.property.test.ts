@@ -2,6 +2,7 @@ import { overlapCast } from "@opensesame/os-domain";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import type { AppContext } from "../context.js";
+import { createControlPlane } from "../create-app.js";
 import { resolveProvisionalSession } from "../middleware/auth.js";
 
 type Change = {
@@ -203,6 +204,144 @@ describe("provisional-session store interleavings", () => {
     expect(observed.result).toEqual({
       principalId: "prn_one",
       sessionId: "ps_one",
+    });
+  });
+});
+
+describe("fresh guest admission", () => {
+  it("a delayed sign-out response cannot clear a newer sign-in cookie", async () => {
+    const { app } = createControlPlane({
+      config: {
+        port: 0,
+        publicUrl: "http://127.0.0.1:8788",
+        issuer: "http://127.0.0.1:8788",
+      },
+    });
+    const old = await app.request("/v1/principals/provisional", {
+      method: "POST",
+    });
+    const oldCookie = old.headers.get("set-cookie")?.split(";", 1)[0] ?? "";
+    expect(oldCookie).toBeTruthy();
+    const delivery = gate();
+    const signOut = (async () => {
+      const response = await app.request("/v1/principals/provisional/revoke", {
+        method: "POST",
+        headers: { cookie: oldCookie, origin: "http://127.0.0.1:8788" },
+      });
+      await delivery.wait();
+      return response;
+    })();
+    await delivery.entered;
+    const next = await app.request("/v1/principals/provisional", {
+      method: "POST",
+    });
+    const nextCookie = next.headers.get("set-cookie")?.split(";", 1)[0] ?? "";
+    expect(nextCookie).toBeTruthy();
+    delivery.release();
+    const delayed = await signOut;
+    expect(delayed.status).toBe(204);
+    expect(delayed.headers.get("set-cookie")).toBeNull();
+    expect(
+      (
+        await app.request("/v1/principals/me", {
+          headers: { cookie: oldCookie },
+        })
+      ).status,
+    ).toBe(401);
+    expect(
+      (
+        await app.request("/v1/principals/me", {
+          headers: { cookie: nextCookie },
+        })
+      ).status,
+    ).toBe(200);
+  });
+
+  it("mints a bearer without setting a cookie or replacing another session", async () => {
+    const { app } = createControlPlane({
+      config: {
+        port: 0,
+        publicUrl: "http://127.0.0.1:8788",
+        issuer: "http://127.0.0.1:8788",
+      },
+    });
+    const member = await app.request("/v1/principals/provisional", {
+      method: "POST",
+    });
+    const memberCookie = member.headers.get("set-cookie")?.split(";", 1)[0];
+    const memberBody = await member.json();
+    expect(memberCookie).toBeTruthy();
+    const guest = await app.request("/v1/principals/provisional", {
+      method: "POST",
+      headers: { "x-opensesame-fresh-guest": "1" },
+    });
+    expect(guest.status).toBe(201);
+    expect(guest.headers.get("set-cookie")).toBeNull();
+    const guestBody = await guest.json();
+    expect(guestBody.principalId).not.toBe(memberBody.principalId);
+
+    const bearer = await app.request("/v1/principals/me", {
+      headers: { authorization: `Bearer ${guestBody.accessToken}` },
+    });
+    const cookie = await app.request("/v1/principals/me", {
+      headers: { cookie: memberCookie ?? "" },
+    });
+    expect((await bearer.json()).id).toBe(guestBody.principalId);
+    expect((await cookie.json()).id).toBe(memberBody.principalId);
+  });
+
+  it("rejects a fresh guest request carrying even an invalid credential", async () => {
+    const { app } = createControlPlane({
+      config: {
+        port: 0,
+        publicUrl: "http://127.0.0.1:8788",
+        issuer: "http://127.0.0.1:8788",
+      },
+    });
+    const first = await app.request("/v1/principals/provisional", {
+      method: "POST",
+    });
+    const cookieName = first.headers.get("set-cookie")?.split("=", 1)[0];
+    expect(cookieName).toBeTruthy();
+    for (const credential of [
+      { cookie: `${cookieName}=expired` },
+      { authorization: "Bearer invalid" },
+    ]) {
+      const response = await app.request("/v1/principals/provisional", {
+        method: "POST",
+        headers: { ...credential, "x-opensesame-fresh-guest": "1" },
+      });
+      expect(response.status).toBe(409);
+      expect(response.headers.get("set-cookie")).toBeNull();
+    }
+  });
+
+  it("refuses a fresh guest mint when the request carries a live session cookie", async () => {
+    const { app } = createControlPlane({
+      config: {
+        port: 0,
+        publicUrl: "http://127.0.0.1:8788",
+        issuer: "http://127.0.0.1:8788",
+      },
+    });
+    const first = await app.request("/v1/principals/provisional", {
+      method: "POST",
+    });
+    const cookie = first.headers.get("set-cookie")?.split(";", 1)[0];
+    expect(cookie).toBeTruthy();
+
+    const guarded = await app.request("/v1/principals/provisional", {
+      method: "POST",
+      headers: {
+        cookie: cookie ?? "",
+        origin: "http://127.0.0.1:8788",
+        "x-opensesame-fresh-guest": "1",
+      },
+    });
+
+    expect(guarded.status).toBe(409);
+    await expect(guarded.json()).resolves.toMatchObject({
+      error: "fresh_guest_requires_sign_out",
     });
   });
 });

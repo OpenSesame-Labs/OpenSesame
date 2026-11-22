@@ -1,3 +1,18 @@
+import { deviceIdentitySeams } from "@opensesame/app-core/lib/device-identity.js";
+import { federationSeams } from "@opensesame/app-core/lib/federation.js";
+import {
+  FRESH_GUEST_SIGN_OUT_MESSAGE,
+  FRESH_GUEST_STATUS_UNKNOWN_MESSAGE,
+  guestAuthSeams,
+} from "@opensesame/app-core/lib/guest-auth.js";
+import { identitySeams } from "@opensesame/app-core/lib/identity.js";
+import type { PagesSettings } from "@opensesame/app-core/lib/settings.js";
+import {
+  defaultSignInMethods,
+  settingsSeams,
+} from "@opensesame/app-core/lib/settings.js";
+import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registry/targets.js";
+import { isFunction } from "@opensesame/os-domain";
 import {
   cleanup,
   fireEvent,
@@ -9,18 +24,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 /** @vitest-environment jsdom */
 import { identityHookSeams } from "../bindings/identity.js";
 import { expectInTray } from "../components/tray.test-support.js";
-
-import { deviceIdentitySeams } from "@opensesame/app-core/lib/device-identity.js";
-import { federationSeams } from "@opensesame/app-core/lib/federation.js";
-import { guestAuthSeams } from "@opensesame/app-core/lib/guest-auth.js";
-import { identitySeams } from "@opensesame/app-core/lib/identity.js";
-import type { PagesSettings } from "@opensesame/app-core/lib/settings.js";
-import {
-  defaultSignInMethods,
-  settingsSeams,
-} from "@opensesame/app-core/lib/settings.js";
-import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registry/targets.js";
-import { isFunction } from "@opensesame/os-domain";
 
 /**
  * The front door (ADR 0115, ADR 0150 §1): two roads made large — set up your
@@ -201,6 +204,43 @@ describe("the front door", () => {
       expect(screen.getByRole("img", { name: "Storage is full" })).toBeTruthy(),
     );
     await expectInTray("Storage is full");
+  });
+
+  it("tells a signed-in person to sign out before starting fresh", async () => {
+    continueAsGuest.mockRejectedValueOnce(
+      new Error(FRESH_GUEST_SIGN_OUT_MESSAGE),
+    );
+    renderDoor();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Skip sign-in and continue as guest",
+      }),
+    );
+
+    await expectInTray(FRESH_GUEST_SIGN_OUT_MESSAGE);
+    expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
+  });
+
+  it("offers a retry beside the notice when the connection cannot be checked", async () => {
+    continueAsGuest.mockRejectedValueOnce(
+      new Error(FRESH_GUEST_STATUS_UNKNOWN_MESSAGE),
+    );
+    renderDoor();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Skip sign-in and continue as guest",
+      }),
+    );
+
+    await expectInTray(FRESH_GUEST_STATUS_UNKNOWN_MESSAGE);
+    const retry = screen.getByRole("button", { name: "Try again" });
+    const setup = screen.getByRole("button", { name: "Set up your own" });
+    expect(
+      retry.compareDocumentPosition(setup) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    fireEvent.click(retry);
+    await waitFor(() => expect(continueAsGuest).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
   });
 
   it("names no deployment and no failure: a door that asks nothing reports nothing", () => {

@@ -11,6 +11,7 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
+import * as authC1 from "./auth-formal-snapshot-fixture.mjs";
 
 const paths = [
   "packages/control-plane/src/middleware/auth.ts",
@@ -27,7 +28,6 @@ function configureIdentity(cwd) {
   git(cwd, "config", "user.name", "Test");
   git(cwd, "config", "user.email", "test@example.invalid");
 }
-
 function commit(cwd, message, files = ["."], allowEmpty = false) {
   if (files.length) git(cwd, "add", ...files);
   const empty = allowEmpty ? ["--allow-empty"] : [];
@@ -71,6 +71,7 @@ function buildReviewedStack(t) {
     mkdirSync(dirname(join(root, path)), { recursive: true });
     writeFileSync(join(root, path), `original ${path}\n`);
   }
+  authC1.seedAuthC1(root);
   copyFixtureFile(
     root,
     "scripts/test/auth-formal-drift.mjs",
@@ -122,7 +123,6 @@ function buildReviewedStack(t) {
 
   return { check, clone, parent, root, sources };
 }
-
 function verifyShallowClone({ check, clone, root, sources }) {
   git(root, "clone", "-q", "--depth=1", `file://${root}`, clone);
   const shallow = check(clone);
@@ -387,6 +387,7 @@ function rejectV1Downgrade({ check, parent, root }) {
 
 test("a prior reviewed-source attestation survives squash and a shallow clone", (t) => {
   const fixture = buildReviewedStack(t);
+  authC1.rejectAuthC1Drift(fixture.root, fixture.check);
   verifyShallowClone(fixture);
   rejectSameCommitAttestation(fixture);
   rejectPosthocAttestation(fixture);

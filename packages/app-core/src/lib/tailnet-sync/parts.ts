@@ -25,6 +25,7 @@ import {
 import {
   MAX_ENCRYPTED_FILE_PART_BYTES,
   MAX_FILE_PARTS,
+  MAX_LEGACY_ENCRYPTED_FILE_PART_BYTES,
   type ObjectStore,
   type VaultItem,
   readFileManifest,
@@ -102,7 +103,9 @@ export async function readDrivePart(
     return null;
   }
   if (!response.ok) throw refused(response);
-  return readDriveBody(response, MAX_ENCRYPTED_FILE_PART_BYTES, {
+  // Reads admit a legacy v1 part (the daemon's former limit); `openFile`
+  // holds a part to its manifest's own bound. Writes below stay strict.
+  return readDriveBody(response, MAX_LEGACY_ENCRYPTED_FILE_PART_BYTES, {
     validateLength: true,
   });
 }
@@ -182,6 +185,9 @@ export async function putMissingParts(
     if (held.has(key)) continue;
     const bytes = await local.getObject(key);
     if (!bytes) continue;
+    // A legacy-sized part stays readable where it is, but is never written
+    // anew; skipping it keeps the sync pass from failing on every run.
+    if (bytes.byteLength > MAX_ENCRYPTED_FILE_PART_BYTES) continue;
     await writeDrivePart(pairing, key, bytes);
     put += 1;
   }
