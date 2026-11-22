@@ -44,12 +44,14 @@ with their tests, not in a screenshot history directory.
 ## Agent harnesses and installs
 
 Harness dot folders are never tracked (see [agent setup](agent-setup.md)).
-First-party skills remain in `skills/`; third-party copies are optional and
-locally managed. Review an immutable revision before use; `npm run skills:review`
-prints guidance. Local workspace copies in `.agents/skills/` and harness
-mirrors are gitignored. `node scripts/dev/sync-agent-skills.mjs --check` checks
-their mirror shape, not provenance. Do not use multi-target copy installations
-or copy dependency trees to worktrees.
+Third-party skills have one canonical local installation under the gitignored
+`.agents/skills/`. Identical mirrors in `.claude/skills/` and `.grok/skills/`
+use relative links;
+intentional harness-specific files remain separate. First-party skills remain
+in `skills/`. Install or update the canonical skill once, review it, then run
+`node scripts/dev/sync-agent-skills.mjs` and its `--check` mode. The sync command
+compares file bytes and executable modes before replacing duplicate paths.
+Do not use multi-target copy installations or copy dependency trees to worktrees.
 
 Session startup is lightweight. Dependency bootstrap requires explicit opt-in;
 the installer fingerprints manifests, patches and lock/config inputs and reuses
@@ -74,3 +76,45 @@ fuzz regressions and active fixtures that have consumers. Minimize fuzz corpora
 only after proving equivalent coverage. Preserve installer assets whose parity
 checks require physical copies. Avoid unnecessary report files and duplicate
 instructions: link this contract instead of copying it into every routine.
+
+## Retired historical archive
+
+The November 2026 dependency-hardening change removed the 23 files formerly
+under `docs/archive/`. Each was already marked as superseded, had no runtime or
+test consumer, and remains available in Git history. Live documentation
+citations now point to the maintained ADR, validation, or runbook that carries
+the binding decision or reconciled finding. The reviewed removal map is:
+
+| Removed files | Reason and maintained replacement |
+|---|---|
+| `2026-08-07-baseline/{battle-test-critique,host-plane-evidence,identity-plane-evidence,repository-assessment,summary,task-authority-audit}.md` | Point-in-time assessment output; current behavior is maintained by the validation strategy, coverage document and executable gates. |
+| `brief-implementation-status.md` | One-shot status snapshot; current implementation status is the code plus ADR implementation lines. |
+| `plans/plans/{2026-08-15-git-sealed-store,2026-08-16-tombs-pass-otp-update,2026-08-30-infisical-cert-manager-parity-swarm}.md` | Completed planning notes; ADRs 0037, 0038 and 0066–0072 record the binding decisions. |
+| `plans/specs/{2026-08-15-git-sealed-store-design,2026-08-16-tombs-pass-otp-update-design,2026-08-22-file-attachment-storage-implementation}.md` | Superseded design drafts; ADRs 0037, 0038 and 0054 are canonical. |
+| `prompts/{2026-08-22-security-program-agent-brief,one-shot-automation-prompt,one-shot-connector-auth-broker-prompt,one-shot-doppler-nats-prompt,one-shot-doppler-parity-prompt,one-shot-passkey-portability-prompt,spa-multi-forge-vault-backup-prompt,vault-key-protection-age-sops-prompt}.md` | Agent assignment inputs, not product guidance; landed behavior and ADRs 0032, 0041, 0042 and 0129 are maintained. |
+| `wallet-swarm-coordination.md` | Temporary coordination log; ADR 0123 owns the wallet spending decisions. |
+| `README.md` | Index for only the retired files above; empty after their reviewed removal. |
+
+## Retired completed working records
+
+The same stack later retired 25 completed implementation/proposal records after
+checking every repository citation and preserving all active contract,
+security-audit, validation, and evidence files. Git history retains the source
+records. Binding decisions and executable coverage remain at these maintained
+locations:
+
+| Removed files | Reason and maintained replacement |
+|---|---|
+| `docs/proposals/ci-artifact-promotion/{README,artifact-builds,candidate-protocol,migration-map,validation}.md` and `workflows/{candidate-build,ci,dev-nightly,release-weekly}.yml` | Inert proposal drafts superseded by ADRs 0214–0215, the active pinned workflows, and `docs/operators/ci-promotion.md`. |
+| `docs/implementation/d7-2-{cross-model,device-key-trust-proposal,device-key-units-agent,pwa-peer-trust-audit,rubber-duck}.md` and `working-notes/2026-10-15-round7.md` | Branch-specific reviews and a temporary agent-run note; ADRs 0186 and 0196 plus the current CLI, peer-trust, and approval regressions carry the accepted behavior. |
+| `docs/implementation/{wallet-consent-baseline.md,ceremonies-into-pages/README.md,browser-sessions/acceptance.md}` | Preimplementation or point-in-time records for completed programmes; ADRs 0123, 0140, 0150, and 0196 are canonical and the product tests remain. |
+| `docs/implementation/general-authority/{api-surface,openfga-tuple-backfill,repository-baseline}.md` | Completed working documents with no executable consumer; ADR 0120 and the retained ownership, storage, adversarial matrix, completion matrix, contract registry, and local-ledger inventory remain live. |
+| `docs/implementation/product-experience/{baseline,contracts}.md` and `{ownership,traceability}.json` | Programme baseline and ownership snapshots whose named journeys have landed; current architecture, ADRs, and executable experience journeys own the behavior. |
+The Bitwarden provider also consolidates eight self-generated response files
+into two topology bundles (`cloud.json` and `vaultwarden.json`), a net reduction
+of six files. The generator still compares every named `prelogin`, `token`,
+`sync`, and `config` value at the JSON data boundary, and the real API-route
+tests replay each response from the bundles. The reviewed Gitleaks evidence is
+rebound to the exact new file hashes and match locations. Together these
+changes reduce the tracked checkout by 31 files without reducing test cases,
+current documentation, or security evidence.

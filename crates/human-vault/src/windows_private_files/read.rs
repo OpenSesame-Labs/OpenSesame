@@ -74,12 +74,37 @@ pub struct HeldPrivateRead {
     identity: handles::Identity,
     version: Version,
     bytes: Zeroizing<Vec<u8>>,
+    require_private: bool,
 }
 impl HeldPrivateRead {
     /// Open only a bounded relative existing private file beneath this exact original root.
     /// # Errors
     /// Refuses unsafe names, reparse/hardlinked/broad nodes, conflicting writers or limits.
     pub fn open(root: Arc<PrivateDirectory>, relative: &Path, limit: usize) -> io::Result<Self> {
+        Self::open_with_policy(root, relative, limit, true)
+    }
+
+    /// Open a bounded legacy file through retained no-reparse handles without
+    /// requiring its inherited ACL to match OpenSesame's current private ACL.
+    /// Hard links, aliases, conflicting writers and non-local files still fail.
+    ///
+    /// # Errors
+    /// Refuses unsafe names, reparse/hardlinked nodes, conflicting writers,
+    /// changed identities/content and size limits.
+    pub fn open_confined(
+        root: Arc<PrivateDirectory>,
+        relative: &Path,
+        limit: usize,
+    ) -> io::Result<Self> {
+        Self::open_with_policy(root, relative, limit, false)
+    }
+
+    fn open_with_policy(
+        root: Arc<PrivateDirectory>,
+        relative: &Path,
+        limit: usize,
+        require_private: bool,
+    ) -> io::Result<Self> {
         if limit == 0 || limit > 16 * 1024 * 1024 {
             return Err(security::refused());
         }
@@ -96,7 +121,9 @@ impl HeldPrivateRead {
                 .last()
                 .map_or(root.root_handle()?, |value| &value.file);
             handles::child_relation(parent, &opened, name)?;
-            security::verify(&opened, &root.owner, true)?;
+            if require_private {
+                security::verify(&opened, &root.owner, true)?;
+            }
             parents.push(Parent {
                 identity: handles::identity(&opened, true)?,
                 file: opened,
@@ -114,6 +141,7 @@ impl HeldPrivateRead {
             file: opened,
             name,
             bytes: Zeroizing::new(Vec::new()),
+            require_private,
         };
         result.validate_nodes()?;
         if result.version.size > u64::try_from(limit).map_err(|_| security::refused())? {
@@ -139,7 +167,9 @@ impl HeldPrivateRead {
             if handles::identity(&held.file, true)? != held.identity {
                 return Err(security::refused());
             }
-            security::verify(&held.file, &self.root.owner, true)?;
+            if self.require_private {
+                security::verify(&held.file, &self.root.owner, true)?;
+            }
             handles::child_relation(parent, &held.file, &held.name)?;
             parent = &held.file;
         }
@@ -148,7 +178,9 @@ impl HeldPrivateRead {
         {
             return Err(security::refused());
         }
-        security::verify(&self.file, &self.root.owner, false)?;
+        if self.require_private {
+            security::verify(&self.file, &self.root.owner, false)?;
+        }
         handles::child_relation(parent, &self.file, &self.name)
     }
     /// Read-only snapshot bytes; no writable handle or real credential/root authority.

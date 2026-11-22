@@ -1,7 +1,7 @@
 //! Account-shaped responses: profile, decryption options, token body.
 
-use chrono::{DateTime, Utc};
 use opensesame_storage::bitwarden::BitwardenUser;
+use opensesame_time::{DateTime, Utc};
 use serde_json::{json, Value};
 
 use crate::kdf::KdfConfig;
@@ -9,7 +9,7 @@ use crate::kdf::KdfConfig;
 /// Bitwarden's date format: ISO 8601, UTC, fractional seconds.
 #[must_use]
 pub fn date(at: DateTime<Utc>) -> String {
-    at.to_rfc3339_opts(chrono::SecondsFormat::Micros, true)
+    at.to_rfc3339_opts(opensesame_time::SecondsFormat::Micros, true)
 }
 
 /// `MasterPasswordUnlock`: what a client needs to derive the master key and

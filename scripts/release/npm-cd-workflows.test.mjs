@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
@@ -16,26 +17,19 @@ import {
   read,
   root,
 } from "./npm-cd-workflows.promotion-gates.mjs";
-import { CD_PRODUCTION_DIST_TAG } from "./npm-prerelease-version.mjs";
 
-/** Production job: checks meta, rewrites to next, publishes with NPM_TOKEN. */
+/** Production jobs cannot publish an unqualified npm artifact. */
 function assertProductionJob(text) {
   assert.doesNotMatch(text, /dist-tag add/);
   const start = text.indexOf("\n  production:");
   const end = text.indexOf("\n  promotion_failed:");
   assert.ok(start > 0 && end > start);
   const production = text.slice(start, end);
-  assert.match(production, /name: Production\n/);
-  assert.match(production, /cd-release-meta\.mjs check /);
-  assert.match(production, /cd-production-npm-version\.mjs rewrite /);
-  assert.match(production, /publish-npm-package/);
-  assert.match(
+  assert.match(production, /npm publication (?:is )?disabled/i);
+  assert.doesNotMatch(
     production,
-    new RegExp(`npm-dist-tag: ${CD_PRODUCTION_DIST_TAG}\\n`),
+    /publish-npm-package|secrets\.NPM_TOKEN|npm publish/,
   );
-  assert.match(production, /npm-token: \$\{\{ secrets\.NPM_TOKEN \}\}\n/);
-  assert.doesNotMatch(production, /npm-token: ""/);
-  assert.doesNotMatch(production, /NODE_AUTH_TOKEN/);
 }
 
 /** Trusted publishers cover both packages in Preview and Production. */
@@ -56,7 +50,7 @@ function assertTrustedPublishers(spec) {
   }
 }
 
-test("npm CD publishes cli and web-pwa and drops env-spec-bridge", () => {
+test("npm CD proves cli and web-pwa locally and drops env-spec-bridge", () => {
   assert.equal(
     existsSync(join(root, ".github/workflows/cd-npm-env-spec-bridge.yml")),
     false,
@@ -79,13 +73,7 @@ test("npm CD publishes cli and web-pwa and drops env-spec-bridge", () => {
   assert.doesNotMatch(action, /--tag\s+latest/);
   assert.doesNotMatch(action, /dist-tag add/);
   assert.doesNotMatch(action, /npm install -g npm@/);
-  assert.doesNotMatch(action, /npx\s/);
-  assert.match(action, /fetch-pinned-npm\.sh/);
-  assert.match(action, /Refusing dist-tag latest/);
-  assert.match(
-    read("scripts/release/fetch-pinned-npm.sh"),
-    /npm-11\.21\.1\.tgz/,
-  );
+  assert.doesNotMatch(action, /npx(?:\s+-y)?\s+npm@/);
   assert.match(cli, /group: cd-npm-cli\n {2}cancel-in-progress: true/);
   assert.match(pwa, /group: cd-pwa\n {2}cancel-in-progress: false/);
   assert.doesNotMatch(cli, /cancel-in-progress: false/);
@@ -104,45 +92,32 @@ test("npm CD publishes cli and web-pwa and drops env-spec-bridge", () => {
   );
 });
 
-test("npm is verified without credentials before direct script-free publication", () => {
-  const action = parse(read(".github/actions/publish-npm-package/action.yml"));
-  const [prepare, publish] = action.runs.steps;
-  assert.equal(action.runs.steps.length, 2);
-  assert.match(prepare.env.NPM_PACKAGE_DIRECTORY, /inputs\.working-directory/);
-  assert.match(prepare.env.NPM_PACKAGE_NAME, /inputs\.npm-package-name/);
-  assert.match(prepare.run, /env -i/);
-  assert.match(prepare.run, /fetch-pinned-npm\.sh/);
-  assert.match(prepare.run, /prepare-npm-publish\.mjs/);
-  assert.doesNotMatch(prepare.run, /inputs\.npm-token/);
-  assert.match(publish.env.NPM_TOKEN_INPUT, /inputs\.npm-token/);
-  assert.match(publish.run, /NPM_CONFIG_IGNORE_SCRIPTS=true/);
-  assert.match(publish.run, /unset NODE_OPTIONS NODE_PATH/);
-  const program = read("scripts/release/npm-trunk-publish.mjs");
-  assert.doesNotMatch(program, /\bnpx\b/);
-  assert.match(program, /process\.execPath/);
-  const isolation = read("scripts/release/npm-publish-isolation.mjs");
-  assert.match(isolation, /OPENSESAME_NPM_CLI/);
-  assert.match(isolation, /--ignore-scripts/);
-  assert.match(program, /--provenance/);
+test("the shared action refuses publication before accessing credentials", () => {
+  const actionText = read(".github/actions/publish-npm-package/action.yml");
+  const action = parse(actionText);
+  assert.equal(action.runs.using, "composite");
+  assert.equal(action.runs.steps.length, 1);
+  const guard = action.runs.steps[0];
+  assert.match(guard.name, /Refuse unqualified/);
+  assert.equal(guard.if, undefined);
+  assert.equal(guard["continue-on-error"], undefined);
+  assert.notEqual(spawnSync("bash", ["-c", guard.run]).status, 0);
+  assert.doesNotMatch(
+    actionText,
+    /secrets\.|inputs\.npm-token|npm-trunk-publish|npm publish/,
+  );
 });
 
-test("Production OIDC-publishes 0.0.0-next.N and does not move dist-tags", () => {
+test("neither workflow publishes npm while candidate-bound promotion is missing", () => {
   const cli = read(".github/workflows/cd-npm-cli.yml");
   const pwa = read(".github/workflows/cd-pwa.yml");
   const action = read(".github/actions/publish-npm-package/action.yml");
   const spec = JSON.parse(read("docs/ci/github-setup-spec.json"));
   for (const text of [cli, pwa]) assertProductionJob(text);
-  assert.match(action, /0\.0\.0-next\.N/);
-  assert.match(action, /npm-trunk-publish\.mjs/);
-  assert.match(read("scripts/release/npm-trunk-publish.mjs"), /--provenance/);
-  assert.match(action, /export NODE_AUTH_TOKEN="\$NPM_TOKEN_INPUT"/);
-  assert.match(action, /unset NODE_AUTH_TOKEN/);
-  assert.match(spec.promotion_model.production, /0\.0\.0-next\.N/);
-  assert.match(spec.promotion_model.production, /NPM_TOKEN/);
-  assert.match(spec.promotion_model.production, /provenance/);
-  assert.match(spec.promotion_model.production, /OIDC/);
-  assert.match(spec.promotion_model.preview, /NPM_TOKEN/);
-  assert.match(spec.promotion_model.preview, /OIDC/);
+  assert.match(action, /npm publication is disabled/i);
+  assert.doesNotMatch(action, /npm-trunk-publish\.mjs|inputs\.npm-token/);
+  assert.match(spec.promotion_model.production, /npm publication is disabled/i);
+  assert.match(spec.promotion_model.preview, /local/i);
   const productionEnv = spec.environments.find(
     (entry) => entry.name === "Production",
   );
@@ -154,6 +129,7 @@ test("Production OIDC-publishes 0.0.0-next.N and does not move dist-tags", () =>
     /\/opt\/cursor\/artifacts\/npm-cd-production-dry-run-proof\.log/,
   );
   assert.match(dry, /rewritePackageVersionFile/);
+  assert.match(dry, /"--dry-run",\s*"--ignore-scripts"/);
 });
 
 test("npm publish proof lints workflow YAML and stages the alpha dry-run", () => {
@@ -165,8 +141,6 @@ test("npm publish proof lints workflow YAML and stages the alpha dry-run", () =>
     /node --test scripts\/release\/npm-cd-workflows\.test\.mjs/,
   );
   assert.match(proof, /scripts\/release\/cd-production-npm-version\.test\.mjs/);
-  assert.match(proof, /OPENSESAME_TEST_NPM_CLI/);
-  assert.match(proof, /npm-publish-isolation\.test\.mjs/);
   assert.match(
     proof,
     /node scripts\/release\/npm-cd-publish-dry-run-proof\.mjs/,
@@ -192,7 +166,7 @@ test("CD promotes staged artifacts with automated gates only", () => {
   assertGatesProofAndCiChecks();
 });
 
-test("CLI publish drops sourcemaps and confirms the registry version before smoke", () => {
+test("staged npm packages are checked locally while Pages smoke remains active", () => {
   const cli = read(".github/workflows/cd-npm-cli.yml");
   const pwa = read(".github/workflows/cd-pwa.yml");
   const stage = jobSlice(cli, "stage", "preview");
@@ -200,50 +174,29 @@ test("CLI publish drops sourcemaps and confirms the registry version before smok
   const smoke = jobSlice(cli, "preview_smoke", "production");
   const pwaPreview = jobSlice(pwa, "npm_preview", "deploy");
   const pwaSmoke = jobSlice(pwa, "preview_smoke", "production");
-  assert.match(stage, /CLI_RELEASE_PACK: "1"\n/);
-  assert.match(stage, /npm run build -w @opensesame\/cli\n/);
-  assert.equal((cli.match(/run: npm run build/g) ?? []).length, 1);
-  const publishAt = preview.lastIndexOf("publish-npm-package");
-  const waitAt = preview.indexOf("scripts/release/cd-registry-wait.mjs");
-  assert.ok(publishAt > 0 && waitAt > publishAt);
-  assert.match(
-    preview,
-    /EXPECTED_VERSION: \$\{\{ needs\.stage\.outputs\.version \}\}/,
+  assert.match(stage, /CLI_RELEASE_PACK: "1"/);
+  assert.match(stage, /npm publish --dry-run/);
+  assert.match(preview, /npm-local-package-smoke\.mjs/);
+  assert.match(smoke, /npm-local-package-smoke\.mjs.*--run-cli/);
+  assert.match(pwaPreview, /npm-local-package-smoke\.mjs/);
+  assert.match(pwaSmoke, /cd-pwa-preview-smoke\/run\.mjs/);
+  assert.doesNotMatch(pwaSmoke, /CD_REGISTRY_VERSION_CONFIRMED/);
+  assert.doesNotMatch(
+    read("scripts/release/cd-pwa-preview-smoke/run.mjs"),
+    /runHurl\(\s*"registry\.hurl"/,
   );
-  assert.doesNotMatch(cli, /SMOKE_REGISTRY_DEADLINE_MS/);
-  assert.doesNotMatch(cli, /SMOKE_REGISTRY_POLL_MS/);
   assert.match(
-    smoke,
-    /CD_REGISTRY_VERSION_CONFIRMED: \$\{\{ needs\.preview\.result == 'success' && '1' \|\| '' \}\}/,
+    read("scripts/release/cd-pwa-preview-smoke/run.mjs"),
+    /runHurl\(\s*"pages\.hurl"/,
   );
-  assert.match(smoke, /cd-preview-smoke\.mjs/);
-  const pwaPublishAt = pwaPreview.lastIndexOf("publish-npm-package");
-  const pwaWaitAt = pwaPreview.indexOf("scripts/release/cd-registry-wait.mjs");
-  assert.ok(pwaPublishAt > 0 && pwaWaitAt > pwaPublishAt);
   assert.match(
-    pwaPreview,
-    /EXPECTED_VERSION: \$\{\{ needs\.build\.outputs\.version \}\}/,
+    read("scripts/release/prepare-cli-release.mjs"),
+    /!dist\/\*\*\/\*\.map/,
   );
-  assert.match(pwaPreview, /SMOKE_REGISTRY_DEADLINE_MS: "900000"/);
-  assert.doesNotMatch(cli, /SMOKE_REGISTRY_DEADLINE_MS/);
   assert.match(
-    pwaSmoke,
-    /CD_REGISTRY_VERSION_CONFIRMED: \$\{\{ needs\.npm_preview\.result == 'success' && '1' \|\| '' \}\}/,
+    read(".github/workflows/cd-ghcr-publish.yml"),
+    /cli-shrinkwrap\.mjs check/,
   );
-  assert.doesNotMatch(pwa, /CLI_RELEASE_PACK/);
-  const wait = read("scripts/release/cd-registry-wait.mjs");
-  assert.match(wait, /waitForPublishedVersion/);
-  assert.match(wait, /registryBudget/);
-  const prepare = read("scripts/release/prepare-cli-release.mjs");
-  assert.match(prepare, /!dist\/\*\*\/\*\.map/);
-  assert.match(prepare, /cliPublishDependencies/);
-  const ghcr = read(".github/workflows/cd-ghcr-publish.yml");
-  assert.match(ghcr, /cli-shrinkwrap\.mjs check/);
-  const publishAction = read(".github/actions/publish-npm-package/action.yml");
-  assert.match(publishAction, /npm-trunk-publish\.mjs/);
-  const build = read("packages/cli/scripts/build.mjs");
-  assert.match(build, /CLI_RELEASE_PACK === "1"/);
-  assert.match(build, /sourcemap: !releasePack/);
 });
 
 test("CLI gate polls every 5s and stage overlaps it without a shorter deadline", () => {

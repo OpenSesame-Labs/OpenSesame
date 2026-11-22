@@ -2,7 +2,7 @@
 //! shared by link, encrypted under a key that travels only in the link. A
 //! file's bytes sit in `bitwarden_blobs` and go with the Send.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::sqlite::SqliteRow;
 use sqlx::Row as _;
 

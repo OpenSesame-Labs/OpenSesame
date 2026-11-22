@@ -42,7 +42,7 @@ export function useRotationPanel(item: VaultItem, scope: string) {
   const origin = mode === "automatic" ? accountWebLoginOrigin(item) : null;
   const warning =
     mode === "automatic" && !origin
-      ? "Automatic rotation couldn't verify this account: it has no https site to rotate."
+      ? "Add an HTTPS website to enable automatic rotation."
       : itemRotationWarning(typeId);
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -83,6 +83,7 @@ export function useRotationPanel(item: VaultItem, scope: string) {
   const rotate = async () => {
     setBusy(true);
     setError(null);
+    let queued = false;
     try {
       if (!eligible) {
         // No provider path: keep the plain queue entry the panel has always
@@ -90,15 +91,27 @@ export function useRotationPanel(item: VaultItem, scope: string) {
         if (!scope) throw new Error("The vault is not open.");
         if (!enqueueManualRotation(item, scope))
           throw new Error("This item type has no generator.");
-        await processRotationQueue(scope);
-        return;
+        queued = true;
+      } else {
+        const result = await generate();
+        if (result === "no-scope") throw new Error("The vault is not open.");
+        if (result === "ineligible")
+          throw new Error("This item type has no generator.");
+        if (result === "prompted") return;
+        queued = true;
       }
-      const result = await generate();
-      if (result === "no-scope") throw new Error("The vault is not open.");
-      if (result === "ineligible")
-        throw new Error("This item type has no generator.");
+      await processRotationQueue(scope);
     } catch {
-      setError("The rotation could not be queued.");
+      const pending = rotationEventFor(scope, item.id);
+      setError(
+        queued
+          ? pending
+            ? "Rotation is queued and may retry. Its status could not be confirmed."
+            : "Could not confirm the rotation status. Check before trying again."
+          : pending
+            ? "Could not start this request. An earlier rotation is still pending."
+            : "Could not start rotation. Try again.",
+      );
     } finally {
       setBusy(false);
     }
@@ -106,6 +119,7 @@ export function useRotationPanel(item: VaultItem, scope: string) {
 
   return {
     mode,
+    eligible,
     warning,
     schedule,
     event,

@@ -64,6 +64,69 @@ function announce(error: string | null): void {
   setStatusNotice({ id: NOTICE, tone: "err", title: "Import", body: error });
 }
 
+function useImportLifetime(file: File) {
+  const currentFile = useRef(file);
+  const controller = useRef<AbortController | null>(null);
+  currentFile.current = file;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: replacing the file ends its cancellation scope
+  useEffect(() => {
+    const owner = new AbortController();
+    controller.current = owner;
+    return () => {
+      owner.abort();
+      if (controller.current === owner) controller.current = null;
+    };
+  }, [file]);
+  return {
+    signal: () => controller.current?.signal,
+    mounted: () => controller.current !== null,
+    current: (signal?: AbortSignal) =>
+      !signal || (!signal.aborted && currentFile.current === file),
+  };
+}
+
+function runImportTransition(
+  transition: () => Promise<StageOutcome>,
+  signal: AbortSignal | undefined,
+  isCurrent: () => boolean,
+  land: (outcome: StageOutcome) => void,
+  setBusy: (busy: boolean) => void,
+  canFinish: () => boolean,
+): void {
+  if (signal?.aborted) return;
+  setBusy(true);
+  void withWakeLock(transition)
+    .then((outcome) => {
+      if (isCurrent()) land(outcome);
+    })
+    .finally(() => {
+      if (canFinish()) setBusy(false);
+    });
+}
+
+function useInitialImportRead(
+  file: File,
+  current: { current: ImportStage },
+  land: (outcome: StageOutcome) => void,
+  setStage: (stage: ImportStage) => void,
+  setError: (error: string | null) => void,
+): void {
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new file is the only thing that starts a new read
+  useEffect(() => {
+    let live = true;
+    const reading: ImportStage = { step: "reading", fileName: file.name };
+    current.current = reading;
+    setStage(reading);
+    setError(null);
+    void withWakeLock(() => readStage(file)).then((outcome) => {
+      if (live) land(outcome);
+    });
+    return () => {
+      live = false;
+    };
+  }, [file]);
+}
+
 /**
  * The sheet's React binding over the import model: one transition at a
  * time, each outcome landing in one place. A failure is a mark in the sheet
@@ -81,6 +144,8 @@ export function useImportFlow(file: File, onDone?: () => void): ImportFlow {
   const [busy, setBusy] = useState(false);
   const [choice, setChoice] = useState<LandingChoice | null>(null);
   const current = useRef(stage);
+  const transition = useRef(0);
+  const lifetime = useImportLifetime(file);
   current.current = stage;
 
   const land = (outcome: StageOutcome) => {
@@ -103,20 +168,7 @@ export function useImportFlow(file: File, onDone?: () => void): ImportFlow {
     announce(outcome.error);
   };
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new file is the only thing that starts a new read
-  useEffect(() => {
-    let live = true;
-    const reading: ImportStage = { step: "reading", fileName: file.name };
-    current.current = reading;
-    setStage(reading);
-    setError(null);
-    void withWakeLock(() => readStage(file)).then((outcome) => {
-      if (live) land(outcome);
-    });
-    return () => {
-      live = false;
-    };
-  }, [file]);
+  useInitialImportRead(file, current, land, setStage, setError);
 
   const plan = useMemo(
     () =>
@@ -133,11 +185,18 @@ export function useImportFlow(file: File, onDone?: () => void): ImportFlow {
     [stage, items, folders],
   );
 
-  const run = (transition: () => Promise<StageOutcome>) => {
-    setBusy(true);
-    void withWakeLock(transition)
-      .then(land)
-      .finally(() => setBusy(false));
+  const run = (action: () => Promise<StageOutcome>, signal?: AbortSignal) => {
+    if (signal?.aborted) return;
+    const owner = ++transition.current;
+    runImportTransition(
+      action,
+      signal,
+      () =>
+        lifetime.current(signal) && (!signal || transition.current === owner),
+      land,
+      setBusy,
+      () => !signal || (lifetime.mounted() && transition.current === owner),
+    );
   };
 
   return {
@@ -149,7 +208,12 @@ export function useImportFlow(file: File, onDone?: () => void): ImportFlow {
     manifestPlan,
     setChoice,
     reparse: (source) => run(() => reparseStage(current.current, source)),
-    unlock: (password) => run(() => unlockStage(current.current, password)),
+    unlock: (password) => {
+      const signal = lifetime.signal();
+      if (!signal) return;
+      const locked = current.current;
+      run(() => unlockStage(locked, password, signal), signal);
+    },
     restore: (password, adoptIdentity) =>
       run(() =>
         restoreStage(current.current, password, store, { adoptIdentity }),

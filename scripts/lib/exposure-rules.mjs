@@ -15,6 +15,19 @@ const testkitControls = [
   ...HOST_TESTKIT_CONTROLS,
 ];
 
+/**
+ * A review may record honest limits (an unrun platform, an unproved property),
+ * but it must not admit that the recorded regression evidence predates the
+ * fingerprinted bytes. Refreshing fingerprints to pass the gate while the
+ * executed runs still belong to older source is exactly the PR #2652 defect.
+ */
+const STALE_EVIDENCE = [
+  /(?<!(?:not|n't) )on the reviewed predecessor/iu,
+  /(?<!(?:not|n't) )before the final lint changes/iu,
+  /(?<!(?:not|n't) )still needs? (?:a|the|its) (?:full )?(?:suite|regressions?|proofs?) (?:to be )?(?:re-?)run/iu,
+  /(?<!(?:not|n't)(?: still)? )\bneeds? (?:a|the|its) (?:full )?(?:suite |regressions? |proofs? )?(?:to be )?(?:re-?)run(?:ning)?/iu,
+];
+
 function safeBudget(value) {
   return (
     value &&
@@ -214,6 +227,11 @@ const RULES = [
     "public identifiers cannot authorize code guesses or spend another claim's budget",
     (row) =>
       row.id === "hosted-secret-drop" && !has(row, "bearer-before-budget"),
+  ],
+  [
+    "EM-STALE-EVIDENCE",
+    "reviewed fingerprints require executed regressions; rerun them on the pinned bytes and record the executed results instead of admitting the evidence predates them",
+    (row) => STALE_EVIDENCE.some((pattern) => pattern.test(row.review)),
   ],
 ];
 

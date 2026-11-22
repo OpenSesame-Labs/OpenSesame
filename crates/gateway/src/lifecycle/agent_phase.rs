@@ -11,9 +11,9 @@
 //! served. Naming the job as the run sent a person to a page that does not
 //! exist and made a cancel reply match no run.
 
-use chrono::Utc;
 use opensesame_agent_events::{AgentEvent, AgentPhase, AgentRun};
 use opensesame_lifecycle::LifecycleEvent;
+use opensesame_time::Utc;
 
 use super::outcome::Outcome;
 use crate::app_state::AppState;
@@ -101,7 +101,7 @@ pub(crate) async fn announce(state: &AppState, run: AgentRun, outcome: &Outcome)
             run,
             AgentPhase::Blocked,
             now,
-            now + chrono::Duration::seconds(WEB_LOGIN_RESPONSE_WINDOW_SECONDS),
+            now + opensesame_time::Duration::seconds(WEB_LOGIN_RESPONSE_WINDOW_SECONDS),
             Some(&outcome.detail),
         )
     };

@@ -16,17 +16,17 @@ import {
 import { startServer } from "../server.js";
 import { renderLoginPage } from "../ui/interaction-pages.js";
 import { seedApprovedOrganization } from "./approved-organization-fixture.js";
+import {
+  Jar,
+  extractCsrf,
+  pkce,
+  postForm,
+  req,
+} from "./federated-interaction-helpers.js";
 import { onFreePort } from "./free-port.js";
 import { hopUrl } from "./upstream-hop.js";
 
 type Started = Awaited<ReturnType<typeof startServer>>;
-/** The fields the hosted login page's federated forms actually post. */
-type FederatedStartForm = {
-  _csrf: string;
-  /** Registry id (C10) — wins over `issuer` when both are present. */
-  provider?: string;
-  issuer?: string;
-};
 type FederatedTestEnvironment = {
   OPENSESAME_UPSTREAM_ISSUER?: string;
   OPENSESAME_UPSTREAM_CLIENT_ID?: string;
@@ -47,40 +47,6 @@ type StartedLeg = { jar: Jar; uid: string; form: URL };
 const RP_ORIGIN = "http://127.0.0.1:4311";
 const RP_CLIENT_ID = `origin:${RP_ORIGIN}`;
 const RP_REDIRECT = `${RP_ORIGIN}/opensesame/callback`;
-
-function pkce() {
-  const verifier = randomBytes(32).toString("base64url");
-  const challenge = createHash("sha256").update(verifier).digest("base64url");
-  return { verifier, challenge };
-}
-
-/** Minimal cookie jar: a superset of browser path-scoping, fine for tests. */
-class Jar {
-  private cookies = new Map<string, string>();
-
-  absorb(res: Response): void {
-    for (const sc of res.headers.getSetCookie()) {
-      const pair = sc.split(";")[0] ?? "";
-      const idx = pair.indexOf("=");
-      if (idx <= 0) continue;
-      const name = pair.slice(0, idx).trim();
-      const value = pair.slice(idx + 1).trim();
-      if (value) this.cookies.set(name, value);
-      else this.cookies.delete(name);
-    }
-  }
-
-  get(name: string): string | undefined {
-    return this.cookies.get(name);
-  }
-
-  header() {
-    if (this.cookies.size === 0) return {};
-    return {
-      cookie: [...this.cookies].map(([k, v]) => `${k}=${v}`).join("; "),
-    };
-  }
-}
 
 const TEST_CLAIM_PEPPER = "test-claim-pepper-32-bytes-long-0001";
 
@@ -106,36 +72,6 @@ async function startControlPlane(
       ...extraEnv,
     },
   });
-}
-
-function extractCsrf(html: string): string {
-  const match = html.match(/name="_csrf" value="([^"]+)"/);
-  if (!match?.[1]) throw new Error("no csrf token in page");
-  return match[1];
-}
-
-async function req(
-  base: string,
-  jar: Jar,
-  path: string,
-  init: RequestInit = {},
-): Promise<Response> {
-  const url = path.startsWith("http") ? path : `${base}${path}`;
-  const res = await fetch(url, {
-    redirect: "manual",
-    ...init,
-    headers: { ...jar.header(), ...overlapCast(init.headers) },
-  });
-  jar.absorb(res);
-  return res;
-}
-
-function postForm(fields: FederatedStartForm): RequestInit {
-  return {
-    method: "POST",
-    headers: { "content-type": "application/x-www-form-urlencoded" },
-    body: new URLSearchParams(fields),
-  };
 }
 
 /**
@@ -233,14 +169,13 @@ describe("pending leg state", () => {
     expect(decodePending(encodePending(pending))).toEqual(pending);
   });
 
-  it("round-trips the v2 provenance fields", () => {
-    const v2 = {
-      ...pending,
-      kind: "oauth2" as const,
-      providerId: "github",
-      byoId: "byo_1",
-      orgId: "org_1",
-    };
+  it.each([
+    ["static OIDC", { kind: "oidc" as const, providerId: "mock" }],
+    ["static OAuth2", { kind: "oauth2" as const, providerId: "github" }],
+    ["bring-your-own", { kind: "oidc" as const, byoId: "byo_1" }],
+    ["organization", { kind: "oidc" as const, orgId: "org_1" }],
+  ])("round-trips %s provenance", (_label, provenance) => {
+    const v2 = { ...pending, ...provenance };
     expect(decodePending(encodePending(v2))).toEqual(v2);
   });
 
@@ -1018,6 +953,69 @@ describe("federated leg, organization sign-in", () => {
         event.principalId === identity?.principalId,
     );
     expect(joined?.organizationId).toBe(organizationId);
+  }, 30_000);
+
+  it("refuses an in-flight sign-in if the issuer changes organizations", async () => {
+    const jar = new Jar();
+    const { challenge } = pkce();
+    const auth = await req(
+      base,
+      jar,
+      `/auth?${new URLSearchParams({
+        client_id: RP_CLIENT_ID,
+        redirect_uri: RP_REDIRECT,
+        response_type: "code",
+        scope: "openid",
+        state: "s-1",
+        nonce: "n-1",
+        code_challenge: challenge,
+        code_challenge_method: "S256",
+      }).toString()}`,
+    );
+    const location = auth.headers.get("location") ?? "";
+    const uid = location.slice("/interaction/".length);
+    const html = await (await req(base, jar, location)).text();
+    const start = await req(
+      base,
+      jar,
+      `/interaction/${uid}/federated/start`,
+      postForm({ _csrf: extractCsrf(html), issuer: tenantIdp.issuer }),
+    );
+    const upstream = await fetch(await hopUrl(start), { redirect: "manual" });
+    const back = new URL(upstream.headers.get("location") ?? "");
+    const original = await started.ctx.stores.organizations.get(organizationId);
+    if (!original) throw new Error("missing organization fixture");
+    const { ssoIssuer: _ssoIssuer, ...withoutIssuer } = original;
+    const newOwner = "org_reassigned_issuer";
+    try {
+      await started.ctx.stores.organizations.set(organizationId, withoutIssuer);
+      await seedApprovedOrganization(started.ctx, {
+        id: newOwner,
+        slug: "reassigned",
+        displayName: "Reassigned",
+        state: "active",
+        createdBy: "prn_seed_owner",
+        ssoIssuer: tenantIdp.issuer,
+      });
+      const handBack = await req(base, jar, `${back.pathname}${back.search}`);
+      expect(handBack.status).toBe(303);
+      const completed = await req(
+        base,
+        jar,
+        handBack.headers.get("location") ?? "",
+      );
+      expect(completed.status).toBe(403);
+    } finally {
+      const reassigned = await started.ctx.stores.organizations.get(newOwner);
+      if (reassigned) {
+        const { ssoIssuer: _reassignedIssuer, ...unclaimed } = reassigned;
+        await started.ctx.stores.organizations.set(newOwner, {
+          ...unclaimed,
+          state: "deleted",
+        });
+      }
+      await started.ctx.stores.organizations.set(organizationId, original);
+    }
   }, 30_000);
 
   /**

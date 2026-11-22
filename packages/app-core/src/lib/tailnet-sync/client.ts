@@ -33,10 +33,9 @@ export type DriveWrite =
   | { ok: true; generation: number }
   | { ok: false; generation: number };
 
-/** A drive answered with something other than the protocol above. */
 export { DRIVE_TIMEOUT_MS, DriveError } from "./drive-errors.js";
 
-// The daemon accepts a 16 MiB encoded snapshot plus 64 KiB of JSON framing.
+/** The daemon's largest stored snapshot, with room for the JSON response. */
 export const MAX_DRIVE_JSON_BYTES = 16 * 1024 * 1024 + 64 * 1024;
 
 /**

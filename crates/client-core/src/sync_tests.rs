@@ -1,6 +1,16 @@
 use super::*;
 
 #[test]
+fn truncated_or_wrong_context_ciphertext_is_refused() {
+    let key = DeviceKey::generate();
+    let sealed = seal(&key, b"secret", b"item-1").unwrap();
+    for length in 0..sealed.len() {
+        assert!(open(&key, &sealed[..length], b"item-1").is_err());
+    }
+    assert!(open(&key, &sealed, b"item-2").is_err());
+}
+
+#[test]
 fn seal_open_roundtrip() {
     let key = DeviceKey::generate();
     let sealed = seal(&key, b"secret", b"item-1").unwrap();
@@ -107,6 +117,56 @@ fn opaque_blobs_match_server_view() {
     assert_eq!(opaque[0].ciphertext, blob.ciphertext);
     let wire = serde_json::to_string(&opaque[0]).unwrap();
     assert!(!wire.contains("never-on-wire"));
+}
+
+#[test]
+fn equal_epoch_batch_conflict_does_not_mutate_store() {
+    let key = DeviceKey::generate();
+    let mut store = SyncStore::new("dev");
+    let good = store.put_local(&key, "keep", b"original").unwrap();
+    let mut fork = SyncStore::new("other");
+    let conflicting = fork.put_local(&key, "keep", b"replaced").unwrap();
+    assert_eq!(good.epoch, conflicting.epoch);
+    let before = store.to_persisted_json(&key).unwrap();
+    assert!(store
+        .apply_remote(&key, &[good.clone(), conflicting])
+        .is_err());
+    assert_eq!(store.to_persisted_json(&key).unwrap(), before);
+    assert_eq!(
+        open_sync_blob(&key, &store.opaque_blobs()[0]).unwrap(),
+        b"original"
+    );
+}
+
+#[test]
+fn equal_epoch_conflicting_ciphertext_is_rejected() {
+    let key = DeviceKey::generate();
+    let mut left = SyncStore::new("dev-a");
+    let mut right = SyncStore::new("dev-b");
+    let a = left.put_local(&key, "shared", b"from-a").unwrap();
+    let b = right.put_local(&key, "shared", b"from-b").unwrap();
+    assert_eq!(a.epoch, b.epoch);
+    assert_ne!(a.ciphertext, b.ciphertext);
+    assert!(left.apply_remote(&key, std::slice::from_ref(&b)).is_err());
+    assert!(right.apply_remote(&key, std::slice::from_ref(&a)).is_err());
+    assert_eq!(
+        open_sync_blob(&key, &left.opaque_blobs()[0]).unwrap(),
+        b"from-a"
+    );
+    assert_eq!(
+        open_sync_blob(&key, &right.opaque_blobs()[0]).unwrap(),
+        b"from-b"
+    );
+}
+
+#[test]
+fn empty_persisted_store_rejects_foreign_key_on_put() {
+    let key = DeviceKey::generate();
+    let foreign = DeviceKey::generate();
+    let store = SyncStore::new("empty-dev");
+    let json = store.to_persisted_json(&key).unwrap();
+    let mut loaded = SyncStore::from_persisted_json(&key, &json).unwrap();
+    assert!(loaded.put_local(&foreign, "x", b"no").is_err());
 }
 
 #[test]
@@ -277,6 +337,104 @@ fn snapshot_import_authenticates_epochs_and_does_not_partially_apply() {
 }
 
 #[test]
+fn empty_persisted_store_binds_the_serialization_key() {
+    let key = DeviceKey::generate();
+    let foreign = DeviceKey::generate();
+    let mut store = SyncStore::new("bind-dev");
+    let json = store.to_persisted_json(&key).unwrap();
+    assert!(SyncStore::from_persisted_json(&foreign, &json).is_err());
+    assert!(store.put_local(&foreign, "n", b"x").is_err());
+    assert!(store.put_local(&key, "n", b"x").is_ok());
+}
+
+#[test]
+fn legacy_migration_rejects_invalid_cursor_via_validate_cursor() {
+    let key = DeviceKey::generate();
+    let mut store = SyncStore::new("kept-device");
+    store.put_local(&key, "item", b"original").unwrap();
+    let before = store.to_persisted_json(&key).unwrap();
+
+    // Valid snapshot so a bad caller device id is the only cursor migrate() checks.
+    let valid = CiphertextSyncSnapshot::from_json(
+        &serde_json::json!({
+            "format": SNAPSHOT_FORMAT,
+            "version": SNAPSHOT_VERSION,
+            "exported_at_unix_ms": 1,
+            "cursor": {"device_id": "legacy-device", "epoch": 1},
+            "blobs": []
+        })
+        .to_string(),
+    )
+    .unwrap();
+
+    let fixtures = [
+        serde_json::json!({
+            "cursor": {"device_id": "", "epoch": 0},
+            "blobs": []
+        }),
+        serde_json::json!({
+            "cursor": {"device_id": "x".repeat(129), "epoch": 0},
+            "blobs": []
+        }),
+        serde_json::json!({
+            "cursor": {
+                "device_id": "legacy-device",
+                "epoch": (i64::MAX as u64) + 1
+            },
+            "blobs": []
+        }),
+    ];
+
+    for legacy in fixtures {
+        let json = legacy.to_string();
+        assert!(SyncStore::migrate_trusted_legacy_json(&key, &json).is_err());
+        let device_id = legacy["cursor"]["device_id"].as_str().unwrap().to_owned();
+        let epoch = legacy["cursor"]["epoch"].as_u64().unwrap();
+        let cursor = SyncCursor {
+            device_id: device_id.clone(),
+            epoch,
+        };
+        let bound = sync_limits::validate_cursor(&cursor).unwrap_err();
+        assert!(bound.to_string().contains("invalid sync cursor"), "{bound}");
+        // Empty and 129-byte device ids skip cursor deserialization. migrate()
+        // admits them only through validate_cursor. The overflow epoch is the
+        // same predicate, applied by snapshot.validate before reseal.
+        let migrated = if epoch > i64::MAX as u64 {
+            let snapshot = CiphertextSyncSnapshot::new(cursor, Vec::new(), None, 1);
+            SyncStore::migrate_trusted_legacy_snapshot(&key, "kept-device", &snapshot)
+        } else {
+            SyncStore::migrate_trusted_legacy_snapshot(&key, device_id, &valid)
+        };
+        let rejected = match migrated {
+            Err(error) => error,
+            Ok(_) => panic!("invalid cursor was migrated"),
+        };
+        assert_eq!(rejected.to_string(), bound.to_string());
+    }
+
+    assert_eq!(store.to_persisted_json(&key).unwrap(), before);
+    assert_eq!(
+        open_sync_blob(&key, &store.opaque_blobs()[0]).unwrap(),
+        b"original"
+    );
+}
+
+#[test]
+fn legacy_migration_rejects_ciphertext_that_would_exceed_v2_admission() {
+    let key = DeviceKey::generate();
+    let id = "edge";
+    let pt_len = sync_auth::LEGACY_MIGRATION_CIPHERTEXT_MAX - 40 + 1;
+    let plaintext = vec![0u8; pt_len];
+    let legacy_cipher = seal(&key, &plaintext, id.as_bytes()).unwrap();
+    assert!(legacy_cipher.len() > sync_auth::LEGACY_MIGRATION_CIPHERTEXT_MAX);
+    let legacy = serde_json::json!({
+        "cursor": {"device_id": "legacy-device", "epoch": 1},
+        "blobs": [{"id": id, "epoch": 1, "ciphertext": legacy_cipher}]
+    });
+    assert!(SyncStore::migrate_trusted_legacy_json(&key, &legacy.to_string()).is_err());
+}
+
+#[test]
 fn legacy_migration_is_explicit_and_assigns_new_authenticated_epochs() {
     let key = DeviceKey::generate();
     let foreign = DeviceKey::generate();
@@ -295,6 +453,53 @@ fn legacy_migration_is_explicit_and_assigns_new_authenticated_epochs() {
     let saved = migrated.to_persisted_json(&key).unwrap();
     assert!(SyncStore::from_persisted_json(&key, &saved).is_ok());
     assert!(SyncStore::migrate_trusted_legacy_json(&key, &saved).is_err());
+}
+
+#[test]
+fn two_independent_legacy_migrations_apply_onto_each_other() {
+    let key = DeviceKey::generate();
+    let legacy_cipher = seal(&key, b"legacy-secret", b"item").unwrap();
+    let legacy = serde_json::json!({
+        "cursor": {"device_id": "legacy-device", "epoch": 9},
+        "blobs": [{"id": "item", "epoch": 7, "ciphertext": legacy_cipher}]
+    })
+    .to_string();
+    let left = SyncStore::migrate_trusted_legacy_json(&key, &legacy).unwrap();
+    let right = SyncStore::migrate_trusted_legacy_json(&key, &legacy).unwrap();
+    assert_eq!(left.opaque_blobs(), right.opaque_blobs());
+    let mut reconciled = SyncStore::new("peer");
+    reconciled.apply_remote(&key, &left.opaque_blobs()).unwrap();
+    reconciled
+        .apply_remote(&key, &right.opaque_blobs())
+        .unwrap();
+    assert_eq!(
+        open_sync_blob(&key, &reconciled.opaque_blobs()[0]).unwrap(),
+        b"legacy-secret"
+    );
+}
+
+#[test]
+fn divergent_legacy_plaintext_at_same_id_rejects_on_sync() {
+    let key = DeviceKey::generate();
+    let cipher_a = seal(&key, b"device-a", b"item").unwrap();
+    let cipher_b = seal(&key, b"device-b", b"item").unwrap();
+    let legacy_a = serde_json::json!({
+        "cursor": {"device_id": "legacy", "epoch": 1},
+        "blobs": [{"id": "item", "epoch": 1, "ciphertext": cipher_a}]
+    })
+    .to_string();
+    let legacy_b = serde_json::json!({
+        "cursor": {"device_id": "legacy", "epoch": 1},
+        "blobs": [{"id": "item", "epoch": 1, "ciphertext": cipher_b}]
+    })
+    .to_string();
+    let mut left = SyncStore::migrate_trusted_legacy_json(&key, &legacy_a).unwrap();
+    let right = SyncStore::migrate_trusted_legacy_json(&key, &legacy_b).unwrap();
+    assert_ne!(
+        left.opaque_blobs()[0].ciphertext,
+        right.opaque_blobs()[0].ciphertext
+    );
+    assert!(left.apply_remote(&key, &right.opaque_blobs()).is_err());
 }
 
 #[test]

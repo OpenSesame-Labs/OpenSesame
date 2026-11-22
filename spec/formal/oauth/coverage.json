@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "reviewed_base_revision": "048f4e2d91c5953780b86da349f20356219e8c6a",
+  "reviewed_source_state": "Reviewed v3 MAC with scrypt-bound verifier, verifierEnc on the wire by default when a pepper is present (OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER default on; explicit false is rollout-off), and leg-binding for seal/unseal.",
+  "sources": [
+    {
+      "path": "packages/control-plane/src/interactions/federated-leg.ts",
+      "sha256": "12e8a637a8ebb19ebb1d547980632c6d6c0fbf2c920bc87b792540d01554df72"
+    },
+    {
+      "path": "packages/control-plane/src/interactions/federated-pending.ts",
+      "sha256": "4470a6e669fd049b8e72469acca446a3807f4ebdfbcb2c7b6ae8e9317875b382"
+    },
+    {
+      "path": "packages/control-plane/src/interactions/federated-trust-binding.ts",
+      "sha256": "5fe277e927a1e39dfd3611aa9b43447bf036b7cd0148fa74500e90efb6a90840"
+    },
+    {
+      "path": "packages/control-plane/src/interactions/federated.ts",
+      "sha256": "436d58fba39a50e4779ffedd78e73f628e58a217993334d4f97a48317a023fa8"
+    },
+    {
+      "path": "packages/control-plane/src/interactions/oauth2.ts",
+      "sha256": "0a407eef51967037537b1632f85c1bc050a28207ce16b84f999467f9394fc6a9"
+    },
+    {
+      "path": "packages/control-plane/src/interactions/trust.ts",
+      "sha256": "9b2403a98d6b13e58c2645fc2ee3eb34010155224b63f61eb922faa67c6796b0"
+    },
+    {
+      "path": "packages/control-plane/src/routes/interactions.ts",
+      "sha256": "4d318c05f4ff903f21b658cbc038db4cccf120e2bc17a96115d25a7ac9f52554"
+    }
+  ]
+}

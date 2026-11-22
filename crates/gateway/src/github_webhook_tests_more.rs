@@ -45,7 +45,7 @@ async fn state_with_webhook_secret(secret: &str) -> AppState {
 
     sqlx::query("INSERT OR IGNORE INTO organizations (id, name, created_at) VALUES (?, 'Org', ?)")
         .bind(state.connection_organization.to_string())
-        .bind(chrono::Utc::now().to_rfc3339())
+        .bind(opensesame_time::Utc::now().to_rfc3339())
         .execute(state.db.pool())
         .await
         .unwrap();
@@ -212,7 +212,7 @@ async fn installation_deleted_marks_backup_suspended() {
     assert_eq!(target.last_error.as_deref(), Some("github_app_uninstalled"));
 }
 
-/// Chaos: TaskBus publish failures must not discard a verified durable enqueue.
+/// Chaos: `TaskBus` publish failures must not discard a verified durable enqueue.
 #[tokio::test]
 async fn webhook_survives_taskbus_publish_partition() {
     let secret = "whsec_chaos";

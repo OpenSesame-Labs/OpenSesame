@@ -23,7 +23,8 @@ import {
   overlapCast,
 } from "@opensesame/os-domain";
 import {
-  MAX_FILE_PART_CIPHERTEXT_BYTES,
+  MAX_ENCRYPTED_FILE_PART_BYTES,
+  MAX_FILE_PARTS,
   type ObjectStore,
   type VaultItem,
   readFileManifest,
@@ -35,16 +36,21 @@ import {
   refused,
   slotBase,
 } from "./client.js";
-import { discardDriveBody } from "./drive-body.js";
+import { discardDriveBody, readDriveBody } from "./drive-body.js";
 import type { DrivePairing } from "./pairing.js";
-import {
-  MAX_DRIVE_PARTS,
-  MAX_DRIVE_PART_LIST_BYTES,
-  readPartResponse,
-} from "./parts-bounds.js";
+
+export const MAX_DRIVE_PART_LIST_BYTES = 4 * 1_048_576;
+export const MAX_DRIVE_PART_LIST_ENTRIES = MAX_FILE_PARTS * 16;
+
+function drivePartKey(key: string): string {
+  if (!/^[A-Za-z0-9_-]{16}$/u.test(key)) {
+    throw new DriveError("The file part key is invalid.", 400);
+  }
+  return key;
+}
 
 function partUrl(pairing: DrivePairing, key: string): string {
-  return `${slotBase(pairing)}/parts/${encodeURIComponent(key)}`;
+  return `${slotBase(pairing)}/parts/${drivePartKey(key)}`;
 }
 
 export async function listDriveParts(
@@ -59,25 +65,26 @@ export async function listDriveParts(
   if (!response.ok) throw refused(response);
   let json: JsonValue;
   try {
-    const bytes = await readPartResponse(response, MAX_DRIVE_PART_LIST_BYTES);
+    const body = await readDriveBody(response, MAX_DRIVE_PART_LIST_BYTES, {
+      validateLength: true,
+    });
     json = overlapCast(
-      JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)),
+      JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body)),
     );
   } catch (error) {
     if (error instanceof DriveError) throw error;
     throw new DriveError("The drive answered with something unreadable.", 502);
   }
-  if (
-    !isJsonObject(json) ||
-    !Array.isArray(json.parts) ||
-    json.parts.length > MAX_DRIVE_PARTS ||
-    json.parts.some(
-      (part) => !isString(part) || !/^[A-Za-z0-9_-]{16}$/.test(part),
-    )
-  ) {
-    throw new DriveError("The drive returned an invalid part list.", 502);
-  }
-  return new Set(json.parts.filter(isString));
+  const parts =
+    isJsonObject(json) && Array.isArray(json.parts) ? json.parts : [];
+  if (parts.length > MAX_DRIVE_PART_LIST_ENTRIES)
+    throw new DriveError("The drive answered with too many file parts.", 502);
+  return new Set(
+    parts.filter(
+      (part): part is string =>
+        isString(part) && /^[A-Za-z0-9_-]{16}$/u.test(part),
+    ),
+  );
 }
 
 export async function readDrivePart(
@@ -95,7 +102,9 @@ export async function readDrivePart(
     return null;
   }
   if (!response.ok) throw refused(response);
-  return readPartResponse(response, MAX_FILE_PART_CIPHERTEXT_BYTES);
+  return readDriveBody(response, MAX_ENCRYPTED_FILE_PART_BYTES, {
+    validateLength: true,
+  });
 }
 
 export async function writeDrivePart(
@@ -103,8 +112,8 @@ export async function writeDrivePart(
   key: string,
   bytes: Uint8Array,
 ): Promise<void> {
-  if (bytes.byteLength > MAX_FILE_PART_CIPHERTEXT_BYTES)
-    throw new DriveError("The file part exceeds the size limit.", 413);
+  if (bytes.byteLength > MAX_ENCRYPTED_FILE_PART_BYTES)
+    throw new DriveError("The file part exceeds its size limit.", 413);
   const response = await driveClientSeams.fetch(partUrl(pairing, key), {
     method: "PUT",
     headers: driveHeaders(pairing, "application/octet-stream"),

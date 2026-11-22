@@ -80,7 +80,7 @@ pub async fn set(
          WHERE id = ? AND organization_id = ?",
     )
     .bind(json)
-    .bind(chrono::Utc::now().to_rfc3339())
+    .bind(opensesame_time::Utc::now().to_rfc3339())
     .bind(connection_id)
     .bind(organization_id)
     .execute(pool)

@@ -15,10 +15,10 @@
 //! that settled between the read and the write wins; the reaper never
 //! overwrites a settlement it did not see.
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::OrganizationId;
 use opensesame_rotation::RotationState;
 use opensesame_task_bus::TaskBus;
+use opensesame_time::{DateTime, Utc};
 use sqlx::{QueryBuilder, Row, Sqlite};
 
 use super::super::{
@@ -207,12 +207,12 @@ mod tests {
     fn claim(run_id: &str) -> WebLoginClaim<'_> {
         WebLoginClaim {
             run_id,
-            lease: chrono::Duration::minutes(17),
+            lease: opensesame_time::Duration::minutes(17),
         }
     }
 
     fn later() -> DateTime<Utc> {
-        Utc::now() + chrono::Duration::hours(1)
+        Utc::now() + opensesame_time::Duration::hours(1)
     }
 
     #[tokio::test]
@@ -232,7 +232,7 @@ mod tests {
             .unwrap();
 
         // A cutoff before the job's last transition: a live runner is not stranded.
-        let past = Utc::now() - chrono::Duration::hours(1);
+        let past = Utc::now() - opensesame_time::Duration::hours(1);
         assert!(stranded_web_login_jobs(&broker, &org, past, past)
             .await
             .unwrap()

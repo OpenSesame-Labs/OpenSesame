@@ -37,7 +37,7 @@ pub struct DevicePending {
     pub user_code_hash: String,
     pub client_id: String,
     pub scope: String,
-    pub expires_at: chrono::DateTime<chrono::Utc>,
+    pub expires_at: opensesame_time::DateTime<opensesame_time::Utc>,
     pub approved: Option<ApprovedDevice>,
 }
 
@@ -81,7 +81,7 @@ pub struct AppState {
     /// Serializes device-token minting with principal/org session revocation.
     pub session_lifecycle: Arc<Mutex<()>>,
     /// Timestamps of failed `user_code` approval guesses (global cooldown fence).
-    pub device_approve_failures: Arc<Mutex<Vec<chrono::DateTime<chrono::Utc>>>>,
+    pub device_approve_failures: Arc<Mutex<Vec<opensesame_time::DateTime<opensesame_time::Utc>>>>,
     pub claims: Arc<Mutex<HashMap<String, ClaimSession>>>,
     pub(crate) public_enrollment: Arc<Mutex<crate::middleware::public_enrollment::Budgets>>,
     /// `claim_id` -> failed user-code attempts on completion (brute-force fence).
@@ -92,11 +92,6 @@ pub struct AppState {
     pub connection_ref: Option<ConnectionRef>,
     /// Third-party service authorizations (ADR 0032).
     pub connection_broker: Arc<ConnectionBroker>,
-    /// Relay holder liveness: (organization, subject) -> last heartbeat. Process-local on
-    /// purpose — a restart forgets everyone, and an unknown holder is
-    /// *offline*, which is the fail-closed direction (ADR 0046 decision 5).
-    pub relay_presence:
-        Arc<Mutex<std::collections::HashMap<(OrganizationId, String), std::time::Instant>>>,
     /// Development-only process-local CA when no sealing key is configured.
     /// Production and persisted CAs never use this fallback.
     pub ephemeral_certificate_ca: Arc<Mutex<Option<crate::dev_pki::DevCa>>>,
@@ -171,6 +166,22 @@ async fn build_with_security(
 ) -> anyhow::Result<AppState> {
     // Refuse an unusable configured PDP before opening persistent state.
     let openfga = OpenFgaClient::from_env()?;
+    let transport_config =
+        crate::transport::config::TransportConfig::from_env().map_err(anyhow::Error::new)?;
+    #[cfg(windows)]
+    if !transport_config.is_unconfigured() {
+        anyhow::bail!("configured Host transport requires a supported durable history lease");
+    }
+    #[cfg(not(windows))]
+    let options =
+        crate::transport::source_history::file_lock::claim_url(&args.database_url, true, true)?;
+    #[cfg(not(windows))]
+    let db = match options {
+        Some(options) => Db::connect_sqlite_options(options, true).await?,
+        None if args.database_url == "sqlite::memory:" => Db::connect_memory().await?,
+        None => Db::connect_sqlite(&args.database_url).await?,
+    };
+    #[cfg(windows)]
     let db = if args.database_url == "sqlite::memory:" {
         Db::connect_memory().await?
     } else {
@@ -204,8 +215,6 @@ async fn build_with_security(
     let resolved = crate::taskbus_config::resolve(&db).await?;
     let task_bus = crate::taskbus_config::build_bus_or_unavailable(&resolved).await;
 
-    let transport_config =
-        crate::transport::config::TransportConfig::from_env().map_err(anyhow::Error::new)?;
     // A partially configured approver refuses to start (ADR 0159): it would
     // otherwise fail at the first escalation, hours into a rotation.
     let approver =
@@ -234,7 +243,6 @@ async fn build_with_security(
         openbao,
         connection_ref: boot.connection_ref,
         connection_broker,
-        relay_presence: Arc::new(Mutex::new(std::collections::HashMap::new())),
         ephemeral_certificate_ca: Arc::new(Mutex::new(None)),
         connection_organization,
         operator_token: security.operator_token,
@@ -278,24 +286,8 @@ async fn resolve_distributed_task_authority(task_database_url: &str) -> bool {
 }
 
 #[cfg(test)]
-pub mod test_env {
-    use std::sync::Mutex;
-
-    static LOCK: Mutex<()> = Mutex::new(());
-
-    /// Build a fixture while process-global deployment settings are stable.
-    pub async fn build(args: super::Args) -> anyhow::Result<super::AppState> {
-        let _guard = lock();
-        super::build_test(args).await
-    }
-
-    /// Serialize tests that mutate process env (`OPENSESAME_*`, `NATS_URL`, …).
-    pub fn lock() -> std::sync::MutexGuard<'static, ()> {
-        LOCK.lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-    }
-}
-
+#[path = "app_state_test_env.rs"]
+pub mod test_env;
 #[cfg(test)]
 pub async fn build_test(args: Args) -> anyhow::Result<AppState> {
     let secret = || {

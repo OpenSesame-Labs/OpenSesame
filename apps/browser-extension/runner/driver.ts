@@ -70,6 +70,7 @@ async function fill(
   const value = await d.vault.resolve(reference, ctxOf(d));
   if (value === null) return failed("transport");
   const landed = await d.pages.fill(selector, value);
+  if (landed === "off_origin") return failed("navigation");
   moved(d.epoch);
   return filled(landed === "ok");
 }

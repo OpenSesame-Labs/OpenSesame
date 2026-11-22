@@ -63,6 +63,8 @@ enum Passphrase {
 pub(crate) struct SealedSource {
     root: PathBuf,
     passphrase: Passphrase,
+    #[cfg(test)]
+    witness_root: Option<PathBuf>,
 }
 
 impl SealedSource {
@@ -76,14 +78,17 @@ impl SealedSource {
         Self {
             root,
             passphrase: Passphrase::Env,
+            #[cfg(test)]
+            witness_root: None,
         }
     }
 
     #[cfg(test)]
-    pub(crate) fn at(root: PathBuf, passphrase: &str) -> Self {
+    pub(crate) fn at(root: PathBuf, witness_root: PathBuf, passphrase: &str) -> Self {
         Self {
             root,
             passphrase: Passphrase::Fixed(passphrase.to_string()),
+            witness_root: Some(witness_root),
         }
     }
 
@@ -105,6 +110,13 @@ struct SealedReader {
 
 impl EntrySource for SealedSource {
     fn open(&self) -> Result<Box<dyn EntryReader + '_>, SourceError> {
+        #[cfg(test)]
+        let store = match &self.witness_root {
+            Some(witness_root) => StoreRoot::open_with_test_witness_root(&self.root, witness_root),
+            None => StoreRoot::open(&self.root),
+        }
+        .map_err(|_| SourceError::Failed)?;
+        #[cfg(not(test))]
         let store = StoreRoot::open(&self.root).map_err(|_| SourceError::Failed)?;
         let key = if self.root.join(".opensesame-key").exists() {
             let mut password = self.passphrase().ok_or(SourceError::Locked)?;

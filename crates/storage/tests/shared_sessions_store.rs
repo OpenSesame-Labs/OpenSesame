@@ -5,13 +5,13 @@
 //! attempt: revoke twice, decide twice, admit without a grant, read a lapsed
 //! grant, reach another vault.
 
-use chrono::{Duration, Utc};
 use opensesame_domain::{
     Admission, GrantLink, GrantScope, JoinDecision, JoinRequest, JoinRequestId, NewSessionGrant,
     PrincipalId, SessionGrant, SessionGrantId, SessionId, SessionRole, SessionVisibility, VaultId,
     VaultItemId,
 };
 use opensesame_storage::{Db, StoredSession};
+use opensesame_time::{Duration, Utc};
 use std::collections::BTreeSet;
 
 const ORG: &str = "org:one";

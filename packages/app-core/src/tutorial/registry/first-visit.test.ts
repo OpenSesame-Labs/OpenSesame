@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { tutorialStartsFrom } from "./areas.js";
 import {
   FIRST_VISIT_TOURS,
@@ -8,6 +8,7 @@ import {
 import { guideGoal, mergedGuideGoals } from "./goals.js";
 import { registerTutorialRealm } from "./optional-tutorials.test-support.js";
 import { mergedGuideRoutes } from "./routes.js";
+import * as state from "./state.js";
 
 let revoke = () => {};
 beforeAll(() => {
@@ -135,5 +136,27 @@ describe("first-visit tours", () => {
   it("counts the steps it will say", () => {
     const tour = firstVisitTour("/settings/danger", new Set());
     expect(tour?.steps).toBeGreaterThan(0);
+  });
+
+  it("includes the password portion in the first-vault offer, per seal road", () => {
+    const known = vi
+      .spyOn(state, "isKnownGuidePredicate")
+      .mockReturnValue(true);
+    const read = vi.spyOn(state, "readGuidePredicate");
+    try {
+      // The passkey road: the door's four steps plus the nine-step walk.
+      read.mockReturnValue(true);
+      const passkey = firstVisitTour("/unlock/door", new Set());
+      expect(passkey?.goal.id).toBe("gate.front-door");
+      expect(passkey?.steps).toBe(13);
+      // The PIN road: the seal walks its four fields as steps too.
+      read.mockReturnValue(false);
+      const pin = firstVisitTour("/unlock/door", new Set());
+      expect(pin?.goal.id).toBe("gate.front-door");
+      expect(pin?.steps).toBe(17);
+    } finally {
+      known.mockRestore();
+      read.mockRestore();
+    }
   });
 });

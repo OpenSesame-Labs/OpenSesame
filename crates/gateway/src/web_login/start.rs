@@ -18,11 +18,11 @@
 //! duplicate. A start for a target that already has a task is answered here,
 //! before any task is made.
 
-use chrono::Utc;
 use opensesame_connection_broker::rotation::web_login::web_login_run_in_flight;
 use opensesame_connection_broker::RotationTarget;
 use opensesame_domain::OrganizationId;
 use opensesame_lifecycle::LifecycleEvent;
+use opensesame_time::Utc;
 
 use super::registry::Refused;
 use super::WebLoginLauncher;

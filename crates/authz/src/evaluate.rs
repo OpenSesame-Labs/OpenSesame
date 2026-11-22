@@ -22,8 +22,8 @@ use crate::{
     policy_version_digest, AuthZenDecision, AuthZenObligation, AuthZenRequest, AuthzError,
     PolicyEngine,
 };
-use chrono::{DateTime, Utc};
 use opensesame_domain::{AvailabilityClass, Grant, InvokeLevel, OfflineUse, ValidatedGrantChain};
+use opensesame_time::{DateTime, Utc};
 use serde_json::json;
 use uuid::Uuid;
 

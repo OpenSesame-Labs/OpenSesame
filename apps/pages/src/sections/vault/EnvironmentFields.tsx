@@ -78,12 +78,10 @@ function GeneratedFile({
   values: EnvironmentSchemaValues;
   id: string;
 }>) {
-  const result = renderEnvironmentSchemaItem(itemName, values);
-  const file = result.file;
+  const copySecret = useCopySecret();
   const [copied, setCopied] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [failed, setFailed] = useState("");
-  const copySecret = useCopySecret();
   useEffect(() => {
     if (!copied && !downloaded) return;
     const timer = setTimeout(() => {
@@ -92,13 +90,17 @@ function GeneratedFile({
     }, SHOWN_MS);
     return () => clearTimeout(timer);
   }, [copied, downloaded]);
+  const result = renderEnvironmentSchemaItem(itemName, values);
+  const file = result.file;
 
   async function copy() {
     if (!file) return;
-    if ((await copySecret(file.content)) === "copied") {
+    try {
+      const outcome = await copySecret(file.content);
+      if (outcome !== "copied") throw new Error("clipboard unavailable");
       setFailed("");
       setCopied(true);
-    } else {
+    } catch {
       setFailed(`The ${file.fileName} file could not be copied.`);
     }
   }

@@ -10,7 +10,7 @@ use crate::{
     DomainError, FrozenIntentV2, Grant, GrantConstraints, GrantId, OfflineUse, OrganizationId,
     PrincipalId, ProjectId, TaskRunId, ValidatedGrantChain,
 };
-use chrono::{Duration, Utc};
+use opensesame_time::{Duration, Utc};
 use serde_json::json;
 
 use crate::authority_adversarial_fixtures::{

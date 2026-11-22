@@ -62,12 +62,25 @@ function fixture(t) {
   const bin = join(directory, "bin");
   mkdirSync(bin);
   for (const file of [
+    "osv-scanner.toml",
     "scripts/audit/osv-scanner-gate.sh",
     "scripts/lib/audit-directory.sh",
+    "scripts/lib/json-boundary.mjs",
     "scripts/security/assert-no-advisories.mjs",
   ]) {
     mkdirSync(dirname(join(checkout, file)), { recursive: true });
     copyFileSync(join(root, file), join(checkout, file));
+  }
+  // This fixture isolates scanner download, checksum and report handling. The
+  // independent SQLx/Keepass coverage suites exercise their real checkers.
+  for (const checker of [
+    "check-sqlx-scanner-coverage.py",
+    "check-keepass-scanner-coverage.py",
+  ]) {
+    writeFileSync(
+      join(checkout, "scripts/security", checker),
+      "# synthetic checkout: companion coverage is tested separately\n",
+    );
   }
   writeFileSync(join(checkout, "package-lock.json"), "fixture\n");
   execFileSync("git", ["init", "-q"], { cwd: checkout });

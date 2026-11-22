@@ -41,6 +41,7 @@ import {
   assertTransportSecure,
   loadTransportConfig,
 } from "./transport/config.js";
+
 export type { AgentAuthTrustedProvider };
 
 export interface ControlPlaneConfig {
@@ -100,6 +101,13 @@ export interface ControlPlaneConfig {
    * only removes a click the relying party already made.
    */
   interactionAutoContinue: boolean;
+  /**
+   * When true, federated pending cookies carry only `verifierEnc` on the wire.
+   * Default on (`OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER`). An explicit
+   * `false` keeps a plaintext verifier for a replica that cannot unseal yet.
+   * Merge after QA confirms the fleet can unseal.
+   */
+  federatedPendingSealVerifierOnWire: boolean;
   /** Give a local provisional principal one owner workspace for the bundled Host. */
   bootstrapPersonalOrganization: boolean;
   isProduction: boolean;
@@ -244,11 +252,6 @@ function corsOriginsFromEnv(env: NodeJS.ProcessEnv): string[] {
   return parseOriginList(env.OPENSESAME_CORS_ORIGINS ?? "");
 }
 
-export {
-  assertListenHostAllowed,
-  listenHostIsLoopback,
-} from "./transport/config.js";
-
 /**
  * Read a channel list from configuration.
  *
@@ -257,6 +260,10 @@ export {
  * channel kind nothing in the capability table describes.
  */
 export { parseChannelKinds } from "./config-channels.js";
+export {
+  assertListenHostAllowed,
+  listenHostIsLoopback,
+} from "./transport/config.js";
 
 export function loadConfig(
   env: NodeJS.ProcessEnv = process.env,
@@ -324,6 +331,10 @@ export function loadConfig(
     // deployment back into rendering its own picker for a hinted sign-in.
     interactionAutoContinue: truthyDefaultOn(
       env.OPENSESAME_INTERACTION_AUTO_CONTINUE,
+    ),
+    // Default ON. Only an explicit `false`/`0` leaves the plaintext verifier.
+    federatedPendingSealVerifierOnWire: truthyDefaultOn(
+      env.OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER,
     ),
     // Pages (and Host device sessions) need an organization claim. Local/dev
     // stacks mint a personal workspace with the provisional principal — do not

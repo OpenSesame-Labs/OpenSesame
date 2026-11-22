@@ -25,6 +25,32 @@ Keep an entry point thin: parse arguments, call into `lib/`, set the exit
 code. Logic that deserves a test goes in `lib/`, where `npm run quality:test`
 runs it.
 
+`npm run verify:auth-formal` checks the pinned Lean authentication model and
+compares its generated cases with the Identity API functions. The toolchain,
+coverage, assumptions, and limits are in [formal authentication and
+authorization verification](../docs/security/formal-auth-verification.md).
+
+Install the Git hooks with `npm run setup:hooks`. Before a push, the mandatory
+formal gate reads the actual ref updates and runs suites when registered
+implementation paths occur in the pushed changes. A suite can also register a
+reviewed Cargo.lock dependency projection; the suite runs when its resolved
+graph changes. This lockfile projection conservatively includes inactive
+optional, development, and target-specific dependencies. See the
+[projection contract](security/cargo-lock-projection.md). The mappings and commands are
+in [`proof-registry.json`](../spec/formal/proof-registry.json) and must match the
+declarative [`proof-requirements.json`](../spec/formal/proof-requirements.json).
+The gate inspects policy changes and their parent snapshots in the pushed
+history: a changed implementation cannot lose a mapping or an incoming proof
+and command by reverting policy metadata. Pre-policy registry history still
+participates in selection. Push changes to a suite's proof-file mappings or command
+separately from changes to its mapped implementation. Renames, deleted paths, and changes later reverted
+are included; deleting a remote ref alone does not run a suite. Metadata-only
+and proof-only changes also do not run suites. A proof-bearing push must use a clean worktree checked
+out at the target commit; push different target commits separately. The gate
+fails closed if history or proof files are unavailable. `OPENSESAME_PREPUSH=off`
+skips optional checks but does not skip this gate. Release qualification runs
+all registered suites, including their shared axiom-control test.
+
 ## quality/ — `npm run quality`, `npm run lint`
 
 | Script | Task | Checks |
@@ -129,7 +155,7 @@ the others report on the terminal (`deepsec` keeps its state under
 | File | Used by |
 |---|---|
 | `settings-snapshot.mjs`, `settings-diff.mjs`, `settings-archive.mjs` | `security.yml` job `repository-settings`: records the rulesets, environments and repository state a read-only token can see, and fails when one changed since the previous record. See [change alarm](../ops/github/README.md#change-alarm). |
-| `assert-no-advisories.mjs` | `audit:osv`: accepts only an empty findings array; every advisory and malformed report fails the gate. The removed `braces` and `node-forge` dependencies have no advisory exceptions. |
+| `assert-no-advisories.mjs` | `audit:osv` and `audit:cve-lite`: accept only an empty findings report; every advisory and malformed report fails the gate. The removed `braces` and `node-forge` dependencies and the former Glob and Minimatch backports have no advisory exceptions. |
 | `exposure-matrix-gate.mjs` | `audit:exposure`: checks reviewed observer/artifact combinations and source fingerprints. Commit hooks use `--staged`; push hooks use `--push-refs`; CI uses `--ref HEAD`. See [the review workflow](../docs/security/exposure-matrix.md). |
 | `patched-dependencies.mjs` | `patches:build`, `patches:verify`: builds each tarball under [`patches/vendor/`](../patches/README.md) from the published package plus its patch, and proves a committed tarball is exactly that. `patched-dependencies.test.mjs` checks, without the network, that the lockfile installs the patched code. |
 | `*.test.mjs` | `quality:test` (`node --test scripts/security/*.test.mjs`): advisory gate, removed-dependency and ADB transport regressions, and the `js-yaml`, `shell-quote`/`source-map-js` and `simple-git` upgrades ([`patches/simple-git-parser-residual.md`](../patches/simple-git-parser-residual.md)). |

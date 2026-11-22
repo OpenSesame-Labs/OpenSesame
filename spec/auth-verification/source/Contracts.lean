@@ -258,26 +258,35 @@ theorem issuer_blank_denied (staticTrusted orgEligible byoActive : Bool) :
     extractedIssuerResolution false staticTrusted orgEligible byoActive = .untrusted := by
   rfl
 
-theorem pending_admission_refines_policy (modernValid legacyValid orgAbsent byoAbsent : Bool) :
-    extractedPendingAdmission modernValid legacyValid orgAbsent byoAbsent = true ↔
-      modernValid = true ∨ (legacyValid = true ∧ orgAbsent = true ∧ byoAbsent = true) := by
-  cases modernValid <;> cases legacyValid <;> cases orgAbsent <;> cases byoAbsent <;>
+theorem pending_admission_refines_policy
+    (canonical modernValid legacyValid providerPresent knownFieldsOnly : Bool) :
+    extractedPendingAdmission canonical modernValid legacyValid providerPresent knownFieldsOnly = true ↔
+      canonical = true ∧
+        (modernValid = true ∨
+          (legacyValid = true ∧ providerPresent = true ∧ knownFieldsOnly = true)) := by
+  cases canonical <;> cases modernValid <;> cases legacyValid <;>
+    cases providerPresent <;> cases knownFieldsOnly <;>
     simp [extractedPendingAdmission]
 
-theorem pending_legacy_org_denied (legacyValid byoAbsent : Bool) :
-    extractedPendingAdmission false legacyValid false byoAbsent = false := by
-  cases legacyValid <;> rfl
-
-theorem pending_legacy_byo_denied (legacyValid orgAbsent : Bool) :
-    extractedPendingAdmission false legacyValid orgAbsent false = false := by
-  cases legacyValid <;> cases orgAbsent <;> rfl
-
-theorem pending_modern_signature_admitted (legacyValid orgAbsent byoAbsent : Bool) :
-    extractedPendingAdmission true legacyValid orgAbsent byoAbsent = true := by
+theorem pending_noncanonical_denied
+    (modernValid legacyValid providerPresent knownFieldsOnly : Bool) :
+    extractedPendingAdmission false modernValid legacyValid providerPresent knownFieldsOnly = false := by
   rfl
 
-theorem pending_no_signature_denied (orgAbsent byoAbsent : Bool) :
-    extractedPendingAdmission false false orgAbsent byoAbsent = false := by
+theorem pending_legacy_provider_required (legacyValid knownFieldsOnly : Bool) :
+    extractedPendingAdmission true false legacyValid false knownFieldsOnly = false := by
+  cases legacyValid <;> rfl
+
+theorem pending_legacy_known_fields_required (legacyValid providerPresent : Bool) :
+    extractedPendingAdmission true false legacyValid providerPresent false = false := by
+  cases legacyValid <;> cases providerPresent <;> rfl
+
+theorem pending_modern_signature_admitted (legacyValid providerPresent knownFieldsOnly : Bool) :
+    extractedPendingAdmission true true legacyValid providerPresent knownFieldsOnly = true := by
+  rfl
+
+theorem pending_no_signature_denied (providerPresent knownFieldsOnly : Bool) :
+    extractedPendingAdmission true false false providerPresent knownFieldsOnly = false := by
   rfl
 
 def trustBindingPolicy (pendingOidc currentOidc single hasProvenance sameSource sameId

@@ -6,10 +6,17 @@
 //! error and ends), or a close (the stream ends cleanly). `shutdown` stops the
 //! server and unlinks the socket, which is what an agent restart looks like
 //! to a workload.
+//!
+//! A denial whose message contains the SPIRE phrase "no identity issued" is
+//! the phrase the `spiffe` 0.19 SDK (`WorkloadApiError::from_status`) maps to
+//! `NoIdentityIssued`. Any other `PERMISSION_DENIED` message stays
+//! `PermissionDenied`. The substring is SPIRE wording, not a SPIFFE field.
+//! Callers that need the no-identity variant must use that phrase; this fake
+//! does not invent a second matcher.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU32, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use tokio::sync::{broadcast, mpsc, oneshot};
@@ -38,6 +45,25 @@ struct Service {
     events: broadcast::Sender<Script>,
     connections: Arc<AtomicU32>,
     open_streams: Arc<AtomicUsize>,
+    stall_new_streams: Arc<AtomicBool>,
+    stalled_opens: Arc<AtomicU32>,
+    open_denial: Arc<Mutex<Status>>,
+}
+
+impl Service {
+    fn service_denial(&self) -> Status {
+        self.open_denial.lock().map_or_else(
+            |_| Status::permission_denied("no identity issued"),
+            |denial| denial.clone(),
+        )
+    }
+
+    async fn stall_if_armed(&self) {
+        if self.stall_new_streams.load(Ordering::SeqCst) {
+            self.stalled_opens.fetch_add(1, Ordering::SeqCst);
+            std::future::pending::<()>().await;
+        }
+    }
 }
 
 /// Handle to a running fake.
@@ -90,6 +116,9 @@ impl FakeWorkloadApi {
             events,
             connections: Arc::new(AtomicU32::new(0)),
             open_streams: Arc::new(AtomicUsize::new(0)),
+            stall_new_streams: Arc::new(AtomicBool::new(false)),
+            stalled_opens: Arc::new(AtomicU32::new(0)),
+            open_denial: Arc::new(Mutex::new(Status::permission_denied("no identity issued"))),
         };
         let listener = tokio::net::UnixListener::bind(&socket_path).expect("bind unix socket");
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
@@ -147,10 +176,53 @@ impl FakeWorkloadApi {
         if let Ok(mut state) = self.service.state.lock() {
             *state = None;
         }
+        if let Ok(mut denial) = self.service.open_denial.lock() {
+            *denial = Status::permission_denied("no identity issued");
+        }
         let _ = self
             .service
             .events
             .send(Script::Snapshot(X509svidResponse::default()));
+    }
+
+    /// Stop issuing and end current streams with an authorization denial.
+    pub fn deny_all(&self, status: Status) {
+        if let Ok(mut state) = self.service.state.lock() {
+            *state = None;
+        }
+        if let Ok(mut denial) = self.service.open_denial.lock() {
+            *denial = status.clone();
+        }
+        let _ = self.service.events.send(Script::Error(status));
+    }
+
+    /// Stop issuing, but let the next RPC discover the given denial after EOF.
+    pub fn deny_on_reconnect(&self, status: Status) {
+        if let Ok(mut state) = self.service.state.lock() {
+            *state = None;
+        }
+        if let Ok(mut denial) = self.service.open_denial.lock() {
+            *denial = status;
+        }
+        self.close_streams();
+    }
+
+    /// Close current streams and leave future RPC openings unanswered.
+    pub fn stall_on_reconnect(&self) {
+        self.service.stall_new_streams.store(true, Ordering::SeqCst);
+        self.close_streams();
+    }
+
+    /// Answer RPC openings again; openings already held stay held.
+    pub fn resume_new_streams(&self) {
+        let stall = &self.service.stall_new_streams;
+        stall.store(false, Ordering::SeqCst);
+    }
+
+    /// Number of RPC openings intentionally held open.
+    #[must_use]
+    pub fn stalled_opens(&self) -> u32 {
+        self.service.stalled_opens.load(Ordering::SeqCst)
     }
 
     /// Every open stream yields `status` and ends.
@@ -258,9 +330,10 @@ impl SpiffeWorkloadApi for Service {
         request: Request<X509svidRequest>,
     ) -> Result<Response<Self::FetchX509SVIDStream>, Status> {
         require_security_header(&request)?;
+        self.stall_if_armed().await;
         let initial = self.state.lock().ok().and_then(|s| s.clone());
         let Some(initial) = initial else {
-            return Err(Status::permission_denied("no identity issued"));
+            return Err(self.service_denial());
         };
         self.connections.fetch_add(1, Ordering::SeqCst);
         let (tx, rx) = mpsc::channel(16);
@@ -296,9 +369,10 @@ impl SpiffeWorkloadApi for Service {
         request: Request<X509BundlesRequest>,
     ) -> Result<Response<Self::FetchX509BundlesStream>, Status> {
         require_security_header(&request)?;
+        self.stall_if_armed().await;
         let initial = self.state.lock().ok().and_then(|s| s.clone());
         let Some(initial) = initial else {
-            return Err(Status::permission_denied("no identity issued"));
+            return Err(self.service_denial());
         };
         let (tx, rx) = mpsc::channel(16);
         let mut events = self.events.subscribe();

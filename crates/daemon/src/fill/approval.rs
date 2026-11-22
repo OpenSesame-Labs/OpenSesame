@@ -3,7 +3,7 @@
 //! No bearer or value is retained; grants live only in memory for 90 seconds.
 
 use super::{caller::Caller, pairing::digest_hex, Field};
-use chrono::{DateTime, Duration, Utc};
+use opensesame_time::{DateTime, Duration, Utc};
 use serde::Serialize;
 use std::sync::Mutex;
 

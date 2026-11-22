@@ -6,11 +6,11 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::Utc;
 use opensesame_session_observe::{
     AttachRefusal, Attachment, ControlLease, ControlState, HandoffOutcome,
 };
 use opensesame_storage::{ObservationControlUpdate, StoredObservationRun};
+use opensesame_time::Utc;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -51,9 +51,9 @@ async fn commit(
         return refusal(AttachRefusal::StepUpRequired);
     };
     let lease_expires_at = holder.as_ref().map(|_| {
-        (Utc::now() + chrono::Duration::seconds(LEASE_SECONDS))
+        (Utc::now() + opensesame_time::Duration::seconds(LEASE_SECONDS))
             .min(claims.expires_at)
-            .min(claims.auth_time + chrono::Duration::seconds(300))
+            .min(claims.auth_time + opensesame_time::Duration::seconds(300))
             .to_rfc3339()
     });
     let update = ObservationControlUpdate {

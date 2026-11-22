@@ -15,7 +15,7 @@
 //! access, so a scanner that misses a tick cannot extend anybody's reach.
 
 use crate::DomainError;
-use chrono::{DateTime, Duration, Utc};
+use opensesame_time::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 /// The longest a temporary domain may run.

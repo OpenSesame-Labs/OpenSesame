@@ -122,8 +122,6 @@ the findings as they stood at that refactor.
 - **`agents.ts` registration checks a project role but not visibility**, so a
   member of an expired project can still register an agent there.
 - **The SCIM role-mapping `PUT` writes no audit event.**
-  This drift was subsequently addressed: mapping changes and neutral-mapping
-  removal now append audit events.
 - **Personal-project rules differ per route** (`409
   personal_project_not_shareable` on add, `personal_project_immutable` on
   remove, nothing on role change).
@@ -220,6 +218,5 @@ gdp-ts does not guarantee more than the type checker and the lint can see.
   `control-plane` (the packages that hold proofs), and a root dev dependency for
   the lint preset. It has no dependencies of its own. A package adds it when it
   gets its first proof, not before.
-- New authorization work in the TypeScript plane follows the rules above. An
-  optional copy of the library's skill can be used after obtaining and reviewing
-  an immutable revision; `npm run skills:review` describes that process.
+- New authorization work in the TypeScript plane follows the skill bundled with
+  the library (`npx skills add rauchg/gdp-ts`) and the rules above.

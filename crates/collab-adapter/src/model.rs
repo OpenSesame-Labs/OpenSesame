@@ -16,7 +16,7 @@
 //! password, or a bot secret — `tests/refusals.rs` asserts that over the
 //! serialized form, the same way `crates/grants` does for `Grant`.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::permissions::Permissions;

@@ -32,7 +32,7 @@ async fn serve(
         identity_required: true,
         own_trust: None,
     }
-    .into_generation(1, chrono::Utc::now())
+    .into_generation(1, opensesame_time::Utc::now())
     .unwrap();
     let generations = TransportGenerations::new(generation);
     let mut runtime = test_support::runtime_serving(

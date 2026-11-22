@@ -106,7 +106,7 @@ it("uses the gate seat even while a background shell has another seat", () => {
   const specific = host("");
   const gate = host("gate");
   mount("/setup/choose", true);
-  expect(gate.textContent).toContain("Choose how to set this device up");
+  expect(gate.textContent).toContain("Choose a setup");
   expect(shell.children).toHaveLength(0);
   expect(specific.children).toHaveLength(0);
 });
@@ -144,7 +144,7 @@ it("holds a shell offer during a gate and resumes it after the gate leaves", () 
   });
   expect(shell.children).toHaveLength(0);
   const gateView = mount("/setup/choose", true).view;
-  expect(gate.textContent).toContain("Choose how to set this device up");
+  expect(gate.textContent).toContain("Choose a setup");
   expect(shell.children).toHaveLength(0);
   act(() => {
     gateView.unmount();
@@ -189,7 +189,7 @@ it("keeps the gate's input mounted while an offer replaces the background shell 
     '[data-first-visit-offer="gate"]',
   );
   if (!seat) throw new Error("Gate has no seat");
-  expect(seat.textContent).toContain("Choose how to set this device up");
+  expect(seat.textContent).toContain("Choose a setup");
   expect(document.querySelector('[aria-label="Gate draft"]')).toBe(draft);
   expect(draft?.value).toBe("kept");
   fireEvent.click(within(seat).getByRole("button", { name: "Not now" }));
@@ -216,7 +216,7 @@ it("prefers the current gate's own host over a background screen and the fallbac
   const fallback = view.container.querySelector<HTMLElement>(
     '[data-first-visit-offer="gate"]',
   );
-  expect(local?.textContent).toContain("Choose how to set this device up");
+  expect(local?.textContent).toContain("Choose a setup");
   expect(background.children).toHaveLength(0);
   expect(fallback?.children).toHaveLength(0);
   expect(view.getByLabelText("Gate draft")).toHaveProperty("value", "kept");

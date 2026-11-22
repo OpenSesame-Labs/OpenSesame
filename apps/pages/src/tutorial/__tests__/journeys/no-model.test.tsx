@@ -130,7 +130,7 @@ describe("support on a browser that has no model to run", {
       }),
     );
     expect(
-      await screen.findByText(/Search the catalog, open the provider's page/),
+      await screen.findByText(/In Connections, search for a provider/),
     ).toBeTruthy();
 
     // And a named goal runs a real walkthrough, over the real registry.

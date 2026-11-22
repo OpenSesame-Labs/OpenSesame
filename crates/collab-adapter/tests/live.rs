@@ -29,11 +29,11 @@ mod support;
 
 use std::env;
 
-use chrono::{Duration, Utc};
 use opensesame_collab_adapter::{
     plan_apply, plan_reconcile, ApplicationId, AuthorityProjection, ChannelId, CollabClient,
     CredentialKind, GuildId, Platform, Registration, RoleId, Sweep, TargetSpec, UserId, Verb,
 };
+use opensesame_time::{Duration, Utc};
 use support::transport::HyperTransport;
 
 /// The authority handle the live run projects. Distinct from the fixture's so a

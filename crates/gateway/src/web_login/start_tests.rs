@@ -7,8 +7,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use chrono::Utc;
 use opensesame_lifecycle::{EVENT_RENEWAL_DUE, EVENT_RENEWAL_FAILED, EVENT_RENEWAL_SUCCEEDED};
+use opensesame_time::Utc;
 
 use super::registry::{RunLimits, RunRegistry};
 use super::test_support::*;
@@ -337,7 +337,7 @@ async fn a_target_another_replica_holds_is_skipped_and_never_run_twice() {
     // the shared database, and its registry is not this process's.
     let elsewhere = WebLoginClaim {
         run_id: "run_elsewhere",
-        lease: chrono::Duration::minutes(17),
+        lease: opensesame_time::Duration::minutes(17),
     };
     request_claimed_web_login_rotation(
         world.state.connection_broker.as_ref(),

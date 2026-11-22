@@ -1,0 +1,45 @@
+---------------------------- MODULE DaemonFillPairing ----------------------------
+EXTENDS Naturals
+\* fill_value and match refuse before approvals when the caller is not paired.
+
+VARIABLES paired, approved, released
+
+vars == <<paired, approved, released>>
+
+TypeOK ==
+  /\ paired \in BOOLEAN
+  /\ approved \in BOOLEAN
+  /\ released \in BOOLEAN
+
+Init ==
+  /\ paired = FALSE
+  /\ approved = FALSE
+  /\ released = FALSE
+
+Pair ==
+  /\ paired' = TRUE
+  /\ UNCHANGED <<approved, released>>
+
+Approve ==
+  /\ paired
+  /\ approved' = TRUE
+  /\ UNCHANGED <<paired, released>>
+
+FillRequest ==
+  /\ IF paired /\ approved
+     THEN released' = TRUE
+     ELSE released' = FALSE
+  /\ UNCHANGED <<paired, approved>>
+
+\* Mirrors `POST /v1/fill/pair/revoke`: drop pairing and approval authority.
+Revoke ==
+  /\ paired
+  /\ paired' = FALSE
+  /\ approved' = FALSE
+  /\ released' = FALSE
+
+NoFillWithoutPairing == released => (paired /\ approved)
+
+Spec == Init /\ [][Pair \/ Approve \/ FillRequest \/ Revoke]_vars
+
+====

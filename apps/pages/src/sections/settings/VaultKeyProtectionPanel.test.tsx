@@ -78,6 +78,11 @@ describe("VaultKeyProtectionPanel", () => {
     expect(screen.getByText("Password")).toBeTruthy();
     expect(screen.getByLabelText("Verified")).toBeTruthy();
     expect(screen.queryByText(/WebCrypto/i)).toBeNull();
+    expect(
+      screen
+        .getByRole("button", { name: "Add key protection method" })
+        .getAttribute("data-guide-targets"),
+    ).toContain("settings.vault-key-protection");
   });
 
   it("draws no static policy prose and no row without an action", () => {
@@ -214,18 +219,6 @@ describe("VaultKeyProtectionPanel", () => {
     expect(
       screen.getByRole("button", { name: "Preferred unlock age passkey" }),
     ).toBeTruthy();
-  });
-
-  it("marks a verified cloud key whose credential this vault seals as not a way back in", () => {
-    showRecords([recoveryKey, awsKms]);
-    const row = (id: string) =>
-      document.querySelector(`[data-protector-id="${id}"]`);
-    const note = "Its credential is sealed in this vault";
-    expect(row("aws_1")?.querySelector(`[aria-label^="${note}"]`)).toBeTruthy();
-    expect(row("aws_1")?.querySelector('[aria-label="Verified"]')).toBeTruthy();
-    expect(
-      row("recovery-key_a")?.querySelector(`[aria-label^="${note}"]`),
-    ).toBeNull();
   });
 
   it("marks a verified cloud key whose credential this vault seals as not a way back in", () => {

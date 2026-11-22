@@ -1,17 +1,16 @@
 #!/usr/bin/env node
 /**
- * Vault "Generate new password" handoff against the built static PWA.
+ * Vault password-reset handoff against the built static PWA.
  *
- * Path 1 (not configured): a guest vault with no `ai.password-reset`
- * approval. Both entry points — the rotation panel's "Generate new password"
- * and the editor's "Generate another password" — must prompt through the
- * bell tray with a Settings action, never fail silently or regenerate
- * locally behind the person's back.
+ * Path 1 (not configured): a locally sealed vault with no `ai.password-reset`
+ * approval. The rotation action prompts through the bell tray with a Settings
+ * action, while the editor generates a new password locally.
  *
  * Path 2 (configured): following the notice's Settings action and turning
  * Password reset on routes the same key through the installed readiness
- * seam; with no computer-use runtime connected the tray says to connect
- * one under Integrations. The queued/in-progress state with readiness ok
+ * seam; the tray asks for whichever prerequisite is missing. A deployment
+ * may already provide an anonymous computer-use runtime, in which case it
+ * asks for a model instead. The queued/in-progress state with readiness ok
  * needs the seam double and is covered by RotationPanel.test.tsx; no
  * in-page stub can install a module seam without a test-only hook.
  *
@@ -21,8 +20,11 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { doorGuest } from "./lib/front-door.mjs";
-import { addCapabilities, openSettingsCategory } from "./lib/pages-journey.mjs";
+import {
+  addCapabilities,
+  openSettingsCategory,
+  sealWithPin,
+} from "./lib/pages-journey.mjs";
 import { privateTempDir } from "./lib/private-files.mjs";
 import { createHarness } from "./lib/static-origin-harness.mjs";
 
@@ -70,12 +72,7 @@ try {
     device: { viewport: { width: 1280, height: 900 } },
   });
   await page.goto(`${origin}${base}`);
-  await doorGuest(page).click();
-  await page
-    .getByRole("button", { name: "Lock vault" })
-    .locator("visible=true")
-    .first()
-    .waitFor();
+  await sealWithPin(page);
 
   // An account with an https site and a generated password.
   await openSettingsCategory(page, "Item types");
@@ -112,7 +109,9 @@ try {
   // Path 1a: the rotation panel prompts to configure.
   const rotation = page.getByRole("region", { name: "Rotation" });
   await rotation.waitFor({ timeout: 15000 });
-  await rotation.getByRole("button", { name: /Generate new password/ }).click();
+  await rotation
+    .getByRole("button", { name: /Request password rotation/ })
+    .click();
   let tray = await openTray(page);
   await tray.getByText("Password reset", { exact: true }).first().waitFor();
   await tray.getByText(/Turn on Password reset/).waitFor();
@@ -123,8 +122,7 @@ try {
   );
   await closeTray(page);
 
-  // Path 1b: the password control prompts the same way and does not
-  // regenerate locally.
+  // Path 1b: the editor generates locally without starting a provider reset.
   await page.evaluate(
     (route) => {
       history.pushState(null, "", route);
@@ -137,22 +135,16 @@ try {
   await page.getByRole("button", { name: "Show password" }).click();
   const before = await password.inputValue();
   await page.getByRole("button", { name: "Generate another password" }).click();
-  tray = await openTray(page);
-  await tray
-    .getByText(/Turn on Password reset/)
-    .first()
-    .waitFor();
-  await closeTray(page);
-  assert.equal(
-    await password.inputValue(),
-    before,
-    "the password control did not regenerate locally when the reset path applies",
+  const generated = await password.inputValue();
+  assert(
+    generated.length > 0 && generated !== before,
+    "the editor generates a new local password",
   );
 
   // Path 2: turn the feature on the way a person does, then the same key
-  // reaches readiness and names the missing runtime. The switch is on when
+  // reaches readiness and names the missing prerequisite. The switch is on when
   // the plan commits; the readiness seam is installed when the module leaves
-  // "starting". A document load would lock this guest vault, so the item is
+  // "starting". A document load would lock this vault, so the item is
   // opened in place, the way the other walks move.
   await addCapabilities(page, ["Password reset"]);
   await page.waitForFunction(() => {
@@ -179,19 +171,28 @@ try {
   const rotationAgain = page.getByRole("region", { name: "Rotation" });
   await rotationAgain.waitFor({ timeout: 15000 });
   await rotationAgain
-    .getByRole("button", { name: /Generate new password/ })
+    .getByRole("button", { name: /Request password rotation/ })
     .click();
   tray = await openTray(page);
-  await tray
-    .getByText(/Connect a computer-use runtime/)
-    .first()
-    .waitFor();
-  await closeTray(page);
+  const needsRuntime = tray.getByText(
+    /^Connect a computer-use runtime under Settings/,
+  );
+  const needsModel = tray.getByText(
+    /^Choose a model for password reset under Settings/,
+  );
+  await needsRuntime.or(needsModel).first().waitFor();
+  const expectedDestination = (await needsRuntime.isVisible())
+    ? "/settings/integrations#integration-password-reset"
+    : "/settings/features#feature-ai";
+  await tray.getByRole("button", { name: "Settings", exact: true }).click();
+  await page.waitForURL((url) =>
+    `${url.pathname}${url.hash}`.endsWith(expectedDestination),
+  );
 
   assert.deepEqual(harness.failures, []);
   await context.close();
   console.log(
-    "Vault password-reset prompts from both entry points, then the runtime readiness prompt after enabling the feature, passed.",
+    "Vault password-reset setup, local generation, and runtime readiness prompts passed.",
   );
 } finally {
   await browser.close();

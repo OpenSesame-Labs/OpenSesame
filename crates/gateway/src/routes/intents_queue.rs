@@ -10,17 +10,41 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::Utc;
 use opensesame_broker::InvokeInput;
 use opensesame_domain::OrganizationId;
+use opensesame_relay::ExecutionMode;
+use opensesame_time::Utc;
 use serde_json::json;
 
 use super::super::intents_budget::{
-    invocation_budget_binding, release_authority_budget_hold, settle_authority_budget_hold,
-    settle_replayed_invoke, InvokeBudgetHold,
+    release_authority_budget_hold, settle_authority_budget_hold, AuthorityBudgetHold,
 };
 use super::{execute_invocation, not_found, ConstrainedHttpInput, ResolvedInvocation};
 use crate::app_state::AppState;
+
+fn require_broker_mode(mode: ExecutionMode) -> Result<(), Response> {
+    if mode != ExecutionMode::Broker {
+        return Err((
+            StatusCode::NOT_IMPLEMENTED,
+            Json(json!({"error": "relay_execution_unavailable"})),
+        )
+            .into_response());
+    }
+    Ok(())
+}
+
+pub(super) fn delegated_execution_unavailable() -> Response {
+    (
+        StatusCode::SERVICE_UNAVAILABLE,
+        Json(json!({"error": "delegated_execution_unavailable"})),
+    )
+        .into_response()
+}
+
+pub(super) fn require_delegated_mode(mode: ExecutionMode) -> Result<(), Response> {
+    require_broker_mode(mode)?;
+    Err(delegated_execution_unavailable())
+}
 
 /// A permitted invoke parked by the test hold, replayed by [`drain`].
 #[cfg(test)]
@@ -29,7 +53,7 @@ struct QueuedInvoke {
     resolved: ResolvedInvocation,
     invoke_input: InvokeInput,
     constrained_http: Option<ConstrainedHttpInput>,
-    authority_hold: Option<InvokeBudgetHold>,
+    authority_hold: Option<AuthorityBudgetHold>,
     level: u8,
 }
 
@@ -49,7 +73,7 @@ pub(super) async fn dispatch_or_hold(
     resolved: ResolvedInvocation,
     invoke_input: InvokeInput,
     constrained_http: Option<ConstrainedHttpInput>,
-    authority_hold: Option<InvokeBudgetHold>,
+    authority_hold: Option<AuthorityBudgetHold>,
     level: u8,
 ) -> Response {
     #[cfg(test)]
@@ -107,8 +131,16 @@ async fn reauthorize(
     resolved: &ResolvedInvocation,
     subject: &str,
 ) -> Result<(), Response> {
+    let child_grant =
+        resolved.grant.parent_grant_id.is_some() || resolved.grant.delegation_depth != 0;
     if !resolved.broker_connection {
+        if child_grant || resolved.spend_budget.is_some() {
+            return Err(delegated_execution_unavailable());
+        }
         return Ok(());
+    }
+    if child_grant && resolved.spend_budget.is_none() {
+        return Err(delegated_execution_unavailable());
     }
     if let Some(delegation_id) = &resolved.spend_budget {
         let live = st
@@ -118,6 +150,7 @@ async fn reauthorize(
         let Ok(Some(live)) = live else {
             return Err(not_found());
         };
+        require_delegated_mode(live.execution_mode)?;
         if live.delegation_id != *delegation_id || live.grant.id != resolved.grant.id {
             return Err(not_found());
         }
@@ -134,7 +167,7 @@ async fn finish_dispatch(
     resolved: ResolvedInvocation,
     invoke_input: InvokeInput,
     constrained_http: Option<ConstrainedHttpInput>,
-    authority_hold: Option<InvokeBudgetHold>,
+    authority_hold: Option<AuthorityBudgetHold>,
     level: u8,
 ) -> Response {
     if let Err(response) = reauthorize(st, &resolved, &invoke_input.subject).await {
@@ -143,30 +176,7 @@ async fn finish_dispatch(
     }
     #[cfg(test)]
     hold::record_side_effect();
-    let replay = if authority_hold.is_none() {
-        invocation_budget_binding(st, &invoke_input)
-            .ok()
-            .map(|fingerprint| (invoke_input.intent.idempotency_key.clone(), fingerprint))
-    } else {
-        None
-    };
-    // A request without its own hold is a replay, even if the stored intent
-    // disappears while it waits: it must never fall through to new work.
-    let replay_only = authority_hold.is_none();
-    let result = execute_invocation(
-        st,
-        org,
-        &resolved,
-        invoke_input,
-        constrained_http,
-        replay_only,
-    )
-    .await;
-    if result.is_ok() {
-        if let Some((key, fingerprint)) = replay {
-            settle_replayed_invoke(st, &org.to_string(), &key, &fingerprint).await;
-        }
-    }
+    let result = execute_invocation(st, org, &resolved, invoke_input, constrained_http).await;
     settle_authority_budget_hold(st, authority_hold).await;
     match result {
         Ok(receipt) => {

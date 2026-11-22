@@ -13,7 +13,7 @@
  * row of a listing — has no twin: the parent keeps its own activation, and
  * the mark neither swallows the tap nor widens the parent's hit area.
  */
-import { type RefObject, useEffect, useState } from "react";
+import { type RefObject, useLayoutEffect, useState } from "react";
 import { longPress } from "../lib/gestures.js";
 
 /** How long the bubble stays after it is shown or the finger lifts. */
@@ -61,7 +61,9 @@ export function useStatusTwin(ref: RefObject<HTMLElement | null>): StatusTwin {
   const [open, setOpen] = useState(false);
   const [tappable, setTappable] = useState(false);
 
-  useEffect(() => {
+  // The mark becomes visible in this commit. Make its touch target and
+  // handlers ready before paint, so an immediate tap cannot miss it.
+  useLayoutEffect(() => {
     const el = ref.current;
     if (!el || insideInteractive(el)) return;
     setTappable(true);
@@ -108,7 +110,7 @@ export function useStatusTwin(ref: RefObject<HTMLElement | null>): StatusTwin {
     };
   }, [ref]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!open) return;
     const close = () => setOpen(false);
     const outside = (event: Event) => {

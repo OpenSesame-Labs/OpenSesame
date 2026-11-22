@@ -45,7 +45,7 @@ testkit = ["dep:rcgen", "dep:time", "dep:tempfile"]
 opensesame-domain = { path = "../domain" }
 arc-swap = "1.9.2"
 axum = { workspace = true }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 hex = { workspace = true }
 http = { workspace = true }
 hyper = { workspace = true, features = ["server", "http1", "http2"] }
@@ -57,6 +57,7 @@ rustls-webpki = { version = "0.103.13", default-features = false, features = ["r
 secrecy = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }
+spiffe = { version = "0.19.0", default-features = false }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-rustls = { version = "0.26.4", default-features = false, features = ["ring", "logging", "tls12"] }
@@ -71,6 +72,7 @@ time = { version = "0.3.41", default-features = false, features = ["std"], optio
 tempfile = { workspace = true, optional = true }
 
 [dev-dependencies]
+opensesame-transport-security = { path = ".", features = ["testkit"] }
 http-body-util = { workspace = true }
 tempfile = { workspace = true }
 toml = "1.1.8"

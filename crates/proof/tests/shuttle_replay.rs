@@ -1,6 +1,6 @@
 #![cfg(feature = "concurrency-test")]
 
-use opensesame_proof::{InMemoryReplayCache, ReplayCache};
+use opensesame_proof::{ReplayCache, ShuttleReplayCache};
 use shuttle::sync::Arc;
 
 const DEFAULT_ITERATIONS: usize = 1_000;
@@ -12,7 +12,7 @@ fn same_jti_is_never_accepted_twice() {
     });
     shuttle::check_random(
         || {
-            let cache = Arc::new(InMemoryReplayCache::with_limits(300, 16));
+            let cache = Arc::new(ShuttleReplayCache::with_limits(300, 16));
             let a = shuttle::thread::spawn({
                 let cache = Arc::clone(&cache);
                 move || cache.check_and_record_at("jti-1", 1_000)

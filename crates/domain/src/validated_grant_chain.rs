@@ -7,7 +7,7 @@
 //! wire round-trip cannot recreate verified status.
 
 use crate::{ConnectionId, DomainError, Grant, GrantId, OrganizationId};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 
 /// Unforgeable (within this process) proof that a grant chain was validated.
 #[derive(Clone, Debug)]
@@ -157,7 +157,7 @@ mod tests {
     use crate::{
         ConnectionId, GrantConstraints, OfflineUse, OrganizationId, PrincipalId, ProjectId,
     };
-    use chrono::Duration;
+    use opensesame_time::Duration;
 
     fn sample(depth: u32, parent: Option<GrantId>, org: OrganizationId) -> Grant {
         let now = Utc::now();

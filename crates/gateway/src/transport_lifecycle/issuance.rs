@@ -21,11 +21,11 @@
 
 use std::time::Duration;
 
-use chrono::Utc;
 use opensesame_domain::transport::{PeerIdentitySelector, TransportError};
 use opensesame_domain::OrganizationId;
 use opensesame_pki_core::policy::PolicyViolation;
 use opensesame_storage::StoredManagedCertificate;
+use opensesame_time::Utc;
 use serde::{Deserialize, Serialize};
 
 use crate::app_state::AppState;

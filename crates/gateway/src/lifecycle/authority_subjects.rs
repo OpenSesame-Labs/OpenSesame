@@ -3,10 +3,10 @@
 //! Mirrors [`super::subjects`]' session-grant collector: alerts, never
 //! auto-responds, and carries no label that could name a secret or resource.
 
-use chrono::{DateTime, Utc};
 use opensesame_lifecycle::{ExpirySubject, SubjectKind};
 use opensesame_storage::authority::AuthorityGrantDeadline;
 use opensesame_storage::Db;
+use opensesame_time::{DateTime, Utc};
 
 /// Cap on each of a pass's two reads per organization: live grants soonest
 /// first, and lapsed ones most recently lapsed first, so a grant whose expiry
@@ -49,10 +49,10 @@ fn authority_grant_subject(grant: &AuthorityGrantDeadline, organization: &str) -
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::{Duration, Utc};
     use opensesame_lifecycle::{evaluate, should_respond, Watermarks, EVENT_EXPIRY_EXPIRED};
+    use opensesame_time::{Duration, Utc};
 
-    fn deadline(expires_at: chrono::DateTime<Utc>) -> AuthorityGrantDeadline {
+    fn deadline(expires_at: opensesame_time::DateTime<Utc>) -> AuthorityGrantDeadline {
         AuthorityGrantDeadline {
             grant_id: "grant:1".into(),
             organization_id: "org:1".into(),

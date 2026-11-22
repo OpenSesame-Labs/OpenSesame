@@ -21,7 +21,15 @@ describe("item rotation capabilities", () => {
   });
 
   it("warns on generator-backed types with no provider path", () => {
-    expect(itemRotationWarning("card")).toMatch(/couldn't verify/u);
+    expect(itemRotationWarning("card")).toMatch(
+      /does not generate a new value/u,
+    );
+    expect(itemRotationWarning("password")).toMatch(
+      /does not generate a new value/u,
+    );
+    expect(itemRotationWarning("secret")).toMatch(
+      /does not generate a new value/u,
+    );
     expect(itemRotationWarning("account")).toBeNull();
     expect(itemRotationWarning("note")).toBeNull();
     expect(itemHasGenerator("card")).toBe(true);

@@ -9,5 +9,5 @@ export class DriveError extends Error {
   }
 }
 
-/** How long a drive request or response body may take before it is abandoned. */
+/** How long a drive request may wait for response headers. */
 export const DRIVE_TIMEOUT_MS = 15_000;

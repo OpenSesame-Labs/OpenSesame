@@ -1,4 +1,7 @@
+import { once } from "node:events";
+import { createServer } from "node:http";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import spec from "../../../../../spec/conformance/vault-drive-protocol.json" with {
   type: "json",
 };
@@ -11,7 +14,7 @@ import {
   writeDrive,
 } from "./client.js";
 import { PAIRING } from "./drive.fixture.js";
-import { readDriveBody } from "./drive-body.js";
+import { DRIVE_BODY_MAX_TIMEOUT_MS, readDriveBody } from "./drive-body.js";
 import { listDriveParts, readDrivePart, writeDrivePart } from "./parts.js";
 import { DRIVE_SNAPSHOT_FORMAT, type DriveSnapshot } from "./snapshot.js";
 
@@ -143,6 +146,29 @@ describe("discarding unused drive responses", () => {
 });
 
 describe("bounded snapshot responses", () => {
+  it("times out while a real loopback drive withholds response headers", async () => {
+    let requests = 0;
+    const server = createServer(() => {
+      requests += 1;
+    });
+    server.listen(0, "127.0.0.1");
+    await once(server, "listening");
+    try {
+      const { port } = z
+        .object({ port: z.number().int().min(1).max(65_535) })
+        .parse(server.address());
+      await expect(
+        reachDrive({ ...PAIRING, url: `http://127.0.0.1:${port}` }, 2000),
+      ).rejects.toMatchObject({ name: "TimeoutError" });
+      expect(requests).toBe(1);
+    } finally {
+      server.closeAllConnections();
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+      });
+    }
+  });
+
   it("keeps byte accounting correct across many tiny fragments", async () => {
     let sent = 0;
     const total = 20_000;
@@ -160,6 +186,84 @@ describe("bounded snapshot responses", () => {
     expect(result.byteLength).toBe(total);
     expect(result[0]).toBe(42);
     expect(result.at(-1)).toBe(42);
+  });
+
+  it("allows a valid response to make progress for longer than the idle timeout", async () => {
+    vi.useFakeTimers();
+    let send: (bytes: Uint8Array) => void = () => {
+      throw new Error("stream has not started");
+    };
+    let finish: () => void = () => {
+      throw new Error("stream has not started");
+    };
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        send = (bytes) => controller.enqueue(bytes);
+        finish = () => controller.close();
+      },
+    });
+    driveClientSeams.fetch = async () => new Response(body);
+    const pending = readDrive(PAIRING);
+    void pending.catch(() => undefined);
+    const bytes = new TextEncoder().encode('{"generation":1,"snapshot":null}');
+    for (let offset = 0; offset < bytes.length; offset += 8) {
+      await vi.advanceTimersByTimeAsync(10_000);
+      send(bytes.subarray(offset, offset + 8));
+      await vi.advanceTimersByTimeAsync(0);
+    }
+    finish();
+    await expect(pending).resolves.toEqual({ generation: 1, snapshot: null });
+  });
+
+  it("times out a continuing trickle at the absolute transfer limit", async () => {
+    vi.useFakeTimers();
+    let send: (bytes: Uint8Array) => void = () => {
+      throw new Error("stream has not started");
+    };
+    const cancel = vi.fn();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        send = (bytes) => controller.enqueue(bytes);
+      },
+      cancel,
+    });
+    const checked = expect(
+      readDriveBody(new Response(body), 1024),
+    ).rejects.toThrow("timed out");
+    for (
+      let elapsed = 10_000;
+      elapsed < DRIVE_BODY_MAX_TIMEOUT_MS;
+      elapsed += 10_000
+    ) {
+      await vi.advanceTimersByTimeAsync(10_000);
+      send(new Uint8Array([1]));
+      await vi.advanceTimersByTimeAsync(0);
+    }
+    await vi.advanceTimersByTimeAsync(10_000);
+    await checked;
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  it("does not count empty chunks as progress", async () => {
+    vi.useFakeTimers();
+    let send: (bytes: Uint8Array) => void = () => {
+      throw new Error("stream has not started");
+    };
+    const cancel = vi.fn();
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        send = (bytes) => controller.enqueue(bytes);
+      },
+      cancel,
+    });
+    const checked = expect(
+      readDriveBody(new Response(body), 1024),
+    ).rejects.toThrow("timed out");
+    await vi.advanceTimersByTimeAsync(10_000);
+    send(new Uint8Array());
+    await vi.advanceTimersByTimeAsync(DRIVE_TIMEOUT_MS - 10_000);
+    await checked;
+    expect(cancel).toHaveBeenCalledOnce();
   });
 
   it("accepts a snapshot at the daemon's 16 MiB stored limit", async () => {
@@ -186,8 +290,36 @@ describe("bounded snapshot responses", () => {
       headers: { "content-length": String(MAX_DRIVE_JSON_BYTES + 1) },
     });
     driveClientSeams.fetch = async () => oversized;
-    await expect(promptly(readDrive(PAIRING))).rejects.toThrow("size limit");
+    await expect(promptly(readDrive(PAIRING))).rejects.toThrow(
+      "oversized body",
+    );
     expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  it.each(["-1", "1.5", "9007199254740992"])(
+    "preserves the part reader's rejection of invalid declared length (%s)",
+    async (length) => {
+      const { response, cancel } = neverFinishingResponse(200);
+      const invalid = new Response(response.body, {
+        headers: { "content-length": length },
+      });
+      driveClientSeams.fetch = async () => invalid;
+      await expect(promptly(readDrivePart(PAIRING, part))).rejects.toThrow(
+        "oversized body",
+      );
+      expect(cancel).toHaveBeenCalledOnce();
+    },
+  );
+
+  it("counts snapshot bytes when the declared length is not a single decimal", async () => {
+    driveClientSeams.fetch = async () =>
+      new Response('{"generation":0,"snapshot":null}', {
+        headers: { "content-length": "32, 32" },
+      });
+    await expect(readDrive(PAIRING)).resolves.toEqual({
+      generation: 0,
+      snapshot: null,
+    });
   });
 
   it("bounds chunked JSON even when its content length is false", async () => {
@@ -202,7 +334,7 @@ describe("bounded snapshot responses", () => {
     });
     driveClientSeams.fetch = async () =>
       new Response(body, { headers: { "content-length": "1" } });
-    await expect(readDrive(PAIRING)).rejects.toThrow("size limit");
+    await expect(readDrive(PAIRING)).rejects.toThrow("oversized body");
     expect(chunks).toBeLessThanOrEqual(18);
     expect(cancel).toHaveBeenCalledOnce();
   });
@@ -218,6 +350,12 @@ describe("bounded snapshot responses", () => {
       name: "generation conflict",
       status: 409,
       call: () => writeDrive(PAIRING, 0, snapshot),
+    },
+    { name: "part list", status: 200, call: () => listDriveParts(PAIRING) },
+    {
+      name: "part read",
+      status: 200,
+      call: () => readDrivePart(PAIRING, part),
     },
   ])("times out and cancels a stalled $name body", async ({ status, call }) => {
     vi.useFakeTimers();

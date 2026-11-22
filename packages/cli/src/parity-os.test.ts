@@ -1,3 +1,4 @@
+import { isCliAppApprovalBlocked } from "@opensesame/app-core/lib/cli-app-integration/policy-runtime.js";
 import { describe, expect, it, vi } from "vitest";
 import type { CliAppIntegrationPort } from "./cli-app-integration-client.js";
 import { runCli } from "./run.js";
@@ -26,7 +27,7 @@ async function withTerminal<T>(body: () => Promise<T>): Promise<T> {
 }
 
 describe("os:// references in the CLI run lane", () => {
-  it("runs a child with os:// env values and mounts resolved locally", async () => {
+  it("gates a child with os:// env values and mounts", async () => {
     const readLocal = vi.fn(async (reference: string) =>
       reference.endsWith("/cert") ? "pem-bytes" : "local-value",
     );
@@ -51,6 +52,12 @@ describe("os:// references in the CLI run lane", () => {
         appIntegration: approveAppIntegration,
       },
     );
+    if (isCliAppApprovalBlocked()) {
+      expect(code).toBe(1);
+      expect(readLocal).not.toHaveBeenCalled();
+      expect(runWithValues).not.toHaveBeenCalled();
+      return;
+    }
     expect(code).toBe(0);
     expect(readLocal).toHaveBeenCalledWith("os://personal/item-1/apiKey");
     expect(readLocal).toHaveBeenCalledWith("os://personal/item-1/cert");
@@ -62,7 +69,7 @@ describe("os:// references in the CLI run lane", () => {
     );
   });
 
-  it("reads an os:// reference for a human at a terminal", async () => {
+  it("gates reading an os:// reference for a human at a terminal", async () => {
     const stdout = vi.spyOn(process.stdout, "write").mockReturnValue(true);
     const readLocal = vi.fn(async () => "local-value\n");
     try {
@@ -75,6 +82,14 @@ describe("os:// references in the CLI run lane", () => {
           appIntegration: approveAppIntegration,
         }),
       );
+      if (isCliAppApprovalBlocked()) {
+        expect(code).toBe(1);
+        expect(readLocal).not.toHaveBeenCalled();
+        expect(
+          stdout.mock.calls.map(([value]) => String(value)).join(""),
+        ).not.toContain("local-value");
+        return;
+      }
       expect(code).toBe(0);
       expect(readLocal).toHaveBeenCalledWith("os://personal/item-1/apiKey");
       const out = stdout.mock.calls.map(([value]) => String(value)).join("");

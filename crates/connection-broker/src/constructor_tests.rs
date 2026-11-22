@@ -31,14 +31,6 @@ async fn proxy_probe() {
     let config = BrokerConfig::in_memory(None, "http://127.0.0.1:1");
     let normal = ConnectionBroker::new(db.pool().clone(), config.clone()).unwrap();
     let isolated = ConnectionBroker::new_without_system_proxy(db.pool().clone(), config).unwrap();
-    let normal_mock = normal
-        .credentialed_egress_client("mock", &target)
-        .await
-        .unwrap();
-    let isolated_mock = isolated
-        .credentialed_egress_client("mock", &target)
-        .await
-        .unwrap();
     assert_eq!(
         normal
             .http
@@ -51,21 +43,20 @@ async fn proxy_probe() {
             .unwrap(),
         "proxy"
     );
-    for client in [&isolated.http, &normal_mock, &isolated_mock] {
-        assert_eq!(
-            client
-                .get(&target)
-                .send()
-                .await
-                .unwrap()
-                .text()
-                .await
-                .unwrap(),
-            "target"
-        );
-    }
+    assert_eq!(
+        isolated
+            .http
+            .get(&target)
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap(),
+        "target"
+    );
     let redirect = target.replace("/probe", "/redirect");
-    for client in [&normal.http, &normal_mock, &isolated.http, &isolated_mock] {
+    for client in [&normal.http, &isolated.http] {
         assert_eq!(
             client.get(&redirect).send().await.unwrap().status(),
             StatusCode::TEMPORARY_REDIRECT

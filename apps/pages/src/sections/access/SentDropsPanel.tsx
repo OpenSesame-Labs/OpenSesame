@@ -21,11 +21,11 @@ import {
 } from "@opensesame/app-core/sections/access/receipts-model.js";
 import { isString } from "@opensesame/os-domain";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useCapabilityGate } from "../../app-root.js";
 import { IconKey } from "../../components/IconKey.js";
 import { IconX } from "../../components/Icons.js";
 import { StatusMark, statusTone } from "../../components/StatusMark.js";
 import { useFailureNotice } from "../../components/use-failure-notice.js";
+import { useCapabilityGate } from "../../lib/capability-gate.js";
 import { useVault } from "../../lib/vault/hooks.js";
 import { formatTime } from "./format.js";
 

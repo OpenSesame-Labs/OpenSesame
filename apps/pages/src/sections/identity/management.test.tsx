@@ -10,8 +10,8 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { installOrgDirectory } from "../../lib/orgs-directory.js";
 import { AgentsPanel } from "./AgentsPanel.js";
 import { ServiceAccountsPanel } from "./HostedApplicationsPanel.js";
-import { UsersPanel } from "./UsersPanel.js";
 import { makeClient } from "./test-fixtures.js";
+import { UsersPanel } from "./UsersPanel.js";
 
 const session = {
   principalId: "prn_test",
@@ -69,6 +69,20 @@ function applicationResponse(
   clients = [updated];
   return Response.json(updated);
 }
+
+function directoryResponse(path: string): Response {
+  const query = new URL(path, "https://identity.example").searchParams;
+  const startIndex = Number(query.get("startIndex") ?? "1");
+  const count = Number(query.get("count") ?? "100");
+  const resources = users.slice(startIndex - 1, startIndex - 1 + count);
+  return Response.json({
+    totalResults: users.length,
+    startIndex,
+    itemsPerPage: resources.length,
+    Resources: resources,
+  });
+}
+
 beforeEach(() => {
   uninstallOrgDirectory = installOrgDirectory();
   vi.spyOn(identitySeams, "identityBase").mockReturnValue(
@@ -105,7 +119,7 @@ beforeEach(() => {
       if (!init?.method || init.method === "GET")
         return path === "/v1/agents"
           ? Response.json({ agents })
-          : Response.json({ Resources: users });
+          : directoryResponse(path);
       const body = input(init);
       writes.push({ path, body });
       if (path === "/v1/agents" && init.method === "POST") {

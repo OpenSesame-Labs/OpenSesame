@@ -242,7 +242,7 @@ pub async fn put_target(
         enabled: body.enabled.unwrap_or(true),
         status: "configured".to_string(),
         last_error: None,
-        updated_at_unix_ms: chrono::Utc::now().timestamp_millis(),
+        updated_at_unix_ms: opensesame_time::Utc::now().timestamp_millis(),
     };
     if let Err(error) = st.db.upsert_attachment_target(&target).await {
         return internal(error);
@@ -335,3 +335,5 @@ pub use replication::{replicate_chunk, replicate_manifest};
 #[cfg(test)]
 #[path = "attachments_tests.rs"]
 mod tests;
+
+mod authority;

@@ -5,8 +5,8 @@
 //! ones still owe a rung of the expiry ladder.
 
 use anyhow::Context;
-use chrono::{DateTime, Utc};
 use opensesame_domain::SessionGrant;
+use opensesame_time::{DateTime, Utc};
 
 use crate::Db;
 

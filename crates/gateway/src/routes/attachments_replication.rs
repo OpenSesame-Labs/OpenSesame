@@ -3,8 +3,9 @@
 use super::*;
 use opensesame_domain::OrganizationId;
 
-/// The only principal currently authorized to use the target's credential.
-/// A native session's organization membership does not grant this authority.
+/// A caller authorized to use the target's credential: the Host operator, or
+/// an owner/admin session holding the exact replication grant. Organization
+/// membership alone does not grant this authority (see `authority`).
 pub(super) struct ReplicationOperator {
     organization: OrganizationId,
     expected_target: Option<String>,
@@ -14,7 +15,7 @@ pub(super) fn replication_operator(
     st: &AppState,
     headers: &axum::http::HeaderMap,
 ) -> Result<ReplicationOperator, Response> {
-    require_operator(st, headers)?;
+    let organization = super::authority::require_replication_authority(st, headers)?;
     let expected_target = headers
         .get("x-opensesame-attachment-target")
         .map(|value| {
@@ -33,7 +34,7 @@ pub(super) fn replication_operator(
         })
         .transpose()?;
     Ok(ReplicationOperator {
-        organization: st.connection_organization,
+        organization,
         expected_target,
     })
 }

@@ -11,9 +11,9 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::Utc;
 use opensesame_claims::hash_secret;
 use opensesame_storage::host_authorizations::HostAuthorization;
+use opensesame_time::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 

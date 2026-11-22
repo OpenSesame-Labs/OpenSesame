@@ -14,6 +14,7 @@
   "onCreateCommand": "mise --version",
   "updateContentCommand": "MISE_GLOBAL_CONFIG_FILE=\"$PWD/.devcontainer/mise-global.toml\" mise install --locked && mise run deps",
   "postCreateCommand": "MISE_GLOBAL_CONFIG_FILE=\"$PWD/.devcontainer/mise-global.toml\" mise install --locked && mise run deps && bash scripts/dev/setup-hooks.sh",
+  "postStartCommand": "bash scripts/dev/install-agent-skills.sh",
   "customizations": {
     "vscode": {
       "extensions": [

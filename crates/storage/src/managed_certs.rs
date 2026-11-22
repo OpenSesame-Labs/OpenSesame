@@ -18,7 +18,7 @@
 //! way.
 
 use anyhow::Context;
-use chrono::Utc;
+use opensesame_time::Utc;
 
 use crate::{
     stored_managed_certificate_key, validate_certificate_status, validate_json_document,

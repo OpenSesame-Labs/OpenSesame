@@ -31,13 +31,13 @@ export const GATE_JOB_LABELS = Object.freeze({
   main_ci: "Main CI gate",
   build_full_profile: "Build full install profile dist",
   stage: "Stage npm publish tree",
-  preview: "Preview npm publish",
+  preview: "Preview npm package proof",
   proof: "Build install profile (full)",
   build: "Build Pages and stage npm",
   deploy: "Deploy GitHub Pages",
-  npm_preview: "Preview npm publish",
+  npm_preview: "Preview npm package proof",
   preview_smoke: "Preview deploy smoke",
-  production: "Production promotion",
+  production: "Pages verification or npm publication boundary",
 });
 
 const API = "https://api.github.com";

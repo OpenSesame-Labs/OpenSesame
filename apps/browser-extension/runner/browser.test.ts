@@ -126,7 +126,7 @@ describe("the run's page", () => {
     fake.granted.origins.add("https://other.example/*");
     fake.beforeNextInjection = () =>
       fake.navigateTab(id, "https://other.example/account/password");
-    await expect(p.fill("#new", "credential-canary")).rejects.toThrow(
+    await expect(p.fill("#new", "credential-canary")).resolves.toBe(
       "off_origin",
     );
     const tab = fake.tabs.get(id);

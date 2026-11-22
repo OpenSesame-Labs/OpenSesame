@@ -50,7 +50,7 @@ fn a_256_bit_secret_gives_33_words_and_honours_the_passphrase() {
     let mut p = params(1, &groups, &secret);
     p.passphrase = "correct horse";
     let made = slip39::generate(&p, &mut rng).unwrap();
-    assert!(made[0][0].split(' ').count() == 33);
+    assert_eq!(made[0][0].split(' ').count(), 33);
     let pick = [&made[0][1], &made[0][2]];
     let with = CombineOptions {
         passphrase: "correct horse",

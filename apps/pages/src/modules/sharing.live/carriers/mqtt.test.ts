@@ -15,6 +15,7 @@ type Options = {
   reconnectPeriod?: number;
   username?: string;
   timerVariant?: string;
+  log?: (...values: string[]) => void;
 };
 type Call = {
   url: string;
@@ -64,6 +65,11 @@ describe("mqttCarrier", () => {
       },
     ]);
     expect(client.options.reconnectPeriod).toBe(3000);
+    expect(calls[0].options.log).toEqual(expect.any(Function));
+    const debug = vi.spyOn(console, "debug");
+    calls[0].options.log?.("synthetic-secret-only");
+    expect(debug).not.toHaveBeenCalled();
+    debug.mockRestore();
     expect(client.subscribeAsync).toHaveBeenCalledWith(
       "opensesame/live/topic",
       {

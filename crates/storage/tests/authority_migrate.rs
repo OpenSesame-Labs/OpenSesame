@@ -7,9 +7,9 @@
 
 mod authority_support;
 
-use chrono::{Duration, Utc};
 use opensesame_storage::authority::BackfillPlan;
 use opensesame_storage::Db;
+use opensesame_time::{Duration, Utc};
 
 use authority_support::{legacy_body, seed_grant_body, seed_realm};
 

@@ -4,16 +4,18 @@ Agent skills — self-contained instructions a coding agent loads for one kind
 of task. Each directory holds a `SKILL.md` with a `description` the agent
 matches against. This repo tracks no `.agents/` or other harness dot
 entries: your dotfiles link each of these into the discovery path your tool
-reads. Third-party skills are optional local copies, not repository source.
-`npm run skills:review` prints guidance for obtaining and reviewing an immutable
-revision in user scope. It does not fetch, execute, install, or update skills;
-the retired `npm run skills:install` fails after printing the guidance.
-[`skills-lock.json`](../skills-lock.json) is a catalogue, not verification of
-installed content. Harness roots are gitignored outright and installed trees
-are never staged. `node scripts/dev/sync-agent-skills.mjs --check` checks local
-mirror shape, not provenance. Previously installed copies may still be
-discoverable; disable any unreviewed copy in your harness until its origin
-and contents are reviewed.
+reads. Third-party skills are **install output, not source**: they
+are restored into the gitignored `.agents/skills/` (plus harness mirrors) by
+`scripts/dev/install-agent-skills.sh` — run at every devcontainer start, or
+`npm run skills:install` locally — from the catalogue in
+[`skills-lock.json`](../skills-lock.json), and every harness root is
+gitignored outright.
+
+After a reviewed upstream update, run `node scripts/dev/sync-agent-skills.mjs`
+then `node scripts/dev/sync-agent-skills.mjs --check`. Install or update the
+canonical skill once; do not use multi-agent `--copy` installations. The sync
+command compares bytes and executable modes before replacing a duplicate and
+never discards differing instructions. Installed trees are never staged.
 
 ## Ownership tiers
 
@@ -41,12 +43,15 @@ still fails.
 
 Provenance: 20 of the 22 third-party skills are catalogued in
 [`skills-lock.json`](../skills-lock.json). The exceptions are `design-system`
-(which also declares frontmatter `name: minimal`) and `impeccable`. The tiers
-say what is a default; a fresh clone has only the core profile. The catalogue
-does not establish an installed copy's source or integrity. Obtain an immutable
-revision through an approved source process and review its instructions,
-references, executables, and dependencies before using it. Anything a build
-or gate depends on must be core.
+(a TypeUI pull, which also declares frontmatter `name: minimal`) and
+`impeccable` (its own `npx impeccable` updater); the install script restores
+both. The tiers say what is a default; presence on disk is a local install
+choice, and a fresh clone has only the core profile until install runs.
+Lock hashes detect upstream updates, they do not pin revisions: restoring
+optional profiles floats to latest upstream (accepted for optional design
+tooling; upstream removals — e.g. taste-skill's retired `minimalist-ui` and
+`redesign-existing-projects` in Oct 2026 — are dropped from the catalogue in
+reviewed commits). Anything a build or gate depends on must be core.
 
 ## Using OpenSesame
 
@@ -64,6 +69,9 @@ or gate depends on must be core.
 | [`local-debug-session`](local-debug-session/SKILL.md) | "Run it locally": an attached Vite HMR session with the browser console watched, never a static preview. |
 | [`visual-evidence`](visual-evidence/SKILL.md) | Before/after screenshots from two real builds for any user-visible change. |
 | [`security-review`](security-review/SKILL.md) | The deterministic security gates and budgeted Codex Security scans. |
+| [`verify-auth-formal`](verify-auth-formal/SKILL.md) | Maintain the Lean authorization model, its source correspondence, and the real-code conformance check. |
+| [`verify-formal-vault`](verify-formal-vault/SKILL.md) | The vault screen never says a second step is still waiting while the vault is open. |
+| [`verify-formal-proxy-lease`](verify-formal-proxy-lease/SKILL.md) | Tomb destroy waits until open leases are gone; stale releases never drop a newer generation. |
 | [`install-anti-slop`](install-anti-slop/SKILL.md) | Installing the anti-slop Oxlint plugin into another repository; its `assets/` mirror [`tools/oxlint/anti-slop`](../tools/oxlint/anti-slop) (`npm run test:anti-slop` checks they match), `install.mjs --no-tests` leaves the test suites out, and the asset's `MANIFEST.sha256` and `verify.mjs` let a consuming repository check its copy offline (`npm run anti-slop:manifest` regenerates the manifest). |
 
 ## Reusable optional (third-party, in `.agents/skills/`)

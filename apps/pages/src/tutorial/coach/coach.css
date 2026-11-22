@@ -24,17 +24,18 @@
 .coach__dim {
   position: fixed;
   background: var(--scrim);
-  /* The dim catches stray clicks so a tour is not walked off by accident;
-     the aperture between the four panels is open, so the lit control works. */
-  pointer-events: auto;
+  /* Keep scrolling and related form controls usable throughout the step. */
+  pointer-events: none;
 }
 
 .coach__dim.is-gliding,
 .coach__ring.is-gliding {
   transition:
     top var(--coach-glide) var(--ease),
-    left var(--coach-glide) var(--ease), width var(--coach-glide) var(--ease),
-    height var(--coach-glide) var(--ease), right var(--coach-glide) var(--ease),
+    left var(--coach-glide) var(--ease),
+    width var(--coach-glide) var(--ease),
+    height var(--coach-glide) var(--ease),
+    right var(--coach-glide) var(--ease),
     bottom var(--coach-glide) var(--ease);
 }
 
@@ -78,6 +79,12 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  max-height: calc(
+    100dvh -
+    1rem -
+    env(safe-area-inset-top, 0px) -
+    env(safe-area-inset-bottom, 0px)
+  );
   width: min(23rem, calc(100vw - 1.5rem));
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
@@ -92,8 +99,11 @@
 .coach__card.is-placed {
   opacity: 1;
   transform: none;
-  transition: opacity 180ms var(--ease), transform 240ms var(--ease), left
-    var(--coach-glide) var(--ease), top var(--coach-glide) var(--ease);
+  transition:
+    opacity 180ms var(--ease),
+    transform 240ms var(--ease),
+    left var(--coach-glide) var(--ease),
+    top var(--coach-glide) var(--ease);
 }
 
 /* Narration and the close have no control to be near: a little more room. */
@@ -116,6 +126,11 @@
 
 .coach__card--dock-top {
   top: calc(0.5rem + env(safe-area-inset-top, 0px));
+}
+
+/* A shortened visual viewport can leave less room than the card's controls. */
+.coach__card--constrained {
+  overflow: hidden;
 }
 
 /* The notch ties the card to its control. One rotated square, two borders. */
@@ -186,6 +201,7 @@
 
 .coach__head {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 0.5rem;
   padding: 0.6rem 0.5rem 0 0.9rem;
@@ -225,6 +241,7 @@
 }
 
 .coach__text {
+  min-height: 0;
   margin: 0;
   padding: 0.5rem 0.9rem 0.9rem;
   max-width: 46ch;
@@ -237,15 +254,110 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   text-wrap: pretty;
+  overflow-y: auto;
+}
+
+.coach__scroll-cue {
+  display: none;
+}
+
+.coach__scroll-cue::before {
+  content: "↕";
 }
 
 .coach__foot {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
   padding: 0.5rem 0.5rem 0.5rem 0.9rem;
   border-top: 1px solid var(--line);
+}
+
+/* Keep the instruction and action buttons visible above a phone keyboard. */
+.coach__card--constrained .coach__head {
+  position: absolute;
+  z-index: 1;
+  bottom: 0;
+  left: 0.25rem;
+  padding: 0;
+}
+
+.coach__card--constrained .coach__mark,
+.coach__card--constrained .coach__count {
+  display: none;
+}
+
+.coach__card--constrained .coach__title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.coach__card--constrained .coach__text {
+  flex: 1 1 auto;
+  padding: 0.35rem 0.65rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.coach__card--constrained .coach__foot {
+  padding: 0 0.5rem 0 3.25rem;
+}
+
+.coach__card--awaiting-action .coach__head {
+  top: 0.25rem;
+  right: 0.25rem;
+  bottom: auto;
+  left: auto;
+}
+
+.coach__card--awaiting-action .coach__text {
+  padding-right: 3.25rem;
+}
+
+.coach__card--awaiting-action .coach__foot {
+  display: none;
+}
+
+/* In very short viewports, put the action beside the instruction. */
+.coach__card--compact-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: 3px minmax(0, 1fr);
+}
+
+.coach__card--compact-row .coach__meter {
+  grid-column: 1 / -1;
+}
+
+.coach__card--compact-row .coach__head {
+  top: 3px;
+  bottom: auto;
+}
+
+.coach__card--compact-row .coach__text {
+  grid-column: 1;
+  grid-row: 2;
+  align-self: center;
+  min-height: 0;
+  max-height: 100%;
+  padding: 0.2rem 0.4rem 0.2rem 3.25rem;
+}
+
+.coach__card--compact-row .coach__foot {
+  grid-column: 2;
+  grid-row: 2;
+  padding: 0 0.5rem 0 0;
+  border-top: 0;
 }
 
 .coach__cue {
@@ -260,6 +372,10 @@
 
 .coach__cue:has(> svg) {
   color: var(--warn);
+}
+
+.coach__card--constrained .coach__cue {
+  display: none;
 }
 
 .coach__pulse {
@@ -302,7 +418,9 @@
   cursor: pointer;
   white-space: nowrap;
   touch-action: manipulation;
-  transition: background 140ms var(--ease), border-color 140ms var(--ease);
+  transition:
+    background 140ms var(--ease),
+    border-color 140ms var(--ease);
 }
 
 .coach__btn > svg {
@@ -317,9 +435,201 @@
   }
 }
 
-.coach__btn:disabled {
+.coach__btn:disabled,
+.coach__btn[aria-disabled="true"] {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.coach__card--compact-row .coach__btn:disabled {
+  display: none;
+}
+
+.coach__card--compact-row .coach__btn--back {
+  min-width: 2.75rem;
+  padding: 0;
+}
+
+.coach__card--compact-row .coach__btn--back span {
+  display: none;
+}
+
+/* A zoomed phone can leave room for only three touch targets side by side. */
+.coach__card--narrow.is-placed {
+  /* Follow the visual viewport while it is panned. */
+  transition:
+    opacity 180ms var(--ease),
+    transform 240ms var(--ease);
+}
+
+.coach__card--narrow .coach__text {
+  padding-top: 0;
+  padding-bottom: 0;
+  line-height: 1.3;
+}
+
+.coach__card--short-scroll .coach__text .coach__scroll-cue,
+.coach__card--narrow .coach__text.is-scrollable .coach__scroll-cue {
+  display: block;
+  position: sticky;
+  top: 0;
+  float: right;
+  margin-left: 0.25rem;
+  background: var(--surface);
+  color: var(--ink);
+  pointer-events: none;
+}
+
+.coach__card--narrow .coach__foot {
+  gap: 0;
+  padding: 0 0 0 3rem;
+}
+
+.coach__card--narrow .coach__keys {
+  gap: 0;
+}
+
+.coach__card--narrow .coach__btn {
+  min-width: 2.75rem;
+  padding: 0 0.25rem;
+}
+
+.coach__card--narrow .coach__btn--back span,
+.coach__card--narrow .coach__btn--go svg {
+  display: none;
+}
+
+/* Keep the same minimum touch size when the visible viewport is short. */
+.coach__card--short .coach__meter {
+  display: none;
+}
+
+.coach__card--short .coach__text {
+  line-height: 1.2;
+}
+
+.coach__card--short .coach__head .icon-btn {
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.coach__card--short .coach__foot {
+  padding-left: 3.25rem;
+}
+
+.coach__card--short .coach__btn {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+}
+
+/* When Back is unavailable, use its space for the instruction. */
+.coach__card--short.coach__card--compact-row {
+  border: 0;
+  grid-template-rows: minmax(0, 1fr);
+  box-shadow:
+    inset 0 0 0 1px var(--line-strong),
+    var(--shadow-lg);
+}
+
+.coach__card--short.coach__card--compact-row .coach__head {
+  top: 0;
+}
+
+.coach__card--short.coach__card--compact-row .coach__text,
+.coach__card--short.coach__card--compact-row .coach__foot {
+  grid-row: 1;
+}
+
+.coach__card--narrow.coach__card--compact-row .coach__foot {
+  padding: 0;
+}
+
+/* A very short viewport cannot show text and all three controls together. */
+.coach__card--short-scroll {
+  display: block;
+  border: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scroll-snap-type: y proximity;
+  box-shadow:
+    inset 0 0 0 1px var(--line-strong),
+    var(--shadow-lg);
+}
+
+.coach__card--short.coach__card--short-scroll .coach__head {
+  position: sticky;
+  top: 0;
+  left: 0.25rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-bottom: -2.75rem;
+}
+
+.coach__card--short.coach__card--short-scroll .coach__text {
+  min-height: 100%;
+  padding: 0 0.5rem 0 3.25rem;
+  overflow: visible;
+  scroll-snap-align: start;
+}
+
+.coach__card--short.coach__card--short-scroll .coach__foot {
+  min-height: 100%;
+  box-sizing: border-box;
+  padding: 0 0 1px 3.25rem;
+  scroll-snap-align: end;
+}
+
+/* The longer replay label can wrap on its own row at the end of the tour. */
+.coach__card--narrow.coach__card--close .coach__head {
+  top: 0.25rem;
+  right: 0.25rem;
+  bottom: auto;
+  left: auto;
+}
+
+.coach__card--narrow.coach__card--close .coach__text {
+  padding-right: 3.25rem;
+}
+
+.coach__card--narrow.coach__card--close .coach__foot {
+  padding: 0 0.5rem 0.5rem;
+}
+
+.coach__card--narrow.coach__card--close .coach__keys {
+  flex-direction: column;
+  width: 100%;
+}
+
+.coach__card--narrow.coach__card--close .coach__btn {
+  white-space: normal;
+}
+
+.coach__card--short-scroll.coach__card--narrow.coach__card--close .coach__head {
+  top: 0;
+  right: auto;
+  left: 0.25rem;
+}
+
+.coach__card--short-scroll.coach__card--narrow.coach__card--close .coach__text {
+  padding-right: 0.5rem;
+}
+
+.coach__card--short-scroll.coach__card--narrow.coach__card--close .coach__foot {
+  padding: 0 0 1px 3.25rem;
+}
+
+.coach__card--short-scroll.coach__card--narrow.coach__card--close .coach__keys {
+  flex-direction: row;
+}
+
+.coach__card--short-scroll.coach__card--narrow.coach__card--close .coach__btn {
+  flex: 1;
+}
+
+.coach__card--short-scroll.coach__card--narrow.coach__card--close
+  .coach__btn:not(.coach__btn--go)
+  span {
+  display: none;
 }
 
 .coach__btn--go {
@@ -346,6 +656,7 @@
 @media (prefers-reduced-motion: reduce) {
   .coach__card,
   .coach__card.is-placed,
+  .coach__card--narrow.is-placed,
   .coach__seg,
   .coach__dim,
   .coach__ring,

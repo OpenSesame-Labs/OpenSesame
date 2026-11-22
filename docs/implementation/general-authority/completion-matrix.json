@@ -172,7 +172,7 @@
         }
       ],
       "blockedBy": ["GA-A-03"],
-      "notes": "host-authority-route-inventory.md + api-surface.md. Evaluation + AccessDomain/offer + grant-issue HTTP inventoried."
+      "notes": "host-authority-route-inventory.md. Evaluation + AccessDomain/offer + grant-issue HTTP inventoried."
     },
     {
       "id": "GA-H-02",

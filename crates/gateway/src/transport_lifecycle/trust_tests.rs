@@ -3,11 +3,11 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{Duration, Utc};
 use opensesame_domain::transport::{
     BindingPurpose, BindingScope, PeerIdentitySelector, ServiceBinding, ServiceBindingSet,
     TrustProfileKind,
 };
+use opensesame_time::{Duration, Utc};
 use opensesame_transport_security::testkit::DisposableCa;
 
 use crate::transport_lifecycle::test_support as support;
@@ -261,7 +261,7 @@ fn a_stored_profile_may_not_shadow_a_deployment_plane_one() {
         now,
     )
     .expect_err("shadowing is refused");
-    assert!(error.code() == "malformed_configuration");
+    assert_eq!(error.code(), "malformed_configuration");
 }
 
 #[test]
@@ -309,4 +309,29 @@ async fn reconcile_is_a_no_op_until_an_overlap_deadline_has_actually_passed() {
             .with_trust_epoch(|epoch| epoch.next_overlap_expiry),
         Some(now + Duration::hours(1)),
     );
+}
+
+#[test]
+fn stored_spiffe_profile_keeps_its_explicit_canonical_domain() {
+    let ca = DisposableCa::new("peers");
+    let mut stored = profile("peers", &ca);
+    stored.kind = TrustProfileKind::SpiffeTrustDomain;
+    stored.trust_domain = Some("example.test".into());
+    let bundle = stored.bundle(Utc::now()).unwrap();
+    assert_eq!(bundle.profile().name, "peers");
+    assert_eq!(bundle.spiffe_trust_domain(), Some("example.test"));
+    for domain in [
+        "",
+        "EXAMPLE.test",
+        "spiffe://example.test/path",
+        "bad space",
+    ] {
+        stored.trust_domain = Some(domain.into());
+        stored.enabled = false;
+        let profiles = TrustProfileSet {
+            revision: 1,
+            profiles: vec![stored.clone()],
+        };
+        assert!(profiles.validate(Utc::now()).is_err(), "domain {domain:?}");
+    }
 }

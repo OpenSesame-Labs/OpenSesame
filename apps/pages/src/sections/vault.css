@@ -304,21 +304,6 @@
   color: var(--canvas);
 }
 
-.vtree__row.is-cursor .vtree__name {
-  font-weight: 600;
-}
-
-.vtree__row.is-cursor .vtree__dim,
-.vtree__row.is-cursor .vtree__count,
-.vtree__row.is-cursor .vtree__caret,
-.vtree__row.is-cursor .vtree__side {
-  color: color-mix(in srgb, var(--canvas) 62%, var(--ink));
-}
-
-.vtree__row.is-cursor .vtree__more {
-  color: color-mix(in srgb, var(--canvas) 75%, var(--ink));
-}
-
 .vtree__caret {
   flex: none;
   color: var(--ink-3);
@@ -386,6 +371,21 @@
   color: var(--ink-2);
   cursor: pointer;
   opacity: 0;
+}
+
+.vtree__row.is-cursor .vtree__name {
+  font-weight: 600;
+}
+
+.vtree__row.is-cursor .vtree__dim,
+.vtree__row.is-cursor .vtree__count,
+.vtree__row.is-cursor .vtree__caret,
+.vtree__row.is-cursor .vtree__side {
+  color: color-mix(in srgb, var(--canvas) 62%, var(--ink));
+}
+
+.vtree__row.is-cursor .vtree__more {
+  color: color-mix(in srgb, var(--canvas) 75%, var(--ink));
 }
 
 .vtree__row:hover .vtree__more,
@@ -899,6 +899,15 @@
   border-bottom: 1px solid var(--line-strong);
 }
 
+.editor__generation-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
 .editor__inline--adorned > input {
   max-width: none;
   border-bottom: 0;
@@ -928,6 +937,11 @@
 /* —— Generator ————————————————————————————————————————————— */
 
 .gen__opts {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.editor__pepper-options {
   display: grid;
   gap: 0.6rem;
 }
@@ -1238,6 +1252,12 @@
   }
 }
 
+@media (max-width: 900px) and (max-height: 220px) {
+  .editor:focus-within .editor__actions {
+    position: static;
+  }
+}
+
 .drop-card__link {
   overflow-wrap: anywhere;
 }
@@ -1296,6 +1316,12 @@
 
 /* —— Phone polish ———————————————————————————————————————————— */
 
+@media (pointer: coarse), (max-width: 900px) {
+  .editor__pepper-check {
+    min-height: 2.75rem;
+  }
+}
+
 @media (max-width: 900px) {
   /* A password's own keys (reveal, copy) sit in the row's key column; its
      "update" key lives in the text column, where a one-column grid dropped it
@@ -1345,5 +1371,22 @@
   .health__finding .actions {
     justify-content: flex-end;
     margin-top: 0;
+  }
+}
+
+/* Keep the failure detail and rotation action as separate touch targets. */
+.rotation-panel__actions > [data-touch-twin] {
+  margin: 0;
+}
+
+@media (pointer: coarse) {
+  /* Reserve the target before the status mark's touch handler is installed. */
+  .rotation-panel__actions > .status-mark {
+    box-sizing: border-box;
+    width: 2.75rem;
+    min-width: 44px;
+    height: 2.75rem;
+    min-height: 44px;
+    padding: 0;
   }
 }

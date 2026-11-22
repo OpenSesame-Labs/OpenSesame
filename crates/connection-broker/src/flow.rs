@@ -7,13 +7,21 @@ use oauth2::{CsrfToken, PkceCodeChallenge};
 use sha2::{Digest, Sha256};
 use url::Url;
 
+use opensesame_invoke_through::scrub_credential_reflections;
+
 use crate::catalog::{AuthMethod, Provider, TokenAuth};
 use crate::config::BrokerConfig;
 use crate::error::{BrokerError, Result};
+use crate::response_guard::{read_bounded_body, safe_oauth_error_detail, transport_detail};
+#[cfg(test)]
+use crate::response_guard::oauth_error_detail;
 use crate::token::TokenResponse;
 
 /// A `state` outlives a human deciding whether to consent, and no longer.
 pub const STATE_TTL_SECONDS: i64 = 600;
+
+/// Provider-controlled token response bodies are bounded before allocation.
+const MAX_TOKEN_RESPONSE_BYTES: usize = 256 * 1024;
 
 pub struct Pkce {
     pub verifier: String,
@@ -42,7 +50,8 @@ impl Pkce {
     }
 }
 
-/// 32 bytes of CSPRNG output; a guessable `state` is a session-fixation hole.
+/// 32 random bytes (256 bits), base64url-encoded; a guessable `state` is a
+/// session-fixation hole.
 #[must_use]
 pub fn new_state() -> String {
     CsrfToken::new_random_len(32).secret().clone()
@@ -182,7 +191,7 @@ async fn exchange_openrouter_key(
     let raw = config
         .token_url(provider)
         .ok_or_else(|| BrokerError::UnsupportedCredential(provider.id.to_string()))?;
-    let response = http
+    let mut response = http
         .post(assert_transport_allowed(&raw)?)
         .header("Accept", "application/json")
         .json(&serde_json::json!({
@@ -199,10 +208,15 @@ async fn exchange_openrouter_key(
             response.status().as_u16()
         )));
     }
-    let body = response
-        .bytes()
+    let body = read_bounded_body(&mut response, MAX_TOKEN_RESPONSE_BYTES)
         .await
-        .map_err(|_| BrokerError::ExchangeFailed("token response was not understood".into()))?;
+        .map_err(|error| BrokerError::ExchangeFailed(error.to_string()))?;
+    let (body, reflected) = scrub_credential_reflections(body, &[code, code_verifier]);
+    if reflected {
+        return Err(BrokerError::ExchangeFailed(
+            "token response reflected submitted authorization material".into(),
+        ));
+    }
     parse_openrouter_key(&body)
 }
 
@@ -227,6 +241,9 @@ fn parse_openrouter_key(body: &[u8]) -> Result<TokenResponse> {
 /// POSTs to the provider's token endpoint honouring its client authentication.
 /// The response body is never echoed into an error: on the success path it holds
 /// the tokens themselves.
+/// Provider bytes are bounded before allocation. Error details are limited to
+/// the RFC code after every submitted value is scrubbed; success payloads are
+/// parsed only as the declared token schema.
 ///
 /// # Errors
 ///
@@ -262,6 +279,7 @@ pub async fn post_token_endpoint(
             missing: config.missing_config(provider),
         });
     };
+    let client_secret_for_scrub = client_secret.clone();
 
     let guarded = if provider.id.starts_with(crate::CUSTOM_PROVIDER_PREFIX) {
         config.custom_egress().validate_token(provider, &url)?;
@@ -290,32 +308,40 @@ pub async fn post_token_endpoint(
         }
     }
 
-    let response = request
+    let mut response = request
         .form(&form)
         .send()
         .await
         .map_err(|e| BrokerError::ExchangeFailed(transport_detail(&e)))?;
     let status = response.status();
-    let body = response
-        .text()
+    let body = read_bounded_body(&mut response, MAX_TOKEN_RESPONSE_BYTES)
         .await
-        .map_err(|e| BrokerError::ExchangeFailed(transport_detail(&e)))?;
+        .map_err(|error| BrokerError::ExchangeFailed(error.to_string()))?;
+    let mut submitted: Vec<&str> = form.iter().map(|(_, value)| value.as_str()).collect();
+    submitted.push(&client_secret_for_scrub);
 
     if !status.is_success() {
+        // Error diagnostics may quote only the RFC error code, and only after
+        // every submitted form value plus the HTTP Basic secret has been
+        // scrubbed. This covers authorization codes, PKCE verifiers, refresh
+        // tokens and future credential-like form fields without naming them.
+        let detail = safe_oauth_error_detail(body, &submitted)?;
         return Err(BrokerError::ExchangeFailed(format!(
             "provider returned {}{}",
             status.as_u16(),
-            oauth_error_detail(&body)
-                .map(|d| format!(" ({d})"))
-                .unwrap_or_default()
+            detail.map(|d| format!(" ({d})")).unwrap_or_default()
         )));
     }
-    serde_json::from_str::<TokenResponse>(&body).map_err(|_| {
-        BrokerError::ExchangeFailed(
-            oauth_error_detail(&body)
-                .unwrap_or_else(|| "token response was not understood".to_string()),
-        )
-    })
+    let body = String::from_utf8(body.to_vec())
+        .map_err(|_| BrokerError::ExchangeFailed("token response was not valid UTF-8".into()))?;
+    match serde_json::from_str::<TokenResponse>(&body) {
+        Ok(response) => Ok(response),
+        Err(_) => {
+            let detail = safe_oauth_error_detail(bytes::Bytes::from(body), &submitted)?
+                .unwrap_or_else(|| "token response was not understood".to_string());
+            Err(BrokerError::ExchangeFailed(detail))
+        }
+    }
 }
 
 /// Best-effort upstream revocation. A provider that refuses is recorded, not fatal:
@@ -340,8 +366,23 @@ pub async fn revoke_upstream(
     };
     let url = assert_transport_allowed(revoke_url)?;
     let provider_config = config.provider(&provider.id);
+    let guarded = if provider.id.starts_with(crate::CUSTOM_PROVIDER_PREFIX) {
+        config.custom_egress().validate_token(provider, &url)?;
+        Some(
+            config
+                .custom_egress()
+                .client(&url, std::time::Duration::from_secs(20))
+                .await?,
+        )
+    } else {
+        None
+    };
     let mut form = vec![("token".to_string(), token.to_string())];
-    let mut request = http.post(url).header("Accept", "application/json");
+    let mut request = guarded
+        .as_ref()
+        .unwrap_or(http)
+        .post(url)
+        .header("Accept", "application/json");
     match (
         *token_auth,
         provider_config.client_id,
@@ -374,28 +415,6 @@ pub async fn revoke_upstream(
             response.status().as_u16()
         )))
     }
-}
-
-/// reqwest's Display can carry the full URL including a query; keep it to the class.
-fn transport_detail(e: &reqwest::Error) -> String {
-    if e.is_timeout() {
-        "provider timed out".into()
-    } else if e.is_connect() {
-        "provider unreachable".into()
-    } else {
-        "provider request failed".into()
-    }
-}
-
-/// Only the RFC 6749 error fields are quotable; the rest of the body is not.
-fn oauth_error_detail(body: &str) -> Option<String> {
-    let value: serde_json::Value = serde_json::from_str(body).ok()?;
-    let code = value.get("error").and_then(|v| v.as_str())?;
-    (code.len() <= 64
-        && code
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || "_.-".contains(character)))
-    .then(|| code.to_string())
 }
 
 #[cfg(test)]

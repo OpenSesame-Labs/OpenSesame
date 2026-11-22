@@ -14,8 +14,8 @@ use axum::extract::{Path, Query, State};
 use axum::http::HeaderMap;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use chrono::{Duration, Utc};
 use opensesame_storage::bitwarden::{BitwardenAuthRequest, BitwardenUser};
+use opensesame_time::{Duration, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
@@ -46,12 +46,12 @@ pub(super) fn routes() -> Router<BitwardenServer> {
 }
 
 /// When the open window began: requests made before it are gone.
-pub(crate) fn window_start() -> chrono::DateTime<Utc> {
+pub(crate) fn window_start() -> opensesame_time::DateTime<Utc> {
     Utc::now() - Duration::minutes(WINDOW_MINUTES)
 }
 
 /// How much longer a request made at `created_at` stays open.
-pub(crate) fn time_left(created_at: chrono::DateTime<Utc>) -> std::time::Duration {
+pub(crate) fn time_left(created_at: opensesame_time::DateTime<Utc>) -> std::time::Duration {
     (created_at + Duration::minutes(WINDOW_MINUTES) - Utc::now())
         .to_std()
         .unwrap_or_default()
@@ -337,7 +337,7 @@ mod tests {
     #[test]
     fn a_request_stays_open_for_its_window_and_not_a_moment_more() {
         let fresh = time_left(Utc::now());
-        assert!(fresh > std::time::Duration::from_secs(14 * 60));
+        assert!(fresh > std::time::Duration::from_mins(14));
         assert_eq!(
             time_left(Utc::now() - Duration::minutes(WINDOW_MINUTES + 1)),
             std::time::Duration::ZERO

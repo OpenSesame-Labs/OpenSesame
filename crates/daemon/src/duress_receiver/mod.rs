@@ -233,7 +233,7 @@ pub fn receive_envelope_response(
                 request_nonce: parsed.nonce,
                 recipient_device_binding: parsed.device_binding_ref,
                 status: "accepted",
-                at: chrono::Utc::now().to_rfc3339(),
+                at: opensesame_time::Utc::now().to_rfc3339(),
                 // Structural receipt — HOST wires signing key (request filed).
                 signature_b64: String::new(),
             };
@@ -283,8 +283,9 @@ mod tests {
             policy_revision: 1,
             key_epoch: 1,
             nonce: "nonce-001".into(),
-            issued_at: chrono::Utc::now().to_rfc3339(),
-            expires_at: (chrono::Utc::now() + chrono::Duration::seconds(60)).to_rfc3339(),
+            issued_at: opensesame_time::Utc::now().to_rfc3339(),
+            expires_at: (opensesame_time::Utc::now() + opensesame_time::Duration::seconds(60))
+                .to_rfc3339(),
             ciphertext_b64: String::new(),
             signature_b64: "sig".into(),
         };

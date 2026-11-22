@@ -86,7 +86,8 @@ fn valid_date(text: &str) -> bool {
     }
     // Chrono checks the fixed calendar/time fields; close its lowercase/leap-second extensions.
     if b.len() == 17 {
-        return chrono::DateTime::parse_from_rfc3339(&format!("{}:00Z", &text[..16])).is_ok();
+        return opensesame_time::DateTime::parse_from_rfc3339(&format!("{}:00Z", &text[..16]))
+            .is_ok();
     }
     if b.len() < 20 || b[16] != b':' || !(b'0'..=b'5').contains(&b[17]) || !b[18].is_ascii_digit() {
         return false;
@@ -96,7 +97,7 @@ fn valid_date(text: &str) -> bool {
     {
         return false;
     }
-    chrono::DateTime::parse_from_rfc3339(text).is_ok()
+    opensesame_time::DateTime::parse_from_rfc3339(text).is_ok()
 }
 fn decode<const N: usize>(text: &str) -> Result<[u8; N], TrapError> {
     if text.len() != N.div_ceil(3) * 4 {

@@ -82,7 +82,7 @@ fn bridge() -> ServiceBindingSet {
 }
 
 /// mTLS is not an alternate operator login: every route needs the same
-/// configurator credential the TaskBus routes need.
+/// configurator credential the `TaskBus` routes need.
 #[tokio::test]
 async fn every_route_is_configurator_gated() {
     let st = state(bridge()).await;

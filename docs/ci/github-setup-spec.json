@@ -8,26 +8,22 @@
   },
   "promotion_model": {
     "build_once": "cd-npm-cli.yml job stage and cd-pwa.yml job build upload the npm tree, Pages dist, and release metadata. Later jobs download those artifacts. CLI stage sets CLI_RELEASE_PACK=1 so esbuild omits sourcemaps, and prepare-cli-release deletes *.map files and excludes dist/**/*.map from the publish files list.",
-    "main_ci_gate": "Before preview jobs, cd-main-ci-gate.mjs requires a successful ci.yml push on main for the same commit with TypeScript, Rust, and Bundle budgets all success.",
-    "preview": "After main CI passes, Preview publish jobs select environment Preview (no required reviewers) and publish 0.0.0-alpha.N on dist-tag alpha with OIDC trusted publishing, with environment secret NPM_TOKEN available as a fallback via publish-npm-package. The github-pages deploy runs automatically with no GitHub environment approval.",
-    "preview_smoke": "Before Production, CD npm CLI runs cd-preview-smoke.mjs (npm dist-tag alpha, install @opensesame-labs/cli@alpha, opensesame --version) with SMOKE_REGISTRY_DEADLINE_MS (default 300000) and SMOKE_REGISTRY_POLL_MS (default 2500). Exact-version polls GET the version document with a monotonic `_cd_wait` query and require that version exactly. CLI CD runs the EXPECTED_VERSION wait in the Preview publish job (cd-registry-wait.mjs) and sets CD_REGISTRY_VERSION_CONFIRMED=1 on preview smoke when that job succeeded. CD PWA runs cd-pwa-preview-smoke/run.mjs: checkReleaseMeta, pinned Hurl 8.1.0 HTTP asserts (registry.hurl including @opensesame-labs/web-pwa@EXPECTED_VERSION, pages.hurl with staged SHA-256 digests), then a single headless Chromium context (Playwright 1.65.0, cached browser) captures deterministic live Pages screenshots (front door, Full install profile choice, sign-in road) uploaded as cd-pwa-preview-smoke artifacts. CDN propagation retries only on pages.hurl via PWA_SMOKE_CDN_*; screenshot capture does not sleep-retry. Registry retries in smoke follow SMOKE_REGISTRY_* when CD_REGISTRY_VERSION_CONFIRMED is unset. CD PWA npm_preview sets SMOKE_REGISTRY_DEADLINE_MS=900000 on cd-registry-wait.mjs because the web-pwa tarball is much larger than the CLI; default 300000 remains for CLI and smoke retries.",
-    "profile_proof": "cd-pwa.yml jobs proof and build start together (main CI gate overlaps them). Proof builds the full install profile only. Preview publish, Pages deploy, and Production wait for main CI, proof, and build.",
-    "production": "When every gate passes, Production downloads the same staged artifacts, verifies live Pages again, rewrites package.json from 0.0.0-alpha.N to 0.0.0-next.N, and publishes that version with npm publish --tag next --provenance using OIDC trusted publishing with Production secret NPM_TOKEN available as a fallback (NODE_AUTH_TOKEN). It does not run npm dist-tag add and never publishes latest. The job selects environment Production. No required reviewers on Preview or Production.",
-    "failure": "Any gate failure skips Production and promotion_failed posts a commit comment via cd-promotion-notify.mjs.",
+    "main_ci_gate": "Before preview jobs, cd-main-ci-gate.mjs requires a successful ci.yml push on main for the same commit with TypeScript, Rust, and Bundle budgets all success. A cancelled run for that commit is non-terminal.",
+    "pwa_stranded_dispatch": "cd-pwa-stranded-dispatch.yml runs on every main push without path filters; when live Pages release.json lags GITHUB_SHA with cd-pwa.yml path changes in between, it workflow_dispatch-es CD PWA on main without weakening the main CI gate.",
+    "preview": "After main CI passes, CLI and PWA jobs validate and pack their staged npm artifacts locally without registry credentials. The GitHub Pages deployment remains independent and runs after the existing build and profile proof.",
+    "preview_smoke": "The CLI proof installs the staged tarball locally with scripts disabled and checks opensesame --version. PWA preview smoke verifies the deployed Pages bytes with Hurl and captures headless Chromium screenshots; it does not claim npm registry publication.",
+    "profile_proof": "cd-pwa.yml keeps its full install profile proof, staged build, Pages deployment and live Pages verification. The npm package is checked locally.",
+    "production": "The PWA job verifies the deployed Pages release after the existing gates. npm publication is disabled until a qualified immutable npm candidate and digest-bound promotion path exist.",
+    "failure": "Any proof or Pages gate failure is reported by promotion_failed via cd-promotion-notify.mjs.",
     "pages_split": "github-pages is the live Pages deploy (actions/deploy-pages). It is not the Preview environment. deploy-pages preview:true is not available to the public, so there is no second Pages environment. Do not add required reviewers to github-pages."
   },
   "github_environment_changes_via_gh": {
-    "preview_required_reviewers": "remove rule 70926078 if still present",
-    "production_required_reviewers": "remove rule 70926080; Tyler removed required reviewers (2026-11-02)",
+    "preview_required_reviewers": "Review the protected environment before any future publication.",
+    "production_required_reviewers": "Do not weaken protection for a future npm publisher.",
     "github_pages": "keep branch policy main only (rule 62085543). No required reviewers and no wait timer.",
-    "npm_token": "Preview npm publish jobs (cd-npm-cli.yml preview, cd-pwa.yml npm_preview) select environment Preview and pass secrets.NPM_TOKEN to publish-npm-package (NODE_AUTH_TOKEN + .npmrc). Production jobs pass secrets.NPM_TOKEN from environment Production the same way for 0.0.0-next.N on tag next with provenance. Each job attempts OIDC trusted publishing under its environment and uses NPM_TOKEN as a fallback when configured. Production does not run npm dist-tag add.",
+    "npm_token": "npm publication is disabled. Existing Preview or Production NPM_TOKEN secrets are not read by these workflows. Future candidate-bound publication requires independently configured trusted publishing or a protected fallback credential.",
     "commands": [
-      "gh api --method DELETE repos/OpenSesame-Labs/OpenSesame/environments/Preview/deployment-protection-rules/70926078",
-      "gh api --method PUT repos/OpenSesame-Labs/OpenSesame/environments/Preview --input - <<'EOF'\n{\"wait_timer\":0,\"prevent_self_review\":false,\"reviewers\":[],\"deployment_branch_policy\":{\"protected_branches\":false,\"custom_branch_policies\":true}}\nEOF",
-      "gh api --method POST repos/OpenSesame-Labs/OpenSesame/environments/Preview/deployment-branch-policies -f name=main -f type=branch",
       "gh api repos/OpenSesame-Labs/OpenSesame/environments/Preview --jq '{wait_timer,rules:[.protection_rules[].type]}'",
-      "gh api --method DELETE repos/OpenSesame-Labs/OpenSesame/environments/Production/deployment-protection-rules/70926080",
-      "gh api --method POST repos/OpenSesame-Labs/OpenSesame/environments/Production/deployment-branch-policies -f name=main -f type=branch",
       "gh api repos/OpenSesame-Labs/OpenSesame/environments/Production --jq '{wait_timer,rules:[.protection_rules[].type]}'",
       "gh api repos/OpenSesame-Labs/OpenSesame/environments/github-pages --jq '{wait_timer,rules:[.protection_rules[].type]}'"
     ]
@@ -35,11 +31,8 @@
   "environments": [
     {
       "name": "Preview",
-      "used_by": [
-        ".github/workflows/cd-npm-cli.yml (job preview)",
-        ".github/workflows/cd-pwa.yml (job npm_preview)"
-      ],
-      "note": "Preview npm publish binds here for NPM_TOKEN. Delete required-reviewer rule 70926078 so a leftover reference cannot wait. See github_environment_changes_via_gh.",
+      "used_by": [],
+      "note": "Historical npm environment; current package proof jobs do not use it or read NPM_TOKEN.",
       "deployment_branch_policy": {
         "protected_branches": false,
         "custom_branch_policies": true,
@@ -51,16 +44,13 @@
         "prevent_self_review": false
       },
       "secrets": {
-        "NPM_TOKEN": "Publish-scoped npm token for Preview alpha publish. cd-npm-cli.yml job preview and cd-pwa.yml job npm_preview pass secrets.NPM_TOKEN to publish-npm-package."
+        "NPM_TOKEN": "Historical npm credential; current proof jobs do not read it. Future OIDC publication requires a qualified candidate."
       },
       "variables": {}
     },
     {
       "name": "Production",
-      "used_by": [
-        ".github/workflows/cd-npm-cli.yml",
-        ".github/workflows/cd-pwa.yml"
-      ],
+      "used_by": [".github/workflows/cd-pwa.yml (job production)"],
       "deployment_branch_policy": {
         "protected_branches": false,
         "custom_branch_policies": true,
@@ -72,7 +62,7 @@
         "prevent_self_review": false
       },
       "secrets": {
-        "NPM_TOKEN": "Publish-scoped npm token for Production 0.0.0-next.N publish on tag next. cd-npm-cli.yml and cd-pwa.yml production jobs pass secrets.NPM_TOKEN to publish-npm-package. The publish attempts OIDC trusted publishing and uses the token as a fallback when configured. A publish-scoped token cannot change dist-tags (E401); Production does not run npm dist-tag add."
+        "NPM_TOKEN": "Historical npm credential; current workflows do not read it. Future OIDC publication requires a qualified candidate."
       },
       "variables": {}
     },
@@ -105,10 +95,10 @@
   "npm_versioning": {
     "initial": "0.0.0-alpha.0",
     "prerelease_id": "alpha",
-    "bump": "increment the numeric suffix on 0.0.0-alpha.N from the npm registry",
+    "bump": "local proofs plan by incrementing the numeric suffix on 0.0.0-alpha.N from the npm registry; publication is disabled",
     "dist_tags": {
-      "preview_publish": "alpha (the prerelease id) on 0.0.0-alpha.N",
-      "production_promotion": "next on 0.0.0-next.N (same numeric suffix), OIDC publish with NPM_TOKEN fallback when configured, never latest"
+      "preview_publish": "alpha was the previous tag on 0.0.0-alpha.N; publication is disabled",
+      "production_promotion": "next on 0.0.0-next.N was the previous policy; npm publication is disabled pending qualified candidate promotion"
     }
   },
   "npm_packages": [
@@ -119,8 +109,8 @@
       "bins": ["opensesame"],
       "exists_on_npm": false,
       "dist_tags": {
-        "alpha": "Preview npm publish",
-        "next": "Production publish of 0.0.0-next.N using OIDC with NPM_TOKEN fallback when configured"
+        "alpha": "Publication disabled pending qualified npm candidate promotion",
+        "next": "Publication disabled pending qualified npm candidate promotion"
       }
     },
     {
@@ -130,16 +120,16 @@
       "bins": ["opensesame-pages"],
       "exists_on_npm": false,
       "dist_tags": {
-        "alpha": "cd-pwa.yml Preview npm job",
-        "next": "cd-pwa.yml Production publish of 0.0.0-next.N using OIDC with NPM_TOKEN fallback when configured"
+        "alpha": "Publication disabled pending qualified npm candidate promotion",
+        "next": "Publication disabled pending qualified npm candidate promotion"
       },
       "payload": "Built static dist (HTML, JS, WASM, manifest, service worker) from the same production Pages build uploaded to GitHub Pages"
     }
   ],
   "npm_trusted_publishing": {
-    "oidc_fallback": "Preview and Production attempt OIDC trusted publishing using id-token: write, and pass secrets.NPM_TOKEN into publish-npm-package as a fallback when set (NODE_AUTH_TOKEN + isolated .npmrc, npm publish --provenance). Production publishes 0.0.0-next.N on next and does not run npm dist-tag add or move latest.",
-    "recommended": "Configure npm trusted publishers for each @opensesame-labs package (see publishers[]). Preview rows set environment to Preview. Production rows set environment to Production. Allow npm publish.",
-    "first_publish": "Trusted publishing supports the first npm publish once the publisher row exists. Until then, configure NPM_TOKEN on environments Preview and Production. An empty Production token still attempts OIDC under environment Production.",
+    "oidc_fallback": "npm publication is disabled until candidate-bound promotion is implemented. The listed publisher rows are future configuration, not an active publication path.",
+    "recommended": "After qualified npm candidate promotion exists, configure the appropriate npm trusted publisher rows and protected environments before enabling publication.",
+    "first_publish": "The action fails closed today even if an npm token or OIDC permission is configured.",
     "publishers": [
       {
         "package": "@opensesame-labs/cli",

@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use chrono::{DateTime, NaiveDateTime, Utc};
+use opensesame_time::{DateTime, NaiveDateTime, Utc};
 use serde_json::Value;
 use sqlx::sqlite::{SqlitePool, SqliteRow};
 use sqlx::Row as _;

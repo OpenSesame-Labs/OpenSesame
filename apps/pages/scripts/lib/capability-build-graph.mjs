@@ -17,6 +17,7 @@ import {
   workerRealmSource,
 } from "./capability-graph.mjs";
 import { secretBackendSdkChunk } from "./capability-lazy-leaves.mjs";
+import { capabilitySourceClosures } from "./capability-source-closures.mjs";
 import { itemTypePackChunk } from "./item-type-pack-chunks.mjs";
 import { workerChunkFor } from "./worker-emission.mjs";
 
@@ -52,6 +53,9 @@ function chunkRecord(file, output, classify) {
     name: output.name,
     isEntry: output.isEntry,
     isDynamicEntry: output.isDynamicEntry,
+    facadeModuleId: output.facadeModuleId
+      ? classify(output.facadeModuleId).id
+      : null,
     // Type packs install individually (ADR 0165); native SDKs initialize on demand.
     // Approving a capability must not eagerly cache these optional resources.
     onDemand: Object.keys(output.modules).some(
@@ -63,7 +67,12 @@ function chunkRecord(file, output, classify) {
     imports: [...new Set(output.imports)].sort(),
     dynamicImports: [...new Set(output.dynamicImports)].sort(),
     importedCss: [...(output.viteMetadata?.importedCss ?? [])].sort(),
-    importedAssets: [...(output.viteMetadata?.importedAssets ?? [])].sort(),
+    importedAssets: [
+      ...new Set([
+        ...(output.viteMetadata?.importedAssets ?? []),
+        ...(output.referencedFiles ?? []),
+      ]),
+    ].sort(),
     modules: Object.keys(output.modules)
       .map((id) => ({
         ...classify(id),
@@ -232,6 +241,7 @@ export function buildGraph(ctx, bundle, state, base) {
       present: publicFilePresent(state, bundle, p.path),
     })),
     moduleEdges,
+    capabilitySourceClosures: capabilitySourceClosures(ctx, classify),
     unclassified: [...unclassified].sort(),
   };
 }

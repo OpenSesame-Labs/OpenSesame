@@ -22,7 +22,9 @@ pub fn tempdir() -> tempfile::TempDir {
     tempfile::tempdir().expect("temporary directory")
 }
 
-pub(crate) fn to_offset(value: chrono::DateTime<chrono::Utc>) -> time::OffsetDateTime {
+pub(crate) fn to_offset(
+    value: opensesame_time::DateTime<opensesame_time::Utc>,
+) -> time::OffsetDateTime {
     time::OffsetDateTime::from_unix_timestamp(value.timestamp())
-        .expect("chrono timestamps are in range for time")
+        .expect("opensesame_time timestamps are in range for time")
 }

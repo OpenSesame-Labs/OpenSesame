@@ -4,7 +4,15 @@
  * no state of its own.
  */
 
-import type { GuideTourView } from "@opensesame/guide-runtime";
+import { FIRST_VAULT_PIN_STEPS } from "@opensesame/app-core/tutorial/registry/first-vault-guide.js";
+import {
+  isKnownGuidePredicate,
+  readGuidePredicate,
+} from "@opensesame/app-core/tutorial/registry/state.js";
+import type {
+  GuideRuntimeSnapshot,
+  GuideTourView,
+} from "@opensesame/guide-runtime";
 import type { CSSProperties, ReactElement } from "react";
 import { IconKey } from "../../components/IconKey.js";
 import {
@@ -17,12 +25,82 @@ import {
   IconX,
 } from "../../components/Icons.js";
 import type { SupportController } from "../session.js";
-import type { Box } from "./placement.js";
+import { type Box, type CoachPlacement, isTightViewport } from "./placement.js";
 
 /** How far the aperture stands off the control it lights. */
 export const APERTURE_PAD = 6;
 
-export const CLOSING_TEXT = "That is the whole tutorial.";
+export const CLOSING_TEXT = "Tutorial complete.";
+
+/** Describe a recovery control when the original action cannot yet succeed. */
+export function coachMessage(
+  tour: GuideTourView,
+  requiredAction: boolean,
+  ready: boolean,
+  recovery: "edit" | "options" | "pepper" | "",
+): string | null {
+  if (recovery === "edit")
+    return "There is no generated password to copy. Select Edit.";
+  if (recovery === "options")
+    return "Open Password options to change the pepper position.";
+  if (recovery === "pepper")
+    return "Set the pepper position to end or turn off Include pepper.";
+  if (requiredAction && ready && !tour.action) {
+    if (tour.target === "editor.password-options")
+      return "Password options are open. Select Next.";
+    if (tour.target === "unlock.seal-actions")
+      return "PIN is selected. Select Next.";
+  }
+  return tour.message;
+}
+
+type TourProgress = { offset: number; count: number };
+
+/**
+ * First-vault meter lengths, pinned to the authored walks in
+ * `@opensesame/app-core/tutorial/registry/first-vault-guide.ts`: the door
+ * walks two setup steps plus a two-step road to the seal decision, the PIN
+ * road then walks `FIRST_VAULT_PIN_STEPS`' seal fields where the passkey road
+ * seals in one ceremony, and the shell continuation is the nine-step password
+ * walk. CoachHud.test.tsx re-derives these from the authored guides, so an
+ * edit that changes a walk's length fails the meter test instead of drifting
+ * the counter silently.
+ */
+const FIRST_VAULT_PASSKEY_GATE_STEPS = 4;
+const FIRST_VAULT_PIN_SEAL_STEPS = FIRST_VAULT_PIN_STEPS.length;
+const FIRST_VAULT_PIN_GATE_STEPS =
+  FIRST_VAULT_PASSKEY_GATE_STEPS + FIRST_VAULT_PIN_SEAL_STEPS;
+const FIRST_VAULT_SHELL_STEPS = 9;
+
+/** Join the adaptive gate phase to its first-vault shell continuation. */
+export function firstVaultTourProgress(
+  target: string | null,
+  count: number,
+  gateSteps: number,
+): TourProgress {
+  const gateTarget =
+    target?.startsWith("unlock.") || target === "setup.default";
+  const pinTarget = [
+    "unlock.seal-pin-entry",
+    "unlock.seal-pin-confirm",
+    "unlock.seal-ack",
+    "unlock.seal",
+  ].includes(target ?? "");
+  // The shell continuation is the nine-step password walk — save waits for
+  // the saved item, the copy step, and the list the item lands in.
+  if (count === FIRST_VAULT_SHELL_STEPS && !gateTarget)
+    return { offset: gateSteps, count: gateSteps + count };
+  // The gate phase and the sign-in continuation show the whole projected
+  // walk: the passkey road's total until the PIN fields open, the PIN road's
+  // from then on. The sign-in continuation resumes after the door's two
+  // setup steps: six steps on the PIN road, two where the passkey seals in
+  // one ceremony.
+  const signIn = count === 6 || count === 2;
+  const roadSteps = pinTarget
+    ? FIRST_VAULT_PIN_GATE_STEPS
+    : FIRST_VAULT_PASSKEY_GATE_STEPS;
+  return { offset: signIn ? 2 : 0, count: roadSteps + FIRST_VAULT_SHELL_STEPS };
+}
 
 export function padded(box: Box): Box {
   return {
@@ -33,7 +111,7 @@ export function padded(box: Box): Box {
   };
 }
 
-/** The four panels of dim around an aperture; clicks on them do nothing. */
+/** The four panels of dim around an aperture; pointer events pass through. */
 export function Dim({
   hole,
   viewport,
@@ -121,6 +199,9 @@ export function counterOf(tour: GuideTourView): string {
   return tour.count > 0 ? `Step ${tour.step} of ${tour.count}` : "";
 }
 
+/** The coach exit key, found by attribute so focus never depends on copy. */
+export const COACH_EXIT_SELECTOR = "[data-coach-exit]";
+
 export function Head({
   titleId,
   title,
@@ -144,7 +225,12 @@ export function Head({
         {title}
       </h2>
       <span className="coach__count">{counter}</span>
-      <IconKey small label="Exit tutorial" onClick={() => support.stopGuide()}>
+      <IconKey
+        small
+        label="Exit tutorial"
+        data-coach-exit=""
+        onClick={() => support.stopGuide()}
+      >
         <IconX size={15} />
       </IconKey>
     </header>
@@ -154,7 +240,10 @@ export function Head({
 function Cue({
   missing,
   action,
-}: { missing: boolean; action: boolean }): ReactElement | null {
+}: {
+  missing: boolean;
+  action: boolean;
+}): ReactElement | null {
   if (missing) {
     return (
       <>
@@ -167,7 +256,7 @@ function Cue({
   return (
     <>
       <span className="coach__pulse" aria-hidden="true" />
-      your move
+      Complete this step
     </>
   );
 }
@@ -177,11 +266,19 @@ export function Foot({
   missing,
   support,
   primary,
+  firstVault,
+  canBack,
+  requiredAction,
+  ready,
 }: {
   tour: GuideTourView;
   missing: boolean;
   support: SupportController;
   primary: React.Ref<HTMLButtonElement>;
+  firstVault: boolean;
+  canBack: boolean;
+  requiredAction: boolean;
+  ready: boolean;
 }): ReactElement {
   const closing = tour.kind === "close";
   return (
@@ -194,27 +291,35 @@ export function Foot({
           <button
             type="button"
             className="coach__btn"
+            aria-label={firstVault ? "Replay password steps" : "Replay"}
+            disabled={!ready}
             onClick={() => support.replayGuide()}
           >
             <IconRefresh size={15} />
-            Replay
+            <span>{firstVault ? "Replay password steps" : "Replay"}</span>
           </button>
         ) : (
           <button
             type="button"
-            className="coach__btn"
-            disabled={!tour.canBack}
+            className="coach__btn coach__btn--back"
+            aria-label="Back"
+            disabled={!ready || !canBack}
             onClick={() => support.backStep()}
           >
             <IconChevronLeft size={15} />
-            Back
+            <span>Back</span>
           </button>
         )}
         <button
           ref={primary}
           type="button"
           className="coach__btn coach__btn--go"
-          onClick={() => support.nextStep()}
+          aria-disabled={
+            !ready || (requiredAction && tour.action) ? true : undefined
+          }
+          onClick={() => {
+            if (ready && (!requiredAction || !tour.action)) support.nextStep();
+          }}
         >
           {closing ? (
             <>
@@ -231,4 +336,78 @@ export function Foot({
       </div>
     </footer>
   );
+}
+
+export function viewportDockStyle(
+  placement: CoachPlacement | null,
+  viewport: {
+    width: number;
+    height: number;
+    offsetLeft: number;
+    rightOffset: number;
+    offsetTop: number;
+    bottomOffset: number;
+  },
+): CSSProperties {
+  if (placement?.kind !== "dock") {
+    return { maxWidth: `calc(${viewport.width}px - 1.5rem)` };
+  }
+  const horizontal = {
+    left: `calc(0.5rem + ${viewport.offsetLeft}px)`,
+    right: `calc(0.5rem + ${viewport.rightOffset}px)`,
+  };
+  const edge = isTightViewport(viewport) ? "0px" : "0.5rem";
+  if (placement.edge === "top") {
+    return {
+      ...horizontal,
+      top: `calc(${edge} + env(safe-area-inset-top, 0px) + ${viewport.offsetTop}px)`,
+    };
+  }
+  return {
+    ...horizontal,
+    bottom: `calc(${edge} + env(safe-area-inset-bottom, 0px) + ${viewport.bottomOffset}px)`,
+  };
+}
+
+/** Keep Back from returning to controls removed by an earlier action. */
+export function canReturn(
+  guide: GuideRuntimeSnapshot,
+  tour: GuideTourView,
+): boolean {
+  if (!tour.canBack) return false;
+  if (
+    ["vault.item.find", "vault.item.accounts"].includes(guide.goal ?? "") &&
+    [
+      "vault.filter.favorites",
+      "vault.filter.logins",
+      "shell.command-bar",
+    ].includes(tour.target ?? "") &&
+    isKnownGuidePredicate("shell.narrow") &&
+    readGuidePredicate("shell.narrow")
+  )
+    return false;
+  if (guide.goal === "gate.front-door") {
+    if (
+      ["unlock.seal-pin-confirm", "unlock.seal-ack", "unlock.seal"].includes(
+        tour.target ?? "",
+      )
+    )
+      return true;
+    return (
+      tour.count === 9 &&
+      [
+        "editor.password-options",
+        "editor.pepper-options",
+        "editor.generate-password",
+        "item.editor.save",
+        "vault.list",
+      ].includes(tour.target ?? "")
+    );
+  }
+  if (guide.goal === "vault.item.first") {
+    return !["item.editor.name", "item.copy-generated"].includes(
+      tour.target ?? "",
+    );
+  }
+  return true;
 }

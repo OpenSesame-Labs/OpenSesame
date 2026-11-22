@@ -39,8 +39,8 @@
 //! declared site is that run's tripwire. See [`surrogate`] for its vocabulary
 //! and the fences its free text passes before it is published.
 
-use chrono::{DateTime, Utc};
 use opensesame_security_events::{NoticeState, SecurityNotice, Severity};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use thiserror::Error;

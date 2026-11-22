@@ -55,8 +55,8 @@ provider seeing ciphertext and nothing else.
    `OSCHNK1\n` + a 24-byte nonce + XChaCha20-Poly1305 ciphertext: 48 bytes of
    overhead. Routing chunks through the existing `.osseal` envelope would have
    cost roughly 37% in base64-in-JSON expansion and held the whole payload in
-   memory. Manifests are small, so they keep the envelope and inherit its
-   anti-rollback machinery unchanged.
+   memory. Manifests are small, so they keep the envelope and are checked
+   against the authenticated outside-store rollback checkpoint.
 
 3. **Every chunk binds its position.** The AEAD associated data is the digest
    of `{envelope_version, attachment_id, item_id, chunk_index, chunk_count}`.
@@ -86,8 +86,9 @@ provider seeing ciphertext and nothing else.
 6. **Attachment ciphertext is committed and backed up like any other.**
    `auto_commit`'s allowlist gains `.osattach` and `.oschunk`, extending
    ADR 0038 §2's "only ciphertext travels" to the new file types. The local
-   anti-rollback map `.opensesame-attachment-revisions.json` is deliberately
-   excluded, exactly as the entry revision map is.
+   revision map `.opensesame-attachment-revisions.json` is deliberately
+   excluded, exactly as the entry revision map is. The independent checkpoint
+   also records attachment revisions and deletion tombstones.
 
 7. **Ordering is chunks first, manifest last.** A crash between the two leaves
    orphan objects, which are unreferenced ciphertext. `attach gc` reclaims
@@ -110,11 +111,21 @@ provider seeing ciphertext and nothing else.
    have nothing to replicate. `pass attach sync --to-dir` covers the
    encrypted-disk case with no gateway involvement at all, and needs no
    passphrase, since replication never opens what it moves. Provider target
-   discovery and uploads require the Host operator credential: membership in
-   the same organization does not grant use of the target's storage connection.
-   The operator may write any valid attachment path below the configured target.
-   Delegated native-user writers and per-user logical-path grants are not
-   currently supported; a provider-operation delegation is not such a grant.
+   discovery and configuration require the Host operator credential. Uploads
+   require the operator credential or an owner/admin session holding the exact
+   `sealed_store.attach.replicate` grant: membership in the same organization
+   does not grant use of the target's storage connection. An authorized caller
+   may write any valid attachment path below the configured target. An upload
+   may name the target version it read; a changed target refuses it before
+   the provider credential is used. Delegated native-user writers and per-user
+   logical-path grants are not currently supported; a provider-operation
+   delegation is not such a grant.
+
+Keyed attachment access requires the outside checkpoint. Existing stores must
+explicitly anchor an independently verified attachment inventory, and all
+readers and writers must be upgraded. Passphrase-free replication cannot
+authenticate that checkpoint or prove freshness. Protect the checkpoint
+independently: restoring it and the checkout together can restore old state.
 
 ## Consequences
 
@@ -159,9 +170,11 @@ curl -X PUT "$HOST/api/v1/attachments/target" \
   -H "X-OpenSesame-Operator: $OPERATOR_TOKEN" \
   -d '{"connection_id":"'$ID'","folder_path":"/OpenSesame/attachments"}'
 
-# 3. Push sealed bytes. The client drives this; the Host injects the
-#    provider credential and forwards. Configure OPENSESAME_OPERATOR_TOKEN
-#    for the selected Host; use an HTTPS origin or loopback HTTP.
+# 3. Push sealed bytes. The client drives this; the Host requires the operator
+#    credential, or an owner or admin session with the exact
+#    `sealed_store.attach.replicate` operation grant, then injects the
+#    provider credential and forwards. `pass attach sync` uses
+#    OPENSESAME_OPERATOR_TOKEN; use an HTTPS origin or loopback HTTP.
 opensesame pass attach sync
 ```
 

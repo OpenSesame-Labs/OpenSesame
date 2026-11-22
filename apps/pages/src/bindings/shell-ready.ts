@@ -26,7 +26,8 @@ import {
   activatedGeneration,
   subscribeActivated,
 } from "@opensesame/app-core/lib/capabilities/change.js";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import type { EffectivePlan } from "@opensesame/capability-composition";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useComposition } from "./capabilities.js";
 
 export const shellReadySeams = {
@@ -40,6 +41,36 @@ const subscribe = (listener: () => void) =>
   shellReadySeams.subscribeActivated(listener);
 const read = () => shellReadySeams.activatedGeneration();
 
+export type ShellReadyInput = {
+  status: string;
+  tomb?: string;
+  plan: EffectivePlan | null;
+  compositionGeneration: number;
+  activatedGeneration: number;
+  openedVault: string | null | undefined;
+  timedOut?: boolean;
+  awaitingPlanActivation?: boolean;
+};
+
+/** Pure shell-ready gate (`useShellReady` is the React subscription around this). */
+export function computeShellReady(input: ShellReadyInput): boolean {
+  const vault = input.status === "unlocked" ? (input.tomb ?? null) : undefined;
+  const plan = input.plan;
+  const ready =
+    vault !== undefined &&
+    plan !== null &&
+    plan.identity.vaultId === vault &&
+    input.activatedGeneration === input.compositionGeneration;
+  const waitedOpen =
+    vault !== undefined &&
+    input.openedVault === vault &&
+    (plan === null ||
+      input.timedOut === true ||
+      (plan.identity.vaultId === vault &&
+        input.awaitingPlanActivation !== true));
+  return ready || waitedOpen;
+}
+
 export function useShellReady(
   status: string,
   tomb: string | undefined,
@@ -50,17 +81,60 @@ export function useShellReady(
   const plan = snapshot.plan;
   const ready =
     vault !== undefined &&
-    (plan === null ||
-      (plan.identity.vaultId === vault && activated === snapshot.generation));
+    plan !== null &&
+    plan.identity.vaultId === vault &&
+    activated === snapshot.generation;
   const [opened, setOpened] = useState<string | null | undefined>(undefined);
+  const [timedOut, setTimedOut] = useState(false);
+  const [awaitingPlanActivation, setAwaitingPlanActivation] = useState(false);
+  const previousPlanWasNull = useRef(false);
+  // The effect below records the null-plan latch after paint. The render that
+  // first sees the vault plan must already close the gate, or contributed
+  // screens mount for that commit and are torn down when the effect runs.
+  const planArrivedBeforeActivation =
+    previousPlanWasNull.current &&
+    plan !== null &&
+    vault !== undefined &&
+    plan.identity.vaultId === vault &&
+    !timedOut &&
+    activated !== snapshot.generation;
   useEffect(() => {
-    if (vault === undefined) setOpened(undefined);
-    else if (ready) setOpened(vault);
-  }, [vault, ready]);
+    if (vault === undefined) {
+      setOpened(undefined);
+      setTimedOut(false);
+      setAwaitingPlanActivation(false);
+    } else if (ready) {
+      setOpened(vault);
+      setTimedOut(false);
+      setAwaitingPlanActivation(false);
+    } else if (
+      previousPlanWasNull.current &&
+      plan !== null &&
+      plan.identity.vaultId === vault &&
+      !timedOut
+    ) {
+      setAwaitingPlanActivation(true);
+      setOpened(undefined);
+    }
+    previousPlanWasNull.current = plan === null;
+  }, [vault, ready, plan, timedOut]);
   useEffect(() => {
     if (vault === undefined || ready) return;
-    const timer = setTimeout(() => setOpened(vault), shellReadySeams.maxWaitMs);
+    const timer = setTimeout(() => {
+      setOpened(vault);
+      setTimedOut(true);
+    }, shellReadySeams.maxWaitMs);
     return () => clearTimeout(timer);
   }, [vault, ready]);
-  return ready || (vault !== undefined && opened === vault);
+  return computeShellReady({
+    status,
+    tomb,
+    plan,
+    compositionGeneration: snapshot.generation,
+    activatedGeneration: activated,
+    openedVault: opened,
+    timedOut,
+    awaitingPlanActivation:
+      awaitingPlanActivation || planArrivedBeforeActivation,
+  });
 }

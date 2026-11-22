@@ -62,10 +62,11 @@ Settings › Code security › Secret scanning.
 3. **deps.dev / OpenSSF_deps** — automatic for public repos once dependency
    data flows; nothing to file, worth checking the OpenSSF Best Practices
    badge widget and deps.dev score after the first Scorecard run.
-4. **GitHub artifact attestations for npm packages** — when the npm publish
-   workflow first runs (`publish-npm.yml`, needs `NPM_TOKEN`), add
-   `--provenance` so npm packages ship with SLSA provenance the way the
-   release-kit binaries already do.
+4. **npm package provenance** — before restoring npm publication, include the
+   exact package tarballs in the immutable candidate, qualify those bytes,
+   and establish provenance and independently protected publisher controls.
+   The retired `publish-npm.yml` workflow cannot publish; see the
+   [publication status](../operators/publishing.md#stored-publication-credentials).
 5. **MCP Registry listing** — the MCP servers (`packages/mcp-host`,
    `packages/mcp-client`) are consumers, not yet published; once the npm
    publication of a server package lands, register it in the MCP Registry so

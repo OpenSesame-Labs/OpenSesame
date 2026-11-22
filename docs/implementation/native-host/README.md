@@ -234,8 +234,7 @@ before/after evidence for the moved screens (`skills/visual-evidence`).
   packages under `packages/hosted-identity/`.
 - ~~`apps/ceremonies`, `apps/mobile-mfa` and `apps/console` become Pages
   routes~~ — done, and the three apps are deleted
-  ([ADR 0140](../../adr/0140-pages-hosts-every-ceremony.md),
-  [plan](../ceremonies-into-pages/README.md)). The TypeScript worker's outbox
+  ([ADR 0140](../../adr/0140-pages-hosts-every-ceremony.md)). The TypeScript worker's outbox
   loop runs inside the hosted identity deployment.
 - `ops/hosted-identity/`: the deployment recipe (container and database),
   documented as optional in `docs/operators/`.

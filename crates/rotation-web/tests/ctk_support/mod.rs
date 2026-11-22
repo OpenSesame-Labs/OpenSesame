@@ -20,7 +20,7 @@
 //! - **`int64_json`.** Contexts are `serde_json` values holding `i64`.
 //!   `bigint_json` is not claimed, for the reason the reference harness gives.
 
-use std::sync::Mutex;
+use std::{collections::BTreeMap, sync::Mutex};
 
 use agent_hooks::ctk::{async_trait, Harness, IdentityPair, RunRecord, VectorSetup};
 use opensesame_rotation_web::hooks::{
@@ -182,7 +182,7 @@ impl Harness for RotationWebHarness {
                 .collect(),
             // The CTK runner fills these from the harness declaration and
             // the vector's host_declaration; a harness starts them empty.
-            postures: Default::default(),
+            postures: BTreeMap::default(),
             load: None,
         }
     }

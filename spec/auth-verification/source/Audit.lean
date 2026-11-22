@@ -157,26 +157,32 @@ example (staticTrusted orgEligible byoActive : Bool) :
     extractedIssuerResolution false staticTrusted orgEligible byoActive = .untrusted :=
   issuer_blank_denied staticTrusted orgEligible byoActive
 
-example (modernValid legacyValid orgAbsent byoAbsent : Bool) :
-    extractedPendingAdmission modernValid legacyValid orgAbsent byoAbsent = true ↔
-      modernValid = true ∨ (legacyValid = true ∧ orgAbsent = true ∧ byoAbsent = true) :=
-  pending_admission_refines_policy modernValid legacyValid orgAbsent byoAbsent
+example (canonical modernValid legacyValid providerPresent knownFieldsOnly : Bool) :
+    extractedPendingAdmission canonical modernValid legacyValid providerPresent knownFieldsOnly = true ↔
+      canonical = true ∧
+        (modernValid = true ∨
+          (legacyValid = true ∧ providerPresent = true ∧ knownFieldsOnly = true)) :=
+  pending_admission_refines_policy canonical modernValid legacyValid providerPresent knownFieldsOnly
 
-example (legacyValid byoAbsent : Bool) :
-    extractedPendingAdmission false legacyValid false byoAbsent = false :=
-  pending_legacy_org_denied legacyValid byoAbsent
+example (modernValid legacyValid providerPresent knownFieldsOnly : Bool) :
+    extractedPendingAdmission false modernValid legacyValid providerPresent knownFieldsOnly = false :=
+  pending_noncanonical_denied modernValid legacyValid providerPresent knownFieldsOnly
 
-example (legacyValid orgAbsent : Bool) :
-    extractedPendingAdmission false legacyValid orgAbsent false = false :=
-  pending_legacy_byo_denied legacyValid orgAbsent
+example (legacyValid knownFieldsOnly : Bool) :
+    extractedPendingAdmission true false legacyValid false knownFieldsOnly = false :=
+  pending_legacy_provider_required legacyValid knownFieldsOnly
 
-example (legacyValid orgAbsent byoAbsent : Bool) :
-    extractedPendingAdmission true legacyValid orgAbsent byoAbsent = true :=
-  pending_modern_signature_admitted legacyValid orgAbsent byoAbsent
+example (legacyValid providerPresent : Bool) :
+    extractedPendingAdmission true false legacyValid providerPresent false = false :=
+  pending_legacy_known_fields_required legacyValid providerPresent
 
-example (orgAbsent byoAbsent : Bool) :
-    extractedPendingAdmission false false orgAbsent byoAbsent = false :=
-  pending_no_signature_denied orgAbsent byoAbsent
+example (legacyValid providerPresent knownFieldsOnly : Bool) :
+    extractedPendingAdmission true true legacyValid providerPresent knownFieldsOnly = true :=
+  pending_modern_signature_admitted legacyValid providerPresent knownFieldsOnly
+
+example (providerPresent knownFieldsOnly : Bool) :
+    extractedPendingAdmission true false false providerPresent knownFieldsOnly = false :=
+  pending_no_signature_denied providerPresent knownFieldsOnly
 
 example (pendingOidc currentOidc single hasProvenance sameSource sameId currentStatic : Bool) :
     extractedFederatedTrust pendingOidc currentOidc single hasProvenance sameSource sameId currentStatic = true ↔
@@ -324,8 +330,9 @@ end SourceAuth.Audit
 #print axioms SourceAuth.issuer_no_match_denied
 #print axioms SourceAuth.issuer_blank_denied
 #print axioms SourceAuth.pending_admission_refines_policy
-#print axioms SourceAuth.pending_legacy_org_denied
-#print axioms SourceAuth.pending_legacy_byo_denied
+#print axioms SourceAuth.pending_noncanonical_denied
+#print axioms SourceAuth.pending_legacy_provider_required
+#print axioms SourceAuth.pending_legacy_known_fields_required
 #print axioms SourceAuth.pending_modern_signature_admitted
 #print axioms SourceAuth.pending_no_signature_denied
 #print axioms SourceAuth.trust_binding_refines_policy

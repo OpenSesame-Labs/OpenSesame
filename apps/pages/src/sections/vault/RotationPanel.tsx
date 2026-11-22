@@ -3,9 +3,11 @@ import type {
   rotationScheduleFor,
 } from "@opensesame/app-core/lib/vault/rotation-queue.js";
 import type { VaultItem } from "@opensesame/vault-core";
+import { Link } from "react-router";
 import { FailureNotice } from "../../components/FailureNotice.js";
 import { IconKey } from "../../components/IconKey.js";
 import { IconRefresh } from "../../components/Icons.js";
+import { StatusMark } from "../../components/StatusMark.js";
 import { useRotationPanel } from "./use-rotation-panel.js";
 
 function date(iso: string): string {
@@ -68,7 +70,7 @@ function QueueState({
       {event ? (
         <output className="hint">
           {event.state === "out-of-sync"
-            ? "Out of sync — the rotation is queued, but no relay is configured to verify it."
+            ? "Out of sync — rotation is pending and may retry."
             : "Rotation queued; waiting for the vault relay."}
         </output>
       ) : null}
@@ -91,6 +93,7 @@ export function RotationPanel({
 }) {
   const {
     mode,
+    eligible,
     warning,
     schedule,
     event,
@@ -101,29 +104,64 @@ export function RotationPanel({
     rotate,
   } = useRotationPanel(item, scope);
 
-  if (mode === "none") return null;
+  if (mode === "none" || item.deletedAt !== null) return null;
+  if (!scope) {
+    const heading =
+      item.kind === "account" ? "Password generator" : "Generator";
+    return (
+      <section className="detail__group" aria-label={heading}>
+        <h2 className="detail__grouphead">{heading}</h2>
+        <Link className="btn btn--sm" to={`/vault/${item.id}/edit`}>
+          Edit to generate
+        </Link>
+      </section>
+    );
+  }
+  if (mode === "automatic" && !eligible) {
+    return (
+      <section className="detail__group" aria-label="Rotation">
+        <h2 className="detail__grouphead">Rotation</h2>
+        <p className="hint">{warning}</p>
+        <Link className="btn btn--sm" to={`/vault/${item.id}/edit`}>
+          Add website
+        </Link>
+      </section>
+    );
+  }
 
   return (
     <section className="detail__group" aria-label="Rotation">
       <h2 className="detail__grouphead">Rotation</h2>
       {schedule ? <Schedule schedule={schedule} onToggle={toggle} /> : null}
 
-      <QueueState warning={warning} event={event} runHint={runHint} />
-
-      <FailureNotice
-        id={`rotation:${item.id}`}
-        title="Rotation"
-        message={error}
+      <QueueState
+        warning={warning}
+        event={error ? null : event}
+        runHint={error ? null : runHint}
       />
 
-      <IconKey
-        label="Generate new password"
-        disabled={busy}
-        aria-busy={busy}
-        onClick={() => void rotate()}
-      >
-        <IconRefresh size={16} />
-      </IconKey>
+      <FailureNotice
+        id={`rotation:${scope}:${item.id}`}
+        title="Rotation"
+        message={error}
+        clearOnUnmount
+      />
+
+      <div className="field-inline rotation-panel__actions">
+        {error ? <StatusMark tone="err" label={error} /> : null}
+        <IconKey
+          label={
+            mode === "automatic"
+              ? "Request password rotation"
+              : "Request rotation"
+          }
+          disabled={busy}
+          aria-busy={busy}
+          onClick={() => void rotate()}
+        >
+          <IconRefresh size={16} />
+        </IconKey>
+      </div>
     </section>
   );
 }
