@@ -30,8 +30,16 @@ pub(super) fn destructured_url(
         // A match arm (`match (client.get(evil),) { (request,) => … }`) binds
         // the scrutinee element, not a value from an `=` RHS. The scrutinee
         // is the expression between the `match` keyword and the match body's
-        // opening brace (Kimi council chunk04 P2).
-        if is_let || bytes.get(at) != Some(&b'=') || bytes.get(at + 1) != Some(&b'>') {
+        // opening brace (Kimi council chunk04 P2). A guarded arm
+        // (`(request,) if cond => …`) binds the pattern the same way; only
+        // the arrow sits behind the guard (Kimi council R6 chunk04).
+        if is_let {
+            return None;
+        }
+        if let Some(guard_end) = arm_guard_end(bytes, at) {
+            at = guard_end;
+        }
+        if bytes.get(at) != Some(&b'=') || bytes.get(at + 1) != Some(&b'>') {
             return None;
         }
         let body = match_body_open(prefix, open)?;
@@ -112,10 +120,32 @@ fn tuple_around(source: &str, name_at: usize) -> Option<(usize, usize, bool)> {
     }
 }
 
+/// `(request,) if cond => …`: the pattern binds even behind an arm guard, so
+/// the arrow probe must skip the `if` guard expression. `=>` cannot appear
+/// inside a guard expression, and `==` / `>=` never read as `=` + `>` from
+/// one position, so the first `=>` after the `if` keyword is the arm arrow.
+fn arm_guard_end(bytes: &[u8], at: usize) -> Option<usize> {
+    if !is_keyword_at(bytes, at, b"if") {
+        return None;
+    }
+    let mut index = at + 2;
+    while index + 1 < bytes.len() {
+        if let Some(len) = non_code_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        if bytes[index] == b'=' && bytes[index + 1] == b'>' {
+            return Some(index);
+        }
+        index += 1;
+    }
+    None
+}
+
 /// `(request,) => …` match arm: the pattern sits at an arm boundary (`{` or
 /// `,` before it — later arms follow an earlier arm's `}` and a comma) and
-/// the arm arrow follows the close. A tuple assignment `(request,) = …`
-/// never has `=>` after the pattern.
+/// the arm arrow follows the close, behind an optional `if` guard. A tuple
+/// assignment `(request,) = …` never has `=>` after the pattern.
 fn arm_intro(before_paren: &str, source: &str, close: usize) -> bool {
     let last = before_paren.trim_end().as_bytes().last();
     if !matches!(last, Some(b'{' | b',' | b'}' | b';')) {
@@ -125,6 +155,9 @@ fn arm_intro(before_paren: &str, source: &str, close: usize) -> bool {
     let mut at = close + 1;
     while at < bytes.len() && bytes[at].is_ascii_whitespace() {
         at += 1;
+    }
+    if let Some(guard_end) = arm_guard_end(bytes, at) {
+        at = guard_end;
     }
     bytes.get(at) == Some(&b'=') && bytes.get(at + 1) == Some(&b'>')
 }
@@ -335,58 +368,6 @@ pub(super) fn strip_suffix_kw<'a>(source: &'a str, keyword: &str) -> Option<&'a 
         .then(|| rest.trim_end())
 }
 
+#[path = "pattern_probes.rs"]
 #[cfg(test)]
-mod probes {
-    use super::super::credentialed_send_https_gaps;
-
-    #[test]
-    fn p5_nested_tuple_request_binding() {
-        let decoy = r#"async fn f() { if safe.scheme() != "https" { return Err("x".into()); } let ((request,),) = ((client.get(evil),),); request.send().await?; }"#;
-        assert_eq!(credentialed_send_https_gaps(decoy), (1, 1), "{decoy}");
-        let kept = r#"async fn f() { let ((request,),) = ((client.get(url),),); if url.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#;
-        assert_eq!(credentialed_send_https_gaps(kept), (1, 0), "{kept}");
-    }
-
-    #[test]
-    fn chunk02_if_let_tuple_is_not_a_url_binding() {
-        // `if let` / `while let` shadow only inside the condition. They must
-        // not replace the outer `request` builder, or the later send looks
-        // guarded by the pattern's URL.
-        let masked = [
-            r#"async fn f() { let request = client.get(evil); if url.scheme() != "https" { return Err("x".into()); } if let (request,) = (client.get(url),) { let _ = 1; } request.send().await?; }"#,
-            r#"async fn f() { let request = client.get(evil); if url.scheme() != "https" { return Err("x".into()); } while let (request,) = (client.get(url),) { break; } request.send().await?; }"#,
-            r#"async fn f() { let request = client.get(evil); if url.scheme() != "https" { return Err("x".into()); } if let mut (request,) = (client.get(url),) { let _ = 1; } request.send().await?; }"#,
-        ];
-        for sample in masked {
-            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
-        }
-        let kept = [
-            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } let (request,) = (client.get(url),); request.send().await?; }"#,
-            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } let mut (request,) = (client.get(url),); request.send().await?; }"#,
-        ];
-        for sample in kept {
-            assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
-        }
-    }
-
-    #[test]
-    fn chunk02_tuple_reassignment_rebinds_builder_url() {
-        // `(request,) = (…)` is not a `let`, but it does rebind the element.
-        // Without it the stored URL stays `url`, and the post-guard send on
-        // the rebuilt `evil` request still looks guarded.
-        let decoy = [
-            r#"async fn f() { let (request,) = (client.get(url),); if url.scheme() != "https" { return Err("x".into()); } (request,) = (client.get(evil),); request.send().await?; }"#,
-            r#"async fn f() { let (request,) = (client.get(url),); (request,) = (client.get(evil),); if url.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#,
-        ];
-        for sample in decoy {
-            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
-        }
-        let kept = [
-            r#"async fn f() { let (request,) = (client.get(url),); if url.scheme() != "https" { return Err("x".into()); } (request,) = (client.get(url),); request.send().await?; }"#,
-            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } let (request,) = (client.get(url),); request.send().await?; }"#,
-        ];
-        for sample in kept {
-            assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
-        }
-    }
-}
+mod probes;

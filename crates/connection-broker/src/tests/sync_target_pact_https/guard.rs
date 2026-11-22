@@ -26,13 +26,13 @@ pub(super) fn guarded(prefix: &str, dest: Option<&str>) -> bool {
             b'}' | b')' | b']' => depth -= 1,
             _ => {}
         }
-        // Paren and bracket depth count, not only braces: an `if` expression
-        // inside a macro invocation's token tree (`m!(if … { return })`) is
-        // an argument the macro may never emit, so it cannot dominate the
-        // send (Kimi council chunk03 P2).
+        // Paren and bracket depth count, not only braces: an `if` in a macro
+        // token tree or braceless closure body (`let f = |x| if …`) may never
+        // run, so neither dominates the send (chunk03 P2, R6 chunk03).
         if depth == 1
             && is_keyword_at(bytes, index, b"if")
             && !preceded_by_else(bytes, index)
+            && !super::closure::closure_owns(&prefix[..index])
             && if_guard(prefix, index, dest)
         {
             return true;

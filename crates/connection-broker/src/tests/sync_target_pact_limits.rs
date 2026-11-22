@@ -131,6 +131,10 @@ fn contract_scanner_files_stay_under_400_lines() {
             include_str!("sync_target_pact_https/pattern.rs"),
         ),
         (
+            "sync_target_pact_https/pattern_probes.rs",
+            include_str!("sync_target_pact_https/pattern_probes.rs"),
+        ),
+        (
             "sync_target_pact_https/sqlx_exec.rs",
             include_str!("sync_target_pact_https/sqlx_exec.rs"),
         ),

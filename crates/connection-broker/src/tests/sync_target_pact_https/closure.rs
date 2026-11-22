@@ -46,7 +46,15 @@ fn pipe_is_closure(body: &str, pipe: usize, code: &[bool]) -> bool {
     if prev == b'|' && logic_or_closure(bytes, pipe, at) {
         return true;
     }
-    matches!(prev, b'=' | b'(' | b'{' | b',' | b';' | b'[')
+    // A left operand ending in `)`, `]`, or `?` (call, index, try result) is
+    // the bitwise-or's other operand: `foo("s") |x| return …` constructs the
+    // closure without running it, so the `return` is closure-local (Kimi
+    // council R6 chunk03). `closure_body_at` still rejects a `|` whose right
+    // side is not a parameter list (`f() | x`), and a doubled pipe after such
+    // an operand is the `||` operator, not an empty parameter list:
+    // `arr.map(|x| x) || …` has no closure at this pipe.
+    (matches!(prev, b')' | b']' | b'?') && bytes.get(pipe + 1) != Some(&b'|'))
+        || matches!(prev, b'=' | b'(' | b'{' | b',' | b';' | b'[')
         || matches!(trailing_name(&body[..at]), "move" | "async")
 }
 
@@ -296,6 +304,49 @@ mod probes {
         );
         let kept = r#"{if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#;
         assert!(super::super::guard::guarded(kept, Some("url")), "{kept}");
+    }
+
+    /// A single `|` whose left operand ends in `)`, `]`, or `?` is still a
+    /// bitwise-or with a closure operand: `foo("s") |x| return …` only
+    /// constructs the closure at that point (and would not type-check), so
+    /// the closure-local `return` cannot satisfy the guard
+    /// (Kimi council R6 chunk03).
+    #[test]
+    fn kimi_council_r6_call_operand_pipe_opens_closure() {
+        for before in [
+            "foo(\"s\") |x| ",
+            "arr[i] |x| ",
+            "foo()? |x| ",
+            "foo().bar() |x| ",
+        ] {
+            assert!(super::closure_owns(before), "{before}");
+        }
+        // Controls: a `|` after `)` whose right side is not a closure
+        // parameter list is an operator, and a complete closure followed by
+        // another operand does not own a later return.
+        assert!(!super::closure_owns("f() | x "));
+        assert!(!super::closure_owns("foo(\"s\") "));
+        // Through `guarded`: the closure-local return must not read as the
+        // branch's fail-close when the closure is the right operand of a
+        // call/index/try result.
+        let prefix = r#"{if url.scheme()!="https" { foo("s") |x| return Err("x".into()); } client.get(url)."#;
+        assert!(
+            !super::super::guard::guarded(prefix, Some("url")),
+            "{prefix}"
+        );
+        let kept = r#"{if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#;
+        assert!(super::super::guard::guarded(kept, Some("url")), "{kept}");
+        // End-to-end: the fake guard must leave the gap open.
+        let open = [
+            r#"async fn f() { if url.scheme() != "https" { foo("s") |x| return Err("x".into()); } client.get(url).send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { arr[i] |x| return Err("x".into()); } client.get(url).send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { foo()? |x| return Err("x".into()); } client.get(url).send().await?; }"#,
+        ];
+        for sample in open {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+        }
+        let kept = r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(kept), (1, 0));
     }
 
     #[test]

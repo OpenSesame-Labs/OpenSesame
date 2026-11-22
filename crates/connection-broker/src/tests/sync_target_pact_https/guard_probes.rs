@@ -296,3 +296,35 @@ fn kimi_council_r4_non_dominating_scheme_compare_is_not_a_guard() {
     }
 }
 
+/// A braceless closure body leaves its `if` at depth 1, the same depth as
+/// the function body's statements: `let f = |x| if url.scheme() != "https"
+/// { return … };` only runs that `return` when the closure is invoked (and a
+/// closure `return` exits the closure, not the function), so it cannot
+/// dominate the send. Same "may never execute" class as the macro
+/// token-tree exclusion (Kimi council R6 chunk03).
+#[test]
+fn kimi_council_r6_closure_body_if_is_not_a_guard() {
+    let prefix = r#"{let f = |x| if url.scheme()!="https" { return Err("x".into()); }; client.get(url)."#;
+    assert!(!super::guarded(prefix, Some("url")), "{prefix}");
+    // Shapes: empty params, `move`, a typed param, and a nested `if` whose
+    // enclosing closure body is itself the `if` expression.
+    let open = [
+        r#"async fn f() { let f = |x| if url.scheme() != "https" { return Err("x".into()); }; client.get(url).send().await?; }"#,
+        r#"async fn f() { let f = || if url.scheme() != "https" { return Err("x".into()); }; client.get(url).send().await?; }"#,
+        r#"async fn f() { let f = move |x: u8| if url.scheme() != "https" { return Err("x".into()); }; client.get(url).send().await?; }"#,
+        r#"async fn f() { let f = |x| if url.scheme() != "https" { return Err("x".into()); } else { x }; client.get(url).send().await?; }"#,
+    ];
+    for sample in open {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+    }
+    // Controls: a real dominating guard still counts, and a complete closure
+    // statement before the guard (its body ended by `;`) must not demote it.
+    let kept = [
+        r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+        r#"async fn f() { let g = |x| x; if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+    ];
+    for sample in kept {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+    }
+}
+
