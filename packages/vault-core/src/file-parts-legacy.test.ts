@@ -20,11 +20,17 @@ import { gcmSeal } from "./gcm.js";
 
 const LEGACY_PART_BYTES = MAX_LEGACY_ENCRYPTED_FILE_PART_BYTES - 16;
 
+/** Manifest fields a test overrides; `partBytes` may be deliberately malformed. */
+type LegacyManifestOverrides = {
+  readonly partBytes?: number | string;
+  readonly name?: string;
+};
+
 /** What a pre-bounds sealer wrote: unmarked v1, wider parts. */
 async function sealLegacyFile(
   bytes: Uint8Array,
   partBytes: number,
-  extra: Record<string, unknown> = {},
+  extra: LegacyManifestOverrides = {},
 ) {
   const store = memoryObjectStore();
   const raw = new Uint8Array(32).fill(7);
