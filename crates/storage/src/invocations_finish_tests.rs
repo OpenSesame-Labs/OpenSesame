@@ -316,3 +316,50 @@ async fn mismatched_receipt_or_changed_invocation_cannot_settle() {
     );
     assert_eq!(db.count_receipts().await.unwrap(), 0);
 }
+
+/// Independent completions against one file-backed database must all settle:
+/// each reserves the writer before reading its executing row, so a contended
+/// read-to-write upgrade can never fail with SQLITE_BUSY and strand an
+/// executed invocation without its receipt.
+#[tokio::test]
+async fn concurrent_completions_on_a_shared_file_all_settle() {
+    let path =
+        std::env::temp_dir().join(format!("opensesame-finish-{}.sqlite", uuid::Uuid::new_v4()));
+    let url = format!("sqlite:{}?mode=rwc", path.display());
+    let first = Db::connect_sqlite(&url).await.unwrap();
+    let second = Db::connect_sqlite(&url).await.unwrap();
+    let organization = OrganizationId::new();
+    first
+        .create_organization(&organization, "contended-outcome")
+        .await
+        .unwrap();
+    let mut pending = Vec::new();
+    for _ in 0..16 {
+        let (intent, executing, receipt) = evidence(
+            organization,
+            InvocationState::Executing,
+            ReceiptOutcome::Succeeded,
+        );
+        first.insert_intent(&intent).await.unwrap();
+        first.insert_invocation(&executing).await.unwrap();
+        let mut terminal = executing;
+        terminal
+            .transition(InvocationState::Succeeded, Utc::now())
+            .unwrap();
+        pending.push((terminal, receipt));
+    }
+    let settles = pending
+        .iter()
+        .enumerate()
+        .map(|(index, (terminal, receipt))| {
+            let db = if index % 2 == 0 { &first } else { &second };
+            db.finish_executing_invocation(terminal, receipt)
+        });
+    for result in futures::future::join_all(settles).await {
+        result.unwrap();
+    }
+    assert_eq!(first.count_receipts().await.unwrap(), 16);
+    first.pool().close().await;
+    second.pool().close().await;
+    std::fs::remove_file(path).unwrap();
+}

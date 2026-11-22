@@ -90,7 +90,11 @@ impl Db {
             ),
             "an executing invocation cannot settle as denied"
         );
-        let mut tx = self.pool.begin().await?;
+        // Reserve the writer before the state read: two completions in
+        // deferred transactions could both read `executing`, and the loser's
+        // read-to-write upgrade would fail with SQLITE_BUSY instead of
+        // waiting, stranding an executed invocation without a receipt.
+        let mut tx = self.pool.begin_with("BEGIN IMMEDIATE").await?;
         let row = sqlx::query(
             "SELECT i.organization_id, v.body_json, v.state FROM invocations v JOIN intents i ON i.id = v.intent_id WHERE v.id = ? AND v.intent_id = ?",
         )
@@ -163,7 +167,8 @@ impl Db {
             invocation.state == InvocationState::Denied,
             "invocation is not denied"
         );
-        let mut tx = self.pool.begin().await?;
+        // Same writer reservation as the executing completion above.
+        let mut tx = self.pool.begin_with("BEGIN IMMEDIATE").await?;
         let organization: String =
             sqlx::query_scalar("SELECT organization_id FROM intents WHERE id = ?")
                 .bind(invocation.intent_id.to_string())

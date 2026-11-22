@@ -2,6 +2,7 @@ import { type BoundaryValue, overlapCast } from "@opensesame/os-domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   INVOCATION_RESPONSE_TIMEOUT_MS,
+  MAX_FREEZE_INTENT_RESPONSE_BYTES,
   MAX_INVOCATION_RESPONSE_BYTES,
   readFreezeIntentResponse,
   readInvocationResponse,
@@ -51,8 +52,8 @@ describe("bounded invocation response", () => {
     expect(args.n).toBe(unsafe);
   });
 
-  it("accepts a freeze response larger than the receipt invoke cap", async () => {
-    const payload = "x".repeat(MAX_INVOCATION_RESPONSE_BYTES + 1024);
+  it("accepts a freeze response with large admitted arguments", async () => {
+    const payload = "x".repeat(150 * 1024);
     const body = JSON.stringify({
       intent_id: "i-1",
       intent_digest: "sha256:abc",
@@ -63,6 +64,22 @@ describe("bounded invocation response", () => {
     });
     await expect(readFreezeIntentResponse(response)).resolves.toEqual(
       JSON.parse(body),
+    );
+  });
+
+  it("accepts an invoke response whose opening repeats large frozen arguments", async () => {
+    const payload = "x".repeat(150 * 1024);
+    const body = JSON.stringify({
+      id: "00000000-0000-4000-8000-000000000001",
+      outcome: "succeeded",
+      intent_opening: {
+        intent: { canonical_arguments: { blob: payload, n: 1 } },
+      },
+    });
+    const parsed = await readInvocationResponse(new Response(body));
+    expect(parsed).toEqual(JSON.parse(body));
+    expect(MAX_INVOCATION_RESPONSE_BYTES).toBeGreaterThan(
+      MAX_FREEZE_INTENT_RESPONSE_BYTES,
     );
   });
 

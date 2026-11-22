@@ -1,9 +1,16 @@
 import { parseLosslessJson } from "@opensesame/api-client";
 import { type BoundaryValue, overlapCast } from "@opensesame/os-domain";
 
-export const MAX_INVOCATION_RESPONSE_BYTES = 128 * 1024;
 /** Matches Host freeze admission (`tasks_opening::MAX_RECOVERY_BODY_BYTES`). */
 export const MAX_FREEZE_INTENT_RESPONSE_BYTES = 16 * 1024 * 1024;
+/**
+ * An invoke response returns the receipt with its `intent_opening`, which
+ * carries the complete admitted frozen intent. Its bound therefore admits the
+ * largest frozen intent plus the receipt envelope, so a completed invocation
+ * is never refused after its effect has run.
+ */
+export const MAX_INVOCATION_RESPONSE_BYTES =
+  MAX_FREEZE_INTENT_RESPONSE_BYTES + 128 * 1024;
 export const INVOCATION_RESPONSE_TIMEOUT_MS = 15_000;
 
 /** Refuse early when the declared length already exceeds the cap. */
@@ -119,9 +126,9 @@ export async function readInvocationResponse(
   return readBoundedJsonResponse(
     response,
     MAX_INVOCATION_RESPONSE_BYTES,
-    // SAFETY: JSON.parse yields any; the receipt boundary treats the parsed
-    // value as an opaque BoundaryValue validated by the caller.
-    (text) => overlapCast(JSON.parse(text)),
+    // The opening repeats the frozen canonical arguments, so integers outside
+    // the safe range are read exactly, as the freeze reader reads them.
+    parseLosslessJson,
   );
 }
 
