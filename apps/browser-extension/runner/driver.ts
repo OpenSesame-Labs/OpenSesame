@@ -115,8 +115,10 @@ async function screenshot(
   maskSelectors: string[],
   d: DriverDeps,
 ): Promise<RunnerStepOutcome> {
+  if (!d.pages.captureSupported) return failed("refused");
   await settleEpoch(d.pages, d.epoch);
   const taken = await d.pages.capture(maskSelectors);
+  if (taken === "unsupported") return failed("refused");
   if (taken === null) return failed("transport");
   // The mask was composited under one layout. If the page moved between the
   // mask and the still, the epoch advances past the one the Host asked for and
