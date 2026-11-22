@@ -46,7 +46,17 @@ must also run when its mapped files change.
 
 Cargo configuration and proof-runner helpers are execution metadata, not
 implementation paths that select this suite by themselves. The drift check
-records reviewed configuration and helper bytes before Cargo runs. These checks
+records reviewed configuration and helper bytes before Cargo runs. The
+`.cargo/config.toml` entry is exactly that recorded metadata: a committed musl
+cross-link configuration (linker and C compiler driver names resolved on
+`PATH`, no machine-local paths) that decides how the pinned toolchain compiles
+and links every reviewed source. The executed regression evidence on the pinned
+bytes — the pinned Lean 4.24.0 selector model (39 theorems, no unapproved
+axioms) re-emitting the complete 32-vector matrix, the correspondence test, the
+exact two-bundle return control, and the live reconstructed-manager TLS
+regression — was produced under this configuration and is recorded in the
+exposure-matrix host-listeners review; editing the file invalidates that
+evidence and fails the drift gate closed. These checks
 assume trusted committed and checked-out execution metadata, the selected
 toolchain, and already trusted external dependencies. A separate runner-integrity
 guard is needed to enforce the execution-metadata assumption across pushes.
