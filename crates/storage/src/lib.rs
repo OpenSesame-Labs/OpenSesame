@@ -1552,6 +1552,7 @@ pub mod backup_inventory;
 pub mod browser_pairing;
 mod cert_alerts;
 mod cert_authorities;
+mod cert_completion;
 mod cert_inventory;
 mod cert_issuance;
 mod cert_policy;
