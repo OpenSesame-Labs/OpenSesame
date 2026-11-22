@@ -4,6 +4,7 @@ import type {
 } from "@opensesame/os-domain";
 import { afterEach, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { installHostRevocationMock } from "./scim-test-helpers.js";
 
 type AuthorityRequest = { role: OrganizationRole; principalId?: string };
 
@@ -101,9 +102,8 @@ it.each(["provisional", "suspended", "deleted"] as const)(
     // provisional organization preserves memberships and mappings.
     if (state === "deleted") return;
     await ctx.stores.organizations.set(id, original);
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(null, { status: 204 }),
-    );
+    // Membership withdrawal requires the Host's durable attestation.
+    installHostRevocationMock();
     expect((await directory()).status).toBe(200);
     expect((await request("/members", "GET")).status).toBe(200);
     expect((await request("/scim/mappings", "GET")).status).toBe(200);

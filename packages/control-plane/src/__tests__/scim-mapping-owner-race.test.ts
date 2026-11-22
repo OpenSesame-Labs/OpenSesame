@@ -43,16 +43,19 @@ it("rechecks owner authority before a delayed SCIM group mapping is applied", as
   const proofObserved = new Promise<void>((resolve) => {
     proofRead = resolve;
   });
-  const find = ctx.stores.organizationMemberships.find.bind(
+  // The owner proof reads the versioned row so a fenced withdrawal is not
+  // mistaken for authority; observe that read.
+  const findVersioned = ctx.stores.organizationMemberships.findVersioned.bind(
     ctx.stores.organizationMemberships,
   );
-  vi.spyOn(ctx.stores.organizationMemberships, "find").mockImplementationOnce(
-    async (...args) => {
-      const observed = await find(...args);
-      proofRead();
-      return observed;
-    },
-  );
+  vi.spyOn(
+    ctx.stores.organizationMemberships,
+    "findVersioned",
+  ).mockImplementationOnce(async (...args) => {
+    const observed = await findVersioned(...args);
+    proofRead();
+    return observed;
+  });
   let sendBody: ReadableStreamDefaultController<Uint8Array> | undefined;
   const body = new ReadableStream<Uint8Array>({
     start(controller) {

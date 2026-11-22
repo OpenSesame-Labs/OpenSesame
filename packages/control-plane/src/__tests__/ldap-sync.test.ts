@@ -10,6 +10,7 @@ import { syncLdapDirectory } from "../interactions/ldap.js";
 import { resetLdapAttemptBudget } from "../routes/interactions-ldap.js";
 import type { startServer } from "../server.js";
 import { onFreePort } from "./free-port.js";
+import { installHostRevocationMock } from "./scim-test-helpers.js";
 import { hopUrl } from "./upstream-hop.js";
 
 /**
@@ -59,6 +60,7 @@ class Jar {
 }
 
 describe("LDAP directory sync", () => {
+  let host: ReturnType<typeof installHostRevocationMock>;
   let directory: ReferenceLdapServer;
   let started: Started;
   let base: string;
@@ -106,6 +108,7 @@ describe("LDAP directory sync", () => {
   }
 
   beforeAll(async () => {
+    host = installHostRevocationMock();
     directory = await startReferenceLdapServer({
       baseDn: BASE_DN,
       entries: [
@@ -150,6 +153,7 @@ describe("LDAP directory sync", () => {
   }, 30_000);
 
   afterAll(async () => {
+    host.mockRestore();
     await new Promise<void>((resolve, reject) =>
       started.server.close((err) => (err ? reject(err) : resolve())),
     );
@@ -293,8 +297,8 @@ describe("LDAP directory sync", () => {
     expect(
       events.some(
         (event) =>
-          event.eventType === "organization.member_revoked" &&
-          event.metadata?.reason === "ldap_directory_sync",
+          event.eventType === "organization.member_removed" &&
+          event.metadata?.targetId === dan.principalId,
       ),
     ).toBe(true);
     // A repeated pass is idempotent: the leaver is already gone.

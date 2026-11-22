@@ -51,10 +51,22 @@ describe("error responses", () => {
     });
     const { accessToken } = overlapCast(await created.json());
     // A store that fails mid-request: the message must reach the log, never
-    // the client.
-    vi.spyOn(ctx.repos.principals, "getById").mockRejectedValue(
-      new Error("database at 10.0.0.7 refused the connection"),
+    // the client. Session resolution re-reads the principal first, so only
+    // the handler's own read is made to fail.
+    let principalReads = 0;
+    const readPrincipal = ctx.repos.principals.getById.bind(
+      ctx.repos.principals,
     );
+    vi.spyOn(ctx.repos.principals, "getById").mockImplementation(((
+      id: string,
+    ) => {
+      principalReads += 1;
+      return principalReads === 1
+        ? readPrincipal(id)
+        : Promise.reject(
+            new Error("database at 10.0.0.7 refused the connection"),
+          );
+    }) as typeof ctx.repos.principals.getById);
 
     const res = await app.request("/v1/claims", {
       method: "POST",

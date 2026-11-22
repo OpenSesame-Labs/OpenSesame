@@ -1,11 +1,12 @@
 import { isString, overlapCast } from "@opensesame/os-domain";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { ldapIssuer } from "../interactions/ldap.js";
 import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
 import {
   type App,
   auth,
+  installHostRevocationMock,
   json,
   mintScimToken,
   patchScim,
@@ -63,6 +64,14 @@ async function createOrg(
 }
 
 describe("SCIM directory issuers", () => {
+  let host: ReturnType<typeof installHostRevocationMock>;
+  beforeEach(() => {
+    host = installHostRevocationMock();
+  });
+  afterEach(() => {
+    host.mockRestore();
+  });
+
   it("revokes a member admitted by the organization LDAP directory", async () => {
     const { app, ctx } = plane();
     const owner = await verified(app, "dir-owner");
@@ -134,7 +143,7 @@ describe("SCIM directory issuers", () => {
     const still = await app.request("/v1/organizations", {
       headers: auth(String(member.accessToken)),
     });
-    expect(still.status).toBe(401);
+    expect(still.status).toBe(200);
   });
 
   it("revokes a native SAML member stored under the metadata entityID", async () => {

@@ -284,6 +284,8 @@ describe("SCIM Groups persistence", () => {
     const stillSignedIn = await app.request("/v1/organizations", {
       headers: { authorization: `Bearer ${guest.accessToken}` },
     });
-    expect(stillSignedIn.status).toBe(401);
+    // Identity sessions are principal-wide: the tenant's authority is gone,
+    // the session remains valid for personal work and other tenants.
+    expect(stillSignedIn.status).toBe(200);
   }, 30_000);
 });

@@ -1230,6 +1230,8 @@ describe("control-plane API", () => {
         },
       );
       expect(failedChange.status).toBe(502);
+      // A pending withdrawal fences the membership fail-closed: until the same
+      // intent resumes, the member holds neither the old nor the new role.
       expect(
         overlapCast(
           await (
@@ -1238,7 +1240,13 @@ describe("control-plane API", () => {
             })
           ).json(),
         ).role,
-      ).toBe("member");
+      ).toBeUndefined();
+      expect(
+        await ctx.stores.organizationMemberships.find(
+          organization.id,
+          member.principalId,
+        ),
+      ).toMatchObject({ role: "member" });
 
       const changed = await app.request(
         `/v1/organizations/${organization.id}/members/${member.principalId}`,
@@ -1386,8 +1394,32 @@ describe("control-plane API", () => {
 
       releaseFirst(new Response("down", { status: 503 }));
       expect((await failedDemotion).status).toBe(502);
-      expect((await removal).status).toBe(409);
+      // The failed demotion leaves a pending withdrawal intent that fences a
+      // different mutation fail-closed until the same intent resumes, so the
+      // removal cannot bypass the in-flight withdrawal.
+      const fencedRemoval = await removal;
+      expect(fencedRemoval.status).toBe(409);
+      expect(overlapCast(await fencedRemoval.json())).toEqual(
+        expect.objectContaining({ error: "membership_change_in_progress" }),
+      );
+
+      // Resuming the same demotion completes once the Host attests it, and the
+      // removal then proceeds without resurrecting the removed owner.
+      const resumedDemotion = await app.request(
+        `/v1/organizations/${organization.id}/members/${target.principalId}`,
+        {
+          method: "PATCH",
+          headers: { ...owner.auth, "content-type": "application/json" },
+          body: JSON.stringify({ role: "admin" }),
+        },
+      );
+      expect(resumedDemotion.status).toBe(200);
       await secondStarted;
+      const completedRemoval = await app.request(
+        `/v1/organizations/${organization.id}/members/${target.principalId}`,
+        { method: "DELETE", headers: owner.auth },
+      );
+      expect(completedRemoval.status).toBe(204);
 
       const members = overlapCast(
         await (
@@ -1396,7 +1428,7 @@ describe("control-plane API", () => {
           })
         ).json(),
       );
-      expect(members.members).toContainEqual(
+      expect(members.members).not.toContainEqual(
         expect.objectContaining({ principalId: target.principalId }),
       );
     } finally {
