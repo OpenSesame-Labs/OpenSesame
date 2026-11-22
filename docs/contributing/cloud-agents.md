@@ -39,4 +39,6 @@ a Node feature. `updateContentCommand` and
 `mise.lock` (`mise install --locked`), then run `mise run deps` (`npm ci`).
 Personal dotfiles remain an explicit contributor action.
 `postCreateCommand` also runs `scripts/dev/setup-hooks.sh`.
-`postStartCommand` still runs `scripts/dev/install-agent-skills.sh`.
+There is no `postStartCommand`: agent skills are verified
+(`npm run skills:verify`) or refreshed (`npm run skills:install`) only on
+request, and the locked toolchain pins no skill installer CLI.
