@@ -141,8 +141,13 @@ async function enterVault(
 }
 
 async function makePassword(page, step, check, phone, label, protection) {
-  const first = protection === "passkey" ? 5 : 9;
-  const total = protection === "passkey" ? 12 : 16;
+  // The passkey road's seal — sealed straight through or fallen back to PIN —
+  // holds the seal step until the vault unlocks, so the shell continuation
+  // begins right after the gate's four walked steps. Only the PIN-only road
+  // walks the four seal fields as tour steps.
+  const pinOnly = protection === "pin-only";
+  const first = pinOnly ? 9 : 5;
+  const total = pinOnly ? 16 : 12;
   const expected = `Step ${first} of ${total}`;
   try {
     await page.waitForFunction(

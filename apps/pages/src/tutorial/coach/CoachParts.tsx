@@ -71,7 +71,10 @@ export function firstVaultTourProgress(
   ].includes(target ?? "");
   if (count === 8 && !gateTarget)
     return { offset: gateSteps, count: gateSteps + count };
-  return { offset: count === 6 ? 2 : 0, count: pinTarget ? 16 : 12 };
+  // The sign-in continuation resumes the meter where the door left it: six
+  // steps on the PIN road, two where the passkey seals in one ceremony.
+  const signIn = count === 6 || count === 2;
+  return { offset: signIn ? 2 : 0, count: pinTarget ? 16 : 12 };
 }
 
 export function padded(box: Box): Box {

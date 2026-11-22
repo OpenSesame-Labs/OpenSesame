@@ -240,4 +240,14 @@ describe("the first-vault sealing handoff", () => {
       }),
     ).toBe(4);
   });
+
+  it("joins the passkey road's two-step sign-in continuation after the door", () => {
+    const sealed = guide("waiting", "unlock.seal-actions");
+    expect(
+      firstVaultDisplayedGateStep({
+        ...sealed,
+        tour: sealed?.tour ? { ...sealed.tour, step: 2, count: 2 } : null,
+      }),
+    ).toBe(4);
+  });
 });
