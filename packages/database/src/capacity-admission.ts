@@ -5,6 +5,9 @@ import { isUniqueViolation } from "./client-origin-store.js";
 import { ConflictError, normalizeIssuer } from "./repos/interfaces.js";
 import type { Database } from "./repos/postgres.js";
 import * as schema from "./schema/index.js";
+import { mapScimUser, normalizeScimUser } from "./scim-users-common.js";
+
+export { mapScimUser, normalizeScimUser } from "./scim-users-common.js";
 
 export interface ScimUserRecord {
   id: string;
@@ -18,6 +21,12 @@ export interface ScimUserRecord {
   updatedAt: Date;
 }
 
+/** Internal concurrency metadata; it is not part of a SCIM user response. */
+export interface VersionedScimUser {
+  user: ScimUserRecord;
+  revision: string;
+}
+
 export interface ScimUserStore {
   create(user: ScimUserRecord): Promise<ScimUserRecord>;
   /**
@@ -29,6 +38,7 @@ export interface ScimUserStore {
     limit: number,
   ): Promise<ScimUserRecord | null>;
   getById(orgId: string, id: string): Promise<ScimUserRecord | null>;
+  getVersioned(orgId: string, id: string): Promise<VersionedScimUser | null>;
   findByUserName(
     orgId: string,
     userName: string,
@@ -36,6 +46,12 @@ export interface ScimUserStore {
   /** Prefer the IdP's stable external id; userName is the documented fallback. */
   findBySubject(orgId: string, subject: string): Promise<ScimUserRecord | null>;
   update(user: ScimUserRecord): Promise<ScimUserRecord>;
+  replaceIfRevision(
+    orgId: string,
+    id: string,
+    expectedRevision: string,
+    next: ScimUserRecord,
+  ): Promise<VersionedScimUser | undefined>;
   countByOrganization(orgId: string): Promise<number>;
   listByOrganization(
     orgId: string,
@@ -120,109 +136,6 @@ export async function createPostgresByoWithinLimit(
     }
     throw error;
   }
-}
-
-export function normalizeScimUser(user: ScimUserRecord): ScimUserRecord {
-  const row: ScimUserRecord = {
-    id: user.id,
-    organizationId: user.organizationId,
-    userName: user.userName,
-    active: user.active,
-    raw: structuredClone(user.raw),
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
-  };
-  if (user.externalId) row.externalId = user.externalId;
-  if (user.displayName) row.displayName = user.displayName;
-  return row;
-}
-
-export function createMemoryScimWithinLimit(
-  users: Map<string, ScimUserRecord>,
-  user: ScimUserRecord,
-  limit: number,
-): ScimUserRecord | null {
-  const row = normalizeScimUser(user);
-  const scoped = [...users.values()].filter(
-    (existing) => existing.organizationId === row.organizationId,
-  );
-  if (scoped.some((existing) => existing.userName === row.userName)) {
-    throw new ConflictError(`scim user already exists: ${row.userName}`);
-  }
-  if (scoped.length >= limit) return null;
-  users.set(row.id, row);
-  return normalizeScimUser(row);
-}
-
-export function createMemoryScimUserStore(): ScimUserStore {
-  const users = new Map<string, ScimUserRecord>();
-  const ofOrg = (orgId: string) =>
-    [...users.values()].filter((user) => user.organizationId === orgId);
-  return {
-    async create(user) {
-      const row = normalizeScimUser(user);
-      if (
-        ofOrg(row.organizationId).some((item) => item.userName === row.userName)
-      ) {
-        throw new ConflictError(`scim user already exists: ${row.userName}`);
-      }
-      users.set(row.id, row);
-      return normalizeScimUser(row);
-    },
-    async createWithinLimit(user, limit) {
-      return createMemoryScimWithinLimit(users, user, limit);
-    },
-    async getById(orgId, id) {
-      const row = users.get(id);
-      return row?.organizationId === orgId ? normalizeScimUser(row) : null;
-    },
-    async findByUserName(orgId, userName) {
-      const row = ofOrg(orgId).find((user) => user.userName === userName);
-      return row ? normalizeScimUser(row) : null;
-    },
-    async findBySubject(orgId, subject) {
-      const scoped = ofOrg(orgId);
-      const external = scoped.find((user) => user.externalId === subject);
-      if (external) return normalizeScimUser(external);
-      const named = scoped.find((user) => user.userName === subject);
-      return named ? normalizeScimUser(named) : null;
-    },
-    async update(user) {
-      const row = normalizeScimUser(user);
-      if (!users.has(row.id)) {
-        throw new ConflictError(`scim user not found: ${row.id}`);
-      }
-      users.set(row.id, row);
-      return normalizeScimUser(row);
-    },
-    async countByOrganization(orgId) {
-      return ofOrg(orgId).length;
-    },
-    async listByOrganization(orgId, page) {
-      const ordered = ofOrg(orgId)
-        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-        .map(normalizeScimUser);
-      return page
-        ? ordered.slice(page.offset, page.offset + page.limit)
-        : ordered;
-    },
-  };
-}
-
-export function mapScimUser(
-  row: typeof schema.scimUsers.$inferSelect,
-): ScimUserRecord {
-  return normalizeScimUser({
-    id: row.id,
-    organizationId: row.organizationId,
-    userName: row.userName,
-    active: row.active,
-    raw: overlapCast(row.raw ?? {}),
-    createdAt: row.createdAt,
-    updatedAt: row.updatedAt,
-    ...(row.externalId ? { externalId: row.externalId } : undefined),
-    ...(row.displayName ? { displayName: row.displayName } : undefined),
-  });
 }
 
 export async function createPostgresScimWithinLimit(
