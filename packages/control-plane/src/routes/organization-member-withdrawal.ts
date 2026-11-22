@@ -14,6 +14,7 @@ import {
 } from "../services/org-admin.js";
 import { finishOrganizationWithdrawal } from "../services/organization-withdrawal.js";
 import { type OrgOwnerSource, asOrgOwner } from "./org-owner-gate.js";
+import { serializeMembershipMutation } from "./organizations.js";
 
 const MEMBER_ADMIN: OrgOwnerSource = { param: "id", liveness: "not_deleted" };
 export const organizationMemberWithdrawalRoutes = new Hono<{
@@ -117,12 +118,20 @@ organizationMemberWithdrawalRoutes.patch(
         { error: "validation_error", details: parsed.error.flatten() },
         400,
       );
-    return withdraw(c, { kind: "change_role", role: parsed.data.role });
+    const ctx = c.get("ctx");
+    return serializeMembershipMutation(ctx, c.req.param("id"), () =>
+      withdraw(c, { kind: "change_role", role: parsed.data.role }),
+    );
   },
 );
 
 organizationMemberWithdrawalRoutes.delete(
   "/:id/members/:principalId",
   requirePrincipal(),
-  (c) => withdraw(c, { kind: "remove" }),
+  (c) => {
+    const ctx = c.get("ctx");
+    return serializeMembershipMutation(ctx, c.req.param("id"), () =>
+      withdraw(c, { kind: "remove" }),
+    );
+  },
 );
