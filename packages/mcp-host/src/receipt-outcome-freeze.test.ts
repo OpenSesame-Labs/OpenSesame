@@ -97,6 +97,43 @@ describe("task_invoke freeze handling", () => {
     expect(getTaskContext()?.frozenIntent?.intentId).toBe("i-1");
   });
 
+  it("keeps the frozen intent when canonical arguments exceed 2^53", async () => {
+    setTaskContext({ taskRunId: "t-1", stateVersion: 1 });
+    const sent: string[] = [];
+    setFetchForTests(async (_input, init) => {
+      sent.push(String(init?.body ?? ""));
+      return new Response(
+        '{"intent_id":"i-1","intent_digest":"sha256:abc","task_state_version":2,"canonical_arguments":{"n":9007199254740992,"m":9007199254740993123456789},"receipt_id":"receipt:018fbd8a-1e78-7a3c-9c24-1ebd832b8dcb"}',
+        { status: 201, headers: { "content-type": "application/json" } },
+      );
+    });
+    const result = resultSchema.parse(
+      await freezeHandler()({
+        operation: "read",
+        resource: "r1",
+        audience: "https://api.example.test",
+        arguments: { n: 9007199254740992 },
+      }),
+    );
+    expect(sent[0]).toContain('"n":9007199254740992');
+    expect(result.isError).toBe(false);
+    expect(JSON.parse(result.content[0]?.text ?? "")).toEqual({
+      intent_id: "i-1",
+      intent_digest: "sha256:abc",
+      task_state_version: 2,
+    });
+    const frozen = getTaskContext()?.frozenIntent;
+    expect(frozen?.intentId).toBe("i-1");
+    expect(frozen?.reservedReceiptId).toBe(
+      "receipt:018fbd8a-1e78-7a3c-9c24-1ebd832b8dcb",
+    );
+    expect(frozen?.canonicalArguments).toEqual({
+      n: 9007199254740992n,
+      m: 9007199254740993123456789n,
+    });
+    expect(getTaskContext()?.stateVersion).toBe(2);
+  });
+
   it("does not expose malformed frozen response bytes in an exception", async () => {
     setTaskContext({
       taskRunId: "t-1",

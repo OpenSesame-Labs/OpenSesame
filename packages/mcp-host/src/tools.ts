@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { BoundaryValue } from "@opensesame/os-domain";
+import { stringifyLosslessJson } from "@opensesame/api-client";
+import { type BoundaryValue, overlapCast } from "@opensesame/os-domain";
 import { z } from "zod";
 import { forAgent } from "./agent-payload.js";
 import { daemonFetch, hostFetch } from "./host-api.js";
@@ -268,14 +269,16 @@ export function agentJson(
   successSchema: z.ZodType,
 ) {
   // Refuse a compromised response containing credential-shaped material even
-  // when that field is not part of the agent-visible allowlist.
-  forAgent(JSON.stringify(body));
+  // when that field is not part of the agent-visible allowlist. A freeze
+  // response parsed losslessly can carry bigint canonical arguments, which
+  // plain JSON.stringify refuses after the Host has already frozen the intent.
+  forAgent(stringifyLosslessJson(body));
   const parsed = (ok ? successSchema : errorResponseSchema).safeParse(body);
-  return forAgent(
-    JSON.stringify(
-      parsed.success ? parsed.data : { error: "upstream_response_invalid" },
-    ),
+  // SAFETY: zod output is the projection of a parsed JSON body.
+  const projection: BoundaryValue = overlapCast(
+    parsed.success ? parsed.data : { error: "upstream_response_invalid" },
   );
+  return forAgent(stringifyLosslessJson(projection));
 }
 
 export function toolError(label: string, e: Error | string) {

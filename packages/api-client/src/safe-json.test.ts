@@ -28,33 +28,57 @@ describe("lossless JSON integers", () => {
     const value = {
       plain: "text",
       skip: undefined,
-      list: [1, "two", null, true],
+      list: [1, "two", null, true, undefined, Number.NaN, -0, 1e21],
+      when: new Date(0),
     };
-    expect(stringifyLosslessJson(value)).toBe(
-      '{"plain":"text","list":[1,"two",null,true]}',
-    );
+    expect(stringifyLosslessJson(value)).toBe(JSON.stringify(value));
   });
 
-  it("round-trips caller strings that start with the sentinel byte-exact", () => {
-    const colliding = [
+  it("writes and reads marker-shaped strings exactly as plain JSON does", () => {
+    const strings = [
       "__opensesame_lossless_int__",
       "__opensesame_lossless_int__123",
       "__opensesame_lossless_int__-42",
       "__opensesame_lossless_int__9007199254740993123456789",
       "__opensesame_lossless_int__~already-escaped",
-      "__opensesame_lossless_int__text",
+      "__opensesame_lossless_int__not-an-integer",
+      "~__opensesame_lossless_int__1",
     ];
-    for (const value of colliding) {
-      expect(parseLosslessJson(stringifyLosslessJson(value))).toBe(value);
+    const payload = { marker: strings, deep: [{ k: strings[1] }] };
+    // The wire bytes are what the Host's ordinary JSON decoder reads.
+    expect(stringifyLosslessJson(payload)).toBe(JSON.stringify(payload));
+    for (const value of strings) {
+      expect(stringifyLosslessJson(value)).toBe(JSON.stringify(value));
+      expect(parseLosslessJson(JSON.stringify(value))).toBe(value);
     }
-    const nested = { marker: colliding, deep: [{ k: colliding[2] }] };
-    expect(parseLosslessJson(stringifyLosslessJson(nested))).toEqual(nested);
+    // A plain Host response carrying such strings parses to the same strings.
+    const hostResponse = JSON.stringify({ arguments: payload, count: 7 });
+    expect(parseLosslessJson(hostResponse)).toEqual(JSON.parse(hostResponse));
   });
 
-  it("strict parse refuses a sentinel string it cannot classify", () => {
-    expect(() =>
-      parseLosslessJson('"__opensesame_lossless_int__not-an-integer"'),
-    ).toThrow("lossless_json_sentinel_collision");
+  it("writes integers beyond 2^53 as bare digits the Host reads as numbers", () => {
+    const text = stringifyLosslessJson({ n: 9007199254740993n, m: -BIG });
+    expect(text).toBe('{"n":9007199254740993,"m":-9007199254740993123456789}');
+    expect(JSON.parse(text)).toEqual({
+      n: Number(9007199254740993n),
+      m: -Number(BIG),
+    });
+  });
+
+  it("matches JSON.parse for every value it does not widen", () => {
+    const text = String.raw` { "__proto__" : 1, "s":"a\"bé", "e":[ ], "o":{ }, "x":-0, "f":-1.25e-3, "k":9007199254740991, "dup":1, "dup":2, "u":"😀" } `;
+    const parsed = parseLosslessJson(text);
+    expect(parsed).toEqual(JSON.parse(text));
+    expect(Object.keys(overlapCast(parsed))).toEqual(
+      Object.keys(JSON.parse(text)),
+    );
+    expect(Object.getPrototypeOf(parsed)).toBe(Object.prototype);
+  });
+
+  it("refuses malformed JSON exactly as JSON.parse does", () => {
+    for (const bad of ["", "{", '{"a":}', "[1,]", "01", "tru", '"x" y']) {
+      expect(() => parseLosslessJson(bad)).toThrow(SyntaxError);
+    }
   });
 
   it("preserves frozen-intent integers through freeze and recovery", async () => {
@@ -85,10 +109,15 @@ describe("lossless JSON integers", () => {
       operation: "read",
       resource: "r1",
       audience: "https://api.example.test",
-      arguments: { amount: BIG, count: 7 },
+      arguments: {
+        amount: BIG,
+        count: 7,
+        label: "__opensesame_lossless_int__7",
+      },
       idempotency_key: "idem-1",
     });
     expect(calls[0]?.body).toContain('"amount":9007199254740993123456789');
+    expect(calls[0]?.body).toContain('"label":"__opensesame_lossless_int__7"');
     const intent: BoundaryValue = overlapCast(frozen).intent;
     expect(intent).toEqual({
       nonce: "n",
