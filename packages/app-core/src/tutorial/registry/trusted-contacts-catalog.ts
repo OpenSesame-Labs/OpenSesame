@@ -74,7 +74,7 @@ export const TRUSTED_CONTACTS_GOALS: readonly GuideGoalDescriptor[] = [
       'wait route "/settings/security" timeout=15000',
       'focus "settings.trusted-contacts-circles" "Open a circle to manage contacts, request approval or retire it." side=top',
       'focus "circle.new" "Select Start a circle. Name it, set its approval rule and timing, then send each contact an invitation." side=bottom',
-      'success "Exchange the packets directly with your contacts."',
+      'success "Exchange the invitation packets directly with your contacts."',
       "end",
     ].join("\n"),
   },
