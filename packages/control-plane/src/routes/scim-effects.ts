@@ -1,13 +1,29 @@
 import { randomUUID } from "node:crypto";
 import type { ScimUserRecord } from "@opensesame/database";
 import type { Organization, OrganizationRole } from "@opensesame/os-domain";
-import { isJsonObject, isString } from "@opensesame/os-domain";
+import { isString } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
+import {
+  type DeprovisionTarget,
+  SCIM_DEPROVISION_JOURNAL_ATTRIBUTE,
+  deprovisionJournal,
+} from "./scim-deprovision-journal.js";
+import { finishLegacyOrphan } from "./scim-legacy-orphan.js";
+
+export {
+  SCIM_DEPROVISION_JOURNAL_ATTRIBUTE,
+  deprovisionJournal,
+} from "./scim-deprovision-journal.js";
+
 import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import {
   type PreparedWithdrawal,
   prepareRoleWithdrawal,
 } from "../services/organization-withdrawal.js";
+import {
+  forgetScimDeprovision,
+  queueScimDeprovision,
+} from "../services/scim-deprovision-queue.js";
 import {
   prepareDirectoryRemoval,
   removeDirectoryMembership,
@@ -30,10 +46,6 @@ export const SCIM_SUBJECTS_ATTRIBUTE =
  */
 export const SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE =
   "urn:opensesame:params:scim:2.0:deprovision-principals";
-
-/** Durable identity and progress for one deactivation cycle. */
-export const SCIM_DEPROVISION_JOURNAL_ATTRIBUTE =
-  "urn:opensesame:params:scim:2.0:deprovision-journal";
 
 /** Directory-supplied payloads cannot set or read internal reconciliation state. */
 export const SCIM_BOOKKEEPING_ATTRIBUTES = new Set([
@@ -130,7 +142,9 @@ async function issuersForOrganization(
       const directoryIssuer = ldapIssuer(ldap);
       if (!issuers.includes(directoryIssuer)) issuers.push(directoryIssuer);
     } catch {
-      /* An unusable directory URL is not an issuer. */
+      throw new Error(
+        "Cannot resolve the LDAP issuer for directory reconciliation",
+      );
     }
   }
   if (
@@ -142,12 +156,14 @@ async function issuersForOrganization(
         "../interactions/saml.js"
       );
       const cfg = samlOrgConfig(organization);
-      if (cfg) {
-        const entityId = (await resolveIdpMetadata(ctx, cfg)).entityId;
-        if (entityId && !issuers.includes(entityId)) issuers.push(entityId);
-      }
+      if (!cfg) throw new Error("SAML configuration is incomplete");
+      const entityId = (await resolveIdpMetadata(ctx, cfg)).entityId;
+      if (!entityId) throw new Error("SAML metadata has no entity ID");
+      if (!issuers.includes(entityId)) issuers.push(entityId);
     } catch {
-      /* Metadata that cannot be read adds no issuer. */
+      throw new Error(
+        "Cannot resolve the SAML issuer for directory reconciliation",
+      );
     }
   }
   return issuers;
@@ -206,59 +222,25 @@ async function principalsForUser(
   return [...principalIds];
 }
 
-type DeprovisionTarget = {
-  principalId: string;
-  incarnation: string;
-  completed: boolean;
-};
-type DeprovisionJournal = { cycle: string; targets: DeprovisionTarget[] };
-
-/** A missing or malformed old journal cannot safely identify a past membership. */
-export function deprovisionJournal(
-  user: ScimUserRecord,
-): DeprovisionJournal | undefined {
-  const value = user.raw[SCIM_DEPROVISION_JOURNAL_ATTRIBUTE];
-  if (
-    !isJsonObject(value) ||
-    !isString(value.cycle) ||
-    !value.cycle ||
-    !Array.isArray(value.targets)
-  )
-    return undefined;
-  const targets: DeprovisionTarget[] = [];
-  for (const target of value.targets) {
-    if (
-      !isJsonObject(target) ||
-      !isString(target.principalId) ||
-      !target.principalId ||
-      !isString(target.incarnation) ||
-      !target.incarnation ||
-      typeof target.completed !== "boolean"
-    )
-      return undefined;
-    targets.push({
-      principalId: target.principalId,
-      incarnation: target.incarnation,
-      completed: target.completed,
-    });
-  }
-  return { cycle: value.cycle, targets };
-}
-
 /** Must run inside the organization boundary before the inactive row commits. */
 export async function prepareDeprovision(
   ctx: AppContext,
   organization: Organization,
   user: ScimUserRecord,
   correlationId: string,
+  additionalPrincipals: string[] = [],
+  excludedPrincipals: string[] = [],
 ): Promise<ScimUserRecord> {
   const targets: DeprovisionTarget[] = [];
-  for (const principalId of await principalsForUser(
-    ctx,
-    organization,
-    user,
-    false,
-  )) {
+  const currentOrganization = await ctx.stores.organizations.get(
+    organization.id,
+  );
+  if (!currentOrganization) throw new Error("Organization no longer exists");
+  for (const principalId of new Set([
+    ...(await principalsForUser(ctx, currentOrganization, user, false)),
+    ...additionalPrincipals,
+  ])) {
+    if (excludedPrincipals.includes(principalId)) continue;
     const current = await ctx.stores.organizationMemberships.findVersioned(
       organization.id,
       principalId,
@@ -302,15 +284,24 @@ export async function deprovision(
     throw new Error(
       "Cannot safely resume a legacy SCIM deactivation without an incarnation journal",
     );
+  const work = {
+    organizationId: organization.id,
+    userId: user.id,
+    cycle: journal.cycle,
+  };
+  queueScimDeprovision(ctx, work);
   for (const target of journal.targets) {
     if (target.completed) continue;
-    await removeDirectoryMembership(ctx, {
-      organizationId: organization.id,
-      principalId: target.principalId,
-      correlationId,
-      reason: "scim_deactivated",
-      incarnation: target.incarnation,
-    });
+    if (target.legacyOrphan)
+      await finishLegacyOrphan(ctx, organization.id, target, correlationId);
+    else
+      await removeDirectoryMembership(ctx, {
+        organizationId: organization.id,
+        principalId: target.principalId,
+        correlationId,
+        reason: "scim_deactivated",
+        incarnation: target.incarnation,
+      });
     await withScimOrganizationBoundary(ctx, organization.id, async (tx) => {
       const current = await tx.stores.scim.users.getVersioned(
         organization.id,
@@ -318,7 +309,16 @@ export async function deprovision(
       );
       if (!current) return;
       const latest = deprovisionJournal(current.user);
-      if (!latest || latest.cycle !== journal.cycle) return;
+      if (!latest) throw new Error("Invalid SCIM deprovision journal");
+      if (latest.cycle !== journal.cycle) return;
+      if (
+        !latest.targets.some(
+          (entry) =>
+            entry.principalId === target.principalId &&
+            entry.incarnation === target.incarnation,
+        )
+      )
+        throw new Error("SCIM deprovision target changed concurrently");
       const targets = latest.targets.map((entry) =>
         entry.principalId === target.principalId &&
         entry.incarnation === target.incarnation
@@ -344,6 +344,7 @@ export async function deprovision(
         throw new Error("SCIM deprovision journal changed concurrently");
     });
   }
+  forgetScimDeprovision(ctx, work);
 }
 
 /** Prepare membership role changes in the caller's organization transaction. */

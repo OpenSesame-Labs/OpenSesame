@@ -2,6 +2,7 @@ import * as schema from "@opensesame/database/schema";
 import { overlapCast } from "@opensesame/os-domain";
 import { drizzle } from "drizzle-orm/pglite";
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { createControlPlane } from "../create-app.js";
 import { migratedPGlite, warmMigratedPGlite } from "./migrated-pglite.js";
 import {
@@ -63,8 +64,9 @@ it("retries a persisted Host withdrawal after restart without blocking readiness
     let available = false;
     vi.spyOn(globalThis, "fetch").mockImplementation(async (_url, init) => {
       requests.push(
-        (JSON.parse(String(init?.body)) as { withdrawal_id: string })
-          .withdrawal_id,
+        z
+          .object({ withdrawal_id: z.string() })
+          .parse(JSON.parse(String(init?.body))).withdrawal_id,
       );
       return new Response("{}", { status: available ? 200 : 503 });
     });
@@ -175,6 +177,76 @@ it("recovers an actor audit when removal committed before its audit sink failed"
       },
     });
     await restarted.withdrawalRecovery.stop();
+  } finally {
+    await client.close();
+  }
+});
+
+it("recovers a committed membership addition after its audit sink fails", async () => {
+  const client = await migratedPGlite();
+  try {
+    const options = optionsFor(drizzle(client, { schema }));
+    const first = createControlPlane(options);
+    await first.ctx.securityRecoveryReady;
+    await first.withdrawalRecovery.stop();
+    const owner = await verified(first.app, "membership-add-audit-owner");
+    const member = await provisional(first.app);
+    const org = overlapCast(
+      await (
+        await createOrg(first.app, owner.accessToken, "membership-add-audit")
+      ).json(),
+    );
+    const append = first.ctx.repos.auditEvents.append.bind(
+      first.ctx.repos.auditEvents,
+    );
+    const failing = vi
+      .spyOn(first.ctx.repos.auditEvents, "append")
+      .mockImplementation(async (event, uow) => {
+        if (event.eventType === "organization.member_added")
+          throw new Error("audit sink unavailable");
+        return append(event, uow);
+      });
+    const added = await first.app.request(
+      `/v1/organizations/${org.id}/members`,
+      {
+        method: "POST",
+        headers: {
+          ...auth(owner.accessToken),
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          principalId: member.principalId,
+          role: "member",
+        }),
+      },
+    );
+    expect(added.status).toBe(500);
+    expect(
+      await first.ctx.stores.organizationMemberships.find(
+        org.id,
+        member.principalId,
+      ),
+    ).toBeDefined();
+    expect(await first.ctx.stores.organizationWithdrawalAudits.size).toBe(1);
+    failing.mockRestore();
+    const restarted = createControlPlane(options);
+    await restarted.ctx.securityRecoveryReady;
+    await restarted.withdrawalRecovery.stop();
+    expect(await restarted.ctx.stores.organizationWithdrawalAudits.size).toBe(
+      0,
+    );
+    const events = await restarted.ctx.repos.auditEvents.list({ limit: 100 });
+    expect(
+      events.filter((event) => event.eventType === "organization.member_added"),
+    ).toHaveLength(1);
+    const again = createControlPlane(options);
+    await again.ctx.securityRecoveryReady;
+    await again.withdrawalRecovery.stop();
+    expect(
+      (await again.ctx.repos.auditEvents.list({ limit: 100 })).filter(
+        (event) => event.eventType === "organization.member_added",
+      ),
+    ).toHaveLength(1);
   } finally {
     await client.close();
   }
