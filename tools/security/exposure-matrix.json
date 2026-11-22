@@ -21,7 +21,7 @@
       "regressions": [
         "packages/control-plane/src/__tests__/host-authorization.test.ts"
       ],
-      "review": "Identity captures the live membership incarnation and authority revision before issuing the WebAuthn transaction challenge, requires the same active revision after verification, and signs both into the purpose-bound Host assertion. A stale ceremony is spent and refused. This row does not claim that TypeScript refines a mechanized model or that Identity alone enforces Host storage atomicity."
+      "review": "Identity captures the live membership incarnation and authority revision before issuing the WebAuthn transaction challenge, requires the same active revision after verification, and signs both into the purpose-bound Host assertion. A stale ceremony, or a membership fenced for withdrawal, is spent and refused. The signed pair needs a revision-aware Host; the in-repository gateway evidence parser denies unknown claims and refuses this evidence until that Host ships. This row does not claim that TypeScript refines a mechanized model or that Identity alone enforces Host storage atomicity."
     },
     {
       "id": "hosted-secret-drop",
@@ -1304,24 +1304,24 @@
   ],
   "sources": {
     "packages/control-plane/src/__tests__/host-authorization.test.ts": [
-      "2403af19",
-      "c5a0ea5b",
-      "b93731f4",
-      "59aff8d0",
-      "a007a9dc",
-      "a5561fb1",
-      "75fa080c",
-      "85ae61e9"
+      "a5860717",
+      "5ab69796",
+      "fdfd58ea",
+      "b0a5b219",
+      "74eb6ec8",
+      "838a0b10",
+      "006c31c3",
+      "dd264cc9"
     ],
     "packages/control-plane/src/services/host-authorization.ts": [
-      "5b773487",
-      "8d8d334b",
-      "19416c32",
-      "6c432ed8",
-      "bcbb442e",
-      "688efdc4",
-      "98f7956d",
-      "adb0ea15"
+      "81ada80b",
+      "d2800aae",
+      "1e8e3980",
+      "87c21701",
+      "751763b8",
+      "859b49d7",
+      "d25daa4f",
+      "c1e0cac5"
     ],
     "crates/bitwarden-server/src/budget_subject.rs": [
       "b67c8d64",
