@@ -759,9 +759,9 @@ export type { NarrowDelegationRequest } from "./delegations.js";
 export { accessTokenHash, createDpopKeyPair } from "./dpop.js";
 export type { HostRequestContext } from "./http.js";
 export type { CreateRotationRequest } from "./rotations.js";
+export { parseLosslessJson, stringifyLosslessJson } from "./safe-json.js";
 export type {
   CreateTaskIntentRequest,
   StartTaskRequest,
   TaskCapability,
 } from "./tasks.js";
-export { parseLosslessJson, stringifyLosslessJson } from "./safe-json.js";

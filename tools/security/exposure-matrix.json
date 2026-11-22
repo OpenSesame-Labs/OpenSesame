@@ -7,19 +7,10 @@
       "area": "hosted-drop",
       "flow": "hosted-secret-drop",
       "observer": "link-holder",
-      "artifacts": [
-        "ciphertext",
-        "guess-oracle"
-      ],
+      "artifacts": ["ciphertext", "guess-oracle"],
       "verification": "server",
-      "controls": [
-        "mandatory-proof",
-        "bearer-before-budget"
-      ],
-      "guarantees": [
-        "single-use",
-        "expiry"
-      ],
+      "controls": ["mandatory-proof", "bearer-before-budget"],
+      "guarantees": ["single-use", "expiry"],
       "enforcement": "authoritative",
       "entropyBits": 40,
       "minSecretBytes": 0,
@@ -69,15 +60,9 @@
       "area": "portable-drop",
       "flow": "portable-secret-drop",
       "observer": "link-holder",
-      "artifacts": [
-        "ciphertext"
-      ],
+      "artifacts": ["ciphertext"],
       "verification": "code-aead",
-      "controls": [
-        "code-derived-aead",
-        "bounded-kdf",
-        "cryptographic-random"
-      ],
+      "controls": ["code-derived-aead", "bounded-kdf", "cryptographic-random"],
       "guarantees": [],
       "enforcement": "advisory",
       "entropyBits": 80,
@@ -109,9 +94,7 @@
       "area": "portable-drop",
       "flow": "hosted-secret-drop",
       "observer": "link-holder",
-      "artifacts": [
-        "payload-key"
-      ],
+      "artifacts": ["payload-key"],
       "verification": "none",
       "controls": [],
       "guarantees": [],
@@ -154,9 +137,7 @@
       "area": "portable-drop",
       "flow": "portable-secret-drop",
       "observer": "link-holder",
-      "artifacts": [
-        "payload-key"
-      ],
+      "artifacts": ["payload-key"],
       "verification": "none",
       "controls": [],
       "guarantees": [],
@@ -200,13 +181,9 @@
       "area": "account-totp",
       "flow": "account-totp",
       "observer": "authenticated",
-      "artifacts": [
-        "guess-oracle"
-      ],
+      "artifacts": ["guess-oracle"],
       "verification": "server",
-      "controls": [
-        "mandatory-proof"
-      ],
+      "controls": ["mandatory-proof"],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -250,15 +227,9 @@
       "area": "est-enrollment",
       "flow": "est-password",
       "observer": "public",
-      "artifacts": [
-        "public-certificate",
-        "guess-oracle"
-      ],
+      "artifacts": ["public-certificate", "guess-oracle"],
       "verification": "server",
-      "controls": [
-        "mandatory-proof",
-        "trusted-budget-source"
-      ],
+      "controls": ["mandatory-proof", "trusted-budget-source"],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -313,13 +284,9 @@
       "area": "est-enrollment",
       "flow": "est-policy",
       "observer": "authenticated",
-      "artifacts": [
-        "authority-api"
-      ],
+      "artifacts": ["authority-api"],
       "verification": "signature",
-      "controls": [
-        "preserve-policy-on-omission"
-      ],
+      "controls": ["preserve-policy-on-omission"],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
@@ -329,9 +296,7 @@
         "crates/gateway/src/routes/est_server.rs",
         "crates/gateway/src/routes/est_config_policy.rs"
       ],
-      "regressions": [
-        "crates/gateway/src/routes/est_server_tests_budget.rs"
-      ],
+      "regressions": ["crates/gateway/src/routes/est_server_tests_budget.rs"],
       "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
     },
     {
@@ -340,15 +305,9 @@
       "area": "est-enrollment",
       "flow": "est-client-certificate",
       "observer": "network-peer",
-      "artifacts": [
-        "public-certificate",
-        "certificate-binding"
-      ],
+      "artifacts": ["public-certificate", "certificate-binding"],
       "verification": "signature",
-      "controls": [
-        "originating-client-proof",
-        "exact-bootstrap-trust"
-      ],
+      "controls": ["originating-client-proof", "exact-bootstrap-trust"],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -389,9 +348,7 @@
       "area": "host-admission",
       "flow": "host-testkit-listener",
       "observer": "network-peer",
-      "artifacts": [
-        "authority-api"
-      ],
+      "artifacts": ["authority-api"],
       "verification": "none",
       "controls": [
         "all-listeners-classified",
@@ -460,15 +417,15 @@
         "crates/gateway/tests/host-consumer.test.ts",
         "crates/connection-broker/src/constructor_tests.rs"
       ],
-      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. Relay execution is now disabled and the unused liveness map is removed from production and testkit state; the testkit keeps the same four-route fence. The focused relay and testkit server and integration regressions and the live TypeScript consumer passed before the latest main integration; broker-mode regressions passed again on the updated base. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-20: reviewed the Dependabot #2872 aws-sigv4 pin refresh (1.6.4 -> 1.6.5) in the connection-broker manifest; a dependency-version-only change with no authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file. cargo test -p opensesame-connection-broker --lib --locked passed. Remaining limit: the manifest comment still names the 1.6.4 smithy-rs set while the pin and Cargo.lock now resolve 1.6.5; this records the reviewed source as it stands and claims no new control. 2026-11-20 (council chunk 01): aligned the manifest comment to name the 1.6.5 / 1.3.1 / 1.21.0 smithy-rs set, matching the exact pins and the Cargo.lock resolution. Comment-only change: no dependency, authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file; the remaining limit recorded above is resolved. 2026-11-20: reviewed the credentialed-egress client consolidation \u2014 the duplicate ambient `http_bytes` client is removed from the broker and its test constructor, and catalog-provider credentialed egress again resolves and pins the approved authority per request before the credential is opened; the testkit fence, routes and admission are unchanged. Broker lib tests (351, including the constructor proxy-isolation regression with the testkit feature), invoke-through lib tests (88), gateway testkit server and integration tests, and the live TypeScript consumer test (vitest against the real testkit server) all passed at this head. 2026-11-21: repaired this source fingerprint for crates/storage/src/lib.rs. The e19e283a restack refresh (90dc23a7f) recorded bytes that never matched a committed blob (CI run 44944627312 reported EM-DRIFT on this path before any suite ran); the worktree file is byte-identical to the origin/main reviewed blob (sha256 eafab5f9688d370d, git blob 52382dd55b6e), whose only change from the previously pinned blob is `mod invocations` -> `pub mod invocations` (main #2725, receipt retries bound to authority). Visibility-only widening of an existing module: no route, fence, admission, storage-schema or migration-resolution change, so this listener classification is unchanged and the fingerprint was restored to the reviewed main bytes. Regressions re-run at this head: cargo test -p opensesame-gateway --features testkit (testkit server unit test and tests/testkit.rs integration, 5 run / 4 passed / 1 ignored-needs-Node), cargo test -p opensesame-connection-broker --features testkit --lib (353 passed, including the constructor proxy-isolation regression), and the live TypeScript consumer test against a running HostTestkit fixture (3 passed). Remaining limit: none beyond those already recorded above; no implementation change is claimed."    },    {
+      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. Relay execution is now disabled and the unused liveness map is removed from production and testkit state; the testkit keeps the same four-route fence. The focused relay and testkit server and integration regressions and the live TypeScript consumer passed before the latest main integration; broker-mode regressions passed again on the updated base. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-20: reviewed the Dependabot #2872 aws-sigv4 pin refresh (1.6.4 -> 1.6.5) in the connection-broker manifest; a dependency-version-only change with no authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file. cargo test -p opensesame-connection-broker --lib --locked passed. Remaining limit: the manifest comment still names the 1.6.4 smithy-rs set while the pin and Cargo.lock now resolve 1.6.5; this records the reviewed source as it stands and claims no new control. 2026-11-20 (council chunk 01): aligned the manifest comment to name the 1.6.5 / 1.3.1 / 1.21.0 smithy-rs set, matching the exact pins and the Cargo.lock resolution. Comment-only change: no dependency, authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file; the remaining limit recorded above is resolved. 2026-11-20: reviewed the credentialed-egress client consolidation \u2014 the duplicate ambient `http_bytes` client is removed from the broker and its test constructor, and catalog-provider credentialed egress again resolves and pins the approved authority per request before the credential is opened; the testkit fence, routes and admission are unchanged. Broker lib tests (351, including the constructor proxy-isolation regression with the testkit feature), invoke-through lib tests (88), gateway testkit server and integration tests, and the live TypeScript consumer test (vitest against the real testkit server) all passed at this head. 2026-11-21: repaired this source fingerprint for crates/storage/src/lib.rs. The e19e283a restack refresh (90dc23a7f) recorded bytes that never matched a committed blob (CI run 44944627312 reported EM-DRIFT on this path before any suite ran); the worktree file is byte-identical to the origin/main reviewed blob (sha256 eafab5f9688d370d, git blob 52382dd55b6e), whose only change from the previously pinned blob is `mod invocations` -> `pub mod invocations` (main #2725, receipt retries bound to authority). Visibility-only widening of an existing module: no route, fence, admission, storage-schema or migration-resolution change, so this listener classification is unchanged and the fingerprint was restored to the reviewed main bytes. Regressions re-run at this head: cargo test -p opensesame-gateway --features testkit (testkit server unit test and tests/testkit.rs integration, 5 run / 4 passed / 1 ignored-needs-Node), cargo test -p opensesame-connection-broker --features testkit --lib (353 passed, including the constructor proxy-isolation regression), and the live TypeScript consumer test against a running HostTestkit fixture (3 passed). Remaining limit: none beyond those already recorded above; no implementation change is claimed."
+    },
+    {
       "id": "host-listeners",
       "kind": "listener",
       "area": "host-admission",
       "flow": "host-listeners",
       "observer": "network-peer",
-      "artifacts": [
-        "authority-api"
-      ],
+      "artifacts": ["authority-api"],
       "verification": "none",
       "controls": [
         "all-listeners-classified",
@@ -587,31 +544,24 @@
         "crates/gateway/src/transport_lifecycle/trust_tests.rs",
         "crates/spiffe-source/tests/production_sink_policy.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Relay route registrations remain mounted, but heartbeat, submission, executable delivery, approval and result reporting fail closed. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. One listener configuration, 14 transport configuration and 6 listener boot tests passed. This does not add a listener or a fallback. Source-lifetime review: service admission refuses an expired source; status reports quarantined and expired generations unloaded and preserves revocation precedence. The focused admission, status and source-owned trust collision tests and integrated deadline controls passed. The listener wraps its signer and preclaim session cache with generation checks; source-owned listeners disable resumption. Signer, resumption-race and TLS 1.2/1.3 regressions exercise those boundaries. Testkit files support those regressions and add no production authority. An in-flight key operation or a signature released immediately before withdrawal cannot be revoked, and already-admitted work is not cancelled. Standalone client and server configurations are outside the listener fence. Host source-trust selection requires the generation-bound authoritative source bundle with the requested profile and kind. On the reviewed predecessor, all 16 selector correspondence vectors, the exact two-bundle return control, and the live reconstructed-manager TLS regression passed. The correspondence module is compiled only for tests and adds no production authority. That regression reuses an in-memory store; it is not a process restart or a real Workload API test. Durable source history remains a separate boundary. Peer-domain review: a SPIFFE bundle carries its explicit domain, certificate validation and SVID checks precede peer evidence, and service binding uses exact SPIFFE identity with separate leaf revocation. The configured Host source domain must match the authoritative selected bundle. The peer-domain, live TLS admission, resumption/rotation, forwarded-evidence and wrong-domain controls passed; the correspondence proves only its stated Boolean properties, not Rust refinement. The NATS client opts into a one-use server verifier with TLS resumption disabled; existing host-listener verification remains unchanged. Source-history review: the registered history suite passed 76 Linux tests in 16 groups on b1016221, including SQLite union and cancellation, the cooperative file lease, offline attestation, a real bindings-only Host startup, source supersession, stored-trust quarantine and reconciliation. A focused PEM collision witness was added afterward and passed separately; the full suite needs a rerun with it. The Host-process case does not prove secure-listener or request-guard enforcement. The complete attestation, continuous database identity and cooperative trusted filesystem are assumptions; raw writers, older binaries, backup rollback and physical power-loss durability are not proved. Windows-only startup and initializer refusal tests have not been run on Windows. The proof suite separately pins the executed migration inventory; its hashes do not establish implementation refinement. 2026-11-20 restack repair: the pins for guard.rs, identity.rs, tests/source_lifetime.rs, testkit/{mod,ca,leaf}.rs, tests/spiffe_peer_rotation.rs and human-vault/src/lib.rs matched no blob on this branch (stale since their introduction). identity.rs, the testkit helpers and human-vault/src/lib.rs are byte-identical to the reviewed merge-base. The guard.rs branch change is fail-closed: peer credential/trust and listener-provenance generations must equal the current generation, and withdrawal and source-deadline enforcement moved into checked_current. tests/source_lifetime.rs and tests/spiffe_peer_rotation.rs are new branch regressions for source-owned expiry and SPIFFE domain rebinding across rotation. A latent compile break in tests/source_lifetime.rs was fixed (Duration::nanoseconds does not exist in opensesame_time; milliseconds(1) preserves the inclusive-latch intent). The full opensesame-transport-security suite with the testkit feature passed (118 tests) and the opensesame-human-vault suite passed before re-pinning all eight files to the reviewed blobs."    },
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Relay route registrations remain mounted, but heartbeat, submission, executable delivery, approval and result reporting fail closed. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. One listener configuration, 14 transport configuration and 6 listener boot tests passed. This does not add a listener or a fallback. Source-lifetime review: service admission refuses an expired source; status reports quarantined and expired generations unloaded and preserves revocation precedence. The focused admission, status and source-owned trust collision tests and integrated deadline controls passed. The listener wraps its signer and preclaim session cache with generation checks; source-owned listeners disable resumption. Signer, resumption-race and TLS 1.2/1.3 regressions exercise those boundaries. Testkit files support those regressions and add no production authority. An in-flight key operation or a signature released immediately before withdrawal cannot be revoked, and already-admitted work is not cancelled. Standalone client and server configurations are outside the listener fence. Host source-trust selection requires the generation-bound authoritative source bundle with the requested profile and kind. On the reviewed predecessor, all 16 selector correspondence vectors, the exact two-bundle return control, and the live reconstructed-manager TLS regression passed. The correspondence module is compiled only for tests and adds no production authority. That regression reuses an in-memory store; it is not a process restart or a real Workload API test. Durable source history remains a separate boundary. Peer-domain review: a SPIFFE bundle carries its explicit domain, certificate validation and SVID checks precede peer evidence, and service binding uses exact SPIFFE identity with separate leaf revocation. The configured Host source domain must match the authoritative selected bundle. The peer-domain, live TLS admission, resumption/rotation, forwarded-evidence and wrong-domain controls passed; the correspondence proves only its stated Boolean properties, not Rust refinement. The NATS client opts into a one-use server verifier with TLS resumption disabled; existing host-listener verification remains unchanged. Source-history review: the registered history suite passed 76 Linux tests in 16 groups on b1016221, including SQLite union and cancellation, the cooperative file lease, offline attestation, a real bindings-only Host startup, source supersession, stored-trust quarantine and reconciliation. A focused PEM collision witness was added afterward and passed separately; the full suite needs a rerun with it. The Host-process case does not prove secure-listener or request-guard enforcement. The complete attestation, continuous database identity and cooperative trusted filesystem are assumptions; raw writers, older binaries, backup rollback and physical power-loss durability are not proved. Windows-only startup and initializer refusal tests have not been run on Windows. The proof suite separately pins the executed migration inventory; its hashes do not establish implementation refinement. 2026-11-20 restack repair: the pins for guard.rs, identity.rs, tests/source_lifetime.rs, testkit/{mod,ca,leaf}.rs, tests/spiffe_peer_rotation.rs and human-vault/src/lib.rs matched no blob on this branch (stale since their introduction). identity.rs, the testkit helpers and human-vault/src/lib.rs are byte-identical to the reviewed merge-base. The guard.rs branch change is fail-closed: peer credential/trust and listener-provenance generations must equal the current generation, and withdrawal and source-deadline enforcement moved into checked_current. tests/source_lifetime.rs and tests/spiffe_peer_rotation.rs are new branch regressions for source-owned expiry and SPIFFE domain rebinding across rotation. A latent compile break in tests/source_lifetime.rs was fixed (Duration::nanoseconds does not exist in opensesame_time; milliseconds(1) preserves the inclusive-latch intent). The full opensesame-transport-security suite with the testkit feature passed (118 tests) and the opensesame-human-vault suite passed before re-pinning all eight files to the reviewed blobs."
+    },
     {
       "id": "certificate-binding",
       "kind": "proof",
       "area": "host-admission",
       "flow": "certificate-binding",
       "observer": "authenticated",
-      "artifacts": [
-        "certificate-binding"
-      ],
+      "artifacts": ["certificate-binding"],
       "verification": "signature",
-      "controls": [
-        "originating-client-proof"
-      ],
+      "controls": ["originating-client-proof"],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
       "minSecretBytes": 0,
       "budget": null,
-      "implementation": [
-        "crates/gateway/src/transport/proof.rs"
-      ],
-      "regressions": [
-        "crates/gateway/src/transport/proof_tests.rs"
-      ],
+      "implementation": ["crates/gateway/src/transport/proof.rs"],
+      "regressions": ["crates/gateway/src/transport/proof_tests.rs"],
       "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
     },
     {
@@ -620,9 +570,7 @@
       "area": "bitwarden",
       "flow": "bitwarden-account",
       "observer": "public",
-      "artifacts": [
-        "guess-oracle"
-      ],
+      "artifacts": ["guess-oracle"],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -716,10 +664,7 @@
       "area": "bitwarden",
       "flow": "bitwarden-send",
       "observer": "link-holder",
-      "artifacts": [
-        "ciphertext",
-        "guess-oracle"
-      ],
+      "artifacts": ["ciphertext", "guess-oracle"],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -769,9 +714,7 @@
       "area": "bitwarden",
       "flow": "bitwarden-api-key",
       "observer": "public",
-      "artifacts": [
-        "guess-oracle"
-      ],
+      "artifacts": ["guess-oracle"],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -813,9 +756,7 @@
       "area": "bitwarden",
       "flow": "bitwarden-device-code",
       "observer": "public",
-      "artifacts": [
-        "guess-oracle"
-      ],
+      "artifacts": ["guess-oracle"],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -858,12 +799,7 @@
       "area": "bitwarden",
       "flow": "bitwarden-import",
       "observer": "device-owner",
-      "artifacts": [
-        "ciphertext",
-        "code-verifier",
-        "raw-secret",
-        "otp-seed"
-      ],
+      "artifacts": ["ciphertext", "code-verifier", "raw-secret", "otp-seed"],
       "verification": "none",
       "controls": [
         "confined-import-paths",
@@ -920,13 +856,9 @@
       "area": "signing-keys",
       "flow": "public-signing-keys",
       "observer": "public",
-      "artifacts": [
-        "public-key"
-      ],
+      "artifacts": ["public-key"],
       "verification": "none",
-      "controls": [
-        "public-parameter-allowlist"
-      ],
+      "controls": ["public-parameter-allowlist"],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
@@ -980,12 +912,7 @@
       "area": "local-vault-activation",
       "flow": "local-vault-activation",
       "observer": "device-owner",
-      "artifacts": [
-        "ciphertext",
-        "payload-key",
-        "raw-secret",
-        "private-key"
-      ],
+      "artifacts": ["ciphertext", "payload-key", "raw-secret", "private-key"],
       "verification": "client-only",
       "controls": [
         "original-owner-lifetime",
@@ -1198,11 +1125,7 @@
       "area": "native-provider-custody",
       "flow": "native-provider-custody",
       "observer": "device-owner",
-      "artifacts": [
-        "ciphertext",
-        "payload-key",
-        "raw-secret"
-      ],
+      "artifacts": ["ciphertext", "payload-key", "raw-secret"],
       "verification": "client-only",
       "controls": [
         "original-provider-transport",
