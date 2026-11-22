@@ -27,6 +27,23 @@ const embeddedInputs = inputs.filter(
   (input) => input.kind === "embedded-array",
 );
 
+test.each([
+  "gate-goals",
+  "vault-item-goals",
+  "shell-tour-goals",
+  "vault-create-goals",
+])(
+  "%s remains executable instead of freezing live tutorial behavior",
+  (file) => {
+    const path = join(
+      repoRoot,
+      "packages/app-core/src/tutorial/registry",
+      `${file}.ts`,
+    );
+    assert.equal(generatedDataAssets().transform("", path), null);
+  },
+);
+
 test.each(catalogInputs)(
   "$exportName extracts the exact authored catalog behind source and value pins",
   (input) => {

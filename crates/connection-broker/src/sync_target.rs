@@ -698,8 +698,14 @@ impl ConnectionBroker {
             .await
             .map_err(|_| "upstream request failed".to_string())?;
         let status = response.status();
-        // Credentialed mutations have no response-data contract; discard both
-        // success and error bodies so reflected secrets cannot escape.
+        // This request carries both the connection token and secret env
+        // values. Provider-controlled response bytes are therefore never
+        // diagnostics: dropping the body closes raw and encoded reflection
+        // without depending on the secret's length or representation.
+        // These mutations have no response-data contract. Discard both success
+        // and error bodies so a reflected secret cannot become an accepted
+        // identity or escape through the sync result. Only `status` is kept.
+        drop(response);
         if !(200..300).contains(&status.as_u16()) {
             return Err(format!("upstream {status}"));
         }
@@ -709,7 +715,7 @@ impl ConnectionBroker {
 
 /// Env/secret push is implemented only for these catalog ids. Others (including
 /// craft-bar names like `doppler`) fail closed rather than calling a CLI.
-fn env_sync_provider_supported(provider_id: &str) -> bool {
+pub(crate) fn env_sync_provider_supported(provider_id: &str) -> bool {
     matches!(provider_id, "vercel" | "railway")
 }
 
@@ -751,46 +757,5 @@ mod unit_tests {
         );
         // The fingerprint never embeds the value.
         assert!(!a.contains("one"));
-    }
-}
-
-#[cfg(test)]
-mod pact {
-    use super::env_sync_provider_supported;
-
-    #[test]
-    fn property_only_vercel_and_railway_are_live_env_sync() {
-        for id in ["vercel", "railway"] {
-            assert!(env_sync_provider_supported(id), "{id}");
-        }
-    }
-
-    #[test]
-    fn adversarial_catalog_craft_bar_ids_are_refused() {
-        for id in ["doppler", "infisical", "vault", "aws", "github", ""] {
-            assert!(!env_sync_provider_supported(id), "{id}");
-        }
-    }
-
-    #[test]
-    fn chaos_interleaved_checks_stay_fail_closed() {
-        let ids = ["doppler", "vercel", "infisical", "railway", "doppler"];
-        let allowed: Vec<_> = ids
-            .iter()
-            .copied()
-            .filter(|id| env_sync_provider_supported(id))
-            .collect();
-        assert_eq!(allowed, ["vercel", "railway"]);
-    }
-
-    #[test]
-    fn contract_https_egress_guard_is_in_source_before_send() {
-        let src = include_str!("sync_target.rs");
-        let production = src.split("#[cfg(test)]").next().unwrap();
-        let https = production
-            .find("sync egress requires https")
-            .expect("https fence");
-        let send = production.find(".send()").expect("send");
-        assert!(https < send);
     }
 }
