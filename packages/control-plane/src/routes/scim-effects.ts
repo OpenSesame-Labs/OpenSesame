@@ -24,6 +24,7 @@ export const SCIM_SUBJECTS_ATTRIBUTE =
  */
 const SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE =
   "urn:opensesame:params:scim:2.0:deprovision-principals";
+const SCIM_DEPROVISION_BATCH = 64;
 
 /** Directory-supplied payloads cannot set or read internal reconciliation state. */
 export const SCIM_BOOKKEEPING_ATTRIBUTES = new Set([
@@ -214,24 +215,47 @@ export async function deprovision(
         (value): value is string => isString(value) && value.length > 0,
       )
     : [];
-  const targets = new Set<string>([...members, ...recorded]);
-  if (members.length > 0) {
+  let pendingRecorded = [...new Set(recorded)];
+  const targets = [...new Set<string>([...pendingRecorded, ...members])];
+  const raw = { ...record.raw };
+  delete raw[SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE];
+  // Process old retry targets first. Preserve any unprocessed legacy markers:
+  // their memberships may already be gone, so they cannot be rediscovered.
+  // New targets enter the marker in bounded batches and retain memberships
+  // until their batch runs. A failed batch stays recorded for a retry.
+  for (
+    let offset = 0;
+    offset < targets.length;
+    offset += SCIM_DEPROVISION_BATCH
+  ) {
+    const batch = targets.slice(offset, offset + SCIM_DEPROVISION_BATCH);
+    const marker = [...new Set([...pendingRecorded, ...batch])];
     await ctx.stores.scim.users.update({
       ...record,
       raw: {
-        ...record.raw,
-        [SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE]: [...targets],
+        ...raw,
+        [SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE]: marker,
       },
       updatedAt: ctx.clock(),
     });
-  }
-  for (const principalId of targets) {
-    await revokeOrganizationMembership(ctx, {
-      organizationId: organization.id,
-      principalId,
-      correlationId,
-      reason: "scim_deactivated",
-      revokeSessionsWithoutMembership: true,
+    for (const principalId of batch) {
+      await revokeOrganizationMembership(ctx, {
+        organizationId: organization.id,
+        principalId,
+        correlationId,
+        reason: "scim_deactivated",
+        revokeSessionsWithoutMembership: true,
+      });
+    }
+    const completed = new Set(batch);
+    pendingRecorded = pendingRecorded.filter((id) => !completed.has(id));
+    await ctx.stores.scim.users.update({
+      ...record,
+      raw:
+        pendingRecorded.length > 0
+          ? { ...raw, [SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE]: pendingRecorded }
+          : raw,
+      updatedAt: ctx.clock(),
     });
   }
 }

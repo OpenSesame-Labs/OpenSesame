@@ -1,6 +1,13 @@
 import type { Named } from "@gdp-ts/core";
 import { appendAuditEvent } from "@opensesame/audit";
-import type { ScimGroupRecord } from "@opensesame/database";
+import {
+  SCIM_GROUP_CHANGES_MAX,
+  SCIM_GROUP_ID_MAX,
+  SCIM_GROUP_MEMBERS_MAX,
+  ScimGroupCapacityError,
+  ScimGroupPayloadError,
+  type ScimGroupRecord,
+} from "@opensesame/database";
 import type {
   JsonObject,
   Organization,
@@ -28,6 +35,7 @@ import {
   scimError,
   scimPatchOperations,
 } from "./scim-protocol.js";
+import { consumeScimMutation } from "./scim-rate-limit.js";
 
 const GROUP_SCHEMA = "urn:ietf:params:scim:schemas:core:2.0:Group";
 const MAX_DISPLAY_LENGTH = 512;
@@ -83,7 +91,8 @@ export async function patchScimGroup(
   const body = await readScimJsonBody(c);
   if (!body) return scimError(c, 400, "Body is not a SCIM PatchOp.");
   const groupId = decodeURIComponent(c.req.param("groupId") ?? "");
-  if (!groupId) return scimError(c, 400, "group id is required.");
+  if (!groupId || groupId.length > SCIM_GROUP_ID_MAX)
+    return scimError(c, 400, "Invalid group id.", "invalidValue");
 
   const operations = scimPatchOperations(body);
   const existing = await ctx.stores.scim.groups.getById(
@@ -94,16 +103,39 @@ export async function patchScimGroup(
   if ("error" in folded) {
     return scimError(c, 400, folded.error.detail, folded.error.scimType);
   }
+  // One unit was spent before parsing. Charge each additional target before a
+  // group update can trigger member reconciliation and audit writes.
+  if (
+    folded.affected.length > 1 &&
+    !(await consumeScimMutation(
+      ctx,
+      organization.id,
+      undefined,
+      folded.affected.length - 1,
+    ))
+  ) {
+    c.header("Retry-After", "60");
+    return scimError(c, 429, "Provisioning rate limit reached.");
+  }
 
   const now = ctx.clock();
-  const stored = await ctx.stores.scim.groups.upsert({
-    id: groupId,
-    organizationId: organization.id,
-    displayName: folded.displayName,
-    memberIds: folded.memberIds,
-    createdAt: existing?.createdAt ?? now,
-    updatedAt: now,
-  });
+  let stored: ScimGroupRecord;
+  try {
+    stored = await ctx.stores.scim.groups.upsert({
+      id: groupId,
+      organizationId: organization.id,
+      displayName: folded.displayName,
+      memberIds: folded.memberIds,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    });
+  } catch (error) {
+    if (error instanceof ScimGroupCapacityError)
+      return scimError(c, 409, "Provisioned group capacity reached.");
+    if (error instanceof ScimGroupPayloadError)
+      return scimError(c, 400, "Group exceeds the storage limit.", "tooMany");
+    throw error;
+  }
 
   for (const memberId of folded.affected) {
     await syncDerivedRole(ctx, organization, memberId, c);
@@ -158,11 +190,29 @@ function foldGroupPatch(
     if (!targetsMembers(operation)) continue;
     const resolved = resolveMemberIds(operation);
     if ("error" in resolved) return resolved;
+    if (resolved.ids.some((id) => id.length > SCIM_GROUP_ID_MAX))
+      return {
+        error: { detail: "Invalid member id.", scimType: "invalidValue" },
+      };
     const applied = applyMemberOp(memberList, operation.op, resolved.ids);
     if ("error" in applied) return applied;
     for (const id of resolved.ids) affected.add(id);
+    if (affected.size > SCIM_GROUP_CHANGES_MAX)
+      return {
+        error: {
+          detail: "Too many member changes in one request.",
+          scimType: "tooMany",
+        },
+      };
     memberList = applied.memberIds;
   }
+  if (
+    memberList.length > SCIM_GROUP_MEMBERS_MAX &&
+    memberList.length >= (existing?.memberIds.length ?? 0)
+  )
+    return {
+      error: { detail: "Group member capacity reached.", scimType: "tooMany" },
+    };
   return {
     displayName: foldDisplayName(
       body,
