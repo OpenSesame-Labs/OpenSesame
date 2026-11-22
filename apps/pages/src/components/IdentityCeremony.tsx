@@ -206,7 +206,10 @@ export function IdentityCeremony({
           },
         ]}
         primary={
-          requiresSignOut
+          // A fresh guest holds only its bearer: clearing it to "refresh"
+          // would mint a different principal and strand the guest's data,
+          // so no refresh is offered for a bearer-only session.
+          requiresSignOut || session?.bearerOnly
             ? undefined
             : session
               ? {

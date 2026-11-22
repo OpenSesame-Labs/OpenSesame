@@ -163,6 +163,25 @@ describe("IdentityCeremony", () => {
     expect(clearSession).toHaveBeenCalledTimes(1);
   });
 
+  it("offers no refresh to a bearer-only guest, which would mint a new principal", () => {
+    const clearSession = vi.fn();
+    Object.assign(identityCeremonyDependencies, {
+      clearSession,
+      useIdentitySession: () => ({
+        principalId: "prn_guest",
+        accessToken: "t",
+        issuerOrigin: "http://127.0.0.1:18788",
+        bearerOnly: true,
+      }),
+    });
+    render(<IdentityCeremony connector={connector()} onClose={() => {}} />);
+    expect(screen.getByText("prn_guest")).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Refresh session" }),
+    ).toBeNull();
+    expect(clearSession).not.toHaveBeenCalled();
+  });
+
   it("reports a failed refresh instead of claiming success", async () => {
     Object.assign(identityCeremonyDependencies, {
       ensureIdentitySession: vi
