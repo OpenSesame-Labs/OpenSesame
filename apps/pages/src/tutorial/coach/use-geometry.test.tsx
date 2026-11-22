@@ -94,6 +94,8 @@ it("probes and places through one coordinate story when pinch zoom offsets the v
   // it is asked about, so the probe's coordinate space is the assertion.
   const prior = document.elementsFromPoint;
   const probed: Array<[number, number]> = [];
+  // The original is restored before the test ends.
+  // SAFETY: the double implements elementsFromPoint's same (x, y) => Element[] contract.
   document.elementsFromPoint = ((x: number, y: number) => {
     probed.push([x, y]);
     return [button];

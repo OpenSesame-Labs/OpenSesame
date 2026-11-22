@@ -321,7 +321,7 @@ const generatedModules = Object.freeze([
   ),
   tutorialDataModule(
     "access-goals",
-    "af05e684a9bdaa9208884b94c3e074e45bf9890c785d95cb9b765e5df2127d12",
+    "a2b8695984d89f5cff21e4a0120cbd2158aa16a9da7baae900345327996d1543",
     ["ACCESS_GOALS", "ACCESS_HELP"],
   ),
   tutorialDataModule(
