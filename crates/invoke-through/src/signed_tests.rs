@@ -165,6 +165,29 @@ async fn a_bearer_rule_is_never_signed_and_a_signed_rule_never_bears() {
 }
 
 #[tokio::test]
+async fn a_direct_fence_call_cannot_sign_for_a_mismatched_pinned_port() {
+    let invoker = Invoker::with_pinned_webpki(
+        vec![rule(AuthStyle::SigV4)],
+        "127.0.0.1",
+        &["127.0.0.1:4443".parse().unwrap()],
+    );
+    let prepared = invoker
+        .fence()
+        .preflight(post("https://127.0.0.1/".into()))
+        .expect("the shared fence does not own client-specific socket pins");
+    let signer = RecordingSigner::new();
+    let refused = invoker
+        .execute_signed(&signer, prepared)
+        .await
+        .expect_err("the socket port mismatch must be refused before signing");
+    assert!(matches!(refused, InvokeError::EgressDenied { .. }));
+    assert!(
+        signer.seen.lock().unwrap().is_empty(),
+        "the signer must not see a request for an unapproved socket"
+    );
+}
+
+#[tokio::test]
 async fn a_reflected_secret_is_scrubbed_from_a_signed_answer() {
     let (base, _) = recording_stub("echo vtok_dummy_marker_0123456789abcdef").await;
     let invoker = Invoker::with_rules(vec![rule(AuthStyle::SigV4)]).allow_http_for_tests();

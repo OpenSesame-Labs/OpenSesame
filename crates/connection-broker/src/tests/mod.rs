@@ -22,6 +22,7 @@ use super::*;
 mod aws_sts_binding;
 mod aws_sts_minting;
 mod aws_sts_receipts;
+mod catalog_auto_configure;
 mod catalog_egress;
 mod connection_lifecycle;
 mod credential_minting;
@@ -34,6 +35,7 @@ mod org_integrations;
 mod revocation_cleanup;
 mod rotation_leftover;
 mod web_rotation;
+mod web_rotation_authorized_bytes;
 mod web_rotation_custom;
 
 const KEY: [u8; 32] = [42u8; 32];

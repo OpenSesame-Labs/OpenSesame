@@ -47,6 +47,16 @@ mounts at `/bitwarden` only when `OPENSESAME_BITWARDEN_COMPAT=on`
 ([`opensesame-bitwarden-server`](../bitwarden-server)). Contract:
 [`spec/openapi/host-api.yaml`](../../spec/openapi/host-api.yaml).
 
+Wasm host egress requires a broker-created invocation context. A registered
+connector's digest-pinned manifest ID names its provider and policy binding;
+the invocation separately names the durable connection UUID. Before owner
+egress, the Host checks that the stored connection has that provider, tenant
+and owner and that its captured root grant matches an active stored grant for
+the same connection. Other provider aliases are refused. Delegated host egress
+remains unavailable. These checks sample records before network I/O: they are
+not a transaction that fences later revocation or recalls an effect already
+started. A context constructed by an in-process caller is not authorization.
+
 | Route group | Prefixes (bare names are under `/api/v1/`) |
 |---|---|
 | Health, discovery | `/health/*`, `/api/v1/health`, `/auth.md`, `/.well-known/agent-card.json`, `/.well-known/oauth-protected-resource`, `/api/v1/whoami` |

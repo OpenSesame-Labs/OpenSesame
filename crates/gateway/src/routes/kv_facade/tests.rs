@@ -22,13 +22,13 @@ use crate::app_state::{self, AppState};
 /// The facade's own route group over a demo-bootstrapped state. Mounting the
 /// group directly keeps these tests independent of the process-wide flag,
 /// which is covered by its own pair of tests below.
-async fn facade() -> (Router, AppState) {
+pub(super) async fn facade() -> (Router, AppState) {
     let state = app_state::test_demo_state().await;
     let router = super::routes().with_state(state.clone());
     (router, state)
 }
 
-fn boot_org(state: &AppState) -> OrganizationId {
+pub(super) fn boot_org(state: &AppState) -> OrganizationId {
     state.bootstrap.lock().unwrap().clone().unwrap().org
 }
 
@@ -47,7 +47,7 @@ async fn operator_org(state: &AppState) -> OrganizationId {
 
 /// Inserts a connection row directly. The facade is a *view*, so the fixture
 /// is the storage the view reads, not a request that would create it.
-async fn seed_connection(
+pub(super) async fn seed_connection(
     state: &AppState,
     organization_id: &OrganizationId,
     logical_name: &str,
@@ -91,7 +91,7 @@ async fn seed_connection(
 }
 
 /// A session, plus the raw opaque token to present as `X-Vault-Token`.
-fn session(state: &AppState, subject: &str, organization_id: OrganizationId) -> String {
+pub(super) fn session(state: &AppState, subject: &str, organization_id: OrganizationId) -> String {
     let headers =
         app_state::test_session_headers(state, subject, organization_id, OrganizationRole::Owner);
     headers
@@ -312,12 +312,7 @@ async fn a_session_token_reads_the_kv_v2_envelope_and_gets_a_receipt() {
         .expect("receipt verifies");
     assert_eq!(stored.receipt.operation, "kv.read");
     assert_eq!(stored.receipt.resource, "kv/v2/secret/connections/gh-prod");
-    let summary = stored.receipt.safe_result_summary.clone().unwrap();
-    assert_eq!(summary["family"], "connections");
-    assert!(summary["keys"].as_u64().unwrap() > 0);
-    // Counts, never key names.
-    assert!(summary.get("configured_fields").is_none());
-    assert!(!summary.to_string().contains("granted_scopes"));
+    assert!(stored.receipt.has_opaque_result());
 }
 
 #[tokio::test]
