@@ -41,6 +41,8 @@ export class FakeBrowser {
   readonly injected: string[] = [];
   /** Make the next injection fail, as a frame torn down by a navigation does. */
   failNextInjection: Error | null = null;
+  /** Run after the adapter's tab check, before selecting the injected document. */
+  beforeNextInjection: (() => void) | null = null;
   /** What a click on a control does to the tab, if anything. */
   onClick: ((tab: FakeTab) => void) | null = null;
   /** A focus-race seam invoked while captureVisibleTab is in flight. */
@@ -244,6 +246,9 @@ export class FakeBrowser {
           this.failNextInjection = null;
           throw error;
         }
+        const before = this.beforeNextInjection;
+        this.beforeNextInjection = null;
+        before?.();
         const tab = this.tabs.get(injection.target.tabId);
         if (!tab) throw new Error("No tab");
         if (!this.hasHost(tab.url))
@@ -254,7 +259,7 @@ export class FakeBrowser {
         ) => BoundaryValue | Promise<BoundaryValue>;
         const wasClick = injection.func.name === "pfSubmit";
         const result = await body(...injection.args);
-        if (wasClick) this.onClick?.(tab);
+        if (wasClick && result === "ok") this.onClick?.(tab);
         return [{ result }];
       },
     };

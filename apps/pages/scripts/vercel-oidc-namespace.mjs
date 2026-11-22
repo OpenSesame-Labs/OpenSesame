@@ -15,7 +15,7 @@ const pins = {
   joseBrowser:
     "44c315d5a0ffabb93fa3e70be939e468b1de6c2ca425742e81c8bab826af9ff4",
   connectPackage:
-    "504db020608b3ae86524d68aabe08f9fc3724539d9fe037fd2806f847af44f10",
+    "94d78ea485ef4a9bd0b28a73c041f1c9fc593091515c01679a332763059eeb9c",
 };
 const digest = (source) => createHash("sha256").update(source).digest("hex");
 function equal(actual, expected, name) {

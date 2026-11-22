@@ -11,6 +11,8 @@ export type Landed = "ok" | "timeout" | "invalid";
 
 /** The page a run is driven in. Every operation is confined to the run's origin. */
 export interface StepPages {
+  /** Whether this adapter can prove that a screenshot contains the masked page. */
+  readonly captureSupported: boolean;
   /** Load `url` in the run's tab. `navigation` when it ended anywhere but the run's origin. */
   navigate(url: string): Promise<"ok" | "navigation" | "timeout">;
   waitFor(selector: string, timeoutMs?: number): Promise<Landed>;
@@ -28,10 +30,11 @@ export interface StepPages {
   /** The page's layout signature (see `pfLayout`). */
   layout(): Promise<string>;
   /**
-   * A still with the selectors covered, or null when one cannot be taken that
-   * the Host can store. `before` and `after` are layout signatures around it.
+   * A still with the selectors covered, null on a capture failure, or
+   * "unsupported" when the adapter cannot bind pixels to a masked document.
+   * `before` and `after` are layout signatures around the captured frame.
    */
-  capture(maskSelectors: string[]): Promise<Capture | null>;
+  capture(maskSelectors: string[]): Promise<Capture | null | "unsupported">;
   /** A clean, private browsing context for `verify_login`; null when there is none. */
   fresh(): Promise<StepPages | null>;
   close(): Promise<void>;
