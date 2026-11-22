@@ -1,3 +1,4 @@
+import { type BoundaryValue, overlapCast } from "@opensesame/os-domain";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   INVOCATION_RESPONSE_TIMEOUT_MS,
@@ -41,8 +42,12 @@ describe("bounded invocation response", () => {
       headers: { "content-type": "application/json" },
     });
     const parsed = await readFreezeIntentResponse(response);
-    const args = (parsed as { canonical_arguments: { n: bigint } })
-      .canonical_arguments;
+    // SAFETY: the fixture above fixes the freeze response shape; the test
+    // projects only the canonical arguments it constructed.
+    const args = overlapCast<
+      BoundaryValue,
+      { canonical_arguments: { n: bigint } }
+    >(parsed).canonical_arguments;
     expect(args.n).toBe(unsafe);
   });
 

@@ -119,7 +119,9 @@ export async function readInvocationResponse(
   return readBoundedJsonResponse(
     response,
     MAX_INVOCATION_RESPONSE_BYTES,
-    (text) => JSON.parse(text) as BoundaryValue,
+    // SAFETY: JSON.parse yields any; the receipt boundary treats the parsed
+    // value as an opaque BoundaryValue validated by the caller.
+    (text) => overlapCast(JSON.parse(text)),
   );
 }
 
