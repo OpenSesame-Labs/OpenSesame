@@ -64,9 +64,26 @@ export const COACH_GAP = 14;
 const NOTCH_INSET = 14;
 /** Below this height the whole phone card must be scrollable. */
 export const CONSTRAINED_CARD_HEIGHT = 200;
+/** Below this width a viewport is narrow: the card drops its notch layout. */
+export const NARROW_VIEWPORT_WIDTH = 230;
+/** On a narrow viewport, one this short is zoomed rather than small. */
+export const SHORT_VIEWPORT_HEIGHT = 110;
+/** A narrow viewport this tall leaves no room beside a control at all. */
+export const TIGHT_VIEWPORT_HEIGHT = 220;
 
-const tightViewport = (viewport: Size): boolean =>
-  viewport.width < 230 && viewport.height < 220;
+/**
+ * The tight-viewport contract, in one place: below these width and height
+ * thresholds the card gives up its margin, its gap and its docked offset.
+ * Every consumer — placement, the layout hook, the dock style, the reveal
+ * logic — reads this predicate or the constants above, so the thresholds
+ * cannot drift apart.
+ */
+export function isTightViewport(viewport: Size): boolean {
+  return (
+    viewport.width < NARROW_VIEWPORT_WIDTH &&
+    viewport.height < TIGHT_VIEWPORT_HEIGHT
+  );
+}
 
 /** Limit a phone card to the space beside a control; long text can scroll. */
 export function phoneCardHeightLimit(
@@ -74,7 +91,7 @@ export function phoneCardHeightLimit(
   target: Box | null,
   insets: SafeInsets,
 ): number {
-  const tight = tightViewport(viewport);
+  const tight = isTightViewport(viewport);
   const margin = tight ? 0 : COACH_MARGIN;
   const spacing = tight ? margin : margin + COACH_GAP;
   const screen = Math.max(
@@ -188,7 +205,7 @@ export function clearOfDock(
 ): Box {
   // The card sits `0.5rem + inset` off its edge (coach.css), so the screen's
   // own inset at that edge is part of what it covers.
-  const margin = tightViewport(viewport) ? 0 : COACH_MARGIN * 2;
+  const margin = isTightViewport(viewport) ? 0 : COACH_MARGIN * 2;
   const dock = card.height + margin + insets[edge];
   const top = edge === "top" ? Math.max(hole.top, dock) : hole.top;
   const bottom =
@@ -203,7 +220,7 @@ export function placeCoach(input: PlacementInput): CoachPlacement {
   const { viewport, card, target, prefer, phone, insets = NO_INSETS } = input;
   if (phone) {
     if (target === null) return { kind: "dock", edge: "bottom" };
-    const margin = tightViewport(viewport) ? 0 : COACH_MARGIN;
+    const margin = isTightViewport(viewport) ? 0 : COACH_MARGIN;
     const topCovered = Math.max(
       0,
       card.height + margin + insets.top - target.top,

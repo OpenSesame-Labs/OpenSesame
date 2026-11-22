@@ -1,15 +1,28 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { pathToFileURL } from "node:url";
 import { parsePushRefs, parseRegistry } from "./formal-proof-push-gate.mjs";
 import {
   fixture,
+  installHook,
   nil,
+  push,
   registry,
 } from "./formal-proof-push-gate.test.fixture.mjs";
+
+const proofRequirements = new URL(
+  "../../spec/formal/proof-requirements.json",
+  import.meta.url,
+);
 
 test("rejects malformed refs and registry without executing Git or proofs", () => {
   const oid = "a".repeat(40);
@@ -55,6 +68,40 @@ test("registry boundaries reject non-string ids, paths and commands", () => {
       );
       assert.throws(() => parseRegistry(input), /Invalid formal proof suite/);
     }
+  }
+});
+
+test("manifest projection descriptors reject ambiguous and untracked inputs", () => {
+  const suite = {
+    ...registry.suites[0],
+    implementation: ["crates/domain/Cargo.toml"],
+    manifestProjection: {
+      path: "Cargo.toml",
+      package: "crates/domain/Cargo.toml",
+      lock: "Cargo.lock",
+      root: "opensesame-domain",
+    },
+  };
+  for (const change of [
+    { path: "nested/Cargo.toml" },
+    { package: "../other/Cargo.toml" },
+    { package: "crates/other/Cargo.toml" },
+    { lock: "other.lock" },
+    { root: "../domain" },
+    { unexpected: true },
+  ]) {
+    const input = Buffer.from(
+      JSON.stringify({
+        version: 1,
+        suites: [
+          {
+            ...suite,
+            manifestProjection: { ...suite.manifestProjection, ...change },
+          },
+        ],
+      }),
+    );
+    assert.throws(() => parseRegistry(input), /Invalid formal proof suite/);
   }
 });
 
@@ -145,15 +192,102 @@ test("fetches previously unknown remote tips to compare a new branch accurately"
   );
 });
 
-test("selects all changed paths in pushed history, including changes subsequently reverted", (t) => {
-  const f = fixture(t);
-  f.write("src/a", "intermediate\n");
-  f.commit();
-  f.write("src/a", "a0\n");
-  const target = f.commit();
-  const result = f.run(f.tuple(target));
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(f.commands(), ["run verify:a"]);
+test("native push selects the independent NATS suite only for mapped history", (t) => {
+  const required = JSON.parse(readFileSync(proofRequirements));
+  const nats = "crates/task-bus/src/nats_connect.rs";
+  const gateway = "crates/gateway/src/transport/source_trust_selection.rs";
+  const bounded = "crates/transport-security/src/bounded.rs";
+  const client = "crates/transport-security/src/client.rs";
+  const lib = "crates/transport-security/src/lib.rs";
+  const proof = "spec/formal/source-trust-selection/SourceTrustSelection.lean";
+  for (const operation of [
+    "nats",
+    "gateway",
+    "shared-bounded",
+    "shared-client",
+    "shared-lib",
+    "unrelated",
+    "proof",
+    "test-only",
+    "reverted",
+  ]) {
+    const f = fixture(t);
+    f.pin(required);
+    f.write("spec/formal/proof-registry.json", JSON.stringify(required));
+    f.write("spec/formal/proof-requirements.json", JSON.stringify(required));
+    for (const suite of required.suites)
+      for (const path of suite.proofs) f.write(path, "proof\n");
+    f.write(nats, "before\n");
+    f.write(gateway, "before\n");
+    f.write(bounded, "before\n");
+    f.write(client, "before\n");
+    f.write(lib, "before\n");
+    installHook(f);
+    f.git(
+      "-c",
+      "core.hooksPath=/dev/null",
+      "push",
+      "-q",
+      "origin",
+      "HEAD:refs/heads/main",
+    );
+    const changed = {
+      nats,
+      gateway,
+      "shared-bounded": bounded,
+      "shared-client": client,
+      "shared-lib": lib,
+      proof,
+      unrelated: "docs/unrelated.md",
+      "test-only": "crates/task-bus/src/nats_live_roles.rs",
+      reverted: nats,
+    }[operation];
+    f.write(changed, "changed\n");
+    if (operation === "reverted") {
+      f.commit();
+      f.write(changed, "before\n");
+    }
+    f.commit();
+    const result = push(f, "HEAD", "refs/heads/main");
+    assert.equal(result.status, 0, `${operation}: ${result.stderr}`);
+    const selectionByOperation = {
+      gateway: [
+        "source-lifetime",
+        "source-trust-selection",
+        "spiffe-peer-domain",
+      ],
+      "shared-bounded": [
+        "source-trust-selection",
+        "spiffe-peer-domain",
+        "nats-trust-rotation",
+      ],
+      "shared-client": [
+        "source-lifetime",
+        "source-trust-selection",
+        "spiffe-peer-domain",
+        "nats-trust-rotation",
+      ],
+      "shared-lib": [
+        "spiffe",
+        "source-lifetime",
+        "source-trust-selection",
+        "spiffe-peer-domain",
+        "nats-trust-rotation",
+        "source-history",
+      ],
+      nats: ["nats-trust-rotation"],
+      reverted: ["nats-trust-rotation"],
+    };
+    const selected = selectionByOperation[operation] ?? [];
+    assert.deepEqual(
+      f.commands(),
+      selected.map(
+        (id) =>
+          `run ${required.suites.find((suite) => suite.id === id).command[2]}`,
+      ),
+      operation,
+    );
+  }
 });
 
 test("plans multiple refs and refuses to verify non-HEAD commits or dirty source", async (t) => {
@@ -205,4 +339,58 @@ test("a dirty or removed registry cannot mask a previously mapped implementation
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /required formal proof suite a is missing/i);
   assert.deepEqual(f.commands(), []);
+});
+
+test("transport lib changes select SPIFFE proofs while authority proof-only edits skip", (t) => {
+  const requirements = JSON.parse(
+    readFileSync(
+      new URL("../../spec/formal/proof-requirements.json", import.meta.url),
+    ),
+  );
+  const lib = "crates/transport-security/src/lib.rs";
+  const authorityProof = "spec/formal/authority/conformance.rs";
+  const selected = requirements.suites.filter((suite) =>
+    suite.implementation.includes(lib),
+  );
+  assert.deepEqual(
+    selected.map((suite) => suite.id),
+    [
+      "spiffe",
+      "source-lifetime",
+      "source-trust-selection",
+      "spiffe-peer-domain",
+      "nats-trust-rotation",
+      "source-history",
+    ],
+  );
+  assert.ok(
+    requirements.suites.every(
+      (suite) => !suite.implementation.includes(authorityProof),
+    ),
+  );
+  const authority = requirements.suites.find(
+    (suite) => suite.id === "authority",
+  );
+  const policy = { version: 1, suites: [authority, ...selected] };
+  for (const changed of [lib, authorityProof]) {
+    const f = fixture(t);
+    f.pin(policy);
+    f.write(
+      "scripts/security/formal-proof-manifest-set.mjs",
+      readFileSync(new URL("./formal-proof-manifest-set.mjs", import.meta.url)),
+    );
+    for (const name of ["proof-registry.json", "proof-requirements.json"])
+      f.write(`spec/formal/${name}`, JSON.stringify(policy));
+    for (const suite of policy.suites)
+      for (const proof of suite.proofs) f.write(proof, "proof\n");
+    f.write(changed, "before\n");
+    const base = f.commit();
+    f.write(changed, "after\n");
+    const result = f.run(f.tuple(f.commit(), base));
+    assert.equal(result.status, 0, result.stderr);
+    assert.deepEqual(
+      f.commands(),
+      changed === lib ? selected.map((suite) => `run ${suite.command[2]}`) : [],
+    );
+  }
 });

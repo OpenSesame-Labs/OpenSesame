@@ -19,6 +19,7 @@ use opensesame_time::{DateTime, Utc};
 use serde_json::Value;
 use zeroize::Zeroizing;
 
+pub use super::account_options::{read_with_download_origins, AttachmentLimits};
 use super::{cipher, folder, keep_known_folders, leave, Arrival, CipherDates, LeftBehind, Source};
 use crate::hashing::HashRegistry;
 use crate::second_factor::{is_authenticator_key, normalize_key, AUTHENTICATOR};
@@ -286,18 +287,20 @@ pub async fn read(
     read_with_download_origins(request, hashes, ask, &[]).await
 }
 
-/// Read an account, allowing attachment downloads from additional origins
-/// supplied by the person running the import. Server-provided links must not
-/// be used to populate this list.
+/// Read an account with operator-selected attachment origins and limits.
+/// The origin list and limits must be supplied by the person doing the import,
+/// never by the source server. Attachments over a limit are counted as left
+/// behind rather than silently omitted.
 ///
 /// # Errors
 ///
 /// Returns the same errors as [`read`], or an error for an invalid origin.
-pub async fn read_with_download_origins(
+pub async fn read_with_options(
     request: &AccountRequest<'_>,
     hashes: &HashRegistry,
     ask: &mut dyn Ask,
     download_origins: &[String],
+    attachment_limits: AttachmentLimits,
 ) -> anyhow::Result<Source> {
     let email = opensesame_provider_bitwarden::normalize_email(request.email);
     let device = DeviceIdentity::new(format!("opensesame-import-{}", uuid::Uuid::new_v4()));
@@ -355,9 +358,16 @@ pub async fn read_with_download_origins(
     let mut account = vault_of(&user, &sync, &mut left);
     account.sign_in = sign_in;
     let scratch = tempfile::tempdir()?;
-    let attachments =
-        super::account_files::attachments(&api, &token, &sync, &user, scratch.path(), &mut left)
-            .await;
+    let attachments = super::account_files::attachments(
+        &api,
+        &token,
+        &sync,
+        &user,
+        scratch.path(),
+        &mut left,
+        attachment_limits,
+    )
+    .await;
     let sends = super::account_files::sends(&sync, &user, &mut left);
     Ok(Source {
         arrivals: vec![Arrival {

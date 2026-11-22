@@ -1,6 +1,7 @@
-# Pinned mise release used by scripts/lib/install-mise-locked.sh.
-# Keep these three values equal to ARG MISE_VERSION, MISE_SHA256_LINUX_X64,
-# and MISE_SHA256_LINUX_ARM64 in .devcontainer/Dockerfile.
+# Pinned mise release used by scripts/lib/install-mise-locked.sh (glibc tarballs).
+# MISE_VERSION and the *_MUSL digests must match .devcontainer/Dockerfile.
 MISE_VERSION=2026.10.18
 MISE_SHA256_LINUX_X64=0d41b60745a6273a80089c86f80d8729042d2f57f87fda70aecc7d1c3ffbd3be
 MISE_SHA256_LINUX_ARM64=c5a49a47f8184f5649f3d8685b408bd72325a823f41cf618c60f3ffc303090a1
+MISE_SHA256_LINUX_X64_MUSL=bb2f31a377789e85df9358f23aaadb4283e2d760cf657ca7449856f92c4230c4
+MISE_SHA256_LINUX_ARM64_MUSL=88bbc1480e196c45c67194b653a08170b9e45e6573e5036f643f288eee95120e

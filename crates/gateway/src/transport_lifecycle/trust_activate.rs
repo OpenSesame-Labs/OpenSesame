@@ -26,6 +26,7 @@ pub(crate) static TRUST_SERIAL: tokio::sync::Mutex<()> = tokio::sync::Mutex::con
 /// A candidate built from one serving generation, not yet activated.
 pub(crate) struct Prepared {
     runtime: Option<(Arc<TransportGenerations>, u64, GenerationCandidate)>,
+    pub(crate) quarantined: BTreeSet<TrustProfileRef>,
 }
 
 /// Build the peer-trust map for `stored` on top of the deployment plane's
@@ -58,18 +59,74 @@ pub(crate) fn prepare(
     stored: &TrustProfileSet,
     now: DateTime<Utc>,
 ) -> Result<Prepared, TrustError> {
+    prepare_with_quarantine(state, stored_names, stored, now, false)
+}
+
+/// Prepare a stored set for restoration. Source-reserved entries are kept in
+/// the stored document but excluded from the effective local trust candidate.
+/// Operator writes use [`prepare`] and remain strict.
+pub(crate) fn prepare_adoption(
+    state: &AppState,
+    stored_names: &BTreeSet<TrustProfileRef>,
+    stored: &TrustProfileSet,
+    now: DateTime<Utc>,
+) -> Result<Prepared, TrustError> {
+    prepare_with_quarantine(state, stored_names, stored, now, true)
+}
+
+fn prepare_with_quarantine(
+    state: &AppState,
+    stored_names: &BTreeSet<TrustProfileRef>,
+    stored: &TrustProfileSet,
+    now: DateTime<Utc>,
+    allow_quarantine: bool,
+) -> Result<Prepared, TrustError> {
+    stored.validate(now).map_err(TrustError::Invalid)?;
     let Some(generations) = state.transport_lifecycle.generations() else {
         // No runtime: still refuse a set whose anchors would not build.
         bundles(&state.transport_lifecycle.base_trust(), stored, now)
             .map_err(TrustError::Invalid)?;
-        return Ok(Prepared { runtime: None });
+        return Ok(Prepared {
+            runtime: None,
+            quarantined: BTreeSet::new(),
+        });
     };
     let current = generations.current();
     if let Some(reason) = &current.withdrawn {
         return Err(TrustError::Withdrawn(reason.clone()));
     }
-    let base = deployment_plane_trust(state, &current, stored_names);
-    let peer_trust = bundles(&base, stored, now).map_err(TrustError::Invalid)?;
+    generations
+        .checked_current(Some(current.number))
+        .map_err(|error| match error {
+            TransportError::GenerationStale => TrustError::GenerationChanged,
+            other => TrustError::Invalid(other),
+        })?;
+    let source = generations
+        .source_trust(current.number)
+        .map_err(TrustError::Invalid)?;
+    let mut base = deployment_plane_trust(state, &current, stored_names);
+    let mut effective = stored.clone();
+    let mut quarantined = BTreeSet::new();
+    if let Some(source) = source {
+        for profile in stored
+            .profiles
+            .iter()
+            .filter(|profile| profile.enabled && source.reserved.contains(&profile.profile))
+        {
+            if !allow_quarantine {
+                return Err(TrustError::Invalid(TransportError::malformed(format!(
+                    "trust profile {} is reserved by the deployment source",
+                    profile.profile
+                ))));
+            }
+            quarantined.insert(profile.profile.clone());
+        }
+        effective
+            .profiles
+            .retain(|profile| !profile.enabled || !quarantined.contains(&profile.profile));
+        base.extend(source.bundles);
+    }
+    let peer_trust = bundles(&base, &effective, now).map_err(TrustError::Invalid)?;
     let candidate = GenerationCandidate {
         identity: current.identity.clone(),
         peer_trust,
@@ -78,6 +135,7 @@ pub(crate) fn prepare(
     };
     Ok(Prepared {
         runtime: Some((generations, current.number, candidate)),
+        quarantined,
     })
 }
 
@@ -89,9 +147,12 @@ pub(crate) fn prepare(
 /// `GenerationChanged` when a rotation or withdrawal landed in between;
 /// `Invalid` when the candidate does not activate. Either way the previous
 /// generation keeps serving unchanged.
-pub(crate) async fn activate(state: &AppState, prepared: Prepared) -> Result<(), TrustError> {
+pub(crate) async fn activate(
+    state: &AppState,
+    prepared: Prepared,
+) -> Result<Option<u64>, TrustError> {
     let Some((generations, number, candidate)) = prepared.runtime else {
-        return Ok(());
+        return Ok(None);
     };
     match activation::activate_candidate_if_current(
         state,
@@ -102,7 +163,7 @@ pub(crate) async fn activate(state: &AppState, prepared: Prepared) -> Result<(),
     )
     .await
     {
-        Ok(_) => Ok(()),
+        Ok(number) => Ok(Some(number)),
         Err(TransportError::GenerationStale) => Err(TrustError::GenerationChanged),
         Err(error) => Err(TrustError::Invalid(error)),
     }

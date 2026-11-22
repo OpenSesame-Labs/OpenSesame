@@ -16,6 +16,7 @@ on:
       - "scripts/ci/headless-browser-benchmark-support.mjs"
       - ".github/workflows/cd-npm-publish-proof.yml"
       - "scripts/release/cd-*.mjs"
+      - "scripts/release/cd-pwa-preview-smoke/**"
       - "scripts/release/npm-cd-workflows.test.mjs"
       - "scripts/release/npm-cd-workflows.promotion-gates.mjs"
       - "scripts/release/npm-local-package-smoke.mjs"
@@ -51,7 +52,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node@24 hurl@8.1.0
@@ -69,6 +70,9 @@ jobs:
             scripts/release/cd-preview-smoke.pages.test.mjs \
             scripts/release/cd-pwa-preview-smoke/prepare-vars.test.mjs \
             scripts/release/cd-pwa-preview-smoke/hurl-template.test.mjs \
+            scripts/release/cd-pwa-preview-smoke/live-bundle-poll.test.mjs \
+            scripts/release/cd-pwa-preview-smoke/live-bundle-poll.more.test.mjs \
+            scripts/release/cd-pwa-preview-smoke/smoke-failure-evidence.test.mjs \
             scripts/release/cd-pwa-preview-smoke/screenshot-evidence.test.mjs \
             scripts/ci/pwa-install-profile-proof.test.mjs \
             scripts/ci/cd-pwa-pages-workspace-install.test.mjs \
@@ -108,7 +112,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node@24
@@ -158,7 +162,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node@24

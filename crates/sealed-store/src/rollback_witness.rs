@@ -7,7 +7,7 @@ use opensesame_human_vault::ItemDataKey;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 
-use crate::envelope::{open_osseal, seal_osseal_in};
+use crate::envelope::{open_legacy_for_trusted_migration, open_osseal_for_path};
 use crate::path::{confined_read, confined_replace};
 use crate::store_lock::StoreLock;
 use crate::{StoreError, StoreRoot};
@@ -20,10 +20,22 @@ const SLOT_TWO: &str = "two.witness";
 const IDENTITY_ONE: &str = "one.identity";
 const IDENTITY_TWO: &str = "two.identity";
 
+pub(super) fn commitment_unbound(commitment: &[u8; 32]) -> bool {
+    *commitment == [0; 32]
+}
+
+pub(super) fn entry_plaintext_commitment(plaintext: &[u8]) -> [u8; 32] {
+    *blake3::hash(plaintext).as_bytes()
+}
+
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub(crate) struct EntryWitness {
     pub revision: u64,
     pub deleted: bool,
+    /// BLAKE3 of bound plaintext (entry body or attachment manifest).
+    /// `[0; 32]` for legacy entries, tombstones, and the attachment namespace marker.
+    #[serde(default, skip_serializing_if = "commitment_unbound")]
+    pub commitment: [u8; 32],
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -33,6 +45,7 @@ struct Witness {
     entries: BTreeMap<String, EntryWitness>,
 }
 
+#[derive(Clone)]
 pub(crate) struct WitnessRekey {
     store_id: String,
     witness: Witness,
@@ -48,11 +61,70 @@ fn hex(bytes: &[u8]) -> String {
     out
 }
 
+#[path = "rollback_witness/attachments.rs"]
+mod attachments;
+#[cfg(test)]
+#[path = "rollback_witness/attachments_tests.rs"]
+mod attachments_tests;
+#[path = "rollback_witness/commit_marker.rs"]
+mod commit_marker;
+#[cfg(test)]
+#[path = "rollback_witness/commit_marker_tests.rs"]
+mod commit_marker_tests;
+#[path = "rollback_witness/migration.rs"]
+mod migration;
+#[path = "rollback_witness/normalize.rs"]
+mod normalize;
 #[path = "rollback_witness/persistence.rs"]
 mod persistence;
+#[path = "rollback_witness/rekey.rs"]
+mod rekey;
+#[cfg(test)]
+#[path = "rollback_witness/rotation_marker_tests.rs"]
+mod rotation_marker_tests;
+#[path = "rollback_witness/slot_selection.rs"]
+mod slot_selection;
+#[path = "rollback_witness/trusted_recovery.rs"]
+mod trusted_recovery;
+#[path = "rollback_witness/entry_commitment.rs"]
+mod entry_commitment;
+
+#[cfg(test)]
+#[path = "rollback_witness/entry_commitment_tests.rs"]
+mod entry_commitment_tests;
 
 impl StoreRoot {
-    fn migration_entry_witness(
+    pub(super) fn migration_entry_witness_v1_upgrade(
+        &self,
+        name: &str,
+        revision: u64,
+        key: &ItemDataKey,
+    ) -> Result<EntryWitness, StoreError> {
+        if revision == 0 {
+            return Err(StoreError::Crypto("invalid zero revision state".into()));
+        }
+        let relative = Self::entry_relative(name, "osseal")?;
+        let path = self.path.join(&relative);
+        if !path.exists() {
+            return Ok(EntryWitness {
+                revision,
+                deleted: true,
+                commitment: [0; 32],
+            });
+        }
+        let blob = confined_read(&self.path, &relative)?;
+        let plaintext = match open_osseal_for_path(&blob, key, name, Some(revision)) {
+            Ok(opened) => opened.plaintext,
+            Err(_) => open_legacy_for_trusted_migration(&blob, key)?,
+        };
+        Ok(EntryWitness {
+            revision,
+            deleted: false,
+            commitment: entry_plaintext_commitment(&plaintext),
+        })
+    }
+
+    pub(super) fn migration_entry_witness(
         &self,
         name: &str,
         revision: u64,
@@ -67,9 +139,10 @@ impl StoreRoot {
             return Ok(EntryWitness {
                 revision,
                 deleted: true,
+                commitment: [0; 32],
             });
         }
-        let opened = open_osseal(
+        let opened = open_osseal_for_path(
             &confined_read(&self.path, &relative)?,
             key,
             name,
@@ -83,6 +156,7 @@ impl StoreRoot {
         Ok(EntryWitness {
             revision,
             deleted: false,
+            commitment: entry_plaintext_commitment(&opened.plaintext),
         })
     }
 
@@ -102,7 +176,8 @@ impl StoreRoot {
             if !path.exists() || entries.contains_key(&name) {
                 continue;
             }
-            let opened = open_osseal(&confined_read(&self.path, &relative)?, key, &name, None)?;
+            let opened =
+                open_osseal_for_path(&confined_read(&self.path, &relative)?, key, &name, None)?;
             if !opened.legacy {
                 return Err(StoreError::Crypto(format!(
                     "missing anti-rollback state for {name}; refusing ciphertext bootstrap"
@@ -113,39 +188,40 @@ impl StoreRoot {
                 EntryWitness {
                     revision: 1,
                     deleted: false,
+                    commitment: [0; 32],
                 },
             );
         }
-        Ok(Witness {
-            version: 1,
+        let mut witness = Witness {
+            version: 2,
             epoch: 1,
             entries,
-        })
+        };
+        self.anchor_attachments(&mut witness, key)?;
+        Ok(witness)
     }
-
     fn new_store_id() -> String {
         let mut random = [0_u8; 16];
         rand::rng().fill_bytes(&mut random);
         hex(&random)
     }
-
     fn persist_new_anchor(
         &self,
         key: &ItemDataKey,
         store_id: &str,
         witness: &Witness,
     ) -> Result<(), StoreError> {
-        self.write_outside_identity(key, store_id)?;
         self.write_witness(store_id, key, witness)?;
+        self.write_outside_identity(key, store_id)?;
         confined_replace(&self.path, Path::new(STORE_ID_FILE), store_id.as_bytes())?;
         Ok(())
     }
-
     fn initialize_fresh_witness(&self, key: &ItemDataKey) -> Result<(String, Witness), StoreError> {
+        let inventory = crate::rotation_walk::inventory(&self.path)?;
         if !self.revisions()?.is_empty()
-            || !crate::rotation_walk::inventory(&self.path)?
-                .entries
-                .is_empty()
+            || !inventory.entries.is_empty()
+            || !self.attachment_revisions()?.is_empty()
+            || !inventory.attachments.is_empty()
         {
             return Err(StoreError::Crypto(
                 "outside rollback anchor is missing for an existing store; run the explicit rollback-anchor migration after verifying the current checkout"
@@ -153,18 +229,18 @@ impl StoreRoot {
             ));
         }
         let store_id = Self::new_store_id();
-        let witness = Witness {
-            version: 1,
+        let mut witness = Witness {
+            version: 2,
             epoch: 1,
             entries: BTreeMap::new(),
         };
+        attachments::mark_empty(&mut witness);
         self.persist_new_anchor(key, &store_id, &witness)?;
         Ok((store_id, witness))
     }
-
     fn current_witness(&self, key: &ItemDataKey) -> Result<(String, Witness), StoreError> {
         let inside = self.read_store_id()?;
-        match self.read_outside_identity(key)? {
+        let (store_id, mut witness) = match self.read_outside_identity(key)? {
             Some(identity) => {
                 if inside.as_ref().is_some_and(|id| id != &identity.store_id) {
                     return Err(StoreError::Crypto(
@@ -173,18 +249,6 @@ impl StoreRoot {
                 }
                 let witness = match self.load_witness(&identity.store_id, key)? {
                     Some(witness) => witness,
-                    None if inside.is_none()
-                        && self.revisions()?.is_empty()
-                        && crate::rotation_walk::inventory(&self.path)?.entries.is_empty() =>
-                    {
-                        let witness = Witness {
-                            version: 1,
-                            epoch: 1,
-                            entries: BTreeMap::new(),
-                        };
-                        self.write_witness(&identity.store_id, key, &witness)?;
-                        witness
-                    }
                     None => {
                         return Err(StoreError::Crypto(
                             "rollback witness is missing; restore its outside-store checkpoint"
@@ -206,17 +270,16 @@ impl StoreRoot {
                     .into(),
             )),
             None => self.initialize_fresh_witness(key),
-        }
+        }?;
+        witness.entries = normalize::entries(witness.entries)?;
+        Ok((store_id, witness))
     }
-
     /// Explicitly anchors a pre-witness store after the operator has verified
     /// that its current checkout is the intended high-water state.
     pub fn migrate_rollback_anchor(&self, key: &ItemDataKey) -> Result<(), StoreError> {
         let _lock = StoreLock::exclusive_for_key(&self.path, key)?;
-        if self.read_outside_identity(key)?.is_some() {
-            return Err(StoreError::Other(
-                "outside rollback anchor already exists".into(),
-            ));
+        if let Some(identity) = self.read_outside_identity(key)? {
+            return self.migrate_existing_witness(key, &identity.store_id);
         }
         if self.read_store_id()?.is_some() {
             return Err(StoreError::Crypto(
@@ -233,16 +296,23 @@ impl StoreRoot {
         name: &str,
         key: &ItemDataKey,
     ) -> Result<EntryWitness, StoreError> {
-        self.current_witness(key)?
+        let state = self
+            .current_witness(key)?
             .1
             .entries
-            .get(name)
+            .get(&crate::store::revision_identity(name)?)
             .copied()
             .ok_or_else(|| {
                 StoreError::Crypto(format!(
                     "missing anti-rollback state for {name}; refusing ciphertext bootstrap"
                 ))
-            })
+            })?;
+        if !state.deleted {
+            // A mismatch, a decrypt failure, and an I/O error are all unverified.
+            // Returning the witness after any of them would fail open.
+            self.verify_entry_plaintext(name, key, &state)?;
+        }
+        Ok(state)
     }
 
     pub(crate) fn next_entry_revision(
@@ -251,115 +321,32 @@ impl StoreRoot {
         path: &Path,
         key: &ItemDataKey,
     ) -> Result<u64, StoreError> {
-        let (store_id, mut witness) = self.current_witness(key)?;
-        if path.exists() && !witness.entries.contains_key(name) {
-            return Err(StoreError::Crypto(format!(
-                "missing anti-rollback state for {name}; refusing ciphertext bootstrap"
-            )));
-        }
-        let current = witness.entries.get(name).map_or(0, |entry| entry.revision);
-        let next = current
-            .checked_add(1)
-            .ok_or_else(|| StoreError::Crypto("entry revision exhausted".into()))?;
-        witness.entries.insert(
-            name.to_string(),
-            EntryWitness {
-                revision: next,
-                deleted: false,
-            },
-        );
-        witness.epoch = witness
-            .epoch
-            .checked_add(1)
-            .ok_or_else(|| StoreError::Crypto("rollback witness epoch exhausted".into()))?;
-        self.write_witness(&store_id, key, &witness)?;
-        self.record_revision(name, next)?;
-        Ok(next)
+        self.next_entry_revision_after(name, path, key, 0, None, false)
     }
 
     pub(crate) fn tombstone_entry(&self, name: &str, key: &ItemDataKey) -> Result<(), StoreError> {
         let (store_id, mut witness) = self.current_witness(key)?;
+        let local = self.revision(name)?.unwrap_or(0);
+        let identity = crate::store::revision_identity(name)?;
         let entry = witness
             .entries
-            .get_mut(name)
+            .get_mut(&identity)
             .ok_or_else(|| StoreError::Crypto(format!("missing anti-rollback state for {name}")))?;
         if entry.deleted {
-            return Ok(());
+            return self.record_revision(name, entry.revision.max(local));
         }
+        entry.revision = entry
+            .revision
+            .max(local)
+            .checked_add(1)
+            .ok_or_else(|| StoreError::Crypto("entry revision exhausted".into()))?;
+        let revision = entry.revision;
         entry.deleted = true;
         witness.epoch = witness
             .epoch
             .checked_add(1)
             .ok_or_else(|| StoreError::Crypto("rollback witness epoch exhausted".into()))?;
-        self.write_witness(&store_id, key, &witness)
-    }
-
-    pub(crate) fn prepare_witness_rekey(
-        &self,
-        old_key: &ItemDataKey,
-    ) -> Result<WitnessRekey, StoreError> {
-        let (store_id, witness) = self.current_witness(old_key)?;
-        let prepared = WitnessRekey { store_id, witness };
-        // Heal redundancy after a prior post-commit crash before overwriting
-        // either pair for the next rotation. Slot two then remains a usable
-        // current-key recovery path while slot one moves to the new key.
-        self.write_rekeyed_witness(&prepared, old_key)?;
-        self.finish_rekeyed_witness(&prepared, old_key)?;
-        Ok(prepared)
-    }
-
-    pub(crate) fn write_rekeyed_witness(
-        &self,
-        prepared: &WitnessRekey,
-        key: &ItemDataKey,
-    ) -> Result<(), StoreError> {
-        let plaintext = serde_json::to_vec(&prepared.witness)
-            .map_err(|error| StoreError::Crypto(format!("rollback witness: {error}")))?;
-        let sealed = seal_osseal_in(
-            COLLECTION,
-            &plaintext,
-            key,
-            &prepared.store_id,
-            prepared.witness.epoch,
-        )?;
-        self.write_outside_identity_slot(key, &prepared.store_id, IDENTITY_ONE)?;
-        self.write_witness_slot(&prepared.store_id, SLOT_ONE, &sealed)
-    }
-
-    pub(crate) fn finish_rekeyed_witness(
-        &self,
-        prepared: &WitnessRekey,
-        key: &ItemDataKey,
-    ) -> Result<(), StoreError> {
-        let plaintext = serde_json::to_vec(&prepared.witness)
-            .map_err(|error| StoreError::Crypto(format!("rollback witness: {error}")))?;
-        let sealed = seal_osseal_in(
-            COLLECTION,
-            &plaintext,
-            key,
-            &prepared.store_id,
-            prepared.witness.epoch,
-        )?;
-        self.write_outside_identity_slot(key, &prepared.store_id, IDENTITY_TWO)?;
-        self.write_witness_slot(&prepared.store_id, SLOT_TWO, &sealed)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn write_first_rekeyed_witness_slot(
-        &self,
-        prepared: &WitnessRekey,
-        key: &ItemDataKey,
-    ) -> Result<(), StoreError> {
-        let plaintext = serde_json::to_vec(&prepared.witness)
-            .map_err(|error| StoreError::Crypto(format!("rollback witness: {error}")))?;
-        let sealed = seal_osseal_in(
-            COLLECTION,
-            &plaintext,
-            key,
-            &prepared.store_id,
-            prepared.witness.epoch,
-        )?;
-        self.write_outside_identity_slot(key, &prepared.store_id, IDENTITY_ONE)?;
-        self.write_witness_slot(&prepared.store_id, SLOT_ONE, &sealed)
+        self.write_witness(&store_id, key, &witness)?;
+        self.record_revision(name, revision)
     }
 }

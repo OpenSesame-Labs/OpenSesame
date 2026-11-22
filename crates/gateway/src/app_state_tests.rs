@@ -147,3 +147,6 @@ fn configured_openfga_must_be_valid_before_host_starts() {
         );
     }
 }
+
+#[path = "task_invocation_roundtrip_tests.rs"]
+mod task_invocation_roundtrip_tests;

@@ -438,3 +438,45 @@ description = "Historical path only (bitwarden-sdk-resource test since moved or 
 paths = [
   '''bitwarden-sdk-resource\.test\.mjs$''',
 ]
+
+# Historical CI Postgres proof workflows on codex branches only (dev-default postgres
+# service password and matching DATABASE_URL user; not issued credentials).
+[[allowlists]]
+description = "Historical revocation-validation temporary Postgres proof workflow (postgres dev default only)"
+condition = "AND"
+paths = [
+  '''^\.github/workflows/revocation-validation-temporary\.yml$''',
+]
+commits = [
+  '''0ad8dd0d422c182aa9ec593151d48513bd39e0a7''',
+]
+
+[[allowlists]]
+description = "Historical Identity combined Postgres proof workflow (postgres dev default only)"
+condition = "AND"
+paths = [
+  '''^\.github/workflows/identity-combined-postgres-proof\.yml$''',
+]
+commits = [
+  '''41c5091a3f23f4ce96b032dd6081d92f2f75f4a5''',
+]
+
+[[allowlists]]
+description = "Historical Identity final Postgres proof workflow (postgres dev default only)"
+condition = "AND"
+paths = [
+  '''^\.github/workflows/identity-final-postgres-proof\.yml$''',
+]
+commits = [
+  '''6d0e89850d63a83083cc907bb2de108e98c778ae''',
+]
+
+[[allowlists]]
+description = "Historical PinEntry autoComplete new-password UI attribute (tutorial branch)"
+condition = "AND"
+paths = [
+  '''^apps/pages/src/screens/unlock/PinEntry\.tsx$''',
+]
+commits = [
+  '''4f393fd0b65616e42c24b2572654685525153fbb''',
+]

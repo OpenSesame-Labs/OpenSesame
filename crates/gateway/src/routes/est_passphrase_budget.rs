@@ -30,6 +30,8 @@ pub(super) async fn reserve(
         )
         .await
         .map_err(|error| super::internal(error, "reserve est passphrase check"))?;
+    #[cfg(test)]
+    super::test_pause::point(&config.organization_id, "password").await;
     let Some(attempt) = reserved else {
         return Err((
             StatusCode::TOO_MANY_REQUESTS,

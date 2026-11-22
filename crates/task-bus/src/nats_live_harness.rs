@@ -60,6 +60,29 @@ pub(crate) fn free_port() -> u16 {
         .port()
 }
 
+/// Start a member of the disposable route cluster.
+pub(crate) fn route_node(
+    pki: &Pki,
+    roles: &Roles,
+    ports: (u16, u16, u16),
+    route: &(PathBuf, PathBuf),
+    route_ca: &Path,
+) -> Server {
+    let (client_port, route_port, peer_route_port) = ports;
+    Server::start(
+        "secure-routes.conf",
+        &super::live_topology::cluster_env(
+            pki,
+            roles,
+            client_port,
+            route_port,
+            peer_route_port,
+            route,
+            route_ca,
+        ),
+    )
+}
+
 pub(crate) fn write(dir: &Path, name: &str, bytes: &[u8]) -> PathBuf {
     let path = dir.join(name);
     std::fs::write(&path, bytes).expect("write fixture");

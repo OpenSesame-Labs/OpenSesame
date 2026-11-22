@@ -17,7 +17,9 @@ function Card({ actionOnly = false }: { actionOnly?: boolean }): ReactElement {
   useCoachFocus(true, "1:step:1", card, primary, actionOnly);
   return (
     <section ref={card}>
-      <button type="button" aria-label="Exit tutorial" />
+      {/* The exit key is found by its data attribute, as the real Head's
+          key renders it — copy never decides where focus lands. */}
+      <button type="button" aria-label="Exit tutorial" data-coach-exit="" />
       <button type="button" ref={primary}>
         Next
       </button>

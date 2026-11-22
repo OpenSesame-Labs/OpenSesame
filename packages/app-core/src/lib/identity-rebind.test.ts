@@ -93,7 +93,7 @@ describe("fresh guest sessions", () => {
     endSession();
     const opening = connectFreshProvisional().then(
       (session) => ({ session }),
-      (error: unknown) => ({ error }),
+      (error: Error) => ({ error }),
     );
     await vi.waitFor(() => expect(finishRevoke).toBeTypeOf("function"));
     const checkedBeforeSignOut = requests.mock.calls.some(([url]) =>
@@ -143,7 +143,7 @@ describe("fresh guest sessions", () => {
     });
     const opening = connectFreshProvisional().then(
       (session) => ({ session }),
-      (error: unknown) => ({ error }),
+      (error: Error) => ({ error }),
     );
     await vi.waitFor(() => expect(finishProbe).toBeTypeOf("function"));
     restoreSession({

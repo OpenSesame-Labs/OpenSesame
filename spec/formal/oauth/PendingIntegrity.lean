@@ -22,6 +22,28 @@ theorem current_message_binds_verifier (a b x y : String)
   cases h
   rfl
 
+/-- Wire JSON may carry a plaintext verifier or a sealed `verifierEnc`; the MAC input always uses the scrypt-bound verifier. -/
+inductive WireVerifier where
+  | plaintext
+  | sealed
+
+def wireField (w : WireVerifier) : String :=
+  match w with
+  | .plaintext => "verifier"
+  | .sealed => "verifierEnc"
+
+def macVerifierBinding (w : WireVerifier) (scryptDigest : String) : String :=
+  scryptDigest
+
+theorem wire_fields_differ_implies_distinct (a b : WireVerifier) (h : a ≠ b) :
+    wireField a ≠ wireField b := by
+  cases a <;> cases b <;> first | rfl | exact absurd rfl h
+
+theorem wire_encoding_does_not_change_mac_binding (a b : WireVerifier)
+    (scryptDigest : String) :
+    macVerifierBinding a scryptDigest = macVerifierBinding b scryptDigest := by
+  rfl
+
 /-- Legacy tags require a signed nonempty static-provider ID and no unsigned fields. -/
 def acceptsLegacy (validTag hasProvider hasOrg hasByo hasUnknown : Bool) : Bool :=
   validTag && hasProvider && !hasOrg && !hasByo && !hasUnknown

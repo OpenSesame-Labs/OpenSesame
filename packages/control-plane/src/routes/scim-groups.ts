@@ -11,7 +11,7 @@ import type { Context } from "hono";
 import type { AppContext } from "../context.js";
 import type { OrganizationId } from "../lib/ids.js";
 import type { Variables } from "../middleware/context.js";
-import type { OrgOwner } from "../proofs/org-owner.js";
+import type { ActiveOrgOwner } from "../proofs/org-owner.js";
 import { serializeKeyed } from "../serialize.js";
 import { SCIM_ROLE_ATTRIBUTE, applyRole, roleOf } from "./scim-effects.js";
 import {
@@ -55,13 +55,13 @@ export { memberIds, parseMemberSelector };
 
 /**
  * Map a directory group to an organization role. Mapping a group to `owner`
- * grants ownership to everyone in it, so this takes the owner's proof about the
- * exact organization rather than trusting the caller to have checked (ADR 0178).
+ * grants ownership to everyone in it, so this requires an active-owner proof
+ * about the exact organization (ADR 0178).
  */
 export async function putGroupRoleMapping<A, O>(
   ctx: AppContext,
   org: Named<O, OrganizationId>,
-  _proof: OrgOwner<A, O>,
+  _proof: ActiveOrgOwner<A, O>,
   groupId: string,
   role: OrganizationRole,
 ): Promise<void> {

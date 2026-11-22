@@ -16,9 +16,9 @@
     "max-statements": 40
   },
   "totals": {
-    "files": 439,
-    "violations": 698,
-    "oversizedLines": 212528
+    "files": 438,
+    "violations": 695,
+    "oversizedLines": 211838
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -237,11 +237,6 @@
     "apps/pages/src/tutorial/__tests__/a11y/stylesheet-contract.test.ts": {
       "max-nested-callbacks": 1
     },
-    "apps/pages/src/tutorial/session.ts": {
-      "complexity": 1,
-      "max-lines": 660,
-      "max-lines-per-function": 1
-    },
     "apps/pages/src/tutorial/ui/SupportPanel.tsx": {
       "max-lines-per-function": 1
     },
@@ -291,7 +286,7 @@
       "max-lines": 2736
     },
     "crates/connection-broker/src/sync_target.rs": {
-      "max-lines": 796
+      "max-lines": 761
     },
     "crates/connection-broker/src/tests/connection_lifecycle.rs": {
       "max-lines": 878
@@ -507,7 +502,7 @@
       "max-lines": 420
     },
     "crates/sealed-store/src/attachment.rs": {
-      "max-lines": 1184
+      "max-lines": 1157
     },
     "crates/session-observe/src/lease.rs": {
       "max-lines": 625

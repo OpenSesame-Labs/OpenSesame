@@ -103,14 +103,18 @@ function ReleasePanel({
       <button
         type="button"
         className="unlock__notes-summary"
-        aria-label={newest ? `${release.version} Latest` : undefined}
         aria-expanded={open}
         aria-controls={panelId}
         onClick={onToggle}
       >
         <span className="unlock__notes-summary-label">
           {release.version}
-          {newest ? <span className="unlock__notes-latest">Latest</span> : null}
+          {newest ? (
+            <>
+              {" "}
+              <span className="unlock__notes-latest">Latest</span>
+            </>
+          ) : null}
         </span>
         <IconChevronRight className="unlock__notes-caret" size={24} />
       </button>

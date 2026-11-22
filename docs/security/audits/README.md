@@ -74,3 +74,4 @@ here. The architecture-level documents they refine live one level up in
 | 2026-10-25 | [Codex Security Cloud finding remediation](2026-10-25-codex-cloud-remediation.md) |
 | 2026-11-11 | [Dependency patches were declared but not installed](2026-11-11-dependency-patches-not-installed.md) |
 | 2026-11-17 | [MQTT debug logs exposed credentials and live frames](2026-11-17-mqtt-debug-logging.md) |
+| 2026-11-20 | [Gitleaks history review of Bitwarden vault fixtures](2026-11-20-gitleaks-history-bitwarden-fixtures.md) |

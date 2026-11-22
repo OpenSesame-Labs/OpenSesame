@@ -57,6 +57,32 @@ export const SPARSE_WORKSPACE_BUILD = Object.freeze([
   "/.dockerignore",
 ]);
 
+/**
+ * The opensesame GHCR job links `x86_64-unknown-linux-musl`. Cargo reads
+ * `.cargo/config.toml` for the musl linker, so that root file is on this
+ * checkout only.
+ */
+const SPARSE_OPENSESAME_RUST = Object.freeze([
+  ...SPARSE_WORKSPACE_BUILD,
+  "/.cargo/config.toml",
+]);
+
+/**
+ * Pages image build runs the SAML worker freshness guard, which formats with
+ * Biome. `biome.json` sets `vcs.useIgnoreFile`, so the Docker context needs
+ * the root `.gitignore` beside `/biome.json`.
+ */
+const SPARSE_WEB_PWA_AMD64 = Object.freeze([
+  ...SPARSE_WORKSPACE_BUILD.slice(
+    0,
+    SPARSE_WORKSPACE_BUILD.indexOf("/biome.json") + 1,
+  ),
+  "/.gitignore",
+  ...SPARSE_WORKSPACE_BUILD.slice(
+    SPARSE_WORKSPACE_BUILD.indexOf("/biome.json") + 1,
+  ),
+]);
+
 /** Release scripts and mise, with no workspace install. */
 export const SPARSE_CD_RELEASE_SCRIPT = Object.freeze([
   "scripts/lib",
@@ -111,6 +137,20 @@ export const PROOF_CHECKOUT_PLAN = Object.freeze({
     Object.freeze({ paths: SPARSE_CI_REPORTER }),
     Object.freeze({ paths: SPARSE_CI_REPORTER }),
   ]),
+  ".github/workflows/cd-pwa-stranded-dispatch.yml": Object.freeze([
+    Object.freeze({
+      paths: [
+        "scripts/lib",
+        "scripts/release",
+        "scripts/quality",
+        ".github/workflows/cd-pwa.yml",
+        "/mise.toml",
+        "/mise.lock",
+      ],
+      history:
+        "git diff from live Pages release.json revision to HEAD needs full history.",
+    }),
+  ]),
   ".github/workflows/cd-pwa.yml": Object.freeze([
     Object.freeze({ paths: SPARSE_CD_RELEASE_SCRIPT }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
@@ -142,10 +182,10 @@ export const PROOF_CHECKOUT_PLAN = Object.freeze({
         "/patches/vendor",
       ],
     }),
+    Object.freeze({ paths: SPARSE_OPENSESAME_RUST }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
-    Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
-    Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
+    Object.freeze({ paths: SPARSE_WEB_PWA_AMD64 }),
   ]),
 });
 

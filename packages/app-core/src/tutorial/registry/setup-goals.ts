@@ -81,7 +81,7 @@ export const SETUP_GOALS: readonly GuideGoalDescriptor[] = [
   },
   {
     id: "vault.second-step.code",
-    title: "Email codes",
+    title: "Email and text codes",
     routes: [],
     requires: ["signin-service.configured", "vault.key-enrolled"],
     guide: [
@@ -91,7 +91,7 @@ export const SETUP_GOALS: readonly GuideGoalDescriptor[] = [
       'wait state "vault.unlocked" is=true timeout=60000',
       'navigate "/settings/security"',
       'wait route "/settings/security" timeout=15000',
-      'focus "settings.second-step.email" "Manage email codes here. When you add one, verify the code sent to you." side=bottom',
+      'focus "settings.second-step.email" "Manage the code rows here — this one is email, the row below it text. When you add one, verify the code sent to you." side=bottom',
       "end",
     ].join("\n"),
   },
@@ -124,7 +124,7 @@ export const SETUP_HELP: readonly HelpTopic[] = [
     id: "help.setup",
     title: "How do I choose who can sign in?",
     answer:
-      "On a new device, you can set up your own vault, join a session, or import a file. Setup lets you choose features and sign-in providers. You can also use a local vault without an account.",
+      "On a new device, you can set up your own vault or join a session. Setup lets you choose features and sign-in providers. You can also use a local vault without an account.",
     routes: ["/setup"],
     goal: "gate.setup.choose",
     keywords: [

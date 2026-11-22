@@ -96,6 +96,7 @@ function scannerPolicyPath(path) {
     path === "scripts/lib/dependency-compatibility.test.mjs" ||
     path === "scripts/fuzz/jazzer-gate.sh" ||
     path === "scripts/lib/fuzz-directory.sh" ||
+    path === "scripts/mtls/mtls-fixtures.sh" ||
     (path.startsWith("scripts/audit/") && !path.includes(".test.")) ||
     securityHelperPath(path)
   );

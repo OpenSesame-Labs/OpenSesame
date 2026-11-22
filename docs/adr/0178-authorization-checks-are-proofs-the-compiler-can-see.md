@@ -69,9 +69,10 @@ proof does not compile. At runtime a proof is a frozen `{ kind }` object.
    names, so a handler cannot return or store one. Where a per-resource lock
    exists it stays outermost and the proof is minted inside it.
 5. **Preserve behavior; record drift.** Where call sites disagree, each
-   behavior becomes an explicit named option on the proof (`OrgLiveness`:
-   `not_deleted`, `active`, `unchecked`) and a test pins it. Nothing is unified
-   silently.
+   behavior becomes an explicit named option on the proof and a test pins it.
+   The original refactor included `unchecked`; the follow-up below removes it
+   after addressing that drift. The remaining choices are `not_deleted` and
+   `active`.
 6. **Every proof has a `*.mistakes.ts`**: a file nothing runs, of
    `@ts-expect-error` lines for the ways to skip or misuse it. `tsc` fails if one
    starts compiling, so weakening `Named`, a proof or a guarded function shows
@@ -92,7 +93,8 @@ proof does not compile. At runtime a proof is a frozen `{ kind }` object.
 
 | Fact | Proof | Demanded by |
 |---|---|---|
-| Actor owns a live organization | `OrgOwner<A, O>` | domain claim/verify/release, LDAP put/remove/sync, SCIM token mint/revoke, group-role mapping (can map a group to `owner`), organization update, member add/change/remove |
+| Actor owns a non-deleted organization | `OrgOwner<A, O>` | domain claim/verify/release, LDAP put/remove/sync, organization update |
+| Actor owns an active organization | `ActiveOrgOwner<A, O>` | SCIM token mint/revoke, group-role mapping (can map a group to `owner`), member add/change/remove |
 | Actor has a project role on a visible project | `ProjectMember` / `ProjectAdmin` / `ProjectOwner` | project update/delete, member grant/revoke/leave, owner grant/revoke |
 | Actor is a stored, non-provisional principal | `VerifiedPrincipal<A>` | OAuth client create/patch/rotate/revoke, `AppClaimService.startClaim`/`verifyAndClaim`, authentication-application create, organization create |
 | Actor owns a webhook endpoint | `OwnsWebhook<A, W>` | webhook delete (the repository's `deleteById` takes a bare id) |
@@ -102,7 +104,9 @@ proof does not compile. At runtime a proof is a frozen `{ kind }` object.
 
 ## Drift found and kept, for the owners to decide
 
-These are existing behaviors the refactor made visible. None was changed.
+These are behaviors the original refactor made visible. The organization
+liveness drift is addressed in the follow-up below; the list otherwise records
+the findings as they stood at that refactor.
 
 - **Three readings of a live organization.** Domains, LDAP and organization
   update accept any state but `deleted` (so `provisional` and `suspended`
@@ -121,6 +125,31 @@ These are existing behaviors the refactor made visible. None was changed.
 - **Personal-project rules differ per route** (`409
   personal_project_not_shareable` on add, `personal_project_immutable` on
   remove, nothing on role change).
+
+### Organization-liveness follow-up
+
+Organization member administration and SCIM role-mapping administration now
+require an `active` organization, like SCIM provisioning, and the `unchecked`
+owner-proof option is removed. A distinct `ActiveOrgOwner` proof is required by
+the guarded membership, role-mapping and SCIM token writes, so a repair-oriented
+`not_deleted` owner proof cannot be used to call them. A suspended,
+provisional or deleted organization therefore cannot use an existing owner
+membership to inspect or change members, role mappings or SCIM tokens, and
+its provisioners cannot use existing tokens to access the SCIM directory.
+Suspension preserves those records; reactivation restores the same authority.
+Other owner operations that support administrative repair retain their existing
+`not_deleted` requirement. A deleted organization is not reactivated by these
+routes.
+
+Identity also checks that the organization is active when beginning a Host
+authorization and again after verifying the passkey before signing the evidence.
+A completion refused while inactive spends its pending ceremony; an unspent,
+unexpired ceremony can still complete after reinstatement. The Host verifies
+Identity evidence offline, so signing does not itself revoke evidence previously
+issued before suspension or deletion. The challenge and assertion expire within
+five minutes and Host revocation checks still apply, but immediate propagation
+of an organization lifecycle change requires a separate cross-plane revocation
+mechanism.
 
 ## Not applied, and why
 

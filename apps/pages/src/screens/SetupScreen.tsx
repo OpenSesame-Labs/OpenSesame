@@ -27,7 +27,6 @@ import {
   signInMethods,
 } from "@opensesame/app-core/lib/settings.js";
 import { completeSetup } from "@opensesame/app-core/lib/setup.js";
-import type { ComponentType } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
   IconCheck,
@@ -45,6 +44,10 @@ import {
   applySetupConfiguration,
 } from "./setup/apply-configuration.js";
 import { KeepIt } from "./setup/KeepIt.js";
+import {
+  dismissMinimalConfirm,
+  showMinimalConfirm,
+} from "./setup/minimal-confirm.js";
 import { SetupBrand } from "./setup/SetupBrand.js";
 import {
   type ConfigurationChoice,
@@ -56,27 +59,14 @@ import { useRovingTabs } from "./use-roving-tabs.js";
 import "./setup.css";
 import "./setup/steps/steps.css";
 
-import { useCompositionContributions } from "../bindings/capabilities.js";
-/** One tab: the fixed capabilities tab, or a `setup-panel` contribution. */
-export type SetupPanel = Readonly<{
-  id: string;
-  tab: string;
-  rail: string;
-  Panel: ComponentType;
-  order?: number;
-}>;
+import {
+  CAPABILITIES_STEP,
+  baseSetupPanels,
+  useContributedPanels,
+} from "./setup/setup-panels.js";
 
-export const CAPABILITIES_STEP = "capabilities";
-
-function useContributedPanels(): readonly SetupPanel[] {
-  return useCompositionContributions("setup-panel").map((entry) => ({
-    id: entry.id,
-    tab: entry.tab,
-    rail: entry.rail,
-    Panel: entry.Panel,
-    order: entry.order,
-  }));
-}
+export type { SetupPanel } from "./setup/setup-panels.js";
+export { CAPABILITIES_STEP } from "./setup/setup-panels.js";
 
 export const setupScreenDependencies = {
   completeSetup,
@@ -107,18 +97,9 @@ export function SetupScreen({
 }) {
   const finishRef = useGuideTarget<HTMLButtonElement>("setup.finish");
   const [finishing, setFinishing] = useState(false);
+  useEffect(() => () => dismissMinimalConfirm(), []);
   const contributed = setupScreenDependencies.useSetupPanels();
-  const STEPS: readonly SetupPanel[] = [
-    {
-      id: CAPABILITIES_STEP,
-      tab: CAPABILITIES_STEP,
-      rail: "Capabilities",
-      Panel: CapabilitySetup,
-    },
-    ...[...contributed].sort(
-      (a, b) => (a.order ?? 0) - (b.order ?? 0) || a.id.localeCompare(b.id),
-    ),
-  ];
+  const STEPS = baseSetupPanels(contributed);
   const [rawIndex, setIndex] = useState(() =>
     Math.max(
       0,
@@ -133,6 +114,8 @@ export function SetupScreen({
     step || join ? "ceremony" : "choose",
   );
   const [pending, setPending] = useState<ConfigurationChoice | null>(null);
+  // Both confirm choices can run in one turn, before `pending` renders.
+  const committing = useRef(false);
   const frameRef = useRef<HTMLDivElement>(null);
   const { tabProps } = useRovingTabs({
     count: STEPS.length,
@@ -152,6 +135,7 @@ export function SetupScreen({
   const verb = finishing ? "Saving…" : "Finish setup";
 
   function finish(skippedSteps: readonly SetupStep[]) {
+    dismissMinimalConfirm();
     // The answers already live in `settings.v1` — every step writes there as
     // it is touched, because the screens that read them do too. The record
     // only says which roads were taken and which were stepped past, so a
@@ -190,20 +174,41 @@ export function SetupScreen({
     finish([...skipped, ...STEPS.slice(index).map((step) => step.id)]);
   }
 
+  function commit(id: AppliedConfiguration) {
+    if (committing.current || pending || finishing) return;
+    committing.current = true;
+    dismissMinimalConfirm();
+    setPending(id);
+    void applySetupConfiguration(id)
+      .then((result) => {
+        if (result === "applied") finish([]);
+        else {
+          committing.current = false;
+          setPending(null);
+        }
+      })
+      .catch(() => {
+        committing.current = false;
+        setPending(null);
+      });
+  }
+
   function choose(id: ConfigurationChoice) {
+    if (committing.current || pending || finishing) return;
     if (id === "custom") {
+      dismissMinimalConfirm();
       setPhase("ceremony");
       return;
     }
-    if (pending || finishing) return;
-    const applied: AppliedConfiguration = id;
-    setPending(id);
-    void applySetupConfiguration(applied)
-      .then((result) => {
-        if (result === "applied") finish([]);
-        else setPending(null);
-      })
-      .catch(() => setPending(null));
+    if (id === "minimal") {
+      showMinimalConfirm(
+        () => commit("minimal"),
+        () => commit("default"),
+      );
+      return;
+    }
+    dismissMinimalConfirm();
+    commit(id);
   }
   function stepBack() {
     if (index <= 0) return;
@@ -227,7 +232,10 @@ export function SetupScreen({
               className="icon-btn setup__back"
               aria-label="Close"
               title="Close"
-              onClick={onDone}
+              onClick={() => {
+                dismissMinimalConfirm();
+                onDone();
+              }}
             >
               <IconX size={18} />
             </button>

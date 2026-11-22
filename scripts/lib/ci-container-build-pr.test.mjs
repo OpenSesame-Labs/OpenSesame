@@ -141,6 +141,13 @@ describe("opensesame image metadata", () => {
     expect(docker).toMatch(
       /CMD \["curl", "-fsS", "http:\/\/127\.0\.0\.1:8787\/health\/live"\]/,
     );
+    expect(docker).toMatch(
+      /alpine:3\.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf/,
+    );
+    expect(docker).toMatch(/apk add --no-cache ca-certificates curl \\/);
+    expect(docker).not.toMatch(/apk add[^\n]*gcompat/);
+    expect(docker).not.toMatch(/apk add[^\n]*libstdc/);
+    expect(docker).not.toMatch(/apk add[^\n]*dbus-libs/);
     expect(spec.dockerInspect.Entrypoint).toEqual(["opensesame"]);
     expect(spec.dockerInspect.ExposedPorts).toEqual({ "8787/tcp": {} });
     expect(spec.labels["org.opencontainers.image.version"]).toBe("0.0.0-local");
@@ -201,6 +208,7 @@ describe("heavy auxiliary suites are CD concerns", () => {
       "cd-npm-publish-proof.yml",
       "cd-promotion-gates-proof.yml",
       "cd-pwa-profile-proof.yml",
+      "cd-pwa-stranded-dispatch.yml",
       "cd-pwa.yml",
       "ci-advisory.yml",
       "ci-grok-commits.yml",

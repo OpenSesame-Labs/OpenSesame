@@ -10,6 +10,7 @@
  */
 
 import type { PackRow } from "@opensesame/app-core/sections/settings/item-type-packs-model.js";
+import { useCallback } from "react";
 import { StatusMark } from "../../../components/StatusMark.js";
 import { useOptionalGuideTarget } from "../../../tutorial/registry/react.jsx";
 
@@ -79,10 +80,18 @@ export function PackRowView({
       ? "settings.account-ready"
       : undefined,
   );
-  const bind = (element: HTMLElement | null) => {
-    install(element);
-    ready(element);
-  };
+  // Stable across renders: a fresh closure per render would make React run
+  // the null→element cycle on every update, unmounting and remounting both
+  // targets each time the row re-renders. The hook's own refs are stable
+  // until their id changes, so this callback changes identity exactly when
+  // the registrations themselves must.
+  const bind = useCallback(
+    (element: HTMLElement | null) => {
+      install(element);
+      ready(element);
+    },
+    [install, ready],
+  );
   if (row.control !== "switch") {
     return (
       <li className="pack pack--fixed" data-phase={row.phase}>

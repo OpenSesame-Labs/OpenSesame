@@ -10,12 +10,21 @@
 import { name } from "@gdp-ts/core";
 import type { AppContext } from "../context.js";
 import { actorId, organizationId } from "../lib/ids.js";
-import { putLdapConfig, removeLdapConfig } from "../services/org-admin.js";
-import { orgOwner } from "./org-owner.js";
+import { putGroupRoleMapping } from "../routes/scim-groups.js";
+import {
+  mintScimToken,
+  putLdapConfig,
+  removeLdapConfig,
+  removeOrganizationMembership,
+  revokeScimToken,
+  writeOrganizationMembership,
+} from "../services/org-admin.js";
+import { activeOrgOwner, orgOwner } from "./org-owner.js";
 
 export async function orgOwnerMistakes(
   ctx: AppContext,
   config: Parameters<typeof putLdapConfig>[3],
+  membership: Parameters<typeof writeOrganizationMembership>[3],
 ): Promise<void> {
   await name(
     actorId("prn_1"),
@@ -42,6 +51,24 @@ export async function orgOwnerMistakes(
 
       // @ts-expect-error — a user id is not an organization id.
       await orgOwner(ctx.stores, actor, actor, "not_deleted");
+
+      // A repair proof does not establish that an organization is active.
+      // @ts-expect-error — active owner proof required for membership writes.
+      await writeOrganizationMembership(ctx, orgA, verdict.proof, membership);
+      // @ts-expect-error — active owner proof required for membership removal.
+      await removeOrganizationMembership(ctx, orgA, verdict.proof, "prn_1");
+      // @ts-expect-error — active owner proof required for role mappings.
+      await putGroupRoleMapping(ctx, orgA, verdict.proof, "group", "owner");
+      // @ts-expect-error — active owner proof required for SCIM token minting.
+      await mintScimToken(ctx, orgA, verdict.proof, "hash");
+      // @ts-expect-error — active owner proof required for SCIM token revocation.
+      await revokeScimToken(ctx, orgA, verdict.proof, "token");
+
+      const active = await activeOrgOwner(ctx.stores, actor, orgA);
+      if (!active.ok) return;
+      await writeOrganizationMembership(ctx, orgA, active.proof, membership);
+      // @ts-expect-error — an active owner proof about A does not authorize B.
+      await writeOrganizationMembership(ctx, orgB, active.proof, membership);
     },
   );
 

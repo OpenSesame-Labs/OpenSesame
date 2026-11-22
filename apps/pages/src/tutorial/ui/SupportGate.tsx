@@ -13,10 +13,17 @@
  */
 
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import {
+  FIRST_VAULT_DOOR_STEPS,
+  FIRST_VAULT_GATE_WALK_STEPS,
+  FIRST_VAULT_SIGN_IN_PASSKEY_STEPS,
+  FIRST_VAULT_SIGN_IN_PIN_STEPS,
+} from "@opensesame/app-core/tutorial/registry/first-vault-guide.js";
 import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
 import { type ReactElement, useEffect, useState } from "react";
 import { type SupportHost, loadBrowserEngine } from "../engine.js";
 import {
+  clearFirstVaultSignInHandoff,
   continueFirstVaultGuide,
   preserveFirstVaultGate,
   useFirstVaultGateHandoff,
@@ -63,7 +70,15 @@ export function firstVaultDisplayedGateStep(
 ): number {
   const tour = guide?.tour;
   if (!tour) return 0;
-  return tour.step + (tour.count === 6 ? 2 : 0);
+  // The sign-in continuation is six steps on the PIN road and two where the
+  // passkey seals in one ceremony; both resume after the door's two.
+  return (
+    tour.step +
+    (tour.count === FIRST_VAULT_SIGN_IN_PIN_STEPS ||
+    tour.count === FIRST_VAULT_SIGN_IN_PASSKEY_STEPS
+      ? FIRST_VAULT_DOOR_STEPS
+      : 0)
+  );
 }
 
 export function SupportGate(): ReactElement {
@@ -98,9 +113,14 @@ export function SupportGate(): ReactElement {
       const unlocked = vaultStore.getSnapshot().status === "unlocked";
       sealing = firstVaultSealingState(sealing, guide, unlocked);
       if (sealing) sealingStep = firstVaultDisplayedGateStep(guide);
-      if (unlocked && sealing && guide?.goal === "gate.front-door") {
-        sealing = false;
-        continueFirstVaultGuide(sealingStep || 8);
+      if (unlocked) {
+        // The vault opened: no sign-in continuation is owed any more, and
+        // the shell continuation below is the only handoff still armed.
+        clearFirstVaultSignInHandoff();
+        if (sealing && guide?.goal === "gate.front-door") {
+          sealing = false;
+          continueFirstVaultGuide(sealingStep || FIRST_VAULT_GATE_WALK_STEPS);
+        }
       }
     };
     const stopGuide = controller.subscribe(check);
@@ -124,7 +144,7 @@ export function SupportGate(): ReactElement {
   }, [controller, route]);
 
   useEffect(() => {
-    controller.setNavigator(() => {});
+    controller.setNavigator(() => false);
   }, [controller]);
 
   return (

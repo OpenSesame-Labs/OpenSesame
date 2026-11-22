@@ -15,6 +15,7 @@
 
 pub mod account;
 mod account_files;
+mod account_options;
 pub mod vaultwarden;
 
 mod file_paths;

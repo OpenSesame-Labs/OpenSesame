@@ -1,8 +1,10 @@
 import { isCreatableItemKind } from "@opensesame/app-core/lib/item-kinds.js";
+import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import {
+  FIRST_VAULT_GATE_WALK_STEPS,
   FIRST_VAULT_PACK_GUIDE,
   FIRST_VAULT_SHELL_GUIDE,
-  FIRST_VAULT_SIGNIN_GUIDE,
+  firstVaultSignInGuide,
 } from "@opensesame/app-core/tutorial/registry/first-vault-guide.js";
 import { useEffect } from "react";
 import type { SupportController } from "./session.js";
@@ -10,7 +12,7 @@ import type { SupportController } from "./session.js";
 /** In-memory handoff from the setup gate to the newly opened vault. */
 let pending = false;
 let pendingSignIn = false;
-let pendingGateSteps = 8;
+let pendingGateSteps = FIRST_VAULT_GATE_WALK_STEPS;
 const gateStepsByController = new WeakMap<SupportController, number>();
 const listeners = new Set<() => void>();
 
@@ -25,17 +27,31 @@ function firstVaultTarget(controller: SupportController): string | null {
     : null;
 }
 
-export function continueFirstVaultGuide(gateSteps = 8): void {
+export function continueFirstVaultGuide(
+  gateSteps = FIRST_VAULT_GATE_WALK_STEPS,
+): void {
   pending = true;
   pendingGateSteps = gateSteps;
   for (const listener of [...listeners]) listener();
+}
+
+/** An unlocked vault owes no sign-in continuation: the ceremony completed. */
+export function clearFirstVaultSignInHandoff(): void {
+  pendingSignIn = false;
+}
+
+/** Drops every owed first-vault continuation. Lock and tests call this. */
+export function resetFirstVaultHandoff(): void {
+  pending = false;
+  pendingSignIn = false;
+  pendingGateSteps = FIRST_VAULT_GATE_WALK_STEPS;
 }
 
 function takeFirstVaultSteps(): number | null {
   if (!pending) return null;
   pending = false;
   const result = pendingGateSteps;
-  pendingGateSteps = 8;
+  pendingGateSteps = FIRST_VAULT_GATE_WALK_STEPS;
   return result;
 }
 
@@ -45,7 +61,7 @@ export function takeFirstVaultGuide(): boolean {
 
 /** Completed gate steps for the first-vault guide on this controller. */
 export function firstVaultGateSteps(controller: SupportController): number {
-  return gateStepsByController.get(controller) ?? 8;
+  return gateStepsByController.get(controller) ?? FIRST_VAULT_GATE_WALK_STEPS;
 }
 
 function subscribeFirstVaultGuide(listener: () => void): () => void {
@@ -88,10 +104,14 @@ export function useFirstVaultGateHandoff(
       acknowledge();
       if (pendingSignIn) {
         void controller
-          .startGuide(FIRST_VAULT_SIGNIN_GUIDE, "authored")
+          .startGuide(firstVaultSignInGuide(), "authored")
           .finally(() => {
             if (active) pendingSignIn = false;
-          });
+          })
+          // The controller surfaces a failed guide through its own snapshot;
+          // this effect only owes the flag, so a rejecting start must not
+          // escape as an unhandled rejection.
+          .catch(() => {});
       }
     });
     return () => {
@@ -103,18 +123,27 @@ export function useFirstVaultGateHandoff(
 export function useFirstVaultHandoff(controller: SupportController): void {
   useEffect(() => {
     let active = true;
+    // A vault that locks again before the continuation ran owes nothing: the
+    // first-vault walk restarts from the gate the next time around.
+    const stopLock = vaultStore.onLock(() => {
+      resetFirstVaultHandoff();
+    });
     const resume = () => {
       queueMicrotask(() => {
         if (!active) return;
         const gateSteps = takeFirstVaultSteps();
         if (gateSteps !== null) {
           gateStepsByController.set(controller, gateSteps);
-          void controller.startGuide(
-            isCreatableItemKind("account")
-              ? FIRST_VAULT_SHELL_GUIDE
-              : FIRST_VAULT_PACK_GUIDE,
-            "authored",
-          );
+          void controller
+            .startGuide(
+              isCreatableItemKind("account")
+                ? FIRST_VAULT_SHELL_GUIDE
+                : FIRST_VAULT_PACK_GUIDE,
+              "authored",
+            )
+            // As above: a rejecting start is the controller's to surface, not
+            // this effect's to crash on.
+            .catch(() => {});
         }
       });
     };
@@ -133,6 +162,7 @@ export function useFirstVaultHandoff(controller: SupportController): void {
       active = false;
       stop();
       stopGuide();
+      stopLock();
     };
   }, [controller]);
 }

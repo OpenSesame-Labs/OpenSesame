@@ -17,10 +17,13 @@ if [[ ! -x "$root/node_modules/.bin/vitest" ]]; then
   exit 1
 fi
 vectors="$(mktemp "${TMPDIR:-/tmp}/opensesame-auth-formal.XXXXXXXX")"
-trap 'rm -f "$vectors"' EXIT
+report="$(mktemp "${TMPDIR:-/tmp}/opensesame-auth-vitest.XXXXXXXX")"
+trap 'rm -f "$vectors" "$report"' EXIT
 bash "$root/spec/formal/check-axioms.sh" "$lean_bin" "$root/spec/formal/auth/AuthPolicy.lean" > "$vectors"
 cd "$root"
 OPENSESAME_AUTH_FORMAL_VECTORS="$vectors" \
-  "$root/node_modules/.bin/vitest" run --config spec/formal/auth/vitest.config.ts --maxWorkers=2
+  "$root/node_modules/.bin/vitest" run --config spec/formal/auth/vitest.config.ts --maxWorkers=2 \
+    --reporter=default --reporter=json --outputFile.json="$report"
+node scripts/test/formal-vitest-report.mjs auth "$report" "$vectors" "$root"
 node scripts/test/auth-formal-drift.mjs
 node --test scripts/test/auth-formal-drift.test.mjs

@@ -36,6 +36,7 @@ export const RUST_CACHE_PREFIX = "v0-rust";
  *   cacheHit?: boolean | string,
  *   matchedKey?: string,
  *   primaryKey?: string,
+ *   primaryIsPrefix?: boolean,
  *   mainSeedPrefixes?: string[],
  *   probeHasPayload?: boolean,
  * }} details
@@ -44,11 +45,15 @@ export function cacheHitLine(name, details) {
   const label = `${text(name)} cache`;
   const matched = text(details.matchedKey);
   const primary = text(details.primaryKey);
+  const primaryLabel = details.primaryIsPrefix
+    ? `primary prefix ${primary}`
+    : `primary ${primary}`;
   const prefixes = (details.mainSeedPrefixes ?? [])
     .map((prefix) => text(prefix))
     .filter(Boolean);
   if (details.cacheHit === true || details.cacheHit === "true") {
-    return `${label}: primary key hit ${matched || primary}`;
+    const hitKey = matched || primary;
+    return `${label}: primary key hit ${hitKey}`;
   }
   if (matched) {
     const prefix = prefixes.find((item) => matched.startsWith(item));
@@ -63,7 +68,7 @@ export function cacheHitLine(name, details) {
       ? `${label}: restore-key fallback to main prefix ${prefix}`
       : `${label}: restore-key prefix used`;
   }
-  return `${label}: miss primary ${primary}`;
+  return `${label}: miss ${primaryLabel}`;
 }
 
 /** True when `dir` contains at least one file. A missing directory is empty. */
@@ -109,6 +114,7 @@ function main() {
     cacheHit: process.env.CACHE_HIT,
     matchedKey: process.env.CACHE_MATCHED_KEY,
     primaryKey: process.env.CACHE_PRIMARY_KEY,
+    primaryIsPrefix: process.env.CACHE_PRIMARY_IS_PREFIX === "true",
     mainSeedPrefixes: prefixesFromEnv(process.env.MAIN_SEED_PREFIX),
     probeHasPayload: directoryHasFile(process.env.CACHE_PROBE_DIR),
   });

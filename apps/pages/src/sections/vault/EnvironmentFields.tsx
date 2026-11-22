@@ -78,12 +78,10 @@ function GeneratedFile({
   values: EnvironmentSchemaValues;
   id: string;
 }>) {
-  const result = renderEnvironmentSchemaItem(itemName, values);
-  const file = result.file;
+  const copySecret = useCopySecret();
   const [copied, setCopied] = useState(false);
   const [downloaded, setDownloaded] = useState(false);
   const [failed, setFailed] = useState("");
-  const copySecret = useCopySecret();
   useEffect(() => {
     if (!copied && !downloaded) return;
     const timer = setTimeout(() => {
@@ -92,6 +90,8 @@ function GeneratedFile({
     }, SHOWN_MS);
     return () => clearTimeout(timer);
   }, [copied, downloaded]);
+  const result = renderEnvironmentSchemaItem(itemName, values);
+  const file = result.file;
 
   async function copy() {
     if (!file) return;

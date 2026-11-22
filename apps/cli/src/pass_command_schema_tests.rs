@@ -1,5 +1,6 @@
 //! Compare the bounded builder with the genuine original Clap-derived schema.
 use super::pass_commands::{BoundedPassCmd, PassCmd};
+use super::pass_protect::PassProtectCmd;
 use super::PassAttachCmd;
 use clap::{Command, FromArgMatches, Subcommand};
 use std::path::PathBuf;
@@ -75,6 +76,80 @@ fn attachment_arguments_reach_the_same_original_typed_command() {
             assert_eq!(tomb.as_deref(), Some("office"));
         }
         other => panic!("wrong genuine command: {other:?}"),
+    }
+}
+
+#[test]
+fn legacy_migration_requires_an_explicit_trusted_source_assertion() {
+    let missing = BoundedPassCmd::augment_subcommands(Command::new("pass")).try_get_matches_from([
+        "pass",
+        "protect",
+        "migrate-legacy",
+        "Dev/token",
+    ]);
+    assert!(missing.is_err());
+    let cmd = parse(&[
+        "pass",
+        "protect",
+        "migrate-legacy",
+        "Dev/token",
+        "--trust-source",
+        "--path",
+        "store",
+    ]);
+    match cmd.into_inner() {
+        PassCmd::Protect {
+            cmd:
+                PassProtectCmd::MigrateLegacy {
+                    name,
+                    trust_source,
+                    path,
+                    ..
+                },
+        } => {
+            assert_eq!(name, "Dev/token");
+            assert!(trust_source);
+            assert_eq!(path, Some(PathBuf::from("store")));
+        }
+        other => panic!("wrong command: {other:?}"),
+    }
+}
+
+#[test]
+fn ciphertext_recovery_requires_an_explicit_trusted_source_assertion() {
+    let missing = BoundedPassCmd::augment_subcommands(Command::new("pass")).try_get_matches_from([
+        "pass",
+        "protect",
+        "recover-ciphertext",
+        "Dev/token",
+    ]);
+    assert!(missing.is_err());
+    let cmd = parse(&[
+        "pass",
+        "protect",
+        "recover-ciphertext",
+        "Docs/scan",
+        "--trust-source",
+        "--attachment",
+        "--path",
+        "store",
+    ]);
+    match cmd.into_inner() {
+        PassCmd::Protect {
+            cmd:
+                PassProtectCmd::RecoverCiphertext {
+                    name,
+                    trust_source,
+                    attachment,
+                    path,
+                    ..
+                },
+        } => {
+            assert_eq!(name, "Docs/scan");
+            assert!(trust_source && attachment);
+            assert_eq!(path, Some(PathBuf::from("store")));
+        }
+        other => panic!("wrong command: {other:?}"),
     }
 }
 

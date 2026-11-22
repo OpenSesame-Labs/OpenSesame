@@ -44,6 +44,15 @@ it("waits until an already mounted control becomes visible", async () => {
   );
   await vi.advanceTimersByTimeAsync(100);
   expect(settled).not.toHaveBeenCalled();
+  // jsdom lays nothing out, so stub the box a visible control reports; the
+  // appear wait settles on `visibleTargetRect`, not on the resolver's
+  // pointable-element fallback.
+  vi.spyOn(element, "getBoundingClientRect").mockReturnValue(
+    new DOMRect(0, 0, 120, 40),
+  );
+  await vi.advanceTimersByTimeAsync(100);
+  // A box alone is not enough while the control stays unpointable.
+  expect(settled).not.toHaveBeenCalled();
   element.style.display = "block";
   await vi.advanceTimersByTimeAsync(100);
   expect(settled).toHaveBeenCalledOnce();
