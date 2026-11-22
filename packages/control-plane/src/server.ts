@@ -408,12 +408,14 @@ export async function startServer(
     : undefined;
   const bindings = () => transport?.bindings() ?? EMPTY_BINDINGS;
 
-  const server = http.createServer((req, res) => {
-    // Plain provenance, no peer: a header on this listener can never become
-    // evidence (AT-TLS-FAKECONTEXT).
-    preparePlainRequest(req, bindings());
-    dispatch(req, res);
-  }).once("close", () => void withdrawalRecovery.stop());
+  const server = http
+    .createServer((req, res) => {
+      // Plain provenance, no peer: a header on this listener can never become
+      // evidence (AT-TLS-FAKECONTEXT).
+      preparePlainRequest(req, bindings());
+      dispatch(req, res);
+    })
+    .once("close", () => void withdrawalRecovery.stop());
 
   // The system owner principal row must exist before the first /auth prefetch
   // auto-admits an origin client owned by it (ADR 0050 R-A; the FK is real on

@@ -21,11 +21,6 @@ import {
   provisionedRoleForSubject,
 } from "./scim-effects.js";
 import {
-  type UserPatch,
-  deleteScimUser,
-  patchScimUser,
-} from "./scim-user-mutations.js";
-import {
   patchScimGroup,
   putGroupRoleMapping,
   roleForGroupName,
@@ -49,6 +44,11 @@ import {
   scimTokenAdminRoutes,
   scimTokenHash,
 } from "./scim-token-admin.js";
+import {
+  type UserPatch,
+  deleteScimUser,
+  patchScimUser,
+} from "./scim-user-mutations.js";
 
 export { SCIM_TOKEN_PREFIX } from "./scim-token-admin.js";
 export { provisionedRoleForSubject, putGroupRoleMapping, roleForGroupName };

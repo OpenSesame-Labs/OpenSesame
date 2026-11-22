@@ -39,8 +39,8 @@ import { withChainedAudit } from "./chained-audit.js";
 import type { AppContext } from "./context.js";
 import type { CreateControlPlaneOptions } from "./create-app-options.js";
 import { resolveControlPlaneConfig } from "./create-app-options.js";
-import { createPasskeys } from "./create-passkeys.js";
 import { createOAuthStores } from "./create-oauth-stores.js";
+import { createPasskeys } from "./create-passkeys.js";
 import { resolveWalletNativeMounts } from "./create-wallet-native-mounts.js";
 import {
   resolveEventSealer,
@@ -60,8 +60,8 @@ import { verifySecurityDatabase } from "./repos/security-readiness.js";
 import { hostAuthorizationAudiences } from "./services/host-authorization.js";
 import { createMailer } from "./services/mailer.js";
 import { createNotificationCallbackAdapters } from "./services/notification-callbacks.js";
-import { createSmsBridge } from "./services/sms-bridge.js";
 import { startOrganizationWithdrawalRecovery } from "./services/organization-withdrawal-recovery.js";
+import { createSmsBridge } from "./services/sms-bridge.js";
 import { recoverStartupSecurityState } from "./services/startup-security-recovery.js";
 import { createAppStores } from "./state.js";
 import {
@@ -118,7 +118,14 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
     store: claimStore,
     clock,
   });
-  const { oidcStore, pairwiseStore, clientStore, clientClaimChallengeStore, clientOriginStore, consentStore } = createOAuthStores(drizzleBundle?.db, eventSealer);
+  const {
+    oidcStore,
+    pairwiseStore,
+    clientStore,
+    clientClaimChallengeStore,
+    clientOriginStore,
+    consentStore,
+  } = createOAuthStores(drizzleBundle?.db, eventSealer);
   // Durable projects + memberships (WP-8): the same rows the projects API
   // serves survive a restart; memory only in tests/dev.
   const projectStores =

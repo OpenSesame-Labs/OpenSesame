@@ -7,10 +7,10 @@ import type { OrgLdapConfig } from "@opensesame/os-domain";
 import { overlapCast } from "@opensesame/os-domain";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { syncLdapDirectory } from "../interactions/ldap.js";
-import { registerLdapSyncRaceCases } from "./ldap-sync-race-cases.js";
 import { resetLdapAttemptBudget } from "../routes/interactions-ldap.js";
 import type { startServer } from "../server.js";
 import { onFreePort } from "./free-port.js";
+import { registerLdapSyncRaceCases } from "./ldap-sync-race-cases.js";
 import { hopUrl } from "./upstream-hop.js";
 
 /** Directory sync against a real directory, including session revocation. */
