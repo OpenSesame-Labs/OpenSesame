@@ -19,6 +19,12 @@ mod dispatch_tests {
             "<Client>::execute(&client, request).await?",
             "client.execute(request).await?",
             "Client::execute::<()>(&client, request).await?",
+            // `>` inside `{…}` is a comparison and `->` is a return type;
+            // neither ends the turbofish.
+            "request.send::<{ 1 > 0 }>().await?",
+            "request.send::<Bar<{ 1 > 0 }>>().await?",
+            "request.send::<fn() -> R>().await?",
+            "RequestBuilder::send::<{ 1 > 0 }>(request).await?",
         ];
         for form in forms {
             let guarded = format!("async fn f() {{ {GUARD} {form} }}");

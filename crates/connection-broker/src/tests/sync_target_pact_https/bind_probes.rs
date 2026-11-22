@@ -107,4 +107,20 @@ mod probes {
         let same = "async fn f() { if cond { request = client.get(url); } // note\nelse { request = client.get(url); } if url.scheme() != \"https\" { return Err(\"x\".into()); } request.send().await?; }";
         assert_eq!(credentialed_send_https_gaps(same), (1, 0), "{same}");
     }
+
+    /// `dispatch::<T>(request)` must open its argument list like
+    /// `(dispatch)::<T>(request)` does, or the send escapes destination
+    /// binding and any scheme predicate in the function blesses it.
+    #[test]
+    fn chunk02_bare_turbofish_alias_call_binds_destination() {
+        let decoy = r#"async fn f() { let request = client.get(evil); let dispatch = RequestBuilder::send; if safe.scheme() != "https" { return Err("x".into()); } dispatch::<()>(request).await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(decoy), (1, 1), "{decoy}");
+        let kept = [
+            r#"async fn f() { let request = client.get(url); if url.scheme() != "https" { return Err("x".into()); } let dispatch = RequestBuilder::send; dispatch::<()>(request).await?; }"#,
+            r#"async fn f() { if parsed.scheme() != "https" { return Err("x".into()); } let dispatch = RequestBuilder::send; dispatch::<()>(request).await?; }"#,
+        ];
+        for sample in kept {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+        }
+    }
 }

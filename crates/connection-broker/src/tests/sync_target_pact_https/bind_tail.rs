@@ -26,7 +26,8 @@ pub(in super::super) fn is_single_eq(bytes: &[u8], index: usize) -> bool {
         )
 }
 
-/// Argument list opener for `name(…)` and `(name)(…)` alias dispatches.
+/// Argument list opener for `name(…)`, `name::<T>(…)`, and `(name)(…)` /
+/// `(name)::<T>(…)` alias dispatches.
 pub(in super::super) fn call_tail(source: &str, at: usize) -> Option<&str> {
     let rest = &source[at..];
     let name_len = leading_ident(rest).len();
@@ -34,6 +35,7 @@ pub(in super::super) fn call_tail(source: &str, at: usize) -> Option<&str> {
         return None;
     }
     let mut tail = rest[name_len..].trim_start();
+    tail = strip_turbofish(tail).unwrap_or(tail).trim_start();
     if tail.starts_with('(') {
         return Some(tail);
     }

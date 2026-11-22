@@ -138,13 +138,14 @@ pub(super) fn note_binding(
     if !is_keyword_at(bytes, index, name.as_bytes()) {
         return None;
     }
-    if let Some((url, end)) = super::super::pattern::destructured_url(prefix, index, name) {
-        // `let (request,) = (client.get(evil),)` is a binding. An empty
-        // URL still closes the unresolved-destination exception.
+    if let Some((url, end, is_let)) = super::super::pattern::destructured_url(prefix, index, name) {
+        // `let (request,) = (client.get(evil),)` is a binding; a bare tuple
+        // reassignment rebinds it like an assignment. An empty URL still
+        // closes the unresolved-destination exception.
         return Some(Noted {
             url,
             end: end.max(index + 1),
-            is_let: true,
+            is_let,
         });
     }
     let eq = eq_after_name(bytes, index + name.len())?;
