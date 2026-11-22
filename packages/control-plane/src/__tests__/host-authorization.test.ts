@@ -13,6 +13,7 @@ import {
   type CreateControlPlaneOptions,
   createControlPlane,
 } from "../create-app.js";
+import { changeRoleInStore } from "./host-withdrawal-test-helper.js";
 import { migratedPGlite, warmMigratedPGlite } from "./migrated-pglite.js";
 
 // Each PGlite test here starts its own database. They used to boot one and
@@ -191,42 +192,12 @@ it("uses real UV signatures even with dev defaults, signs the frozen tuple and s
 it("rejects a challenge captured before the membership authority changes", async () => {
   const f = await fixture();
   const pending = await f.begin();
-  const membership = await f.ctx.stores.organizationMemberships.findVersioned(
+  await changeRoleInStore(
+    f.ctx,
     f.challenge.organization_id,
     f.minted.principalId,
+    "admin",
   );
-  if (!membership) throw new Error("Missing membership");
-  expect(
-    await f.ctx.stores.organizationMemberships.beginWithdrawal(
-      f.challenge.organization_id,
-      f.minted.principalId,
-      membership.incarnation,
-      membership.authorityRevision,
-      {
-        id: crypto.randomUUID(),
-        kind: "change_role",
-        role: "admin",
-        actorType: "system",
-        actorPrincipalId: f.minted.principalId,
-        correlationId: "stale-challenge",
-      },
-    ),
-  ).toBe(true);
-  const withdrawing = await f.ctx.stores.organizationMemberships.findVersioned(
-    f.challenge.organization_id,
-    f.minted.principalId,
-  );
-  if (!withdrawing?.withdrawalId) throw new Error("Missing withdrawal");
-  expect(
-    await f.ctx.stores.organizationMemberships.completeRoleWithdrawal(
-      f.challenge.organization_id,
-      f.minted.principalId,
-      membership.incarnation,
-      withdrawing.withdrawalId,
-      "admin",
-      new Date(),
-    ),
-  ).toBeDefined();
   expect((await f.verify(f.assertion(pending))).status).toBe(403);
   const fresh = await f.begin();
   expect((await f.verify(f.assertion(fresh, true, 2))).status).toBe(200);

@@ -395,7 +395,6 @@ it("does not infer roles from directory group names", () => {
     "acme-admins",
     "OpenSesame Members",
     "Engineering",
-  ]) {
+  ])
     expect(roleForGroupName(name)).toBeUndefined();
-  }
 });

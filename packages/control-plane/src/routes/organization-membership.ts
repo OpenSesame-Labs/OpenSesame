@@ -73,6 +73,11 @@ export type JitJoinResult =
       message: string;
     };
 
+/** A withdrawal in progress is worth retrying; every other refusal is final. */
+export function joinRefusalStatus(result: { error: string }): 403 | 503 {
+  return result.error === "membership_withdrawing" ? 503 : 403;
+}
+
 /**
  * Join an authenticated subject to a tenant (ADR 0055/0056).
  *

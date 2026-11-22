@@ -12,50 +12,46 @@ import {
   prepareDeprovision,
 } from "./scim-effects.js";
 
-/** Called inside the organization boundary. The returned row remains inactive. */
-export async function prepareLegacyDeprovision(
+type DeprovisionJournal = NonNullable<ReturnType<typeof deprovisionJournal>>;
+
+/** Re-fence each still-current target of an already-journaled deprovision. */
+async function refenceJournal(
   tx: AppContext,
   organization: Organization,
-  user: ScimUserRecord,
-  revision: string,
+  journal: DeprovisionJournal,
   correlationId: string,
-): Promise<ScimUserRecord> {
-  if (user.active) return user;
-  const existing = deprovisionJournal(user);
-  if (existing) {
-    for (const target of existing.targets) {
-      if (target.completed || target.legacyOrphan) continue;
-      const current = await tx.stores.organizationMemberships.findVersioned(
-        organization.id,
-        target.principalId,
-      );
-      if (!current || current.incarnation !== target.incarnation) continue;
-      const prepared = await prepareDirectoryRemoval(tx, {
-        organizationId: organization.id,
-        principalId: target.principalId,
-        incarnation: target.incarnation,
-        reason: "scim_deactivated",
-        correlationId,
-      });
-      if (prepared.status === "ready" || prepared.status === "missing")
-        continue;
-      if (prepared.status === "busy" && current.withdrawal?.kind === "remove")
-        continue;
-      throw new Error("Could not fence pending SCIM deprovisioning");
-    }
-    return user;
+): Promise<void> {
+  for (const target of journal.targets) {
+    if (target.completed || target.legacyOrphan) continue;
+    const current = await tx.stores.organizationMemberships.findVersioned(
+      organization.id,
+      target.principalId,
+    );
+    if (!current || current.incarnation !== target.incarnation) continue;
+    const prepared = await prepareDirectoryRemoval(tx, {
+      organizationId: organization.id,
+      principalId: target.principalId,
+      incarnation: target.incarnation,
+      reason: "scim_deactivated",
+      correlationId,
+    });
+    if (prepared.status === "ready" || prepared.status === "missing") continue;
+    if (prepared.status === "busy" && current.withdrawal?.kind === "remove")
+      continue;
+    throw new Error("Could not fence pending SCIM deprovisioning");
   }
-  if (Object.hasOwn(user.raw, SCIM_DEPROVISION_JOURNAL_ATTRIBUTE))
-    throw new Error("Invalid SCIM deprovision journal");
+}
 
-  // The legacy marker was written only after the principal had a membership
-  // here. Its membership may have been removed before session revocation ran.
-  const marker = user.raw[SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE];
-  const parsedMarker = z.array(z.string().min(1)).optional().safeParse(marker);
-  if (!parsedMarker.success)
-    throw new Error("Invalid legacy SCIM deprovision marker");
-  const principals = [...new Set(parsedMarker.data ?? [])];
-  const excluded: string[] = [];
+/**
+ * The legacy marker was written only after the principal had a membership
+ * here. Its membership may have been removed before session revocation ran:
+ * each such principal becomes an orphan target carrying its open sessions.
+ */
+async function legacyOrphans(
+  tx: AppContext,
+  organization: Organization,
+  principals: readonly string[],
+): Promise<DeprovisionTarget[]> {
   const orphans: DeprovisionTarget[] = [];
   let sessionsByPrincipal: Map<string, string[]> | undefined;
   const marked = new Set(principals);
@@ -81,9 +77,35 @@ export async function prepareLegacyDeprovision(
         sessionIds: sessionsByPrincipal.get(principalId) ?? [],
       },
     });
-    // A later membership is a new incarnation and is not this old removal.
-    excluded.push(principalId);
   }
+  return orphans;
+}
+
+/** Called inside the organization boundary. The returned row remains inactive. */
+export async function prepareLegacyDeprovision(
+  tx: AppContext,
+  organization: Organization,
+  user: ScimUserRecord,
+  revision: string,
+  correlationId: string,
+): Promise<ScimUserRecord> {
+  if (user.active) return user;
+  const existing = deprovisionJournal(user);
+  if (existing) {
+    await refenceJournal(tx, organization, existing, correlationId);
+    return user;
+  }
+  if (Object.hasOwn(user.raw, SCIM_DEPROVISION_JOURNAL_ATTRIBUTE))
+    throw new Error("Invalid SCIM deprovision journal");
+
+  const marker = user.raw[SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE];
+  const parsedMarker = z.array(z.string().min(1)).optional().safeParse(marker);
+  if (!parsedMarker.success)
+    throw new Error("Invalid legacy SCIM deprovision marker");
+  const principals = [...new Set(parsedMarker.data ?? [])];
+  const orphans = await legacyOrphans(tx, organization, principals);
+  // A later membership is a new incarnation and is not this old removal.
+  const excluded = orphans.map((orphan) => orphan.principalId);
   let prepared = await prepareDeprovision(
     tx,
     organization,

@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import type { OrganizationRole } from "@opensesame/os-domain";
 import { expect, vi } from "vitest";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
@@ -42,4 +44,46 @@ export function expectHostWithdrawals(
       withdrawal_id: expect.any(String),
     });
   }
+}
+
+/**
+ * Finish a role withdrawal directly in the membership store, so a test can
+ * advance the membership authority without a Host round trip.
+ */
+export async function changeRoleInStore(
+  ctx: AppContext,
+  organizationId: string,
+  principalId: string,
+  role: OrganizationRole,
+): Promise<void> {
+  const store = ctx.stores.organizationMemberships;
+  const membership = await store.findVersioned(organizationId, principalId);
+  if (!membership) throw new Error("Missing membership");
+  const withdrawalId = randomUUID();
+  expect(
+    await store.beginWithdrawal(
+      organizationId,
+      principalId,
+      membership.incarnation,
+      membership.authorityRevision,
+      {
+        id: withdrawalId,
+        kind: "change_role",
+        role,
+        actorType: "system",
+        actorPrincipalId: principalId,
+        correlationId: "test-role-change",
+      },
+    ),
+  ).toBe(true);
+  expect(
+    await store.completeRoleWithdrawal(
+      organizationId,
+      principalId,
+      membership.incarnation,
+      withdrawalId,
+      role,
+      new Date(),
+    ),
+  ).toBeDefined();
 }

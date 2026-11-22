@@ -969,9 +969,8 @@ impl Db {
         .context("creating schema_migrations")?;
 
         for (version, sql) in MIGRATIONS {
-            // Separate Host replicas may start against a new or upgraded store
-            // simultaneously. Serialize the version check with the migration,
-            // so a second replica observes the first one's completed work.
+            // Host replicas may migrate one store at once: the version check and
+            // migration share a write transaction, so a later replica sees it.
             let mut tx = self.pool.begin_with("BEGIN IMMEDIATE").await?;
             let applied = sqlx::query("SELECT 1 FROM schema_migrations WHERE version = ?")
                 .bind(version)
@@ -982,8 +981,7 @@ impl Db {
                 tx.commit().await?;
                 continue;
             }
-            // A version lands whole or not at all, so a failure mid-file cannot
-            // leave a database that reports itself migrated.
+            // A version lands whole, so it never reports a half-applied file.
             for stmt in split_statements(sql) {
                 sqlx::query(&stmt)
                     .execute(&mut *tx)

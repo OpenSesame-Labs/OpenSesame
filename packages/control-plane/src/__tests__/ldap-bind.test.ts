@@ -9,7 +9,6 @@ import {
   afterAll,
   afterEach,
   beforeAll,
-  beforeEach,
   describe,
   expect,
   it,
@@ -26,7 +25,7 @@ import {
 import { resetLdapAttemptBudget } from "../routes/interactions-ldap.js";
 import type { startServer } from "../server.js";
 import { onFreePort } from "./free-port.js";
-import { installHostRevocationMock } from "./scim-test-helpers.js";
+import { mockHostWithdrawal } from "./host-withdrawal-test-helper.js";
 import { hopUrl } from "./upstream-hop.js";
 
 /**
@@ -483,11 +482,6 @@ describe("directory sign-in from the hosted login page", () => {
     vi.restoreAllMocks();
   });
 
-  beforeEach(() => {
-    // restoreAllMocks above also drops this spy between tests.
-    installHostRevocationMock();
-  });
-
   async function req(jar: Jar, path: string, init: RequestInit = {}) {
     const res = await fetch(path.startsWith("http") ? path : `${base}${path}`, {
       redirect: "manual",
@@ -547,12 +541,7 @@ describe("directory sign-in from the hosted login page", () => {
     return {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        _csrf: token,
-        slug,
-        username,
-        password,
-      }),
+      body: new URLSearchParams({ _csrf: token, slug, username, password }),
     };
   }
 
@@ -602,6 +591,7 @@ describe("directory sign-in from the hosted login page", () => {
   });
 
   it("applies a directory group demotion on the next sign-in", async () => {
+    mockHostWithdrawal(started.ctx); // the demotion withdraws through Host
     const first = await loginInteraction();
     const firstResponse = await req(
       first.jar,
@@ -621,22 +611,16 @@ describe("directory sign-in from the hosted login page", () => {
     );
     expect(membership?.role).toBe("member");
 
-    // Simulate a stale elevated role: the next bind sees only the engineers
-    // group, which maps to `member`, and must reconcile it downward. A second
-    // owner keeps the demotion clear of the last-owner fence.
+    // A stale elevated role (with a second owner past the last-owner fence)
+    // must reconcile down to the `member` the engineers group maps to.
     if (!membership) throw new Error("no bob membership");
-    await started.ctx.stores.organizationMemberships.upsert({
-      ...membership,
-      role: "owner",
-      updatedAt: started.ctx.clock(),
-    });
-    await started.ctx.stores.organizationMemberships.upsert({
-      organizationId: ORG_ID,
-      principalId: "prn_directory_fallback_owner",
-      role: "owner",
-      createdAt: started.ctx.clock(),
-      updatedAt: started.ctx.clock(),
-    });
+    for (const principalId of [membership.principalId, "prn_ldap_owner_2"])
+      await started.ctx.stores.organizationMemberships.upsert({
+        ...membership,
+        principalId,
+        role: "owner",
+        updatedAt: started.ctx.clock(),
+      });
 
     const second = await loginInteraction();
     const secondResponse = await req(

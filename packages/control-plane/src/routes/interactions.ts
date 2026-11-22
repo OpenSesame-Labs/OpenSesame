@@ -57,6 +57,7 @@ import { createLdapInteractionRoutes } from "./interactions-ldap.js";
 import { createOrgInteractionRoutes } from "./interactions-org.js";
 import { createRealmInteractionRoutes } from "./interactions-realm.js";
 import { createSamlInteractionRoutes } from "./interactions-saml.js";
+import { joinRefusalStatus } from "./organization-membership.js";
 import { jitJoinOrganization } from "./organizations.js";
 import { ensurePersonalOnAuthenticatedSession } from "./projects.js";
 import { provisionedRoleForSubject } from "./scim.js";
@@ -710,12 +711,7 @@ export function createInteractionRoutes(): Hono<
         correlationId,
         ...(role !== undefined ? { role } : undefined),
       });
-      if (!joined.ok) {
-        return c.text(
-          joined.message,
-          joined.error === "membership_withdrawing" ? 503 : 403,
-        );
-      }
+      if (!joined.ok) return c.text(joined.message, joinRefusalStatus(joined));
     }
 
     const returnTo = await finishLoginInteraction(

@@ -432,7 +432,7 @@ describe("SCIM Users surface", () => {
     });
     expect(unknown.status).toBe(404);
   });
-  it("bounds directory pages and refuses durable growth at the tenant cap", async () => {
+  it("bounds directory pages and refuses durable growth at the tenant cap", async (test) => {
     const { app, ctx } = createControlPlane({ config: testConfig(idp.issuer) });
     const { owner, org } = await seedTenant(app, ctx, "bounded-users-org");
     const { token } = await mintScimToken(app, org.id, owner.accessToken);
@@ -488,24 +488,20 @@ describe("SCIM Users surface", () => {
     const createWithinLimit = vi
       .spyOn(MemoryScimUserStore.prototype, "createWithinLimit")
       .mockResolvedValue(null);
-    try {
-      const refused = await provisionUser(app, org.id, token, {
+    // The transaction boundary forks the store: restore the prototype spy.
+    test.onTestFinished(() => createWithinLimit.mockRestore());
+    const refused = await provisionUser(app, org.id, token, {
+      userName: "overflow@example.test",
+    });
+    expect(refused.status).toBe(409);
+    expect(refused.body.detail).toContain("capacity");
+    expect(createWithinLimit).toHaveBeenCalledWith(
+      expect.objectContaining({
+        organizationId: org.id,
         userName: "overflow@example.test",
-      });
-      expect(refused.status).toBe(409);
-      expect(refused.body.detail).toContain("capacity");
-      expect(createWithinLimit).toHaveBeenCalledWith(
-        expect.objectContaining({
-          organizationId: org.id,
-          userName: "overflow@example.test",
-        }),
-        10_000,
-      );
-    } finally {
-      // Prototype mock: the transaction boundary forks the store, so the spy
-      // must outlive the instance and be restored by hand.
-      createWithinLimit.mockRestore();
-    }
+      }),
+      10_000,
+    );
   });
 
   it("reads Entra's stringly-typed active flag", async () => {

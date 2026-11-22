@@ -826,7 +826,7 @@
       "max-lines": 867
     },
     "packages/control-plane/src/__tests__/ldap-bind.test.ts": {
-      "max-lines": 828
+      "max-lines": 827
     },
     "packages/control-plane/src/__tests__/ldap-sync.test.ts": {
       "max-lines": 407

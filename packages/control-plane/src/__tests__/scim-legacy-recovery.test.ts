@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import type { ScimUserRecord } from "@opensesame/database";
 import * as schema from "@opensesame/database/schema";
 import { type Organization, overlapCast } from "@opensesame/os-domain";
 import { and, eq } from "drizzle-orm";
@@ -21,6 +22,11 @@ import {
   expectInvalidJournalFailsClosed,
   expectRecoveryRollback,
 } from "./scim-legacy-recovery-rollback-helper.js";
+
+/** Whether a deprovisioned user's journal shows its first target finished. */
+function firstTargetCompleted(user: ScimUserRecord | undefined) {
+  return user ? deprovisionJournal(user)?.targets[0]?.completed : undefined;
+}
 
 vi.setConfig({ testTimeout: 60_000 });
 beforeAll(warmMigratedPGlite, 60_000);
@@ -331,8 +337,8 @@ it("fences legacy users before readiness and resumes both crash windows after a 
           organization.id,
           principal.principalId,
         );
-      if (principal === afterRemoval) expect(membership).toBeDefined();
-      else expect(membership).toBeUndefined();
+      // Only the membership created after the legacy removal survives it.
+      expect(membership !== undefined).toBe(principal === afterRemoval);
       expect(
         await restarted.ctx.stores.provisionalTokens.get(principal.accessToken),
       ).toBeUndefined();
@@ -341,9 +347,7 @@ it("fences legacy users before readiness and resumes both crash windows after a 
         subject,
       );
       expect(user?.active).toBe(false);
-      expect(user && deprovisionJournal(user)?.targets[0]?.completed).toBe(
-        true,
-      );
+      expect(firstTargetCompleted(user)).toBe(true);
     }
     expect(await restarted.ctx.stores.provisionalTokens.get(freshToken)).toBe(
       freshSession.id,
@@ -369,9 +373,7 @@ it("fences legacy users before readiness and resumes both crash windows after a 
       organization.id,
       "legacy-orphan",
     );
-    expect(orphan && deprovisionJournal(orphan)?.targets[0]?.completed).toBe(
-      true,
-    );
+    expect(firstTargetCompleted(orphan)).toBe(true);
     expect(
       await restarted.ctx.stores.provisionalTokens.get(
         deletedPrincipal.accessToken,
