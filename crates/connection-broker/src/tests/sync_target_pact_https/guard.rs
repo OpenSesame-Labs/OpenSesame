@@ -212,20 +212,71 @@ fn last_rhs<'a>(source: &'a str, name: &str) -> Option<(&'a str, usize)> {
 }
 
 fn url_parse_arg(rhs: &str) -> Option<&str> {
-    let bytes = rhs.as_bytes();
+    // The value comes from the outer `Url::parse`. A parse nested in
+    // `unwrap_or` / `unwrap_or_else` is only the fallback argument:
+    // `Url::parse(evil).unwrap_or(Url::parse(url).unwrap())` can still be `evil`.
+    let mut expr = rhs.trim();
+    while let Some(inner) = grouped_value(expr) {
+        expr = inner.trim();
+    }
+    let at = supplying_parse(expr)?;
+    plain_parse_arg(&expr[at..])
+}
+
+/// `Url::parse` at the head of the value. Stops before call arguments, so a
+/// nested parse cannot replace the outer argument.
+fn supplying_parse(expr: &str) -> Option<usize> {
+    let bytes = expr.as_bytes();
     let mut index = 0usize;
-    let mut found = None;
     while index < bytes.len() {
         if let Some(len) = string_len(bytes, index) {
             index += len;
             continue;
         }
-        if url_parse_at(rhs, index) {
-            found = plain_parse_arg(&rhs[index..]).or(found);
+        if url_parse_at(expr, index) {
+            return path_prefix(expr[..index].trim()).then_some(index);
         }
-        index += 1;
+        match bytes[index] {
+            b'(' | b'{' | b'[' | b';' | b',' | b'=' => return None,
+            _ => index += 1,
+        }
     }
-    found
+    None
+}
+
+/// `(expr).method()` groups `expr`. The parentheses are not a wrapper call.
+fn grouped_value(expr: &str) -> Option<&str> {
+    let rest = expr.trim().strip_prefix('(')?;
+    let after = super::after_paren(rest)?;
+    let tail = after.trim_start();
+    if !(tail.is_empty() || tail.starts_with(['.', '?'])) {
+        return None;
+    }
+    Some(rest[..rest.len() - after.len() - 1].trim())
+}
+
+/// Empty, or a path ending in `::` (`url::`, `foo::bar::`).
+fn path_prefix(prefix: &str) -> bool {
+    if prefix.is_empty() {
+        return true;
+    }
+    let bytes = prefix.as_bytes();
+    let mut index = 0usize;
+    loop {
+        if index >= bytes.len() || !is_ident_byte(bytes[index]) {
+            return false;
+        }
+        while index < bytes.len() && is_ident_byte(bytes[index]) {
+            index += 1;
+        }
+        if index == bytes.len() || !prefix[index..].starts_with("::") {
+            return false;
+        }
+        index += 2;
+        if index == bytes.len() {
+            return true;
+        }
+    }
 }
 
 fn url_parse_at(rhs: &str, index: usize) -> bool {
@@ -393,5 +444,25 @@ mod probes {
         assert_eq!(credentialed_send_https_gaps(db), (0, 0), "{db}");
         let spelled = "async fn f() { query.execute(&self.pool).await?; }";
         assert_eq!(credentialed_send_https_gaps(spelled), (1, 1), "{spelled}");
+    }
+
+    #[test]
+    fn chunk02_unwrap_or_parse_binds_outer_url() {
+        let nested = [
+            r#"async fn f() { let parsed = Url::parse(evil).unwrap_or(Url::parse(url).unwrap()); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+            r#"async fn f() { let parsed = Url::parse(&evil).unwrap_or_else(|_| Url::parse(url).unwrap()); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+            r#"async fn f() { let parsed = url::Url::parse(evil).unwrap_or(Url::parse(&url).unwrap()); if parsed.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+        ];
+        for sample in nested {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+        }
+        let kept = [
+            r#"async fn f() { let parsed = Url::parse(url).unwrap_or(Url::parse(fallback).unwrap()); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+            r#"async fn f() { let parsed = url::Url::parse(&url).unwrap_or(Url::parse(evil).unwrap()); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+            r#"async fn f() { let parsed = (Url::parse(&url)).unwrap(); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+        ];
+        for sample in kept {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+        }
     }
 }
