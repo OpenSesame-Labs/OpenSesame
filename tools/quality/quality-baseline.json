@@ -378,9 +378,6 @@
     "crates/gateway/src/routes/agents.rs": {
       "max-lines": 440
     },
-    "crates/gateway/src/routes/attachments.rs": {
-      "max-lines": 900
-    },
     "crates/gateway/src/routes/backup.rs": {
       "max-lines": 551
     },

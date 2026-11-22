@@ -1,15 +1,15 @@
-//! Confined atomic replacement for store metadata.
+//! Confined atomic replacement and bounded reads for store metadata.
 
 use crate::StoreError;
 use std::path::Path;
 
 #[cfg(unix)]
-use super::confined::open_parent;
+use super::confined::{open_parent, open_read};
 #[cfg(unix)]
 use std::{
     ffi::CString,
     fs::File,
-    io::Write,
+    io::{Read, Write},
     os::fd::{AsRawFd, FromRawFd},
 };
 
@@ -90,6 +90,46 @@ pub(crate) fn confined_atomic_write(
     result
 }
 
+#[cfg(unix)]
+/// Read a confined file without following a final symlink, refusing (not
+/// truncating) one larger than `limit` before allocating beyond it.
+pub(crate) fn confined_read_bounded(
+    root: &Path,
+    rel: &Path,
+    limit: usize,
+) -> Result<Vec<u8>, StoreError> {
+    let file = open_read(root, rel)?;
+    let maximum = u64::try_from(limit).unwrap_or(u64::MAX).saturating_add(1);
+    let mut bytes = Vec::new();
+    file.take(maximum).read_to_end(&mut bytes)?;
+    if bytes.len() > limit {
+        return Err(StoreError::Other("file exceeds the allowed size".into()));
+    }
+    Ok(bytes)
+}
+
+#[cfg(not(unix))]
+pub(crate) fn confined_read_bounded(
+    root: &Path,
+    rel: &Path,
+    limit: usize,
+) -> Result<Vec<u8>, StoreError> {
+    use std::io::Read;
+
+    let path = root.join(rel);
+    if !std::fs::canonicalize(&path)?.starts_with(std::fs::canonicalize(root)?) {
+        return Err(StoreError::InvalidPath("path escapes store root".into()));
+    }
+    let file = std::fs::File::open(path)?;
+    let maximum = u64::try_from(limit).unwrap_or(u64::MAX).saturating_add(1);
+    let mut bytes = Vec::new();
+    file.take(maximum).read_to_end(&mut bytes)?;
+    if bytes.len() > limit {
+        return Err(StoreError::Other("file exceeds the allowed size".into()));
+    }
+    Ok(bytes)
+}
+
 #[cfg(not(unix))]
 pub(crate) fn confined_atomic_write(
     root: &Path,
@@ -104,6 +144,18 @@ pub(crate) fn confined_atomic_write(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bounded_read_rejects_oversize_without_truncating() {
+        let root = tempfile::tempdir().unwrap();
+        std::fs::write(root.path().join("state"), b"12345").unwrap();
+        assert_eq!(
+            confined_read_bounded(root.path(), Path::new("state"), 5).unwrap(),
+            b"12345"
+        );
+        assert!(confined_read_bounded(root.path(), Path::new("state"), 4).is_err());
+        assert!(confined_read_bounded(root.path(), Path::new("state"), 0).is_err());
+    }
 
     #[test]
     fn atomic_replacement_rejects_parent_traversal() {
