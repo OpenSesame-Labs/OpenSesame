@@ -77,25 +77,25 @@ const counter = (card: HTMLElement) =>
 
 describe("the tutorial card", () => {
   it("keeps passkey and PIN first-vault progress contiguous", () => {
-    expect(firstVaultTourProgress("unlock.methods", 8, 8)).toEqual({
+    expect(firstVaultTourProgress("unlock.methods", 9, 8)).toEqual({
       offset: 0,
-      count: 12,
+      count: 13,
     });
-    expect(firstVaultTourProgress("unlock.seal-actions", 8, 8)).toEqual({
+    expect(firstVaultTourProgress("unlock.seal-actions", 9, 8)).toEqual({
       offset: 0,
-      count: 12,
+      count: 13,
     });
-    expect(firstVaultTourProgress("unlock.seal-pin-entry", 8, 8)).toEqual({
+    expect(firstVaultTourProgress("unlock.seal-pin-entry", 9, 8)).toEqual({
       offset: 0,
-      count: 16,
+      count: 17,
     });
-    expect(firstVaultTourProgress(null, 8, 4)).toEqual({
+    expect(firstVaultTourProgress(null, 9, 4)).toEqual({
       offset: 4,
-      count: 12,
+      count: 13,
     });
-    expect(firstVaultTourProgress(null, 8, 8)).toEqual({
+    expect(firstVaultTourProgress(null, 9, 8)).toEqual({
       offset: 8,
-      count: 16,
+      count: 17,
     });
   });
 

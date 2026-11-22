@@ -8,6 +8,7 @@ import {
   NO_INSETS,
   type SafeInsets,
   type Size,
+  isTightViewport,
 } from "./placement.js";
 import { observeScrollIntent } from "./use-coach-behavior.js";
 
@@ -65,8 +66,7 @@ function needsRoom(element: HTMLElement): boolean {
   const view = element.ownerDocument.defaultView?.visualViewport;
   if (
     !view ||
-    view.width >= 230 ||
-    view.height >= 220 ||
+    !isTightViewport(view) ||
     element.ownerDocument.activeElement !== element ||
     !element.matches("input, textarea, [contenteditable=true]")
   )

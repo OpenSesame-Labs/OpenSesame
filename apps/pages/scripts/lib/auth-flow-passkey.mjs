@@ -165,7 +165,7 @@ export async function sealFirstVault(
     await next.click();
   }
   await waitForPinTutorial(page, { out, width, label, keepShots });
-  await step("unlock.seal-pin-entry", 5, 16);
+  await step("unlock.seal-pin-entry", 5, 17);
   if (process.env.TUTORIALS_PIN_BACK === "1") {
     await checkTutorialNextBlocked(page, check, next, "unlock.seal-pin-entry");
     check(
@@ -182,7 +182,7 @@ export async function sealFirstVault(
   }
   await page.getByLabel("Device PIN", { exact: true }).fill(PIN);
   await page.locator(".coach__btn--go").click();
-  await step("unlock.seal-pin-confirm", 6, 16);
+  await step("unlock.seal-pin-confirm", 6, 17);
   if (process.env.TUTORIALS_PIN_BACK === "1") {
     await checkTutorialNextBlocked(
       page,
@@ -191,9 +191,9 @@ export async function sealFirstVault(
       "unlock.seal-pin-confirm",
     );
     await page.getByRole("button", { name: "Back", exact: true }).click();
-    await step("unlock.seal-pin-entry", 5, 16);
+    await step("unlock.seal-pin-entry", 5, 17);
     await next.click();
-    await step("unlock.seal-pin-confirm", 6, 16);
+    await step("unlock.seal-pin-confirm", 6, 17);
   }
   if (phone && process.env.TUTORIALS_KEYBOARD_VIEWPORT === "1") {
     await checkKeyboardViewport(page, check, label, {
@@ -204,13 +204,13 @@ export async function sealFirstVault(
   }
   await page.getByLabel("Confirm PIN", { exact: true }).fill(PIN);
   await page.locator(".coach__btn--go").click();
-  await step("unlock.seal-ack", 7, 16);
+  await step("unlock.seal-ack", 7, 17);
   check(
     await recovery.isChecked(),
     "first vault: recovery acknowledgment remains selected",
   );
   await page.locator(".coach__btn--go").click();
-  await step("unlock.seal", 8, 16);
+  await step("unlock.seal", 8, 17);
   if (phone && page.viewportSize().width <= 320)
     await checkLateSealScroll(page, step, check);
   // The seal step is an action step, so its Next is aria-disabled — a person

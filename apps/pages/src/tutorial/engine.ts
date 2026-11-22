@@ -170,9 +170,6 @@ function buildRuntime(mods: Modules, host: SupportHost) {
   const { targets, routes, predicateState } = mods;
   const renderer = mods.rendering.createScrollRenderer({
     resolveElement: targets.resolveGuideTargetElement,
-    reducedMotion: () =>
-      globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ??
-      false,
   });
   const runtime = mods.createGuideRuntime({
     renderer,

@@ -38,7 +38,7 @@ export async function checkLateSealScroll(page, step, check) {
   });
   check(reset, "first vault: the seal step has a scroll container to test");
   if (!reset) return;
-  const info = await step("unlock.seal", 8, 16);
+  const info = await step("unlock.seal", 8, 17);
   if (!info?.visibleControl) return;
   const box = await page
     .getByRole("button", { name: "Seal with PIN" })

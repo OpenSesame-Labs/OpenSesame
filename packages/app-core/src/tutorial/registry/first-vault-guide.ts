@@ -20,57 +20,76 @@ const ROAD_TO_SEAL = [
 
 const SEAL_DECISION = `focus "unlock.seal-actions" "${FIRST_VAULT_SEAL_INSTRUCTION}" side=bottom`;
 
-const SIGN_IN_STEPS = [
-  ...ROAD_TO_SEAL,
-  SEAL_DECISION,
-  'wait target "unlock.seal-pin-entry" event=appear timeout=60000',
-  ...FIRST_VAULT_PIN_STEPS,
-  'wait state "vault.unlocked" is=true timeout=60000',
-] as const;
-
-export const FIRST_VAULT_GATE_GUIDE = [
-  "guide/1",
-  'goal "gate.front-door"',
-  'focus "unlock.setup" "Select Set up your own to create a vault and password." side=bottom',
-  'wait target "unlock.setup" event=activate timeout=60000',
-  'focus "setup.default" "Select Default. You can change these features later." side=bottom',
-  'wait target "setup.default" event=activate timeout=60000',
-  ...SIGN_IN_STEPS,
-  "end",
-].join("\n");
-
 /**
- * The sign-in continuation the gate hands the seal ceremony.
- *
- * The passkey road and the PIN road are different walks from the seal
- * decision on. A passkey seals in one ceremony, so its step holds until the
- * vault is unlocked — waiting there for the PIN fields would stall the walk
- * on the road the instruction leads with (ADR 0180). The PIN road walks its
- * four fields, so it waits for the PIN entry the person is about to open.
- * The road is read where the guide is composed, the way the gate goals read
- * `vault.key-enrolled`: a guide is a fixed program, so the fork is chosen
- * before the first step is drawn, never mid-walk.
+ * The road from the seal decision on. A passkey seals in one ceremony, so its
+ * step holds until the vault is unlocked — waiting there for the PIN fields
+ * would stall the walk on the road the instruction leads with (ADR 0180).
+ * The PIN road walks its four fields, so it waits for the PIN entry the
+ * person is about to open. The road is read where the guide is composed,
+ * the way the gate goals read `vault.key-enrolled`: a guide is a fixed
+ * program, so the fork is chosen before the first step is drawn, never
+ * mid-walk.
  */
-export function firstVaultSignInGuide(): string {
+function sealRoadSteps(): readonly string[] {
   const passkey =
     isKnownGuidePredicate("vault.seal-passkey") &&
     readGuidePredicate("vault.seal-passkey");
+  return passkey
+    ? ['wait state "vault.unlocked" is=true timeout=60000']
+    : [
+        'wait target "unlock.seal-pin-entry" event=appear timeout=60000',
+        ...FIRST_VAULT_PIN_STEPS,
+        'wait state "vault.unlocked" is=true timeout=60000',
+      ];
+}
+
+/**
+ * The door's first-vault walk: the same road as the sign-in continuation,
+ * reached from the front door's own two steps. The seal fork is chosen where
+ * the guide is composed, so a passkey road never waits for PIN fields.
+ */
+export function firstVaultGateGuide(): string {
+  return [
+    "guide/1",
+    'goal "gate.front-door"',
+    'focus "unlock.setup" "Select Set up your own to create a vault and password." side=bottom',
+    'wait target "unlock.setup" event=activate timeout=60000',
+    'focus "setup.default" "Select Default. You can change these features later." side=bottom',
+    'wait target "setup.default" event=activate timeout=60000',
+    ...ROAD_TO_SEAL,
+    SEAL_DECISION,
+    ...sealRoadSteps(),
+    "end",
+  ].join("\n");
+}
+
+/**
+ * The sign-in continuation the gate hands the seal ceremony. It shares the
+ * seal road with the door's own walk (`firstVaultGateGuide`).
+ */
+export function firstVaultSignInGuide(): string {
   return [
     "guide/1",
     'goal "gate.front-door"',
     ...ROAD_TO_SEAL,
     SEAL_DECISION,
-    ...(passkey
-      ? ['wait state "vault.unlocked" is=true timeout=60000']
-      : [
-          'wait target "unlock.seal-pin-entry" event=appear timeout=60000',
-          ...FIRST_VAULT_PIN_STEPS,
-          'wait state "vault.unlocked" is=true timeout=60000',
-        ]),
+    ...sealRoadSteps(),
     "end",
   ].join("\n");
 }
 
+/**
+ * The password walk every first-vault road shares.
+ *
+ * The Save step waits until the vault HOLDS an item (`vault.has-items`),
+ * not for Save to be pressed or the editor to close: `activate` fires
+ * before the form runs, so a rejected draft would complete the step, and
+ * Cancel or Escape closes the editor without a write. Only a save that
+ * actually seals makes the predicate true. The copy control exists only on
+ * the saved item, so its `appear` wait follows the save as the way into the
+ * copy step, and the walk finishes standing over the list the saved item
+ * appears in — the person can see where their password went.
+ */
 const PASSWORD_STEPS = [
   'navigate "/vault/list"',
   'wait route "/vault/list" timeout=15000',
@@ -83,9 +102,14 @@ const PASSWORD_STEPS = [
   'focus "editor.generate-password" "Select Generate another password." side=top',
   'wait target "editor.generate-password" event=activate timeout=60000',
   'focus "item.editor.save" "Select Save item to save this account and password." side=top',
+  'wait state "vault.has-items" is=true timeout=60000',
   'wait target "item.copy-generated" event=appear timeout=60000',
   'focus "item.copy-generated" "Copy the highlighted part. If pepper is on, add it at its chosen position. For two parts, paste the first before copying the rest." side=bottom',
   'wait target "item.copy-generated" event=activate timeout=60000',
+  'navigate "/vault/list"',
+  'wait route "/vault/list" timeout=15000',
+  'wait target "vault.list" event=appear timeout=15000',
+  'focus "vault.list" "Saved items stand in this list — yours is here now. Open it any time to copy its password without showing it." side=right',
   'success "Copied. Paste it into the password field."',
   "end",
 ] as const;
