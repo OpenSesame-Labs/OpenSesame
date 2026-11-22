@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "reviewed_revision": "94260f7078fb3b9a4f42658a2eab702c358c6042",
-  "reviewed_source_state": "Source hashes identify the reviewed source-history integration after this base; they do not prove Rust refinement.",
+  "reviewed_revision": "827648d2b1b04698d676f2dcd3b4dda8cbc225d0",
+  "reviewed_source_state": "Source hashes identify the reviewed source-history integration after this base; they do not prove Rust refinement. reviewed_revision is main 827648d2, whose tree matches every pinned byte. The binding rationale for the .cargo/config.toml pin is recorded under recorded execution metadata in spec/formal/source-trust-selection/README.md.",
   "lock_projection": {
     "root": "opensesame-gateway",
     "algorithm": "cargo-lock-projection-v1-sha256",
