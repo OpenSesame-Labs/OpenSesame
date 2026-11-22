@@ -22,16 +22,9 @@ real Linear credentials) follows these steps by hand.
 ## 2. Seed the initial backlog from real repo gaps
 
 Do not start the team's backlog empty or with invented placeholder issues.
-The repository already documents its own known gaps in three places — pull
-concrete items from each and file them as Linear issues before anything else:
-
-- **`docs/archive/2026-08-07-baseline/summary.md`**, the `## Residual (documented, not blocking
-  mandatory local suite)` section — items intentionally deferred from the
-  mandatory local test suite.
-- **`docs/archive/brief-implementation-status.md`**, the `## Feature gates (remain
-  disabled by default)` section — features shipped but deliberately gated
-  off.
-- **`docs/security/audits/*.md`** follow-ups — grep the audit corpus for
+The repository already documents its own known gaps below and in security
+audit follow-ups. File those concrete items as Linear issues before anything
+else. For additional findings, grep **`docs/security/audits/*.md`** for
   open items:
 
   ```bash
@@ -47,7 +40,7 @@ Paste these in verbatim as the first backlog issues; each cites its repo
 source so a reader can verify the gap still exists before working it:
 
 1. **Playwright passkey virtual-authenticator full browser matrix is not run
-   in the mandatory local suite.** (`docs/archive/2026-08-07-baseline/summary.md`, Residual)
+   in the mandatory local suite.** (Reconciled August 2026 baseline inventory.)
 2. **The real-Postgres suites run only where a Postgres is provided.**
    `npm run test:postgres` -w @opensesame/database and
    `npm run test:postgres` -w @opensesame/identity-worker exit unless
@@ -55,22 +48,21 @@ source so a reader can verify the gap still exists before working it:
    default `npm test` uses PGlite. CI starts the server (`.github/workflows/ci.yml`,
    `.github/workflows/full-suite.yml`); a local run does not.
    (`packages/database/package.json`, `packages/identity-worker/package.json`;
-   the archived baseline's Residual list named Testcontainers, which no
+   the reconciled baseline inventory named Testcontainers, which no
    package here depends on)
 3. **Live Google/GitHub/Entra IdP integration is untested beyond templates —
-   only the mock IdP is exercised in CI/local runs.** (`docs/archive/2026-08-07-baseline/summary.md`,
-   Residual)
+   only the mock IdP is exercised in CI/local runs.** (Reconciled August 2026
+   baseline inventory.)
 4. **ATProto and Nostr exist only as reserved identity kinds.** `atproto`
    and `nostr` are values of `ExternalIdentityKindSchema`
    (`packages/contracts/src/principals.ts`); no adapter for either is in the
    tree, so there is nothing to enable or test against a live network.
-   (`docs/archive/2026-08-07-baseline/summary.md`, Residual, called them
-   "interfaces present, disabled by default"; also
-   `docs/archive/brief-implementation-status.md`, Feature gates)
+   (The reconciled August 2026 inventory called them "interfaces present,
+   disabled by default".)
 5. **Origin-profile clients, Dynamic Client Registration, and Client ID
    Metadata Documents are implemented but remain disabled by default** —
    decide whether/when to graduate each out of the feature gate.
-   (`docs/archive/brief-implementation-status.md`, Feature gates)
+   (Reconciled August 2026 feature-gate inventory.)
 6. **Client-side unlock-lockout state is advisory only** — anything with
    write access to browser storage can reset the failed-attempt counter; the
    PBKDF2 iteration floor is the real cost, not the counter. Consider

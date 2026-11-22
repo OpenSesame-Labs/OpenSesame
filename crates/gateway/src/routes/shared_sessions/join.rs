@@ -20,11 +20,11 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::{DateTime, Utc};
 use opensesame_domain::{
     Admission, JoinDecision, JoinRequest, JoinRequestId, PrincipalId, SessionAdmission,
     SessionGrant, SessionId, SessionMode, SessionVisibility,
 };
+use opensesame_time::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::json;
 

@@ -3,11 +3,11 @@
 //! opens only under the new key.
 mod common;
 
-use chrono::{Duration, Utc};
 use common::client::{encrypt, wrap, Account, PBKDF2};
 use common::orgs::{account, Api};
 use common::Harness;
 use opensesame_provider_bitwarden::{EncString, MasterKey, SymmetricKey};
+use opensesame_time::{Duration, Utc};
 use rand::Rng as _;
 use serde_json::{json, Value};
 

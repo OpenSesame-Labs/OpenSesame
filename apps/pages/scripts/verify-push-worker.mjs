@@ -49,7 +49,11 @@ import {
   untilWorkerHeld,
 } from "./lib/push-worker-harness.mjs";
 
-const dist = path.resolve(import.meta.dirname, "../dist");
+const dist = path.resolve(
+  import.meta.dirname,
+  "..",
+  process.env.PAGES_OUT_DIR ?? "dist",
+);
 const base = process.env.VITE_BASE ?? "/OpenSesame/";
 const TITLE = "Push notifications";
 const REF = "rv_Ab12-Cd34";

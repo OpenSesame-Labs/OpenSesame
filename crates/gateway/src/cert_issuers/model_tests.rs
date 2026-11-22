@@ -52,8 +52,8 @@ fn atomic_request_validation_normalizes_and_deduplicates_names() {
 
 #[test]
 fn contract_request_limits_are_exact_and_include_the_common_name() {
-    assert_eq!(DEFAULT_TTL, Duration::from_secs(86_400));
-    assert_eq!(MAX_TTL, Duration::from_secs(7_776_000));
+    assert_eq!(DEFAULT_TTL, Duration::from_hours(24));
+    assert_eq!(MAX_TTL, Duration::from_hours(24 * 90));
     assert_eq!(MAX_CERTIFICATE_CHAIN_BYTES, 262_144);
 
     let accepted = CertificateRequest::try_from(CertificateRequestInput {

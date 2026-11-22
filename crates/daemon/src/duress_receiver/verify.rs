@@ -80,7 +80,7 @@ impl ReplayCache {
 /// issued in the future beyond skew, and not have expired.
 fn check_window(env: &PeerEnvelopeView, now: i64) -> Result<i64, &'static str> {
     let parse = |value: &str| {
-        chrono::DateTime::parse_from_rfc3339(value)
+        opensesame_time::DateTime::parse_from_rfc3339(value)
             .map(|t| t.timestamp_millis())
             .map_err(|_| "unsupported_factor")
     };
@@ -202,7 +202,7 @@ pub fn verify_envelope_view(
     }
     let now = expect
         .now_ms
-        .unwrap_or_else(|| chrono::Utc::now().timestamp_millis());
+        .unwrap_or_else(|| opensesame_time::Utc::now().timestamp_millis());
     let expires = check_window(env, now)?;
 
     let Some(vk) = verifying_key else {
@@ -249,8 +249,9 @@ mod crypto_tests {
             policy_revision: 1,
             key_epoch: 1,
             nonce: "nonce-001".into(),
-            issued_at: chrono::Utc::now().to_rfc3339(),
-            expires_at: (chrono::Utc::now() + chrono::Duration::seconds(60)).to_rfc3339(),
+            issued_at: opensesame_time::Utc::now().to_rfc3339(),
+            expires_at: (opensesame_time::Utc::now() + opensesame_time::Duration::seconds(60))
+                .to_rfc3339(),
             ciphertext_b64: "AAAA".into(),
             signature_b64: String::new(),
         };
@@ -315,10 +316,10 @@ mod crypto_tests {
     fn future_dated_and_overlong_envelopes_are_refused() {
         let sk = SigningKey::generate();
         let vk = VerifyingKey::from(&sk);
-        let now = chrono::Utc::now();
+        let now = opensesame_time::Utc::now();
         let mut future = signed_view(&sk);
-        future.issued_at = (now + chrono::Duration::hours(1)).to_rfc3339();
-        future.expires_at = (now + chrono::Duration::hours(2)).to_rfc3339();
+        future.issued_at = (now + opensesame_time::Duration::hours(1)).to_rfc3339();
+        future.expires_at = (now + opensesame_time::Duration::hours(2)).to_rfc3339();
         resign(&sk, &mut future);
         let mut replay = ReplayCache::new(16);
         assert_eq!(
@@ -327,7 +328,7 @@ mod crypto_tests {
         );
 
         let mut forever = signed_view(&sk);
-        forever.expires_at = (now + chrono::Duration::days(3650)).to_rfc3339();
+        forever.expires_at = (now + opensesame_time::Duration::days(3650)).to_rfc3339();
         resign(&sk, &mut forever);
         assert_eq!(
             verify_envelope_view(&forever, &expect(), &mut replay, Some(&vk)).unwrap_err(),
@@ -335,7 +336,7 @@ mod crypto_tests {
         );
 
         let mut backwards = signed_view(&sk);
-        backwards.issued_at = (now + chrono::Duration::seconds(90)).to_rfc3339();
+        backwards.issued_at = (now + opensesame_time::Duration::seconds(90)).to_rfc3339();
         resign(&sk, &mut backwards);
         assert_eq!(
             verify_envelope_view(&backwards, &expect(), &mut replay, Some(&vk)).unwrap_err(),

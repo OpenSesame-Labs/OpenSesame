@@ -3,8 +3,8 @@
 use zeroize::Zeroizing;
 
 use super::{
-    auto_commit, confined_atomic_write, confined_read, open_osseal, seal_osseal, ItemDataKey,
-    StoreError, StoreLock, StoreRoot, COMMIT_RESTORE,
+    auto_commit, confined_atomic_write, confined_read, open_osseal_for_path, seal_osseal,
+    ItemDataKey, StoreError, StoreLock, StoreRoot, COMMIT_RESTORE,
 };
 
 impl StoreRoot {
@@ -25,16 +25,19 @@ impl StoreRoot {
     ) -> Result<(), StoreError> {
         let _lock = StoreLock::for_sealing(&self.path, name, key)?;
         let rel = Self::entry_relative(name, "osseal")?;
-        let opened = open_osseal(&confined_read(&self.path, &rel)?, key, name, None)?;
+        let opened = open_osseal_for_path(&confined_read(&self.path, &rel)?, key, name, None)?;
         let plaintext = Zeroizing::new(opened.plaintext);
-        let current = self.revision(name)?.unwrap_or(0).max(opened.revision);
-        let next = current
-            .checked_add(1)
-            .ok_or_else(|| StoreError::Crypto("entry revision exhausted".into()))?;
+        let next = self.next_entry_revision_after(
+            name,
+            &self.path.join(&rel),
+            key,
+            opened.revision,
+            Some(&plaintext),
+            true,
+        )?;
         let sealed = seal_osseal(&plaintext, key, name, next)?;
         // If interrupted, the previous ciphertext remains whole and this
         // explicit recovery can be repeated; no rollback is performed.
-        self.record_revision(name, next)?;
         confined_atomic_write(&self.path, &rel, &sealed)?;
         auto_commit(&self.path, COMMIT_RESTORE)?;
         Ok(())

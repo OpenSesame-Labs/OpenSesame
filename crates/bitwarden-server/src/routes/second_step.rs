@@ -5,8 +5,8 @@
 
 use std::collections::HashMap;
 
-use chrono::Utc;
 use opensesame_storage::bitwarden::{BitwardenRemember, BitwardenUser};
+use opensesame_time::Utc;
 
 use crate::error::{ApiError, ApiResult};
 use crate::second_factor::{
@@ -152,7 +152,7 @@ pub(crate) async fn remember_device(
             identifier,
             token_hash: &refresh_token_hash(&token),
             security_stamp: &user.security_stamp,
-            expires_at: Utc::now() + chrono::Duration::days(REMEMBER_DAYS),
+            expires_at: Utc::now() + opensesame_time::Duration::days(REMEMBER_DAYS),
         })
         .await?;
     Ok(token)

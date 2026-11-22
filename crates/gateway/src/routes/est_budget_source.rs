@@ -29,7 +29,7 @@ fn source(extensions: &Extensions) -> Result<String, Response> {
         .get::<PeerExtension>()
         .map(|peer| peer.0.as_ref());
     if let Some(OriginatingPeerExtension(origin)) = extensions.get::<OriginatingPeerExtension>() {
-        let now = chrono::Utc::now();
+        let now = opensesame_time::Utc::now();
         let linked = peer.is_some_and(|proxy| {
             proxy.source() == EvidenceSource::DirectTls
                 && proxy.policy() == TransportPolicy::TrustedIngress

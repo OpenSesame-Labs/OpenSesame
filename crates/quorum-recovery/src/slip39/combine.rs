@@ -227,7 +227,7 @@ impl fmt::Debug for GenerateParams<'_> {
 }
 
 fn check_generate(p: &GenerateParams<'_>) -> Result<(), Slip39Error> {
-    if p.master_secret.len() < 16 || p.master_secret.len() % 2 != 0 {
+    if p.master_secret.len() < 16 || !p.master_secret.len().is_multiple_of(2) {
         return Err(Slip39Error::Parameters(
             "the master secret must be at least 128 bits and a multiple of 16 bits",
         ));

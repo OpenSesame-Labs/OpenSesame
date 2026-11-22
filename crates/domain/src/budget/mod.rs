@@ -39,7 +39,7 @@
 //!
 //! ```
 //! use std::collections::BTreeMap;
-//! use chrono::Utc;
+//! use opensesame_time::Utc;
 //! use opensesame_domain::budget::{
 //!     Amount, BudgetKey, BudgetLedger, Limit, Limits, Quantity, ReservationId, SpendRequest,
 //!     Unit, WindowSpec,

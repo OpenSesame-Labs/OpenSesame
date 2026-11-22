@@ -33,7 +33,7 @@ fn to_hex(bytes: &[u8]) -> String {
 }
 
 fn from_hex(raw: &str) -> Vec<u8> {
-    assert!(raw.len() % 2 == 0, "hex must be even length");
+    assert!(raw.len().is_multiple_of(2), "hex must be even length");
     (0..raw.len() / 2)
         .map(|i| u8::from_str_radix(&raw[i * 2..i * 2 + 2], 16).expect("hex digit"))
         .collect()

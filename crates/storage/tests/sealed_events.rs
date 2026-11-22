@@ -91,7 +91,7 @@ async fn a_security_delivery_rests_sealed_and_its_failure_is_scrubbed() {
     db.dead_letter_security_delivery(
         "d-1",
         "request failed: https://h.example/x#token=abc123",
-        chrono::Utc::now(),
+        opensesame_time::Utc::now(),
     )
     .await
     .unwrap();
@@ -285,7 +285,7 @@ async fn an_unreadable_security_delivery_is_dead_lettered_and_the_queue_moves_on
     db.enqueue_security_delivery(&newer).await.unwrap();
 
     let claimed = db
-        .claim_security_deliveries(10, 30, chrono::Utc::now())
+        .claim_security_deliveries(10, 30, opensesame_time::Utc::now())
         .await
         .unwrap();
     assert_eq!(claimed.len(), 1);

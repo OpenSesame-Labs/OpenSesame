@@ -502,7 +502,7 @@ mod tests {
             "ready",
             None,
             Some(&cv),
-            Some(&chrono::Utc::now().to_rfc3339()),
+            Some(&opensesame_time::Utc::now().to_rfc3339()),
         )
         .await
         .unwrap();

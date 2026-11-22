@@ -133,5 +133,5 @@ fn the_explanation_lists_every_layer_in_precedence_order() {
         layers,
         vec!["availability", "relationship", "executability"]
     );
-    assert!(combined.effect() == Effect::Permit);
+    assert_eq!(combined.effect(), Effect::Permit);
 }

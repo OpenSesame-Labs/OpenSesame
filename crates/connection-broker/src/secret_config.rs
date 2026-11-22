@@ -297,7 +297,7 @@ impl SyncSecretSource for StoreSecretSource {
 
 use std::sync::Arc;
 
-use chrono::Utc;
+use opensesame_time::Utc;
 use serde_json::Map;
 
 use crate::changelog_hook::{record_secret_changelog_durable, RecordSecretChangelog};

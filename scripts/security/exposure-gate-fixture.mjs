@@ -131,6 +131,36 @@ export function gateFixture(t) {
   };
 }
 
+// The real pre-push hook also invokes the mandatory formal gate. Install its
+// actual selector and policy so this fixture exercises both gate entry points.
+export function installFormalGate(f) {
+  for (const name of [
+    "scripts/lib/json-boundary.mjs",
+    "scripts/security/cargo-lock-projection.py",
+    "scripts/security/cargo-workspace-projection.py",
+    "scripts/security/cargo-workspace-multipackage.py",
+    "scripts/security/formal-proof-lock-history.mjs",
+    "scripts/security/formal-proof-manifest-set.mjs",
+    "scripts/security/formal-proof-pinned-suites.mjs",
+    "scripts/security/formal-proof-source-selection.mjs",
+    "scripts/security/formal-proof-spiffe-peer-domain.mjs",
+    "scripts/security/formal-proof-source-history.mjs",
+    "scripts/security/formal-proof-push-gate.mjs",
+    "scripts/security/formal-proof-push-gate-registry.mjs",
+    "scripts/security/formal-proof-push-history.mjs",
+    "scripts/security/formal-proof-lock-history.mjs",
+    "scripts/security/formal-proof-remote-main.mjs",
+    "scripts/security/formal-proof-required-suites.mjs",
+    "scripts/security/formal-proof-runner-history.mjs",
+    "scripts/security/formal-proof-runner-pins.mjs",
+    "scripts/security/formal-proof-runner-pins.json",
+    "spec/formal/proof-registry.json",
+    "spec/formal/proof-requirements.json",
+  ])
+    f.write(name, readFileSync(join(source, name)));
+  f.head = f.commit("install mandatory formal push gate");
+}
+
 export function assertClean(result) {
   assert.equal(result.status, 0, result.stderr || result.error?.message);
   assert.match(result.stdout, /exposure matrix: CLEAN/);

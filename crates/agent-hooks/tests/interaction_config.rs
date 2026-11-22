@@ -10,7 +10,7 @@ use opensesame_agent_hooks::{InteractionApprover, InteractionConfigError};
 fn build(
     edit: impl FnOnce(&mut opensesame_agent_hooks::InteractionApproverConfig),
 ) -> Result<InteractionApprover, InteractionConfigError> {
-    let mut cfg = config("https://identity.example", Duration::from_secs(60));
+    let mut cfg = config("https://identity.example", Duration::from_mins(1));
     edit(&mut cfg);
     InteractionApprover::new(cfg)
 }
@@ -92,7 +92,7 @@ fn the_window_stays_inside_the_identity_apis_bounds() {
         assert_eq!(refused, InteractionConfigError::TtlOutOfRange);
     }
     assert!(build(|c| c.ttl = Duration::from_secs(30)).is_ok());
-    assert!(build(|c| c.ttl = Duration::from_secs(3600)).is_ok());
+    assert!(build(|c| c.ttl = Duration::from_hours(1)).is_ok());
 }
 
 #[test]

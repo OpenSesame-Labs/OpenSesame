@@ -194,7 +194,9 @@ fn grant_from(
     }
     let permissions = resp.permissions.clone()?;
     let exp = resp.exp.as_deref()?;
-    let expires_at = chrono::DateTime::parse_from_rfc3339(exp).ok()?.timestamp();
+    let expires_at = opensesame_time::DateTime::parse_from_rfc3339(exp)
+        .ok()?
+        .timestamp();
     Some(UserGrant {
         user_nkey: user_nkey.to_owned(),
         target_account: target_account.to_owned(),

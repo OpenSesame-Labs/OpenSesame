@@ -16,6 +16,7 @@ use crate::{ClientCoreError, DeviceKey, SyncBlob, SyncCursor, SyncStore};
 
 /// Portable offline backup of opaque sync ciphertext.
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct CiphertextSyncSnapshot {
     /// Stable format id — parsers reject anything else.
     #[serde(deserialize_with = "crate::sync_limits::deserialize_format")]

@@ -13,9 +13,9 @@
 //! [`ResponseAuthority`] — it is the security position of this module, and it
 //! is not a policy that could be relaxed by raising an assurance level.
 
-use chrono::{DateTime, Utc};
 use opensesame_agent_events::{AgentEvent, AgentPhase};
 use opensesame_session_observe::UntrustedText;
+use opensesame_time::{DateTime, Utc};
 
 use crate::envelope::{
     A2hMessage, AssuranceConfig, AssuranceLevel, CallbackConfig, ChannelBinding, Decision,

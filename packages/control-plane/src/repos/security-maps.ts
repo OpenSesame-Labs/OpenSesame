@@ -54,10 +54,4 @@ export function installDurableSecurityMaps(
     300_000,
     1000,
   );
-  stores.scimMutationRates = map(
-    "OpenSesame:ScimMutationRate",
-    false,
-    60_000,
-    10_000,
-  );
 }

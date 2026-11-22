@@ -1,7 +1,7 @@
 //! An account's name, address and existence, and the devices signed in to
 //! it, behind the Bitwarden-compatible server (ADR 0148 §6).
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::Row as _;
 
 use super::accounts::{bitwarden_timestamp, parse_bitwarden_timestamp};

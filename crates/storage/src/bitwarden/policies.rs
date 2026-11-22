@@ -2,7 +2,7 @@
 //! §9): one row per organization and type, with the client's own settings
 //! for it as JSON.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::sqlite::SqliteRow;
 use sqlx::{Row as _, SqliteConnection};
 

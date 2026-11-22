@@ -81,11 +81,11 @@ fn a_notice_cannot_carry_a_deadline_it_does_not_mean() {
 
 #[test]
 fn time_to_respond_floors_at_zero() {
-    let deadline = now() + chrono::Duration::seconds(300);
+    let deadline = now() + opensesame_time::Duration::seconds(300);
     let event = AgentEvent::waiting(run(), AgentPhase::Blocked, now(), deadline, None).unwrap();
     assert_eq!(event.seconds_to_respond(now()), Some(300));
     assert_eq!(
-        event.seconds_to_respond(now() + chrono::Duration::seconds(900)),
+        event.seconds_to_respond(now() + opensesame_time::Duration::seconds(900)),
         Some(0)
     );
     let notice = AgentEvent::reporting(run(), AgentPhase::Completed, now(), None).unwrap();
@@ -130,7 +130,7 @@ fn a_blocked_run_opens_an_incident_that_a_person_arriving_closes() {
     // The property that makes this feed usable on call: every phase shares
     // one alert key per origin, so the resolve actually closes what the
     // fire opened rather than accumulating pages nobody can clear.
-    let deadline = now() + chrono::Duration::seconds(300);
+    let deadline = now() + opensesame_time::Duration::seconds(300);
     let blocked = AgentEvent::waiting(run(), AgentPhase::Blocked, now(), deadline, None).unwrap();
     let granted = AgentEvent::reporting(run(), AgentPhase::ControlGranted, now(), None).unwrap();
 
@@ -158,7 +158,7 @@ fn an_agent_alert_never_resolves_an_expiry_one_about_the_same_origin() {
 
 #[test]
 fn the_notice_carries_the_reason_where_the_reason_is_the_actionable_part() {
-    let deadline = now() + chrono::Duration::seconds(300);
+    let deadline = now() + opensesame_time::Duration::seconds(300);
     let blocked = AgentEvent::waiting(
         run(),
         AgentPhase::Blocked,
@@ -197,7 +197,7 @@ fn the_feeds_own_fence_finds_nothing_to_strip_from_an_agent_payload() {
 
 #[test]
 fn payload_is_value_blind_and_survives_the_audit_redactor() {
-    let deadline = now() + chrono::Duration::seconds(300);
+    let deadline = now() + opensesame_time::Duration::seconds(300);
     let event = AgentEvent::waiting(
         run(),
         AgentPhase::Blocked,
@@ -249,7 +249,7 @@ fn a_notice_omits_the_deadline_rather_than_nulling_it() {
 
 #[test]
 fn a_payload_round_trips_back_into_the_fact_it_described() {
-    let deadline = now() + chrono::Duration::seconds(300);
+    let deadline = now() + opensesame_time::Duration::seconds(300);
     for original in [
         AgentEvent::waiting(run(), AgentPhase::Blocked, now(), deadline, Some("stuck")).unwrap(),
         AgentEvent::waiting(run(), AgentPhase::AwaitingHuman, now(), deadline, None).unwrap(),
@@ -264,7 +264,7 @@ fn a_payload_round_trips_back_into_the_fact_it_described() {
 
 #[test]
 fn a_half_read_payload_is_refused_rather_than_repaired() {
-    let deadline = now() + chrono::Duration::seconds(300);
+    let deadline = now() + opensesame_time::Duration::seconds(300);
     let event = AgentEvent::waiting(run(), AgentPhase::Blocked, now(), deadline, None).unwrap();
 
     // A missing field is not defaulted: a notification built from one would

@@ -69,6 +69,8 @@ impl TokenSource for CliTokenSource {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    use opensesame_trusted_exec::testkit::ExecutableFixture;
     use secrecy::ExposeSecret;
 
     /// Test-only construction with a scripted spec, so acquisition can be
@@ -101,26 +103,42 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn acquisition_returns_the_printed_credential() {
+        let fixture = ExecutableFixture::new();
+        let executable = fixture.copy("/bin/echo", "gh");
+        let mut env = env();
+        env.insert(
+            "OPENSESAME_GH".to_string(),
+            executable.to_string_lossy().into_owned(),
+        );
         let source = CliTokenSource::with_spec(
             SourceToolSpec {
-                binary: "sh",
-                args: &["-c", "printf 'gho_test-token\\n'"],
+                binary: "gh",
+                args: &["gho_test-token"],
             },
-            &env(),
+            &env,
         );
         let token = source.acquire().expect("acquired");
         assert_eq!(token.expose_secret(), "gho_test-token");
     }
 
     #[test]
+    #[cfg(unix)]
     fn acquisition_failure_is_a_class_not_the_output() {
+        let fixture = ExecutableFixture::new();
+        let executable = fixture.copy("/usr/bin/env", "gh");
+        let mut env = env();
+        env.insert(
+            "OPENSESAME_GH".to_string(),
+            executable.to_string_lossy().into_owned(),
+        );
         let source = CliTokenSource::with_spec(
             SourceToolSpec {
-                binary: "sh",
-                args: &["-c", "echo PLANTED-SECRET-OUTPUT; exit 1"],
+                binary: "gh",
+                args: &["PLANTED-SECRET-OUTPUT"],
             },
-            &env(),
+            &env,
         );
         let error = source.acquire().expect_err("failing tool");
         let rendered = format!("{error} / {error:?}");

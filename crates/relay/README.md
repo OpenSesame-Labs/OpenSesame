@@ -3,14 +3,14 @@
 Fail-closed admission rules for relayed execution on the Host / authority
 plane. When an upstream credential cannot be attenuated, a delegation may run
 in `relay` mode: the credential stays with its holder and the delegate's
-request travels to the holder's runtime, which executes it. This crate is the
-one answer to "may this relayed request run?", written as a pure function so
-the gateway and the holder cannot disagree.
+request travels to the holder's runtime, which would execute it. This crate
+contains pure admission rules; the holder runtime and its per-use authorization
+are not implemented, so the gateway refuses relay execution for now.
 
 ## Where it fits
 
 - **Used by:** [`crates/gateway`](../../crates/gateway) (`src/routes/relay.rs`,
-  which runs `admit` at both submission and result) and
+  which checks reports of previously approved work) and
   [`opensesame-connection-broker`](../connection-broker) (`ExecutionMode` on a
   delegation).
 - **Builds on:** [`opensesame-domain`](../domain) (`AvailabilityClass`,

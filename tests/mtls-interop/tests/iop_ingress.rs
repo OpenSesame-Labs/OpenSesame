@@ -153,7 +153,7 @@ async fn start_origin(
         number: 1,
         identity: Some(identity),
         peer_trust,
-        activated_at: chrono::Utc::now(),
+        activated_at: opensesame_time::Utc::now(),
         withdrawn: None,
     });
     let listener = SecureListener::bind(
@@ -229,7 +229,7 @@ fn start_edge(
             .env("OPENSESAME_INGRESS_CLIENT_KEY", &ingress_client.key),
         &dir.join("caddy.log"),
     )?;
-    edge.wait_for_port(ingress_port, Duration::from_secs(60))?;
+    edge.wait_for_port(ingress_port, Duration::from_mins(1))?;
     Ok((edge, ingress_port))
 }
 

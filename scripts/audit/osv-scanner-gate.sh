@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# OSV-Scanner gate — fails on every vulnerability reported by the scanner.
+# OSV-Scanner gate — retains every raw finding and accepts only exact,
+# source-attested repaired tuples.
 # Complements cargo-deny (RustSec) and cve-lite (npm-focused OSV) with Google OSV.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -7,6 +8,23 @@ cd "$ROOT"
 source "$ROOT/scripts/lib/audit-directory.sh"
 opensesame_audit_directory
 mkdir -p .tools/bin
+
+# A scanner-side ignore would hide the finding before the fail-closed report
+# adapter sees it. Check the configuration before invoking the scanner.
+python3 - <<'PY'
+import sys
+import tomllib
+
+try:
+    with open("osv-scanner.toml", "rb") as stream:
+        config = tomllib.load(stream)
+    ignored = config.get("IgnoredVulns", [])
+    if not isinstance(ignored, list) or ignored:
+        raise ValueError("advisory ignores are not accepted")
+except (OSError, ValueError, tomllib.TOMLDecodeError) as error:
+    print(f"osv-scanner gate: FAIL (invalid config: {error})", file=sys.stderr)
+    sys.exit(1)
+PY
 
 VERSION="${OPENSESAME_OSV_SCANNER_VERSION:-2.5.0}"
 BIN="${OPENSESAME_OSV_SCANNER_BIN:-$ROOT/.tools/bin/osv-scanner}"
@@ -62,6 +80,11 @@ ensure_osv_scanner() {
 }
 
 ensure_osv_scanner
+
+# Fail closed if the scanner stops reporting the verified SQLx path dependency.
+python3 scripts/security/check-sqlx-scanner-coverage.py "$BIN"
+# Keep the defensive Keepass source fix visible to the same scanner inventory.
+python3 scripts/security/check-keepass-scanner-coverage.py "$BIN"
 
 # Enumerate tracked inputs so hidden tooling workspaces and independent Rust/Go
 # modules are scanned too, without walking node_modules or private audit output.
@@ -155,4 +178,5 @@ if os.environ["OSV_SCAN_STATUS"] == "1" and not findings:
 output = Path(os.environ["OPENSESAME_AUDIT_DIR"]) / "osv-findings.json"
 output.write_text(json.dumps(findings))
 PY
-node scripts/security/assert-no-advisories.mjs "$OPENSESAME_AUDIT_DIR/osv-findings.json"
+node scripts/security/assert-no-advisories.mjs \
+  "$OPENSESAME_AUDIT_DIR/osv-findings.json" --attest-repaired "$ROOT"

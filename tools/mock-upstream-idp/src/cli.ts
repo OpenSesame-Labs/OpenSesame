@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import { pathToFileURL } from "node:url";
 import { isString } from "@opensesame/os-domain";
 import { main as mainImpl } from "./index.js";

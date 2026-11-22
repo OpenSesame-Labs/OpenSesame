@@ -1,7 +1,6 @@
 import type { X509Certificate } from "node:crypto";
-import type { IncomingMessage } from "node:http";
-import { Readable } from "node:stream";
-import { overlapCast } from "@opensesame/os-domain";
+import { IncomingMessage } from "node:http";
+import { Socket } from "node:net";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { StartedControlPlane } from "../../server.js";
 import { attestPeer } from "../peer-evidence.js";
@@ -21,10 +20,12 @@ import { bootWithTls, shutdown } from "./server-helpers.js";
 import { tlsRequest } from "./tls-client.js";
 
 /** An unsigned JWT-shaped bearer; the gate only reads `cnf`, signature is downstream. */
-function bearer(payload: object): string {
-  const b64 = (o: object) =>
-    Buffer.from(JSON.stringify(o)).toString("base64url");
-  return `Bearer ${b64({ alg: "none" })}.${b64(payload)}.sig`;
+function bearer<Payload extends object>(payload: Payload): string {
+  const header = Buffer.from(JSON.stringify({ alg: "none" })).toString(
+    "base64url",
+  );
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  return `Bearer ${header}.${body}.sig`;
 }
 
 function peerOfCert(cert: X509Certificate) {
@@ -110,14 +111,13 @@ describe("resource-side certificate binding (unit)", () => {
   });
 
   it("a replayed request keeps the original's evidence (AT-IDENTITY-SPLIT)", () => {
-    const original: IncomingMessage = overlapCast(
-      Readable.from([Buffer.from("grant_type=x")]),
-    );
+    const socket = new Socket();
+    socket.unref();
+    const original = new IncomingMessage(socket);
     original.headers = { host: "h" };
     original.rawHeaders = ["host", "h"];
     original.method = "POST";
     original.url = "/token";
-    original.socket = overlapCast({});
     const peer = peerOfCert(a.cert);
     recordRequestEvidence(original, {
       provenance: {

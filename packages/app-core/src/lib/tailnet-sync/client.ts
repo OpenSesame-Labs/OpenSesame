@@ -21,6 +21,8 @@ import {
   type LocalNetworkFetchInit,
   localNetworkFetch,
 } from "../local-network-fetch.js";
+import { discardDriveBody, readDriveBody } from "./drive-body.js";
+import { DRIVE_TIMEOUT_MS, DriveError } from "./drive-errors.js";
 import type { DrivePairing } from "./pairing.js";
 import { currentTailnet, tailnetSyncHeaders } from "./saved-connector.js";
 import { type DriveSnapshot, parseDriveSnapshot } from "./snapshot.js";
@@ -31,19 +33,10 @@ export type DriveWrite =
   | { ok: true; generation: number }
   | { ok: false; generation: number };
 
-/** A drive answered with something other than the protocol above. */
-export class DriveError extends Error {
-  constructor(
-    message: string,
-    readonly status: number,
-  ) {
-    super(message);
-    this.name = "DriveError";
-  }
-}
+export { DRIVE_TIMEOUT_MS, DriveError } from "./drive-errors.js";
 
-/** How long a drive request may take before it is given up as unanswered. */
-export const DRIVE_TIMEOUT_MS = 15_000;
+/** The daemon's largest stored snapshot, with room for the JSON response. */
+export const MAX_DRIVE_JSON_BYTES = 16 * 1024 * 1024 + 64 * 1024;
 
 /**
  * How a drive request goes out. An `https:` drive (Tailscale Serve) carries no
@@ -103,13 +96,16 @@ function generationOf(json: BoundaryValue): number {
 
 export async function readJson(response: Response): Promise<BoundaryValue> {
   try {
-    return await response.json();
-  } catch {
+    const bytes = await readDriveBody(response, MAX_DRIVE_JSON_BYTES);
+    return JSON.parse(new TextDecoder().decode(bytes));
+  } catch (error) {
+    if (error instanceof DriveError) throw error;
     throw new DriveError("The drive answered with something unreadable.", 502);
   }
 }
 
 export function refused(response: Response): DriveError {
+  discardDriveBody(response);
   if (response.status === 401 || response.status === 404) {
     return new DriveError(
       "The drive no longer knows this device's key. Pair again.",
@@ -147,6 +143,7 @@ export async function reachDrive(
 ): Promise<void> {
   const response = await getSlot(pairing, waitMs);
   if (!response.ok) throw refused(response);
+  discardDriveBody(response);
 }
 
 export async function readDrive(pairing: DrivePairing): Promise<DriveRead> {

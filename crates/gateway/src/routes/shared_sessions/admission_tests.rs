@@ -146,7 +146,7 @@ async fn pending_observer_and_participant_admissions_are_refused_after_close() {
         assert_eq!(status, StatusCode::OK);
         let mut body = json!({"decision": "admitted", "mode": mode});
         if mode == "participant" {
-            body["grant"] = json!({"scope": {"kind": "collection", "vault_id": opensesame_domain::VaultId::new().to_string()}, "role": "read", "expires_at": (chrono::Utc::now() + chrono::Duration::hours(1)).to_rfc3339()});
+            body["grant"] = json!({"scope": {"kind": "collection", "vault_id": opensesame_domain::VaultId::new().to_string()}, "role": "read", "expires_at": (opensesame_time::Utc::now() + opensesame_time::Duration::hours(1)).to_rfc3339()});
         }
         let path = format!("{asks}/{request_id}/decide");
         let (status, _) = call(&router, "POST", &path, &operator, body).await;

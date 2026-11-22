@@ -1,6 +1,28 @@
 import { expect } from "@playwright/test";
 import { setShowHidden } from "./pages-journey.mjs";
 
+async function ensureAccountListing(page, check) {
+  const accountListing = page
+    .locator('.railtree__kids a[href$="/vault?f=account"]')
+    .first();
+  if ((await accountListing.count()) > 0) return;
+  const enableCoreTypes = page.getByRole("button", {
+    name: "Turn on passwords, cards and notes",
+    exact: true,
+  });
+  check(
+    (await enableCoreTypes.count()) === 1,
+    "account: the empty vault offers the reviewed core item-type pack",
+  );
+  if ((await enableCoreTypes.count()) === 0) {
+    throw new Error(
+      `account listing and core item-type control are both missing:\n${await page.locator(".vault").innerText()}`,
+    );
+  }
+  await enableCoreTypes.click();
+  await expect(accountListing).toHaveCount(1);
+}
+
 /**
  * Verify the actual New link and keyboard command agree with the active view.
  *
@@ -12,6 +34,7 @@ import { setShowHidden } from "./pages-journey.mjs";
  * before this check, so the listing is there; drops stay off.
  */
 export async function checkEditorRoutes(page, check) {
+  await ensureAccountListing(page, check);
   check(
     (await page
       .locator('.railtree__kids a[href$="/vault?f=passkey"]')

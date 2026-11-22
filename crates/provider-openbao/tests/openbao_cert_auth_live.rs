@@ -72,7 +72,7 @@ async fn a_real_openbao_authenticates_a_certificate_and_scopes_its_token() {
     assert!(!token.has_policy("root"));
     assert!(!token.has_policy("connector-admin"));
     assert!(token.lease_duration.as_secs() > 0, "the lease is real");
-    assert!(token.is_usable_at(chrono::Utc::now()));
+    assert!(token.is_usable_at(opensesame_time::Utc::now()));
 
     // 2. The same leaf, a role whose SAN constraint it does not satisfy.
     let denied = adapter(&bao, ROLE_B)

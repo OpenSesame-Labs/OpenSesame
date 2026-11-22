@@ -125,7 +125,7 @@ async fn publish_sync_bus(
         uuid::Uuid::now_v7().to_string(),
         "opensesame/gateway/sync-targets",
         event_type,
-        chrono::Utc::now().to_rfc3339(),
+        opensesame_time::Utc::now().to_rfc3339(),
         data,
     );
     st.task_bus.read().await.publish(event).await.map_err(|e| {

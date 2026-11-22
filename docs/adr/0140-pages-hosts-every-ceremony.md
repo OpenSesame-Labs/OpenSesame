@@ -72,7 +72,7 @@ apps are deleted.** The concern ADR 0045 named is met inside the app:
    or the device-native host serves the route. Nothing sits in front of the
    front door, and no copy names a missing service.
 
-Decisions recorded with the plan (`docs/implementation/ceremonies-into-pages/`):
+Decisions retained from the completed implementation programme:
 
 | # | Decision |
 |---|---|

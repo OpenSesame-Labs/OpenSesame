@@ -3,7 +3,7 @@
 //! claim of a waiting invitation. Each takes the write lock before it reads,
 //! and reads the member's standing from the row, never from a caller's copy.
 
-use chrono::Utc;
+use opensesame_time::Utc;
 use sqlx::Row as _;
 
 use super::accounts::bitwarden_timestamp;

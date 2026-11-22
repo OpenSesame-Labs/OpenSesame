@@ -223,7 +223,7 @@ fn with_version(status: StatusCode, version: i64, body: &Value) -> Response {
 /// replay it right now — each answer decided by the runner's own rule.
 async fn recipe_summary(st: &AppState, record: &StoredRecipeRecord) -> Value {
     use crate::web_login::recipe_trust::{verified_recipe, Attendance};
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     let runs = |attendance| async move {
         verified_recipe(
             &st.db,

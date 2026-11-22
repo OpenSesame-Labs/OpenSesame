@@ -10,13 +10,30 @@ mod terminal_person;
 
 const PASSPHRASE: &str = "correct horse battery staple";
 
+fn git_bin() -> PathBuf {
+    let path = std::env::var_os("PATH").expect("test PATH");
+    std::env::split_paths(&path)
+        .map(|directory| directory.join("git"))
+        .find(|candidate| candidate.is_file())
+        .and_then(|candidate| candidate.canonicalize().ok())
+        .expect("absolute git executable")
+}
+
 fn command(store: &Path, args: &[&str]) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_opensesame"));
     command
         .args(args)
         .arg("--path")
         .arg(store)
-        .env("OPENSESAME_STORE_PASSWORD", PASSPHRASE);
+        .env("OPENSESAME_STORE_PASSWORD", PASSPHRASE)
+        .env(
+            "OPENSESAME_TEST_ROLLBACK_WITNESS_DIR",
+            store
+                .parent()
+                .expect("fixture store parent")
+                .join("witness"),
+        )
+        .env("OPENSESAME_GIT", git_bin());
     command
 }
 
@@ -38,11 +55,12 @@ fn given_a_store_with_an_entry() -> (tempfile::TempDir, PathBuf) {
         .unwrap()
         .write_all(b"hunter2\n")
         .unwrap();
-    assert!(insert
-        .wait_with_output()
-        .expect("insert wait")
-        .status
-        .success());
+    let inserted = insert.wait_with_output().expect("insert wait");
+    assert!(
+        inserted.status.success(),
+        "pass insert failed:\n{}",
+        String::from_utf8_lossy(&inserted.stderr)
+    );
     (dir, store)
 }
 

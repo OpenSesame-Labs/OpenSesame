@@ -120,3 +120,27 @@ it("keeps project navigation off the gate at every release layout", () => {
     cleanup();
   }
 });
+
+it("advertises only completed behavior for the current release while preserving historical gaps", () => {
+  stubViewport(false);
+  render(<ReleaseNotes />);
+
+  expect(screen.queryByRole("heading", { name: "In progress" })).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Known issues" })).toBeNull();
+  expect(
+    screen.getByText(
+      "Link catalog connectors and review their grants and approval requests in Access",
+    ),
+  ).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("button", { name: "0.0.1" }));
+  expect(
+    screen.getByRole("heading", { level: 3, name: "In progress" }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("heading", { level: 3, name: "Known issues" }),
+  ).toBeTruthy();
+  expect(
+    screen.getByText("Connections and GitHub backup still landing"),
+  ).toBeTruthy();
+});

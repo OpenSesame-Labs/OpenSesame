@@ -13,8 +13,8 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use chrono::Utc;
 use opensesame_storage::bitwarden::{BitwardenCollection, BitwardenCollectionAccess};
+use opensesame_time::Utc;
 use serde_json::{Map, Value};
 
 use super::credentials::text;

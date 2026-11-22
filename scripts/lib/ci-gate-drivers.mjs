@@ -12,8 +12,6 @@ export const DRIVER_GATES = {
   "verify-local-iam.mjs": ["sign-in"],
   "verify-quorum-browser.mjs": ["sign-in"],
   "verify-static-origin.mjs": ["static"],
-  // `npm run verify:startup -w @opensesame/pages` is local, not a CI job.
-  "verify-startup.mjs": null,
   "verify-encrypted-search.mjs": ["static"],
   "verify-portable-drop.mjs": ["static"],
   "verify-auth-flow.mjs": ["auth"],
@@ -21,11 +19,14 @@ export const DRIVER_GATES = {
   "verify-experience-journeys.mjs": ["journeys"],
   "verify-webmcp.mjs": ["budgets"],
   "verify-push-worker.mjs": ["budgets"],
+  "verify-saml-worker.mjs": ["budgets"],
+  "verify-push-worker-core-reuse.mjs": ["budgets"],
   // P8-6: a dirty edit holds a service-worker release reload.
   "verify-sw-dirty-edit.mjs": ["budgets"],
   "verify-capability-graph.mjs": ["budgets"],
   "verify-schema-csp.mjs": ["budgets"],
   "verify-self-hosted-connectors.mjs": ["budgets"],
+  "verify-mqtt-packet-debug.mjs": ["budgets"],
   "verify-native-connectors-journey.mjs": ["native-connectors"],
   "verify-native-public-protocol.mjs": ["native-public-protocol"],
   "verify-provider-auth.mjs": ["native-public-protocol"],
@@ -74,6 +75,8 @@ export const DRIVER_GATES = {
   // ADR 0181: the journeys shard runs the relay join walk.
   "verify-relay-join.mjs": ["journeys"],
   "verify-relay-join-live.mjs": ["journeys"],
+  // Startup verification is a local package command, not a CI shard.
+  "verify-startup.mjs": null,
   "verify-live-netns.mjs": null,
   "verify-mutations.mjs": null,
   "verify-tailnet-devices.mjs": null,

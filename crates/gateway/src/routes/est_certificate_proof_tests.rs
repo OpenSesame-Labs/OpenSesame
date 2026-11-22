@@ -59,6 +59,42 @@ async fn request(
     origin: Option<&VerifiedPeer>,
     password: Option<&str>,
 ) -> StatusCode {
+    request_inner(state, profile, endpoint, peer, origin, password, None).await
+}
+
+/// The live-generation fence fails closed without TLS listener provenance, so
+/// fence-gated tests that exercise branch-level validation carry the current
+/// generation explicitly, as a real TLS listener would.
+async fn request_provenanced(
+    state: &AppState,
+    profile: &str,
+    endpoint: &str,
+    peer: Option<&VerifiedPeer>,
+    origin: Option<&VerifiedPeer>,
+    password: Option<&str>,
+    generation: u64,
+) -> StatusCode {
+    request_inner(
+        state,
+        profile,
+        endpoint,
+        peer,
+        origin,
+        password,
+        Some(generation),
+    )
+    .await
+}
+
+async fn request_inner(
+    state: &AppState,
+    profile: &str,
+    endpoint: &str,
+    peer: Option<&VerifiedPeer>,
+    origin: Option<&VerifiedPeer>,
+    password: Option<&str>,
+    provenance_generation: Option<u64>,
+) -> StatusCode {
     let mut request = Request::post(format!("/.well-known/est/{profile}/{endpoint}"))
         // A refusal before CSR parsing proves no signer or issuance ran.
         .body(Body::from("not a csr"))
@@ -72,6 +108,15 @@ async fn request(
         request
             .extensions_mut()
             .insert(OriginatingPeerExtension(Arc::new(origin.clone())));
+    }
+    if let Some(generation) = provenance_generation {
+        request
+            .extensions_mut()
+            .insert(opensesame_transport_security::ListenerProvenance::Tls {
+                listener_id: "est-proof-tests".to_string(),
+                policy: TransportPolicy::MtlsRequired,
+                generation,
+            });
     }
     if let Some(password) = password {
         request.headers_mut().insert(
@@ -98,7 +143,7 @@ fn install_trust(state: &mut AppState, chain: &str) {
         peer_trust: [(profile, trust)].into(),
         ..GenerationCandidate::default()
     }
-    .into_generation(1, chrono::Utc::now())
+    .into_generation(1, opensesame_time::Utc::now())
     .unwrap();
     state.transport = Some(test_support::runtime_serving(
         TransportGenerations::new(generation),
@@ -205,8 +250,8 @@ async fn direct_client_certificates_work_but_expired_evidence_does_not() {
         .into_verified()
         .unwrap();
     let mut expired = attested(TransportPolicy::MtlsRequired);
-    expired.authenticated_at = chrono::Utc::now() - chrono::Duration::minutes(2);
-    expired.usable_until = chrono::Utc::now() - chrono::Duration::minutes(1);
+    expired.authenticated_at = opensesame_time::Utc::now() - opensesame_time::Duration::minutes(2);
+    expired.usable_until = opensesame_time::Utc::now() - opensesame_time::Duration::minutes(1);
     let expired = expired.into_verified().unwrap();
     for endpoint in ["simpleenroll", "simplereenroll"] {
         assert_eq!(
@@ -242,27 +287,64 @@ async fn a_bootstrap_pin_rejects_additional_listener_anchors_and_wrong_generatio
         install_trust(&mut state, &chain);
         for endpoint in ["simpleenroll", "simplereenroll"] {
             assert_eq!(
-                request(&state, &profile, endpoint, Some(&direct), None, None).await,
+                request_provenanced(
+                    &state,
+                    &profile,
+                    endpoint,
+                    Some(&direct),
+                    None,
+                    None,
+                    state
+                        .transport
+                        .as_ref()
+                        .unwrap()
+                        .generations
+                        .current()
+                        .number
+                )
+                .await,
                 StatusCode::UNAUTHORIZED
             );
         }
     }
     install_trust(&mut state, &a);
     assert_eq!(
-        request(&state, &profile, "simpleenroll", Some(&direct), None, None).await,
+        request_provenanced(
+            &state,
+            &profile,
+            "simpleenroll",
+            Some(&direct),
+            None,
+            None,
+            state
+                .transport
+                .as_ref()
+                .unwrap()
+                .generations
+                .current()
+                .number
+        )
+        .await,
         StatusCode::BAD_REQUEST
     );
     let mut mismatched = attested(TransportPolicy::MtlsRequired);
     mismatched.trust_generation = 2;
     let mismatched = mismatched.into_verified().unwrap();
     assert_eq!(
-        request(
+        request_provenanced(
             &state,
             &profile,
             "simpleenroll",
             Some(&mismatched),
             None,
-            None
+            None,
+            state
+                .transport
+                .as_ref()
+                .unwrap()
+                .generations
+                .current()
+                .number
         )
         .await,
         StatusCode::UNAUTHORIZED
@@ -271,7 +353,22 @@ async fn a_bootstrap_pin_rejects_additional_listener_anchors_and_wrong_generatio
         .into_verified()
         .unwrap();
     assert_eq!(
-        request(&state, &profile, "simpleenroll", Some(&proxy), None, None).await,
+        request_provenanced(
+            &state,
+            &profile,
+            "simpleenroll",
+            Some(&proxy),
+            None,
+            None,
+            state
+                .transport
+                .as_ref()
+                .unwrap()
+                .generations
+                .current()
+                .number
+        )
+        .await,
         StatusCode::UNAUTHORIZED
     );
 }
@@ -324,8 +421,8 @@ async fn renewal_inventory_never_turns_a_proxy_or_expired_peer_into_the_enrollee
         .unwrap();
     let origin = test_support::forwarded("enrollee.test", THUMB_A, &proxy);
     let mut expired = attested(TransportPolicy::MtlsRequired);
-    expired.authenticated_at = chrono::Utc::now() - chrono::Duration::minutes(2);
-    expired.usable_until = chrono::Utc::now() - chrono::Duration::minutes(1);
+    expired.authenticated_at = opensesame_time::Utc::now() - opensesame_time::Duration::minutes(2);
+    expired.usable_until = opensesame_time::Utc::now() - opensesame_time::Duration::minutes(1);
     let expired = expired.into_verified().unwrap();
     let unknown = test_support::peer("unknown.test", THUMB_B, 1);
     for (peer, origin) in [

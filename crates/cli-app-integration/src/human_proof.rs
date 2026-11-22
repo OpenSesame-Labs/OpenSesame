@@ -33,12 +33,7 @@ pub struct HumanProofContext {
     pub peer_start_time: u64,
 }
 
-/// Verbs that require a hardware-backed passkey proof (D7-2 decision 6).
-fn verb_requires_hardware_passkey(verb: &str) -> bool {
-    matches!(verb, "run" | "pass-reveal")
-}
-
-/// Verified human proof: PIN unlock or passkey with monotonic sign count.
+/// Verified passkey assertion and its sign count, which can remain zero.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(crate) enum HumanProofOutcome {
     Passkey(u32),
@@ -58,7 +53,9 @@ pub(crate) fn human_proof_verify(
     binding: &PairedBinding,
     ctx: &HumanProofContext,
 ) -> Option<HumanProofOutcome> {
-    if binding.pin_proof_failures >= crate::pairing::MAX_PIN_PROOF_FAILURES {
+    if crate::is_approval_blocked(&ctx.verb)
+        || binding.pin_proof_failures >= crate::pairing::MAX_PIN_PROOF_FAILURES
+    {
         return None;
     }
     let t = proof.trim();
@@ -73,15 +70,7 @@ pub(crate) fn human_proof_verify(
             // against them (main #1366). Passkey proofs carry approval.
             return None;
         }
-        if kind == "software-passkey" {
-            if verb_requires_hardware_passkey(&ctx.verb) {
-                return None;
-            }
-            let webauthn = binding.webauthn.as_ref()?;
-            return verify_passkey_assertion(tail, &challenge, webauthn)
-                .map(HumanProofOutcome::Passkey);
-        }
-        if kind == "passkey" {
+        if kind == "software-passkey" || kind == "passkey" {
             let webauthn = binding.webauthn.as_ref()?;
             return verify_passkey_assertion(tail, &challenge, webauthn)
                 .map(HumanProofOutcome::Passkey);
@@ -182,6 +171,7 @@ mod tests {
                 credential_id_b64: "cred".into(),
                 public_key_spki_b64: spki,
                 sign_count: 0,
+                origin: "http://localhost:5180".into(),
             }),
             pin_proof_failures: 0,
         };
@@ -189,34 +179,38 @@ mod tests {
     }
 
     #[test]
-    fn software_passkey_cannot_authorize_high_risk_verbs() {
-        let signing_key = SigningKey::generate();
-        let spki = crate::device_crypto::verifying_key_spki_b64(signing_key.verifying_key());
-        let binding = PairedBinding {
-            device_public_key_spki_b64: spki.clone(),
-            webauthn: Some(crate::pairing::WebAuthnCredential {
-                credential_id_b64: "cred".into(),
-                public_key_spki_b64: spki,
-                sign_count: 0,
-            }),
-            pin_proof_failures: 0,
-        };
-        let proof = format!(
-            "{PROOF_PREFIX}software-passkey:{}",
-            serde_json::json!({
-                "credentialIdB64": "cred",
-                "authenticatorDataB64": "AA",
-                "clientDataJsonB64": "AA",
-                "signatureB64": "AA",
-            })
-        );
-        for verb in ["run", "pass-reveal"] {
+    fn all_verbs_are_refused_for_both_passkey_labels() {
+        use crate::test_support::{mint_test_human_proof, test_paired_binding};
+
+        let binding = test_paired_binding();
+        for verb in [
+            "run",
+            "pass-reveal",
+            "read",
+            "reveal",
+            "env-resolve",
+            "unknown",
+        ] {
             let mut c = ctx();
+            c.daemon_id = crate::daemon_integration_id();
             c.verb = verb.to_string();
-            assert!(
-                human_proof_verify(&proof, &binding, &c).is_none(),
-                "verb {verb}"
+            let proof = mint_test_human_proof(
+                &c.request_id,
+                &c.terminal_session_id,
+                &c.respond_nonce,
+                verb,
+                c.peer_pid,
+                c.peer_start_time,
             );
+            let software = proof.replacen("oschip3:passkey:", "oschip3:software-passkey:", 1);
+            let challenge = approval_challenge_digest_v3(&approval_challenge_input(&c));
+            let tail = proof.strip_prefix("oschip3:passkey:").unwrap();
+            assert!(
+                verify_passkey_assertion(tail, &challenge, binding.webauthn.as_ref().unwrap())
+                    .is_some()
+            );
+            assert!(human_proof_verify(&proof, &binding, &c).is_none());
+            assert!(human_proof_verify(&software, &binding, &c).is_none());
         }
     }
 
@@ -230,6 +224,7 @@ mod tests {
                 credential_id_b64: "cred".into(),
                 public_key_spki_b64: spki,
                 sign_count: 0,
+                origin: "http://localhost:5180".into(),
             }),
             pin_proof_failures: 0,
         };
@@ -261,19 +256,21 @@ mod tests {
             peer_start_time: 0,
         };
         let mut binding = test_paired_binding();
+        let challenge = approval_challenge_digest_v3(&approval_challenge_input(&ctx));
+        let verify = |proof: &str, binding: &PairedBinding| {
+            verify_passkey_assertion(
+                proof.strip_prefix("oschip3:passkey:").unwrap(),
+                &challenge,
+                binding.webauthn.as_ref().unwrap(),
+            )
+        };
         let zero = mint_test_passkey_human_proof("clr_1", "term-a", "nonce", "read", 0);
-        assert_eq!(
-            human_proof_verify(&zero, &binding, &ctx),
-            Some(HumanProofOutcome::Passkey(0))
-        );
+        assert_eq!(verify(&zero, &binding), Some(0));
         binding.webauthn.as_mut().expect("cred").sign_count = 1;
-        assert!(human_proof_verify(&zero, &binding, &ctx).is_none());
+        assert!(verify(&zero, &binding).is_none());
         let replay = mint_test_passkey_human_proof("clr_1", "term-a", "nonce", "read", 1);
-        assert!(human_proof_verify(&replay, &binding, &ctx).is_none());
+        assert!(verify(&replay, &binding).is_none());
         let next = mint_test_passkey_human_proof("clr_1", "term-a", "nonce", "read", 2);
-        assert_eq!(
-            human_proof_verify(&next, &binding, &ctx),
-            Some(HumanProofOutcome::Passkey(2))
-        );
+        assert_eq!(verify(&next, &binding), Some(2));
     }
 }

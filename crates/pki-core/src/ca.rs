@@ -432,10 +432,7 @@ mod tests {
         let mut params = CertificateParams::new(vec!["leaf.example.com".to_owned()]).unwrap();
         params.is_ca = IsCa::NoCa;
         let issuer = Issuer::from_ca_cert_pem(&root.certificate_pem, root.key.rcgen()).unwrap();
-        let leaf = params
-            .signed_by(leaf_key.rcgen(), &issuer)
-            .unwrap()
-            .pem();
+        let leaf = params.signed_by(leaf_key.rcgen(), &issuer).unwrap().pem();
         assert_eq!(
             validate_ca(&leaf, None).unwrap_err(),
             PkiError::NotACertificateAuthority

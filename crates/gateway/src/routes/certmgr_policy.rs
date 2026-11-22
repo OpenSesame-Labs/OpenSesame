@@ -407,7 +407,7 @@ pub async fn create(
         Err(error) => return internal(error, "serialize policy rules"),
     };
 
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = opensesame_time::Utc::now().to_rfc3339();
     let row = StoredCertificatePolicy {
         id: format!("certificate-policy:{}", uuid::Uuid::now_v7()),
         organization_id: organization.clone(),

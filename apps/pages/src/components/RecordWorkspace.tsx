@@ -1,47 +1,21 @@
-import type { GuideTargetId } from "@opensesame/guide-lang";
-import type { ReactNode } from "react";
 import { AscendProvider } from "../lib/pane-trail.js";
 import { IconChevronLeft } from "./Icons.js";
 import { NavTree } from "./NavTree.js";
 import { RecordAdd } from "./RecordAdd.js";
 import { RecordList } from "./RecordList.js";
-import { UpLink } from "./UpLink.js";
+import {
+  type RecordWorkspaceProps,
+  countedWorkspaceRows,
+} from "./record-workspace-contract.js";
 import { useRecordWorkspace } from "./record-workspace-state.js";
+import { UpLink } from "./UpLink.js";
 import "../sections/vault.css";
 import "./record-workspace.css";
-export type WorkspaceRow = {
-  id: string;
-  label: string;
-  extension?: string;
-  to?: string;
-  onOpen?: () => void;
-  actions?: ReactNode;
-  /** False for an add-on that stays in the list and out of the count. */
-  counted?: boolean;
-};
 
-/** Rows that belong to the section count. An omitted flag counts. */
-export function countedWorkspaceRows(
-  rows: readonly WorkspaceRow[],
-): WorkspaceRow[] {
-  return rows.filter((row) => row.counted !== false);
-}
-
-export type RecordWorkspaceProps = {
-  section: string;
-  title: string;
-  rootPath: string;
-  listPath: string;
-  rows: WorkspaceRow[];
-  selectedId: string | null;
-  commands?: ReactNode;
-  createGuide?: GuideTargetId;
-  children?: ReactNode;
-  status?: ReactNode;
-  listHeader?: ReactNode;
-  detailOpen?: boolean;
-  emptyMessage?: string;
-};
+export type {
+  RecordWorkspaceProps,
+  WorkspaceRow,
+} from "./record-workspace-contract.js";
 
 /** The vault layout shared by record sections. */
 export function RecordWorkspace(props: RecordWorkspaceProps) {

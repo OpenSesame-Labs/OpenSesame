@@ -5,6 +5,13 @@
  * part key lives in that manifest. Ciphertext lives in an object store. Each
  * part is written to every store in the list; a read uses the first store
  * that still has it.
+ *
+ * A manifest written now records `partBytes`, the plaintext part size its
+ * sealer used, and every part is held to it (at most 1 MiB, 1 MiB + 16 bytes
+ * encrypted). A v1 manifest without `partBytes` predates those bounds: only
+ * when reading one is an encrypted part accepted up to the drive daemon's
+ * former limit of 1 MiB + 1,024 bytes, so existing attachments stay readable.
+ * Nothing seals a part that large.
  */
 
 import {
@@ -20,12 +27,13 @@ import { gcmOpen, gcmSeal } from "./gcm.js";
 
 export const FILE_PART_BYTES = 1_048_576;
 export const MAX_FILE_BYTES = 1_073_741_824;
-/** Legacy v1 readers accept the daemon's original encrypted-part limit. */
-export const MAX_FILE_PART_CIPHERTEXT_BYTES = FILE_PART_BYTES + 1024;
+export const MAX_FILE_PARTS = 4_096;
+export const MAX_FILE_MANIFEST_CHARS = 1_048_576;
 /** The GCM authentication tag adds 16 bytes to each encrypted part. */
-const MAX_READ_PART_BYTES = MAX_FILE_PART_CIPHERTEXT_BYTES - 16;
-export const MAX_FILE_PARTS = 16_384;
-const MAX_MANIFEST_CHARS = 2 * 1024 * 1024;
+export const MAX_ENCRYPTED_FILE_PART_BYTES = FILE_PART_BYTES + 16;
+/** Read-only allowance for parts named by a legacy (unmarked) v1 manifest. */
+export const MAX_LEGACY_ENCRYPTED_FILE_PART_BYTES = FILE_PART_BYTES + 1024;
+const LEGACY_PART_BYTES = MAX_LEGACY_ENCRYPTED_FILE_PART_BYTES - 16;
 
 export type ObjectStore = {
   putObject(key: string, body: Uint8Array): Promise<void>;
@@ -48,6 +56,8 @@ export type FileManifest = {
   readonly mediaType: string;
   readonly size: number;
   readonly key: string;
+  /** Plaintext bytes per part; absent only on a legacy v1 manifest. */
+  readonly partBytes?: number;
   readonly parts: readonly FilePartRef[];
 };
 
@@ -79,78 +89,92 @@ export function memoryObjectStore(): MemoryStore {
 }
 
 function wholeSize(value: JsonValue | undefined): number | undefined {
-  return isNumber(value) && Number.isSafeInteger(value) && value >= 0
+  return isNumber(value) && Number.isInteger(value) && value >= 0
     ? value
     : undefined;
 }
 
-function validManifestSize(size: number, count: number): boolean {
-  return (
-    size <= MAX_FILE_BYTES &&
-    (size === 0) === (count === 0) &&
-    count <= size &&
-    size <= count * MAX_READ_PART_BYTES
-  );
+function manifestParts(value: JsonValue): JsonValue[] | undefined {
+  if (!isJsonObject(value) || value.v !== 1 || !Array.isArray(value.parts)) {
+    return undefined;
+  }
+  return value.parts.length <= MAX_FILE_PARTS ? value.parts : undefined;
 }
 
-function validManifestMetadata(
-  name: string,
-  mediaType: string,
-  key: string,
-): boolean {
-  return name.length <= 4096 && mediaType.length <= 1024 && key.length <= 128;
+function manifestHeader(
+  parsed: { [key: string]: JsonValue | undefined },
+  partLength: number,
+): Omit<FileManifest, "parts"> | undefined {
+  const name = readString(parsed.name);
+  const mediaType = readString(parsed.mediaType);
+  const key = readString(parsed.key);
+  const size = wholeSize(parsed.size);
+  const declared = wholeSize(parsed.partBytes);
+  if (
+    parsed.partBytes !== undefined &&
+    (declared === undefined || declared < 1 || declared > FILE_PART_BYTES)
+  )
+    return undefined;
+  const partBytes = declared ?? LEGACY_PART_BYTES;
+  if (
+    name === undefined ||
+    mediaType === undefined ||
+    key === undefined ||
+    size === undefined ||
+    size > MAX_FILE_BYTES ||
+    name.length > 255 ||
+    mediaType.length > 255 ||
+    !/^[A-Za-z0-9+/]{43}=$/u.test(key) ||
+    (size === 0) !== (partLength === 0) ||
+    (size > 0 && partLength > size) ||
+    partLength < Math.ceil(size / partBytes)
+  ) {
+    return undefined;
+  }
+  return {
+    v: 1,
+    name,
+    mediaType,
+    size,
+    key,
+    ...(declared === undefined ? undefined : { partBytes: declared }),
+  };
 }
 
-function readPartRef(entry: JsonValue): FilePartRef | undefined {
-  if (!isJsonObject(entry)) return undefined;
-  const key = readString(entry.key);
-  const nonce = readString(entry.nonce);
+function filePartRef(value: JsonValue): FilePartRef | undefined {
+  if (!isJsonObject(value)) return undefined;
+  const key = readString(value.key);
+  const nonce = readString(value.nonce);
   if (
     key === undefined ||
     nonce === undefined ||
-    !/^[A-Za-z0-9_-]{16}$/.test(key) ||
-    !/^[A-Za-z0-9+/]{16}$/.test(nonce)
-  )
+    !/^[A-Za-z0-9_-]{16}$/u.test(key) ||
+    !/^[A-Za-z0-9+/]{16}$/u.test(nonce)
+  ) {
     return undefined;
+  }
   return { key, nonce };
 }
 
 export function readFileManifest(text: string): FileManifest | undefined {
-  if (text.length > MAX_MANIFEST_CHARS) return undefined;
+  if (text.length > MAX_FILE_MANIFEST_CHARS) return undefined;
   let parsed: JsonValue;
   try {
     parsed = overlapCast(JSON.parse(text));
   } catch {
     return undefined;
   }
-  if (
-    !isJsonObject(parsed) ||
-    parsed.v !== 1 ||
-    !Array.isArray(parsed.parts) ||
-    parsed.parts.length > MAX_FILE_PARTS
-  )
-    return undefined;
-  const name = readString(parsed.name);
-  const mediaType = readString(parsed.mediaType);
-  const key = readString(parsed.key);
-  const size = wholeSize(parsed.size);
-  if (
-    name === undefined ||
-    mediaType === undefined ||
-    key === undefined ||
-    size === undefined ||
-    !validManifestMetadata(name, mediaType, key) ||
-    !validManifestSize(size, parsed.parts.length)
-  ) {
-    return undefined;
-  }
+  const rawParts = manifestParts(parsed);
+  if (!rawParts || !isJsonObject(parsed)) return undefined;
+  const header = manifestHeader(parsed, rawParts.length);
+  if (!header) return undefined;
   const parts: FilePartRef[] = [];
-  for (const entry of parsed.parts) {
-    const part = readPartRef(entry);
-    if (part === undefined) return undefined;
+  for (const value of rawParts) {
+    const part = filePartRef(value);
+    if (!part) return undefined;
     parts.push(part);
   }
-  return { v: 1, name, mediaType, size, key, parts };
+  return { ...header, parts };
 }
 
 /** Filename, media type and size. The part key stays inside the manifest. */
@@ -246,8 +270,6 @@ export async function sealFile(input: {
   maxBytes?: number;
 }): Promise<string> {
   if (input.stores.length === 0) throw new Error("file needs a store");
-  if (input.name.length > 4096 || input.mediaType.length > 1024)
-    throw new Error("file metadata exceeds the size limit");
   const partBytes = input.partBytes ?? FILE_PART_BYTES;
   const maxBytes = input.maxBytes ?? MAX_FILE_BYTES;
   if (
@@ -256,16 +278,13 @@ export async function sealFile(input: {
     partBytes > FILE_PART_BYTES
   )
     throw new Error("invalid file part size");
-  if (
-    !Number.isSafeInteger(maxBytes) ||
-    maxBytes < 0 ||
-    maxBytes > MAX_FILE_BYTES
-  )
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 0)
     throw new Error("invalid file size limit");
-  if (input.bytes.byteLength > maxBytes)
+  if (input.bytes.byteLength > Math.min(maxBytes, MAX_FILE_BYTES))
     throw new Error("file exceeds the size limit");
   const count = partCount(input.bytes.byteLength, partBytes);
-  if (count > MAX_FILE_PARTS) throw new Error("file has too many parts");
+  if (count > MAX_FILE_PARTS)
+    throw new Error("file exceeds the part count limit");
   const { key, encoded } = await freshKey();
   const parts: FilePartRef[] = [];
   for (let index = 0; index < count; index += 1) {
@@ -279,8 +298,14 @@ export async function sealFile(input: {
     mediaType: input.mediaType,
     size: input.bytes.byteLength,
     key: encoded,
+    partBytes,
     parts,
   });
+}
+
+/** The largest plaintext part this manifest may name. */
+function partLimit(manifest: FileManifest): number {
+  return manifest.partBytes ?? LEGACY_PART_BYTES;
 }
 
 async function openOne(
@@ -289,10 +314,10 @@ async function openOne(
   index: number,
   count: number,
   stores: readonly ObjectStore[],
+  limit: number,
 ): Promise<Uint8Array> {
   const body = await getReplica(stores, ref.key);
-  if (body.byteLength > MAX_FILE_PART_CIPHERTEXT_BYTES)
-    throw new Error(MISSING);
+  if (body.byteLength > limit + 16) throw new Error(MISSING);
   try {
     return await gcmOpen(
       key,
@@ -306,17 +331,6 @@ async function openOne(
   }
 }
 
-function joinParts(parts: readonly Uint8Array[], size: number): Uint8Array {
-  const out = new Uint8Array(size);
-  let offset = 0;
-  for (const part of parts) {
-    out.set(part, offset);
-    offset += part.byteLength;
-  }
-  if (offset !== size) throw new Error(MISSING);
-  return out;
-}
-
 export async function openFile(
   manifestText: string,
   stores: readonly ObjectStore[],
@@ -325,20 +339,35 @@ export async function openFile(
   if (manifest === undefined) throw new Error(MISSING);
   const key = await keyFromManifest(manifest.key);
   const count = manifest.parts.length;
-  const opened: Uint8Array[] = [];
-  let total = 0;
-  for (let index = 0; index < count; index += 1) {
-    const ref = manifest.parts[index];
-    if (ref === undefined) throw new Error(MISSING);
-    const part = await openOne(key, ref, index, count, stores);
-    total += part.byteLength;
-    if (part.byteLength === 0 || total > manifest.size)
-      throw new Error(MISSING);
-    opened.push(part);
+  const limit = partLimit(manifest);
+  const bytes = new Uint8Array(manifest.size);
+  let offset = 0;
+  try {
+    for (let index = 0; index < count; index += 1) {
+      const ref = manifest.parts[index];
+      if (ref === undefined) throw new Error(MISSING);
+      const opened = await openOne(key, ref, index, count, stores, limit);
+      try {
+        if (
+          opened.byteLength === 0 ||
+          opened.byteLength > limit ||
+          opened.byteLength > bytes.byteLength - offset
+        )
+          throw new Error(MISSING);
+        bytes.set(opened, offset);
+        offset += opened.byteLength;
+      } finally {
+        opened.fill(0);
+      }
+    }
+    if (offset !== bytes.byteLength) throw new Error(MISSING);
+  } catch (error) {
+    bytes.fill(0);
+    throw error;
   }
   return {
     name: manifest.name,
     mediaType: manifest.mediaType,
-    bytes: joinParts(opened, manifest.size),
+    bytes,
   };
 }

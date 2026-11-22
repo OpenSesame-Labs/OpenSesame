@@ -90,7 +90,7 @@ export function isTerminal(status: InteractionStatus): boolean {
  * honoured.
  */
 /**
- * True when a deadline has passed — or cannot be read at all.
+ * True when a deadline has passed or either clock value cannot be read.
  *
  * The second half is the point. `NaN` loses every comparison, so an
  * unrepresentable date written as `expiresAt >= now` silently answers "not
@@ -102,7 +102,9 @@ export function isTerminal(status: InteractionStatus): boolean {
 function hasLapsed(expiresAt: Date, now: Date): boolean {
   const deadline = expiresAt.getTime();
   if (!Number.isFinite(deadline)) return true;
-  return now.getTime() >= deadline;
+  const current = now.getTime();
+  if (!Number.isFinite(current)) return true;
+  return current >= deadline;
 }
 
 export function assertLive(interaction: Interaction, now: Date): void {
@@ -195,6 +197,16 @@ export function approve(
   interaction: Interaction,
   input: ApproveInput,
 ): Interaction {
+  if (
+    KINDS_REQUIRING_DIGEST.has(interaction.kind) &&
+    (interaction.requestDigest === undefined ||
+      interaction.requestDigest.length === 0)
+  ) {
+    throw new DomainError(
+      "INVARIANT_VIOLATION",
+      `a ${interaction.kind} cannot be approved without a request digest`,
+    );
+  }
   if (interaction.requestDigest !== undefined) {
     if (input.proof.boundDigest !== interaction.requestDigest) {
       throw new DomainError(
@@ -202,14 +214,6 @@ export function approve(
         "approval proof is bound to a different request",
       );
     }
-  } else if (KINDS_REQUIRING_DIGEST.has(interaction.kind)) {
-    // Refusing here rather than trusting the writer: this kind authorizes an
-    // operation, so an approval that binds to nothing would be an approval of
-    // whatever the executor later decided to run.
-    throw new DomainError(
-      "INVARIANT_VIOLATION",
-      `a ${interaction.kind} cannot be approved without a request digest`,
-    );
   } else if (input.proof.boundDigest.length > 0) {
     // A proof bound to a digest the interaction does not have cannot be
     // checked against anything, so it must not be accepted as if it had been.

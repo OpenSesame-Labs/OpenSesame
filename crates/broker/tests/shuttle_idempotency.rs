@@ -8,9 +8,9 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc;
 
-use chrono::{Duration, Utc};
 use opensesame_domain::{ActorId, DetachedProof, Intent, IntentId, OrganizationId, PrincipalId};
 use opensesame_storage::Db;
+use opensesame_time::{Duration, Utc};
 use shuttle::sync::{Arc, Mutex};
 
 const DEFAULT_ITERATIONS: usize = 1_000;

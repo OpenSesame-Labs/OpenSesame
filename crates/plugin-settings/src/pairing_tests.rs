@@ -175,6 +175,29 @@ fn nothing_but_digests_reaches_the_file() {
 }
 
 #[test]
+fn authorizes_each_position_only_for_its_origin() {
+    let (_dir, pairings) = store();
+    let origins = [PAGES, OTHER, "http://localhost:5180"];
+    let mut tokens = Vec::new();
+    for origin in origins {
+        let (code, _) = pairings.issue(origin, NOW).unwrap();
+        tokens.push(pairings.exchange(&code, origin, NOW).unwrap().token);
+    }
+
+    for (index, token) in tokens.iter().enumerate() {
+        for (origin_index, origin) in origins.iter().enumerate() {
+            assert_eq!(
+                pairings.authorizes(token, origin),
+                index == origin_index,
+                "token at position {index} with origin at position {origin_index}"
+            );
+        }
+    }
+    let (unused_code, _) = pairings.issue(PAGES, NOW).unwrap();
+    assert!(!pairings.authorizes(&unused_code, PAGES));
+}
+
+#[test]
 fn unpair_revokes_by_origin_or_all_and_revoke_removes_one_bearer() {
     let (_dir, pairings) = store();
     let mut tokens = Vec::new();

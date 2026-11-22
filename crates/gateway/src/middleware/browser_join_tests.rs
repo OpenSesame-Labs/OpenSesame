@@ -44,7 +44,7 @@ fn proof_key() -> (
 async fn browser(state: &AppState, principal: &str, organization: &str, verified: bool) -> Browser {
     let (jwk, key) = proof_key();
     let jkt = opensesame_proof::jwk_thumbprint(&jwk).unwrap();
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     let id = uuid::Uuid::new_v4().to_string();
     let raw = uuid::Uuid::new_v4().simple().to_string().repeat(2);
     let device = format!("device-{id}");
@@ -105,7 +105,7 @@ async fn send(
         jti: uuid::Uuid::new_v4().to_string(),
         htm: method.into(),
         htu: format!("{}{path}", state.resource.trim_end_matches('/')),
-        iat: chrono::Utc::now().timestamp(),
+        iat: opensesame_time::Utc::now().timestamp(),
         ath: Some(opensesame_proof::access_token_hash(&who.token)),
     };
     let proof = opensesame_proof::sign_dpop_proof(&who.jwk, &who.key, &claims).unwrap();
@@ -251,7 +251,7 @@ async fn a_refusal_is_readable_by_the_paired_page() {
             "{}/api/v1/delegations/claim",
             room.state.resource.trim_end_matches('/')
         ),
-        iat: chrono::Utc::now().timestamp(),
+        iat: opensesame_time::Utc::now().timestamp(),
         ath: Some(opensesame_proof::access_token_hash(&paired.token)),
     };
     let proof = opensesame_proof::sign_dpop_proof(&paired.jwk, &paired.key, &claims).unwrap();
@@ -369,7 +369,7 @@ async fn a_verified_join_grant_is_seated_where_the_session_admits_on_ask() {
         operator_principal_id: opensesame_domain::PrincipalId::new(),
         display_name: "Lobby".into(),
         visibility: SessionVisibility::Public,
-        created_at: chrono::Utc::now(),
+        created_at: opensesame_time::Utc::now(),
         closed_at: None,
     };
     let db = &room.state.db;

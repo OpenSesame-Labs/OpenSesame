@@ -5,7 +5,7 @@
 //! None of these opens a vault. They decide whether a sign-in may proceed;
 //! the vault still needs the master password on the device.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::Row as _;
 
 use super::accounts::{bitwarden_timestamp, parse_bitwarden_timestamp};

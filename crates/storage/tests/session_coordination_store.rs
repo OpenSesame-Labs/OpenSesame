@@ -4,13 +4,13 @@
 //! suite: seat somebody twice, grant an observer, close a session and see what
 //! survived, point at reach that closing was supposed to leave alone.
 
-use chrono::{Duration, Utc};
 use opensesame_domain::{
     Admission, GrantLink, GrantScope, JoinDecision, JoinRequest, JoinRequestId, NewSessionGrant,
     PrincipalId, SessionGrant, SessionGrantId, SessionId, SessionMembership, SessionMode,
     SessionRole, SessionVisibility, VaultId,
 };
 use opensesame_storage::{Db, StoredSession};
+use opensesame_time::{Duration, Utc};
 
 const ORG: &str = "org:one";
 

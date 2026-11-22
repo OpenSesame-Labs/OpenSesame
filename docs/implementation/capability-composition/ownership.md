@@ -257,6 +257,11 @@ installation, hydrated by the core boot.
 - Emitted: `dist/capability-distribution.json`, `dist/capability-graph.json`
   (source module → chunk, static/dynamic import edges, CSS/asset edges, entry
   HTMLs, workers, public files, ownership classification with rationale).
+- Each module-table root records the foreign optional sources its static
+  source imports actually reach. The emitted static closure, including a
+  lazy-entry facade, may include those shared sources; it may not gain other
+  optional sources when chunks are grouped. The post-build verifier checks
+  this against the imports read from disk in both build modes.
 - Hardened: excluded module entries absent from the table; excluded HTML
   entries (`auth/redirect.html` → `identity.ambient-sso`), public files and
   worker variants not emitted; build fails on forbidden reachability from

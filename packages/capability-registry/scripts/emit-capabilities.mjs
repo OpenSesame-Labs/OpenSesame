@@ -10,12 +10,12 @@ import { pwaSummaries } from "../src/pwa-summaries.ts";
 const here = dirname(fileURLToPath(import.meta.url));
 const target = join(here, "..", "capabilities.json");
 writeFileSync(target, `${JSON.stringify(CAPABILITIES, null, 2)}\n`);
-console.log(`wrote ${target} (${CAPABILITIES.length} capabilities)`);
+console.log("wrote capabilities.json");
 // The known gaps: every surface of every capability that is neither mapped
 // nor excluded (ADR 0139). The registry test fails until this matches.
 const gapsTarget = join(here, "..", "surface-gaps.json");
 writeFileSync(gapsTarget, `${JSON.stringify(surfaceGaps(), null, 2)}\n`);
-console.log(`wrote ${gapsTarget}`);
+console.log("wrote surface-gaps.json");
 // The page-reachable projection Pages ships instead of the whole registry
 // (src/pwa-summaries.ts). The registry test fails until this matches.
 const summariesTarget = join(here, "..", "pwa-summaries.json");
@@ -23,4 +23,4 @@ writeFileSync(
   summariesTarget,
   `${JSON.stringify(pwaSummaries(CAPABILITIES), null, 2)}\n`,
 );
-console.log(`wrote ${summariesTarget}`);
+console.log("wrote pwa-summaries.json");

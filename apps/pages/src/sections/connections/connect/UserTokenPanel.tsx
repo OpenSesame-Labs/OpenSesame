@@ -73,7 +73,7 @@ function CheckFacts({ check }: { check: TokenCheck }) {
     <Facts
       rows={[
         ["Subject", check.subject === "user" ? "You" : "App"],
-        ["Token", `sha256:${check.fingerprint}…`],
+        ["Token", `scrypt:${check.fingerprint}…`],
         [
           "Expires",
           check.expiresAt

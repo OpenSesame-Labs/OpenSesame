@@ -105,9 +105,10 @@ pub fn seal(plaintext: &[u8], recipient: &PublicKey) -> Result<Vec<u8>, XkeysErr
 
     let cipher = XChaCha20Poly1305::new_from_slice(&key).map_err(|_| XkeysError::Kdf)?;
     let ad = associated_data(eph_public.as_bytes(), recipient.as_bytes());
+    let nonce_ref: &XNonce = (&nonce).into();
     let ciphertext = cipher
         .encrypt(
-            XNonce::from_slice(&nonce),
+            nonce_ref,
             Payload {
                 msg: plaintext,
                 aad: &ad,
@@ -140,7 +141,8 @@ pub fn open(sealed: &[u8], recipient: &XKeyPair) -> Result<Vec<u8>, XkeysError> 
         .try_into()
         .map_err(|_| XkeysError::PublicKeyLength)?;
     let eph_public = PublicKey::from(eph_pk_bytes);
-    let nonce = &sealed[1 + PK_LEN..1 + PK_LEN + NONCE_LEN];
+    let nonce = <&XNonce>::try_from(&sealed[1 + PK_LEN..1 + PK_LEN + NONCE_LEN])
+        .map_err(|_| XkeysError::Truncated)?;
     let ciphertext = &sealed[1 + PK_LEN + NONCE_LEN..];
 
     let shared = recipient.secret().diffie_hellman(&eph_public);
@@ -149,9 +151,10 @@ pub fn open(sealed: &[u8], recipient: &XKeyPair) -> Result<Vec<u8>, XkeysError> 
 
     let cipher = XChaCha20Poly1305::new_from_slice(&key).map_err(|_| XkeysError::Kdf)?;
     let ad = associated_data(eph_public.as_bytes(), &recipient_pk);
+    let nonce = <&XNonce>::try_from(nonce).map_err(|_| XkeysError::Truncated)?;
     cipher
         .decrypt(
-            XNonce::from_slice(nonce),
+            nonce,
             Payload {
                 msg: ciphertext,
                 aad: &ad,
@@ -253,7 +256,9 @@ mod pact {
         let bob = XKeyPair::generate();
         let sealed = seal(b"secret", &alice.public_key()).unwrap();
         assert_eq!(open(&sealed, &bob), Err(XkeysError::Aead));
-        assert_eq!(open(&sealed[..8], &alice), Err(XkeysError::Truncated));
+        for length in 0..1 + PK_LEN + NONCE_LEN + 16 {
+            assert_eq!(open(&sealed[..length], &alice), Err(XkeysError::Truncated));
+        }
     }
 
     #[test]

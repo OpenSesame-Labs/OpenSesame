@@ -68,6 +68,46 @@ async fn failures_never_expose_codes_or_response_contents() {
 }
 
 #[tokio::test]
+async fn a_rejected_conversion_discards_a_reflected_code() {
+    let reflected = format!("provider reflected {CODE}");
+    let (base, server) = response_server(StatusCode::BAD_REQUEST, reflected.clone()).await;
+    let error = convert_manifest_at(&client(), &base, CODE)
+        .await
+        .unwrap_err();
+    server.abort();
+    let shown = error.to_string();
+    assert!(shown.contains("400"), "{shown}");
+    assert!(!shown.contains(CODE), "{shown}");
+    assert!(!shown.contains(&reflected), "{shown}");
+}
+
+#[tokio::test]
+async fn a_successful_conversion_reflecting_the_code_fails_closed() {
+    // The code is percent-encoded into the name field: a single-use secret
+    // must never be parsed into sealed credentials in any encoding.
+    let encoded = CODE
+        .bytes()
+        .map(|byte| format!("%{byte:02X}"))
+        .collect::<Vec<_>>()
+        .join("");
+    let body = format!(
+        r#"{{"id":7,"name":"{encoded}","client_id":"Iv1.public","client_secret":"secret"}}"#
+    );
+    let (base, server) = response_server(StatusCode::OK, body).await;
+    let error = convert_manifest_at(&client(), &base, CODE)
+        .await
+        .expect_err("a reflected conversion code must fail closed");
+    server.abort();
+    let shown = error.to_string();
+    assert_eq!(
+        shown,
+        "token exchange failed: GitHub App conversion response reflected the one-time code"
+    );
+    assert!(!shown.contains(CODE), "{shown}");
+    assert!(!shown.contains(&encoded), "{shown}");
+}
+
+#[tokio::test]
 async fn successful_conversion_is_bounded_and_still_decodes_credentials() {
     let body = r#"{"id":7,"name":"test","client_id":"Iv1.public","client_secret":"secret"}"#;
     let (base, server) = response_server(StatusCode::OK, body.to_string()).await;

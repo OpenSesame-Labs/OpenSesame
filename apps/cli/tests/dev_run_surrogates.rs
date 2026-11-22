@@ -65,7 +65,7 @@ impl Sandbox {
         let root = self.path("store");
         init_store(&root, &[]).unwrap();
         let key = init_store_key(&root, STORE_PASSWORD.as_bytes()).unwrap();
-        StoreRoot::open(&root)
+        StoreRoot::open_with_test_witness_root(&root, self.path("witness"))
             .unwrap()
             .insert(
                 "Web/app",
@@ -112,6 +112,7 @@ impl Sandbox {
             .env("OPENSESAME_ENV_PARSE", self.path("parse.mjs"))
             .env("OPENSESAME_STORE_DIR", self.path("store"))
             .env("OPENSESAME_STORE_PASSWORD", STORE_PASSWORD)
+            .env("OPENSESAME_TEST_ROLLBACK_WITNESS_DIR", self.path("witness"))
             .env("OPENSESAME_TOMBS_CONFIG", self.path("tombs.json"))
             .env("OPENSESAME_NODE", Self::machine_node())
             .env_remove("OPENSESAME_PLUGIN_SURROGATE_PROXY")

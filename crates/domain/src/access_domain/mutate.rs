@@ -17,7 +17,7 @@ use super::forest::{AccessDomainForest, MAX_DOMAIN_DEPTH};
 use super::node::{assert_display_name, assert_slug, AccessDomain};
 use super::temporal::DomainLifetime;
 use crate::{AccessDomainId, DomainError};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 
 impl AccessDomainForest {
     /// Create and insert a root domain.

@@ -28,6 +28,11 @@ const ALLOWED = [
       "builds that layout in a temporary directory, to show a replaced SDK is refused",
   },
   {
+    path: "apps/pages/scripts/kdbx-worker-assets.test.mjs",
+    text: '"packages/app-core/node_modules/kdbxweb"',
+    reason: "builds a temporary isolated-layout fixture to verify worker pins",
+  },
+  {
     path: "apps/pages/scripts/lib/round8-profile-trees.test.mjs",
     text: '"packages/one/node_modules/inner/node_modules"',
     reason: "a temporary tree that shows only the outer node_modules is listed",
@@ -37,6 +42,24 @@ const ALLOWED = [
     text: '"apps/pages/node_modules/@opensesame/app-core"',
     reason:
       "the isolated layout, built in a temporary directory, is mirrored too",
+  },
+  {
+    path: "scripts/test/provider-s3-esbuild.test.mjs",
+    text: '"packages/app-core/node_modules/esbuild"',
+    reason:
+      "builds a temporary split workspace to prove app-core resolves its declared esbuild instead of a hoisted copy",
+  },
+  {
+    path: "scripts/ci/pr-visual-sandbox.sh",
+    text: '"$source/apps/pages/node_modules/.vite-temp"',
+    reason:
+      "creates a temporary Vite mountpoint for nested installs, not a dependency lookup",
+  },
+  {
+    path: "scripts/ci/pr-visual-sandbox.sh",
+    text: "target=/repo/apps/pages/node_modules/.vite-temp",
+    reason:
+      "binds that temporary Vite mountpoint inside the isolated visual sandbox",
   },
   {
     path: "packages/agent-sandboxes/src/boat-agent.ts",

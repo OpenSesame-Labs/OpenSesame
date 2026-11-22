@@ -6,11 +6,11 @@
 
 #![cfg(feature = "concurrency-test")]
 
-use chrono::{Duration, Utc};
 use opensesame_domain::{
     ConnectionId, Grant, GrantConstraints, GrantId, OfflineUse, OrganizationId, PrincipalId,
     ProjectId, ValidatedGrantChain,
 };
+use opensesame_time::{Duration, Utc};
 use shuttle::sync::Arc;
 
 const DEFAULT_ITERATIONS: usize = 1_000;

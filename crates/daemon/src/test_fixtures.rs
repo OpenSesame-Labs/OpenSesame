@@ -11,6 +11,66 @@ use super::ratelimit;
 use super::tailnet_admin_routes;
 use super::App;
 
+/// Synthetic executable directory for CLI discovery tests. Unix uses the
+/// trusted-exec fixture so tests exercise the same ownership checks as production.
+#[cfg(test)]
+pub(crate) struct FakeBin {
+    #[cfg(unix)]
+    fixture: opensesame_trusted_exec::testkit::Fixture,
+    #[cfg(not(unix))]
+    dir: tempfile::TempDir,
+}
+
+#[cfg(test)]
+impl FakeBin {
+    pub(crate) fn with(binaries: &[&str]) -> Self {
+        #[cfg(unix)]
+        {
+            let fixture = opensesame_trusted_exec::testkit::Fixture::new("fixture-sentinel");
+            for binary in binaries {
+                fixture.stub_recorder(&fixture.trusted.join(binary));
+            }
+            Self { fixture }
+        }
+        #[cfg(not(unix))]
+        {
+            let dir = tempfile::tempdir().expect("tempdir");
+            for binary in binaries {
+                std::fs::write(dir.path().join(binary), b"").expect("write fake binary");
+            }
+            Self { dir }
+        }
+    }
+
+    pub(crate) fn path(&self) -> String {
+        #[cfg(unix)]
+        let lookup = self.fixture.lookup(&[]);
+        #[cfg(unix)]
+        let path = lookup.var("PATH").expect("fixture PATH");
+        #[cfg(not(unix))]
+        let path = self.dir.path().as_os_str();
+        path.to_string_lossy().into_owned()
+    }
+
+    pub(crate) fn present(&self, binary: &str) -> bool {
+        #[cfg(unix)]
+        return opensesame_trusted_exec::resolve_in(binary, None, &self.fixture.lookup(&[]))
+            .is_ok();
+        #[cfg(not(unix))]
+        return self.dir.path().join(binary).is_file();
+    }
+
+    #[cfg(unix)]
+    pub(crate) fn allow_untrusted_writes(&self) {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(
+            &self.fixture.trusted,
+            std::fs::Permissions::from_mode(0o777),
+        )
+        .expect("chmod");
+    }
+}
+
 #[cfg(feature = "testkit")]
 mod harness;
 #[cfg(feature = "testkit")]

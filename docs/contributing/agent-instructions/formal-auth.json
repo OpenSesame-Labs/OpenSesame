@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "id": "formal-auth-verification",
+  "title": "Formal authentication and authorization evidence",
+  "scope": ".",
+  "targets": ["agents"],
+  "instructions": [
+    {
+      "id": "trace-auth-properties",
+      "when": "Changing authentication or authorization behavior or its security requirements.",
+      "instruction": "Read docs/security/formal-auth-verification.md and spec/formal/proof-registry.json; record each affected requirement, implementation, formal status, and evidence, and run every suite mapped to the changed implementation.",
+      "verification": "Record the actual proof, conformance, drift, and other applicable security-check results.",
+      "boundary": "A proof of a model and finite conformance tests do not prove the whole implementation; leave uncovered properties explicitly unproved.",
+      "source": "docs/security/formal-auth-verification.md; ADR 0178 and ADR 0036."
+    }
+  ]
+}

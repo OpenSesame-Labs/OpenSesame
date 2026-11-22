@@ -2,6 +2,11 @@
  * Block Preview until this commit has a completed successful main push of
  * `.github/workflows/ci.yml`, and that run's required checks succeeded.
  *
+ * A matching run whose conclusion is `cancelled` is non-terminal. Faster
+ * pushes supersede in-progress ci.yml runs; cancellation alone must not fail
+ * the gate while this sha can still succeed. Other completed non-success
+ * conclusions (failure, timed_out, action_required, and the rest) fail closed.
+ *
  *   GH_TOKEN=... GITHUB_REPOSITORY=owner/name GITHUB_SHA=<40 hex> \
  *     node scripts/release/cd-main-ci-gate.mjs
  *
@@ -116,11 +121,16 @@ export function classifyRuns(runs, sha, repository) {
     if (!sameCommit(run, sha, repository)) continue;
     if (run.status === "completed" && run.conclusion === "success") {
       successful.push(run);
-    } else if (run.status === "completed") {
-      completedFailure = true;
-    } else {
-      pending = true;
+      continue;
     }
+    if (run.status !== "completed") {
+      pending = true;
+      continue;
+    }
+    // Superseded by a faster push. Non-terminal: do not set completedFailure
+    // from cancelled alone, so a later successful run of this sha can admit.
+    if (run.conclusion === "cancelled") continue;
+    completedFailure = true;
   }
   return { successful, completedFailure, pending };
 }

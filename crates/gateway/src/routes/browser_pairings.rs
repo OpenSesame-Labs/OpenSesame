@@ -11,10 +11,10 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::{DateTime, Utc};
 use opensesame_claims::{generate_user_code, hash_low_entropy, hash_secret};
 use opensesame_domain::{OrganizationId, OrganizationRole};
 use opensesame_storage::browser_pairing::{BrowserGrant, NewBrowserPairing};
+use opensesame_time::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::json;
 

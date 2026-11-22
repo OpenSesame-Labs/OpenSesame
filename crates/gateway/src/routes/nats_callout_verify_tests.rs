@@ -13,7 +13,7 @@ fn body_for(
     parties: &Parties,
     mutate: impl FnOnce(&mut opensesame_nats_callout::AuthorizationRequestClaims),
 ) -> (HostDecisionRequest, i64) {
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     let mut claims = parties.request_claims(now, "");
     mutate(&mut claims);
     let raw = parties.sign_request(claims);

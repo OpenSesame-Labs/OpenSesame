@@ -3,7 +3,6 @@ import type { BoundaryValue } from "@opensesame/os-domain";
 import { z } from "zod";
 import { forAgent } from "./agent-payload.js";
 import { daemonFetch, hostFetch } from "./host-api.js";
-import { invocationFailed } from "./receipt-outcome.js";
 import {
   clearFrozenIntent,
   getTaskContext,
@@ -353,12 +352,16 @@ export function registerHostTools(server: McpServer): void {
           }),
         });
         const body = await res.json();
+        const errorResponse = errorResponseSchema.safeParse(body);
         // The digest has been spent. Keeping it in context invites a second call
         // that can only be refused, and describes authority that no longer exists.
         clearFrozenIntent();
         return {
           content: textContent(forAgent(JSON.stringify(body) ?? "null")),
-          isError: invocationFailed(res.ok, body),
+          isError:
+            !res.ok ||
+            (errorResponse.success &&
+              errorResponse.data.error === "materialize_denied"),
         };
       } catch (e) {
         return toolError(

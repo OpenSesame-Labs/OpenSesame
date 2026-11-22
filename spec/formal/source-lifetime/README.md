@@ -1,0 +1,62 @@
+# Source-owned transport lifetime
+
+This suite connects the source ownership and lifetime decisions in
+[`source_lifetime.rs`](../../../crates/transport-security/src/source_lifetime.rs)
+to the SPIFFE source, its production sink, and the Host's transport admission.
+The parent contract is [ADR 0227](../../../docs/adr/0227-spiffe-withdrawal-under-ambiguous-snapshots.md).
+The reviewed base and exact source hashes are in [coverage.json](coverage.json).
+
+| Requirement | Lean evidence | Real-code evidence |
+|---|---|---|
+| Claiming an available source slot quarantines the previous generation; a reserved or withdrawn source is unusable. | `claim_quarantines`, `reserved_is_not_usable`, `withdrawn_is_not_usable`, `quarantine_blocks_ordinary` | Vectors exercise the production generation manager. SPIFFE source tests start from a populated sink, including denial, a stalled RPC, and handle drop. |
+| A stale owner or source epoch cannot activate, tighten, withdraw, or retire the current source. A retired owner cannot claim again. | `stale_owner_or_epoch_cannot_change`, `retired_owner_cannot_claim` | Manager vectors and source-ownership, handoff, and race regressions. |
+| Tightening never increases a source deadline; use at equality is denied, and observed expiry remains latched through tightening, withdrawal, and ordinary activation. | `tightening_keeps_the_earlier_deadline`, `deadline_is_inclusive`, `observed_expiry_stays_unusable`, `latched_survives_nonactivation` | Vectors compare the actual manager decisions and latch. Separate clock tests cover a rollback after a bound is installed and sampling time after acquiring the activation lock. |
+| Ordinary activation cannot change the source's identity or source-owned trust or reset its owner, epoch, and deadline. For a managed source, only an owned activation recovers withdrawn material. | `ordinary_cannot_reset_fence`, `only_activation_recovers` | Vectors exercise identity/trust refusal and generation results; separate manager and gateway regressions check trust collisions, removal, and unrelated updates. |
+| A generation-bound signer releases a successful inner signature only if both checks see the expected usable generation. | `released_signature_has_live_matching_checks` | Eight Lean cases exercise the Rustls signer wrapper before expiry and across expiry, withdrawal, and rotation, including a deliberately delayed inner signer. |
+
+The shared Lean checker verifies 13 independently recorded theorem signatures
+and emits 33 finite cases: one claim, four owner/epoch cases, twelve deadline
+cases, eight ordinary-activation cases, and eight signer cases. The correspondence
+tests compare those cases with the Rust generation manager, its test-only latch
+observation, and the Rustls signing wrapper. The runner also requires named source, clock, TLS, and gateway
+regressions to execute and pass. See [negative controls](NEGATIVE-CONTROLS.md).
+Run `npm run verify:source-lifetime-formal` with the pinned Lean and Rust
+toolchains and repository dependencies installed.
+
+These results prove properties of an abstract state machine and exercise a
+finite correspondence matrix; they do not prove that all Rust executions refine
+it. The model uses one nonnegative integer clock and a Boolean input for whether
+trust is preserved. It does not prove the actual bundle comparator, tombstone
+persistence, manager binding, u64 overflow behavior, certificate validation, or
+concurrent scheduling. The lock projection is rooted at the SPIFFE source; it
+does not cover gateway/storage-only dependency changes. Root workspace manifest
+feature changes are not projected by this suite and require separate review.
+Its `usable` predicate has no expected-generation input;
+the signing model adds an explicit expected generation at both checks but does
+not prove arbitrary Rust executions refine the model or that the underlying
+signer itself is safe. It abstracts successful source activation as receiving a
+valid candidate: a holder of the manager's owner capability is trusted to supply
+fresh Workload API evidence. The model treats repeated withdrawals as a single
+Boolean state and does not model a new generation for a changed withdrawal
+reason. Runtime tests supply evidence for selected cases outside the model.
+
+The runtime checks both wall time and a monotonic deadline after the source
+observes an outage. The stale interval begins at observation, not at a physical
+disconnect that an unscheduled source task has not detected. It assumes the
+wall clock is correct when the certificate deadline is first converted;
+`std::time::Instant` does not portably guarantee that it advances during suspend,
+so rollback across suspend can extend real elapsed time. The runtime checks
+the source generation immediately before and after the TLS signature and after
+the handshake and at request admission. A check cannot cancel a key operation
+already in progress; scheduling can allow the key operation to start after the
+deadline, and the generation can change between the final check and network
+output. A standalone `client_config` or `server_config` has no generation-bound
+signer. Source-owned listener configs disable session resumption; earlier
+ordinary configs may resume while current, and their session caches recheck the
+generation before and after retrieval. TLS 1.2 and 1.3 controls cover both source
+resumption refusal and a previously prepared connection after source claim. A source claim immediately after cache
+retrieval can still race the resumed handshake; the server's post-handshake
+check rejects that stale connection before application admission. These cache
+operations are covered by runtime tests rather than the Lean model.
+Already-admitted work cannot be rolled back. Source-owned
+trust tombstones are in-memory and do not establish persistence across restart.

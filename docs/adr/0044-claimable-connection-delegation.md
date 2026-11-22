@@ -17,6 +17,18 @@ revoke-and-replace, since this ADR's manifest digest is immutable);
 ADR 0140 (the ceremonies app is deleted: `/delegate` is a Pages alias into
 Join a session)
 
+Implementation status: broker-mode offers, claims, and delegated execution
+are temporarily unavailable with `503`. Offers omitting `execution_mode`
+default to `broker` and are refused as well. Existing delegations may be read,
+revoked, or narrowed; owner invocations remain available. Relay-mode offers
+can be claimed, but relay execution is independently disabled by ADR 0046.
+An unkeyed digest and mode stored in the same database do not authenticate the
+owner's chosen mode against a writer able to alter both. Restoring delegated
+execution requires a versioned authenticated mode binding, a migration that
+fails closed for unauthenticated legacy records, and a durable effect-boundary
+fence. Mixed versions cannot enforce this restriction: upgrade all Hosts sharing
+authority before relying on it. It cannot cancel work that has already started.
+
 ## Context
 
 A user who has authorized a connector (e.g. GitHub OAuth exercised through
@@ -172,8 +184,7 @@ attenuation (repo + permission subset, ≤ 1 h) that
 - RFC 8693 remains a semantic mapping, not a wire protocol: the "token
   exchange" happens inside the broker (subject = owner, actor = claimant,
   recorded in grant lineage and receipts), which is consistent with the
-  MCP spec's ban on token passthrough and with
-  `docs/archive/prompts/one-shot-connector-auth-broker-prompt.md` ("do not
-  add `/connections/{id}/token` for agents").
+  MCP spec's ban on token passthrough and with this ADR's prohibition on
+  adding `/connections/{id}/token` for agents.
 - Full analysis, API sketches, schema, threat table, and phasing:
   `docs/research/claimable-connection-delegation.md`.

@@ -17,7 +17,7 @@ use crate::{
     SessionId, SessionInviteId, SessionRole, MIN_GRANT_LIFETIME,
 };
 use crate::{MAX_GRANT_LIFETIME, MIN_INVITE_LIFETIME};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Everything a new share link needs, named.

@@ -18,6 +18,16 @@ command_groups! {
                 #[arg(long)]
                 remote: Option<String>,
             },
+            /// Anchor an existing store's verified current state against rollback.
+            MigrateRollbackAnchor {
+                /// Confirm that the current checkout was independently verified.
+                #[arg(long)]
+                accept_current_state: bool,
+                #[arg(long)]
+                path: Option<PathBuf>,
+                #[arg(long)]
+                tomb: Option<String>,
+            },
             /// Insert a secret (human only).
             Insert {
                 name: String,

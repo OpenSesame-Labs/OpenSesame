@@ -36,8 +36,7 @@ export const CORE_GUIDE_TARGETS: readonly GuideTargetDescriptor[] = [
   // ── Settings: seven categories and the panels people ask about ─────────
   {
     id: "settings.general",
-    description:
-      "The General settings category: appearance, and how long the vault waits before locking itself.",
+    description: "Change appearance and automatic locking preferences.",
     role: "navigation",
     routes: ["/settings"],
     capabilityId: null,
@@ -45,7 +44,7 @@ export const CORE_GUIDE_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "settings.keybindings",
     description:
-      "The Keybindings settings category: every command with its keys as keycaps — press a keycap to record a new key or sequence — and macros, named lists of steps bound to a key or run when the vault unlocks or a section opens.",
+      "Change keyboard shortcuts and manage macros for commands and events.",
     role: "navigation",
     routes: ["/settings"],
     capabilityId: null,
@@ -53,7 +52,7 @@ export const CORE_GUIDE_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "settings.security",
     description:
-      "The Security settings category: the keys that open this vault, the second steps asked after one, and the recovery codes — each a row with one action that opens the one sheet.",
+      "Manage vault unlock methods, second steps and recovery codes.",
     role: "navigation",
     routes: ["/settings"],
     capabilityId: null,
@@ -62,32 +61,22 @@ export const CORE_GUIDE_TARGETS: readonly GuideTargetDescriptor[] = [
   // any module lands. Each category stands for its list by its first section.
   {
     id: "settings.features-list",
-    description:
-      "The first section of Settings › Features, standing for all of them: each is a subheader with a switch on it, and a tile for each capability when a section has several.",
+    description: "Enable or configure optional features by category.",
     role: "navigation",
     routes: ["/settings"],
     capabilityId: null,
   },
   {
     id: "settings.integrations-list",
-    description:
-      "The first section of Settings › Integrations, standing for all of them: each is a subheader with the third-party services a feature connects to under it, every one configured by reference on its own page.",
+    description: "Open a provider to configure a third-party integration.",
     role: "navigation",
     routes: ["/settings"],
     capabilityId: "host.health.pages",
   },
   {
-    id: "settings.backup",
-    description:
-      "Backups on Settings › Integrations: choose the git provider the encrypted vault backs up to and switch it on.",
-    role: "ceremony",
-    routes: ["/settings"],
-    capabilityId: "backup.target.set",
-  },
-  {
     id: "settings.model-provider",
     description:
-      "Under AI on Settings › Features, while the on-device model feature is on: two provider/model slug picks — voice and general inference — from Agent Harnesses connections and built-in local/browser options.",
+      "Choose voice and inference models from configured providers and available local options.",
     role: "ceremony",
     routes: ["/settings"],
     capabilityId: "model_plane.choose",
@@ -95,7 +84,7 @@ export const CORE_GUIDE_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "settings.vault-key-protection",
     description:
-      "Vault key protection under Security: the keys enrolled on this vault. Add opens one sheet for a recovery key, a passkey, an age recipient, an AWS KMS key or a Google Cloud KMS key; each row can be tested, and most removed. Rotate changes the root key.",
+      "Add a vault key protection method under Security, such as a recovery key, passkey, age recipient or cloud key.",
     role: "action",
     routes: ["/settings"],
     capabilityId: "vault.protectors.manage",
@@ -103,7 +92,15 @@ export const CORE_GUIDE_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "settings.second-step",
     description:
-      "The Second step list under Security: the authenticator app, and the email and text codes your sign-in service sends as fallbacks. Each row's Add opens the sheet; nothing turns on until a code from the new method matches.",
+      "The authenticator app control in Security's Second step settings. It adds or removes the authenticator method.",
+    role: "action",
+    routes: ["/settings"],
+    capabilityId: "vault.second_step.code",
+  },
+  {
+    id: "settings.second-step.email",
+    description:
+      "The email code control in Security's Second step settings. It adds or removes an email fallback.",
     role: "action",
     routes: ["/settings"],
     capabilityId: "vault.second_step.code",
@@ -111,7 +108,7 @@ export const CORE_GUIDE_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "settings.recovery",
     description:
-      "The Recovery row under Security: ten one-time codes that stand in for the second step once each, made with the first second step and shown once; View shows the ones left.",
+      "View unused recovery codes under Security, or create a new set.",
     role: "action",
     routes: ["/settings"],
     capabilityId: "vault.recovery_codes",
@@ -119,7 +116,7 @@ export const CORE_GUIDE_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "settings.account-factors",
     description:
-      "The Your account list under Security: the signed-in account's own passkeys and authenticator app, which the sign-in service asks for and which never open the vault. Add and Remove open the same sheet as the vault's keys.",
+      "Manage passkeys and authenticator apps for the signed-in account. These factors verify account sign-in, not vault unlock.",
     role: "action",
     routes: ["/settings"],
     capabilityId: "identity.account_factors.enroll",
@@ -127,7 +124,7 @@ export const CORE_GUIDE_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "settings.features",
     description:
-      "The Features settings category: the optional features this installation can switch on, one section each, with what the switch would expose and the way to turn it off again.",
+      "Enable and configure optional features for this installation.",
     role: "navigation",
     routes: ["/settings"],
     capabilityId: null,
@@ -135,15 +132,14 @@ export const CORE_GUIDE_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "settings.integrations",
     description:
-      "The Integrations settings category: the third-party services a feature connects to — identity providers, key services, backups, password managers, secret stores, payment providers, models and tailnets — each configured by reference.",
+      "Configure third-party services for identity, encryption, backups and other features.",
     role: "navigation",
     routes: ["/settings"],
     capabilityId: null,
   },
   {
     id: "settings.vaults",
-    description:
-      "The Vaults settings category: every vault this device holds — the personal tomb, one per project, the guest tomb — and the way to open, create or remove one (ADR 0089).",
+    description: "Open, create or remove vaults on this device.",
     role: "navigation",
     routes: ["/settings"],
     capabilityId: null,
@@ -151,7 +147,7 @@ export const CORE_GUIDE_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "settings.danger",
     description:
-      "The Danger settings category, which holds the irreversible actions: deleting this vault from this browser, and the trash, where an item is restored, deleted for good, or the whole trash emptied.",
+      "Delete this vault from this browser or manage items in Trash.",
     role: "navigation",
     routes: ["/settings"],
     capabilityId: null,

@@ -28,7 +28,7 @@ pub const BRIDGE_NAME: &str = "keepassxc";
 
 /// How long the bridge waits for a human verdict once it has posted a
 /// fingerprint. Bounded so a client cannot pin a connection open forever.
-pub const CONFIRM_TIMEOUT: Duration = Duration::from_secs(120);
+pub const CONFIRM_TIMEOUT: Duration = Duration::from_mins(2);
 
 /// How often the bridge re-reads the window file while waiting.
 pub const CONFIRM_POLL: Duration = Duration::from_millis(200);

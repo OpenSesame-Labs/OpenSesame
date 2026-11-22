@@ -2,7 +2,7 @@ use crate::{
     ActorId, ActorInstanceId, ApprovalId, ClientId, ConnectionId, CredentialHandleId, DomainError,
     GrantId, InvocationId, OperatorId, OrganizationId, PrincipalId, ReceiptId, TaskRunId,
 };
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

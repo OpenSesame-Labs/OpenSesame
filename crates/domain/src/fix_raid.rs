@@ -1,6 +1,6 @@
 //! FIX-RAID — observer metadata-only and lifecycle-bound vs referenced reach.
 
-use chrono::{Duration, Utc};
+use opensesame_time::{Duration, Utc};
 
 use crate::{
     DomainError, GrantLink, GrantScope, NewSessionGrant, PrincipalId, SessionGrant, SessionGrantId,
@@ -13,7 +13,7 @@ fn collection_grant(
     vault_id: VaultId,
     role: SessionRole,
     lifetime: Duration,
-    now: chrono::DateTime<Utc>,
+    now: opensesame_time::DateTime<Utc>,
 ) -> SessionGrant {
     SessionGrant::new(NewSessionGrant {
         id: SessionGrantId::new(),

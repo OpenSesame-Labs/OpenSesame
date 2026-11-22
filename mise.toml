@@ -1,4 +1,4 @@
-# Node 24 matches package.json engines.node ">=24". npm workspaces replaced npm.
+# Node 24.15+ matches package.json engines (jsdom 31). npm workspaces replaced npm.
 # Temurin 17 matches ci-prerelease-checks (JAVA_HOME_17_X64). 17.0.20+101 is
 # the newest Temurin 17 build mise's catalog publishes for every locked
 # platform; 17.0.21+9 has no windows-x64 metadata.
@@ -12,15 +12,19 @@
 node = "24"
 # llvm-tools-preview is for cargo-llvm-cov and native Windows stack dumps.
 # rust-toolchain.toml stays rustfmt and clippy.
-rust = { version = "1.97.1", components = ["rustfmt", "clippy", "llvm-tools-preview"], targets = ["wasm32-unknown-unknown"] }
+rust = { version = "1.99.0", components = ["rustfmt", "clippy", "llvm-tools-preview"], targets = ["wasm32-unknown-unknown"] }
 go = "1.26.11"
 java = "temurin-17.0.20+101"
-"cargo:cargo-ndk" = { version = "4.1.2", depends = ["rust"], install_env = { RUSTUP_TOOLCHAIN = "1.97.1" } }
+"cargo:cargo-ndk" = { version = "4.1.2", depends = ["rust"], install_env = { RUSTUP_TOOLCHAIN = "1.99.0" } }
+# Installer CLIs for scripts/dev/install-agent-skills.sh. Skill content stays unpinned.
+"npm:skills" = "1.7.4"
 "hurl" = "8.1.0"
+"npm:impeccable" = "4.8.0"
+"npm:typeui.sh" = "0.7.1"
 
 [env]
 CARGO_TARGET_DIR = "{{env.HOME}}/.cache/packages/cargo-target"
-RUSTUP_TOOLCHAIN = "1.97.1"
+RUSTUP_TOOLCHAIN = "1.99.0"
 # sdkmanager packages for the Android jobs. compileSdk is 36.
 ANDROID_SDK_PLATFORM = "android-36"
 ANDROID_BUILD_TOOLS = "35.0.0"

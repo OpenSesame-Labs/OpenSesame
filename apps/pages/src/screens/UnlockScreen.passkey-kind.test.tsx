@@ -40,6 +40,14 @@ describe("UnlockScreen — first run, which authenticator", () => {
     v.methods = ["password"];
     v.preferred = "password";
     v.host = { ok: true };
+    // WebAuthn present with the capability probe still unanswered: the road
+    // stays while PRF is unknown. Tests that need another answer re-stub.
+    vi.stubGlobal(
+      "PublicKeyCredential",
+      Object.assign(function PublicKeyCredential() {}, {
+        getClientCapabilities: async () => ({}),
+      }),
+    );
     for (const fn of Object.values(v.store)) fn.mockReset();
     v.store.createWithPasskey.mockResolvedValue(undefined);
     v.store.createWithPin.mockResolvedValue(undefined);
@@ -141,6 +149,63 @@ describe("UnlockScreen — first run, which authenticator", () => {
     ).toMatch(/PIN instead/);
   });
 
+  it("clears the fallback notice when PIN cancels a pending security key", async () => {
+    v.store.createWithPasskey
+      .mockRejectedValueOnce(
+        new PrfCeremonyError("prf_missing_output", "no PRF"),
+      )
+      .mockImplementationOnce(() => new Promise(() => {}));
+    render(<UnlockScreen />);
+    goLocalOnly();
+    fireEvent.click(
+      screen.getByLabelText("I understand this vault cannot be recovered."),
+    );
+    sealOnce();
+    await waitFor(() =>
+      expect(
+        screen
+          .getByRole("tab", { name: "Security key" })
+          .getAttribute("aria-selected"),
+      ).toBe("true"),
+    );
+    sealOnce();
+    fireEvent.click(screen.getByRole("tab", { name: "PIN" }));
+    expect(listNotices().map((entry) => entry.id)).not.toContain(
+      "unlock:authenticator",
+    );
+  });
+
+  it("clears the fallback notice on another attachment and on unmount", async () => {
+    v.store.createWithPasskey.mockRejectedValue(
+      new PrfCeremonyError("prf_missing_output", "no PRF"),
+    );
+    const view = render(<UnlockScreen />);
+    goLocalOnly();
+    fireEvent.click(
+      screen.getByLabelText("I understand this vault cannot be recovered."),
+    );
+    sealOnce();
+    await waitFor(() =>
+      expect(
+        listNotices().some((entry) => entry.id === "unlock:authenticator"),
+      ).toBe(true),
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "This device" }));
+    expect(listNotices().map((entry) => entry.id)).not.toContain(
+      "unlock:authenticator",
+    );
+    sealOnce();
+    await waitFor(() =>
+      expect(
+        listNotices().some((entry) => entry.id === "unlock:authenticator"),
+      ).toBe(true),
+    );
+    view.unmount();
+    expect(listNotices().map((entry) => entry.id)).not.toContain(
+      "unlock:authenticator",
+    );
+  });
+
   it("does not offer a passkey where the browser has no PRF at all", async () => {
     vi.stubGlobal(
       "PublicKeyCredential",
@@ -157,5 +222,17 @@ describe("UnlockScreen — first run, which authenticator", () => {
       screen.getByRole("tab", { name: "PIN" }).getAttribute("aria-selected"),
     ).toBe("true");
     expect(screen.queryByRole("tablist", { name: "Passkey on" })).toBeNull();
+  });
+
+  it("does not offer a passkey where WebAuthn is absent", async () => {
+    vi.stubGlobal("PublicKeyCredential", undefined);
+    render(<UnlockScreen />);
+    goLocalOnly();
+    await waitFor(() =>
+      expect(screen.queryByRole("tab", { name: "Passkey" })).toBeNull(),
+    );
+    expect(
+      screen.getByRole("tab", { name: "PIN" }).getAttribute("aria-selected"),
+    ).toBe("true");
   });
 });

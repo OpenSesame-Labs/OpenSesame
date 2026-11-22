@@ -101,8 +101,8 @@ prototype back as static HTML.
   `react-vite-dashboard` and `stitch::react-native` describe stacks this app
   does not use. An agent reaching for them in `apps/pages` is off the contract.
   They are catalogued as `unusedStack` under the `design-experiment-optional`
-  profile in `skills/profiles.json`; optional local copies are gitignored and
-  are not defaults.
+  profile in `skills/profiles.json`; installed on disk they match upstream
+  (gitignored, refreshed at container start), but they are not defaults.
 
 ## shadcn/ui: DESIGN.md as a design-system page
 
@@ -133,15 +133,17 @@ library: a rule that cannot be expressed in tokens shows up as a gap.
 ## Per-agent configuration
 
 Harness config is not tracked in this repo; the files named below live in the
-OpenSesame Labs dotfiles repo. First-party skills are canonical in `skills/`;
-third-party skills are optional profiles catalogued in `skills/profiles.json`
-(see `skills/README.md`), not universal defaults. Most also appear in
-`skills-lock.json`, which is a catalogue rather than a content pin. Core
-validation passes with the optional profiles absent. `npm run skills:review`
-prints guidance for obtaining and reviewing an immutable skill revision before
-configuring it in user scope. `node scripts/dev/sync-agent-skills.mjs --check`
-checks local mirror shape, not provenance. The MCP files name the same two
-servers everywhere.
+OpenSesame Labs dotfiles repo. Skills have one canonical local installation
+under the gitignored `.agents/skills/`. First-party
+skills are canonical in `skills/`; third-party skills are optional profiles
+catalogued in `skills/profiles.json` (see `skills/README.md`), not universal
+defaults. Catalogued skills are authenticated by reviewed hashes in
+`skills-lock.json`; container start performs no update. Maintainers explicitly
+run `npm run skills:install` to refresh and review the lock change. Core
+validation passes with the optional profiles uninstalled. Update that installation once, then run
+`node scripts/dev/sync-agent-skills.mjs` and its `--check` mode. Other harnesses
+share relative links; do not install copied trees for each agent. The MCP files name the
+same two servers everywhere.
 
 | Agent | Skills | MCP servers (Storybook + Stitch + shadcn) |
 |-------|--------|----------------------------------|
@@ -152,11 +154,14 @@ servers everywhere.
 | Cline | `.agents/skills/` | Cline's MCP settings are user-level: add the two URLs under *MCP Servers › Remote*, the key as a header |
 | Kimi Code CLI | `.agents/skills/` | `kimi mcp add --transport http stitch https://stitch.googleapis.com/mcp --header "X-Goog-Api-Key: $STITCH_API_KEY"` and the same for Storybook |
 | OpenCode | `.agents/skills/` (and `.claude/skills/`) | `opencode.json` (`{env:STITCH_API_KEY}`) |
-| Muse | point it at the reviewed skills in its configured discovery path | the same two URLs, the key as a header |
+| Muse | not a target of the skills CLI or `npx plugins`; point it at `.agents/skills/` | the same two URLs, the key as a header |
 
-Claude Code plugin configuration is a user-scope choice; tracked settings do
-not enable plugins for collaborators. Review a specific immutable revision
-before using optional third-party skills or plugins in any harness.
+Claude Code's plugin form (`npx plugins add google-labs-code/stitch-skills
+--scope project --target claude-code`) records the install in the user's own
+`~/.claude/plugins/`; enabling it is a user-scope choice (tracked settings
+no longer turn plugins on for collaborators). In cloud sessions, where a
+project's marketplaces do not load, the installed `.claude/skills/` mirrors
+from `scripts/dev/install-agent-skills.sh` provide the same skills.
 
 ## Keep design artifacts small
 

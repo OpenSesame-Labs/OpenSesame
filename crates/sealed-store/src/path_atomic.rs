@@ -1,15 +1,15 @@
-//! Confined atomic replacement and bounded reads for store metadata.
+//! Confined atomic replacement for store metadata.
 
 use crate::StoreError;
 use std::path::Path;
 
 #[cfg(unix)]
-use super::confined::{open_parent, open_read};
+use super::confined::open_parent;
 #[cfg(unix)]
 use std::{
     ffi::CString,
     fs::File,
-    io::{Read, Write},
+    io::Write,
     os::fd::{AsRawFd, FromRawFd},
 };
 
@@ -59,6 +59,7 @@ pub(crate) fn confined_atomic_write(
     }
     // SAFETY: successful openat returned a new owned descriptor.
     let mut file = unsafe { File::from_raw_fd(fd) };
+    let mut renamed = false;
     let result = (|| -> Result<(), StoreError> {
         file.write_all(bytes)?;
         file.sync_all()?;
@@ -76,40 +77,17 @@ pub(crate) fn confined_atomic_write(
         {
             return Err(StoreError::Io(std::io::Error::last_os_error()));
         }
-        if let Err(error) = dir.sync_all() {
-            // Some filesystems do not support syncing a directory. The
-            // rename is still atomic for a process interruption there,
-            // though power-loss durability depends on the filesystem.
-            if !matches!(
-                error.raw_os_error(),
-                Some(libc::EINVAL) | Some(libc::EOPNOTSUPP)
-            ) {
-                return Err(StoreError::Io(error));
-            }
-        }
+        renamed = true;
+        // After rename the live path already holds the new bytes; treat directory
+        // fsync as best-effort so callers do not retry into a fork.
+        let _ = dir.sync_all();
         Ok(())
     })();
-    if result.is_err() {
+    if result.is_err() && !renamed {
         // SAFETY: deleting the temporary directory entry never follows a symlink.
         let _ = unsafe { libc::unlinkat(dir.as_raw_fd(), temp.as_ptr(), 0) };
     }
     result
-}
-
-#[cfg(unix)]
-pub(crate) fn confined_read_bounded(
-    root: &Path,
-    rel: &Path,
-    limit: usize,
-) -> Result<Vec<u8>, StoreError> {
-    let file = open_read(root, rel)?;
-    let maximum = u64::try_from(limit).unwrap_or(u64::MAX).saturating_add(1);
-    let mut bytes = Vec::new();
-    file.take(maximum).read_to_end(&mut bytes)?;
-    if bytes.len() > limit {
-        return Err(StoreError::Other("file exceeds the allowed size".into()));
-    }
-    Ok(bytes)
 }
 
 #[cfg(not(unix))]
@@ -118,66 +96,9 @@ pub(crate) fn confined_atomic_write(
     rel: &Path,
     bytes: &[u8],
 ) -> Result<(), StoreError> {
-    use std::io::Write;
-
-    let path = root.join(rel);
-    let parent = path
-        .parent()
-        .ok_or_else(|| StoreError::InvalidPath("missing parent directory".into()))?;
-    std::fs::create_dir_all(parent)?;
-    if !std::fs::canonicalize(parent)?.starts_with(std::fs::canonicalize(root)?) {
-        return Err(StoreError::InvalidPath("path escapes store root".into()));
-    }
-    match std::fs::symlink_metadata(&path) {
-        Ok(metadata) if metadata.file_type().is_symlink() => {
-            return Err(StoreError::InvalidPath(
-                "target may not be a symlink".into(),
-            ));
-        }
-        Ok(_) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => return Err(StoreError::Io(error)),
-    }
-    let temp = parent.join(format!(".opensesame-state-{:032x}", rand::random::<u128>()));
-    let mut file = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&temp)?;
-    let result = (|| -> Result<(), StoreError> {
-        file.write_all(bytes)?;
-        file.sync_all()?;
-        // Close before renaming, including on Windows where an open handle may
-        // otherwise prevent replacement.
-        drop(file);
-        std::fs::rename(&temp, &path)?;
-        Ok(())
-    })();
-    if result.is_err() {
-        let _ = std::fs::remove_file(temp);
-    }
-    result
-}
-
-#[cfg(not(unix))]
-pub(crate) fn confined_read_bounded(
-    root: &Path,
-    rel: &Path,
-    limit: usize,
-) -> Result<Vec<u8>, StoreError> {
-    use std::io::Read;
-
-    let path = root.join(rel);
-    if !std::fs::canonicalize(&path)?.starts_with(std::fs::canonicalize(root)?) {
-        return Err(StoreError::InvalidPath("path escapes store root".into()));
-    }
-    let file = std::fs::File::open(path)?;
-    let maximum = u64::try_from(limit).unwrap_or(u64::MAX).saturating_add(1);
-    let mut bytes = Vec::new();
-    file.take(maximum).read_to_end(&mut bytes)?;
-    if bytes.len() > limit {
-        return Err(StoreError::Other("file exceeds the allowed size".into()));
-    }
-    Ok(bytes)
+    // Windows delegates to the existing handle-confined private-file writer;
+    // unsupported platforms inherit the existing fail-closed implementation.
+    super::confined_replace(root, rel, bytes)
 }
 
 #[cfg(test)]
@@ -185,15 +106,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn bounded_read_rejects_oversize_without_truncating() {
-        let root = tempfile::tempdir().unwrap();
-        std::fs::write(root.path().join("state"), b"12345").unwrap();
-        assert_eq!(
-            confined_read_bounded(root.path(), Path::new("state"), 5).unwrap(),
-            b"12345"
-        );
-        assert!(confined_read_bounded(root.path(), Path::new("state"), 4).is_err());
-        assert!(confined_read_bounded(root.path(), Path::new("state"), 0).is_err());
+    fn atomic_replacement_rejects_parent_traversal() {
+        let parent = tempfile::tempdir().unwrap();
+        let root = parent.path().join("store");
+        std::fs::create_dir(&root).unwrap();
+        let outside = parent.path().join("outside");
+        std::fs::write(&outside, b"keep").unwrap();
+        assert!(confined_atomic_write(&root, Path::new("../outside"), b"new").is_err());
+        assert_eq!(std::fs::read(outside).unwrap(), b"keep");
     }
 
     #[test]

@@ -13,7 +13,9 @@ use opensesame_sealed_store::{
     TombEntry,
 };
 mod mutations;
-pub use mutations::{cmd_generate, cmd_rotate, cmd_update, UpdateCliOpts};
+pub use mutations::{
+    cmd_generate, cmd_migrate_rollback_anchor, cmd_rotate, cmd_update, UpdateCliOpts,
+};
 
 mod tomb_exec;
 
@@ -198,9 +200,7 @@ pub fn cmd_find(query: &str, path: Option<&Path>, tomb: Option<&str>) -> anyhow:
 }
 
 pub fn cmd_rm(name: &str, path: Option<&Path>, tomb: Option<&str>) -> anyhow::Result<()> {
-    let root_path = resolve_root(path, tomb)?;
-    let root = StoreRoot::open(&root_path).map_err(|e| anyhow::anyhow!("{e}"))?;
-    root.rm(name).map_err(|e| anyhow::anyhow!("{e}"))?;
+    mutations::rm_with_fallback(name, path, tomb)?;
     println!("removed {name}");
     Ok(())
 }
@@ -439,7 +439,7 @@ pub fn cmd_history(name: &str, path: Option<&Path>, tomb: Option<&str>) -> anyho
     let root_path = resolve_root(path, tomb)?;
     let root = StoreRoot::open(&root_path).map_err(|e| anyhow::anyhow!("{e}"))?;
     for item in entry_history(&root, name).map_err(|e| anyhow::anyhow!("{e}"))? {
-        let when = chrono::DateTime::from_timestamp(item.timestamp, 0)
+        let when = opensesame_time::DateTime::from_timestamp(item.timestamp, 0)
             .map_or_else(|| item.timestamp.to_string(), |t| t.to_rfc3339());
         println!("{} {} {}", item.commit, when, item.subject);
     }
