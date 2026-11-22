@@ -205,6 +205,5 @@ pub(super) fn capture_debug_name(tail: &str) -> Option<String> {
     (after.starts_with(":?}") || after.starts_with(":#?}")).then_some(name)
 }
 
-
 #[path = "debug_macro.rs"]
 mod macro_read;

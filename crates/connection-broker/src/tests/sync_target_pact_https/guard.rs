@@ -346,7 +346,10 @@ mod probes {
         assert_eq!(credentialed_send_https_gaps(http), (1, 1), "{http}");
         let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let query = client; query.execute(request).await?; }";
         assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
-        let db = "async fn f() { query.execute(&self.pool).await?; }";
+        let db =
+            "async fn f() { let q = sqlx::query(\"select 1\"); q.execute(&self.pool).await?; }";
         assert_eq!(credentialed_send_https_gaps(db), (0, 0), "{db}");
+        let spelled = "async fn f() { query.execute(&self.pool).await?; }";
+        assert_eq!(credentialed_send_https_gaps(spelled), (1, 1), "{spelled}");
     }
 }

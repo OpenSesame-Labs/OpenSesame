@@ -1,9 +1,9 @@
 //! Macro `Debug` reads with paren, bracket, and brace delimiters.
 
+use super::capture_debug_name;
 use crate::tests::sync_target_pact_norm::string_len;
 use crate::tests::sync_target_pact_rename;
 use crate::tests::sync_target_pact_scan::{ident_before, is_ident_char};
-use super::capture_debug_name;
 
 pub(super) fn macro_debug_response(scanned: &str) -> bool {
     let bytes = scanned.as_bytes();
@@ -144,9 +144,9 @@ fn tracing_piece_is_response(scanned: &str, piece: &str, at: usize) -> bool {
 
 /// `{r:?}` in the format string, with a later `r = response` argument.
 fn capture_names_track_response(scanned: &str, at: usize, captures: &[String]) -> bool {
-    captures.iter().any(|name| {
-        sync_target_pact_rename::tracks_response_receiver(scanned, at, name.clone())
-    })
+    captures
+        .iter()
+        .any(|name| sync_target_pact_rename::tracks_response_receiver(scanned, at, name.clone()))
 }
 
 fn named_format_is_response(scanned: &str, piece: &str, at: usize, captures: &[String]) -> bool {

@@ -132,33 +132,7 @@ fn alias_reader(scanned: &str, calls: &[String], modules: &[String]) -> bool {
 }
 
 fn stream_consumption_reads(scanned: &str) -> bool {
-    const MARKERS: &[&str] = &[
-        ".next(",
-        ".try_next(",
-        ".poll_next(",
-        ".poll_next_unpin(",
-        "::poll_next_unpin(",
-        ".try_poll_next_unpin(",
-        "::try_poll_next_unpin(",
-        ".for_each(",
-        "::for_each(",
-        ".fold(",
-        "try_fold",
-        "::next(",
-        "::try_next(",
-        "::fold(",
-        "::collect(",
-        "StreamExt::next",
-        "StreamExt::for_each",
-        "StreamExt::count(",
-        "StreamExt::count::",
-        "try_collect",
-        "try_for_each",
-    ];
-    if MARKERS.iter().any(|marker| scanned.contains(marker)) {
-        return true;
-    }
-    super::sync_target_pact_chain::response_chain_consumer(scanned)
+    stream::on_response(scanned) || super::sync_target_pact_chain::response_chain_consumer(scanned)
 }
 
 /// `read_bounded_body` and any `response_guard::` helper read provider bytes.
@@ -173,6 +147,7 @@ mod block_into;
 mod debug;
 mod delegated;
 mod pattern;
+mod stream;
 
 pub(super) fn is_ident_char(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || ch == '_'

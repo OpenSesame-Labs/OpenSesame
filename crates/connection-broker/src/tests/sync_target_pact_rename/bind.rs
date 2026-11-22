@@ -1,8 +1,7 @@
 //! `let`/`=` bindings and tuple patterns.
 use super::super::sync_target_pact_norm::{is_keyword_at, string_len};
 use super::marker::{find_marker, is_ident_byte, is_ident_char};
-use super::peel::{match_delim, strip_ref, unwrap_parens, unwrap_value, trailing_ident};
-use super::RESPONSE_RECEIVER_NAMES;
+use super::peel::{match_delim, strip_ref, trailing_ident, unwrap_parens, unwrap_value};
 
 pub(super) fn let_bind_rhs(prefix: &str, name: &str) -> Option<String> {
     let bytes = prefix.as_bytes();
@@ -158,12 +157,15 @@ fn strip_mut_kw(ty: &str) -> &str {
 }
 
 fn rhs_ident(source: &str, at: usize) -> Option<String> {
-    let expr = strip_ref(unwrap_value(source.get(at..)?.trim_start()));
-    if let Some(name) = match read_ident_at(expr, 0).as_deref() {
-        Some("if") | Some("match") => branch_control_rhs(expr),
-        _ => None,
-    } {
-        return Some(name);
+    let raw = source.get(at..)?;
+    let lead = raw.len() - raw.trim_start().len();
+    let trimmed = &raw[lead..];
+    let expr = strip_ref(unwrap_value(trimmed));
+    let expr_at = at + lead + slice_offset(trimmed, expr);
+    if matches!(read_ident_at(expr, 0).as_deref(), Some("if" | "match")) {
+        if let Some(name) = branch_response(source, expr, expr_at) {
+            return Some(name);
+        }
     }
     if credentialed_send_expr(expr) {
         return Some("response".to_string());
@@ -171,20 +173,56 @@ fn rhs_ident(source: &str, at: usize) -> Option<String> {
     read_ident_at(expr, 0)
 }
 
-fn branch_control_rhs(expr: &str) -> Option<String> {
-    for receiver in RESPONSE_RECEIVER_NAMES {
-        if expr
-            .split(|ch: char| !is_ident_char(ch))
-            .any(|part| part == *receiver)
-        {
-            return Some(receiver.to_string());
+fn slice_offset(outer: &str, inner: &str) -> usize {
+    inner.as_ptr() as usize - outer.as_ptr() as usize
+}
+
+/// An `if` / `match` initializer aliases the response when any branch value does.
+fn branch_response(source: &str, expr: &str, expr_at: usize) -> Option<String> {
+    let bytes = expr.as_bytes();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        if !is_ident_byte(bytes[index]) {
+            index += 1;
+            continue;
+        }
+        let start = index;
+        while index < bytes.len() && is_ident_byte(bytes[index]) {
+            index += 1;
+        }
+        let name = &expr[start..index];
+        if tracks_branch_ident(source, expr_at + start, name) {
+            return Some(name.to_string());
         }
     }
     None
 }
 
+fn tracks_branch_ident(source: &str, at: usize, name: &str) -> bool {
+    if matches!(name, "if" | "else" | "match" | "return" | "async") {
+        return false;
+    }
+    super::tracks_response_receiver(source, at, name.to_string())
+}
+
 fn credentialed_send_expr(expr: &str) -> bool {
-    find_marker(expr, ".send", |_| true) || find_marker(expr, "::send", |_| true)
+    send_marker(expr, ".send")
+        || send_marker(expr, "::send")
+        || (!expr.contains("sqlx::")
+            && (send_marker(expr, ".execute") || send_marker(expr, "::execute")))
+}
+
+fn send_marker(expr: &str, marker: &str) -> bool {
+    find_marker(expr, marker, |index| {
+        !expr[index + marker.len()..]
+            .chars()
+            .next()
+            .is_some_and(is_ident_char)
+    })
 }
 
 fn let_tuple_named_rhs(prefix: &str, bytes: &[u8], pat_open: usize, name: &str) -> Option<String> {
@@ -285,12 +323,8 @@ fn tuple_pattern_binds(elem: &str, name: &str) -> bool {
             .iter()
             .any(|part| !part.is_empty() && tuple_pattern_binds(part, name));
     }
-    read_ident_at(elem, 0).as_deref() == Some(name)
-        && elem[name.len()..].trim().is_empty()
-        || elem.starts_with(name)
-            && elem[name.len()..]
-                .trim_start()
-                .starts_with(':')
+    read_ident_at(elem, 0).as_deref() == Some(name) && elem[name.len()..].trim().is_empty()
+        || elem.starts_with(name) && elem[name.len()..].trim_start().starts_with(':')
 }
 
 pub(crate) fn plain_name(expr: &str) -> Option<String> {

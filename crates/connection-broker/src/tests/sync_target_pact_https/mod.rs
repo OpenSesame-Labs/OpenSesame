@@ -27,6 +27,7 @@ mod closure;
 mod guard;
 mod mutate;
 mod pattern;
+mod sqlx_exec;
 
 use super::sync_target_pact_norm::string_len;
 
@@ -70,48 +71,7 @@ fn credentialed_dispatch_site(source: &str, index: usize) -> bool {
     if !rest.starts_with(".execute") {
         return true;
     }
-    let receiver = &source[..index].trim_end();
-    if is_sqlx_query_receiver(receiver) {
-        return false;
-    }
-    // sqlx-style `query.execute(&pool)` is not HTTP; `query.execute(request)` is.
-    if receiver_name(receiver) == "query" {
-        return query_execute_is_http(rest);
-    }
-    if receiver_name(receiver) == "pool" {
-        return false;
-    }
-    true
-}
-
-fn is_sqlx_query_receiver(prefix: &str) -> bool {
-    prefix.contains("sqlx::query") || prefix.contains("sqlx::Query")
-}
-
-fn receiver_name(prefix: &str) -> String {
-    prefix
-        .trim_end()
-        .chars()
-        .rev()
-        .take_while(|ch| is_ident_char(*ch))
-        .collect::<String>()
-        .chars()
-        .rev()
-        .collect()
-}
-
-fn query_execute_is_http(rest: &str) -> bool {
-    let after = strip_turbofish(&rest[".execute".len()..]).unwrap_or(&rest[".execute".len()..]);
-    let Some(args) = bind::call_inside(after) else {
-        return false;
-    };
-    let arg = bind::strip_ref(bind::split_arg(args, true).trim()).trim();
-    if bind::plain_ident(arg) == Some("request") {
-        return true;
-    }
-    arg.rsplit('.')
-        .next()
-        .is_some_and(|tail| tail.trim() == "request")
+    !sqlx_exec::receiver_is_sqlx(source, index)
 }
 
 fn dispatch_site(source: &str, alias_calls: &[(usize, usize)], index: usize) -> Option<usize> {
