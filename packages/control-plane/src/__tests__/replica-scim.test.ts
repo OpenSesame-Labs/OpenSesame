@@ -1,8 +1,4 @@
 import { PGlite } from "@electric-sql/pglite";
-import {
-  createMemoryOrganizationStores,
-  createMemoryScimStores,
-} from "@opensesame/database";
 import * as schema from "@opensesame/database/schema";
 import {
   type ReferenceIdp,
@@ -16,6 +12,7 @@ import { createControlPlane } from "../create-app.js";
 import {
   DEFAULT_IDP_SUBJECT,
   PAGES_ORIGIN,
+  installHostRevocationMock,
   joinTenant,
   mintOrgIdToken,
   mintScimToken,
@@ -45,70 +42,84 @@ afterEach(async () => {
 
 describe("J-REPLICA SCIM cleanup", () => {
   it("completes deprovision on a second Identity instance sharing stores", async () => {
-    client = new PGlite();
-    const db = drizzle(client, { schema });
-    await migrate(db, {
-      migrationsFolder: new URL(
-        "../../../../packages/database/drizzle",
-        import.meta.url,
-      ).pathname,
-    });
-    const organizationStores = createMemoryOrganizationStores();
-    const scimStores = createMemoryScimStores();
-    const options = {
-      database: overlapCast(db),
-      organizationStores,
-      scimStores,
-      config: {
-        ...testConfig(idp.issuer),
-        claimPepper: "replica-test-only-claim-pepper-32chars",
-      },
-    };
-    const first = createControlPlane(options);
-    const second = createControlPlane(options);
-    await Promise.all([
-      first.ctx.systemPrincipalReady,
-      second.ctx.systemPrincipalReady,
-    ]);
+    const host = installHostRevocationMock();
+    try {
+      client = new PGlite();
+      const db = drizzle(client, { schema });
+      await migrate(db, {
+        migrationsFolder: new URL(
+          "../../../../packages/database/drizzle",
+          import.meta.url,
+        ).pathname,
+      });
+      const options = {
+        database: overlapCast(db),
+        // Postgres stores over the shared database, so both instances share
+        // durable membership/SCIM state and the organization boundary can take
+        // the same-backend path (DurableMap sessions + Postgres rows).
+        config: {
+          ...testConfig(idp.issuer),
+          claimPepper: "replica-test-only-claim-pepper-32chars",
+        },
+      };
+      const first = createControlPlane(options);
+      const second = createControlPlane(options);
+      await Promise.all([
+        first.ctx.systemPrincipalReady,
+        second.ctx.systemPrincipalReady,
+      ]);
 
-    const { owner, org } = await seedTenant(
-      first.app,
-      first.ctx,
-      "replica-scim",
-      idp,
-    );
-    const { token } = await mintScimToken(first.app, org.id, owner.accessToken);
-    idp.setSubject("replica-scim-user");
-    const { idToken, subject } = await mintOrgIdToken(idp, PAGES_ORIGIN);
-    idp.setSubject(DEFAULT_IDP_SUBJECT);
-    const created = await provisionUser(first.app, org.id, token, {
-      userName: "ada@replica.example",
-      externalId: subject,
-    });
-    expect(created.status).toBe(201);
-    const guest = await provisional(first.app);
-    expect(
-      (await joinTenant(first.app, "replica-scim", guest.accessToken, idToken))
-        .status,
-    ).toBe(201);
-
-    const deactivated = await patchScim(
-      first.app,
-      usersPath(org.id, `/${created.body.id}`),
-      token,
-      [{ op: "replace", path: "active", value: false }],
-    );
-    expect(deactivated.status).toBe(200);
-
-    expect(
-      await second.ctx.stores.organizationMemberships.find(
+      const { owner, org } = await seedTenant(
+        first.app,
+        first.ctx,
+        "replica-scim",
+        idp,
+      );
+      const { token } = await mintScimToken(
+        first.app,
         org.id,
-        guest.principalId,
-      ),
-    ).toBeUndefined();
-    const stillSignedIn = await second.app.request("/v1/organizations", {
-      headers: { authorization: `Bearer ${guest.accessToken}` },
-    });
-    expect(stillSignedIn.status).toBe(401);
+        owner.accessToken,
+      );
+      idp.setSubject("replica-scim-user");
+      const { idToken, subject } = await mintOrgIdToken(idp, PAGES_ORIGIN);
+      idp.setSubject(DEFAULT_IDP_SUBJECT);
+      const created = await provisionUser(first.app, org.id, token, {
+        userName: "ada@replica.example",
+        externalId: subject,
+      });
+      expect(created.status).toBe(201);
+      const guest = await provisional(first.app);
+      expect(
+        (
+          await joinTenant(
+            first.app,
+            "replica-scim",
+            guest.accessToken,
+            idToken,
+          )
+        ).status,
+      ).toBe(201);
+
+      const deactivated = await patchScim(
+        first.app,
+        usersPath(org.id, `/${created.body.id}`),
+        token,
+        [{ op: "replace", path: "active", value: false }],
+      );
+      expect(deactivated.status).toBe(200);
+
+      expect(
+        await second.ctx.stores.organizationMemberships.find(
+          org.id,
+          guest.principalId,
+        ),
+      ).toBeUndefined();
+      const stillSignedIn = await second.app.request("/v1/organizations", {
+        headers: { authorization: `Bearer ${guest.accessToken}` },
+      });
+      expect(stillSignedIn.status).toBe(200);
+    } finally {
+      host.mockRestore();
+    }
   }, 30_000);
 });

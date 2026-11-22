@@ -1,6 +1,6 @@
 import type { NotificationChannelKind } from "@opensesame/os-domain";
 import { overlapCast } from "@opensesame/os-domain";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { type App, authed, plane, principal } from "./notification-kit.js";
 
 /**
@@ -246,21 +246,56 @@ describe("channel bindings", () => {
   });
 
   it("maps a lost revoke compare-and-set to 409, never 500", async () => {
-    const { app } = plane();
+    const { app, ctx } = plane();
     const me = await principal(app);
     const bindingId = await bind(app, me.accessToken);
-    const revoke = () =>
-      app.request(`/v1/notification-channels/bindings/${bindingId}`, {
-        method: "DELETE",
-        headers: authed(me.accessToken),
-      });
-    const [first, second] = await Promise.all([revoke(), revoke()]);
-    const statuses = [first.status, second.status].sort();
-    expect(statuses).toEqual([200, 409]);
-    const conflict = first.status === 409 ? first : second;
-    expect(overlapCast<{ error: string }>(await conflict.json()).error).toBe(
-      "conflict",
-    );
+    // Hold the first writer at the compare-and-set until the second approver
+    // has read the live row, so the race exercises the version check rather
+    // than whichever microtask order the event loop picks.
+    const bindings = ctx.repos.channelBindings;
+    const original = bindings.updateWithVersion.bind(bindings);
+    let markWriteStarted = () => {};
+    let releaseWrite = (_value: unknown) => {};
+    const writeStarted = new Promise<void>((resolve) => {
+      markWriteStarted = resolve;
+    });
+    const writeRelease = new Promise<unknown>((resolve) => {
+      releaseWrite = resolve;
+    });
+    let writes = 0;
+    const spy = vi.spyOn(bindings, "updateWithVersion").mockImplementation(((
+      id: string,
+      expectedVersion: number,
+      patch: Parameters<typeof original>[2],
+    ) => {
+      writes += 1;
+      if (writes === 1) {
+        markWriteStarted();
+        return writeRelease.then(() => original(id, expectedVersion, patch));
+      }
+      return original(id, expectedVersion, patch);
+    }) as typeof bindings.updateWithVersion);
+    try {
+      const revoke = () =>
+        app.request(`/v1/notification-channels/bindings/${bindingId}`, {
+          method: "DELETE",
+          headers: authed(me.accessToken),
+        });
+      const firstRequest = revoke();
+      const secondRequest = revoke();
+      await writeStarted;
+      await Promise.race([firstRequest, secondRequest]);
+      releaseWrite(undefined);
+      const [first, second] = await Promise.all([firstRequest, secondRequest]);
+      const statuses = [first.status, second.status].sort();
+      expect(statuses).toEqual([200, 409]);
+      const conflict = first.status === 409 ? first : second;
+      expect(overlapCast<{ error: string }>(await conflict.json()).error).toBe(
+        "conflict",
+      );
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("contract: revoking is audited and leaves the destination unusable", async () => {

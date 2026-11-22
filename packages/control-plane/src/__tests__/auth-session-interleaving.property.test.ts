@@ -102,9 +102,17 @@ async function resolveWithSchedule(schedule: Schedule) {
   const sessionAtRead = state.session && !state.expired && !state.revoked;
   sessionGate.release();
   if (sessionAtRead) {
-    await principalGate.entered;
-    apply(schedule.principal);
-    principalGate.release();
+    // The boundary re-reads the token before the principal: a token dropped
+    // this late resolves the request without ever consulting the principal,
+    // so wait on the gate only if the flow actually reaches it.
+    const reachedPrincipal = await Promise.race([
+      principalGate.entered.then(() => true),
+      result.then(() => false),
+    ]);
+    if (reachedPrincipal) {
+      apply(schedule.principal);
+      principalGate.release();
+    }
   }
   return { result: await result, state };
 }
@@ -132,7 +140,10 @@ const change = fc.record({
 function expectedStage(
   schedule: Schedule,
 ): "token" | "session" | "principal" | "accepted" {
-  const tokenReads = [schedule.before, schedule.token];
+  // Authentication re-reads the token inside the session boundary, after the
+  // session-stage change has applied, so a token dropped as late as the
+  // session stage is observed too.
+  const tokenReads = [schedule.before, schedule.token, schedule.session];
   const sessionReads = [...tokenReads, schedule.session];
   const principalReads = [...sessionReads, schedule.principal];
   if (tokenReads.some((event) => event.dropToken)) return "token";

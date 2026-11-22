@@ -4,6 +4,7 @@ import { expect, it } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE } from "../routes/scim-effects.js";
 import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
+import { installHostRevocationMock } from "./scim-test-helpers.js";
 
 type CreatedScimUser = {
   id: string;
@@ -13,93 +14,98 @@ type CreatedScimUser = {
 it.each(["PATCH", "DELETE"])(
   "SCIM %s removes tenant authority without global logout after issuer approval is withdrawn",
   async (method) => {
-    const { app, ctx } = createControlPlane();
-    const minted = await app.request("/v1/principals/provisional", {
-      method: "POST",
-    });
-    const session: { principalId: string; accessToken: string } =
-      await minted.json();
-    const issuer = "https://historical-idp.example";
-    const subject = "existing-member";
-    const now = ctx.clock();
-    const org: Organization = {
-      id: "org:historical",
-      slug: "historical",
-      displayName: "Historical",
-      state: "active",
-      createdBy: session.principalId,
-      createdAt: now,
-      updatedAt: now,
-      ssoIssuer: issuer,
-      provisioningEnabled: true,
-    };
-    ctx.config.organizationIssuerAllowlist = [`${org.id}|${issuer}`];
-    await ctx.stores.organizations.set(org.id, org);
-    await ctx.stores.organizationMemberships.upsert({
-      organizationId: org.id,
-      principalId: session.principalId,
-      role: "member",
-      createdAt: now,
-      updatedAt: now,
-    });
-    expect(
-      (
-        await attachVerifiedExternalIdentity(ctx, session.principalId, {
-          kind: "oidc",
-          issuer,
-          subject,
-          correlationId: "historical-member",
-        })
-      ).ok,
-    ).toBe(true);
-    const user = await ctx.stores.scim.users.create({
-      id: "historical-user",
-      organizationId: org.id,
-      userName: subject,
-      externalId: subject,
-      active: true,
-      raw: {},
-      createdAt: now,
-      updatedAt: now,
-    });
-    const token = "sct_historical-test-token";
-    await ctx.stores.scim.tokens.mint(
-      org.id,
-      createHash("sha256").update(token).digest("hex"),
-    );
-    ctx.config.organizationIssuerAllowlist = [];
-
-    const request: RequestInit = {
-      method,
-      headers: {
-        authorization: `Bearer ${token}`,
-        "content-type": "application/json",
-      },
-    };
-    if (method === "PATCH") {
-      request.body = JSON.stringify({
-        schemas: ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
-        Operations: [{ op: "replace", path: "active", value: false }],
+    const host = installHostRevocationMock();
+    try {
+      const { app, ctx } = createControlPlane();
+      const minted = await app.request("/v1/principals/provisional", {
+        method: "POST",
       });
-    }
-    const response = await app.request(
-      `/v1/organizations/${org.id}/scim/v2/Users/${user.id}`,
-      request,
-    );
-    expect(response.status).toBe(method === "PATCH" ? 200 : 204);
-    expect(
-      await ctx.stores.organizationMemberships.find(
+      const session: { principalId: string; accessToken: string } =
+        await minted.json();
+      const issuer = "https://historical-idp.example";
+      const subject = "existing-member";
+      const now = ctx.clock();
+      const org: Organization = {
+        id: "org:historical",
+        slug: "historical",
+        displayName: "Historical",
+        state: "active",
+        createdBy: session.principalId,
+        createdAt: now,
+        updatedAt: now,
+        ssoIssuer: issuer,
+        provisioningEnabled: true,
+      };
+      ctx.config.organizationIssuerAllowlist = [`${org.id}|${issuer}`];
+      await ctx.stores.organizations.set(org.id, org);
+      await ctx.stores.organizationMemberships.upsert({
+        organizationId: org.id,
+        principalId: session.principalId,
+        role: "member",
+        createdAt: now,
+        updatedAt: now,
+      });
+      expect(
+        (
+          await attachVerifiedExternalIdentity(ctx, session.principalId, {
+            kind: "oidc",
+            issuer,
+            subject,
+            correlationId: "historical-member",
+          })
+        ).ok,
+      ).toBe(true);
+      const user = await ctx.stores.scim.users.create({
+        id: "historical-user",
+        organizationId: org.id,
+        userName: subject,
+        externalId: subject,
+        active: true,
+        raw: {},
+        createdAt: now,
+        updatedAt: now,
+      });
+      const token = "sct_historical-test-token";
+      await ctx.stores.scim.tokens.mint(
         org.id,
-        session.principalId,
-      ),
-    ).toBeUndefined();
-    expect(
-      (
-        await app.request("/v1/organizations", {
-          headers: { authorization: `Bearer ${session.accessToken}` },
-        })
-      ).status,
-    ).toBe(200);
+        createHash("sha256").update(token).digest("hex"),
+      );
+      ctx.config.organizationIssuerAllowlist = [];
+
+      const request: RequestInit = {
+        method,
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+      };
+      if (method === "PATCH") {
+        request.body = JSON.stringify({
+          schemas: ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+          Operations: [{ op: "replace", path: "active", value: false }],
+        });
+      }
+      const response = await app.request(
+        `/v1/organizations/${org.id}/scim/v2/Users/${user.id}`,
+        request,
+      );
+      expect(response.status).toBe(method === "PATCH" ? 200 : 204);
+      expect(
+        await ctx.stores.organizationMemberships.find(
+          org.id,
+          session.principalId,
+        ),
+      ).toBeUndefined();
+      expect(
+        (
+          await app.request("/v1/organizations", {
+            headers: { authorization: `Bearer ${session.accessToken}` },
+          })
+        ).status,
+      ).toBe(200);
+    } finally {
+      host.mockRestore();
+    }
   },
 );
 
