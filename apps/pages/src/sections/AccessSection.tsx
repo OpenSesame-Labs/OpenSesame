@@ -14,8 +14,10 @@ import { LocalSharePanel } from "./access/LocalSharePanel.js";
 import { SessionsPanel } from "./access/SessionsPanel.js";
 import "./access.css";
 
-// The requests addressed to an Identity session load only where an Identity
-// API is configured (ADR 0090); a deployment without one never fetches them.
+// The hosted panel alone is conditional on an Identity service. The complete
+// section remains a lazy route owned by the capability runtime; keeping its
+// selected local panels together avoids tiny facade chunks and their separate
+// compression dictionaries.
 const HostedRequestsPanel = lazy(() =>
   import("./access/HostedRequestsPanel.js").then((m) => ({
     default: m.HostedRequestsPanel,

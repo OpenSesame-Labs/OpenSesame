@@ -30,6 +30,8 @@ pub enum StoreError {
 #[derive(Debug, Clone)]
 pub struct StoreRoot {
     pub path: PathBuf,
+    #[cfg(feature = "testkit")]
+    pub(crate) rollback_witness_root: Option<PathBuf>,
 }
 
 impl StoreRoot {
@@ -42,7 +44,26 @@ impl StoreRoot {
         if !path.exists() {
             return Err(StoreError::NotInitialized(path));
         }
-        Ok(Self { path })
+        Ok(Self {
+            path,
+            #[cfg(feature = "testkit")]
+            rollback_witness_root: None,
+        })
+    }
+
+    /// Open a fixture store with an explicitly isolated rollback-witness root.
+    ///
+    /// This is available only to workspace test harnesses. Release builds
+    /// always resolve the witness root from the platform-local data directory.
+    #[cfg(feature = "testkit")]
+    #[doc(hidden)]
+    pub fn open_with_test_witness_root(
+        path: impl AsRef<Path>,
+        witness_root: impl Into<PathBuf>,
+    ) -> Result<Self, StoreError> {
+        let mut store = Self::open(path)?;
+        store.rollback_witness_root = Some(witness_root.into());
+        Ok(store)
     }
 }
 

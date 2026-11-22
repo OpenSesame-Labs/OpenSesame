@@ -1,7 +1,7 @@
 //! Storage for STS bindings: one sealed blob per connection, nothing about it
 //! readable without the deployment's key.
 
-use chrono::{DateTime, SecondsFormat, Utc};
+use opensesame_time::{DateTime, SecondsFormat, Utc};
 use sqlx::{Row, SqlitePool};
 
 use crate::crypto::{self, SealedBlob};

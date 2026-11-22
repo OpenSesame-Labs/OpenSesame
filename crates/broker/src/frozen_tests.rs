@@ -1,5 +1,4 @@
 use super::*;
-use chrono::Duration;
 use opensesame_audit::ReceiptSigner;
 use opensesame_authz::PolicyEngine;
 use opensesame_connector_host::HostRuntime;
@@ -11,6 +10,7 @@ use opensesame_domain::{
 };
 use opensesame_storage::Db;
 use opensesame_task_access::{InMemoryTaskStore, StartTaskParams};
+use opensesame_time::Duration;
 
 type Narrowing = (&'static str, fn(&mut Grant));
 

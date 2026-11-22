@@ -2,11 +2,11 @@
 //! the boundary that now refuses it. Runs in ordinary CI.
 mod common;
 
-use chrono::{Duration, Utc};
 use common::client::{http, Account};
 use common::Harness;
 use opensesame_provider_bitwarden::Kdf;
 use opensesame_storage::bitwarden::{BitwardenCipher, BitwardenSignIn};
+use opensesame_time::{Duration, Utc};
 use serde_json::{json, Value};
 
 const LIGHT: Kdf = Kdf::Argon2id {
@@ -37,7 +37,7 @@ fn sign_in<'a>(
     user_id: &'a str,
     token_hash: &'a str,
     stamp: &'a str,
-    expires: chrono::DateTime<Utc>,
+    expires: opensesame_time::DateTime<Utc>,
 ) -> BitwardenSignIn<'a> {
     BitwardenSignIn {
         user_id,

@@ -15,13 +15,13 @@
 //! responder call the same functions, so a certificate renewed by the hook and
 //! one renewed by an operator go through identical code.
 
-use chrono::{DateTime, Duration, Utc};
 use opensesame_connection_broker::crypto::{open_scoped, seal_scoped, SealedBlob};
 use opensesame_domain::OrganizationId;
 use opensesame_storage::{
     seal_scopes, SealedCertificateMaterial, StoredCertificateIssuanceRequest,
     StoredManagedCertificate, StoredManagedCertificateKey,
 };
+use opensesame_time::{DateTime, Duration, Utc};
 use serde_json::json;
 use sha2::{Digest, Sha256};
 

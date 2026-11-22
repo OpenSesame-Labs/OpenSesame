@@ -92,7 +92,12 @@ const LAZY_LEAVES = [
   [
     "/src/sections/access/HostedRequestsPanel",
     "access.authority",
-    "cap-access.authority",
+    "access-hosted-requests",
+  ],
+  [
+    "/src/modules/access.authority/AccessRailTree",
+    "access.authority",
+    "access-authority-rail",
   ],
   // Mailbox protocol/data leaves are optional password-reset code. Keep
   // their shared helpers with that capability when pure chunks coalesce.
@@ -123,7 +128,11 @@ const LAZY_LEAVES = [
   // Live sessions' carriers (ADR 0150 §6): each client loads only when a
   // session names its kind, never when the capability activates.
   ["/src/modules/sharing.live/carriers/mqtt", "sharing.live", "live-mqtt"],
-  ["/node_modules/mqtt/", "sharing.live", "live-mqtt"],
+  [
+    "/src/modules/sharing.live/carriers/mqtt-websocket",
+    "sharing.live",
+    "live-mqtt",
+  ],
   ["/src/modules/sharing.live/carriers/nats", "sharing.live", "live-nats"],
   ["/node_modules/@nats-io/", "sharing.live", "live-nats"],
   // NKeys' CommonJS signer has the same owner as its NATS caller. Leave
@@ -146,7 +155,12 @@ const LAZY_LEAVES = [
   [
     "/packages/app-core/src/lib/vault/security-checks",
     "vault.security-checks",
-    "cap-vault.security-checks",
+    "vault-security-checks-panel",
+  ],
+  [
+    "/src/modules/vault.security-checks/SecurityChecksPanel",
+    "vault.security-checks",
+    "vault-security-checks-panel",
   ],
   ["/src/modules/sharing.live/carriers/nostr", "sharing.live", "live-nostr"],
   ["/node_modules/nostr-tools/", "sharing.live", "live-nostr"],
@@ -181,30 +195,46 @@ const LAZY_LEAVES = [
   [
     "/src/modules/identity.local-iam/cli-authorize-panel",
     "identity.local-iam",
-    "cli-app-integration-crypto",
+    "cli-app-integration-ui",
+  ],
+  [
+    "/src/modules/identity.local-iam/IdentityRailTree",
+    "identity.local-iam",
+    "identity-local-iam-rail",
+  ],
+  [
+    "/src/modules/identity.local-iam/lazy-routes",
+    "identity.local-iam",
+    "identity-local-iam-authorize-route",
+  ],
+  [
+    "/src/modules/identity.local-iam/AuthorizeConsentScreen",
+    "identity.local-iam",
+    "identity-local-iam-authorize-consent",
   ],
   [
     "/src/modules/identity.local-iam/cli-authorize-pairing-form",
     "identity.local-iam",
-    "cli-app-integration-crypto",
+    "cli-app-integration-ui",
   ],
   [
     "/src/modules/identity.local-iam/cli-authorize-paired-panel",
     "identity.local-iam",
-    "cli-app-integration-crypto",
+    "cli-app-integration-ui",
   ],
   [
     "/src/modules/identity.local-iam/cli-authorize-mint-proof",
     "identity.local-iam",
-    "cli-app-integration-crypto",
+    "cli-app-integration-ui",
   ],
   [
     "/src/modules/identity.local-iam/cli-authorize-panel-model",
     "identity.local-iam",
-    "cli-app-integration-crypto",
+    "cli-app-integration-ui",
   ],
-  // Device signing, oschip2 formatters, pairing confirm, and vault-session-root
-  // (dynamic vault/store) load only with the authorize sheet — one lazy chunk.
+  // Pairing and signing primitives also serve live peer trust. Keep the
+  // authorization UI above in its own chunk so live sharing does not load
+  // the identity capability through this shared crypto dependency.
   [
     "/packages/app-core/src/lib/cli-app-integration/",
     "identity.local-iam",

@@ -5,7 +5,7 @@
 //! entries, fence an ancestor without waiting for a projection writer, and
 //! show an independent root grant surviving engagement end.
 
-use chrono::{Duration, Utc};
+use opensesame_time::{Duration, Utc};
 
 use super::fix_support::{entry, issue, seed_grant, seed_realm};
 use crate::Db;

@@ -25,13 +25,15 @@ pub mod wasm;
 mod legacy_migration;
 mod persist_auth;
 pub mod snapshot;
+mod sync_apply;
 mod sync_auth;
-mod sync_conflicts;
 #[cfg(not(target_arch = "wasm32"))]
 mod sync_files;
 mod sync_limits;
 
-pub use sync_auth::{open_sync_blob, MAX_SYNC_CIPHERTEXT_BYTES, MAX_SYNC_ID_BYTES};
+pub use sync_auth::{
+    open_sync_blob, LEGACY_MIGRATION_CIPHERTEXT_MAX, MAX_SYNC_CIPHERTEXT_BYTES, MAX_SYNC_ID_BYTES,
+};
 pub use sync_limits::{
     MAX_SYNC_BLOBS, MAX_SYNC_DEVICE_ID_BYTES, MAX_SYNC_JSON_BYTES, MAX_SYNC_PROJECT_ID_BYTES,
     MAX_SYNC_TOTAL_BYTES,
@@ -65,6 +67,7 @@ pub enum ClientCoreError {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
 pub struct SyncCursor {
     pub device_id: String,
     pub epoch: u64,
@@ -79,6 +82,7 @@ pub struct SyncBlob {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct PersistedStore {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     version: Option<u32>,
@@ -124,11 +128,14 @@ impl DeviceKey {
 /// # Errors
 ///
 /// Returns an error when validation or the underlying operation fails.
-pub fn seal(key: &DeviceKey, plaintext: &[u8], aad: &[u8]) -> Result<Vec<u8>, ClientCoreError> {
+pub(crate) fn seal_with_nonce(
+    key: &DeviceKey,
+    plaintext: &[u8],
+    aad: &[u8],
+    nonce_bytes: [u8; 24],
+) -> Result<Vec<u8>, ClientCoreError> {
     let cipher = XChaCha20Poly1305::new_from_slice(&key.key).map_err(|_| ClientCoreError::Aead)?;
-    let mut nonce_bytes = [0u8; 24];
-    rand::rng().fill_bytes(&mut nonce_bytes);
-    let nonce = XNonce::from_slice(&nonce_bytes);
+    let nonce: &XNonce = (&nonce_bytes).into();
     let mut out = nonce_bytes.to_vec();
     let ct = cipher
         .encrypt(
@@ -143,6 +150,12 @@ pub fn seal(key: &DeviceKey, plaintext: &[u8], aad: &[u8]) -> Result<Vec<u8>, Cl
     Ok(out)
 }
 
+pub fn seal(key: &DeviceKey, plaintext: &[u8], aad: &[u8]) -> Result<Vec<u8>, ClientCoreError> {
+    let mut nonce_bytes = [0u8; 24];
+    rand::rng().fill_bytes(&mut nonce_bytes);
+    seal_with_nonce(key, plaintext, aad, nonce_bytes)
+}
+
 ///
 /// # Errors
 ///
@@ -153,7 +166,7 @@ pub fn open(key: &DeviceKey, sealed: &[u8], aad: &[u8]) -> Result<Vec<u8>, Clien
     }
     let (nonce_bytes, ct) = sealed.split_at(24);
     let cipher = XChaCha20Poly1305::new_from_slice(&key.key).map_err(|_| ClientCoreError::Aead)?;
-    let nonce = XNonce::from_slice(nonce_bytes);
+    let nonce = <&XNonce>::try_from(nonce_bytes).map_err(|_| ClientCoreError::Aead)?;
     cipher
         .decrypt(nonce, chacha20poly1305::aead::Payload { msg: ct, aad })
         .map_err(|_| ClientCoreError::Aead)
@@ -235,6 +248,29 @@ impl SyncStore {
         Ok(blob)
     }
 
+    /// Re-seal migrated legacy plaintext with deterministic v2 envelopes so
+    /// independent migrations of the same trusted export converge.
+    pub(crate) fn put_local_migrated(
+        &mut self,
+        key: &DeviceKey,
+        id: impl Into<String>,
+        plaintext: &[u8],
+    ) -> Result<(), ClientCoreError> {
+        let id = id.into();
+        let guard = self.checked_key(key)?;
+        let epoch = self
+            .cursor
+            .epoch
+            .checked_add(1)
+            .filter(|value| *value <= i64::MAX as u64)
+            .ok_or(ClientCoreError::EpochExhausted)?;
+        let blob = sync_auth::seal_blob_deterministic(key, id.clone(), epoch, plaintext)?;
+        self.entries.insert(id, (epoch, blob.ciphertext.clone()));
+        self.cursor.epoch = epoch;
+        self.remember_key(guard);
+        Ok(())
+    }
+
     /// Authenticate every remote blob before applying any of them.
     /// Last-writer-wins by higher authenticated epoch. Different ciphertexts
     /// at the same item and epoch are a conflict, not a retry.
@@ -250,37 +286,6 @@ impl SyncStore {
     ) -> Result<SyncCursor, ClientCoreError> {
         self.apply_authenticated(key, blobs)?;
         Ok(self.cursor.clone())
-    }
-
-    pub(crate) fn apply_authenticated(
-        &mut self,
-        key: &DeviceKey,
-        blobs: &[SyncBlob],
-    ) -> Result<usize, ClientCoreError> {
-        sync_limits::validate_cursor(&self.cursor)?;
-        sync_limits::validate_capacity(&self.entries, blobs)?;
-        let guard = self.checked_key(key)?;
-        for blob in blobs {
-            sync_auth::verify_blob(key, blob)?;
-        }
-        sync_conflicts::validate(&self.entries, blobs)?;
-        if !blobs.is_empty() {
-            self.remember_key(guard)?;
-        }
-        let mut applied = 0;
-        for b in blobs {
-            match self.entries.get(&b.id) {
-                Some((ep, _)) if *ep > b.epoch => {}
-                Some((ep, _)) if *ep == b.epoch => {}
-                _ => {
-                    self.entries
-                        .insert(b.id.clone(), (b.epoch, b.ciphertext.clone()));
-                    self.cursor.epoch = self.cursor.epoch.max(b.epoch);
-                    applied += 1;
-                }
-            }
-        }
-        Ok(applied)
     }
 
     /// Return a full reconciliation set. A scalar epoch from another device
@@ -327,6 +332,7 @@ impl SyncStore {
             integrity: None,
         };
         p.integrity = Some(persist_auth::tag(key, &p)?);
+        self.remember_key(guard);
         let json =
             serde_json::to_string(&p).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
         sync_limits::check_json_size(json.len())?;
@@ -344,6 +350,13 @@ impl SyncStore {
             serde_json::from_str(json).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
         persist_auth::verify(key, &p)?;
         let mut store = Self::new(p.cursor.device_id.clone());
+        // Pin before apply_remote so an empty blob list cannot leave the store
+        // unbound. apply_remote repeats this for non-empty loads; both writes
+        // use the same guard.
+        store.remember_key(blake3::keyed_hash(
+            key.as_bytes(),
+            b"OpenSesame sync store key v2",
+        ));
         store.apply_remote(key, &p.blobs)?;
         if p.cursor.epoch < store.cursor.epoch || p.cursor.epoch > i64::MAX as u64 {
             return Err(ClientCoreError::Persist(

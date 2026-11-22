@@ -139,7 +139,7 @@ impl KeyCustodyProvider for LocalSoftwareKeyCustodyProvider {
             ));
         }
 
-        let now = chrono::Utc::now().timestamp();
+        let now = opensesame_time::Utc::now().timestamp();
         let jti = uuid::Uuid::now_v7().to_string();
         let claims = DpopClaims {
             jti,

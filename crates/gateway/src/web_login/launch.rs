@@ -9,7 +9,6 @@
 
 use std::sync::Arc;
 
-use chrono::Utc;
 use opensesame_agent_hooks::{redact_for_approver, sdk::Interceptor};
 use opensesame_connection_broker::rotation::web_login::{
     park_claimed_web_login_rotation, request_claimed_web_login_rotation, settle_web_login_rotation,
@@ -26,6 +25,7 @@ use opensesame_rotation_web::{
 };
 use opensesame_session_observe::ControlLease;
 use opensesame_storage::StoredObservationRun;
+use opensesame_time::Utc;
 
 use super::canary;
 use super::channel::{BrowserChannel, RunChannel};
@@ -89,7 +89,8 @@ impl Harness {
             viewer_key_id: NO_VIEWER_KEY.into(),
             next_seq: 0,
             blocked_reason: None,
-            expires_at: (now + chrono::Duration::days(OBSERVATION_RETENTION_DAYS)).to_rfc3339(),
+            expires_at: (now + opensesame_time::Duration::days(OBSERVATION_RETENTION_DAYS))
+                .to_rfc3339(),
             closed_at: None,
             version: 1,
             created_at: now.to_rfc3339(),
@@ -219,7 +220,7 @@ impl WebLoginLauncher {
         let run_id = format!("run_{}", uuid::Uuid::now_v7());
         let claim = WebLoginClaim {
             run_id: &run_id,
-            lease: chrono::Duration::seconds(self.timing.lease_seconds()),
+            lease: opensesame_time::Duration::seconds(self.timing.lease_seconds()),
         };
         let policy_id = policy.map(|p| p.id.clone());
         let job = match request_claimed_web_login_rotation(

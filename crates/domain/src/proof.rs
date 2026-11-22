@@ -1,7 +1,7 @@
 //! Proof keys, purposes, and bindings for task-scoped authorization.
 
 use crate::{DomainError, ProofKeyId, TaskRunId};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

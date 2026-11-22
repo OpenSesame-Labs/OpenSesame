@@ -338,7 +338,7 @@ pub async fn write_files(path: &std::path::Path, keys: &Keys) {
     let salt: Vec<u8> = (100..164_u8).collect();
     let mut hash = [0_u8; 32];
     pbkdf2::pbkdf2_hmac::<Sha256>(SEND_PASSWORD_HASH.as_bytes(), &salt, 1_000, &mut hash);
-    let later = (chrono::Utc::now() + chrono::Duration::days(3))
+    let later = (opensesame_time::Utc::now() + opensesame_time::Duration::days(3))
         .format("%Y-%m-%d %H:%M:%S%.6f")
         .to_string();
     let text = json!({"Text": enc("the gate code is 4321"), "Hidden": false});

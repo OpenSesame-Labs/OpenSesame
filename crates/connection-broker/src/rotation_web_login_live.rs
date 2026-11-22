@@ -12,8 +12,8 @@
 //! single `INSERT … SELECT … WHERE NOT EXISTS`, so no second runner can slip
 //! between the check and the write.
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::OrganizationId;
+use opensesame_time::{DateTime, Utc};
 use sqlx::{QueryBuilder, Sqlite};
 
 use super::super::state_name;

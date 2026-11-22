@@ -11,9 +11,9 @@
 //! something". They exist as ordinary rows so they show up in the same list as
 //! everything else — an operator can see them, and can disable them.
 
-use chrono::{DateTime, Utc};
 use opensesame_security_events::{filter, Delivery, SecurityNotice, Severity};
 use opensesame_storage::StoredSecurityHook;
+use opensesame_time::{DateTime, Utc};
 
 use crate::app_state::AppState;
 

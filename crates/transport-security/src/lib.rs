@@ -5,7 +5,7 @@
 //! Everything cryptographic is delegated to maintained libraries: `rustls`
 //! runs the handshake and verifies handshake signatures, `rustls-webpki`
 //! builds and validates chains (time, constraints, usages, revocation), and
-//! `x509-parser` only *reads* a leaf that has already been verified. Nothing
+//! `x509-parser` reads certificate facts for profile checks. Nothing
 //! here is a TLS stack, a "verify signature only" callback, or a way to turn
 //! hostname checking off.
 //!
@@ -42,20 +42,29 @@ pub mod leaf;
 pub mod listener;
 pub mod provenance;
 pub mod server;
+pub mod svid_profile;
 pub mod trust;
 pub mod verify_spiffe;
 
 mod bounded;
 mod idle_io;
 mod server_conn;
+mod signing_fence;
+mod svid_tls;
 
 #[cfg(feature = "testkit")]
 pub mod testkit;
 
-pub use client::{client_config, dial_name, reqwest_builder, ClientProfile, ServerNamePolicy};
+pub use client::{
+    client_config, client_config_single_handshake, dial_name, reqwest_builder, ClientProfile,
+    ServerNamePolicy,
+};
 pub use env::{NativeIdentitySpec, NativeTrustSpec, TransportEnv};
 pub use error::classify_tls_error;
-pub use generations::{Generation, GenerationCandidate, TransportGenerations};
+pub use generations::{
+    Generation, GenerationCandidate, SourceOwner, SourceTrust, TransportGenerations,
+    MAX_SOURCE_HISTORY_PROFILES,
+};
 pub use guard::{enforce_current_generation, PeerDenyHook};
 pub use identity::{ChainUsage, TlsIdentity};
 pub use leaf::{LeafUsage, ParsedLeaf};

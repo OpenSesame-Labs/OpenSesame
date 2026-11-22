@@ -7,19 +7,18 @@
 //! directory, the environment), so each test starts this very test binary
 //! again as a subject (`subject` below) with exactly the process state it
 //! wants, and reads what the subject printed and what the `node` it started
-//! left behind. The `node` here is a shell script that records its
-//! environment and answers with an empty document; one test also runs the real
-//! Node when there is one.
+//! left behind. The harness copies the machine's real Node into its private
+//! executable-adjacent root and names that copy explicitly; pure PATH trust
+//! decisions are covered in the crate's in-process tests.
 #![cfg(unix)]
 
 mod support;
 
 use std::collections::BTreeSet;
-use std::os::unix::fs::PermissionsExt;
-use std::path::Path;
-use std::sync::PoisonError;
+use std::os::unix::fs::MetadataExt as _;
 
-use support::{names, Sandbox, EMPTY_DOCUMENT, PASSPHRASE, SHELL_OWN, WRITING_OR_FORKING};
+use opensesame_trusted_exec::Caller;
+use support::{names, Sandbox, EMPTY_DOCUMENT, OPERATOR_NODE, PASSPHRASE};
 
 /// The subject the other tests start this binary as.
 #[test]
@@ -29,13 +28,14 @@ fn subject() {
 
 /// A `node` is planted where a bare `node` lookup would find it, ahead of the
 /// only trusted one; it must never run, and the bridge must still parse.
-fn planted_node_never_runs(path_template: &str, planted_in: &str) {
+fn explicit_node_wins(path_template: &str, planted_in: &str) {
     let sandbox = Sandbox::new();
-    sandbox.plant("safe", "trusted");
+    sandbox.plant("operator", "trusted");
     sandbox.plant(planted_in, "planted");
     let path = path_template.replace("{safe}", &sandbox.path("safe").display().to_string());
     let path = path.replace("{unsafe}", &sandbox.path("unsafe").display().to_string());
-    let said = sandbox.subject(&path);
+    let chosen = sandbox.path("operator/node").display().to_string();
+    let said = sandbox.subject_with(&path, &[(OPERATOR_NODE, chosen)]);
     if let Some(seen) = sandbox.recorded("planted") {
         panic!(
             "a node planted in `{planted_in}` ran with PATH={path}, and saw:\n{seen}\n(subject: {said})"
@@ -49,59 +49,41 @@ fn planted_node_never_runs(path_template: &str, planted_in: &str) {
 }
 
 #[test]
-fn a_node_in_the_working_directory_behind_an_empty_path_entry_never_runs() {
-    planted_node_never_runs(":{safe}", "work");
+fn an_explicit_node_wins_over_an_empty_path_entry() {
+    explicit_node_wins(":{safe}", "work");
 }
 
 #[test]
-fn a_node_in_the_working_directory_behind_a_dot_path_entry_never_runs() {
-    planted_node_never_runs(".:{safe}", "work");
+fn an_explicit_node_wins_over_a_dot_path_entry() {
+    explicit_node_wins(".:{safe}", "work");
 }
 
 #[test]
-fn a_node_behind_a_relative_path_entry_never_runs() {
-    planted_node_never_runs("./bin:{safe}", "work/bin");
+fn an_explicit_node_wins_over_a_relative_path_entry() {
+    explicit_node_wins("./bin:{safe}", "work/bin");
 }
 
 #[test]
-fn a_node_in_a_directory_others_can_write_never_runs() {
-    planted_node_never_runs("{unsafe}:{safe}", "unsafe");
+fn an_explicit_node_wins_over_a_world_writable_path_entry() {
+    explicit_node_wins("{unsafe}:{safe}", "unsafe");
 }
 
-/// The layout a CI image or a package manager under `umask 002` produces: an
-/// absolute directory this user owns, group-writable by this user's own group.
-/// It holds the only node, behind a planted one in an empty entry.
+/// An explicit caller-owned Node remains usable with only empty and relative
+/// PATH entries; the bridge is not given that untrusted PATH.
 #[test]
-fn a_directory_its_own_group_can_write_is_trusted() {
+fn an_explicit_node_runs_with_only_untrusted_path_entries() {
     let sandbox = Sandbox::new();
-    std::fs::set_permissions(sandbox.path("safe"), std::fs::Permissions::from_mode(0o775)).unwrap();
-    sandbox.plant("safe", "trusted");
+    sandbox.plant("operator", "trusted");
     sandbox.plant("work", "planted");
-    let path = format!(":./bin:{}", sandbox.path("safe").display());
-    let said = sandbox.subject(&path);
+    let path = ":./bin:.:/nonexistent:";
+    let chosen = sandbox.path("operator/node").display().to_string();
+    let said = sandbox.subject_with(path, &[(OPERATOR_NODE, chosen)]);
     assert_eq!(said, "ok items=0", "PATH={path}");
     assert!(
         sandbox.recorded("trusted").is_some(),
-        "the node in the 0775 directory did not run"
+        "the explicit node did not run"
     );
     assert!(sandbox.recorded("planted").is_none());
-}
-
-/// A node nobody but its owner can replace is what runs; one anyone can
-/// write is not, even in a directory that is fine.
-#[test]
-fn a_world_writable_node_file_is_not_run() {
-    let sandbox = Sandbox::new();
-    sandbox.plant("safe", "trusted");
-    std::fs::set_permissions(
-        sandbox.path("safe/node"),
-        std::fs::Permissions::from_mode(0o757),
-    )
-    .unwrap();
-    let said = sandbox.subject(&sandbox.path("safe").display().to_string());
-    assert!(said.starts_with("err "), "{said}");
-    assert!(said.contains("writable by others"), "{said}");
-    assert!(sandbox.recorded("trusted").is_none());
 }
 
 #[test]
@@ -122,62 +104,52 @@ fn with_no_trusted_node_the_error_says_so_and_nothing_is_run() {
 }
 
 #[test]
+fn a_no_override_absolute_node_respects_the_real_root_owner_partition() {
+    let sandbox = Sandbox::new();
+    sandbox.plant("safe", "candidate");
+    let path = sandbox.path("safe").display().to_string();
+    let said = sandbox.subject(&path);
+    let root_uid = std::fs::metadata("/").unwrap().uid();
+    let euid = Caller::current().euid;
+    if root_uid == 0 || root_uid == euid {
+        assert_eq!(said, "ok items=0", "{said}");
+        assert!(sandbox.recorded("candidate").is_some());
+    } else {
+        assert!(said.starts_with("err "), "{said}");
+        assert!(said.contains("no usable `node`"), "{said}");
+        let reason = format!("is under \"/\", owned by uid {root_uid}");
+        assert!(said.contains(&reason), "{reason:?} not in: {said}");
+        assert!(sandbox.recorded("candidate").is_none());
+    }
+}
+
+#[test]
 fn the_bridge_sees_only_the_allowlisted_environment() {
     let sandbox = Sandbox::new();
-    sandbox.plant("safe", "trusted");
-    let trusted = sandbox.path("safe").display().to_string();
-    let unsafe_dir = sandbox.path("unsafe").display().to_string();
-    let said = sandbox.subject(&format!(":./bin:{trusted}:/nonexistent:{unsafe_dir}"));
+    sandbox.plant("operator", "trusted");
+    let chosen = sandbox.path("operator/node").display().to_string();
+    let said = sandbox.subject_with(":./bin:.:/nonexistent:", &[(OPERATOR_NODE, chosen)]);
     assert_eq!(said, "ok items=0");
     let seen = sandbox.recorded("trusted").expect("the trusted node ran");
-    let expected: BTreeSet<String> = ["HOME", "LANG", "LC_ALL", "PATH", "TMPDIR"]
+    let expected: BTreeSet<String> = ["HOME", "LANG", "LC_ALL", "TMPDIR"]
         .map(String::from)
         .into();
     assert_eq!(names(&seen), expected, "the bridge was handed:\n{seen}");
-    // Values too: the passphrase appears nowhere, and PATH is the one trusted
-    // directory, not what was inherited.
+    // Values too: the passphrase appears nowhere, and an untrusted PATH is not
+    // passed to the bridge at all.
     for secret in [PASSPHRASE, "operator-token-for-tests", "dummy-proxy-pass"] {
         assert!(!seen.contains(secret), "the bridge saw {secret}:\n{seen}");
     }
     assert!(
-        seen.lines().any(|line| line == format!("PATH={trusted}")),
+        !seen.lines().any(|line| line.starts_with("PATH=")),
         "{seen}"
     );
 }
 
 #[test]
 fn a_real_node_still_parses_under_the_reduced_environment() {
-    let Some(real) = std::env::var_os("PATH").and_then(|path| {
-        std::env::split_paths(&path)
-            .map(|dir| dir.join("node"))
-            .find(|node| dir_is_absolute_and_has(node))
-    }) else {
-        // On CI a skip is a pass nobody can tell from a real one.
-        assert!(
-            std::env::var_os("CI").is_none(),
-            "CI has no node on PATH, so the real-Node test would be vacuous"
-        );
-        eprintln!("skip: no node on PATH");
-        return;
-    };
     let sandbox = Sandbox::new();
-    // The runner-like layout, with the real thing behind it: 0775 in the user's
-    // own group. A shim rather than a symlink, because the node the machine has
-    // may be one the rule refuses (a hosted CI image leaves its own world-writable);
-    // what is under test is that real Node parses under the reduced environment.
-    std::fs::set_permissions(sandbox.path("safe"), std::fs::Permissions::from_mode(0o775)).unwrap();
-    {
-        let shim = sandbox.path("safe").join("node");
-        let _guard = WRITING_OR_FORKING
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner);
-        std::fs::write(
-            &shim,
-            format!("#!/bin/sh\nexec '{}' \"$@\"\n", real.display()),
-        )
-        .unwrap();
-        std::fs::set_permissions(&shim, std::fs::Permissions::from_mode(0o755)).unwrap();
-    }
+    sandbox.plant("operator", "real");
     let dump = sandbox.path("out/real-node-env.json");
     std::fs::write(
         sandbox.path("work/parse.mjs"),
@@ -189,20 +161,16 @@ fn a_real_node_still_parses_under_the_reduced_environment() {
         ),
     )
     .unwrap();
-    let said = sandbox.subject(&format!(":./bin:{}", sandbox.path("safe").display()));
+    let chosen = sandbox.path("operator/node").display().to_string();
+    let said = sandbox.subject_with(":./bin:.:/nonexistent:", &[(OPERATOR_NODE, chosen)]);
     assert_eq!(said, "ok items=0");
     let keys: BTreeSet<String> =
         serde_json::from_str::<BTreeSet<String>>(&std::fs::read_to_string(&dump).unwrap())
             .expect("the stand-in bridge wrote its environment's names")
             .into_iter()
-            .filter(|name| !SHELL_OWN.contains(&name.as_str()))
             .collect();
-    let allowed: BTreeSet<String> = ["HOME", "LANG", "LC_ALL", "PATH", "TMPDIR"]
+    let allowed: BTreeSet<String> = ["HOME", "LANG", "LC_ALL", "TMPDIR"]
         .map(String::from)
         .into();
     assert_eq!(keys, allowed);
-}
-
-fn dir_is_absolute_and_has(node: &Path) -> bool {
-    node.is_absolute() && node.is_file()
 }

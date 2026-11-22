@@ -91,7 +91,8 @@ impl PairingFile {
                 .into_iter()
                 .map(|origin| FormerOrigin { origin, until }),
         );
-        self.former.sort_by(|a, b| b.until.cmp(&a.until));
+        self.former
+            .sort_by_key(|former| std::cmp::Reverse(former.until));
         self.former.truncate(MAX_FORMER);
     }
 }

@@ -5,6 +5,7 @@
 mod common;
 
 use common::{assert_opens, bundle_of, committed, mnemonics_of, quorum_mnemonics, Fixture};
+use opensesame_quorum_recovery::encoding::b64url_encode;
 use opensesame_quorum_recovery::slip39::{self, Slip39Error};
 use opensesame_quorum_recovery::{recover, BundleError, PolicyError, RecoverError, RecoveryBundle};
 use serde_json::{json, Value};
@@ -190,6 +191,30 @@ fn a_changed_ciphertext_or_nonce_does_not_authenticate() {
         });
         let bundle = RecoveryBundle::from_value(&changed, None).unwrap();
         assert_eq!(bundle.open(secret.expose()).unwrap_err(), BundleError::Open);
+    }
+}
+
+#[test]
+fn malformed_nonce_lengths_keep_their_parse_and_open_errors() {
+    let fixture = committed();
+    let mnemonics = quorum_mnemonics(&fixture);
+    let secret = slip39::combine(&mnemonics, &slip39::CombineOptions::default()).unwrap();
+    for length in [0, 23, 25] {
+        let changed = with_bundle(&fixture, |bundle| {
+            bundle["nonce"] = json!(b64url_encode(&vec![0; length]));
+        });
+        let result = RecoveryBundle::from_value(&changed, None);
+        if length == 0 {
+            assert_eq!(
+                result.unwrap_err(),
+                BundleError::Malformed("not base64url".to_owned())
+            );
+        } else {
+            assert_eq!(
+                result.unwrap().open(secret.expose()).unwrap_err(),
+                BundleError::Open
+            );
+        }
     }
 }
 

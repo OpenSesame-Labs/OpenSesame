@@ -48,6 +48,7 @@ pub mod framing;
 pub mod manifest;
 pub mod pairing;
 pub mod store;
+#[cfg(any(test, feature = "testkit"))]
 pub mod testing;
 
 #[cfg(feature = "keepassxc")]
@@ -101,6 +102,5 @@ impl From<opensesame_sealed_store::StoreError> for BridgeError {
 pub fn now_unix() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
+        .map_or(0, |d| d.as_secs())
 }

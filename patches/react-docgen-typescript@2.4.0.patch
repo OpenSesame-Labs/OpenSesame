@@ -1,0 +1,22 @@
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -22,9 +22,6 @@
+     "prettier:write": "npm run prettier:base -- --write \"src/**/*.{ts,tsx}\""
+   },
+   "license": "MIT",
+-  "peerDependencies": {
+-    "typescript": ">= 4.3.x"
+-  },
+   "devDependencies": {
+     "@types/chai": "^4.1.0",
+     "@types/lodash": "^4.14.137",
+@@ -53,5 +50,8 @@
+   "repository": {
+     "type": "git",
+     "url": "https://github.com/styleguidist/react-docgen-typescript.git"
++  },
++  "dependencies": {
++    "typescript": "npm:@typescript/typescript6@6.0.2"
+   }
+ }

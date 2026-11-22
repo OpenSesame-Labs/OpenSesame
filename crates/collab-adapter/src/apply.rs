@@ -36,7 +36,7 @@
 //!   ownership rule doing its job in the apply direction: a person's
 //!   `opensesame/…` role is not quietly adopted and rewritten.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 
 use crate::model::{AuthorityProjection, ChannelId, ObservedGuild, ObservedRole, RoleId};
 use crate::permissions::Permissions;

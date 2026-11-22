@@ -1,0 +1,54 @@
+# When cd-pwa.yml path filters skip a main push, dispatch CD PWA if live Pages
+# release.json still lags with PWA-relevant commits on the branch.
+name: CD PWA stranded dispatch
+
+on:
+  push:
+    branches: [main]
+
+permissions: {}
+
+concurrency:
+  group: cd-pwa-stranded-dispatch
+  cancel-in-progress: false
+
+env:
+  PAGES_CANONICAL_ORIGIN: ${{ vars.PAGES_CANONICAL_ORIGIN || 'https://opensesame-labs.github.io' }}
+  VITE_BASE: ${{ vars.VITE_BASE || '/OpenSesame/' }}
+
+jobs:
+  stranded:
+    name: Stranded PWA deploy check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      # checkout-history: git diff from live Pages release.json revision to HEAD needs full history.
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/lib
+            scripts/release
+            scripts/quality
+            .github/workflows/cd-pwa.yml
+            /mise.toml
+            /mise.lock
+      - name: Install pinned mise and Node 24
+        run: bash scripts/lib/install-mise-locked.sh node@24
+      - name: Compare live Pages revision to main
+        id: stranded
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_EVENT_BEFORE: ${{ github.event.before }}
+        run: node scripts/release/cd-pwa-stranded-deploy.mjs
+      - name: Dispatch CD PWA when stranded
+        if: steps.stranded.outputs.deploy_needed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run "CD PWA" --ref main

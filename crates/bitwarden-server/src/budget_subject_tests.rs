@@ -1,6 +1,6 @@
 use super::*;
-use chrono::Utc;
 use opensesame_storage::bitwarden::BitwardenKdf;
+use opensesame_time::Utc;
 
 pub(crate) fn user(email: &str) -> BitwardenUser {
     let now = Utc::now();

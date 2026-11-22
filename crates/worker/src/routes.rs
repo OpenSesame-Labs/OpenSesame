@@ -136,7 +136,7 @@ pub fn admit(
                 BindingPurpose::WorkerClient,
                 current,
                 current,
-                chrono::Utc::now(),
+                opensesame_time::Utc::now(),
             )
             .map_err(|error| deny_response(&error))?;
             caller

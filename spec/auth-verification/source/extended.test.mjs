@@ -182,7 +182,22 @@ test("the source check rejects federation cookie integrity and downgrade changes
   const changes = [
     replaceOnce(
       sources.federatedPending,
-      "legacyEligible = data.orgId === undefined && data.byoId === undefined;",
+      "if (!/^[A-Za-z0-9_-]+$/.test(payload)) return undefined;",
+      "",
+    ),
+    replaceOnce(
+      sources.federatedPending,
+      "const legacyProviderPresent =\n      data.providerId !== undefined && data.providerId.length > 0;",
+      "const legacyProviderPresent = true;",
+    ),
+    replaceOnce(
+      sources.federatedPending,
+      "Object.keys(parsed).every((field) => legacyFields.has(field));",
+      "true;",
+    ),
+    replaceOnce(
+      sources.federatedPending,
+      "legacyEligible =\n      legacyProviderPresent &&\n      Object.keys(parsed).every((field) => legacyFields.has(field));",
       "legacyEligible = true;",
     ),
     replaceOnce(
@@ -227,8 +242,8 @@ test("the source check rejects federated authority rebinding", () => {
     ),
     replaceOnce(
       sources.federatedTrustBinding,
-      "trust.provider.id === pending.providerId",
-      "trust.provider.id !== pending.providerId",
+      '      trust.provider.id === pending.providerId &&\n      trust.provider.kind === "oidc"',
+      '      trust.provider.id !== pending.providerId &&\n      trust.provider.kind === "oidc"',
     ),
     replaceOnce(
       sources.federatedTrustBinding,

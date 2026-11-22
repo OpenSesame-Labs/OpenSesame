@@ -131,7 +131,7 @@ impl Default for RunTiming {
                 u64::try_from(opensesame_storage::STEP_CLAIM_SECONDS).unwrap_or(120),
             ),
             poll: Duration::from_millis(250),
-            run_deadline: Duration::from_secs(15 * 60),
+            run_deadline: Duration::from_mins(15),
         }
     }
 }

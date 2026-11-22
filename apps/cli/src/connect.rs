@@ -18,7 +18,7 @@ use std::{
 };
 
 const POLL_INTERVAL: Duration = Duration::from_millis(1_500);
-const CONSENT_TIMEOUT: Duration = Duration::from_secs(5 * 60);
+const CONSENT_TIMEOUT: Duration = Duration::from_mins(5);
 
 #[derive(Parser, Debug)]
 pub struct ConnectArgs {

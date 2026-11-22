@@ -151,7 +151,7 @@ pub async fn register_start(
                 organization_id,
                 created_by,
                 return_to,
-                expires_at: Instant::now() + Duration::from_secs(3600),
+                expires_at: Instant::now() + Duration::from_hours(1),
             },
         );
     }

@@ -64,7 +64,7 @@ jobs:
           filter: blob:none
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node
@@ -125,11 +125,11 @@ jobs:
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
           printf '%s\n' '.ci-control/' >> .git/info/exclude
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: rust
@@ -184,7 +184,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        check: [dependencies, sast, secrets, kani, miri, shuttle, fuzz-rust, fuzz-typescript]
+        check: [dependencies, sast, secrets, kani, miri, shuttle, fuzz-rust, fuzz-typescript, formal-proofs]
     env:
       CANDIDATE_REVISION: ${{ inputs.source_sha }}
       CARGO_BUILD_JOBS: '2'
@@ -220,11 +220,11 @@ jobs:
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
           printf '%s\n' '.ci-control/' >> .git/info/exclude
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: rust
@@ -242,17 +242,17 @@ jobs:
       - run: npm ci --ignore-scripts
       - name: Install pinned nightly for undefined-behavior and fuzz checks
         if: matrix.check == 'miri' || matrix.check == 'fuzz-rust'
-        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: rust[components=miri]@nightly-2026-08-01
           working_directory: ${{ runner.temp }}
       - name: Install the fuzz tool's build compiler
         if: matrix.check == 'fuzz-rust'
-        uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+        uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
-          install_args: rust@1.97.1
+          install_args: rust@1.99.0
           working_directory: ${{ runner.temp }}
       - name: Install pinned tools
         env:
@@ -344,7 +344,7 @@ jobs:
           filter: blob:none
           persist-credentials: false
           allow-unsafe-pr-checkout: false
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node

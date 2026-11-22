@@ -20,6 +20,7 @@ import {
   mechanismPermittedForKind,
 } from "@opensesame/policy";
 import type { AppContext } from "../context.js";
+import { liveNow } from "../services/interaction-clock.js";
 
 export const INTERACTION_APPROVAL_POLICY = {
   kind: "interaction_approval",
@@ -80,12 +81,11 @@ export async function spendInteractionActivation(input: {
   principalId: string;
   activationId: string;
   decision: "approved";
-  now: Date;
 }): Promise<
   | { ok: true; proof: SealedApprovalProof; activation: ApprovalActivation }
   | { ok: false; error: "proof_required" | "digest_mismatch" }
 > {
-  const { ctx, interaction, principalId, activationId, decision, now } = input;
+  const { ctx, interaction, principalId, activationId, decision } = input;
   const activation = await ctx.repos.approvalActivations.getById(activationId);
   if (
     !activation ||
@@ -95,6 +95,7 @@ export async function spendInteractionActivation(input: {
     return { ok: false, error: "proof_required" };
   }
 
+  const now = liveNow(ctx, interaction);
   const requestDigest = interaction.requestDigest ?? "";
   if (!activationMatches(activation, interaction, principalId, decision, now)) {
     return { ok: false, error: "proof_required" };

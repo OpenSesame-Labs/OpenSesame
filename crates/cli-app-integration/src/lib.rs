@@ -13,6 +13,7 @@ mod trust;
 mod webauthn_assertion;
 
 use human_proof::human_proof_verify;
+pub use policy::is_approval_blocked;
 #[cfg(test)]
 use policy::SOURCE;
 use policy::{policy, respond_nonce};
@@ -238,7 +239,7 @@ impl CliAppIntegrationStore {
 
     pub fn ensure(&mut self, params: EnsureParams<'_>) -> (String, Option<String>) {
         self.expire_pending();
-        if self.denied.contains(params.terminal_session_id) {
+        if is_approval_blocked(params.verb) || self.denied.contains(params.terminal_session_id) {
             return ("denied".into(), None);
         }
         if let Some(outcome) =

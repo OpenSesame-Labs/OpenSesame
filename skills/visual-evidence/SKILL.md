@@ -116,6 +116,15 @@ never work around an unavailable upload by committing comparison media. State
 any evidence delivery limitation plainly. Existing approved evidence on the
 base can be linked at its original commit SHA without copying it forward.
 
+For the clipboard settings and KeePass import journeys, the `PR visual security
+evidence` workflow can be dispatched for a main-targeted PR from this
+repository and generates a 14-day Actions artifact. It builds the exact base
+and head, records their SHAs and measured boxes in a manifest and comparison
+sheets, and uses synthetic inputs. Review the artifact and confirm its SHAs still
+match the PR before linking it. The workflow refuses dependency or native pin
+changes and runs PR builds and browser capture without network or credentials;
+it does not replace the affected behavior tests or approve current-state media.
+
 After approval, promote only the approved current-state files into the stable
 feature/project/platform slot using the canonical persistence contract. Remove
 superseded assets in that slot. Its `README.md` describes what the current

@@ -48,7 +48,7 @@ fn concurrent_activations_never_duplicate_or_reorder_a_generation() {
     let client_ca = DisposableCa::new("clients");
     let generations = TransportGenerations::new(
         candidate(&server_ca, &client_ca)
-            .into_generation(1, chrono::Utc::now())
+            .into_generation(1, opensesame_time::Utc::now())
             .expect("initial"),
     );
     let numbers: Vec<u64> = std::thread::scope(|scope| {
@@ -90,7 +90,7 @@ fn failed_activations_do_not_advance_or_half_install() {
     let client_ca = DisposableCa::new("clients");
     let generations = TransportGenerations::new(
         candidate(&server_ca, &client_ca)
-            .into_generation(1, chrono::Utc::now())
+            .into_generation(1, opensesame_time::Utc::now())
             .expect("initial"),
     );
     let bad = GenerationCandidate {
@@ -149,7 +149,7 @@ async fn a_denied_leaf_is_refused_on_its_open_connection_and_on_a_new_one() {
     let client = client_ca.issue_client(PeerIdentitySelector::DnsName("svc.internal".into()));
     let generations = TransportGenerations::new(
         candidate(&server_ca, &client_ca)
-            .into_generation(1, chrono::Utc::now())
+            .into_generation(1, opensesame_time::Utc::now())
             .expect("initial"),
     );
     let hits = Hits::default();
@@ -202,7 +202,7 @@ async fn rotation_denies_stale_evidence_and_recovery_is_one_handshake() {
     let client = client_ca.issue_client(PeerIdentitySelector::DnsName("svc.internal".into()));
     let generations = TransportGenerations::new(
         candidate(&server_ca, &client_ca)
-            .into_generation(1, chrono::Utc::now())
+            .into_generation(1, opensesame_time::Utc::now())
             .expect("initial"),
     );
     let hits = Hits::default();
@@ -268,7 +268,7 @@ fn replace_set(live: &std::sync::RwLock<ServiceBindingSet>, replaced: &AtomicBoo
 fn read_across(
     live: &std::sync::RwLock<ServiceBindingSet>,
     presented: &[PeerIdentitySelector],
-    now: chrono::DateTime<chrono::Utc>,
+    now: opensesame_time::DateTime<opensesame_time::Utc>,
     replaced: &AtomicBool,
 ) -> Vec<bool> {
     let mut series = Vec::new();
@@ -288,7 +288,7 @@ fn read_across(
 fn resolves(
     live: &std::sync::RwLock<ServiceBindingSet>,
     presented: &[PeerIdentitySelector],
-    now: chrono::DateTime<chrono::Utc>,
+    now: opensesame_time::DateTime<opensesame_time::Utc>,
 ) -> bool {
     let set = live.read().expect("read");
     match set.resolve(
@@ -339,7 +339,7 @@ fn a_binding_replacement_is_never_observed_half_applied() {
         bindings: vec![bound(peer.clone())],
     }));
     let presented = [peer];
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     let outcomes: Vec<Vec<bool>> = std::thread::scope(|scope| {
         let replaced = Arc::new(AtomicBool::new(false));
         let writer = {

@@ -4,7 +4,7 @@
 //! origin, or access to an item's value; item use is a separate grant.
 
 use crate::{DomainError, Grant};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -101,7 +101,7 @@ pub struct PamItemMetadata {
 mod tests {
     use super::*;
     use crate::{GrantConstraints, OfflineUse, OrganizationId, PrincipalId};
-    use chrono::TimeZone;
+    use opensesame_time::TimeZone;
 
     fn grant(actions: &[&str], resources: &[&str], export: bool) -> Grant {
         let now = Utc.timestamp_opt(1_800_000_000, 0).single().unwrap();
@@ -123,7 +123,7 @@ mod tests {
             constraints: GrantConstraints {
                 audiences: vec![],
                 not_before: None,
-                expires_at: now + chrono::Duration::minutes(5),
+                expires_at: now + opensesame_time::Duration::minutes(5),
                 required_assurance: None,
                 authentication_max_age_seconds: None,
                 allowed_networks: vec![],

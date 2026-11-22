@@ -59,6 +59,7 @@ pub(crate) fn confined_atomic_write(
     }
     // SAFETY: successful openat returned a new owned descriptor.
     let mut file = unsafe { File::from_raw_fd(fd) };
+    let mut renamed = false;
     let result = (|| -> Result<(), StoreError> {
         file.write_all(bytes)?;
         file.sync_all()?;
@@ -76,20 +77,13 @@ pub(crate) fn confined_atomic_write(
         {
             return Err(StoreError::Io(std::io::Error::last_os_error()));
         }
-        if let Err(error) = dir.sync_all() {
-            // Some filesystems do not support syncing a directory. The
-            // rename is still atomic for a process interruption there,
-            // though power-loss durability depends on the filesystem.
-            if !matches!(
-                error.raw_os_error(),
-                Some(libc::EINVAL) | Some(libc::EOPNOTSUPP)
-            ) {
-                return Err(StoreError::Io(error));
-            }
-        }
+        renamed = true;
+        // After rename the live path already holds the new bytes; treat directory
+        // fsync as best-effort so callers do not retry into a fork.
+        let _ = dir.sync_all();
         Ok(())
     })();
-    if result.is_err() {
+    if result.is_err() && !renamed {
         // SAFETY: deleting the temporary directory entry never follows a symlink.
         let _ = unsafe { libc::unlinkat(dir.as_raw_fd(), temp.as_ptr(), 0) };
     }
@@ -97,6 +91,8 @@ pub(crate) fn confined_atomic_write(
 }
 
 #[cfg(unix)]
+/// Read a confined file without following a final symlink, refusing (not
+/// truncating) one larger than `limit` before allocating beyond it.
 pub(crate) fn confined_read_bounded(
     root: &Path,
     rel: &Path,
@@ -110,52 +106,6 @@ pub(crate) fn confined_read_bounded(
         return Err(StoreError::Other("file exceeds the allowed size".into()));
     }
     Ok(bytes)
-}
-
-#[cfg(not(unix))]
-pub(crate) fn confined_atomic_write(
-    root: &Path,
-    rel: &Path,
-    bytes: &[u8],
-) -> Result<(), StoreError> {
-    use std::io::Write;
-
-    let path = root.join(rel);
-    let parent = path
-        .parent()
-        .ok_or_else(|| StoreError::InvalidPath("missing parent directory".into()))?;
-    std::fs::create_dir_all(parent)?;
-    if !std::fs::canonicalize(parent)?.starts_with(std::fs::canonicalize(root)?) {
-        return Err(StoreError::InvalidPath("path escapes store root".into()));
-    }
-    match std::fs::symlink_metadata(&path) {
-        Ok(metadata) if metadata.file_type().is_symlink() => {
-            return Err(StoreError::InvalidPath(
-                "target may not be a symlink".into(),
-            ));
-        }
-        Ok(_) => {}
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-        Err(error) => return Err(StoreError::Io(error)),
-    }
-    let temp = parent.join(format!(".opensesame-state-{:032x}", rand::random::<u128>()));
-    let mut file = std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&temp)?;
-    let result = (|| -> Result<(), StoreError> {
-        file.write_all(bytes)?;
-        file.sync_all()?;
-        // Close before renaming, including on Windows where an open handle may
-        // otherwise prevent replacement.
-        drop(file);
-        std::fs::rename(&temp, &path)?;
-        Ok(())
-    })();
-    if result.is_err() {
-        let _ = std::fs::remove_file(temp);
-    }
-    result
 }
 
 #[cfg(not(unix))]
@@ -180,6 +130,17 @@ pub(crate) fn confined_read_bounded(
     Ok(bytes)
 }
 
+#[cfg(not(unix))]
+pub(crate) fn confined_atomic_write(
+    root: &Path,
+    rel: &Path,
+    bytes: &[u8],
+) -> Result<(), StoreError> {
+    // Windows delegates to the existing handle-confined private-file writer;
+    // unsupported platforms inherit the existing fail-closed implementation.
+    super::confined_replace(root, rel, bytes)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -194,6 +155,17 @@ mod tests {
         );
         assert!(confined_read_bounded(root.path(), Path::new("state"), 4).is_err());
         assert!(confined_read_bounded(root.path(), Path::new("state"), 0).is_err());
+    }
+
+    #[test]
+    fn atomic_replacement_rejects_parent_traversal() {
+        let parent = tempfile::tempdir().unwrap();
+        let root = parent.path().join("store");
+        std::fs::create_dir(&root).unwrap();
+        let outside = parent.path().join("outside");
+        std::fs::write(&outside, b"keep").unwrap();
+        assert!(confined_atomic_write(&root, Path::new("../outside"), b"new").is_err());
+        assert_eq!(std::fs::read(outside).unwrap(), b"keep");
     }
 
     #[test]

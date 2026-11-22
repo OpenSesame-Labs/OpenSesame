@@ -16,9 +16,9 @@
     "max-statements": 40
   },
   "totals": {
-    "files": 441,
-    "violations": 700,
-    "oversizedLines": 213911
+    "files": 438,
+    "violations": 695,
+    "oversizedLines": 211860
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -209,7 +209,7 @@
     },
     "apps/pages/src/sections/settings/security/SecondStepCeremonies.tsx": {
       "complexity": 2,
-      "max-lines": 866,
+      "max-lines": 854,
       "max-lines-per-function": 3
     },
     "apps/pages/src/sections/vault/HealthPanel.tsx": {
@@ -237,11 +237,6 @@
     "apps/pages/src/tutorial/__tests__/a11y/stylesheet-contract.test.ts": {
       "max-nested-callbacks": 1
     },
-    "apps/pages/src/tutorial/session.ts": {
-      "complexity": 1,
-      "max-lines": 660,
-      "max-lines-per-function": 1
-    },
     "apps/pages/src/tutorial/ui/SupportPanel.tsx": {
       "max-lines-per-function": 1
     },
@@ -267,19 +262,19 @@
       "max-lines": 456
     },
     "crates/connection-broker/src/delegation.rs": {
-      "max-lines": 1493
+      "max-lines": 1487
     },
     "crates/connection-broker/src/egress.rs": {
-      "max-lines": 518
+      "max-lines": 494
     },
     "crates/connection-broker/src/flow.rs": {
-      "max-lines": 604
+      "max-lines": 603
     },
     "crates/connection-broker/src/integration.rs": {
-      "max-lines": 927
+      "max-lines": 925
     },
     "crates/connection-broker/src/lib.rs": {
-      "max-lines": 2291
+      "max-lines": 2277
     },
     "crates/connection-broker/src/rotation.rs": {
       "max-lines": 1727
@@ -330,7 +325,7 @@
       "max-lines": 699
     },
     "crates/daemon/src/cli_probe.rs": {
-      "max-lines": 695
+      "max-lines": 675
     },
     "crates/daemon/src/invoke_through.rs": {
       "max-lines": 801
@@ -342,7 +337,7 @@
       "max-lines": 1338
     },
     "crates/daemon/src/tailscale.rs": {
-      "max-lines": 423
+      "max-lines": 422
     },
     "crates/domain/src/authority.rs": {
       "max-lines": 689
@@ -402,10 +397,10 @@
       "max-lines": 1082
     },
     "crates/gateway/src/routes/connections/tests.rs": {
-      "max-lines": 1688
+      "max-lines": 1687
     },
     "crates/gateway/src/routes/intents.rs": {
-      "max-lines": 530
+      "max-lines": 510
     },
     "crates/gateway/src/routes/kv_facade.rs": {
       "max-lines": 758
@@ -415,9 +410,6 @@
     },
     "crates/gateway/src/routes/lifecycle.rs": {
       "max-lines": 1592
-    },
-    "crates/gateway/src/routes/relay.rs": {
-      "max-lines": 674
     },
     "crates/gateway/src/routes/rotation.rs": {
       "max-lines": 645
@@ -435,7 +427,7 @@
       "max-lines": 461
     },
     "crates/gateway/src/routes/tasks.rs": {
-      "max-lines": 979
+      "max-lines": 889
     },
     "crates/gateway/src/security/delivery.rs": {
       "max-lines": 691
@@ -462,19 +454,19 @@
       "max-lines": 510
     },
     "crates/pki-core/src/ca.rs": {
-      "max-lines": 474
+      "max-lines": 471
     },
     "crates/pki-core/src/policy.rs": {
       "max-lines": 1606
     },
     "crates/pki-core/src/revocation.rs": {
-      "max-lines": 1131
+      "max-lines": 1129
     },
     "crates/pki-core/src/types.rs": {
-      "max-lines": 915
+      "max-lines": 903
     },
     "crates/pki-core/src/x509.rs": {
-      "max-lines": 553
+      "max-lines": 539
     },
     "crates/pm-bridges/src/keepassxc/actions.rs": {
       "max-lines": 646
@@ -485,11 +477,8 @@
     "crates/pm-bridges/src/pairing.rs": {
       "max-lines": 645
     },
-    "crates/pm-bridges/src/store.rs": {
-      "max-lines": 426
-    },
     "crates/pm-bridges/tests/keepassxc_handshake.rs": {
-      "max-lines": 656
+      "max-lines": 655
     },
     "crates/provider-bitwarden/src/crypto.rs": {
       "max-lines": 490
@@ -510,7 +499,7 @@
       "max-lines": 420
     },
     "crates/sealed-store/src/attachment.rs": {
-      "max-lines": 1171
+      "max-lines": 1157
     },
     "crates/session-observe/src/lease.rs": {
       "max-lines": 625
@@ -528,7 +517,7 @@
       "max-lines": 546
     },
     "crates/storage/src/tests.rs": {
-      "max-lines": 2996
+      "max-lines": 2995
     },
     "crates/storage/tests/session_coordination_store.rs": {
       "max-lines": 530
@@ -699,7 +688,7 @@
     },
     "packages/app-core/src/lib/vault/import/formats/kdbx.ts": {
       "complexity": 3,
-      "max-lines": 413,
+      "max-lines": 410,
       "max-lines-per-function": 1
     },
     "packages/app-core/src/lib/vault/import/formats/onepassword.ts": {
@@ -812,10 +801,10 @@
       "max-lines": 562
     },
     "packages/control-plane/src/__tests__/byo-upstream.test.ts": {
-      "max-lines": 996
+      "max-lines": 995
     },
     "packages/control-plane/src/__tests__/federated-interaction.test.ts": {
-      "max-lines": 1613
+      "max-lines": 1612
     },
     "packages/control-plane/src/__tests__/federated-leg.chaos.test.ts": {
       "complexity": 1,
@@ -984,7 +973,7 @@
     },
     "packages/control-plane/src/routes/interaction-handoff.ts": {
       "complexity": 2,
-      "max-lines": 1121,
+      "max-lines": 1120,
       "max-lines-per-function": 4
     },
     "packages/control-plane/src/routes/interactions-byo.ts": {
@@ -1006,7 +995,7 @@
     "packages/control-plane/src/routes/interactions.ts": {
       "complexity": 2,
       "max-depth": 1,
-      "max-lines": 786,
+      "max-lines": 757,
       "max-lines-per-function": 2,
       "max-statements": 1
     },
@@ -1050,7 +1039,7 @@
     },
     "packages/control-plane/src/routes/organizations.ts": {
       "complexity": 1,
-      "max-lines": 974,
+      "max-lines": 970,
       "max-lines-per-function": 1
     },
     "packages/control-plane/src/routes/principals.ts": {

@@ -87,7 +87,7 @@ pub fn fixture_binary(tool: &str) -> Result<PathBuf> {
             .arg(&script)
             .arg("path")
             .arg(tool),
-        Duration::from_secs(900),
+        Duration::from_mins(15),
     )
     .with_context(|| format!("mtls-fixtures.sh path {tool}"))?;
     if code != Some(0) {

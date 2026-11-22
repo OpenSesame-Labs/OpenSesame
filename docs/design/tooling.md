@@ -137,10 +137,10 @@ OpenSesame Labs dotfiles repo. Skills have one canonical local installation
 under the gitignored `.agents/skills/`. First-party
 skills are canonical in `skills/`; third-party skills are optional profiles
 catalogued in `skills/profiles.json` (see `skills/README.md`), not universal
-defaults. Most are catalogued in `skills-lock.json` and installed at latest
-(unpinned) by `scripts/dev/install-agent-skills.sh`; the exceptions are
-`design-system` and `impeccable` (its own updater). Core validation passes
-with the optional profiles uninstalled. Update that installation once, then run
+defaults. Catalogued skills are authenticated by reviewed hashes in
+`skills-lock.json`; container start performs no update. Maintainers explicitly
+run `npm run skills:install` to refresh and review the lock change. Core
+validation passes with the optional profiles uninstalled. Update that installation once, then run
 `node scripts/dev/sync-agent-skills.mjs` and its `--check` mode. Other harnesses
 share relative links; do not install copied trees for each agent. The MCP files name the
 same two servers everywhere.

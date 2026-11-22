@@ -6,13 +6,19 @@ type App = ReturnType<typeof createControlPlane>["app"];
 
 export const operatorApprovals: string[] = [];
 
-export function testConfig() {
+export function baseTestConfig() {
   return {
-    organizationIssuerAllowlist: operatorApprovals,
     port: 0,
     publicUrl: "http://127.0.0.1:8788",
     issuer: "http://127.0.0.1:8788",
   } as const;
+}
+
+export function testConfig() {
+  return {
+    ...baseTestConfig(),
+    organizationIssuerAllowlist: operatorApprovals,
+  };
 }
 
 export async function provisional(app: App) {
@@ -46,6 +52,14 @@ export async function verified(app: App, subject: string) {
 
 export function auth(token: string) {
   return { authorization: `Bearer ${token}` };
+}
+
+export function createOrg(app: App, token: string, slug: string) {
+  return app.request("/v1/organizations", {
+    method: "POST",
+    headers: { ...auth(token), "content-type": "application/json" },
+    body: JSON.stringify({ slug, displayName: `Org ${slug}` }),
+  });
 }
 
 export async function seedOrg(app: App) {

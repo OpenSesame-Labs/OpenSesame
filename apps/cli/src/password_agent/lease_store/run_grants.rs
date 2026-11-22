@@ -10,7 +10,7 @@ impl Store {
             .ok_or_else(|| anyhow::anyhow!("Run grant not found"))?;
         let grant: RunGrant = serde_json::from_str(row.try_get::<&str, _>("state")?)
             .map_err(|_| anyhow::anyhow!("Invalid run grant state"))?;
-        grant.validate(chrono::Utc::now().timestamp_millis())?;
+        grant.validate(opensesame_time::Utc::now().timestamp_millis())?;
         Ok(grant)
     }
     pub(crate) async fn run_grant_status(&mut self, id: &str) -> anyhow::Result<RunGrant> {
@@ -32,7 +32,7 @@ impl Store {
             "Invalid run grant"
         );
         binding.validate()?;
-        let now = chrono::Utc::now().timestamp_millis();
+        let now = opensesame_time::Utc::now().timestamp_millis();
         let grant = RunGrant {
             id: uuid::Uuid::new_v4().to_string(),
             principal: self.principal.clone(),
@@ -69,7 +69,7 @@ impl Store {
             grant.authorize(
                 &self.principal,
                 binding,
-                chrono::Utc::now().timestamp_millis(),
+                opensesame_time::Utc::now().timestamp_millis(),
             )?;
             grant.uses_remaining -= 1;
             sqlx::query("UPDATE run_grants SET state=? WHERE id=?")

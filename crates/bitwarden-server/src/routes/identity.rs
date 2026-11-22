@@ -4,8 +4,8 @@ use std::collections::HashMap;
 
 use axum::extract::State;
 use axum::{Form, Json};
-use chrono::{DateTime, Utc};
 use opensesame_storage::bitwarden::BitwardenSignIn;
+use opensesame_time::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -59,8 +59,8 @@ fn required<'a>(form: &'a HashMap<String, String>, key: &str) -> ApiResult<&'a s
 }
 
 fn refresh_expiry(server: &BitwardenServer) -> DateTime<Utc> {
-    let ttl = chrono::Duration::from_std(server.config.refresh_token_ttl)
-        .unwrap_or_else(|_| chrono::Duration::days(30));
+    let ttl = opensesame_time::Duration::from_std(server.config.refresh_token_ttl)
+        .unwrap_or_else(|_| opensesame_time::Duration::days(30));
     Utc::now() + ttl
 }
 

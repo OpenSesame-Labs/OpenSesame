@@ -1,7 +1,7 @@
 //! The answer a cohort gives: who is eligible, why, and when that was worked out.
 
 use crate::{canonical::digest_json, CohortId, DomainError, Eligibility, GraphShape, PrincipalId};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;

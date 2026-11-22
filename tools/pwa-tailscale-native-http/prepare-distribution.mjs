@@ -1,6 +1,5 @@
 /** Automatic build-only preparation; the installed PWA receives static deployment assets. */
-import { createHash, randomUUID } from "node:crypto";
-import { constants } from "node:fs";
+import { randomUUID } from "node:crypto";
 import {
   lstat,
   mkdir,
@@ -12,6 +11,7 @@ import {
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
+import { publishArchive, verifyArchive } from "./archive-cache.mjs";
 import { cleanupNativeAuditScratch } from "./audit-scratch.mjs";
 import { nativeBuildEnvironment } from "./compose-native.mjs";
 import {
@@ -25,9 +25,9 @@ import {
 } from "./owned-process-group.mjs";
 import { describePreparationFailure } from "./preparation-diagnostics.mjs";
 import { assertNativeTaskResources } from "./task-resources.mjs";
+
 const digestPattern = /^[a-f0-9]{64}$/;
 const inFlight = new Map();
-const hash = (value) => createHash("sha256").update(value).digest("hex");
 /** The pinned executable compiler is Linux AMD64; cached static assets are host-independent. */
 export function assertNativeColdBuildHost(
   platform = process.platform,
@@ -63,19 +63,6 @@ export function nativeDistributionDirectory(
     distributionSha256,
   );
 }
-async function verifyArchive(path, digest) {
-  const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
-  try {
-    const info = await handle.stat();
-    if (!info.isFile() || info.size < 1 || info.size > 1_073_741_824)
-      throw new Error("Native build archive size is invalid.");
-    if (hash(await handle.readFile()) !== digest)
-      throw new Error("Native build archive digest differs.");
-  } finally {
-    await handle.close();
-  }
-}
-
 /** Internal build-tool command boundary; exported for actual owned-child failure tests. */
 export async function nativePreparationCommand(
   program,
@@ -179,8 +166,8 @@ async function archive(pin, cache, work, label) {
     work,
     125_000,
   );
-  await verifyArchive(partial, pin.archiveSha256);
-  await rename(partial, path);
+  await publishArchive(partial, path, pin.archiveSha256);
+  await rm(partial);
   return path;
 }
 function assertBuildProof(result) {

@@ -16,12 +16,12 @@
 //! one a person asked for, and drives, is attended. The first canary can only
 //! be attended, which is the whole reason the two differ.
 
-use chrono::{DateTime, Duration, Utc};
 use opensesame_rotation_web::recipe_doc::{
     parse_public_key_hex, RecipeDocument, CANARY_MAX_AGE_DAYS,
 };
 use opensesame_storage::web_login_runs::recipes::{RecipeUse, StoredRecipeRecord};
 use opensesame_storage::Db;
+use opensesame_time::{DateTime, Duration, Utc};
 
 /// Whether a person is driving the run.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

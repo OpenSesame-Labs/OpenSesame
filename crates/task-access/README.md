@@ -43,7 +43,8 @@ implementations.
 ```bash
 cargo test -p opensesame-task-access
 OPENSESAME_TEST_DATABASE_URL=postgres://… \
-  cargo test -p opensesame-task-access --features postgres-integration
+  cargo test -p opensesame-task-access --features postgres-integration \
+    postgres_store_round_trip_and_cas -- --ignored
 npm run test:task-access
 ```
 

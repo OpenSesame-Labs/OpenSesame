@@ -76,7 +76,7 @@ fn mutated_certificates_are_refused_or_parsed_consistently() {
             // it outright (`attest.rs::check_window`).
             if leaf.not_before > leaf.not_after {
                 assert!(
-                    !leaf.is_valid_at(chrono::Utc::now()),
+                    !leaf.is_valid_at(opensesame_time::Utc::now()),
                     "an inverted validity window was usable"
                 );
             }

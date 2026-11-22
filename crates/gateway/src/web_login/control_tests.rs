@@ -281,7 +281,10 @@ async fn a_handoff_inside_the_span_is_queued_and_takes_effect_after_the_submit()
         Some(opensesame_session_observe::HandoffOutcome::Queued)
     );
     let queued = current(&db).await;
-    assert!((queued.control_state.as_str(), queued.handoff_queued) == ("agent_driving", true));
+    assert_eq!(
+        (queued.control_state.as_str(), queued.handoff_queued),
+        ("agent_driving", true)
+    );
 
     // The submit — between the assertion and which nothing may interrupt — goes.
     gate.before(&req(SUBMIT_STEP)).await.unwrap();

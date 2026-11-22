@@ -6,11 +6,11 @@
 
 mod authority_support;
 
-use chrono::Utc;
 use opensesame_storage::authority::{
     BudgetScope, GenerationWitness, ProjectionMark, Reservation, ReserveOutcome,
 };
 use opensesame_storage::Db;
+use opensesame_time::Utc;
 
 use authority_support::{entry, issue, seed_grant, seed_realm};
 

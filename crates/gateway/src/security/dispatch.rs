@@ -12,10 +12,10 @@
 //! dropped one is an outage — and every sink here deduplicates on the notice's
 //! alert key anyway.
 
-use chrono::{DateTime, Utc};
 use opensesame_security_events::SecurityNotice;
 use opensesame_storage::{StoredSecurityDelivery, StoredSecurityHook};
 use opensesame_task_bus::BusEvent;
+use opensesame_time::{DateTime, Utc};
 
 use crate::app_state::AppState;
 use crate::security::{alert, hooks, notify};
@@ -212,7 +212,7 @@ mod tests {
             },
             AgentPhase::Blocked,
             now(),
-            now() + chrono::Duration::seconds(3_600),
+            now() + opensesame_time::Duration::seconds(3_600),
             Some("step-up challenge"),
         )
         .unwrap()

@@ -84,8 +84,8 @@ async fn failed_activation_leaves_the_old_generation_serving_and_in_flight_reque
     // A candidate whose identity is expired: refused whole.
     let expired = w.server_ca.issue_with(
         &opensesame_transport_security::testkit::LeafSpec::server("localhost").valid_between(
-            chrono::Utc::now() - chrono::Duration::hours(2),
-            chrono::Utc::now() - chrono::Duration::seconds(1),
+            opensesame_time::Utc::now() - opensesame_time::Duration::hours(2),
+            opensesame_time::Utc::now() - opensesame_time::Duration::seconds(1),
         ),
     );
     assert_eq!(

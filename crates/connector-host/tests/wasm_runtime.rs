@@ -207,8 +207,9 @@ fn loads_describes_and_invokes() {
 
     let result = connector.invoke(&request("echo.read")).expect("invoke ok");
     assert!(result.ok);
-    // Ok([]) from the guest: not JSON, so the summary reports size only.
+    // Ok([]) from the guest: the summary contains only host-derived metadata.
     assert_eq!(result.safe_summary["bytes"], 0);
+    assert_eq!(result.safe_summary["digest"], digest_of(&[]));
     assert!(result
         .external_request_digest
         .as_deref()

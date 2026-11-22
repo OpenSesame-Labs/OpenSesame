@@ -1,7 +1,7 @@
 use super::*;
 
 #[tokio::test]
-async fn native_sessions_cannot_use_the_operators_storage_connection() {
+async fn a_member_session_cannot_use_the_operators_storage_connection() {
     let st = state_with_broker().await;
     let token = operator(&st);
     let connection = make_connection(&st, "dropbox").await;
@@ -28,13 +28,11 @@ async fn native_sessions_cannot_use_the_operators_storage_connection() {
             b"sealed manifest".as_slice(),
         ),
     ];
-    // P26 also owns the connection: ownership and organization role alone do
-    // not authorize this credential-injecting replication operation.
-    for role in [
-        OrganizationRole::Member,
-        OrganizationRole::Admin,
-        OrganizationRole::Owner,
-    ] {
+    // P26 also owns the connection: ownership and membership alone do not
+    // authorize this credential-injecting replication operation. Owner and
+    // admin sessions additionally need the exact replication grant; that
+    // pair is covered by `attachments/authority.rs`.
+    for role in [OrganizationRole::Member] {
         let headers = test_session_headers(
             &st,
             crate::test_principals::P26,
@@ -51,11 +49,7 @@ async fn native_sessions_cannot_use_the_operators_storage_connection() {
                 .oneshot(request.body(Body::from(body.to_vec())).unwrap())
                 .await
                 .unwrap();
-            assert_eq!(
-                res.status(),
-                StatusCode::UNAUTHORIZED,
-                "{role:?} used {uri}"
-            );
+            assert_eq!(res.status(), StatusCode::FORBIDDEN, "{role:?} used {uri}");
         }
     }
     let target = st

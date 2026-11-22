@@ -133,7 +133,7 @@ impl LifecycleEvent {
 mod tests {
     use super::*;
     use crate::subject::{ExpirySubject, SubjectKind};
-    use chrono::{DateTime, Utc};
+    use opensesame_time::{DateTime, Utc};
 
     fn now() -> DateTime<Utc> {
         "2026-08-30T00:00:00Z".parse().unwrap()

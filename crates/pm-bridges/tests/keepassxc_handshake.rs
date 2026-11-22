@@ -31,9 +31,9 @@ use opensesame_pm_bridges::keepassxc::pairing::BRIDGE_NAME;
 use opensesame_pm_bridges::keepassxc::proto::{decode_b64, increment_nonce_b64, NONCE_LEN};
 use opensesame_pm_bridges::keepassxc::transport::{bind_uds, serve_uds_connection};
 use opensesame_pm_bridges::keepassxc::{Session, SessionConfig};
+use opensesame_pm_bridges::now_unix;
 use opensesame_pm_bridges::pairing::{PairingWindow, WindowState};
-use opensesame_pm_bridges::store::{entry_uuid, StoreAccess};
-use opensesame_pm_bridges::{now_unix, testing};
+use opensesame_pm_bridges::store::entry_uuid;
 use opensesame_sealed_store::default_password_length as default_len;
 use serde_json::{json, Value};
 use support::Fixture;
@@ -68,8 +68,7 @@ impl Server {
         let listener = bind_uds(&socket, false).expect("bind");
 
         let window = PairingWindow::at(fixture.config.path().join("keepassxc-pairing.json"));
-        let store = StoreAccess::open(fixture.store_path(), Some(testing::FIXTURE_PASSPHRASE))
-            .expect("open store");
+        let store = fixture.store_access();
         let mut session = Session::new(
             store,
             SessionConfig {

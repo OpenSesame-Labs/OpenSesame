@@ -14,11 +14,11 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
-use chrono::Utc;
 use opensesame_agent_hooks::sdk::InterceptionRecord;
 use opensesame_rotation_web::hooks::RecordSink;
 use opensesame_storage::web_login_runs::StoredAgentHookRecord;
 use opensesame_storage::Db;
+use opensesame_time::Utc;
 
 /// Where a run is recorded, and under which policy version.
 #[derive(Clone, Debug)]
@@ -159,7 +159,7 @@ mod tests {
     async fn a_failed_write_poisons_every_later_flush() {
         let db = Db::connect_memory().await.unwrap();
         // The records belong to a run, and the store holds them to that.
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = opensesame_time::Utc::now().to_rfc3339();
         db.create_observation_run(&opensesame_storage::StoredObservationRun {
             id: "run_1".into(),
             organization_id: "org".into(),

@@ -18,7 +18,7 @@ use serde_json::json;
 
 use crate::app_state::AppState;
 
-const WINDOW: Duration = Duration::from_secs(15 * 60);
+const WINDOW: Duration = Duration::from_mins(15);
 const PER_SOURCE: u32 = 8;
 const MAX_SOURCES: usize = 4096;
 

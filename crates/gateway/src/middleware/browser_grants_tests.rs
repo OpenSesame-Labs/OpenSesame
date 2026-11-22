@@ -156,7 +156,7 @@ async fn every_actual_request_checks_key_replay_revocation_and_route_ceiling() {
     );
     let (jwk, key) = proof_key();
     let jkt = opensesame_proof::jwk_thumbprint(&jwk).unwrap();
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     let raw = "a".repeat(64);
     let token = format!("opaque-session:{raw}");
     state

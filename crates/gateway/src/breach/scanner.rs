@@ -19,10 +19,10 @@
 use std::collections::BTreeSet;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
 use opensesame_breach_intel::{matches, Breach, BreachEvent, BreachSource, BreachSubject};
 use opensesame_domain::OrganizationId;
 use opensesame_storage::StoredBreachFinding;
+use opensesame_time::{DateTime, Utc};
 
 use crate::app_state::AppState;
 use crate::breach::subjects;

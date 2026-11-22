@@ -123,7 +123,7 @@ struct AppJwtClaims {
 fn mint_app_jwt(config: &GitHubAppConfig) -> anyhow::Result<String> {
     let key = jsonwebtoken::EncodingKey::from_rsa_pem(config.private_key_pem.as_bytes())
         .context("GitHub App private key is not a valid RSA PEM")?;
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     let claims = AppJwtClaims {
         iat: now - 60,
         exp: now + 540,

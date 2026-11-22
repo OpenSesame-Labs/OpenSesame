@@ -20,17 +20,25 @@
 
 import type { Carrier } from "@opensesame/app-core/lib/live/rendezvous.js";
 import type { CarrierSpec } from "@opensesame/app-core/lib/live/transport.js";
-import mqtt from "mqtt";
+import {
+  type MqttBrowserClient,
+  type MqttBrowserOptions,
+  connectAsync,
+} from "./mqtt-websocket.js";
 
 const RECONNECT_MS = 3000;
 
 /** How a broker is connected to; a test stands another in. */
-export type Connect = typeof mqtt.connectAsync;
+export type Connect = (
+  url: string,
+  options: MqttBrowserOptions,
+  allowRetries?: boolean,
+) => Promise<MqttBrowserClient>;
 
 export async function mqttCarrier(
   spec: CarrierSpec,
   topic: string,
-  connect: Connect = mqtt.connectAsync,
+  connect: Connect = connectAsync,
 ): Promise<Carrier> {
   const subject = `opensesame/live/${topic}`;
   const client = await connect(
@@ -42,6 +50,9 @@ export async function mqttCarrier(
       reconnectPeriod: 0,
       connectTimeout: 8000,
       timerVariant: "native",
+      // Keep broker credentials out of diagnostic output even if a test or
+      // alternate connector enables an MQTT-compatible debug path.
+      log: () => {},
     },
     false,
   );
@@ -64,6 +75,7 @@ export async function mqttCarrier(
       client.on("message", handler);
       const stop = () => {
         client.off("message", handler);
+        stops.delete(stop);
       };
       stops.add(stop);
       return stop;

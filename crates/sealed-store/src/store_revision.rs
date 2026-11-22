@@ -7,7 +7,7 @@ use crate::{StoreError, StoreRoot};
 
 /// Use the same logical path spelling as filesystem resolution. Older maps
 /// may contain several raw spellings of one path; never choose a smaller one.
-fn revision_identity(name: &str) -> Result<String, StoreError> {
+pub(crate) fn revision_identity(name: &str) -> Result<String, StoreError> {
     let relative = logical_to_relative(name)?;
     let mut parts = Vec::new();
     for component in relative.components() {

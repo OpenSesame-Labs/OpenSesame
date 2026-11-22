@@ -7,7 +7,7 @@
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use chrono::{Duration, Utc};
+    use opensesame_time::{Duration, Utc};
 
     fn seat(mode: SessionMode) -> SessionMembership {
         SessionMembership::new(

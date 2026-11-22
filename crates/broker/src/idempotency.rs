@@ -17,11 +17,7 @@ fn lineage_binding(lineage: Option<&ValidatedGrantChain>) -> Option<Value> {
 
 /// V1 permits a fresh intent id, nonce, timestamps, and signature on a retry.
 /// Every field that changes the effect or authority is still bound.
-///
-/// # Errors
-///
-/// Returns an error if the binding cannot be canonically hashed.
-pub fn legacy_fingerprint(input: &InvokeInput) -> anyhow::Result<IdempotencyFingerprint> {
+pub(crate) fn legacy_fingerprint(input: &InvokeInput) -> anyhow::Result<IdempotencyFingerprint> {
     let intent = &input.intent;
     IdempotencyFingerprint::from_request(&json!({
         "kind": "legacy",

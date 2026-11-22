@@ -1,8 +1,8 @@
 //! A refused surrogate after its fields have been vetted — the only shape the
 //! feed is ever built from.
 
-use chrono::{DateTime, Utc};
 use opensesame_security_events::SecurityNotice;
+use opensesame_time::{DateTime, Utc};
 use serde_json::Value;
 
 use super::{

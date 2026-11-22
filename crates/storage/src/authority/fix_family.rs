@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use chrono::{Duration, Utc};
+use opensesame_time::{Duration, Utc};
 
 use super::fix_support::{budget_scope, entry, issue, seed_grant, seed_realm};
 use super::{Reservation, ReserveOutcome};

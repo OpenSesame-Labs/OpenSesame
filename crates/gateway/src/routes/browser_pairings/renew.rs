@@ -39,7 +39,7 @@ pub async fn renew(State(st): State<AppState>, headers: HeaderMap) -> Response {
         uuid::Uuid::new_v4().simple(),
         uuid::Uuid::new_v4().simple()
     );
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     let spent = hash_secret(raw);
     match st
         .db

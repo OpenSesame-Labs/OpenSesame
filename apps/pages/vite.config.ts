@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
@@ -7,18 +6,25 @@ import { VitePWA } from "vite-plugin-pwa";
 import { configDefaults } from "vitest/config";
 import { crossOriginOpenerPolicy } from "../../packages/app-core/src/lib/opener-policy.ts";
 import { pwaManifest } from "./pwa-manifest.js";
+import { agUiBrowserEntry } from "./scripts/ag-ui-browser-entry.mjs";
+import { aiBrowserGenerateObject } from "./scripts/ai-browser-generate-object.mjs";
 import { aiBrowserModels } from "./scripts/ai-browser-models.mjs";
-import { bundleChunk } from "./scripts/bundle-chunk.mjs";
+import { bundleChunk, entryChunkWarningKb } from "./scripts/bundle-chunk.mjs";
 import { capabilityCompose } from "./scripts/capability-compose-plugin.mjs";
+import { generatedDataAssets } from "./scripts/generated-data-assets.mjs";
 import { githubAppRelayPlugin } from "./scripts/github-app-relay-plugin.mjs";
 import { impeccableDevHtml } from "./scripts/impeccable-dev.mjs";
 import { kdbxNativeDOM } from "./scripts/kdbx-native-dom-plugin.mjs";
 import { dependencyRoot } from "./scripts/lib/dependency-root.mjs";
 import { writePrivateSnapshot } from "./scripts/lib/private-files.mjs";
 import { mcpBrowserValidator } from "./scripts/mcp-browser-validator.mjs";
+import { mqttPacketDebugGuard } from "./scripts/mqtt-packet-debug-plugin.mjs";
+import { configuredMsalDedupe } from "./scripts/msal-dedupe.mjs";
 import { nativeClientMetadataPlugin } from "./scripts/native-client-metadata-plugin.mjs";
 import { nativeSamlCallbackPlugin } from "./scripts/native-saml-callback-plugin.mjs";
+import { natsBrowserEntry } from "./scripts/nats-browser-entry.mjs";
 import { onePasswordWasmAssets } from "./scripts/onepassword-wasm-assets.mjs";
+import { preactCompat } from "./scripts/preact-compat.mjs";
 import { samlBrowserCrypto } from "./scripts/saml-browser-crypto.mjs";
 import { securityProfile } from "./scripts/security-profile.mjs";
 import { sharedWorkerGraph } from "./scripts/shared-worker-graph.mjs";
@@ -29,23 +35,10 @@ import {
   tailscaleWorkerFileName,
 } from "./scripts/tailscale-wasm-assets.mjs";
 import { vercelOidcNamespace } from "./scripts/vercel-oidc-namespace.mjs";
+import { webAuthnBrowserEntry } from "./scripts/webauthn-browser-entry.mjs";
 import { zodCsp } from "./scripts/zod-csp-plugin.mjs";
 
 const base = process.env.VITE_BASE ?? "/OpenSesame/";
-/**
- * The entry chunk's ceiling, in Vite's kB: a hardened profile's
- * `largestAsset` in `tools/quality/bundle-budgets.json` is that chunk, and
- * the bundle gate enforces it, so Vite warns at the same line instead of at
- * its generic 500 kB.
- */
-const entryChunkWarningKb = Math.ceil(
-  JSON.parse(
-    readFileSync(
-      new URL("../../tools/quality/bundle-budgets.json", import.meta.url),
-      "utf8",
-    ),
-  ).profiles.builds["minimal-local-hardened"].budgets.largestAsset * 1.024,
-);
 const osDomainBrowser = fileURLToPath(
   new URL("../../packages/os-domain/src/browser.ts", import.meta.url),
 );
@@ -167,6 +160,7 @@ export default defineConfig({
     ),
   },
   resolve: {
+    dedupe: configuredMsalDedupe(),
     alias: {
       // Subpaths must precede the bare package alias; otherwise Vite resolves
       // `@opensesame/os-domain/authority-templates` as `browser.ts/authority-templates`.
@@ -274,6 +268,13 @@ export default defineConfig({
     },
   },
   plugins: [
+    mqttPacketDebugGuard(fileURLToPath(new URL("../..", import.meta.url))),
+    preactCompat(),
+    agUiBrowserEntry(),
+    generatedDataAssets(),
+    webAuthnBrowserEntry(),
+    natsBrowserEntry(),
+    aiBrowserGenerateObject(),
     shellBuildMetadata(),
     zodCsp(),
     aiBrowserModels(fileURLToPath(new URL("../..", import.meta.url))),

@@ -39,6 +39,24 @@ const ALLOWED = [
       "the isolated layout, built in a temporary directory, is mirrored too",
   },
   {
+    path: "scripts/test/provider-s3-esbuild.test.mjs",
+    text: '"packages/app-core/node_modules/esbuild"',
+    reason:
+      "builds a temporary split workspace to prove app-core resolves its declared esbuild instead of a hoisted copy",
+  },
+  {
+    path: "scripts/ci/pr-visual-sandbox.sh",
+    text: '"$source/apps/pages/node_modules/.vite-temp"',
+    reason:
+      "creates a temporary Vite mountpoint for nested installs, not a dependency lookup",
+  },
+  {
+    path: "scripts/ci/pr-visual-sandbox.sh",
+    text: "target=/repo/apps/pages/node_modules/.vite-temp",
+    reason:
+      "binds that temporary Vite mountpoint inside the isolated visual sandbox",
+  },
+  {
     path: "packages/agent-sandboxes/src/boat-agent.ts",
     text: "packages/cua-password-reset/node_modules/.bin/agent-browser",
     reason:

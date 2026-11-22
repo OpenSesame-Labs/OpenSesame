@@ -22,8 +22,8 @@
 //! assumed from its leaf.
 
 use crate::error::{PolicyFault, UnknownTerm};
-use chrono::{DateTime, Utc};
 use opensesame_domain::{grant_attenuation::resources_attenuate, InvokeLevel};
+use opensesame_time::{DateTime, Utc};
 use std::collections::BTreeSet;
 
 /// The closed set of dimensions authority may be restricted along.

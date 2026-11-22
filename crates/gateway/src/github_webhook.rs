@@ -224,7 +224,7 @@ async fn publish_webhook_wake(st: &AppState, outbox_id: &str, delivery_id: &str)
         uuid::Uuid::now_v7().to_string(),
         "opensesame/gateway/github-webhook",
         WAKE_TYPE,
-        chrono::Utc::now().to_rfc3339(),
+        opensesame_time::Utc::now().to_rfc3339(),
         json!({
             "outbox_id": outbox_id,
             "delivery_id": delivery_id,

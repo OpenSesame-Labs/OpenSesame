@@ -1,6 +1,6 @@
 //! Atomic personal-to-organization cipher transfers and destination quota admission.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::Row as _;
 
 use super::accounts::bitwarden_timestamp;

@@ -180,3 +180,6 @@ fn admission_never_produces_an_operator_caller() {
     let module = include_str!("mod.rs");
     assert!(module.contains("never becomes"));
 }
+
+#[path = "admission_source_tests.rs"]
+mod source_tests;

@@ -13,9 +13,16 @@ async fn web_pki_client_dials_the_checked_address_without_resolving_again() {
     let address = listener.local_addr().unwrap();
     let server = tokio::spawn(async move {
         let (mut stream, _) = listener.accept().await.unwrap();
-        let mut request = [0; 4096];
-        let length = stream.read(&mut request).await.unwrap();
-        assert!(String::from_utf8_lossy(&request[..length]).contains("Bearer pinned-canary"));
+        // TCP gives no message boundaries: read until the header block is
+        // complete rather than asserting on a single segment.
+        let mut request = Vec::new();
+        let mut chunk = [0; 4096];
+        while !String::from_utf8_lossy(&request).contains("\r\n\r\n") {
+            let length = stream.read(&mut chunk).await.unwrap();
+            assert!(length > 0, "connection closed before the request arrived");
+            request.extend_from_slice(&chunk[..length]);
+        }
+        assert!(String::from_utf8_lossy(&request).contains("Bearer pinned-canary"));
         stream
             .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok")
             .await
@@ -35,7 +42,7 @@ async fn web_pki_client_dials_the_checked_address_without_resolving_again() {
     };
     let rules = vec![EgressRule {
         provider_id: "github",
-        scheme: "https",
+        scheme: "http",
         hosts: &["localhost"],
         auth: AuthStyle::Bearer,
     }];

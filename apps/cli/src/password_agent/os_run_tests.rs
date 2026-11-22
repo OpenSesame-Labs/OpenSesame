@@ -63,6 +63,27 @@ fn template_literals_are_values_but_never_masked_secrets() {
 
 #[test]
 fn a_sealed_entry_resolves_through_the_store_the_vault_opens() {
+    const ISOLATED_XDG: &str = "OPENSESAME_TEST_ISOLATED_XDG";
+    if std::env::var_os(ISOLATED_XDG).is_none() {
+        let data = tempfile::tempdir().unwrap();
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "password_agent::os_run::tests::a_sealed_entry_resolves_through_the_store_the_vault_opens",
+            ])
+            .env(ISOLATED_XDG, "1")
+            .env("XDG_DATA_HOME", data.path())
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "isolated sealed-store test failed:\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    }
+
     use opensesame_sealed_store::{init_store, init_store_key, unlock_store_key, Entry};
     let dir = tempfile::tempdir().unwrap();
     let root = init_store(dir.path(), &[]).unwrap();

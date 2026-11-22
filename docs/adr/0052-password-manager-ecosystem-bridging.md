@@ -152,6 +152,24 @@ Sanctioned dependencies and references for this work:
 | browserpass-native | ISC | **Reference only** — reimplement the JSON stdio protocol; do not vendor |
 | vaultwarden, Bitwarden clients, KeePassXC, Passbolt | AGPL-3.0 / GPL-3.0 | **Study-only, clean-room** |
 
+Pages screens the unauthenticated KDBX 3/4 header before opening a database:
+AES-KDF is limited to 16,777,216 rounds and the outer header to 1 MiB.
+Argon2 retains its per-call memory and work limits. Pages builds and the Vite
+development server run both AES-KDF and Argon2 in a disposable same-origin
+worker, with one shared derivation slot per app instance and a 30-second
+termination deadline. Dismissing the import sheet cancels its active KDF and
+discards the result; a pending non-worker step must settle before another KDBX
+load can begin. A browser without worker support cannot import either
+kind. Databases over either work budget, or legitimate databases that time out
+on a slow device, must first be saved as a compatible copy in KeePassXC. This
+never changes their original KDF silently. Timer delivery depends on the page's
+event loop, so background throttling or a frozen page can delay termination. An in-flight
+WebCrypto operation may finish after its worker is terminated. Allocating even
+the permitted 64 MiB can still exhaust a constrained device. Other KDBX parsing
+has no worker deadline. If stopping a worker fails, the shared slot stays closed
+until the page is reloaded. Node retains the SDK's inline AES path with the
+round cap.
+
 **Why the Bitwarden-family stance is deliberately hedged.** In 2024
 Bitwarden made its client `sdk-internal` proprietary under a licence
 carrying a field-of-use restriction aimed squarely at vaultwarden-class
