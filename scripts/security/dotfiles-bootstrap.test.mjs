@@ -348,7 +348,11 @@ function assertDevcontainerBootstrapOrder() {
     const locked = text.indexOf("mise install --locked");
     const deps = text.indexOf("mise run deps");
     assert.ok(locked >= 0 && locked < deps, key);
-    assert.equal(text.includes("dotfiles-bootstrap.sh"), false, key);
+    assert.doesNotMatch(
+      text,
+      /dotfiles-bootstrap|install-agent-skills|skills:install/u,
+      key,
+    );
     assert.equal(text.includes("corepack"), false, key);
     assert.equal(
       text.includes("npm ci") || text.includes("mise run deps"),
@@ -356,6 +360,9 @@ function assertDevcontainerBootstrapOrder() {
       key,
     );
   }
+  // Skill verification and refresh are explicit; nothing runs at each start.
+  assert.equal(devcontainer.postStartCommand, undefined);
+  assert.equal(devcontainer.postAttachCommand, undefined);
   assert.ok(
     devcontainer.postCreateCommand.indexOf("setup-hooks.sh") >
       devcontainer.postCreateCommand.indexOf("mise run deps"),

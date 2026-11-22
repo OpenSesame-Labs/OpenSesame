@@ -16,7 +16,7 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { skillTreeHashV2 } from "../dev/verify-agent-skills.mjs";
 
-test("startup verifies offline and quarantines content changed since review", (t) => {
+test("verification runs offline and quarantines content changed since review", (t) => {
   const root = mkdtempSync(join(tmpdir(), "skills-install-status-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const put = (path, value) => {
