@@ -10,6 +10,10 @@
  * least of all the one that drops their keys.
  */
 
+import {
+  forgetSessionAnswers,
+  screenAnsweredThisSession,
+} from "@opensesame/app-core/lib/guidance.js";
 import { guideGoal } from "@opensesame/app-core/tutorial/registry/goals.js";
 import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registry/targets.js";
 import { fakeAgentAnswering } from "@opensesame/support-agent";
@@ -37,7 +41,10 @@ function authored(id: string): string {
 }
 
 describe("asking whether OpenSesame is healthy", { timeout: 20_000 }, () => {
-  afterEach(resetJourney);
+  afterEach(() => {
+    resetJourney();
+    forgetSessionAnswers();
+  });
 
   it("walks to the report on the items", async () => {
     const journey = renderJourney(fakeAgentAnswering("Unused."));
@@ -79,16 +86,18 @@ describe("asking whether OpenSesame is healthy", { timeout: 20_000 }, () => {
       ),
     ).toBeTruthy();
 
-    // The next sentence points at the verdict on that screen.
+    // The next sentence points at the health summary on that screen.
     await waitFor(async () =>
       expect(resolveGuideTargetElement("vault.health.summary")).not.toBeNull(),
     );
     await nextStep(user);
 
-    // The closing card says where the person is, and Done finishes it.
+    // The closing card describes the next action, and Done finishes it.
     expect(await stepOf()).toBe("Complete");
     expect(
-      within(await tutorialCard()).getByText("This is Vault health."),
+      within(await tutorialCard()).getByText(
+        "Open an item to update its password.",
+      ),
     ).toBeTruthy();
     await finishTutorial(user);
     await waitFor(() => expect(journey.outcomes()).toHaveLength(1));
@@ -96,11 +105,16 @@ describe("asking whether OpenSesame is healthy", { timeout: 20_000 }, () => {
       kind: "completed",
       goal: "host.health.check",
     });
+    await waitFor(() =>
+      expect(screenAnsweredThisSession("/vault/health")).toBe(true),
+    );
     // It ended, so it took its overlay with it: the last thing drawn is the clear.
     expect(journey.drawn().at(-1)?.kind).toBe("clear");
 
     await openSupport(user);
-    expect(await screen.findByText("This is Vault health.")).toBeTruthy();
+    expect(
+      await screen.findByText("Open an item to update its password."),
+    ).toBeTruthy();
   }, 20_000);
 });
 

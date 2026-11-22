@@ -84,10 +84,16 @@ describe("UnlockMethodsPanel", () => {
     ).toBeNull();
     // State is a glyph whose sentence is its accessible name, never a pill.
     expect(row("Password").getByRole("img", { name: "Enrolled" })).toBeTruthy();
-    expect(
-      row("Authenticator app").getByRole("button", { name: "Add" }),
-    ).toBeTruthy();
-    expect(row("Email code").getByRole("button", { name: "Add" })).toBeTruthy();
+    const authenticator = row("Authenticator app").getByRole("button", {
+      name: "Add",
+    });
+    const email = row("Email code").getByRole("button", { name: "Add" });
+    expect(authenticator.getAttribute("data-guide-targets")).toContain(
+      "settings.second-step",
+    );
+    expect(email.getAttribute("data-guide-targets")).toContain(
+      "settings.second-step.email",
+    );
     expect(
       row("Text message").getByRole("button", { name: "Add" }),
     ).toBeTruthy();
@@ -364,6 +370,11 @@ describe("UnlockMethodsPanel", () => {
     });
     store.generateRecoveryCodes.mockResolvedValue(["eeee-ffff", "gggg-hhhh"]);
     render(<UnlockMethodsPanel />);
+    expect(
+      row("Recovery codes")
+        .getByRole("button", { name: "View recovery codes" })
+        .getAttribute("data-guide-targets"),
+    ).toContain("settings.recovery");
     await userEvent.click(
       row("Recovery codes").getByRole("button", {
         name: "View recovery codes",
