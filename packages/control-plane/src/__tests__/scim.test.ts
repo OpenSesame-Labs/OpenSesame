@@ -439,6 +439,7 @@ describe("SCIM Users surface", () => {
       expect(
         (await provisionUser(app, org.id, token, { userName })).status,
       ).toBe(201);
+      await new Promise((tick) => setTimeout(tick, 2)); // distinct createdAt
     }
     const page = await app.request(
       `${usersPath(org.id)}?startIndex=2&count=2`,
