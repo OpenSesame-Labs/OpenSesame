@@ -76,11 +76,7 @@ async function run(_active: DomEngine, directive: string): Promise<void> {
 
 /** The step's sentence as a person reads it, without the screen-reader prefix. */
 function stepText(): string {
-  return (
-    document
-      .querySelector(".coach__text")
-      ?.textContent?.replace(/^Step \d+ of \d+\. /, "") ?? ""
-  );
+  return document.querySelector(".coach__message")?.textContent ?? "";
 }
 
 function expectInert(scope: ParentNode): void {

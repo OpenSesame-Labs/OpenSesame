@@ -96,6 +96,8 @@ export type SupportHarness = {
   navigations(): readonly string[];
   /** How many times teardown asked the registry to drop its bindings. */
   clearedTargets(): number;
+  advanceGuideClock(ms: number): Promise<void>;
+  pendingGuideTimers(): number;
 };
 
 export type SupportHarnessOptions = {
@@ -103,7 +105,6 @@ export type SupportHarnessOptions = {
   readonly transport?: SupportTransport;
   readonly warning?: string | null;
   readonly route?: string;
-  readonly reducedMotion?: boolean;
   /** Declared ids to bind to real elements, for tests that watch the page. */
   readonly targets?: readonly GuideTargetId[];
 };
@@ -134,9 +135,11 @@ export function mountSupport(options: SupportHarnessOptions): SupportHarness {
   });
   const fixtures = mountFixtures(options.targets ?? []);
   liveFixtures = fixtures;
+  // A11y note: reduced-motion holds without wiring here — the scroll renderer
+  // only scrolls instantly (`behavior: "auto"`), so there is no smooth scroll
+  // to suppress under `prefers-reduced-motion`.
   const renderer = createScrollRenderer({
     resolveElement: resolveGuideTargetElement,
-    reducedMotion: () => options.reducedMotion ?? false,
   });
   const targets = createFakeTargets(guideTargetIds(), vocabulary.targets);
   const routes = createFakeRoutes(vocabulary.routes, route);
@@ -218,6 +221,8 @@ export function mountSupport(options: SupportHarnessOptions): SupportHarness {
     fixtures,
     navigations: () => routes.navigations(),
     clearedTargets: () => cleared,
+    advanceGuideClock: (ms) => clock.advance(ms),
+    pendingGuideTimers: () => clock.pending(),
   };
 }
 

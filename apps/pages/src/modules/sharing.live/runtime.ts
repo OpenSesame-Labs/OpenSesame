@@ -43,9 +43,9 @@ import {
 } from "@opensesame/app-core/tutorial/registry/live-catalog.js";
 import { createActivation } from "../activation.js";
 import { registerTutorial } from "../tutorial-contributions.js";
+import { carrierFactory, carriersUnavailable } from "./carriers/index.js";
 import { LiveJoinRoute } from "./LiveJoinRoute.js";
 import { LiveShareShell } from "./LiveShareShell.js";
-import { carrierFactory, carriersUnavailable } from "./carriers/index.js";
 import { liveUiSeams } from "./live-hooks.js";
 import {
   clearLiveHostAskingNotices,
@@ -83,6 +83,13 @@ export const capabilityRuntime: CapabilityRuntime = {
       liveSeams.onHostingEnded = priorHostingEnded;
     });
 
+    // Register targets before the UI can mount; reverse-order disposal then
+    // removes the UI before its targets.
+    registerTutorial(activation, {
+      targets: LIVE_TARGETS,
+      goals: LIVE_GOALS,
+      routes: LIVE_ROUTES,
+    });
     activation.register("route", {
       id: "live",
       path: "/live",
@@ -96,12 +103,6 @@ export const capabilityRuntime: CapabilityRuntime = {
       Wrapper: LiveShareShell,
       order: 30,
     });
-    registerTutorial(activation, {
-      targets: LIVE_TARGETS,
-      goals: LIVE_GOALS,
-      routes: LIVE_ROUTES,
-    });
-
     return activation.handle();
   },
 };

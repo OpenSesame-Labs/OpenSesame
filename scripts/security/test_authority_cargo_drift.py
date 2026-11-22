@@ -131,7 +131,8 @@ class AuthorityCargoDriftTest(unittest.TestCase):
 
     def test_unreviewed_build_script_fails_before_lean_or_cargo(self):
         for path in ("spec/formal/authority/check.sh", "scripts/security/cargo-workspace-projection.py",
-                     "scripts/security/cargo-lock-projection.py", "spec/formal/authority/check-drift.py",
+                     "scripts/security/cargo-lock-projection.py", "scripts/security/formal_coverage_drift.py",
+                     "spec/formal/authority/check-drift.py",
                      "rust-toolchain.toml"):
             destination = self.root / path
             destination.parent.mkdir(parents=True, exist_ok=True)
@@ -159,6 +160,22 @@ class AuthorityCargoDriftTest(unittest.TestCase):
         self.assertIn("source drift in crates/domain/build.rs", result.stderr)
         self.assertFalse((self.root / "cargo-ran").exists())
         self.assertFalse((self.root / "lean-ran").exists())
+
+    def test_lineage_resolves_through_formal_git_root_without_dotgit(self):
+        revision = self.manifest["reviewed_revision"]
+        original = os.environ.get("OPENSESAME_FORMAL_GIT_ROOT")
+        os.environ.pop("OPENSESAME_FORMAL_GIT_ROOT", None)
+        self.addCleanup(
+            lambda: os.environ.pop("OPENSESAME_FORMAL_GIT_ROOT", None)
+            if original is None
+            else os.environ.__setitem__("OPENSESAME_FORMAL_GIT_ROOT", original)
+        )
+        # A scratch archive (no .git) fails closed when the owning repository
+        # is not named, and resolves lineage against it when it is.
+        with self.assertRaisesRegex(SystemExit, "unknown reviewed revision"):
+            checker.assert_reviewed_revision_on_main(self.root, revision, "authority-formal")
+        os.environ["OPENSESAME_FORMAL_GIT_ROOT"] = str(ROOT)
+        checker.assert_reviewed_revision_on_main(self.root, revision, "authority-formal")
 
     def test_invalid_coverage_and_projection_records_fail_closed(self):
         for value in (None, [], {}, {**self.manifest, "sources": [None]},

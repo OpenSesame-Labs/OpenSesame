@@ -32,7 +32,8 @@ unset OPENSESAME_FORMAL_RUSTC_LOG
 export RUSTC_WORKSPACE_WRAPPER="$(python3 -I "$root/scripts/security/formal-cargo-isolation.py" "$root/spec/formal/authority")"
 python3 -I "$root/scripts/security/formal-cargo-freshness.py" init \
   --repo "$root" --manifest "$root/spec/formal/authority/Cargo.toml" \
-  --state "$scratch/cargo-state.json" --package opensesame-formal-authority
+  --state "$scratch/cargo-state.json" --package opensesame-formal-authority \
+  --reviewed-patch sqlx-sqlite=patches/vendor/sqlx-sqlite-0.9.0
 bash "$root/spec/formal/check-axioms.sh" "$lean_bin" "$root/spec/formal/authority/Authority.lean" > "$vectors"
 OPENSESAME_RUSTC="$rustc_bin" RUSTC="$rustc_bin" python3 -I "$root/scripts/security/formal-cargo-freshness.py" run \
   --state "$scratch/cargo-state.json" --input-check "$root/spec/formal/authority/check-drift.py" -- \

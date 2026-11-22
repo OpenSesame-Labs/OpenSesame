@@ -89,10 +89,13 @@ def read_state(path: Path) -> dict:
     return value
 
 
-def metadata(root: Path, manifest: Path, env: dict[str, str]) -> dict:
+def metadata(root: Path, manifest: Path, env: dict[str, str], dependencies: bool = False) -> dict:
+    command = ["cargo", "metadata", "--locked",
+               "--format-version", "1", "--manifest-path", str(manifest)]
+    if not dependencies:
+        command.append("--no-deps")
     result = subprocess.run(
-        ["cargo", "metadata", "--locked", "--no-deps",
-         "--format-version", "1", "--manifest-path", str(manifest)],
+        command,
         cwd=root, env=env, text=True, capture_output=True, check=False, timeout=60, pass_fds=scratch_fds(env),
     )
     if result.returncode:
@@ -103,9 +106,12 @@ def metadata(root: Path, manifest: Path, env: dict[str, str]) -> dict:
     return value
 
 
-def local_packages(root: Path, manifest: Path, names: list[str], env: dict[str, str]) -> dict:
+def local_packages(root: Path, manifest: Path, names: list[str], env: dict[str, str],
+                   reviewed_patches: dict[str, str] | None = None) -> dict:
     packages: dict[str, dict] = {}
     workspaces: set[str] = set()
+    declared = dict(reviewed_patches or {})
+    observed: dict[str, dict[str, str]] = {}
 
     def load(path: Path) -> None:
         value = metadata(root, path, env)
@@ -121,8 +127,14 @@ def local_packages(root: Path, manifest: Path, names: list[str], env: dict[str, 
         for entries in [*patches.values(), replacements]:
             if not isinstance(entries, dict):
                 raise FreshnessError("malformed Cargo patch entries")
-            if any(isinstance(item, dict) and "path" in item for item in entries.values()):
-                raise FreshnessError("local Cargo patches require separately reviewed coverage")
+            for patched, item in entries.items():
+                if isinstance(item, dict) and "path" in item:
+                    # Record path patches now; once the selected closure is
+                    # known, only patches that can affect this session's
+                    # artifacts still require a reviewed declaration.
+                    if not isinstance(item["path"], str):
+                        raise FreshnessError("malformed Cargo patch path")
+                    observed.setdefault(patched, {})[item["path"]] = str(workspace_manifest.parent)
         members = value.get("workspace_members")
         if not isinstance(members, list) or any(not isinstance(item, str) for item in members):
             raise FreshnessError("Cargo metadata has invalid workspace members")
@@ -145,29 +157,41 @@ def local_packages(root: Path, manifest: Path, names: list[str], env: dict[str, 
             raise FreshnessError(f"root package is absent or ambiguous: {name}")
         roots.append(found[0])
     selected: dict[str, dict] = {}
+    referenced: set[str] = set()
+
+    def adopt(package: dict, workspace: bool) -> None:
+        package_id = package["id"]
+        if package_id in selected:
+            return
+        if package.get("source") is not None:
+            raise FreshnessError("a selected local package has a nonlocal source")
+        targets = package.get("targets")
+        if not isinstance(targets, list) or not isinstance(package.get("dependencies"), list):
+            raise FreshnessError(f"invalid package metadata: {package_id}")
+        selected[package_id] = {"name": package["name"], "workspace": workspace}
+        for target in targets:
+            if not isinstance(target, dict) or not isinstance(target.get("src_path"), str):
+                raise FreshnessError(f"invalid local target: {package_id}")
+            path = regular_inside(root, target["src_path"])
+            os.utime(path, None, follow_symlinks=False)
+
     pending = roots[:]
     while pending:
         package = pending.pop()
         package_id = package["id"]
         if package_id in selected:
             continue
-        if package.get("source") is not None:
-            raise FreshnessError("a selected local package has a nonlocal source")
-        targets = package.get("targets")
         dependencies = package.get("dependencies")
-        if not isinstance(targets, list) or not isinstance(dependencies, list):
-            raise FreshnessError(f"invalid package metadata: {package_id}")
-        selected[package_id] = {
-            "name": package["name"], "workspace": package_id in original_workspace,
-        }
-        for target in targets:
-            if not isinstance(target, dict) or not isinstance(target.get("src_path"), str):
-                raise FreshnessError(f"invalid local target: {package_id}")
-            path = regular_inside(root, target["src_path"])
-            os.utime(path, None, follow_symlinks=False)
+        adopt(package, workspace=package_id in original_workspace)
         for dependency in dependencies:
             if not isinstance(dependency, dict):
                 raise FreshnessError(f"invalid local dependency: {package_id}")
+            dependency_name = dependency.get("name")
+            if isinstance(dependency_name, str):
+                # Registry dependencies count: a workspace patch can redirect
+                # them to local sources, which the artifact check must then
+                # track like any other local package.
+                referenced.add(dependency_name)
             path = dependency.get("path")
             if path is None:
                 continue
@@ -180,6 +204,48 @@ def local_packages(root: Path, manifest: Path, names: list[str], env: dict[str, 
             if key not in packages:
                 raise FreshnessError(f"local dependency not found by Cargo metadata: {key}")
             pending.append(packages[key])
+    consumed: dict[str, str] = {}
+    for patched, paths in sorted(observed.items()):
+        if patched not in referenced:
+            # A patch whose crate no selected package references cannot affect
+            # this session's artifacts, so it needs no declaration here.
+            continue
+        accepted = declared.pop(patched, None)
+        if accepted is None:
+            raise FreshnessError(
+                f"local Cargo patches require separately reviewed coverage: {patched}"
+            )
+        # The same patch can be declared by several workspace manifests with
+        # different relative spellings; every observation must resolve to the
+        # declared directory, anchored at the repository root.
+        target = os.path.normpath(str(root / accepted))
+        resolved = {os.path.normpath(str(Path(base) / path)) for path, base in paths.items()}
+        if resolved != {target}:
+            raise FreshnessError(
+                f"local Cargo patches require separately reviewed coverage: {patched}"
+            )
+        consumed[patched] = target
+    if declared:
+        leftover = sorted(declared)[0]
+        raise FreshnessError(
+            f"reviewed patch declaration matches no in-scope path patch: {leftover}"
+        )
+    if consumed:
+        # Adopt each declared patch as a tracked local package, using the full
+        # resolution so the package id and targets are Cargo's own. A patched
+        # manifest is not workspace metadata material, so it cannot be loaded
+        # through the no-deps workspace walk above.
+        resolved_packages = metadata(root, manifest, env, dependencies=True).get("packages", [])
+        by_directory: dict[str, dict] = {}
+        for package in resolved_packages:
+            if isinstance(package, dict) and isinstance(package.get("manifest_path"), str):
+                directory = os.path.normpath(str(Path(package["manifest_path"]).parent))
+                by_directory.setdefault(directory, package)
+        for patched, target in sorted(consumed.items()):
+            package = by_directory.get(target)
+            if package is None or package.get("name") != patched or not isinstance(package.get("id"), str):
+                raise FreshnessError(f"reviewed patch manifest does not provide {patched}")
+            adopt(package, workspace=False)
     return selected
 
 
@@ -352,6 +418,9 @@ def main() -> None:
     init.add_argument("--manifest", type=Path, required=True)
     init.add_argument("--state", type=Path, required=True)
     init.add_argument("--package", action="append", required=True)
+    init.add_argument("--reviewed-patch", action="append", default=[], metavar="NAME=PATH",
+                      help="path patch covered by the suite's reviewed sources, "
+                           "with PATH relative to the repository root")
     run = sub.add_parser("run")
     run.add_argument("--state", type=Path, required=True)
     run.add_argument("--input-check", type=Path, required=True)
@@ -361,10 +430,17 @@ def main() -> None:
     if options.action == "init":
         root = options.repo.resolve(strict=True)
         manifest = regular_inside(root, options.manifest)
-        packages = local_packages(root, manifest, options.package, env)
+        reviewed: dict[str, str] = {}
+        for item in options.reviewed_patch:
+            patched, separator, patch_path = item.partition("=")
+            if not separator or not patched or not patch_path or patched in reviewed:
+                raise SystemExit(f"malformed --reviewed-patch declaration: {item}")
+            reviewed[patched] = patch_path
+        packages = local_packages(root, manifest, options.package, env, reviewed)
         save_state(options.state, {
             "root": str(root), "manifest": str(manifest), "roots": options.package,
             "packages": packages, "seen": [],
+            "reviewed_patches": sorted(f"{name}={path}" for name, path in reviewed.items()),
         }, create=True)
         print(f"formal Cargo freshness: prepared {len(packages)} local packages")
         return

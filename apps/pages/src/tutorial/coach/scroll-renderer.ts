@@ -22,7 +22,6 @@ import { isFunction } from "@opensesame/os-domain";
 
 export type ScrollRendererOptions = {
   readonly resolveElement: (id: GuideTargetId) => HTMLElement | null;
-  readonly reducedMotion: () => boolean;
 };
 
 const none = (_request: GuideFocusRequest): Promise<void> => Promise.resolve();
@@ -33,12 +32,14 @@ export function createScrollRenderer(
   function scroll(request: GuideScrollRequest): Promise<void> {
     const element = options.resolveElement(request.target);
     // Non-visual hosts (jsdom among them) ship no `scrollIntoView`; a tour
-    // must not die because the page cannot scroll.
+    // must not die because the page cannot scroll. The scroll is always
+    // instant: the reveal loop in `use-geometry` re-reads the target every
+    // frame, and a smooth scroll would fight it.
     if (element !== null && isFunction(element.scrollIntoView)) {
       element.scrollIntoView({
-        block: "nearest",
+        block: "center",
         inline: "nearest",
-        behavior: options.reducedMotion() ? "auto" : "smooth",
+        behavior: "auto",
       });
     }
     return Promise.resolve();

@@ -226,7 +226,9 @@ async fn convert_manifest_at(
         .header("X-GitHub-Api-Version", "2022-11-28")
         .send()
         .await
-        .map_err(|e| BrokerError::ExchangeFailed(e.without_url().to_string()))?;
+        .map_err(|_| {
+            BrokerError::ExchangeFailed("GitHub App manifest conversion request failed".into())
+        })?;
     let status = res.status();
     if !status.is_success() {
         return Err(BrokerError::ExchangeFailed(format!(

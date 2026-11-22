@@ -19,7 +19,9 @@ import {
 
 const copySecret = vi.hoisted(() => vi.fn());
 
+import * as guideTargets from "@opensesame/app-core/tutorial/registry/targets.js";
 import { vaultHooksSeams } from "../lib/vault/hooks.js";
+
 const originalVaultHooksSeams = { ...vaultHooksSeams };
 Object.assign(vaultHooksSeams, { useCopySecret: () => copySecret });
 afterAll(() => Object.assign(vaultHooksSeams, originalVaultHooksSeams));
@@ -42,6 +44,21 @@ function CopyHarness() {
       <output data-testid="copied">{copied ?? ""}</output>
       <output data-testid="failed">{failed ?? ""}</output>
     </div>
+  );
+}
+
+function GuidedCopyHarness() {
+  const { copied, failed, copy } = useCopyFeedback();
+  return (
+    <CopyButton
+      value="s3cret"
+      label="Password"
+      fieldKey="pw"
+      copied={copied}
+      failed={failed}
+      onCopy={copy}
+      guideActivation="item.copy-password"
+    />
   );
 }
 
@@ -97,6 +114,28 @@ describe("useCopyFeedback", () => {
     await waitFor(() =>
       expect(screen.getByTestId("copied").textContent).toBe("pw"),
     );
+  });
+
+  it("reports each successful guided copy, but not a failed one", async () => {
+    const report = vi.spyOn(guideTargets, "reportGuideActivation");
+    copySecret
+      .mockResolvedValueOnce("copied")
+      .mockResolvedValueOnce("copied")
+      .mockResolvedValueOnce("unavailable");
+    render(<GuidedCopyHarness />);
+    fireEvent.click(screen.getByRole("button", { name: "Copy Password" }));
+    await waitFor(() => expect(report).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Copied Password" }));
+    await waitFor(() => expect(report).toHaveBeenCalledTimes(2));
+    fireEvent.click(screen.getByRole("button", { name: "Copied Password" }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Could not copy Password" }),
+      ).toBeTruthy(),
+    );
+    expect(report).toHaveBeenCalledTimes(2);
+    expect(report).toHaveBeenLastCalledWith("item.copy-password");
+    report.mockRestore();
   });
 });
 

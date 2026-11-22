@@ -34,7 +34,7 @@ const CA_SCOPE: &str = "certificate_authority";
 
 #[path = "est_auth.rs"]
 mod auth;
-pub(super) use auth::authenticate;
+pub(super) use auth::{authenticate, mint_fence};
 
 #[path = "est_freshness.rs"]
 mod freshness;
