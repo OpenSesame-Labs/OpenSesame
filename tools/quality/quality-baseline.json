@@ -17,8 +17,8 @@
   },
   "totals": {
     "files": 438,
-    "violations": 695,
-    "oversizedLines": 211860
+    "violations": 694,
+    "oversizedLines": 211381
   },
   "files": {
     "apps/browser-extension/entrypoints/popup/main.ts": {
@@ -798,7 +798,7 @@
       "max-lines": 1132
     },
     "packages/control-plane/src/__tests__/auth-upstream.test.ts": {
-      "max-lines": 654
+      "max-lines": 636
     },
     "packages/control-plane/src/__tests__/authentication-service.test.ts": {
       "max-lines": 562
@@ -946,7 +946,7 @@
       "complexity": 1
     },
     "packages/control-plane/src/routes/authentication-service.ts": {
-      "max-lines": 1186
+      "max-lines": 1185
     },
     "packages/control-plane/src/routes/authorization-requests.ts": {
       "complexity": 3,
@@ -1083,7 +1083,6 @@
     },
     "packages/control-plane/src/services/better-auth-bridge.ts": {
       "complexity": 1,
-      "max-lines": 425,
       "max-lines-per-function": 1
     },
     "packages/control-plane/src/services/identity-link.ts": {

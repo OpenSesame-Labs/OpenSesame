@@ -2,6 +2,52 @@
   "version": 1,
   "surfaces": [
     {
+      "id": "magic-link-return",
+      "kind": "artifact",
+      "area": "account-totp",
+      "flow": "magic-link-return",
+      "observer": "public",
+      "artifacts": ["authority-api"],
+      "verification": "server",
+      "controls": [
+        "mandatory-proof",
+        "recipient-bound",
+        "cryptographic-random",
+        "trusted-budget-source"
+      ],
+      "guarantees": ["single-use", "expiry"],
+      "enforcement": "authoritative",
+      "entropyBits": 256,
+      "minSecretBytes": 32,
+      "budget": null,
+      "implementation": [
+        "packages/control-plane/src/routes/auth-upstream.ts",
+        "packages/control-plane/src/routes/interactions-email.ts",
+        "packages/control-plane/src/routes/authentication-service.ts",
+        "packages/control-plane/src/services/better-auth-bridge.ts",
+        "packages/control-plane/src/services/magic-link-budget.ts",
+        "packages/control-plane/src/services/magic-link-confirmation.ts",
+        "packages/control-plane/src/services/magic-link-exchange.ts",
+        "packages/control-plane/src/services/magic-link-return.ts",
+        "packages/control-plane/src/repos/durable-map.ts",
+        "packages/control-plane/src/repos/security-maps.ts",
+        "packages/control-plane/src/state.ts",
+        "packages/app-core/src/lib/magic-link-client.ts",
+        "packages/app-core/src/lib/providers.ts",
+        "packages/app-core/src/lib/federation.ts",
+        "packages/app-core/src/lib/federation-response.ts"
+      ],
+      "regressions": [
+        "packages/control-plane/src/__tests__/auth-upstream.test.ts",
+        "packages/control-plane/src/__tests__/magic-link-exchange.test.ts",
+        "packages/control-plane/src/__tests__/magic-link-first-party.test.ts",
+        "packages/app-core/src/lib/federation-response.test.ts",
+        "packages/app-core/src/lib/magic-link-client.test.ts",
+        "packages/app-core/src/lib/providers.test.ts"
+      ],
+      "review": "The emailed proof remains a high-entropy bearer for the mailbox holder, but GET is inert. First-party completion additionally requires the initiating tab's verifier and state; hosted completion requires explicit confirmation plus the initiating interaction cookie. Durable server stores enforce expiry and atomic single use. Send budgets protect availability, not proof secrecy. This classification does not claim protection from a compromised mailbox/browser or a scanner that submits forms. 2026-11-19: refusal regressions compare the complete durable send-budget ledger before and after recipient, source, global, backend-recipient, and backend-application denials; denial now preserves even ledger expiry metadata. Passed all changed magic-link/federation suites (60 tests in 7 files). Cached pre-verifier clients receive a distinct non-cacheable 426 upgrade response before mail or budget effects. New Pages uses a versioned send route: an older Identity returns 404 before mail and Pages uses the existing hosted OAuth/PKCE email interaction, never the legacy first-party bearer route. A composed old-Identity check completes hosted email and OAuth return through first-party session adoption; both Pages entry points avoid a sent confirmation when redirecting. Drain the Pages cache and in-flight links, then switch Identity traffic atomically to avoid routing new links to old replicas. Upgrade telemetry requires an approved callback or the exact historical root callback paired with its allowlisted Origin, and is capped per process with suppressed-event rollup, separately from mail admission. The root callback is never admitted for a modern send. Untrusted traffic and repeated in-window requests are regression-bound. Cached old clients still show their generic 426 error. The legacy bearer exchange remains absent."
+    },
+    {
       "id": "hosted-secret-drop",
       "kind": "online",
       "area": "hosted-drop",
@@ -1281,6 +1327,186 @@
     }
   ],
   "sources": {
+    "packages/app-core/src/lib/federation-response.test.ts": [
+      "f1006f92",
+      "535814e7",
+      "1470070f",
+      "13b7b745",
+      "346c16e6",
+      "93ac9ac8",
+      "2b4f9bee",
+      "73d2be2e"
+    ],
+    "packages/app-core/src/lib/federation-response.ts": [
+      "6c7bd970",
+      "18dd120f",
+      "d99f7019",
+      "26d06a4d",
+      "e7461234",
+      "26b7877c",
+      "e9cc6f92",
+      "ffba675c"
+    ],
+    "packages/app-core/src/lib/federation.ts": [
+      "bfc01889",
+      "3d52a69b",
+      "8f555ff9",
+      "a222eb60",
+      "947a477f",
+      "43306c95",
+      "a58fa11c",
+      "ab5b5ea9"
+    ],
+    "packages/app-core/src/lib/magic-link-client.test.ts": [
+      "5cdda0ad",
+      "c52effc7",
+      "11444a7b",
+      "f9d165e8",
+      "d3ce74d8",
+      "9ca72f5d",
+      "0667476f",
+      "8a6e1fab"
+    ],
+    "packages/app-core/src/lib/magic-link-client.ts": [
+      "4f75ad2d",
+      "535368dd",
+      "386e7f20",
+      "671b8f39",
+      "e633a21f",
+      "033d0a60",
+      "24bb6770",
+      "7c70798a"
+    ],
+    "packages/app-core/src/lib/providers.test.ts": [
+      "76c2bddf",
+      "ef6678e7",
+      "ac128b9b",
+      "b261c100",
+      "dda55256",
+      "0b951a5e",
+      "9530a63e",
+      "a9830a54"
+    ],
+    "packages/app-core/src/lib/providers.ts": [
+      "392ef7cd",
+      "293e707d",
+      "6b50dbbf",
+      "0f76cf0c",
+      "fab4e758",
+      "abf34dcd",
+      "c34cb671",
+      "f1aceb23"
+    ],
+    "packages/control-plane/src/__tests__/auth-upstream.test.ts": [
+      "46692147",
+      "938af94a",
+      "06328376",
+      "7a796a65",
+      "161e0ade",
+      "fe00ca8c",
+      "a075598a",
+      "96f5f928"
+    ],
+    "packages/control-plane/src/__tests__/magic-link-exchange.test.ts": [
+      "1716548a",
+      "91bdde7f",
+      "77732a4e",
+      "6c236a8e",
+      "26327e39",
+      "518231ef",
+      "e6bd8c83",
+      "69f6ff0a"
+    ],
+    "packages/control-plane/src/__tests__/magic-link-first-party.test.ts": [
+      "e5cf3922",
+      "e970fbdd",
+      "186c6b83",
+      "0a2a2378",
+      "48840da4",
+      "3eb09037",
+      "3152e3e4",
+      "f1f43ecc"
+    ],
+    "packages/control-plane/src/routes/auth-upstream.ts": [
+      "8b5b9a1d",
+      "b33b0559",
+      "73501c75",
+      "f8763a8b",
+      "50fb58fc",
+      "dd715cc1",
+      "66a5d9ea",
+      "5e8aca20"
+    ],
+    "packages/control-plane/src/routes/authentication-service.ts": [
+      "910d896d",
+      "a474272d",
+      "7ccf9c1f",
+      "a1964fef",
+      "71f7d2f1",
+      "e9442245",
+      "27dcd921",
+      "449e2fed"
+    ],
+    "packages/control-plane/src/routes/interactions-email.ts": [
+      "de4b957d",
+      "6efce8ce",
+      "253c5b09",
+      "e0cdbb85",
+      "5e26a7e3",
+      "c6ce2b63",
+      "6c2e74d8",
+      "d70e1d43"
+    ],
+    "packages/control-plane/src/services/better-auth-bridge.ts": [
+      "4c4af69e",
+      "5533c915",
+      "2ef2eea8",
+      "05a54f9b",
+      "9da337b4",
+      "725e7988",
+      "8900bb93",
+      "22c085ec"
+    ],
+    "packages/control-plane/src/services/magic-link-budget.ts": [
+      "a6b285cc",
+      "5cd02418",
+      "46e1259c",
+      "9edf8899",
+      "89dd807a",
+      "aefa882e",
+      "d16d9b33",
+      "e06f7e1e"
+    ],
+    "packages/control-plane/src/services/magic-link-confirmation.ts": [
+      "40c049c5",
+      "2700ebd1",
+      "39ce878d",
+      "bbde0010",
+      "3f0e2cf3",
+      "0c0adee1",
+      "9066a4bb",
+      "105f9f13"
+    ],
+    "packages/control-plane/src/services/magic-link-exchange.ts": [
+      "3069627c",
+      "431161b8",
+      "e8216e07",
+      "6013cdb8",
+      "963aed91",
+      "356412ea",
+      "b7443cf6",
+      "84e47426"
+    ],
+    "packages/control-plane/src/services/magic-link-return.ts": [
+      "d28ca825",
+      "86584bbd",
+      "29890bff",
+      "b0a96485",
+      "e9a290d1",
+      "650b5f55",
+      "3fec9434",
+      "5183e4f3"
+    ],
     "crates/bitwarden-server/src/budget_subject.rs": [
       "b67c8d64",
       "7d189880",
@@ -3432,14 +3658,14 @@
       "7d9d484c"
     ],
     "packages/control-plane/src/repos/security-maps.ts": [
-      "fd962e05",
-      "a6cfd21c",
-      "deac88f9",
-      "7b82cfd6",
-      "33cee1c3",
-      "d64877ed",
-      "399047b7",
-      "c5613172"
+      "cccb1015",
+      "da7cc97c",
+      "322ba131",
+      "32c3a522",
+      "38c3e773",
+      "ee08174e",
+      "c5f711d6",
+      "756aa318"
     ],
     "packages/control-plane/src/routes/claim-presentation.ts": [
       "f8eb3088",
@@ -3602,14 +3828,14 @@
       "8729b44f"
     ],
     "packages/control-plane/src/state.ts": [
-      "c2e70248",
-      "41b806a4",
-      "1872a13c",
-      "a7f61d69",
-      "d8e27687",
-      "750ef6a2",
-      "0b68cbe3",
-      "a812ce41"
+      "b7e14988",
+      "c7e5af44",
+      "0ef0eec8",
+      "fcc1fdc7",
+      "66ce83e6",
+      "365cc7e0",
+      "d0ba838a",
+      "a3aad4e6"
     ],
     "packages/oauth-provider/src/__tests__/signing-keys.test.ts": [
       "9758bdc0",

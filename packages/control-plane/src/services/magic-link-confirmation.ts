@@ -61,3 +61,9 @@ export const magicLinkConfirmationHtml = `<!doctype html>
 <body><main><div class="brand">OPEN SESAME</div><h1>Continue sign-in</h1><p id="status">Confirm that you want to sign in to OpenSesame.</p><noscript><p>Enable JavaScript to continue.</p></noscript>
 <form method="post"><input id="token" name="token" type="hidden"><input id="return" name="return" type="hidden"><button id="submit" type="submit" disabled>Continue</button></form></main>
 <script>${script}</script></body></html>`;
+
+/** Hosted interactions keep the token in the form action until confirmation. */
+export const hostedMagicLinkConfirmationHtml = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex"><title>Continue sign-in</title><style>${style}</style></head>
+<body><main><div class="brand">OPEN SESAME</div><h1>Continue sign-in</h1><p>Confirm that you want to sign in to OpenSesame.</p>
+<form method="post"><button type="submit">Continue</button></form></main></body></html>`;

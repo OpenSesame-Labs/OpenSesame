@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { overlapCast } from "@opensesame/os-domain";
-import { afterAll, beforeAll, expect, it } from "vitest";
+import { afterAll, beforeAll, expect, it, vi } from "vitest";
+import { resetMagicLinkUpgradeTelemetryForTest } from "../routes/auth-upstream.js";
 import type { startServer } from "../server.js";
 import { onFreePort } from "./free-port.js";
 
@@ -38,7 +39,7 @@ async function requestedLink(email: string) {
   const verifier = randomBytes(32).toString("base64url");
   const challenge = createHash("sha256").update(verifier).digest("base64url");
   const state = randomBytes(24).toString("base64url");
-  const response = await fetch(`${base}/v1/auth/sign-in/magic-link`, {
+  const response = await fetch(`${base}/v1/auth/magic-link/v1/sign-in`, {
     method: "POST",
     headers: { "content-type": "application/json", origin },
     body: JSON.stringify({
@@ -153,6 +154,7 @@ it("burns a code on a wrong verifier and rejects unsafe callbacks before email",
   const before = started.ctx.mailer.outbox.length;
   for (const unsafe of [
     "https://evil.example/OpenSesame/device",
+    origin,
     `${origin}/other-app`,
     `${origin}/OpenSesame/device?access_token=secret`,
     `${origin}/OpenSesame/device#fragment`,
@@ -171,14 +173,63 @@ it("burns a code on a wrong verifier and rejects unsafe callbacks before email",
     });
     expect(refused.status).toBe(400);
   }
+  const budgetBefore = structuredClone(
+    started.ctx.stores.magicLinkBudgets.get("deployment"),
+  );
+  resetMagicLinkUpgradeTelemetryForTest();
+  const logged = vi.spyOn(started.ctx.log, "warn").mockImplementation(() => {});
+  const untrusted = await fetch(`${base}/v1/auth/sign-in/magic-link`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: "https://untrusted.example.test",
+    },
+    body: JSON.stringify({
+      email: "unsafe@example.test",
+      callbackURL: "https://untrusted.example.test/callback",
+    }),
+  });
+  expect(untrusted.status).toBe(400);
+  expect(logged).not.toHaveBeenCalled();
   const downgrade = await fetch(`${base}/v1/auth/sign-in/magic-link`, {
     method: "POST",
     headers: { "content-type": "application/json", origin },
     body: JSON.stringify({
       email: "unsafe@example.test",
-      callbackURL: callback,
+      callbackURL: origin,
     }),
   });
-  expect(downgrade.status).toBe(400);
+  expect(downgrade.status).toBe(426);
+  expect(downgrade.headers.get("cache-control")).toBe("no-store");
+  expect(await downgrade.json()).toEqual({
+    error: "client_upgrade_required",
+    requiredProtocol: "magic-link-pkce-v1",
+    action: "reload",
+  });
+  expect(started.ctx.stores.magicLinkBudgets.get("deployment")).toEqual(
+    budgetBefore,
+  );
+  expect(logged).toHaveBeenCalledWith(
+    {
+      event: "magic_link_client_upgrade_required",
+      requiredProtocol: "magic-link-pkce-v1",
+      suppressedSinceLast: 0,
+    },
+    "legacy magic-link request refused",
+  );
+  const sampled = await fetch(`${base}/v1/auth/magic-link/v1/sign-in`, {
+    method: "POST",
+    headers: { "content-type": "application/json", origin },
+    body: JSON.stringify({
+      email: "unsafe@example.test",
+      callbackURL: origin,
+    }),
+  });
+  expect(sampled.status).toBe(426);
+  expect(started.ctx.stores.magicLinkBudgets.get("deployment")).toEqual(
+    budgetBefore,
+  );
+  expect(logged).toHaveBeenCalledTimes(1);
+  logged.mockRestore();
   expect(started.ctx.mailer.outbox).toHaveLength(before);
 });

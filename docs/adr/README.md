@@ -291,3 +291,4 @@ looks arbitrary, the ADR it cites explains it.
 | [0225](0225-first-visit-offers-in-flow.md) | Guidance offers live in the current screen's flow | Accepted |
 | [0226](0226-vault-relay-directory-bindings.md) | Vault relay directory calls require their own service operations | Accepted |
 | [0227](0227-spiffe-withdrawal-under-ambiguous-snapshots.md) | Fail closed on ambiguous SPIFFE snapshots | Accepted |
+| [0228](0228-verifier-bound-magic-link-return.md) | Bind first-party magic-link returns to the initiating browser | Accepted |

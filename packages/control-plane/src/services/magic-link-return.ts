@@ -26,6 +26,44 @@ const returnSchema = z.object({
 });
 export type MagicLinkReturn = z.infer<typeof returnSchema>;
 
+function parseCallback(raw: string): URL | undefined {
+  try {
+    const url = new URL(raw);
+    const decodedPath = decodeURIComponent(url.pathname);
+    if (
+      decodedPath.includes("\\") ||
+      decodedPath.split("/").some((part) => part === "." || part === "..")
+    )
+      return undefined;
+    return url;
+  } catch {
+    return undefined;
+  }
+}
+
+function hasForbiddenCallbackParameter(url: URL): boolean {
+  for (const name of url.searchParams.keys()) {
+    const lower = name.toLowerCase();
+    if (
+      FORBIDDEN_URL_PARAMS.includes(lower) ||
+      lower === "magic_code" ||
+      lower === "magic_state"
+    )
+      return true;
+  }
+  return false;
+}
+
+function isWithinClientApp(ctx: AppContext, url: URL): boolean {
+  if (!ctx.config.clientAppUrl) return true;
+  const base = new URL(ctx.config.clientAppUrl);
+  const path = base.pathname.replace(/\/+$/u, "");
+  return (
+    url.origin === base.origin &&
+    (!path || url.pathname === path || url.pathname.startsWith(`${path}/`))
+  );
+}
+
 /** A return is trusted only within the caller's configured client application. */
 export function approvedMagicCallback(
   ctx: AppContext,
@@ -33,18 +71,8 @@ export function approvedMagicCallback(
   origin?: string,
 ): URL | undefined {
   if (!raw || raw.length > MAX_URL) return undefined;
-  let url: URL;
-  try {
-    url = new URL(raw);
-    const decodedPath = decodeURIComponent(url.pathname);
-    if (
-      decodedPath.includes("\\") ||
-      decodedPath.split("/").some((part) => part === "." || part === "..")
-    )
-      return undefined;
-  } catch {
-    return undefined;
-  }
+  const url = parseCallback(raw);
+  if (!url) return undefined;
   const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
   if (
     (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) ||
@@ -55,24 +83,8 @@ export function approvedMagicCallback(
     !ctx.config.corsOrigins.includes(url.origin)
   )
     return undefined;
-  for (const name of url.searchParams.keys()) {
-    const lower = name.toLowerCase();
-    if (
-      FORBIDDEN_URL_PARAMS.includes(lower) ||
-      lower === "magic_code" ||
-      lower === "magic_state"
-    )
-      return undefined;
-  }
-  if (ctx.config.clientAppUrl) {
-    const base = new URL(ctx.config.clientAppUrl);
-    const path = base.pathname.replace(/\/+$/u, "");
-    if (
-      url.origin !== base.origin ||
-      (path && url.pathname !== path && !url.pathname.startsWith(`${path}/`))
-    )
-      return undefined;
-  }
+  if (hasForbiddenCallbackParameter(url) || !isWithinClientApp(ctx, url))
+    return undefined;
   return url;
 }
 

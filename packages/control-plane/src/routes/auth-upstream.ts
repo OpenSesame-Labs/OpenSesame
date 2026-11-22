@@ -1,5 +1,5 @@
 import type { HttpBindings } from "@hono/node-server";
-import { Hono } from "hono";
+import { type Handler, Hono } from "hono";
 import { z } from "zod";
 import type { AppContext } from "../context.js";
 import type { Variables } from "../middleware/context.js";
@@ -30,6 +30,7 @@ import {
 } from "../services/magic-link-return.js";
 
 type NodeEnv = { Bindings: HttpBindings };
+type AuthRouter = Hono<{ Variables: Variables } & NodeEnv>;
 
 /**
  * The Better Auth mount (C20 / D16 / ADR 0057).
@@ -80,43 +81,110 @@ const proofSchema = z.object({
   return: z.string().min(1).max(4096),
 });
 
-export function createUpstreamAuthRoutes(
-  ctx: AppContext,
-): Hono<{ Variables: Variables } & NodeEnv> {
-  const routes = new Hono<{ Variables: Variables } & NodeEnv>();
-  // The handlers use the `ctx` this router was built with rather than
-  // `c.get("ctx")`: the middleware puts the same object on every request, and
-  // reading it from the closure is what binds the Better Auth instance and the
-  // mailer seam to one control plane.
-  //
-  // `upstreamAuthFor` is deliberately NOT called here. It is memoized per
-  // context, so the mount and the interaction sub-router already share one
-  // instance; building it at mount time would only mean every deployment that
-  // never sends a magic link still pays for a Better Auth init, and fails at
-  // boot on a configuration Better Auth dislikes but this API never consults.
+const UPGRADE_TELEMETRY_WINDOW_MS = 60_000;
+let nextUpgradeTelemetryAt = 0;
+let suppressedUpgradeEvents = 0;
 
-  // Rebuild the allowed request with server-validated metadata. A caller cannot
-  // attach its own hosted-interaction id or change the signed return target.
-  routes.post("/sign-in/magic-link", async (c) => {
+function recordLegacyClient(ctx: AppContext): void {
+  const now = ctx.clock().getTime();
+  if (now < nextUpgradeTelemetryAt) {
+    suppressedUpgradeEvents += 1;
+    return;
+  }
+  ctx.log.warn(
+    {
+      event: "magic_link_client_upgrade_required",
+      requiredProtocol: "magic-link-pkce-v1",
+      suppressedSinceLast: suppressedUpgradeEvents,
+    },
+    "legacy magic-link request refused",
+  );
+  suppressedUpgradeEvents = 0;
+  nextUpgradeTelemetryAt = now + UPGRADE_TELEMETRY_WINDOW_MS;
+}
+
+export function resetMagicLinkUpgradeTelemetryForTest(): void {
+  nextUpgradeTelemetryAt = 0;
+  suppressedUpgradeEvents = 0;
+}
+
+function isHistoricalPagesRequest(
+  ctx: AppContext,
+  callbackURL: string | undefined,
+  origin: string | undefined,
+): boolean {
+  return (
+    origin !== undefined &&
+    ctx.config.corsOrigins.includes(origin) &&
+    callbackURL === origin
+  );
+}
+
+type MagicRequestAdmission =
+  | { kind: "invalid" }
+  | { kind: "upgrade" }
+  | { kind: "approved"; callback: URL; codeChallenge: string; state: string };
+
+function classifyMagicRequest(
+  ctx: AppContext,
+  callbackURL: string | undefined,
+  origin: string | undefined,
+  codeChallenge: string | undefined,
+  state: string | undefined,
+): MagicRequestAdmission {
+  const callback =
+    origin && callbackURL
+      ? approvedMagicCallback(ctx, callbackURL, origin)
+      : undefined;
+  if (!codeChallenge || !state)
+    return callback || isHistoricalPagesRequest(ctx, callbackURL, origin)
+      ? { kind: "upgrade" }
+      : { kind: "invalid" };
+  if (
+    !callback ||
+    !validMagicChallenge(codeChallenge) ||
+    !MAGIC_STATE.test(state)
+  )
+    return { kind: "invalid" };
+  return { kind: "approved", callback, codeChallenge, state };
+}
+
+function installMagicLinkRequest(routes: AuthRouter, ctx: AppContext): void {
+  const request: Handler<{ Variables: Variables } & NodeEnv> = async (c) => {
     const parsed = requestSchema.safeParse(
       await c.req.json().catch(() => null),
     );
     if (!parsed.success) return c.json({ error: "invalid_request" }, 400);
-    const { email, callbackURL, codeChallenge, state } = parsed.data;
-    const origin = c.req.header("origin");
-    const callback =
-      origin && callbackURL
-        ? approvedMagicCallback(ctx, callbackURL, origin)
-        : undefined;
-    if (
-      !callback ||
-      !codeChallenge ||
-      !validMagicChallenge(codeChallenge) ||
-      !state ||
-      !MAGIC_STATE.test(state)
-    )
+    const { email, callbackURL } = parsed.data;
+    const admission = classifyMagicRequest(
+      ctx,
+      callbackURL,
+      c.req.header("origin"),
+      parsed.data.codeChallenge,
+      parsed.data.state,
+    );
+    if (admission.kind === "invalid")
       return c.json({ error: "invalid_request" }, 400);
-    if ((await chargeMagicLinkBudget(ctx, email)) !== "ok")
+    if (admission.kind === "upgrade") {
+      recordLegacyClient(ctx);
+      c.header("cache-control", "no-store");
+      return c.json(
+        {
+          error: "client_upgrade_required",
+          requiredProtocol: "magic-link-pkce-v1",
+          action: "reload",
+        },
+        426,
+      );
+    }
+    const { callback, codeChallenge, state } = admission;
+    if (
+      (await chargeMagicLinkBudget(
+        ctx,
+        email,
+        c.env?.incoming?.socket?.remoteAddress,
+      )) !== "ok"
+    )
       return c.json({ error: "rate_limited" }, 429);
     const metadata = {
       [MAGIC_CALLBACK]: callback.toString(),
@@ -125,32 +193,39 @@ export function createUpstreamAuthRoutes(
     };
     const headers = new Headers(c.req.raw.headers);
     headers.delete("content-length");
-    const request = new Request(c.req.url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ email, metadata }),
-    });
-    return upstreamAuthFor(ctx).auth.handler(request);
-  });
+    const upstreamUrl = new URL(c.req.url);
+    upstreamUrl.pathname = upstreamUrl.pathname.replace(
+      /\/magic-link\/v1\/sign-in$/u,
+      "/sign-in/magic-link",
+    );
+    return upstreamAuthFor(ctx).auth.handler(
+      new Request(upstreamUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ email, metadata }),
+      }),
+    );
+  };
+  routes.post("/sign-in/magic-link", request);
+  routes.post("/magic-link/v1/sign-in", request);
+}
 
-  /** Opening a link alone cannot consume it; the person confirms the sign-in. */
+function installMagicLinkConfirmation(
+  routes: AuthRouter,
+  ctx: AppContext,
+): void {
   routes.get("/magic-link/complete", (c) => {
     c.header("cache-control", "no-store");
     c.header("referrer-policy", "no-referrer");
     c.header("content-security-policy", magicLinkConfirmationCsp(ctx));
     return c.html(magicLinkConfirmationHtml);
   });
-
-  /** Verify the email proof and return only a verifier-bound one-use code. */
   routes.post("/magic-link/complete", async (c) => {
     c.header("cache-control", "no-store");
     c.header("referrer-policy", "no-referrer");
     const form = await c.req.formData().catch(() => undefined);
     const tokens = form?.getAll("token") ?? [];
     const returns = form?.getAll("return") ?? [];
-    // One answer for a token that never existed, one that expired, and one that
-    // was already spent: distinguishing them tells a holder of a random string
-    // which part of it was nearly right.
     const invalid = () =>
       c.json({ error: "invalid_token" } as const, 401 as const);
     if (tokens.length !== 1 || returns.length !== 1) return invalid();
@@ -162,10 +237,8 @@ export function createUpstreamAuthRoutes(
     const { token } = proof.data;
     const continuation = openMagicLinkReturn(ctx, token, proof.data.return);
     if (!continuation) return invalid();
-
     const subject = await verifyMagicLinkToken(ctx, token);
     if (!subject) return invalid();
-
     const callback = approvedMagicCallback(ctx, continuation.callback);
     if (!callback) return invalid();
     const code = await issueMagicLinkExchange(
@@ -179,7 +252,9 @@ export function createUpstreamAuthRoutes(
     callback.searchParams.set("magic_state", continuation.state);
     return c.redirect(callback.toString(), 303);
   });
+}
 
+function installMagicLinkExchange(routes: AuthRouter, ctx: AppContext): void {
   routes.post("/magic-link/exchange", async (c) => {
     c.header("cache-control", "no-store");
     c.header("referrer-policy", "no-referrer");
@@ -214,6 +289,26 @@ export function createUpstreamAuthRoutes(
       throw error;
     }
   });
+}
+
+export function createUpstreamAuthRoutes(
+  ctx: AppContext,
+): Hono<{ Variables: Variables } & NodeEnv> {
+  const routes = new Hono<{ Variables: Variables } & NodeEnv>();
+  // The handlers use the `ctx` this router was built with rather than
+  // `c.get("ctx")`: the middleware puts the same object on every request, and
+  // reading it from the closure is what binds the Better Auth instance and the
+  // mailer seam to one control plane.
+  //
+  // `upstreamAuthFor` is deliberately NOT called here. It is memoized per
+  // context, so the mount and the interaction sub-router already share one
+  // instance; building it at mount time would only mean every deployment that
+  // never sends a magic link still pays for a Better Auth init, and fails at
+  // boot on a configuration Better Auth dislikes but this API never consults.
+
+  installMagicLinkRequest(routes, ctx);
+  installMagicLinkConfirmation(routes, ctx);
+  installMagicLinkExchange(routes, ctx);
 
   routes.all("/*", async (c) => {
     const url = new URL(c.req.url);

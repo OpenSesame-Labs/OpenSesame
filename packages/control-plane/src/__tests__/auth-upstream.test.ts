@@ -100,9 +100,6 @@ describe("email magic-link sign-in", () => {
         config: {
           host: "127.0.0.1",
           port,
-          // publicUrl must match the real bound port: it is the origin-profile
-          // client id and the base of every link this suite reads out of a
-          // message.
           publicUrl: `http://127.0.0.1:${port}`,
           issuer: `http://127.0.0.1:${port}`,
           corsOrigins: [RP_ORIGIN],
@@ -168,9 +165,6 @@ describe("email magic-link sign-in", () => {
   function lastMail(): ComposedMail {
     const captured = ctx.mailer.outbox.at(-1);
     if (!captured) throw new Error("no message was composed");
-    // SAFETY: `body` is `info.message` from nodemailer's jsonTransport, which
-    // is that transport's documented JSON serialization of the composed
-    // message; the fields read below are all optional in `ComposedMail`.
     const composed: ComposedMail = overlapCast(JSON.parse(captured.body));
     return composed;
   }
@@ -201,6 +195,13 @@ describe("email magic-link sign-in", () => {
     return { jar, uid, html: await res.text() };
   }
 
+  async function confirmHostedLink(jar: Jar, link: string): Promise<Response> {
+    const opened = await req(jar, link);
+    expect(opened.status).toBe(200);
+    expect(await opened.text()).toContain("Confirm that you want to sign in");
+    return req(jar, link, { method: "POST" });
+  }
+
   it("composes a real message carrying a single-use link into the interaction", async () => {
     const email = "traveller@example.test";
     const before = ctx.mailer.outbox.length;
@@ -212,7 +213,6 @@ describe("email magic-link sign-in", () => {
     const mail = lastMail();
     expect(mail.to?.[0]?.address).toBe(email);
     expect(mail.subject).toBe("Your OpenSesame sign-in link");
-    // A composed message, not a template string: MailComposer stamped it.
     expect(mail.messageId).toMatch(/^<.+>$/);
     expect(mail.from?.address).toBeTruthy();
 
@@ -227,9 +227,8 @@ describe("email magic-link sign-in", () => {
     const { jar } = await requestLink(email);
     const link = linkFrom(lastMail());
 
-    const verified = await req(jar, link);
+    const verified = await confirmHostedLink(jar, link);
     expect(verified.status).toBe(303);
-    // A session for the browser that proved control of the address.
     expect(jar.get(ctx.config.provisionalCookieName)).toMatch(/^pst_/);
 
     const identity = await ctx.repos.externalIdentities.findByTuple({
@@ -244,9 +243,6 @@ describe("email magic-link sign-in", () => {
     expect(principal?.state).toBe("active");
     expect(principal?.assurance).toBe("verified");
 
-    // The interaction really finished: following the resume URL leaves the
-    // login prompt behind for the consent prompt (200) or goes straight back
-    // to the relying party (303), and the account is bound either way.
     const resumed = await req(jar, verified.headers.get("location") ?? "");
     expect([200, 303]).toContain(resumed.status);
     expect(resumed.headers.get("location") ?? "").not.toContain(
@@ -259,9 +255,14 @@ describe("email magic-link sign-in", () => {
     const link = new URL(linkFrom(lastMail()));
     const token = link.searchParams.get("token") ?? "";
 
-    expect((await req(jar, link.toString())).status).toBe(303);
+    expect((await req(jar, link.toString())).status).toBe(200);
+    expect((await req(jar, link.toString(), { method: "POST" })).status).toBe(
+      303,
+    );
+    expect(
+      (await req(jar, link.toString(), { method: "POST" })).status,
+    ).not.toBe(303);
 
-    // Check Better Auth directly so a finished interaction cannot mask a replay.
     expect(await verifyMagicLinkToken(ctx, token)).toBeUndefined();
   });
 
@@ -278,23 +279,27 @@ describe("email magic-link sign-in", () => {
 
   it("refuses a link whose token was never issued", async () => {
     const { jar, uid } = await requestLink("stranger@example.test");
+    const opened = await req(
+      jar,
+      `/interaction/${uid}/federated/email/verify?token=${"a".repeat(32)}`,
+    );
+    expect(opened.status).toBe(200);
     const res = await req(
       jar,
       `/interaction/${uid}/federated/email/verify?token=${"a".repeat(32)}`,
+      { method: "POST" },
     );
     expect(res.status).toBe(400);
     const html = await res.text();
     expect(html).toContain("expired or was already used");
-    // A fresh CSRF token, so the re-rendered page is usable (T13).
     expect(extractCsrf(html)).toBeTruthy();
-    // Hosted pages run under `default-src 'none'` with no script-src (T5).
     expect(html).not.toContain("<script");
   });
 
   it("attaches to the principal that already owns the verified email (D15)", async () => {
     const email = "returning@example.test";
     const { jar } = await requestLink(email);
-    const first = await req(jar, linkFrom(lastMail()));
+    const first = await confirmHostedLink(jar, linkFrom(lastMail()));
     expect(first.status).toBe(303);
     const identity = await ctx.repos.externalIdentities.findByTuple({
       kind: "email",
@@ -305,10 +310,9 @@ describe("email magic-link sign-in", () => {
     expect(principalId).toMatch(/^prn_/);
 
     const { jar: second } = await requestLink(email);
-    const again = await req(second, linkFrom(lastMail()));
+    const again = await confirmHostedLink(second, linkFrom(lastMail()));
     expect(again.status).toBe(303);
 
-    // One human, one principal — no duplicate account on the second sign-in.
     const bearer = second.get(ctx.config.provisionalCookieName) ?? "";
     const sessionId = ctx.stores.provisionalTokens.get(bearer);
     expect(
@@ -348,10 +352,6 @@ describe("email magic-link sign-in", () => {
     const before = ctx.mailer.outbox.length;
     for (let attempt = 0; attempt < 7; attempt += 1) {
       const { html } = await requestLink(email);
-      // The first five send; the rest say throttled. The same answer is given
-      // for every address, so this is not an account-existence oracle, and a
-      // victim is no longer silently told to check an inbox that will never
-      // receive anything.
       if (attempt < 5) {
         expect(html).toContain("Check your email");
       } else {

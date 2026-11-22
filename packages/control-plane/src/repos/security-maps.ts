@@ -56,6 +56,12 @@ export function installDurableSecurityMaps(
     true,
     300_000,
   );
+  stores.magicLinkBudgets = map(
+    "OpenSesame:MagicLinkBudget",
+    false,
+    3_600_000,
+    1,
+  );
   stores.totpSecrets = map("OpenSesame:TotpSecret", false, null);
   // Outlives the one step a code is good for; after that the step is past.
   stores.totpSteps = map("OpenSesame:TotpStep", false, 120_000);
