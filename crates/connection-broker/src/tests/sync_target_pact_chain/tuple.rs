@@ -125,6 +125,10 @@ fn pattern_name(elem: &str) -> Option<String> {
         return None;
     }
     let rest = trim_code_ends(elem[name.len()..].trim_start());
+    if rest.starts_with('@') {
+        // `dispatch @ _` binds the name across the whole subpattern.
+        return Some(name);
+    }
     (rest.is_empty() || rest.starts_with(':')).then_some(name)
 }
 
@@ -241,6 +245,30 @@ mod probes {
                 "{sample}"
             );
         }
+    }
+
+    /// `let (dispatch @ _,) = …` binds `dispatch` across the whole
+    /// subpattern, so the later call is still a credentialed alias dispatch.
+    #[test]
+    fn chunk02_at_subpattern_tuple_keeps_send_alias() {
+        let hits = [
+            "fn f() { let (dispatch @ _,) = (Path::send,); dispatch(request); }",
+            "fn f() { let (mut dispatch @ _,) = (Path::send,); dispatch(request); }",
+            "fn f() { let (dispatch @ Some(_),) = (Path::send,); dispatch(request); }",
+            "fn f() { let (dispatch /* c */ @ _,) = (Path::send,); dispatch(request); }",
+        ];
+        for sample in hits {
+            assert_eq!(
+                super::super::dispatch_alias_calls(sample).len(),
+                1,
+                "{sample}"
+            );
+        }
+        let bare =
+            "async fn f() { let (dispatch @ _,) = (Path::send,); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(bare), (1, 1), "{bare}");
+        let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let (dispatch @ _,) = (Path::send,); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
     }
 }
 

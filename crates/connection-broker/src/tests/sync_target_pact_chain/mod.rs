@@ -21,6 +21,13 @@ pub(crate) fn response_chain_consumer(scanned: &str) -> bool {
         "find",
         "partition",
         "concat",
+        // Body-consuming terminators drain the stream like `collect`.
+        "fold",
+        "try_fold",
+        "try_collect",
+        "try_for_each",
+        "all",
+        "nth",
     ];
     METHODS
         .iter()
@@ -157,7 +164,7 @@ fn skip_chain_postfix(source: &str, mut end: usize) -> usize {
             end -= 1;
             continue;
         }
-        if end >= 6 && &source[end - 6..end] == ".await" {
+        if end >= 6 && source.get(end - 6..end) == Some(".await") {
             end -= 6;
             continue;
         }
@@ -348,5 +355,42 @@ mod probes {
             );
             assert!(!reads(sample), "{sample}");
         }
+    }
+
+    /// `fold` / `try_fold` / `try_collect` / `try_for_each` / `all` / `nth`
+    /// drain the body like `collect`: a response-rooted chain is a body read.
+    #[test]
+    fn chunk02_consuming_terminators_extend_response_chains() {
+        for sample in [
+            "response.map(|b| b).fold(0, |acc, b| acc + b)",
+            "response.map(|b| b).try_fold(0, |acc, b| Ok(acc + b))",
+            "response.map(|b| b).try_collect::<Vec<_>>()",
+            "response.map(|b| b).try_for_each(|b| Ok(()))",
+            "response.map(|b| b).all(|b| b.is_ok())",
+            "response.map(|b| b).nth(2)",
+            "response.map(|b| b).await.nth(2)",
+        ] {
+            assert!(
+                super::response_chain_consumer(sample),
+                "terminator must read the body: {sample}"
+            );
+            assert!(reads(sample), "{sample}");
+        }
+        for sample in ["rows.map(|b| b).fold(0, |acc, b| acc + b)", "rows.map(|b| b).nth(2)"] {
+            assert!(!super::response_chain_consumer(sample), "{sample}");
+            assert!(!reads(sample), "{sample}");
+        }
+    }
+
+    /// `end - 6` can land inside a multibyte ident, which panics a plain
+    /// `str` slice: `.get` stays safe and still strips a real `.await`.
+    #[test]
+    fn chunk02_await_check_handles_multibyte_boundary() {
+        let sample = "ab.éawait.x";
+        let dot = sample.rfind('.').expect("chain dot");
+        assert_eq!(super::skip_chain_postfix(sample, dot), dot);
+        let plain = "resp.await.x";
+        let at = plain.rfind('.').expect("chain dot");
+        assert_eq!(super::skip_chain_postfix(plain, at), 4);
     }
 }
