@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import os
 from pathlib import Path
 import shutil
@@ -86,6 +87,32 @@ assert (root / "outside/src/lib.rs").read_text() == "pub fn value() -> u32 {{ {v
 ''')
 
 
+def patch_fixture(repo: Path) -> None:
+    put(repo / "Cargo.toml", '''[workspace]
+members = ["app"]
+exclude = ["vendor/fixture-lib", "vendor/unused"]
+resolver = "2"
+[patch.crates-io]
+fixture-lib = { path = "vendor/fixture-lib" }
+unused = { path = "vendor/unused" }
+''')
+    put(repo / "app/Cargo.toml", '''[package]
+name = "fixture-app"
+version = "0.1.0"
+edition = "2021"
+[dependencies]
+fixture-lib = { path = "../vendor/fixture-lib" }
+''')
+    put(repo / "app/src/lib.rs", "pub fn v() -> u32 { fixture_lib::v() }\n")
+    for name in ("fixture-lib", "unused"):
+        put(repo / f"vendor/{name}/Cargo.toml", f'''[package]
+name = "{name}"
+version = "0.1.0"
+edition = "2021"
+''')
+        put(repo / f"vendor/{name}/src/lib.rs", "pub fn marker() -> u32 { 1 }\n")
+
+
 class FreshnessTests(unittest.TestCase):
     def test_reviewed_cargo_targets_refuse_redirects_and_build_scripts(self) -> None:
         scope = {"__name__": "target_probe", "__file__": str(ISOLATION)}
@@ -130,6 +157,46 @@ class FreshnessTests(unittest.TestCase):
             covered.remove("tests/probe.rs")
             with self.assertRaisesRegex(ValueError, "not covered"):
                 check()
+
+    def test_path_patches_require_reviewed_declarations(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="formal-freshness-patches-") as directory:
+            repo = Path(directory)
+            patch_fixture(repo)
+            env = os.environ.copy()
+            env.pop("RUSTC_WRAPPER", None)
+            env["CARGO_NET_OFFLINE"] = "true"
+            wrapper = command([sys.executable, "-I", str(ISOLATION), str(repo)], env, repo)
+            self.assertEqual(wrapper.returncode, 0, wrapper.stderr)
+            env["RUSTC_WORKSPACE_WRAPPER"] = wrapper.stdout.strip()
+            lock = command(["cargo", "generate-lockfile", "--offline",
+                            "--manifest-path", str(repo / "Cargo.toml")], env, repo)
+            self.assertEqual(lock.returncode, 0, lock.stderr)
+
+            def init(state: Path, *reviewed: str) -> subprocess.CompletedProcess[str]:
+                args = [sys.executable, "-I", str(VALIDATOR), "init", "--repo", str(repo),
+                        "--manifest", str(repo / "Cargo.toml"), "--state", str(state),
+                        "--package", "fixture-app"]
+                for item in reviewed:
+                    args.extend(("--reviewed-patch", item))
+                return command(args, env, repo)
+
+            refused = init(repo / "refused-state.json")
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertIn("separately reviewed coverage: fixture-lib", refused.stderr)
+            mismatched = init(repo / "mismatched-state.json", "fixture-lib=vendor/other")
+            self.assertNotEqual(mismatched.returncode, 0)
+            self.assertIn("separately reviewed coverage: fixture-lib", mismatched.stderr)
+            out_of_scope = init(repo / "scope-state.json",
+                                "fixture-lib=vendor/fixture-lib", "unused=vendor/unused")
+            self.assertNotEqual(out_of_scope.returncode, 0)
+            self.assertIn("matches no in-scope path patch: unused", out_of_scope.stderr)
+            accepted = init(repo / "accepted-state.json", "fixture-lib=vendor/fixture-lib")
+            self.assertEqual(accepted.returncode, 0, accepted.stderr)
+            state = json.loads((repo / "accepted-state.json").read_text())
+            tracked = sorted(package["name"] for package in state["packages"].values())
+            self.assertEqual(tracked, ["fixture-app", "fixture-lib"])
+            self.assertEqual(state["reviewed_patches"], ["fixture-lib=vendor/fixture-lib"])
+            (repo / "accepted-state.json").unlink()
 
     def test_session_state_must_be_private_and_not_a_link(self) -> None:
         with tempfile.TemporaryDirectory(prefix="formal-freshness-state-") as directory:

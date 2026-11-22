@@ -15,8 +15,7 @@ import type { GuideTargetDescriptor } from "./targets.js";
 export const SHELL_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "nav.menu",
-    description:
-      "Opens the list of sections on a phone. A wide screen draws the same list as the rail and this key is not there.",
+    description: "Open the list of sections on a phone or narrow screen.",
     role: "navigation",
     routes: [],
     capabilityId: "app.navigate",
@@ -24,7 +23,7 @@ export const SHELL_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "nav.vault",
     description:
-      "Rail entry that opens the Vault, where every stored account, passkey, card, secret and note lives.",
+      "Open Vault to view accounts, passkeys, cards, secrets and notes.",
     role: "navigation",
     routes: [],
     capabilityId: "app.navigate",
@@ -32,7 +31,7 @@ export const SHELL_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "nav.settings",
     description:
-      "Rail entry that opens Settings, covering general preferences, security, features, integrations, vault data and destructive actions.",
+      "Open Settings to manage preferences, security, features, integrations and vaults.",
     role: "navigation",
     routes: [],
     capabilityId: "app.navigate",
@@ -48,7 +47,7 @@ export const SHELL_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "shell.account",
     description:
-      "The account segment of the shell prompt (who@vault:/); opens the menu that names the signed-in account, switches org profiles, and offers to attach another account, switch account, or sign out.",
+      "Open the account menu to switch profiles or accounts, attach an account or sign out.",
     role: "action",
     routes: [],
     capabilityId: "identity.signout",
@@ -56,7 +55,7 @@ export const SHELL_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "shell.notifications",
     description:
-      "Statusline bell listing notices that need a person: pending links, failed syncs, expiring items.",
+      "Review notices such as pending links, failed syncs and expiring items.",
     role: "status",
     routes: [],
     capabilityId: null,
@@ -64,7 +63,7 @@ export const SHELL_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "shell.connectivity",
     description:
-      "The More key in the phone top bar, and the connection rows behind it. Its dot says a connection needs setup, there is no network, or a notice is waiting; each row names a connector and what it is doing.",
+      "Open More to review connection status and notices on a phone.",
     role: "status",
     routes: [],
     capabilityId: "host.health.pages",

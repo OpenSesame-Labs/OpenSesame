@@ -4,6 +4,7 @@ import {
   installDoublePorts,
 } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
 import { clearNotices } from "@opensesame/app-core/lib/notices.js";
+import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registry/targets.js";
 import {
   cleanup,
   fireEvent,
@@ -47,6 +48,18 @@ function renderChoice(onDone: () => void) {
 }
 
 describe("the configuration choice (ADR 0154)", () => {
+  it("returns walkthrough focus to the Default button", () => {
+    const { container } = render(<SetupScreen onDone={vi.fn()} />);
+    const host = container.querySelector<HTMLElement>(
+      "[data-first-visit-return]",
+    );
+    const target = host?.dataset.firstVisitReturn;
+    expect(target).toBe("setup.default");
+    expect(resolveGuideTargetElement(target ?? "")).toBe(
+      screen.getByRole("button", { name: "Default" }),
+    );
+  });
+
   it("commits the minimal plan only after Use Minimal anyway", async () => {
     const onDone = vi.fn();
     const before = double.commits.length;

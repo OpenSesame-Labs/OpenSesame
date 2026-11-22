@@ -1,6 +1,7 @@
-import type { VaultItem } from "@opensesame/vault-core";
+import { type VaultItem, passwordMethod } from "@opensesame/vault-core";
 import { type MutableRefObject, useCallback, useState } from "react";
 import { Link, useNavigate } from "react-router";
+import { openContextMenu } from "../../components/context-menu/menu-model.js";
 import { IconKey } from "../../components/IconKey.js";
 import {
   IconEdit,
@@ -10,9 +11,9 @@ import {
   IconTrash,
   IconX,
 } from "../../components/Icons.js";
-import { openContextMenu } from "../../components/context-menu/menu-model.js";
 import { useVaultStore } from "../../lib/vault/hooks.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
+import { hasNoGeneratedPassword } from "./account-secrets.js";
 import { ReferenceKeys } from "./ReferenceKeys.js";
 import { TRASH_CONFIRM, shareWays } from "./vault-menu.js";
 
@@ -161,6 +162,7 @@ export function ItemTools({
       />
     );
   const favorite = item.favorite ? "Remove from favorites" : "Add to favorites";
+  const password = item.kind === "account" ? passwordMethod(item) : undefined;
   return (
     <div className="detail__tools">
       <button
@@ -180,6 +182,9 @@ export function ItemTools({
           className="icon-btn"
           aria-label="Edit"
           title="Edit (e)"
+          data-guide-pepper-recovery={
+            password && hasNoGeneratedPassword(password) ? "edit" : undefined
+          }
           to={`/vault/${item.id}/edit`}
         >
           <IconEdit size={17} />

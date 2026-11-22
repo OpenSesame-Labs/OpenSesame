@@ -20,10 +20,10 @@ import { CancelSheet } from "./circles/CancelSheet.js";
 import { ChangeSheet } from "./circles/ChangeSheet.js";
 import { CircleRow } from "./circles/CircleRow.js";
 import { CircleSheet, type Sub } from "./circles/CircleSheet.js";
+import { landOnId } from "./circles/circle-focus.js";
 import { InviteMoreSheet } from "./circles/InviteMoreSheet.js";
 import { NewCircleSheet } from "./circles/NewCircleSheet.js";
 import { PacketsSheet } from "./circles/PacketsSheet.js";
-import { landOnId } from "./circles/circle-focus.js";
 import "./circles/circles.css";
 import { PanelFrame, useSaid } from "./panel-frame.js";
 import { circleFacts, circleMark, countText } from "./row-model.js";
@@ -124,7 +124,10 @@ function useCircleView(desk: Desk) {
     view.kind !== "new" &&
     !desk.owned.some((r) => r.signedPolicy.policy.circleId === view.circleId);
   useEffect(() => {
-    if (gone) setView(null);
+    if (gone) {
+      opener.current = HEAD_KEY;
+      setView(null);
+    }
   }, [gone]);
 
   // Closing the last sheet puts the keyboard back where the person came from,

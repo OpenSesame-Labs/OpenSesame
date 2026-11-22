@@ -1,5 +1,7 @@
 /** @vitest-environment jsdom */
+import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registry/targets.js";
 import {
+  createItem,
   passwordMethod,
   pepperBinding,
   sealWithPepper,
@@ -7,6 +9,7 @@ import {
 import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
+import { makeAccount } from "./account.test-support.js";
 import {
   block,
   input,
@@ -18,10 +21,28 @@ import {
   showOptions,
   vault,
 } from "./account-editor.test-support.js";
-import { makeAccount } from "./account.test-support.js";
+import { switchGenerator } from "./account-secrets.js";
 
 describe("account editor: pepper (ADR 0174)", () => {
   installEditorHarness();
+
+  it("only exposes the pepper guide target while password options are open", async () => {
+    open("/vault/new/account");
+    const password = block("Password");
+    const options = password.getByRole("button", { name: "Password options" });
+    expect(resolveGuideTargetElement("editor.pepper")).toBeNull();
+    await showOptions(password);
+    expect(resolveGuideTargetElement("editor.pepper")).toBe(
+      password.getByText("Include pepper").closest("label"),
+    );
+    const target = resolveGuideTargetElement("editor.pepper-options");
+    expect(target?.contains(password.getByLabelText("Include pepper"))).toBe(
+      true,
+    );
+    expect(target?.contains(password.getByLabelText("Pepper goes"))).toBe(true);
+    await userEvent.click(options);
+    expect(resolveGuideTargetElement("editor.pepper")).toBeNull();
+  });
 
   it("has Include pepper on at the end by default, never asks for one, and draws where it goes only while it is on", async () => {
     open("/vault/new/account");
@@ -82,6 +103,16 @@ describe("account editor: pepper (ADR 0174)", () => {
     expect(method.generator.id).toBe("derived");
     expect(method.secret).not.toBe(shown);
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("allows a pepper to replace the whole password outside a tutorial", async () => {
+    open("/vault/new/account");
+    const password = block("Password");
+    await showOptions(password);
+    await userEvent.type(password.getByLabelText("Pepper goes"), "0:");
+    await userEvent.click(screen.getByRole("button", { name: "Save item" }));
+    await waitFor(() => expect(saveItem).toHaveBeenCalled());
+    expect(passwordOf(saved()).pepperAt).toBe("0:");
   });
 
   it("takes a Python-style position, and marks one that is not, keeping the last good one", async () => {
@@ -176,4 +207,36 @@ describe("account editor: pepper (ADR 0174)", () => {
     expect(next).toMatchObject({ pepper: false, secret: "old-password" });
     expect(next.sealed).toBeUndefined();
   }, 20_000);
+});
+
+describe("generating a password for a saved account", () => {
+  installEditorHarness();
+
+  it.each([true, false])(
+    "generates locally with a website (guest: %s)",
+    async (guest) => {
+      const item = createItem("account", "Webmail");
+      item.id = "itm_1";
+      item.uris = [
+        { id: "site", uri: "https://example.test", match: "domain" },
+      ];
+      const initial = item.methods[0];
+      if (initial?.type !== "password")
+        throw new Error("missing password method");
+      item.methods = [switchGenerator(initial, "rules")];
+      vault.current = { items: [item], folders: [], guest };
+      open("/vault/itm_1/edit");
+      const password = input("Password");
+      const before = password.value;
+      await userEvent.click(
+        screen.getByRole("button", { name: "Generate another password" }),
+      );
+      await waitFor(() => expect(password.value).not.toBe(before));
+      expect(password.value).not.toBe("");
+      expect(saveItem).not.toHaveBeenCalled();
+      await userEvent.click(screen.getByRole("button", { name: "Save item" }));
+      await waitFor(() => expect(saveItem).toHaveBeenCalled());
+      expect(passwordOf(saved()).secret).toBe(password.value);
+    },
+  );
 });

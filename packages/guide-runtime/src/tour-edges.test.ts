@@ -1,4 +1,3 @@
-import { GUIDE_LANG_VERSION } from "@opensesame/guide-lang";
 import type {
   GuideGoalId,
   GuideInstruction,
@@ -6,6 +5,7 @@ import type {
   GuideRouteId,
   GuideTargetId,
 } from "@opensesame/guide-lang";
+import { GUIDE_LANG_VERSION } from "@opensesame/guide-lang";
 import { describe, expect, it } from "vitest";
 
 import { createTestClock } from "./clock.js";
@@ -16,6 +16,7 @@ import {
   createRecordingRenderer,
 } from "./fakes.js";
 import { createGuideRuntime } from "./runtime.js";
+import { TOUR_APPEAR_GRACE_MS } from "./tour.js";
 
 const TARGETS: readonly GuideTargetId[] = ["vault.create", "vault.export"];
 const ROUTES: readonly GuideRouteId[] = ["/vault", "/settings"];
@@ -40,9 +41,11 @@ const POINTING: readonly GuideInstruction[] = [
 function harness(mounted: readonly GuideTargetId[] = TARGETS) {
   const clock = createTestClock();
   const routes = createFakeRoutes(ROUTES, "/vault");
+  const targets = createFakeTargets(TARGETS, mounted);
+  const renderer = createRecordingRenderer();
   const runtime = createGuideRuntime({
-    renderer: createRecordingRenderer(),
-    targets: createFakeTargets(TARGETS, mounted),
+    renderer,
+    targets,
     routes,
     state: createFakeState([["vault.unlocked", true]]),
     clock,
@@ -50,10 +53,87 @@ function harness(mounted: readonly GuideTargetId[] = TARGETS) {
   const settle = async () => {
     await clock.advance(0);
   };
-  return { routes, runtime, settle };
+  return { clock, renderer, routes, runtime, settle, targets };
 }
 
 describe("tour mode edges", () => {
+  it("rechecks a satisfied action if it becomes unsatisfied while the step is open", async () => {
+    const h = harness(["vault.create"]);
+    void h.runtime.start(
+      program([
+        {
+          kind: "focus",
+          target: "vault.create",
+          message: "Turn the option off.",
+          side: null,
+        },
+        {
+          kind: "wait",
+          subject: "target",
+          target: "vault.export",
+          event: "disappear",
+          timeoutMs: 30000,
+        },
+        { kind: "success", message: "Off." },
+        { kind: "end" },
+      ]),
+      { mode: "tour" },
+    );
+    await h.settle();
+    expect(h.runtime.snapshot().tour).toMatchObject({ step: 1, action: false });
+    h.targets.appear("vault.export");
+    h.runtime.next();
+    await h.settle();
+    expect(h.runtime.snapshot().tour).toMatchObject({ step: 1, action: true });
+    h.targets.disappear("vault.export");
+    await h.settle();
+    expect(h.runtime.snapshot().tour?.kind).toBe("close");
+  });
+
+  it("relights a missing control and waits for its required action", async () => {
+    const h = harness([]);
+    void h.runtime.start(
+      program([
+        {
+          kind: "focus",
+          target: "vault.create",
+          message: "Create.",
+          side: null,
+        },
+        {
+          kind: "wait",
+          subject: "target",
+          target: "vault.create",
+          event: "activate",
+          timeoutMs: 30000,
+        },
+        { kind: "success", message: "Created." },
+        { kind: "end" },
+      ]),
+      { mode: "tour" },
+    );
+    await h.settle();
+    await h.clock.advance(TOUR_APPEAR_GRACE_MS);
+    expect(h.runtime.snapshot().tour).toMatchObject({
+      step: 1,
+      degraded: true,
+      action: true,
+    });
+    h.targets.appear("vault.create");
+    await h.settle();
+    expect(h.runtime.snapshot().tour).toMatchObject({
+      step: 1,
+      degraded: false,
+      action: true,
+    });
+    expect(h.renderer.renderCalls().some((call) => call.kind === "focus")).toBe(
+      true,
+    );
+    h.targets.activate("vault.create");
+    await h.settle();
+    expect(h.runtime.snapshot().tour?.kind).toBe("close");
+  });
+
   it("does not skip a step when Next arrives while its control is awaited", async () => {
     const h = harness([]);
     void h.runtime.start(program(POINTING), { mode: "tour" });

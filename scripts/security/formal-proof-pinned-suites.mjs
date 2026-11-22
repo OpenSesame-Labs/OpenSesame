@@ -171,6 +171,8 @@ export const PINNED_FORMAL_SUITES = [
       "patches/vendor/sqlx-sqlite-0.9.0/src/types/uuid.rs",
       "crates/domain/src/lib.rs",
       "crates/domain/build.rs",
+      "crates/time/build.rs",
+      "patches/vendor/sqlx-sqlite-0.9.0/build.rs",
     ],
     lockProjection: { path: "Cargo.lock", root: "opensesame-domain" },
     manifestProjection: {

@@ -110,6 +110,8 @@ MIGRATIONS = [
     'crates/storage/migrations/0055_agent_hook_approvers.sql', 'crates/storage/migrations/0056_outbox_customer_binding.sql',
     'crates/storage/migrations/0057_est_passphrase_budget.sql', 'crates/storage/migrations/0058_bitwarden_attempt_budgets.sql',
     'crates/storage/migrations/0059_est_source_budgets.sql',
+    'crates/storage/migrations/0060_host_membership_withdrawals.sql',
+    'crates/storage/migrations/0061_pairing_membership_revision.sql',
 ]
 PATHS = [
     'apps/cli/src/main.rs',
@@ -223,7 +225,7 @@ OPTIONAL_PATHS = ["apps/Cargo.toml", "crates/Cargo.toml", *BUILD_PATHS, ".cargo/
 # src/invocations.rs). Migrations are still the literal MIGRATIONS table in
 # src/migrations.rs with include_str! paths, and this root change cannot
 # shadow or redirect them, so the pin moves to the reviewed current bytes.
-MIGRATION_ROOT_SHA256 = "eafab5f9688d370d28e57a9dc14232252b137cb22708ebd43c37578f994db327"
+MIGRATION_ROOT_SHA256 = "6e7539cb20d0c31a003c5225a18104ec66159d5a0ab16518ee68d2a5ae0ee987"
 CARGO_TARGETS = {
     'apps/cli/Cargo.toml': {'package': 'opensesame-cli',
         'bin': {'opensesame': 'src/main.rs'},
