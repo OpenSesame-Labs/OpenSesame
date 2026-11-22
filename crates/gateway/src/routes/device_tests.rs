@@ -17,9 +17,9 @@ fn authorize_capacity_check_holds_the_map_lock() {
         ],
     );
     opensesame_host_core::pact::assert_source_order(
-        include_str!("device.rs"),
+        include_str!("device_approval.rs"),
         &[
-            "pub async fn approve",
+            "pub(super) fn approve_native",
             "device_approve_failures.lock()",
             "prune_failures",
             "device_codes.lock()",
