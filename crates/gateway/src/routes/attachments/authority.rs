@@ -52,7 +52,7 @@ mod tests {
         role: OrganizationRole,
         capabilities: &[&str],
     ) -> String {
-        let raw = uuid::Uuid::new_v4().to_string();
+        let raw = format!("fixture_{}", uuid::Uuid::new_v4());
         let mut claims = crate::session_claims::fixture(
             opensesame_domain::PrincipalId::new(),
             state.connection_organization,

@@ -206,7 +206,11 @@ pub fn fixture(
         credential_handle: None,
         issued_at: now,
         expires_at: now + opensesame_time::Duration::minutes(5),
-        local_session: false,
+        // Production derives this from the membership revision
+        // (`local_session = membership_revision.is_none()`); a revisionless
+        // fixture bearer is a local session, which the withdrawal fence treats
+        // as live by definition.
+        local_session: true,
         membership_revision: None,
     }
 }
