@@ -130,21 +130,30 @@ pub(super) fn strip_turbofish(after: &str) -> Option<&str> {
     let after = after.strip_prefix("::")?.strip_prefix('<')?;
     let bytes = after.as_bytes();
     let (mut depth, mut brace) = (1i32, 0i32);
-    for (index, ch) in after.char_indices() {
-        match ch {
-            '{' => brace += 1,
-            '}' => brace = brace.saturating_sub(1),
+    let mut index = 0usize;
+    while index < bytes.len() {
+        // String and character literal regions are not code: a `'}'` or
+        // `'<'` in a const-generic literal must not move the brace or angle
+        // depth (Kimi council chunk04 P2).
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'{' => brace += 1,
+            b'}' => brace = brace.saturating_sub(1),
             // `->` is a return type (`fn() -> R`) and `>` inside `{…}` is a
             // comparison (`{1 > 0}`); neither closes the turbofish.
-            '>' if brace == 0 && !(index > 0 && bytes[index - 1] == b'-') => {
+            b'>' if brace == 0 && bytes.get(index.wrapping_sub(1)) != Some(&b'-') => {
                 depth -= 1;
                 if depth == 0 {
-                    return Some(&after[index + ch.len_utf8()..]);
+                    return Some(&after[index + 1..]);
                 }
             }
-            '<' if brace == 0 => depth += 1,
+            b'<' if brace == 0 => depth += 1,
             _ => {}
         }
+        index += 1;
     }
     None
 }
@@ -192,3 +201,29 @@ pub(super) fn is_ident_char(ch: char) -> bool {
 #[path = "https_dispatch_tests.rs"]
 #[cfg(test)]
 mod dispatch_tests;
+
+#[cfg(test)]
+mod probes {
+    use super::strip_turbofish;
+
+    /// String and character literal regions inside a turbofish are not code:
+    /// a `'}'` / `'<'` in a const-generic literal must not move the brace or
+    /// angle depth, or the closer is never found and the alias call is
+    /// dropped (Kimi council chunk04 P2).
+    #[test]
+    fn kimi_council_r4_literal_brace_does_not_desync_turbofish() {
+        for (after, rest) in [
+            ("::<'<'>(req)", "(req)"),
+            ("::<'>'>(req)", "(req)"),
+            ("::<\"}>\">(req)", "(req)"),
+            ("::<A, '}'>(req)", "(req)"),
+            ("::<{'}'}>(req)", "(req)"),
+        ] {
+            assert_eq!(strip_turbofish(after).as_deref(), Some(rest), "{after}");
+        }
+        // Controls: comparisons and return arrows still do not close.
+        assert_eq!(strip_turbofish("::<{1 > 0}>(req)").as_deref(), Some("(req)"));
+        assert_eq!(strip_turbofish("::<fn() -> R>(req)").as_deref(), Some("(req)"));
+        assert!(strip_turbofish("::<A").is_none());
+    }
+}

@@ -138,4 +138,32 @@ mod probes {
             );
         }
     }
+
+/// `{response:#?}` pretty-prints the whole body exactly like `{:?}`: the
+/// pretty-debug specifier must mark the macro as a read, in every delimiter
+/// (Kimi council chunk07 P1).
+#[test]
+fn kimi_council_r4_pretty_debug_format_is_a_read() {
+    let hits = [
+        r#"println!("{response:#?}")"#,
+        r#"println!["{response:#?}"]"#,
+        r#"format!("{response:#?}")"#,
+        r#"eprintln!("{response:#?}")"#,
+        r#"println!("{:?}", response)"#,
+    ];
+    for sample in hits {
+        assert!(
+            !response_body_reads(sample).is_empty(),
+            "pretty-debug format must read the response: {sample}"
+        );
+    }
+    let misses = [r#"println!("{response}")"#, r#"format!("{}", count)"#];
+    for sample in misses {
+        assert!(
+            response_body_reads(sample).is_empty(),
+            "a display (non-debug) format is not a body read: {sample}"
+        );
+    }
 }
+}
+

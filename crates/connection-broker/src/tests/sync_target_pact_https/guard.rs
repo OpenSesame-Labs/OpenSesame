@@ -44,10 +44,9 @@ pub(super) fn guarded(prefix: &str, dest: Option<&str>) -> bool {
 
 /// `else if` is still conditional: the send after the chain runs when `else` is skipped.
 fn preceded_by_else(bytes: &[u8], index: usize) -> bool {
-    // Skip comment and string regions too, not only whitespace: on a prefix
-    // that still carries comment bytes, `else /* c */ if` is still an
-    // else-if whose chain can fall through to the send unguarded, while a
-    // commented-out `else` leaves a real new `if` guard dominating
+    // Skip comment/string regions too: on a raw prefix, `else /* c */ if` is
+    // still an else-if whose chain can fall through to the send unguarded,
+    // while a commented-out `else` leaves a real new `if` dominating
     // (Kimi council chunk03 P2).
     let code = code_mask(bytes);
     let mut at = index;
@@ -215,7 +214,10 @@ fn scheme_at(expr: &str) -> Option<usize> {
         }
         if let Some(end) = scheme_neq_end(expr, index) {
             let prefix = &expr[..index];
-            if end == expr.len() && !prefix.bytes().any(|b| matches!(b, b'!' | b'&' | b'|')) {
+            // `!=` binds tighter than `^` / ordered compares, so `flag ^
+            // Scheme::scheme(&url)` does not dominate (Kimi council chunk03 P2).
+            const COMBINED: &[u8] = b"!&|^<>";
+            if end == expr.len() && !prefix.bytes().any(|b| COMBINED.contains(&b)) {
                 return Some(index);
             }
             return None;

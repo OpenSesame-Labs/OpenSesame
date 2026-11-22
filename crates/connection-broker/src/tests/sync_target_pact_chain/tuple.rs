@@ -26,58 +26,55 @@ fn tuple_open_and_index(source: &str, path_start: usize) -> Option<(usize, usize
     let code = super::peel::code_mask(bytes);
     let mut depth = 0i32;
     // `<>` tracking: a comma inside an earlier element's turbofish
-    // (`foo::<A, B>(x)`) is not a tuple comma. `>` also opens a comparison
-    // region, which holds no depth-0 comma of its own, so commas seen while
-    // `angle > 0` wait in `pending`: discarded when the region closes at a
-    // `::<`, committed as real separators by anything else.
-    let mut angle = 0i32;
-    let mut pending = 0usize;
+    // (`foo::<A, B>(x)`) is not a tuple comma. Every `>` at depth 0 opens a
+    // region — a generic close (`>>` coalesces nested closes into stacked
+    // regions), a comparison, or a shift. Depth-0 commas wait in their
+    // region: popped regions whose close is a turbofish `::<` are discarded
+    // (their commas were generic args); any other close or the tuple paren
+    // itself commits them as real separators, because a comparison region
+    // that never meets its `<` held tuple commas after all.
+    let mut regions: Vec<usize> = Vec::new();
     let mut commas = 0usize;
     while index > 0 {
         index -= 1;
         if !code[index] {
             continue;
         }
-        if angle > 0 {
-            match bytes[index] {
-                b')' | b']' | b'}' => depth += 1,
-                b'(' | b'[' | b'{' if depth > 0 => depth -= 1,
-                // The tuple paren closes an unconfirmed region: the held
-                // commas belonged to comparisons, not a turbofish.
-                b'(' if depth == 0 => {
-                    commas += pending;
-                    return Some((index, commas));
-                }
-                b'>' if !matches!(bytes.get(index.wrapping_sub(1)), Some(b'-' | b'=')) => {
-                    angle += 1
-                }
-                b'<' => {
-                    angle -= 1;
-                    if angle == 0 {
-                        if bytes.get(index.wrapping_sub(1)) == Some(&b':') {
-                            // `::<A, B>`: the held commas were generic args.
-                            pending = 0;
-                        } else {
-                            commas += pending;
-                            pending = 0;
-                        }
-                    }
-                }
-                b',' if depth == 0 => pending += 1,
-                _ => {}
-            }
-            continue;
-        }
         match bytes[index] {
             b')' | b']' | b'}' => depth += 1,
             b'(' | b'[' | b'{' if depth > 0 => depth -= 1,
-            b'(' if depth == 0 => return Some((index, commas)),
-            b',' if depth == 0 => commas += 1,
-            b'>' if !matches!(bytes.get(index.wrapping_sub(1)), Some(b'-' | b'=')) => angle = 1,
+            b'(' if depth == 0 => {
+                commas += regions.iter().sum::<usize>();
+                return Some((index, commas));
+            }
+            b'>' if depth == 0
+                && !matches!(bytes.get(index.wrapping_sub(1)), Some(b'-' | b'=')) =>
+            {
+                regions.push(0);
+            }
+            b'<' if depth == 0 => {
+                let held = regions.pop().unwrap_or(0);
+                if bytes.get(index.wrapping_sub(1)) == Some(&b':') {
+                    // `::<A, B>`: the held commas were generic args.
+                } else if let Some(top) = regions.last_mut() {
+                    // A comparison/generic close inside an outer region rides
+                    // along to the outer region's own decision.
+                    *top += held;
+                } else {
+                    commas += held;
+                }
+            }
+            b',' if depth == 0 => {
+                if let Some(top) = regions.last_mut() {
+                    *top += 1;
+                } else {
+                    commas += 1;
+                }
+            }
             // `==` / `!=` / `<=` / `>=` / `=>` inside an earlier element are
             // not the tuple-introducing `=`: skip them like `peel::eq_before`.
             b'=' if depth == 0 && compound_eq(bytes, index) => {}
-            b'=' | b';' | b'{' if depth == 0 => return None,
+            b'=' | b';' | b'{' if depth == 0 && regions.is_empty() => return None,
             _ => {}
         }
     }
@@ -366,6 +363,30 @@ mod probes {
             "async fn f() { let (dispatch @ _,) = (Path::send,); dispatch(request).await?; }";
         assert_eq!(credentialed_send_https_gaps(bare), (1, 1), "{bare}");
         let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let (dispatch @ _,) = (Path::send,); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
+    }
+
+    /// A `>` run walking left (`>>` nested generic closes, a shift, or a
+    /// comparison after a turbofish call) must not leave a turbofish region
+    /// unclosed at the tuple paren: its generic-arg commas would be committed
+    /// as tuple separators and `Path::send` would get the wrong element index
+    /// (Kimi council chunk02 P1).
+    #[test]
+    fn kimi_council_r4_generic_close_run_keeps_element_index() {
+        let hits = [
+            "fn f() { let (a, dispatch) = (foo::<A, B>(x) > y, Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (foo::<A, B>(x) >> y, Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (foo::<HashMap<String, Vec<u8>>, Other>(x) > y, Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (foo::<{1 > 2}, B>(x), Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (foo::<A, B>(x > y), Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (x > foo::<A, B>(y), Path::send); dispatch(request); }",
+        ];
+        for sample in hits {
+            assert_eq!(dispatch_alias_calls(sample).len(), 1, "{sample}");
+        }
+        let bare = "async fn f() { let (a, dispatch) = (foo::<A, B>(x) > y, Path::send); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(bare), (1, 1), "{bare}");
+        let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let (a, dispatch) = (foo::<A, B>(x) > y, Path::send); dispatch(request).await?; }";
         assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
     }
 }

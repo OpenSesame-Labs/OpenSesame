@@ -83,9 +83,18 @@ fn ascription_colon(tail: &str) -> Option<usize> {
 }
 
 fn ends_with_kw(source: &str, keyword: &str) -> bool {
-    source
-        .strip_suffix(keyword)
-        .is_some_and(|rest| rest.chars().next_back().is_none_or(|ch| !is_ident_char(ch)))
+    let Some(rest) = source.strip_suffix(keyword) else {
+        return false;
+    };
+    if !rest.chars().next_back().is_none_or(|ch| !is_ident_char(ch)) {
+        return false;
+    }
+    // `if let` / `while let` end in the keyword `let` but do not introduce a
+    // `let` binding: the pattern's scope is the condition, so it must not
+    // register a dispatch alias or URL binding (pattern.rs `ends_with_kw`,
+    // sqlx_exec `cond_let_head`; Kimi council chunk04 P2).
+    let rest = rest.trim_end();
+    keyword != "let" || !(ends_with_kw(rest, "if") || ends_with_kw(rest, "while"))
 }
 
 /// Last assignment `=`. `==`, `!=`, `<=`, `>=`, and match `=>` are not assignments.
@@ -167,5 +176,26 @@ mod probes {
             typed_let_name_before_path(compared, head).as_deref(),
             Some("dispatch")
         );
+    }
+
+    /// `if let` / `while let` end in the keyword `let` but bind only inside
+    /// the condition, like `pattern.rs` and `sqlx_exec` already refuse: they
+    /// must not register a dispatch alias (Kimi council chunk04 P2).
+    #[test]
+    fn kimi_council_r4_if_while_let_is_not_a_let_introducer() {
+        for lhs in ["if let dispatch", "while let dispatch"] {
+            assert_eq!(super::let_binding_name(lhs), None, "{lhs}");
+        }
+        for lhs in ["let dispatch", "let mut dispatch"] {
+            assert_eq!(
+                super::let_binding_name(lhs).as_deref(),
+                Some("dispatch"),
+                "{lhs}"
+            );
+        }
+        // End to end: the `if let` pattern must not make the later call a
+        // credentialed alias dispatch.
+        let masked = "async fn f() { if let dispatch = Path::send { dispatch(request).await?; } }";
+        assert_eq!(credentialed_send_https_gaps(masked), (0, 0), "{masked}");
     }
 }

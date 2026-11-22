@@ -262,3 +262,37 @@ fn kimi_council_r3_commented_else_if_is_not_dominating() {
         assert!(super::guarded(prefix, Some("url")), "{prefix}");
     }
 }
+
+/// `!=` binds tighter than `^` and the ordered comparisons, so
+/// `flag ^ url.scheme() != "https"` / `flag > url.scheme() != "https"` run
+/// the branch on some non-https paths: the scheme check does not dominate the
+/// send and must not register as a guard (Kimi council chunk03 P2).
+#[test]
+fn kimi_council_r4_non_dominating_scheme_compare_is_not_a_guard() {
+    // `!=` binds tighter than `^` / the ordered comparisons, so the branch
+    // runs on some non-https paths even though a `scheme` comparison is the
+    // tail of the condition. The dotted `.scheme()` receiver is already
+    // refused (`flag ^ url` is not a plain receiver); the reachable hole is
+    // the UFCS subject, whose prefix the old scan accepted.
+    let open = [
+        r#"{if flag ^ Scheme::scheme(&url)!="https" { return Err("x".into()); } client.get(url)."#,
+        r#"{if flag > Scheme::scheme(&url)!="https" { return Err("x".into()); } client.get(url)."#,
+        r#"{if flag < Scheme::scheme(&url)!="https" { return Err("x".into()); } client.get(url)."#,
+        r#"{if flag ^ url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+    ];
+    for prefix in open {
+        assert!(!super::guarded(prefix, Some("url")), "{prefix}");
+    }
+    let kept = [
+        r#"{if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+        // `||` still covers every non-https path on its own; only a stronger
+        // operand combining the check into one non-dominating condition is
+        // rejected.
+        r#"{if url.scheme()!="https" || flag { return Err("x".into()); } client.get(url)."#,
+        r#"{if flag || url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+    ];
+    for prefix in kept {
+        assert!(super::guarded(prefix, Some("url")), "{prefix}");
+    }
+}
+

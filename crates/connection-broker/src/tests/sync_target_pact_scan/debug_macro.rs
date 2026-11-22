@@ -258,8 +258,10 @@ fn is_single_eq_byte(bytes: &[u8], index: usize) -> bool {
         )
 }
 
+/// `{:?}` and the pretty-debug `{:#?}` both expand the value's body into the
+/// format string (Kimi council chunk07 P1).
 fn piece_has_debug_format(piece: &str) -> bool {
-    piece.contains(":?") && piece.contains('"')
+    (piece.contains(":?") || piece.contains(":#?")) && piece.contains('"')
 }
 
 fn arg_is_response(scanned: &str, arg: &str, at: usize) -> bool {

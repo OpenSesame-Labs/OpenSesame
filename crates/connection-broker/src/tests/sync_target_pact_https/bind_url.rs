@@ -65,13 +65,20 @@ fn marked_url(expr: &str) -> Option<&str> {
     }
 }
 
-/// `.get::<T>(` / `::request::<T>(`. A longer ident (`.get_mut`) is not a builder.
+/// `.get::<T>(` / `::request::<T>(`. A longer ident (`.get_mut`) is not a
+/// builder, and neither is UFCS on a type name (`Cache::get(key)`): the
+/// uppercase-type-segment exclusion `is_free_call` / `escape.rs` apply, or
+/// the associated function fabricates builder-URL evidence (Kimi council
+/// chunk03 P2).
 fn builder_paren(expr: &str, index: usize) -> Option<usize> {
     const METHODS: &[&str] = &["request", "get", "post", "put", "patch", "delete", "head"];
     let rest = &expr[index..];
     let sep = if rest.starts_with('.') {
         1
     } else if rest.starts_with("::") {
+        if type_segment_before(expr.as_bytes(), index) {
+            return None;
+        }
         2
     } else {
         return None;
@@ -95,6 +102,17 @@ fn builder_paren(expr: &str, index: usize) -> Option<usize> {
         return None;
     }
     Some(method_end + (tail.len() - after.len()))
+}
+
+/// The identifier segment before `at` starts uppercase: a type name
+/// (`Cache::get`) rather than a module path (`reqwest::get`). Same check as
+/// `escape.rs`.
+fn type_segment_before(bytes: &[u8], at: usize) -> bool {
+    let mut start = at;
+    while start > 0 && super::super::is_ident_byte(bytes[start - 1]) {
+        start -= 1;
+    }
+    matches!(bytes.get(start), Some(b'A'..=b'Z'))
 }
 
 /// `false` when this mark disagrees with a URL already seen, or is unproven.
@@ -329,72 +347,6 @@ pub(super) fn plain_receiver(expr: &str) -> Option<&str> {
     plain_ident(expr.strip_prefix('&').unwrap_or(expr).trim())
 }
 
+#[path = "bind_url_probes.rs"]
 #[cfg(test)]
-mod probes {
-    use super::{builder_url, has_builder_call};
-
-    /// `marked_url` and `has_builder_call` skip comment regions via
-    /// `non_code_len`, like `call_arg_url` and the guard modules: a
-    /// commented-out `.get(evil)` must not lend builder URL evidence
-    /// (Kimi council chunk03 P2).
-    #[test]
-    fn kimi_council_r2_commented_builder_call_lends_no_url_evidence() {
-        for expr in [
-            "/* client.get(evil) */ client.get(url)",
-            "client.get(url) // .get(evil)",
-            "client.get(url) /* .post(evil) */",
-            "// client.get(evil)\nclient.get(url)",
-        ] {
-            assert_eq!(builder_url(expr), Some("url"), "{expr}");
-        }
-        for expr in ["/* client.get(evil) */", "// client.get(evil)"] {
-            assert_eq!(builder_url(expr), None, "{expr}");
-        }
-        // A real free-call mark stands; the trailing commented `.get(evil)`
-        // must not disagree with it.
-        assert_eq!(builder_url("make(url) /* client.get(evil) */"), Some("url"));
-        assert!(!has_builder_call("/* client.get(evil) */ make()"));
-        assert!(!has_builder_call("// client.get(evil)\nmake()"));
-        assert!(has_builder_call("client.get(url)"));
-        // A string literal is still not code.
-        assert!(!has_builder_call("let _ = \"client.get(url)\";"));
-    }
-
-    /// UFCS one-arg calls and parenthesized keyword conditions do not choose
-    /// the binding's URL (Kimi council chunk03 P2). `Type::from(row)` or
-    /// `if (url)` marking their argument would bind a wrong URL name, so a
-    /// coincidental scheme guard on that name could cover an unrelated send.
-    #[test]
-    fn kimi_council_chunk03_ufcs_and_keyword_paren_calls_do_not_mark_url() {
-        for expr in [
-            "SyncTargetView::from(row)",
-            "Wrapper::new(row)",
-            "if (url) { a } else { b }",
-            "while (url) { a }",
-            "match (url) { _ => a }",
-        ] {
-            assert_eq!(builder_url(expr), None, "{expr}");
-        }
-        // Controls: a free one-arg call and a builder method still mark.
-        assert_eq!(builder_url("build_request(other)"), Some("other"));
-        assert_eq!(builder_url("client.get(url)"), Some("url"));
-    }
-
-    /// A turbofish'd free call still marks the binding URL (Kimi council
-    /// chunk03 P2): `build_request::<T>(url)` resolves like the plain free
-    /// call; UFCS and keyword shapes stay excluded.
-    #[test]
-    fn kimi_council_r3_turbofish_free_call_marks_binding_url() {
-        for (expr, want) in [
-            ("build_request::<T>(url)", Some("url")),
-            ("build_request::<Vec<T>>(url)", Some("url")),
-            ("build_request::<{1 > 0}>(url)", Some("url")),
-            ("make(url)", Some("url")),
-            ("Wrapper::new::<T>(row)", None),
-            ("if (url) { a } else { b }", None),
-            ("foo!(url)", None),
-        ] {
-            assert_eq!(builder_url(expr), want, "{expr}");
-        }
-    }
-}
+mod probes;

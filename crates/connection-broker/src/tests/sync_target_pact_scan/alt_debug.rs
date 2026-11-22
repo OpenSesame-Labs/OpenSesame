@@ -34,15 +34,21 @@ fn alt_debug_at(scanned: &str, bang: usize) -> bool {
         return false;
     };
     let bracket = after.starts_with('[') || after.starts_with('{');
-    let debug_fmt = name == "dbg" || args.contains(":?");
+    let debug_fmt = name == "dbg" || has_debug_format(args);
     if bracket && debug_fmt && group_args_track_response(scanned, args, open) {
         return true;
     }
     compare_tail_is_response(scanned, args, open)
 }
 
+/// `{:?}` and the pretty-debug `{:#?}` both expand the value's body into the
+/// format string (Kimi council chunk07 P1).
+fn has_debug_format(args: &str) -> bool {
+    args.contains(":#?") || args.contains(":?")
+}
+
 fn compare_tail_is_response(scanned: &str, args: &str, open: usize) -> bool {
-    if !args.contains(":?") || !code_contains_lt(args) {
+    if !has_debug_format(args) || !code_contains_lt(args) {
         return false;
     }
     let Some(raw_tail) = args.rsplit(',').next() else {
@@ -154,4 +160,35 @@ fn group_inside(source: &str, open: usize) -> Option<&str> {
         index += 1;
     }
     None
+}
+
+#[cfg(test)]
+mod probes {
+    use super::alt_delim_debug_read;
+
+    /// `format!["{response:#?}", response]` carries the pretty-debug
+    /// specifier: the bracket-delimited scan must treat `:#?` like `:?`
+    /// (Kimi council chunk07 P1).
+    #[test]
+    fn kimi_council_r4_pretty_debug_format_is_a_read() {
+        let hits = [
+            r#"format!["{response:#?}", response]"#,
+            r#"println!["{response:#?}", response]"#,
+            r#"format!["{:?}", response]"#,
+            "dbg![response]",
+        ];
+        for sample in hits {
+            assert!(
+                alt_delim_debug_read(sample),
+                "pretty-debug format must read the response: {sample}"
+            );
+        }
+        let misses = [r#"format!["{response}"]"#, "format![\"{}\", count]"];
+        for sample in misses {
+            assert!(
+                !alt_delim_debug_read(sample),
+                "a display (non-debug) format is not a body read: {sample}"
+            );
+        }
+    }
 }
