@@ -30,6 +30,8 @@ import type { AppContext } from "../context.js";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
 import { incrementSecurityCounter } from "../repos/durable-map.js";
+import { consumeActivationBudget } from "./interaction-activation-budget.js";
+import { activationDeadlineRefusal } from "./interaction-activation-deadline.js";
 import { webAuthnRpFromPublicUrl } from "./approval-ceremony.js";
 import {
   INTERACTION_APPROVAL_POLICY,
@@ -44,52 +46,12 @@ export {
   interactionApprovalPolicyDigest,
   spendInteractionActivation,
 };
+export { resetInteractionActivationBudget } from "./interaction-activation-budget.js";
 
 const MAX_ACTIVATION_TTL_SECONDS = 5 * 60;
 const MAX_ASSERTION_FIELD_LENGTH = 8_192;
 
-/** A person approving has no reason to mint ceremonies in a hot loop. */
-const ACTIVATION_WINDOW_MS = 60_000;
-const ACTIVATION_PER_PRINCIPAL = 20;
-const ACTIVATION_GLOBAL = 500;
-const ACTIVATION_MAX_KEYS = 2048;
-const ACTIVATION_GLOBAL_KEY = "__global__";
 const MAX_ACTIVATION_FAILURES = 5;
-const activationBudget = new Map<string, number[]>();
-
-function consumeActivationBudget(principalId: string, now: number): boolean {
-  for (const [key, times] of activationBudget) {
-    const live = times.filter((at) => now - at < ACTIVATION_WINDOW_MS);
-    if (live.length === 0) activationBudget.delete(key);
-    else if (live.length !== times.length) activationBudget.set(key, live);
-  }
-  const global = activationBudget.get(ACTIVATION_GLOBAL_KEY) ?? [];
-  const key = `principal:${principalId}`;
-  const mine = activationBudget.get(key) ?? [];
-  if (
-    global.length >= ACTIVATION_GLOBAL ||
-    mine.length >= ACTIVATION_PER_PRINCIPAL
-  ) {
-    return false;
-  }
-  global.push(now);
-  mine.push(now);
-  activationBudget.set(ACTIVATION_GLOBAL_KEY, global);
-  activationBudget.set(key, mine);
-  while (activationBudget.size > ACTIVATION_MAX_KEYS) {
-    const victim = [...activationBudget.keys()].find(
-      (candidate) => candidate !== ACTIVATION_GLOBAL_KEY,
-    );
-    if (victim === undefined) break;
-    activationBudget.delete(victim);
-  }
-  return true;
-}
-
-/** Test hook: the budget is process-global and must not leak between suites. */
-export function resetInteractionActivationBudget(): void {
-  activationBudget.clear();
-}
 
 function challengeDigest(challenge: string): string {
   return `v1:${createHash("sha256")
@@ -230,6 +192,119 @@ async function beginActivation(
   );
 }
 
+type ActivationAssertion = {
+  credentialId: string;
+  clientDataJSON: string;
+  authenticatorData: string;
+  signature: string;
+};
+
+async function verifyWebauthnActivation(
+  c: Context<{ Variables: Variables }>,
+  row: Interaction,
+  activation: ApprovalActivation,
+  principalId: string,
+  body: ActivationAssertion,
+): Promise<Response> {
+  const ctx = c.get("ctx");
+  const challenge = challengeFromClientData(body.clientDataJSON);
+  if (
+    !challenge ||
+    !digestsEqual(challengeDigest(challenge), activation.challengeDigest)
+  ) {
+    return c.json({ error: "activation_challenge_mismatch" }, 401);
+  }
+
+  const issued = await ctx.passkeyChallenges.peek(challenge);
+  if (
+    issued &&
+    (issued.purpose !== "transaction" ||
+      issued.principalId !== principalId ||
+      !issued.transactionDigest ||
+      !digestsEqual(issued.transactionDigest, activation.transactionDigest))
+  ) {
+    return c.json({ error: "activation_challenge_mismatch" }, 401);
+  }
+
+  const challengeDeadline = activationDeadlineRefusal(
+    c,
+    row,
+    activation,
+    ctx.clock(),
+  );
+  if (challengeDeadline) return challengeDeadline;
+  const failureKey = `interaction-activation:${activation.id}`;
+  const prior =
+    (await incrementSecurityCounter(ctx.stores.mfaFailures, failureKey)) - 1;
+  if (prior >= MAX_ACTIVATION_FAILURES) {
+    return c.json({ error: "too_many_attempts" }, 429);
+  }
+
+  const budgetDeadline = activationDeadlineRefusal(
+    c,
+    row,
+    activation,
+    ctx.clock(),
+  );
+  if (budgetDeadline) return budgetDeadline;
+
+  // Always the real verifier, never the dev-defaulted `ctx.passkeys` seam:
+  // an interaction approval is an authorization-assurance decision (ADR
+  // 0084 phishing resistance), so it must be a genuine cryptographic check
+  // even where dev defaults are enabled. This is the same seam
+  // `host-authorization.ts` uses for the identical reason.
+  const verified = await ctx.hostAuthorizationPasskeys.verify({
+    credentialId: body.credentialId,
+    clientDataJSON: Buffer.from(body.clientDataJSON, "base64"),
+    authenticatorData: Buffer.from(body.authenticatorData, "base64"),
+    signature: Buffer.from(body.signature, "base64"),
+    expectedPurpose: "transaction",
+  });
+  if (!verified.ok || verified.principalId !== principalId) {
+    await appendAuditEvent(ctx.repos.auditEvents, {
+      eventType: "authority.activation.denied",
+      principalId,
+      actorType: "human",
+      outcome: "denied",
+      correlationId: c.get("correlationId"),
+      metadata: {
+        authReqId: row.id,
+        activationId: activation.id,
+        reason: "assertion_failed",
+      },
+    });
+    return c.json({ error: "activation_verification_failed" }, 401);
+  }
+
+  await ctx.stores.mfaFailures.delete(failureKey);
+
+  // No `trustSessionId`, and so no `credentialRef` on the sealed proof: the
+  // audit row records the mechanism the authority verified and the digest it
+  // bound, not the credential handle. In a discoverable-credential flow that
+  // handle is the authenticator's own choice rather than a fact worth
+  // repeating, and the real verifier returns no credential id to record in
+  // any case (interaction-handoff asserts `credentialRef` stays absent).
+  const activatedAt = ctx.clock();
+  const completionDeadline = activationDeadlineRefusal(
+    c,
+    row,
+    activation,
+    activatedAt,
+  );
+  if (completionDeadline) return completionDeadline;
+  const updated = await ctx.repos.approvalActivations.updateWithVersion(
+    activation.id,
+    activation.version,
+    { state: "activated", activatedAt, method: "webauthn" },
+  );
+  return c.json({
+    activationId: updated.id,
+    state: updated.state,
+    activatedAt:
+      updated.activatedAt?.toISOString() ?? activatedAt.toISOString(),
+  });
+}
+
 async function completeActivation(
   c: Context<{ Variables: Variables }>,
   deps: InteractionActivationDeps,
@@ -274,85 +349,18 @@ async function completeActivation(
   ) {
     return c.json({ error: "activation_not_found" }, 404);
   }
-  if (activation.expiresAt.getTime() <= now.getTime()) {
-    return c.json({ error: "activation_expired" }, 410);
-  }
+  const lookupDeadline = activationDeadlineRefusal(
+    c,
+    row,
+    activation,
+    ctx.clock(),
+  );
+  if (lookupDeadline) return lookupDeadline;
   if (activation.state !== "pending") {
     return c.json({ error: "activation_not_pending" }, 409);
   }
 
-  const challenge = challengeFromClientData(body.clientDataJSON);
-  if (
-    !challenge ||
-    !digestsEqual(challengeDigest(challenge), activation.challengeDigest)
-  ) {
-    return c.json({ error: "activation_challenge_mismatch" }, 401);
-  }
-
-  const issued = await ctx.passkeyChallenges.peek(challenge);
-  if (
-    issued &&
-    (issued.purpose !== "transaction" ||
-      issued.principalId !== principalId ||
-      !issued.transactionDigest ||
-      !digestsEqual(issued.transactionDigest, activation.transactionDigest))
-  ) {
-    return c.json({ error: "activation_challenge_mismatch" }, 401);
-  }
-
-  const failureKey = `interaction-activation:${activation.id}`;
-  const prior =
-    (await incrementSecurityCounter(ctx.stores.mfaFailures, failureKey)) - 1;
-  if (prior >= MAX_ACTIVATION_FAILURES) {
-    return c.json({ error: "too_many_attempts" }, 429);
-  }
-
-  // Always the real verifier, never the dev-defaulted `ctx.passkeys` seam:
-  // an interaction approval is an authorization-assurance decision (ADR
-  // 0084 phishing resistance), so it must be a genuine cryptographic check
-  // even where dev defaults are enabled. This is the same seam
-  // `host-authorization.ts` uses for the identical reason.
-  const verified = await ctx.hostAuthorizationPasskeys.verify({
-    credentialId: body.credentialId,
-    clientDataJSON: Buffer.from(body.clientDataJSON, "base64"),
-    authenticatorData: Buffer.from(body.authenticatorData, "base64"),
-    signature: Buffer.from(body.signature, "base64"),
-    expectedPurpose: "transaction",
-  });
-  if (!verified.ok || verified.principalId !== principalId) {
-    await appendAuditEvent(ctx.repos.auditEvents, {
-      eventType: "authority.activation.denied",
-      principalId,
-      actorType: "human",
-      outcome: "denied",
-      correlationId: c.get("correlationId"),
-      metadata: {
-        authReqId: row.id,
-        activationId: activation.id,
-        reason: "assertion_failed",
-      },
-    });
-    return c.json({ error: "activation_verification_failed" }, 401);
-  }
-
-  await ctx.stores.mfaFailures.delete(failureKey);
-
-  // No `trustSessionId`, and so no `credentialRef` on the sealed proof: the
-  // audit row records the mechanism the authority verified and the digest it
-  // bound, not the credential handle. In a discoverable-credential flow that
-  // handle is the authenticator's own choice rather than a fact worth
-  // repeating, and the real verifier returns no credential id to record in
-  // any case (interaction-handoff asserts `credentialRef` stays absent).
-  const updated = await ctx.repos.approvalActivations.updateWithVersion(
-    activation.id,
-    activation.version,
-    { state: "activated", activatedAt: now, method: "webauthn" },
-  );
-  return c.json({
-    activationId: updated.id,
-    state: updated.state,
-    activatedAt: updated.activatedAt?.toISOString() ?? now.toISOString(),
-  });
+  return verifyWebauthnActivation(c, row, activation, principalId, body);
 }
 
 export function attachInteractionActivationRoutes(

@@ -94,7 +94,7 @@ On run 41644273655 the npm download cache was a primary-key hit
 packages. Preview does not run `npm ci`. `node_modules` stays uncached, and
 `TRUSTED_CACHE_SAVE` is unchanged. The long Preview steps on the two slower
 runs are `Wait until the published version is visible` (145s and 135s). That
-wait keeps its 300000 ms deadline and 2500 ms poll. The same step on
+wait had a 300000 ms deadline and 2500 ms poll. The same step on
 41644273655 was 58s. The gate step slept on the default 30s interval for 32s,
 123s, and 213s.
 
@@ -102,8 +102,8 @@ The CLI gate job now sets `CI_GATE_INTERVAL_MS=5000` and `CI_GATE_ATTEMPTS=475`.
 Script defaults stay 80 attempts and 30000 ms. Maximum sleep is the same:
 `(475 - 1) * 5000 = (80 - 1) * 30000` milliseconds. The job still admits only a
 successful `ci.yml` push on that SHA whose TypeScript, Rust, and Bundle budgets
-jobs succeeded. Stage starts with the gate. Preview still needs both, so a
-failed gate does not publish.
+jobs succeeded. Stage starts with the gate. The local Preview proof still needs
+both jobs; npm publication is disabled pending qualified promotion.
 
 The after column is critical-path arithmetic on those measured durations, not a
 new Actions run. Overlap removes the shorter of the gate and stage from the
@@ -120,7 +120,8 @@ the longer of the two, that 25s stays off the critical path.
 
 When trunk CI is already green, as in 41644273655, the estimate is about four
 minutes. The slow measured case stays under eight minutes in this estimate.
-The registry deadline and the three required checks are unchanged.
+These estimates describe the former npm publisher. The three required checks
+remain in force for the local proof.
 
 ## Build and identity
 

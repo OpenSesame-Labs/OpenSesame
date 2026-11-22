@@ -9,7 +9,7 @@
 //!
 //! Test-only (`#[cfg(test)]` in `super`), so none of this reaches a caller.
 
-use chrono::{DateTime, Duration, TimeZone, Utc};
+use opensesame_time::{DateTime, Duration, TimeZone, Utc};
 
 use super::{BudgetKey, Limit, Limits, Quantity, Unit, WindowSpec};
 
@@ -17,7 +17,7 @@ use super::{BudgetKey, Limit, Limits, Quantity, Unit, WindowSpec};
 ///
 /// # Panics
 ///
-/// Panics for a value outside `chrono`'s representable range — a fixture that
+/// Panics for a value outside `opensesame_time`'s representable range — a fixture that
 /// cannot name its own instant is a broken test, not a runtime condition.
 #[must_use]
 pub fn at(seconds: i64) -> DateTime<Utc> {

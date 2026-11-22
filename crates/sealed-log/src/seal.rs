@@ -222,11 +222,12 @@ pub fn open_line(key: &LogKey, sealed: &str) -> Option<String> {
         return None;
     }
     let (nonce, ciphertext) = packed.split_at(NONCE_LEN);
+    let nonce = <&XNonce>::try_from(nonce).ok()?;
     let plain = Zeroizing::new(
         XChaCha20Poly1305::new_from_slice(&key.bytes)
             .ok()?
             .decrypt(
-                XNonce::from_slice(nonce),
+                nonce,
                 Payload {
                     msg: ciphertext,
                     aad: AAD,

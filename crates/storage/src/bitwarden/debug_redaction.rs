@@ -143,7 +143,7 @@ impl fmt::Debug for BitwardenTwoFactor {
 
 #[cfg(test)]
 mod tests {
-    use chrono::Utc;
+    use opensesame_time::Utc;
 
     use super::super::accounts::BitwardenKdf;
     use super::*;

@@ -145,3 +145,28 @@ pub(super) fn command(binary: &str, env: &BTreeMap<String, String>) -> Result<Co
     }
     Ok(command)
 }
+
+/// Test-only exact executable selection. Cross-process harnesses copy a real
+/// executable into caller-owned private ancestry and name that file directly;
+/// production continues to use the ordinary override/PATH rules above.
+#[cfg(test)]
+pub(super) fn command_exact(
+    binary: &str,
+    env: &BTreeMap<String, String>,
+    executable: &std::path::Path,
+) -> Result<Command, ProbeError> {
+    const TEST_OVERRIDE: &str = "OPENSESAME_TEST_EXACT_PROGRAM";
+    let mut lookup = lookup(env);
+    lookup.vars.push((
+        OsString::from(TEST_OVERRIDE),
+        executable.as_os_str().to_owned(),
+    ));
+    let spec = program(binary);
+    let mut command = command_in(binary, Some(TEST_OVERRIDE), &lookup)
+        .map_err(|error| ProbeError::Command(format!("spawn {binary}: {error}")))?;
+    pass_in(&mut command, &BASE, &lookup);
+    if let Some(spec) = spec {
+        pass_in(&mut command, spec.env, &lookup);
+    }
+    Ok(command)
+}

@@ -18,7 +18,7 @@
 use crate::sealed;
 use crate::security_rows::{delivery_from_row, readable_deliveries};
 use anyhow::Context;
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Duration, Utc};
 use sqlx::{sqlite::SqliteRow, Row};
 
 // `optional_sealed_material!` is a textually scoped `macro_rules!` macro from
@@ -590,7 +590,7 @@ impl Db {
         .await
         .context("claim lifecycle deliveries")?;
 
-        let lease_until = (now + chrono::Duration::seconds(lease_seconds.max(1))).to_rfc3339();
+        let lease_until = (now + Duration::seconds(lease_seconds.max(1))).to_rfc3339();
         let claimed = readable_deliveries(&mut transaction, &rows, now).await?;
         for delivery in &claimed {
             sqlx::query("UPDATE security_deliveries SET available_at = ? WHERE id = ?")
@@ -1280,7 +1280,7 @@ mod tests {
         );
 
         // …and the lease expires, so a crashed worker cannot wedge the queue.
-        let later = now() + chrono::Duration::seconds(120);
+        let later = now() + Duration::seconds(120);
         let third = db.claim_security_deliveries(10, 60, later).await.unwrap();
         assert_eq!(third.len(), 1, "an expired lease must become claimable");
     }
@@ -1295,7 +1295,7 @@ mod tests {
             .await
             .unwrap();
         db.mark_security_delivered("del:1", now()).await.unwrap();
-        let later = now() + chrono::Duration::days(7);
+        let later = now() + Duration::days(7);
         assert!(db
             .claim_security_deliveries(10, 60, later)
             .await
@@ -1315,7 +1315,7 @@ mod tests {
         db.enqueue_security_delivery(&delivery("del:1", "hook:1"))
             .await
             .unwrap();
-        let retry_at = now() + chrono::Duration::minutes(5);
+        let retry_at = now() + Duration::minutes(5);
         db.park_security_delivery("del:1", retry_at, "502 from endpoint", now())
             .await
             .unwrap();
@@ -1354,7 +1354,7 @@ mod tests {
         assert_eq!(stored.state, "dead_lettered");
         assert_eq!(stored.last_error.as_deref(), Some("endpoint gone"));
         assert!(db
-            .claim_security_deliveries(10, 60, now() + chrono::Duration::days(30))
+            .claim_security_deliveries(10, 60, now() + Duration::days(30))
             .await
             .unwrap()
             .is_empty());

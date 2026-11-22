@@ -6,9 +6,9 @@ use axum::{
     http::{HeaderMap, Request, StatusCode},
     Router,
 };
-use chrono::{Duration, Utc};
 use opensesame_domain::{OrganizationId, OrganizationRole, PrincipalId};
 use opensesame_storage::authority::{AuthorityIssue, PermissionEntry};
+use opensesame_time::{Duration, Utc};
 use serde_json::{json, Value};
 use tower::ServiceExt;
 

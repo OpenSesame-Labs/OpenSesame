@@ -7,10 +7,10 @@ use opensesame_sealed_store::{init_store, init_store_key, Entry, StoreRoot};
 
 const PASSPHRASE: &str = "fill fixture passphrase";
 
-fn fixture(root: &std::path::Path) {
+fn fixture(root: &std::path::Path, witness_root: &std::path::Path) {
     init_store(root, &[]).unwrap();
     let key = init_store_key(root, PASSPHRASE.as_bytes()).unwrap();
-    let store = StoreRoot::open(root).unwrap();
+    let store = StoreRoot::open_with_test_witness_root(root, witness_root).unwrap();
     store
         .insert(
             "Web/example.com",
@@ -38,9 +38,11 @@ fn fixture(root: &std::path::Path) {
 #[test]
 fn the_sealed_store_answers_one_field_for_its_exact_origin() {
     let dir = tempfile::tempdir().unwrap();
-    fixture(dir.path());
+    let store = dir.path().join("store");
+    let witness = dir.path().join("witness");
+    fixture(&store, &witness);
     let state = FillState::new(
-        Box::new(SealedSource::at(dir.path().to_path_buf(), PASSPHRASE)),
+        Box::new(SealedSource::at(store, witness, PASSPHRASE)),
         None,
         Arc::new(gate::Fixed(true)),
     );
@@ -66,16 +68,18 @@ fn the_sealed_store_answers_one_field_for_its_exact_origin() {
 #[test]
 fn a_keyed_store_without_its_passphrase_is_locked() {
     let dir = tempfile::tempdir().unwrap();
-    init_store(dir.path(), &[]).unwrap();
-    init_store_key(dir.path(), PASSPHRASE.as_bytes()).unwrap();
-    let wrong = SealedSource::at(dir.path().to_path_buf(), "not the passphrase");
+    let store = dir.path().join("store");
+    init_store(&store, &[]).unwrap();
+    init_store_key(&store, PASSPHRASE.as_bytes()).unwrap();
+    let wrong = SealedSource::at(store, dir.path().join("witness"), "not the passphrase");
     assert_eq!(wrong.open().err(), Some(SourceError::Locked));
 }
 
 #[test]
 fn an_unkeyed_store_never_opens_a_zero_key_native_entry() {
     let dir = tempfile::tempdir().unwrap();
-    init_store(dir.path(), &[]).unwrap();
+    let store = dir.path().join("store");
+    init_store(&store, &[]).unwrap();
     let blob = opensesame_sealed_store::seal_osseal(
         b"injected-secret\nurl: https://example.com/\n",
         &opensesame_sealed_store::ItemDataKey([0; 32]),
@@ -83,15 +87,15 @@ fn an_unkeyed_store_never_opens_a_zero_key_native_entry() {
         1,
     )
     .unwrap();
-    std::fs::create_dir(dir.path().join("Web")).unwrap();
-    std::fs::write(dir.path().join("Web/example.com.osseal"), blob).unwrap();
-    let source = SealedSource::at(dir.path().to_path_buf(), "");
+    std::fs::create_dir(store.join("Web")).unwrap();
+    std::fs::write(store.join("Web/example.com.osseal"), blob).unwrap();
+    let source = SealedSource::at(store.clone(), dir.path().join("witness"), "");
     let reader = source.open().unwrap();
     assert_eq!(
         reader.read("Web/example.com").err(),
         Some(SourceError::Locked)
     );
-    assert!(!dir.path().join(".opensesame-revisions.json").exists());
+    assert!(!store.join(".opensesame-revisions.json").exists());
 }
 
 /// An account the vault wrote: sites and methods in the trailer's JSON, and no
@@ -135,9 +139,11 @@ fn fill_produces_an_algorithmic_password_the_file_does_not_hold_and_stops_at_a_p
         "generator": { "id": "manual" }, "sealed": { "v": 1 }, "changedAt": "x"
     });
     let dir = tempfile::tempdir().unwrap();
-    init_store(dir.path(), &[]).unwrap();
-    let key = init_store_key(dir.path(), PASSPHRASE.as_bytes()).unwrap();
-    let store = StoreRoot::open(dir.path()).unwrap();
+    let store_path = dir.path().join("store");
+    let witness = dir.path().join("witness");
+    init_store(&store_path, &[]).unwrap();
+    let key = init_store_key(&store_path, PASSPHRASE.as_bytes()).unwrap();
+    let store = StoreRoot::open_with_test_witness_root(&store_path, &witness).unwrap();
     for (path, method) in [
         ("A/derived", &derived),
         ("A/slotted", &slotted),
@@ -151,7 +157,7 @@ fn fill_produces_an_algorithmic_password_the_file_does_not_hold_and_stops_at_a_p
         store.insert(&name, &entry, &key).unwrap();
     }
     let state = FillState::new(
-        Box::new(SealedSource::at(dir.path().to_path_buf(), PASSPHRASE)),
+        Box::new(SealedSource::at(store_path, witness, PASSPHRASE)),
         None,
         Arc::new(gate::Fixed(true)),
     );

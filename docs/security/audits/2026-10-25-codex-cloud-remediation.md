@@ -7,12 +7,15 @@ repository scans against main at `aad2c85b`.
 
 - Publication accepts exact workspace names as data, uses shell-free argv,
   and restricts publication to main or a version tag whose commit main holds.
-  Container publication uses a separate `GHCR_PUBLISH_TOKEN` in the
-  `container-release` environment; independent package access controls still
-  require operator configuration before that finding can be closed.
-- Organization issuer reservations are serialized across replicas and both
-  issuer columns. Ambiguous legacy reservations fail closed. An operator must
-  approve the exact organization and issuer before tenant federation is trusted.
+  Container publication is disabled until exact OCI candidate qualification
+  and promotion, a separately protected publisher, and independent package
+  access controls are in place.
+- Current Postgres organization-store writers serialize issuer reservations
+  across replicas and both issuer columns. An ambiguous lookup selects no
+  organization, but is also reported as absent: BYO registration and trust
+  resolution can fall through. Older or direct database writers do not enforce
+  the same conflict check. An operator must approve the exact organization and
+  issuer before tenant federation is trusted.
 - OIDC metadata fetches have finite body limits; dynamic registration requires
   an adapter-backed initial access token and remains disabled by default.
 - Webhook admission counts and creates under the same principal lock and
@@ -48,7 +51,8 @@ terminal. Credential grants expire after 90 seconds and can be used once.
 
 ## Occurrence disposition
 
-Overall outcome is **blocked** on independent GHCR configuration. Browser
+Overall outcome is **blocked** on qualified GHCR promotion and independent
+registry controls, as well as the issuer and relay authority gaps below. Browser
 end-to-end evidence was subsequently obtained in GitHub CI. Merge remains
 subject to the PR's required checks; no Cloud occurrence was closed.
 
@@ -57,11 +61,11 @@ subject to the PR's required checks; no Cloud occurrence was closed.
 | csf_3cb4fc98cd546a36d149c6ae | Manual npm publication input is interpolated into a secret-bearing shell step | fixed — focused verification passed |
 | csf_fb4ebaa35dbdc1edd25a38c8 | Sync-target routes bypass the durable Host authorization ceiling | no_change — existing fix verified |
 | csf_12a30196c04678c10ff985ac | Bitwarden file uploads bypass storage quota through attacker-declared sizes | no_change — existing fix verified |
-| csf_4d4a5d289bd932b8d9fb27b0 | Concurrent issuer reservation permits duplicate organization claims | fixed — focused verification passed |
+| csf_4d4a5d289bd932b8d9fb27b0 | Concurrent issuer reservation permits duplicate organization claims | partial — current adapters serialize claims; older or direct writers can bypass the check |
 | csf_955006820f7e0aba1a9ac4a4 | Enabled dynamic client registration buffers unbounded relying-party metadata responses | fixed — focused verification passed |
 | csf_bed178c4a8c94fffabb95bf6 | Autofill extension stores its daemon pairing token in plaintext browser storage | fixed — focused checks and Chromium E2E passed |
 | csf_5f0a456b66b1116e85758420 | Browser-local OIDC exposes the canonical principal as downstream subject | fixed — focused verification passed |
-| csf_785e75b6230bb5f75ddede24 | Relay requests can execute after delegation is revoked, expired, or narrowed | fixed — focused verification passed |
+| csf_785e75b6230bb5f75ddede24 | Relay requests can execute after delegation is revoked, expired, or narrowed | partial — rechecks do not fence holder-side effects |
 | csf_844626ce73b577b54fd2f9fc | Manual container publication can push unverified branch code to official GHCR | blocked — separate release credentials/package policy |
 | csf_e4547f3f168c2c3f4917e707 | Sharing personal ciphers transfers attachments without enforcing destination organization quota | fixed — focused verification passed |
 | csf_463c5bad30fad8b88281e7fe | Organization owners can claim an identity-provider issuer without proving control | fixed — focused verification passed |
@@ -69,7 +73,7 @@ subject to the PR's required checks; no Cloud occurrence was closed.
 | csf_f5f84db24aefa060ee6b4532 | Unauthenticated agent-identity creation can exhaust the pending-claim pool | fixed — focused verification passed |
 | csf_1b2f924a268b9ad03fd45f76 | Identity linking accepts ID tokens minted for other clients | no_change — existing fix verified |
 | csf_aa81613362f6291c60985081 | Public device authorization evicts legitimate pending logins | fixed — focused verification passed |
-| csf_0601c22769d60ee9d70f876d | Duplicate organization issuers break federation tenant binding | fixed — focused verification passed |
+| csf_0601c22769d60ee9d70f876d | Duplicate organization issuers break federation tenant binding | partial — ambiguous lookup can fall through to BYO |
 | csf_540b6adb547b4cbfe7ecd337 | Bitwarden quota accounting trusts declared file sizes | no_change — existing fix verified |
 | csf_df0b4edc7a03e6a2cb60c307 | Ordinary upstream logout is treated as tenant deprovisioning | fixed — focused verification passed |
 | csf_df9e0cabf6e3855c2bbbc607 | Back-channel logout accepts tokens for other relying parties | no_change — existing fix verified |
@@ -147,7 +151,8 @@ revocation while retaining membership. Those fixes passed 136 identity tests,
 control-plane typechecking with misuse tests, six relay tests and four enrollment
 tests. Classic-script ownership and offline-plan regressions passed 52 tests.
 
-Container publication remains blocked until an operator configures the release
+Container publication remains blocked until a digest-bound OCI candidate and
+qualification path is implemented, and an operator configures the release
 environment to allow only branch `main` and tags `v*`, supplies its separate
 credential, and removes the source repository automatic token's write access to
 the official GHCR package. Workflow guards alone cannot constrain an actor who

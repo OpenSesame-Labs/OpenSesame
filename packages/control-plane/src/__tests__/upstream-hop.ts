@@ -1,3 +1,51 @@
+import { overlapCast } from "@opensesame/os-domain";
+
+/** Minimal cookie jar for protocol tests that follow more than one hop. */
+export class TestCookieJar {
+  private cookies = new Map<string, string>();
+
+  absorb(res: Response): void {
+    for (const setCookie of res.headers.getSetCookie()) {
+      const pair = setCookie.split(";")[0] ?? "";
+      const separator = pair.indexOf("=");
+      if (separator <= 0) continue;
+      const name = pair.slice(0, separator).trim();
+      const value = pair.slice(separator + 1).trim();
+      if (value) this.cookies.set(name, value);
+      else this.cookies.delete(name);
+    }
+  }
+
+  get(name: string): string | undefined {
+    return this.cookies.get(name);
+  }
+
+  header() {
+    if (this.cookies.size === 0) return {};
+    return {
+      cookie: [...this.cookies]
+        .map(([key, value]) => `${key}=${value}`)
+        .join("; "),
+    };
+  }
+}
+
+export async function requestWithJar(
+  base: string,
+  jar: TestCookieJar,
+  path: string,
+  init: RequestInit = {},
+): Promise<Response> {
+  const url = path.startsWith("http") ? path : `${base}${path}`;
+  const response = await fetch(url, {
+    redirect: "manual",
+    ...init,
+    headers: { ...jar.header(), ...overlapCast(init.headers) },
+  });
+  jar.absorb(response);
+  return response;
+}
+
 /**
  * Read the continuation URL out of the interstitial hop page.
  *

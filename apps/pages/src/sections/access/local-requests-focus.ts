@@ -1,7 +1,7 @@
 import type { LocalAccessRequest } from "@opensesame/app-core/lib/local-access-requests.js";
 import type { PendingShare } from "@opensesame/app-core/lib/local-share-grants-approvals.js";
 import { keyboardIsIdle, landFocus } from "../../lib/focus.js";
-import { grantRowId } from "./local-requests-selection.js";
+import { grantRowId } from "./local-request-row.js";
 
 export function resolveLocalRequestSelection(
   selectedId: string | null,

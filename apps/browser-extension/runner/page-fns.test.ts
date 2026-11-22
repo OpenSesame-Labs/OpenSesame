@@ -70,7 +70,7 @@ describe("pfFill", () => {
     const field = doc.querySelector<HTMLInputElement>("#a");
     const focus = vi.fn();
     field?.addEventListener("focus", focus);
-    expect(() => call(pfFill, "#a", "secret", "https://other.example")).toThrow(
+    expect(call(pfFill, "#a", "secret", "https://other.example")).toBe(
       "off_origin",
     );
     expect(field?.value).toBe("");

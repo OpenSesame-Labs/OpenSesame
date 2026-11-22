@@ -228,7 +228,7 @@ async function tokenCheck(payload, cors) {
     subject: subject.type,
     expiresAt: reply.body.expiresAt ?? null,
     scopes: scopesOf({ scopes: reply.body.scopes ?? scopes }),
-    fingerprint: fingerprintOf(token),
+    fingerprint: await fingerprintOf(token),
     verified,
   });
 }

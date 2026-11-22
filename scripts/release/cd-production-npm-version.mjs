@@ -1,8 +1,8 @@
 /**
- * Production publishes the staged Preview tree under a distinct semver.
+ * The legacy npm Production flow used a distinct semver for the Preview tree.
  * `0.0.0-alpha.N` becomes `0.0.0-next.N` with the same numeric suffix.
- * Payload files stay; only `package.json` `version` changes, then
- * `npm publish --tag next` via OIDC. Never `npm dist-tag add`.
+ * Payload files stay; only `package.json` `version` changes. This rewrite is
+ * still exercised by dry-run tests; npm publication is currently disabled.
  *
  *   node scripts/release/cd-production-npm-version.mjs rewrite PACKAGE.json
  */

@@ -24,7 +24,7 @@
 //! away, and [`ReconciledLists::is_settled`] is how a caller asks whether the
 //! resolver is actually in step with the record.
 
-use chrono::{DateTime, Duration, Utc};
+use opensesame_time::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::scope::DomainRule;
@@ -209,7 +209,7 @@ pub fn reconcile(unit: &UnitId, allowances: &[Allowance], now: DateTime<Utc>) ->
 
 #[cfg(test)]
 mod tests {
-    use chrono::{DateTime, Duration, Utc};
+    use opensesame_time::{DateTime, Duration, Utc};
 
     use super::{reconcile, Allowance, ExpiryHolder, LifetimeError, MAX_ALLOWANCE_SECONDS};
     use crate::scope::DomainRule;

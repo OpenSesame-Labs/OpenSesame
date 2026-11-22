@@ -114,3 +114,64 @@ fn legacy_migration_requires_an_explicit_trusted_source_assertion() {
         other => panic!("wrong command: {other:?}"),
     }
 }
+
+#[test]
+fn ciphertext_recovery_requires_an_explicit_trusted_source_assertion() {
+    let missing = BoundedPassCmd::augment_subcommands(Command::new("pass")).try_get_matches_from([
+        "pass",
+        "protect",
+        "recover-ciphertext",
+        "Dev/token",
+    ]);
+    assert!(missing.is_err());
+    let cmd = parse(&[
+        "pass",
+        "protect",
+        "recover-ciphertext",
+        "Docs/scan",
+        "--trust-source",
+        "--attachment",
+        "--path",
+        "store",
+    ]);
+    match cmd.into_inner() {
+        PassCmd::Protect {
+            cmd:
+                PassProtectCmd::RecoverCiphertext {
+                    name,
+                    trust_source,
+                    attachment,
+                    path,
+                    ..
+                },
+        } => {
+            assert_eq!(name, "Docs/scan");
+            assert!(trust_source && attachment);
+            assert_eq!(path, Some(PathBuf::from("store")));
+        }
+        other => panic!("wrong command: {other:?}"),
+    }
+}
+
+#[test]
+fn rollback_anchor_migration_requires_an_explicit_typed_confirmation() {
+    let cmd = parse(&[
+        "pass",
+        "migrate-rollback-anchor",
+        "--accept-current-state",
+        "--path",
+        "store",
+    ]);
+    match cmd.into_inner() {
+        PassCmd::MigrateRollbackAnchor {
+            accept_current_state,
+            path,
+            tomb,
+        } => {
+            assert!(accept_current_state);
+            assert_eq!(path, Some(PathBuf::from("store")));
+            assert!(tomb.is_none());
+        }
+        other => panic!("wrong genuine command: {other:?}"),
+    }
+}

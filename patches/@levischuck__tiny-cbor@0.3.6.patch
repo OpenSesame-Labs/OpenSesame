@@ -1,0 +1,44 @@
+diff --git a/esm/cbor/cbor.js b/esm/cbor/cbor.js
+--- a/esm/cbor/cbor.js
++++ b/esm/cbor/cbor.js
+@@ -60,6 +60,9 @@
+         throw new Error("ByteString length is too large");
+     }
+     const dataStartIndex = index + lengthConsumed;
++    if (lengthValue > data.byteLength - dataStartIndex) {
++        throw new Error("ByteString length exceeds input");
++    }
+     const absoluteStart = data.byteOffset + dataStartIndex;
+     return [
+         new Uint8Array(data.buffer.slice(absoluteStart, absoluteStart + lengthValue)),
+@@ -363,7 +366,7 @@
+     // SharedArrayBuffer only exists when the page is viewed from a secure context.
+     const isSharedArrayBuffer = typeof SharedArrayBuffer !== "undefined" &&
+         prototype === SharedArrayBuffer.prototype;
+-    if (prototype.constructor === Uint8Array.prototype.constructor) {
++    if (prototype.constructor === Uint8Array.prototype.constructor || data instanceof Uint8Array) {
+         const u8 = data;
+         return decodeNext(new DataView(u8.buffer, u8.byteOffset, u8.byteLength), index);
+     }
+diff --git a/script/cbor/cbor.js b/script/cbor/cbor.js
+--- a/script/cbor/cbor.js
++++ b/script/cbor/cbor.js
+@@ -67,6 +67,9 @@
+         throw new Error("ByteString length is too large");
+     }
+     const dataStartIndex = index + lengthConsumed;
++    if (lengthValue > data.byteLength - dataStartIndex) {
++        throw new Error("ByteString length exceeds input");
++    }
+     const absoluteStart = data.byteOffset + dataStartIndex;
+     return [
+         new Uint8Array(data.buffer.slice(absoluteStart, absoluteStart + lengthValue)),
+@@ -370,7 +373,7 @@
+     // SharedArrayBuffer only exists when the page is viewed from a secure context.
+     const isSharedArrayBuffer = typeof SharedArrayBuffer !== "undefined" &&
+         prototype === SharedArrayBuffer.prototype;
+-    if (prototype.constructor === Uint8Array.prototype.constructor) {
++    if (prototype.constructor === Uint8Array.prototype.constructor || data instanceof Uint8Array) {
+         const u8 = data;
+         return decodeNext(new DataView(u8.buffer, u8.byteOffset, u8.byteLength), index);
+     }

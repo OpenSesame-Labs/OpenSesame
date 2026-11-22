@@ -213,7 +213,7 @@ async function failure(promise) {
 }
 
 it("the compiled gateway retains exactly official errors and no network provider", () => {
-  const assertOutput = (bundle) => assertAiBrowserOutput(bundle, input, 45093);
+  const assertOutput = (bundle) => assertAiBrowserOutput(bundle, input, 48357);
   expect(() => assertOutput(compiled)).not.toThrow();
   const chunk = Object.values(compiled)[0];
   const wrongExports = {

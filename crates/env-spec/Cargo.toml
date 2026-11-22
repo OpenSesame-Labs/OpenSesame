@@ -15,4 +15,5 @@ thiserror = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]
+opensesame-trusted-exec = { path = "../trusted-exec", features = ["testkit"] }
 tempfile = { workspace = true }

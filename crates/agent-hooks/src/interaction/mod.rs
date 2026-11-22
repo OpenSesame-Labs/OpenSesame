@@ -63,7 +63,7 @@ use session::Session;
 /// The Identity API's floor and ceiling on an interaction's window.
 pub const MIN_TTL: Duration = Duration::from_secs(30);
 /// See [`MIN_TTL`].
-pub const MAX_TTL: Duration = Duration::from_secs(3600);
+pub const MAX_TTL: Duration = Duration::from_hours(1);
 /// How often the approver asks whether there is an approval to spend.
 pub const DEFAULT_POLL_INTERVAL: Duration = Duration::from_secs(2);
 

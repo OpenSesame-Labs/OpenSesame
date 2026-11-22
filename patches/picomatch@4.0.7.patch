@@ -1,0 +1,340 @@
+diff --git a/lib/bounded-regex.js b/lib/bounded-regex.js
+new file mode 100644
+index 0000000..cad4d40
+--- /dev/null
++++ b/lib/bounded-regex.js
+@@ -0,0 +1,162 @@
++'use strict';
++
++// RegExp.exec cannot be interrupted on the event loop. Run identified
++// repeated ambiguous expressions on one reusable worker, and fail explicitly
++// on a deadline or serialization overflow, rather than weakening exclusions.
++const stateKey = Symbol.for('opensesame.picomatch.bounded-regex.v1');
++const sharedState = globalThis[stateKey] || (globalThis[stateKey] = { worker: null });
++const MATCH_TIMEOUT_MS = 250;
++const START_TIMEOUT_MS = 5000;
++const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
++
++const isNode = typeof process !== 'undefined' && process.versions && process.versions.node &&
++  typeof module !== 'undefined' && typeof module.require === 'function';
++
++const loadBuiltin = name => module.require(name);
++
++const countCaptures = source => {
++  let count = 0, escaped = false, bracket = false;
++  for (let i = 0; i < source.length; i++) {
++    const ch = source[i];
++    if (escaped) { escaped = false; continue; }
++    if (ch === '\\') { escaped = true; continue; }
++    if (ch === '[' && !bracket) { bracket = true; continue; }
++    if (ch === ']' && bracket) { bracket = false; continue; }
++    if (!bracket && ch === '(' &&
++        (source[i + 1] !== '?' || source[i + 2] === '<' && !'!='.includes(source[i + 3]))) count++;
++  }
++  return count;
++};
++
++// Conservatively identify repeated groups containing quantifiers or
++// alternatives. This does not cover every possible polynomial expression.
++const hasUnsafeRepetition = source => {
++  const groups = [{ quantified: false, alternate: false }];
++  let escaped = false, bracket = false;
++  for (let i = 0; i < source.length; i++) {
++    const ch = source[i];
++    if (escaped) { escaped = false; continue; }
++    if (ch === '\\') { escaped = true; continue; }
++    if (ch === '[' && !bracket) { bracket = true; continue; }
++    if (ch === ']' && bracket) { bracket = false; continue; }
++    if (bracket) continue;
++    if (ch === '(') {
++      const next = source.slice(i + 1, i + 4);
++      groups.push({ quantified: false, alternate: false, assertion: next.startsWith('?=') || next.startsWith('?!') || next === '?<=' || next === '?<!' });
++      continue;
++    }
++    if (ch === '|') { groups[groups.length - 1].alternate = true; continue; }
++    if (ch === ')' && groups.length > 1) {
++      const group = groups.pop();
++      const next = source.slice(i + 1);
++      const range = /^\{(\d+)(?:,(\d*))?\}/.exec(next);
++      const repeated = next[0] === '*' || next[0] === '+' || Boolean(range &&
++        (range[2] === '' || Number(range[2] === undefined ? range[1] : range[2]) > 1));
++      if (repeated && (group.quantified || group.alternate)) return true;
++      if (!group.assertion) {
++        if (group.quantified) groups[groups.length - 1].quantified = true;
++        if (group.alternate) groups[groups.length - 1].alternate = true;
++      }
++      continue;
++    }
++    const optional = ch === '?' && source[i - 1] !== '(' && !'*+?}'.includes(source[i - 1]);
++    const range = ch === '{' && /^\{\d+(?:,\d*)?\}/.test(source.slice(i));
++    if (ch === '*' || ch === '+' || optional || range) groups[groups.length - 1].quantified = true;
++  }
++  return false;
++};
++
++// If an extglob contains multiple repetitions, even adjacent siblings can
++// cause expensive backtracking. Ignore escapes, character classes, group
++// introducers and lazy modifiers while counting quantifiers.
++const countRepetitions = source => {
++  let escaped = false, bracket = false, count = 0;
++  for (let i = 0; i < source.length; i++) {
++    const ch = source[i];
++    if (escaped) { escaped = false; continue; }
++    if (ch === '\\') { escaped = true; continue; }
++    if (ch === '[' && !bracket) { bracket = true; continue; }
++    if (ch === ']' && bracket) { bracket = false; continue; }
++    if (bracket) continue;
++    const optional = ch === '?' && source[i - 1] !== '(' && !'*+?}'.includes(source[i - 1]);
++    const range = ch === '{' && /^\{\d+(?:,\d*)?\}/.test(source.slice(i));
++    if (ch === '*' || ch === '+' || optional || range) {
++      if (++count > 1) return count;
++    }
++  }
++  return count;
++};
++
++const stopWorker = () => {
++  const worker = sharedState.worker;
++  sharedState.worker = null;
++  if (worker) worker.terminate().catch(() => {});
++};
++
++const workerFor = () => {
++  if (sharedState.worker) return sharedState.worker;
++  const { Worker } = loadBuiltin('node:worker_threads');
++  const ready = new SharedArrayBuffer(4);
++  const signal = new Int32Array(ready);
++  const worker = new Worker(`${__dirname}/bounded-worker.js`, { workerData: { ready } });
++  worker.unref();
++  worker.on('error', () => { if (sharedState.worker === worker) sharedState.worker = null; });
++  worker.on('exit', () => { if (sharedState.worker === worker) sharedState.worker = null; });
++  sharedState.worker = worker;
++  if (Atomics.wait(signal, 0, 0, START_TIMEOUT_MS) === 'timed-out' && Atomics.load(signal, 0) === 0) {
++    stopWorker();
++    throw new RangeError('picomatch regex worker failed to start within its deadline');
++  }
++  return worker;
++};
++
++// Use intrinsic getters because user code may shadow `.source` or `.global`;
++// RegExpBuiltinExec itself reads internal slots rather than those properties.
++const getter = name => Object.getOwnPropertyDescriptor(RegExp.prototype, name).get;
++const intrinsicSource = getter('source');
++const flagGetters = [['d', 'hasIndices'], ['g', 'global'], ['i', 'ignoreCase'], ['m', 'multiline'],
++  ['s', 'dotAll'], ['u', 'unicode'], ['v', 'unicodeSets'], ['y', 'sticky']]
++  .map(([flag, name]) => [flag, Object.getOwnPropertyDescriptor(RegExp.prototype, name)?.get]);
++
++const nodeExec = (regex, input) => {
++  if (typeof input === 'symbol') throw new TypeError('Cannot convert a Symbol value to a string');
++  input = String(input);
++  const source = intrinsicSource.call(regex);
++  const flags = flagGetters.filter(([, read]) => read && read.call(regex)).map(([flag]) => flag).join('');
++  const useLastIndex = flags.includes('g') || flags.includes('y');
++  const lastIndex = useLastIndex ? +regex.lastIndex : 0;
++  const captures = countCaptures(source);
++  const byteLimit = Math.min(MAX_OUTPUT_BYTES, Math.max(4096, 512 + source.length * 4 + (input.length + 1) * 8 * (captures * 2 + 2)));
++  const shared = new SharedArrayBuffer(byteLimit + 8);
++  const signal = new Int32Array(shared, 0, 2);
++  const worker = workerFor();
++  worker.postMessage({ source, flags, input, lastIndex, shared });
++  if (Atomics.wait(signal, 0, 0, MATCH_TIMEOUT_MS) === 'timed-out' && Atomics.load(signal, 0) === 0) {
++    stopWorker();
++    throw new RangeError(`picomatch regular expression exceeded ${MATCH_TIMEOUT_MS} ms`);
++  }
++  if (Atomics.load(signal, 0) !== 1) {
++    stopWorker();
++    throw new RangeError('picomatch regular expression result exceeded the safe bound or its worker failed');
++  }
++  const { deserialize } = loadBuiltin('node:v8');
++  const { result, lastIndex: endIndex } = deserialize(Buffer.from(shared, 8, Atomics.load(signal, 1)));
++  if (useLastIndex) regex.lastIndex = endIndex;
++  if (result && result.groups) Object.setPrototypeOf(result.groups, null);
++  if (result && result.indices && result.indices.groups) Object.setPrototypeOf(result.indices.groups, null);
++  return result;
++};
++
++class BoundedRegExp extends RegExp {
++  exec(input) { return nodeExec(this, input); }
++}
++
++module.exports = (regex, hasExtglob) => {
++  const count = countRepetitions(regex.source);
++  const unsafe = hasUnsafeRepetition(regex.source) ||
++    (hasExtglob === true && count > 1) ||
++    (hasExtglob === undefined && count > 0);
++  if (!unsafe) return regex;
++  if (isNode) return new BoundedRegExp(regex.source, regex.flags);
++  throw new RangeError('picomatch cannot safely evaluate this expression in a synchronous browser runtime');
++};
+diff --git a/lib/bounded-worker.js b/lib/bounded-worker.js
+new file mode 100644
+index 0000000..af27dbb
+--- /dev/null
++++ b/lib/bounded-worker.js
+@@ -0,0 +1,25 @@
++'use strict';
++const { parentPort, workerData } = require('node:worker_threads');
++const { serialize } = require('node:v8');
++parentPort.on('message', ({ source, flags, input, lastIndex, shared }) => {
++  const state = new Int32Array(shared, 0, 2);
++  try {
++    const expression = new RegExp(source, flags);
++    expression.lastIndex = lastIndex;
++    const result = expression.exec(input);
++    const data = serialize({ result, lastIndex: expression.lastIndex });
++    if (data.length > shared.byteLength - 8) {
++      Atomics.store(state, 0, -1);
++    } else {
++      new Uint8Array(shared, 8, data.length).set(data);
++      Atomics.store(state, 1, data.length);
++      Atomics.store(state, 0, 1);
++    }
++  } catch (error) {
++    Atomics.store(state, 0, -2);
++  }
++  Atomics.notify(state, 0);
++});
++const ready = new Int32Array(workerData.ready);
++Atomics.store(ready, 0, 1);
++Atomics.notify(ready, 0);
+diff --git a/lib/picomatch.js b/lib/picomatch.js
+index 9c2bfd5..d6fa8ea 100644
+--- a/lib/picomatch.js
++++ b/lib/picomatch.js
+@@ -5,6 +5,15 @@ const parse = require('./parse');
+ const utils = require('./utils');
+ const constants = require('./constants');
+ const isObject = val => val && typeof val === 'object' && !Array.isArray(val);
++const boundRegex = require('./bounded-regex');
++const isBounded = regex => regex.constructor !== RegExp;
++const refuseUnsafeSource = (source, options, hasExtglob) => {
++  const opts = options || {};
++  const regex = new RegExp(source, opts.flags || (opts.nocase ? 'i' : ''));
++  if (isBounded(boundRegex(regex, hasExtglob))) {
++    throw new RangeError('picomatch refuses to expose a potentially unsafe regular expression');
++  }
++};
+
+ /**
+  * Creates a matcher function from one or more glob patterns. The
+@@ -62,10 +71,11 @@ const picomatch = (glob, options, returnState = false) => {
+   const opts = options || {};
+   const posix = opts.windows;
+   const regex = isState
+-    ? picomatch.compileRe(glob, options)
+-    : picomatch.makeRe(glob, options, false, true);
++    ? compileReInternal(glob, options, false, true, true)
++    : makeReInternal(glob, options, false, true, true);
+
+-  const state = regex.state;
++  const bounded = isBounded(regex);
++  const state = bounded ? undefined : regex.state;
+   delete regex.state;
+
+   let isIgnored = () => false;
+@@ -76,7 +86,7 @@ const picomatch = (glob, options, returnState = false) => {
+
+   const matcher = (input, returnObject = false) => {
+     const { isMatch, match, output } = picomatch.test(input, regex, options, { glob, posix });
+-    const result = { glob, state, regex, posix, input, output, match, isMatch };
++    const result = { glob, state, regex: bounded ? undefined : regex, posix, input, output, match, isMatch };
+
+     if (typeof opts.onResult === 'function') {
+       opts.onResult(result);
+@@ -209,7 +219,10 @@ picomatch.isMatch = (str, patterns, options) => picomatch(patterns, options)(str
+
+ picomatch.parse = (pattern, options) => {
+   if (Array.isArray(pattern)) return pattern.map(p => picomatch.parse(p, options));
+-  return parse(pattern, { ...options, fastpaths: false });
++  const state = parse(pattern, { ...options, fastpaths: false });
++  const hasExtglob = Boolean(state.tokens && state.tokens.some(token => token.extglob));
++  refuseUnsafeSource(state.output, options, hasExtglob);
++  return state;
+ };
+
+ /**
+@@ -261,11 +274,7 @@ picomatch.scan = (input, options) => scan(input, options);
+  * @api public
+  */
+
+-picomatch.compileRe = (state, options, returnOutput = false, returnState = false) => {
+-  if (returnOutput === true) {
+-    return state.output;
+-  }
+-
++const compileReInternal = (state, options, returnOutput = false, returnState = false, allowBounded = false) => {
+   const opts = options || {};
+   const prepend = opts.contains ? '' : '^';
+   const append = opts.contains ? '' : '$';
+@@ -275,7 +284,13 @@ picomatch.compileRe = (state, options, returnOutput = false, returnState = false
+     source = `^(?!${source}).*$`;
+   }
+
+-  const regex = picomatch.toRegex(source, options);
++  const hasExtglob = Boolean(state.tokens && state.tokens.some(token => token.extglob));
++  if (returnOutput === true) {
++    refuseUnsafeSource(source, options, hasExtglob);
++    return state.output;
++  }
++
++  const regex = toRegexInternal(source, options, hasExtglob, allowBounded);
+   if (returnState === true) {
+     regex.state = state;
+   }
+@@ -283,6 +298,9 @@ picomatch.compileRe = (state, options, returnOutput = false, returnState = false
+   return regex;
+ };
+
++picomatch.compileRe = (state, options, returnOutput = false, returnState = false) =>
++  compileReInternal(state, options, returnOutput, returnState);
++
+ /**
+  * Create a regular expression from a parsed glob pattern.
+  *
+@@ -302,7 +320,7 @@ picomatch.compileRe = (state, options, returnOutput = false, returnState = false
+  * @api public
+  */
+
+-picomatch.makeRe = (input, options = {}, returnOutput = false, returnState = false) => {
++const makeReInternal = (input, options = {}, returnOutput = false, returnState = false, allowBounded = false) => {
+   if (!input || typeof input !== 'string') {
+     throw new TypeError('Expected a non-empty string');
+   }
+@@ -317,7 +335,10 @@ picomatch.makeRe = (input, options = {}, returnOutput = false, returnState = fal
+     parsed = parse(input, options);
+   }
+
+-  return picomatch.compileRe(parsed, options, returnOutput, returnState);
++  return compileReInternal(parsed, options, returnOutput, returnState, allowBounded);
+ };
+
++picomatch.makeRe = (input, options = {}, returnOutput = false, returnState = false) =>
++  makeReInternal(input, options, returnOutput, returnState);
++
+ /**
+@@ -337,14 +358,23 @@ picomatch.makeRe = (input, options = {}, returnOutput = false, returnState = fal
+  * @api public
+  */
+
+-picomatch.toRegex = (source, options) => {
++const toRegexInternal = (source, options, hasExtglob, allowBounded = false) => {
++  let regex;
+   try {
+     const opts = options || {};
+-    return new RegExp(source, opts.flags || (opts.nocase ? 'i' : ''));
++    regex = new RegExp(source, opts.flags || (opts.nocase ? 'i' : ''));
+   } catch (err) {
+     if (options && options.debug === true) throw err;
+     return /$^/;
+   }
++  const bounded = boundRegex(regex, hasExtglob);
++  if (isBounded(bounded) && !allowBounded) {
++    throw new RangeError('picomatch refuses to expose a potentially unsafe regular expression');
++  }
++  return bounded;
+ };
+
++picomatch.toRegex = (source, options, hasExtglob) =>
++  toRegexInternal(source, options, hasExtglob);
++
+ /**

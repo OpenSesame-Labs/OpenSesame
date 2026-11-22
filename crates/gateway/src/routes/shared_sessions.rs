@@ -25,12 +25,12 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::{DateTime, Utc};
 use opensesame_domain::{
     GrantLink, GrantScope, NewSessionGrant, PrincipalId, SessionGrant, SessionGrantId, SessionId,
     SessionMembership, SessionMode, SessionRole, SessionVisibility, VaultId, VaultItemId,
 };
 use opensesame_storage::StoredSession;
+use opensesame_time::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
 

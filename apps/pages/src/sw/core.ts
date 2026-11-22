@@ -15,7 +15,6 @@
  * service worker cannot load a script it did not ship with (P-NOLOAD).
  */
 
-import { SamlPostCommandSchema } from "@opensesame/app-core/browser/saml/post-wire.js";
 import {
   type BoundaryValue,
   isJsonObject,
@@ -38,6 +37,7 @@ import {
   releaseIdFromManifest,
   shellEntry,
 } from "./release.js";
+import { parseSamlPostCommand } from "./saml-command.generated.js";
 import { createSamlPostIngress } from "./saml-post.js";
 import { respondToShareTarget, sweepShareTargetCache } from "./share-target.js";
 
@@ -293,7 +293,7 @@ export function installCoreWorker(
       event.waitUntil(hello(ctx, event, takeover, manifest));
     else if (data && isString(data.type) && data.type === "PLAN_ASSETS")
       event.waitUntil(plans.handle(event));
-    else if (saml && SamlPostCommandSchema.safeParse(data).success)
+    else if (saml && parseSamlPostCommand(data) !== null)
       event.waitUntil(saml.message(event));
     // Any other type is ignored (ownership.md §4.7).
   });

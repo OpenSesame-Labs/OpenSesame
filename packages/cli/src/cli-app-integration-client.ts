@@ -1,4 +1,5 @@
 import { cliAppIntegrationPolicy } from "@opensesame/app-core/lib/cli-app-integration/index.js";
+import { isCliAppApprovalBlocked } from "@opensesame/app-core/lib/cli-app-integration/policy-runtime.js";
 import { ephemeralTerminalCorrelationId } from "@opensesame/app-core/lib/cli-app-integration/terminal-session.js";
 import {
   type BoundaryValue,
@@ -12,6 +13,7 @@ export type CliAppIntegrationDecision =
   | "approve"
   | "deny"
   | "unavailable"
+  | "blockedApproval"
   | "expired"
   | "timedOut";
 
@@ -22,6 +24,14 @@ export interface CliAppIntegrationPort {
     reference?: string | undefined;
   }): Promise<CliAppIntegrationDecision>;
 }
+
+export interface CliAppIntegrationDependencies {
+  verifyLocalDaemon(base: string): Promise<boolean>;
+}
+
+const defaultCliAppIntegrationDependencies: CliAppIntegrationDependencies = {
+  verifyLocalDaemon: verifyLocalDaemonForCliAppIntegration,
+};
 
 function daemonBase(): string | undefined {
   const raw =
@@ -64,7 +74,11 @@ async function pollEnsure(
     const status = readString(body.status);
     if (status === "approved") return "approve";
     if (status === "expired") return "expired";
-    if (status === "denied") return "deny";
+    if (status === "denied") {
+      return readString(body.reason) === "authenticator_provenance_unavailable"
+        ? "blockedApproval"
+        : "deny";
+    }
     if (status === "wrongSession") return "deny";
     await new Promise((resolve) => {
       setTimeout(resolve, cliAppIntegrationPolicy.pollIntervalMs);
@@ -73,13 +87,16 @@ async function pollEnsure(
   return "timedOut";
 }
 
-export function createCliAppIntegrationPort(): CliAppIntegrationPort {
+export function createCliAppIntegrationPort(
+  dependencies: CliAppIntegrationDependencies = defaultCliAppIntegrationDependencies,
+): CliAppIntegrationPort {
   return {
     async ensureReveal(input) {
+      if (isCliAppApprovalBlocked()) return "blockedApproval";
       const base = daemonBase();
       if (!base) return "unavailable";
       try {
-        if (!(await verifyLocalDaemonForCliAppIntegration(base))) {
+        if (!(await dependencies.verifyLocalDaemon(base))) {
           return "unavailable";
         }
         return await pollEnsure(

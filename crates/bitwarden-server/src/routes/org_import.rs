@@ -7,8 +7,8 @@
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::Json;
-use chrono::Utc;
 use opensesame_storage::bitwarden::BitwardenCollection;
+use opensesame_time::Utc;
 use serde_json::Value;
 
 use super::cipher_bulk::{IMPORT_CIPHERS, IMPORT_FOLDERS};

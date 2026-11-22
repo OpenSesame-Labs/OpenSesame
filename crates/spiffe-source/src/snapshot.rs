@@ -6,7 +6,7 @@
 //! default SVID and the operator `hint` are never a privilege decision
 //! (AT-SPIFFE-SELECT).
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use secrecy::{ExposeSecret as _, SecretBox};
 use spiffe::X509Context;
 

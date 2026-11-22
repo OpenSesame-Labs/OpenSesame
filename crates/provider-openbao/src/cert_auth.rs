@@ -36,7 +36,7 @@
 
 use std::sync::Mutex;
 
-use chrono::Utc;
+use opensesame_time::Utc;
 use secrecy::{ExposeSecret, SecretString};
 use serde_json::{json, Value};
 

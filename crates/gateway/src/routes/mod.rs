@@ -22,6 +22,9 @@ mod credential_connections;
 mod delegations;
 mod device;
 mod est_enrollment;
+#[cfg(test)]
+#[path = "est_freshness.rs"]
+pub(crate) mod est_freshness;
 mod est_records;
 pub(crate) mod est_server;
 mod est_wire;
@@ -211,9 +214,8 @@ pub fn router(state: AppState) -> Router {
         // owns it. Presence is a seat rather than a grant, so an observer is in
         // the room holding nothing.
         .merge(shared_sessions::routes())
-        // ADR 0046: relayed execution — dual-RPC tier. The holder's runtime
-        // heartbeats, drains, decides, and reports; the delegate submits and
-        // polls. Admission rules run at submit and at result.
+        // ADR 0046: execution and executable inbox delivery fail closed until
+        // the holder runtime can authorize at the actual effect boundary.
         .route("/api/v1/relay/heartbeat", post(relay::heartbeat))
         .route("/api/v1/relay/requests", post(relay::submit))
         .route("/api/v1/relay/requests/pending", get(relay::pending))

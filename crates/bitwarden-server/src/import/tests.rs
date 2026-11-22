@@ -1,7 +1,7 @@
-use chrono::Utc;
 use opensesame_storage::bitwarden::{
     ArrivingSignIn, BitwardenArrival, BitwardenKdf, BitwardenUser,
 };
+use opensesame_time::Utc;
 use serde_json::json;
 
 use super::*;

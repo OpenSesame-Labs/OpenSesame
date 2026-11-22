@@ -16,8 +16,8 @@ type Props = {
   onChange: (next: SecretBackendItemInput) => void;
 };
 function SecretField({ draft, editing, busy, onChange }: Props) {
-  const [revealed, setRevealed] = useState(false);
   const copySecret = useCopySecret();
+  const [revealed, setRevealed] = useState(false);
   return (
     <FieldShell
       label={draft.kind === "login" ? "Password" : "Secret value"}

@@ -23,7 +23,7 @@ use serde::Deserialize;
 use serde_json::json;
 
 use crate::app_state::AppState;
-use crate::middleware::auth::{require_operator, resolve_caller, Caller};
+use crate::middleware::auth::{require_operator, Caller};
 
 /// Largest sealed chunk frame: 1 MiB of plaintext plus AEAD overhead, rounded
 /// to the chunk ceiling the store writes. Anything larger did not come from
@@ -223,7 +223,7 @@ pub async fn put_target(
         enabled: body.enabled.unwrap_or(true),
         status: "configured".to_string(),
         last_error: None,
-        updated_at_unix_ms: chrono::Utc::now().timestamp_millis(),
+        updated_at_unix_ms: opensesame_time::Utc::now().timestamp_millis(),
     };
     if let Err(error) = st.db.upsert_attachment_target(&target).await {
         return internal(error);
@@ -367,11 +367,10 @@ pub async fn replicate_chunk(
     Query(query): Query<ChunkQuery>,
     body: Bytes,
 ) -> Response {
-    let who = match resolve_caller(&st, &headers) {
-        Ok(who) => who,
+    let organization = match authority::require_replication_authority(&st, &headers) {
+        Ok(organization) => organization,
         Err(resp) => return resp,
     };
-    let organization = who.organization(st.connection_organization);
 
     if !valid_digest(&query.digest) {
         return unprocessable(
@@ -419,11 +418,10 @@ pub async fn replicate_manifest(
     Query(query): Query<ManifestQuery>,
     body: Bytes,
 ) -> Response {
-    let who = match resolve_caller(&st, &headers) {
-        Ok(who) => who,
+    let organization = match authority::require_replication_authority(&st, &headers) {
+        Ok(organization) => organization,
         Err(resp) => return resp,
     };
-    let organization = who.organization(st.connection_organization);
 
     if !valid_logical_path(&query.path) {
         return unprocessable(
@@ -898,3 +896,5 @@ mod tests {
         assert!(upload_shape("no-such-provider").is_none());
     }
 }
+
+mod authority;

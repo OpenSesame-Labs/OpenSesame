@@ -52,7 +52,16 @@ async function ensurePagesDist() {
 function dryRun(releaseDir, distTag, label, expectVersion) {
   const result = spawnSync(
     "npm",
-    ["publish", "--dry-run", "--access", "public", "--tag", distTag],
+    [
+      "publish",
+      "--dry-run",
+      "--ignore-scripts",
+      "--offline",
+      "--access",
+      "public",
+      "--tag",
+      distTag,
+    ],
     { cwd: releaseDir, encoding: "utf8" },
   );
   const output = `${result.stdout ?? ""}\n${result.stderr ?? ""}`;
@@ -104,12 +113,14 @@ async function main() {
     sha,
     tagPrefix: "cli-v",
     releaseName: "cli",
+    npmVersions: [],
   });
   const webPlan = planNpmCdRelease({
     npmPackageName: NPM_PUBLISH.webPwa.name,
     sha,
     tagPrefix: "web-pwa-v",
     releaseName: "web-pwa",
+    npmVersions: [],
   });
   for (const plan of [cliPlan, webPlan]) {
     if (plan.npmDistTag === "latest" || CD_PRODUCTION_DIST_TAG === "latest") {

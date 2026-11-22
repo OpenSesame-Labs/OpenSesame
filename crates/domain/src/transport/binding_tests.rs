@@ -1,5 +1,5 @@
 use super::*;
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 
 pub(super) type Mutation<T> = Box<dyn Fn(&mut T)>;
 

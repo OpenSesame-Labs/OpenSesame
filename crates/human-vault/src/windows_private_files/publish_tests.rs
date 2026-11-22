@@ -5,6 +5,7 @@ use std::{
     fs,
     os::windows::fs::OpenOptionsExt,
     process::{Command, Stdio},
+    sync::Arc,
 };
 use windows_sys::Win32::Storage::FileSystem::CreateDirectoryW;
 
@@ -125,6 +126,51 @@ fn exclusive_creation_never_overwrites_and_the_completed_file_is_private() {
     assert_eq!(fs::read(root.join(name)).unwrap(), b"complete original");
     security::verify(&File::open(root.join(name)).unwrap(), &held.owner, false).unwrap();
     assert_eq!(fs::read_dir(&root).unwrap().count(), 1);
+}
+
+#[test]
+fn exact_handle_removal_refuses_a_hardlinked_leaf() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = private_root(temp.path());
+    let held = PrivateDirectory::open(&root).unwrap();
+    let name = Path::new("checkpoint");
+    write_new(&held, name, b"current").unwrap();
+    let alias = temp.path().join("outside-alias");
+    fs::hard_link(root.join(name), &alias).unwrap();
+
+    assert!(remove_file(&held, name).is_err());
+    assert_eq!(fs::read(&alias).unwrap(), b"current");
+    assert_eq!(fs::read(root.join(name)).unwrap(), b"current");
+
+    fs::remove_file(alias).unwrap();
+    remove_file(&held, name).unwrap();
+    assert!(!root.join(name).exists());
+}
+
+#[test]
+fn confined_legacy_access_accepts_broad_acl_but_keeps_exact_handle_guards() {
+    let temp = tempfile::tempdir().unwrap();
+    let root = temp.path().join("legacy-root");
+    fs::create_dir(&root).unwrap();
+    fs::write(root.join("legacy"), b"legacy bytes").unwrap();
+    let held = Arc::new(PrivateDirectory::open_confined(&root).unwrap());
+
+    assert!(HeldPrivateRead::open(Arc::clone(&held), Path::new("legacy"), 4096).is_err());
+    let read =
+        HeldPrivateRead::open_confined(Arc::clone(&held), Path::new("legacy"), 4096).unwrap();
+    assert_eq!(read.bytes(), b"legacy bytes");
+    drop(read);
+
+    let alias = temp.path().join("legacy-alias");
+    fs::hard_link(root.join("legacy"), &alias).unwrap();
+    assert!(remove_confined_file(&held, Path::new("legacy")).is_err());
+    fs::remove_file(alias).unwrap();
+    remove_confined_file(&held, Path::new("legacy")).unwrap();
+
+    fs::write(root.join("replace"), b"broad old bytes").unwrap();
+    atomic_write(&held, Path::new("replace"), b"private replacement").unwrap();
+    let replaced = File::open(root.join("replace")).unwrap();
+    security::verify(&replaced, &held.owner, false).unwrap();
 }
 
 #[test]

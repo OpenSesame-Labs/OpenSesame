@@ -52,6 +52,10 @@ mod vault_relay;
 mod web_login;
 
 pub use config::Args;
+pub use transport::source_history::coordinator::initialize_host_history;
+pub use transport::source_history::{
+    HistoryError as SourceHistoryError, SourceHistory, SOURCE_HISTORY_ATTESTATION_LIMIT,
+};
 
 /// Serve the Host API, and every background actor it owns, until the
 /// listeners stop.

@@ -6,6 +6,7 @@ import {
   type BoundaryValue,
   isBoolean,
   isJsonObject,
+  isNumber,
   isString,
 } from "@opensesame/os-domain";
 import { call } from "./directory.js";
@@ -36,12 +37,70 @@ export function directoryUser(value: BoundaryValue): DirectoryUser {
 function usersPath(organization: string) {
   return `/v1/organizations/${encodeURIComponent(organization)}/scim/v2/Users`;
 }
-export function listDirectoryUsers(organization: string) {
-  return call(usersPath(organization), {}, (body) => {
-    if (!isJsonObject(body) || !Array.isArray(body.Resources))
-      throw new Error("Identity returned an invalid directory.");
-    return body.Resources.map(directoryUser);
-  });
+
+const DIRECTORY_PAGE_SIZE = 200;
+const DIRECTORY_USER_LIMIT = 10_000;
+
+type DirectoryPage = {
+  resources: DirectoryUser[];
+  totalResults: number;
+  startIndex: number;
+  itemsPerPage: number;
+};
+
+function directoryPage(value: BoundaryValue): DirectoryPage {
+  if (
+    !isJsonObject(value) ||
+    !Array.isArray(value.Resources) ||
+    !isNumber(value.totalResults) ||
+    !Number.isSafeInteger(value.totalResults) ||
+    value.totalResults < 0 ||
+    !isNumber(value.startIndex) ||
+    !Number.isSafeInteger(value.startIndex) ||
+    value.startIndex < 1 ||
+    !isNumber(value.itemsPerPage) ||
+    !Number.isSafeInteger(value.itemsPerPage) ||
+    value.itemsPerPage < 0 ||
+    value.itemsPerPage > DIRECTORY_PAGE_SIZE
+  ) {
+    throw new Error("Identity returned an invalid directory page.");
+  }
+  const resources = value.Resources.map(directoryUser);
+  if (resources.length !== value.itemsPerPage)
+    throw new Error("Identity returned an inconsistent directory page.");
+  return {
+    resources,
+    totalResults: value.totalResults,
+    startIndex: value.startIndex,
+    itemsPerPage: value.itemsPerPage,
+  };
+}
+
+export async function listDirectoryUsers(
+  organization: string,
+): Promise<DirectoryUser[]> {
+  const path = usersPath(organization);
+  const users: DirectoryUser[] = [];
+  let startIndex = 1;
+  for (;;) {
+    const page = await call(
+      `${path}?startIndex=${startIndex}&count=${DIRECTORY_PAGE_SIZE}`,
+      {},
+      directoryPage,
+    );
+    if (
+      page.startIndex !== startIndex ||
+      page.totalResults > DIRECTORY_USER_LIMIT ||
+      users.length + page.resources.length > page.totalResults
+    ) {
+      throw new Error("Identity returned an invalid directory page.");
+    }
+    users.push(...page.resources);
+    if (users.length >= page.totalResults) return users;
+    if (page.itemsPerPage === 0)
+      throw new Error("Identity returned an incomplete directory.");
+    startIndex += page.itemsPerPage;
+  }
 }
 export function createDirectoryUser(
   organization: string,

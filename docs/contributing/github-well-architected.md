@@ -47,7 +47,7 @@ The recommendation's checklist, in its order.
 | Least-privilege permissions | Enforced | [Actions security](../security/actions-security.md). |
 | Third-party actions pinned to commit SHAs | Enforced | Same. |
 | Dependabot keeps actions updated | Enforced | [`dependabot.yml`](../../.github/dependabot.yml). |
-| OIDC for cloud authentication where possible | Not applicable, and Owner setting | No cloud provider. npm publishing uses OIDC whenever `NPM_TOKEN` is absent and warns on every publish that still reads it; deleting the token is the owner's step ([stored publication credentials](../operators/publishing.md#stored-publication-credentials)). |
+| OIDC for cloud authentication where possible | Not applicable to a cloud provider | No cloud provider. npm publication is disabled pending candidate-bound promotion and independently protected publisher controls ([status](../operators/publishing.md#stored-publication-credentials)). |
 | Matrix builds across platforms and versions | Enforced | Native platform validation and CodeQL run as matrices. |
 | Runtime environment customized to avoid repeated setup | Enforced | A locked mise bootstrap and caches. No custom runner image. |
 | Reusable workflows standardize patterns | Enforced | Candidate build and each qualification tier are `workflow_call` workflows. |
@@ -82,7 +82,7 @@ The recommendation's checklist, in its order.
 |---|---|---|
 | Dependency scanning | Enforced | OSV-Scanner, cargo-audit, cve-lite, dependency review, Dependabot. [Dependency supply chain](../security/dependency-supply-chain.md). |
 | Code scanning | Enforced | CodeQL weekly and per release candidate; ast-grep and Semgrep gates. Not on pull requests: a recorded deviation. |
-| Secrets management | Enforced | No live secret in the tree; `.env.schema`; publish tokens in environments. Rotation: the release token is limited to 90 days and every release reports its expiry; `NPM_TOKEN` warns on every publish until the owner deletes it ([stored publication credentials](../operators/publishing.md#stored-publication-credentials)). |
+| Secrets management | Enforced | No live secret in the tree; `.env.schema`; release token in the protected environment. The release token is limited to 90 days and every release reports its expiry. npm proof jobs do not read `NPM_TOKEN`; any unused token should be removed ([stored publication credentials](../operators/publishing.md#stored-publication-credentials)). |
 | Security policies | Enforced | [SECURITY.md](../../SECURITY.md), [AGENTS.md](../../AGENTS.md) §5 and §6. |
 | Secure coding guidelines | Enforced | The design rules, checked by gates and by review. |
 | Access controls | Owner setting | One maintainer. Access and installed apps are reviewed with the [repository threat model](../security/github-repository-threat-model.md). |

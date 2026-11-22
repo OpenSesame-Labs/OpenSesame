@@ -1,7 +1,21 @@
 diff --git a/esm/cbor/cbor.js b/esm/cbor/cbor.js
 --- a/esm/cbor/cbor.js
 +++ b/esm/cbor/cbor.js
-@@ -272,8 +272,9 @@
+@@ -54,8 +54,12 @@
+ function decodeByteString(data, argument, index) {
+     const [lengthValue, lengthConsumed] = decodeLength(data, argument, index);
+     const dataStartIndex = index + lengthConsumed;
++    if (lengthValue > data.byteLength - dataStartIndex) {
++        throw new Error("ByteString length exceeds input");
++    }
++    const absoluteStart = data.byteOffset + dataStartIndex;
+     return [
+-        new Uint8Array(data.buffer.slice(dataStartIndex, dataStartIndex + lengthValue)),
++        new Uint8Array(data.buffer.slice(absoluteStart, absoluteStart + lengthValue)),
+         lengthConsumed + lengthValue,
+     ];
+ }
+@@ -272,8 +276,9 @@
  }
  const ENCODER = new TextEncoder();
  function encodeString(data, output) {
@@ -13,10 +27,45 @@ diff --git a/esm/cbor/cbor.js b/esm/cbor/cbor.js
  }
  function encodeBytes(data, output) {
      output.push(...encodeLength(MAJOR_TYPE_BYTE_STRING, data.length));
+@@ -351,7 +356,7 @@
+         throw new Error("No data");
+     }
+     if (data instanceof Uint8Array) {
+-        return decodeNext(new DataView(data.buffer), index);
++        return decodeNext(new DataView(data.buffer, data.byteOffset, data.byteLength), index);
+     }
+     else if (data instanceof ArrayBuffer) {
+         return decodeNext(new DataView(data), index);
+diff --git a/esm/cbor/cbor_internal.js b/esm/cbor/cbor_internal.js
+--- a/esm/cbor/cbor_internal.js
++++ b/esm/cbor/cbor_internal.js
+@@ -3,7 +3,7 @@
+         return [argument, 1];
+     }
+     const remainingDataLength = data.byteLength - index - 1;
+-    const view = new DataView(data.buffer, index + 1);
++    const view = new DataView(data.buffer, data.byteOffset + index + 1, remainingDataLength);
+     let output;
+     let bytes = 0;
+     switch (argument) {
 diff --git a/script/cbor/cbor.js b/script/cbor/cbor.js
 --- a/script/cbor/cbor.js
 +++ b/script/cbor/cbor.js
-@@ -276,8 +276,9 @@
+@@ -58,8 +58,12 @@
+ function decodeByteString(data, argument, index) {
+     const [lengthValue, lengthConsumed] = (0, cbor_internal_js_1.decodeLength)(data, argument, index);
+     const dataStartIndex = index + lengthConsumed;
++    if (lengthValue > data.byteLength - dataStartIndex) {
++        throw new Error("ByteString length exceeds input");
++    }
++    const absoluteStart = data.byteOffset + dataStartIndex;
+     return [
+-        new Uint8Array(data.buffer.slice(dataStartIndex, dataStartIndex + lengthValue)),
++        new Uint8Array(data.buffer.slice(absoluteStart, absoluteStart + lengthValue)),
+         lengthConsumed + lengthValue,
+     ];
+ }
+@@ -276,8 +280,9 @@
  }
  const ENCODER = new TextEncoder();
  function encodeString(data, output) {
@@ -28,3 +77,24 @@ diff --git a/script/cbor/cbor.js b/script/cbor/cbor.js
  }
  function encodeBytes(data, output) {
      output.push(...(0, cbor_internal_js_1.encodeLength)(cbor_internal_js_1.MAJOR_TYPE_BYTE_STRING, data.length));
+@@ -355,7 +360,7 @@
+         throw new Error("No data");
+     }
+     if (data instanceof Uint8Array) {
+-        return decodeNext(new DataView(data.buffer), index);
++        return decodeNext(new DataView(data.buffer, data.byteOffset, data.byteLength), index);
+     }
+     else if (data instanceof ArrayBuffer) {
+         return decodeNext(new DataView(data), index);
+diff --git a/script/cbor/cbor_internal.js b/script/cbor/cbor_internal.js
+--- a/script/cbor/cbor_internal.js
++++ b/script/cbor/cbor_internal.js
+@@ -6,7 +6,7 @@
+         return [argument, 1];
+     }
+     const remainingDataLength = data.byteLength - index - 1;
+-    const view = new DataView(data.buffer, index + 1);
++    const view = new DataView(data.buffer, data.byteOffset + index + 1, remainingDataLength);
+     let output;
+     let bytes = 0;
+     switch (argument) {

@@ -30,13 +30,28 @@ the source says so or their bounds run out.
   domain's bundle can never vouch for another domain's SVID, and a domain
   removed from a snapshot stops being trusted at the next generation.
 * **Snapshots** — every message replaces the prior state. A missing SVID or
-  bundle withdraws at once (`identity_missing` / `trust_unknown`); a message
-  whose SVID fails the profile, or that the generation manager refuses, is a
-  malformed update that leaves the previous generation usable only until its
-  own `not_after`.
+  bundle withdraws at once (`identity_missing` / `trust_unknown`), as does a
+  permission denial on the material RPC. The SDK reports a missing required
+  bundle without identifying the SVID, and other parser failures may hide an
+  omitted identity or trust. Any unparseable snapshot therefore withdraws the
+  configured identity until a valid snapshot arrives, even when an unrelated
+  SVID caused the failure. A parsed but rejected candidate retains the prior
+  generation only when its new trust view still contains every previously
+  trusted anchor in the same domain, and only within existing time bounds.
+  These conservative decisions trade availability for fail-closed trust.
 * **Outage** — on a stream error or disconnect the current generation is kept
   until `min(not_after, outage_since + max_stale)` and then withdrawn with
   `evidence_expired`; reconnects use bounded, jittered exponential backoff.
+  Reopening a stream or receiving rejected material does not reset the bound;
+  only a successfully activated snapshot does.
+  A gRPC `UNAUTHENTICATED` or `PERMISSION_DENIED` response withdraws at once,
+  including a `PERMISSION_DENIED` status still wrapped as a transport error.
+  An empty Workload API response withdraws with the same reason as an empty
+  SVID list. `UNAVAILABLE`, connection errors and EOF take the outage path.
+  Dropping the source handle retires its sink lease and signals that loop to
+  withdraw and stop; `Drop` does not join the task (`stop` does). Each
+  snapshot's trust history is written ahead of activation and fenced to the
+  claiming source owner.
   There is no alternate identity input: this source has no PEM, managed
   certificate, or shared operator identity to fall back to.
 * **Rotation** — a new key under the same SPIFFE ID is a new generation with
@@ -79,6 +94,6 @@ cryptographic separation between siblings.
   the source fetches that SVID, then deletes the entry and proves withdrawal.
   Loopback only, everything in tempdirs, processes killed on drop.
 
-SDK: `spiffe` 0.16.1 (tonic 0.14.6, prost 0.14.4, x509-parser 0.18.1). The
+SDK: `spiffe` 0.19.0 (tonic 0.14, prost 0.14, x509-parser 0.18.1). The
 fake's server stubs are generated from `proto/workload_x509.proto`
 (`proto/README.md`).

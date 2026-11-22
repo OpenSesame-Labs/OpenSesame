@@ -3,13 +3,13 @@
 
 mod common;
 
-use chrono::{Duration, Utc};
 use common::{engine, grant, request, request_with, AUDIENCE, RESOURCE};
 use opensesame_authz::{
     AssuranceLevel, Condition, ConditionKind, ConditionSet, DenyReason, EvidenceLedger,
     EvidencePolicy, PolicyQuery, RequestFacts, ResourceFact,
 };
 use opensesame_domain::{AvailabilityClass, Grant, GrantId, ValidatedGrantChain};
+use opensesame_time::{Duration, Utc};
 use serde_json::json;
 
 fn actions(names: &[&str]) -> Condition {

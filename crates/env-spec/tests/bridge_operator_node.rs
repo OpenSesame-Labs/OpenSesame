@@ -18,17 +18,16 @@ fn subject() {
     support::subject_body();
 }
 
-/// The operator named the exact file, so it wins over a trusted one on `PATH`,
+/// The operator named the exact file, so it wins over a relative one on `PATH`,
 /// and the bridge is still given only the allowlisted environment: the
 /// variable that chose it is not among it.
 #[test]
-fn the_operators_node_wins_over_a_trusted_one_on_path() {
+fn the_operators_node_wins_over_a_relative_one_on_path() {
     let sandbox = Sandbox::new();
-    sandbox.plant("safe", "trusted");
+    sandbox.plant("work/bin", "trusted");
     sandbox.plant("operator", "operator");
     let chosen = sandbox.path("operator/node").display().to_string();
-    let path = format!(":./bin:{}", sandbox.path("safe").display());
-    let said = sandbox.subject_with(&path, &[(OPERATOR_NODE, chosen)]);
+    let said = sandbox.subject_with(":./bin:.:/nonexistent:", &[(OPERATOR_NODE, chosen)]);
     assert_eq!(said, "ok items=0");
     assert!(sandbox.recorded("trusted").is_none(), "PATH's node ran");
     let seen = sandbox.recorded("operator").expect("the named node ran");
@@ -72,7 +71,7 @@ fn a_bad_operator_value_is_refused_by_name_and_never_falls_back_to_path() {
         "not-executable",
     ] {
         let sandbox = Sandbox::new();
-        sandbox.plant("safe", "trusted");
+        sandbox.plant("work/bin", "trusted");
         sandbox.plant("work", "in-cwd");
         std::fs::write(sandbox.path("operator/plain"), "x").unwrap();
         let value = match case {
@@ -83,8 +82,8 @@ fn a_bad_operator_value_is_refused_by_name_and_never_falls_back_to_path() {
             "directory" => sandbox.path("safe").display().to_string(),
             _ => sandbox.path("operator/plain").display().to_string(),
         };
-        let path = format!(":./bin:{}", sandbox.path("safe").display());
-        let said = sandbox.subject_with(&path, &[(OPERATOR_NODE, value.clone())]);
+        let said =
+            sandbox.subject_with(":./bin:.:/nonexistent:", &[(OPERATOR_NODE, value.clone())]);
         assert!(said.starts_with("err "), "{case} ({value:?}): {said}");
         assert!(said.contains(OPERATOR_NODE), "{case} ({value:?}): {said}");
         for label in ["trusted", "in-cwd"] {

@@ -64,12 +64,22 @@ impl CliAppIntegrationPairings {
         ) {
             return Err(PairingError::InvalidProof);
         }
+        if let Some(existing) = &page.webauthn {
+            // A registered credential is immutable for the life of this
+            // bearer. Changing it requires a new operator-armed pairing.
+            if existing.credential_id_b64 != credential_id_b64
+                || existing.public_key_spki_b64 != public_key_spki_b64
+            {
+                return Err(PairingError::InvalidProof);
+            }
+        }
         let challenge =
             webauthn_register_challenge_digest(token, origin, vault_session_root_digest);
         let stored = WebAuthnCredential {
             credential_id_b64: credential_id_b64.to_string(),
             public_key_spki_b64: public_key_spki_b64.to_string(),
             sign_count: 0,
+            origin: page.origin.clone(),
         };
         let proof_tail = human_proof_passkey
             .trim()
@@ -85,11 +95,18 @@ impl CliAppIntegrationPairings {
         }) else {
             return Err(PairingError::Unknown);
         };
-        page.webauthn = Some(WebAuthnCredential {
-            credential_id_b64: credential_id_b64.to_string(),
-            public_key_spki_b64: public_key_spki_b64.to_string(),
-            sign_count: verified_sign_count,
-        });
+        if let Some(existing) = &mut page.webauthn {
+            // Retries of the same signed registration are safe and cannot
+            // lower the count observed on later approvals.
+            existing.sign_count = existing.sign_count.max(verified_sign_count);
+        } else {
+            page.webauthn = Some(WebAuthnCredential {
+                credential_id_b64: credential_id_b64.to_string(),
+                public_key_spki_b64: public_key_spki_b64.to_string(),
+                sign_count: verified_sign_count,
+                origin: page.origin.clone(),
+            });
+        }
         Ok(())
     }
 
@@ -121,6 +138,7 @@ impl CliAppIntegrationPairings {
             credential_id_b64: credential_id_b64.to_string(),
             public_key_spki_b64: public_key_spki_b64.to_string(),
             sign_count,
+            origin: page.origin.clone(),
         });
         Ok(())
     }

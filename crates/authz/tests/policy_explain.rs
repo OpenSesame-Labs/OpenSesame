@@ -3,13 +3,13 @@
 
 mod common;
 
-use chrono::Utc;
 use common::{engine, grant, request_with, AUDIENCE, RESOURCE};
 use opensesame_authz::{
     AssuranceLevel, Effect, EvidenceLedger, EvidencePolicy, PolicyLayer, PolicyQuery,
     MAX_DETAIL_LENGTH,
 };
 use opensesame_domain::AvailabilityClass;
+use opensesame_time::Utc;
 use serde_json::json;
 
 #[test]

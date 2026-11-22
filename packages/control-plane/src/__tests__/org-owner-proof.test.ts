@@ -52,8 +52,8 @@ async function verdictFor(
 }
 
 /**
- * Administrative repair and provisioning authority deliberately have distinct
- * liveness requirements (ADR 0178).
+ * Recovery surfaces can reach a non-deleted organization; membership and
+ * provisioning administration require it to be active (ADR 0178).
  */
 const MATRIX: ReadonlyArray<[OrganizationState, Record<OrgLiveness, boolean>]> =
   [

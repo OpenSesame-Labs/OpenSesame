@@ -851,6 +851,238 @@
         }
       ],
       "limits": "This is implementation testing and browser observation, not a formal proof of every notification, device layout or interleaving."
+    },
+    {
+      "id": "formal-vault-presentation",
+      "claim": "The vault screen never says a second step is still waiting while the vault is open.",
+      "implementation": [
+        "packages/app-core/src/lib/vault/store-presentation.ts",
+        "packages/app-core/src/lib/vault/store-unlock-session.ts",
+        "packages/app-core/src/lib/vault/store.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/formal-verification/vault-presentation/VaultPresentation.tla",
+          "config": "spec/formal-verification/vault-presentation/VaultPresentation.cfg",
+          "invariants": [
+            "TypeOK",
+            "PresentationMatchesStore",
+            "NoStalePendingWhileOpen",
+            "OpenSessionHasNoParkedKey"
+          ],
+          "scope": "TLC checks the finite vault presentation snapshot model with BuggyUnlock=FALSE."
+        },
+        {
+          "kind": "example-test",
+          "path": "packages/app-core/src/lib/vault/vault-presentation-formal.replay.test.ts",
+          "scope": "Replays StoreUnlockSession.activate from a modeled primary-unwrap snapshot."
+        }
+      ],
+      "limits": "The model is finite and the replay does not run the full VaultStore unlock pipeline."
+    },
+    {
+      "id": "formal-open-vault-lease",
+      "claim": "Exclusive vault destroy is only allowed when no tab counts the tomb open and no shared lock is still held after a release.",
+      "implementation": [
+        "packages/app-core/src/lib/vault/vault-shared-locks.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/formal-verification/open-vault-lease/OpenVaultLease.tla",
+          "config": "spec/formal-verification/open-vault-lease/OpenVaultLease.cfg",
+          "invariants": [
+            "TypeOK",
+            "CountMatchesLiveCount",
+            "DestroyOnlyAtZero",
+            "NoDestroyWhileCountedOpen",
+            "NoExclusiveWhileLockHeld"
+          ],
+          "scope": "TLC checks bounded tab, stale, and generation counts for open-lease forgetting."
+        },
+        {
+          "kind": "example-test",
+          "path": "packages/app-core/src/lib/vault/open-vault-lease-formal.replay.test.ts",
+          "scope": "Replays production lease acquire, forget, and exclusive destroy helpers."
+        }
+      ],
+      "limits": "The model does not prove Web Locks API refinement or cross-tab browser behavior."
+    },
+    {
+      "id": "formal-pwa-shell-ready",
+      "claim": "The unlocked PWA shell does not mount contributed routes before vault-generation activation or the bounded wait.",
+      "implementation": ["apps/pages/src/bindings/shell-ready.ts"],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/formal-verification/pwa-shell-ready/PwaShellReady.tla",
+          "config": "spec/formal-verification/pwa-shell-ready/PwaShellReady.cfg",
+          "invariants": [
+            "TypeOK",
+            "NoAwaitingBeforeMount",
+            "OpenShellStaysMounted"
+          ],
+          "scope": "TLC checks computeShellReady parity with awaitingPlanActivation."
+        },
+        {
+          "kind": "example-test",
+          "path": "apps/pages/src/bindings/shell-ready-formal.replay.test.ts",
+          "scope": "Replays computeShellReady on the TLC counterexample shapes."
+        }
+      ],
+      "limits": "The model's fromNull latch is coarser than render-time awaitingPlanActivation; React timing is covered by app-root tests."
+    },
+    {
+      "id": "formal-onboarding-recovery",
+      "claim": "The vault screen does not publish unlocked while a second step is still pending.",
+      "implementation": [
+        "packages/app-core/src/lib/vault/store-presentation.ts",
+        "packages/app-core/src/lib/vault/store.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/formal-verification/onboarding-recovery/OnboardingRecovery.tla",
+          "config": "spec/formal-verification/onboarding-recovery/OnboardingRecovery.cfg",
+          "invariants": ["NoUnlockedWhilePending"],
+          "scope": "TLC checks pending second-step publish ordering; OnboardingRecoveryBuggy.cfg is the negative control."
+        },
+        {
+          "kind": "example-test",
+          "path": "packages/app-core/src/lib/vault/onboarding-recovery-formal.replay.test.ts",
+          "scope": "Replays buildVaultState across the modeled pending-unlock path."
+        }
+      ],
+      "limits": "The sketch does not prove enrollment cryptography or the full unlock UI."
+    },
+    {
+      "id": "formal-autofill-gesture",
+      "claim": "Autofill never fills without an extension gesture and matching trusted frame and origin.",
+      "implementation": ["apps/browser-extension-autofill/lib/fill/guard.ts"],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/formal-verification/autofill-gesture/AutofillGesture.tla",
+          "config": "spec/formal-verification/autofill-gesture/AutofillGesture.cfg",
+          "invariants": [
+            "NoFillWithoutGesture",
+            "NoFillWithoutTopFrame",
+            "NoFillWithoutOrigin",
+            "NoFillWithoutEntryMatch"
+          ],
+          "scope": "TLC checks the finite autofill gate sketch."
+        },
+        {
+          "kind": "example-test",
+          "path": "apps/browser-extension-autofill/lib/fill/guard-formal.replay.test.ts",
+          "scope": "Replays decideFill on modeled inputs."
+        }
+      ],
+      "limits": "The model does not prove browser extension IPC or site parsing."
+    },
+    {
+      "id": "formal-sync-manifest",
+      "claim": "Manifest merge does not revive tombstoned items in place.",
+      "implementation": ["packages/app-core/src/lib/vault/store-sync.ts"],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/formal-verification/sync-manifest/ManifestMerge.tla",
+          "config": "spec/formal-verification/sync-manifest/ManifestMerge.cfg",
+          "invariants": ["NoReviveTombstone"],
+          "scope": "TLC checks a two-state tombstone merge sketch."
+        },
+        {
+          "kind": "example-test",
+          "path": "packages/app-core/src/lib/vault/store-sync-formal.replay.test.ts",
+          "scope": "Replays planManifestMerge on the sketch states."
+        }
+      ],
+      "limits": "The sketch does not prove full sync transport or conflict resolution."
+    },
+    {
+      "id": "formal-release-promotion",
+      "claim": "A promoted release envelope cannot rewrite the candidate identity or digests.",
+      "implementation": ["scripts/release/lib/candidate-promotion.mjs"],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/formal-verification/release-promotion/ReleasePromotion.tla",
+          "config": "spec/formal-verification/release-promotion/ReleasePromotion.cfg",
+          "invariants": ["NoPromotionRewrite"],
+          "scope": "TLC checks a finite promotion publish sketch."
+        },
+        {
+          "kind": "example-test",
+          "path": "scripts/release/lib/candidate-published-formal.replay.test.mjs",
+          "scope": "Replays validatePromotion on the sketch counterexample."
+        }
+      ],
+      "limits": "The model does not prove CI orchestration or registry writes."
+    },
+    {
+      "id": "formal-daemon-fill-pairing",
+      "claim": "The daemon refuses a fill token that is not paired to the caller.",
+      "implementation": ["crates/daemon/src/fill/caller.rs"],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/formal-verification/daemon-fill-pairing/DaemonFillPairing.tla",
+          "config": "spec/formal-verification/daemon-fill-pairing/DaemonFillPairing.cfg",
+          "invariants": ["TypeOK", "NoFillWithoutPairing"],
+          "scope": "TLC checks a pairing sketch for fill_value."
+        }
+      ],
+      "limits": "Restarts and mixed vault scopes are outside this sketch; Rust integration is covered separately."
+    },
+    {
+      "id": "formal-control-plane-session",
+      "claim": "A revoked or expired provisional session does not resolve on the control plane.",
+      "implementation": ["packages/control-plane/src/middleware/auth.ts"],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/formal-verification/control-plane-session/ControlPlaneSession.tla",
+          "config": "spec/formal-verification/control-plane-session/ControlPlaneSession.cfg",
+          "invariants": ["NoZombieSession"],
+          "scope": "TLC checks a finite provisional-session sketch."
+        },
+        {
+          "kind": "example-test",
+          "path": "packages/control-plane/src/middleware/auth-formal.replay.test.ts",
+          "scope": "Replays resolveProvisionalSession on modeled states."
+        }
+      ],
+      "limits": "The sketch does not prove the full resolver or store linearizability."
+    },
+    {
+      "id": "formal-tutorial-pause",
+      "claim": "A tour speaks only when guidance is not off and this session is not paused. A reload drops the pause and keeps queued goal ids. A superseded stop does not queue, and a profile name is not stored.",
+      "implementation": [
+        "packages/app-core/src/lib/tutorial-queue.ts",
+        "packages/app-core/src/lib/tutorial-queue-present.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/formal-verification/tutorial-pause/TutorialPause.tla",
+          "config": "spec/formal-verification/tutorial-pause/TutorialPause.cfg",
+          "invariants": ["TypeOK", "NoSpeechWhileQuiet", "NoProfileStored"],
+          "scope": "TLC checks the finite pause, queue, reload, and speak sketch."
+        },
+        {
+          "kind": "example-test",
+          "path": "packages/app-core/src/lib/tutorial-pause-formal.replay.test.ts",
+          "scope": "Replays pause, reload, queue, and resume on the production queue."
+        },
+        {
+          "kind": "browser-test",
+          "path": "apps/pages/scripts/verify-setup-tutorial-pause.mjs",
+          "scope": "Browser walk of the four setup profiles, the minimal confirm, opt-out, pause, and resume."
+        }
+      ],
+      "limits": "The sketch does not prove the coach runtime, OPFS durability, or every tutorial step."
     }
   ]
 }

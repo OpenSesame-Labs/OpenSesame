@@ -20,7 +20,7 @@ const PASSWORD: &str = "a long enough master password";
 /// The code an authenticator app shows `offset` steps from now.
 fn code(key: &str, offset: i64) -> String {
     let uri = parse_otpauth(&format!("otpauth://totp/t?secret={key}")).unwrap();
-    let at = chrono::Utc::now().timestamp() + offset * 30;
+    let at = opensesame_time::Utc::now().timestamp() + offset * 30;
     totp_code(&uri, u64::try_from(at).unwrap()).unwrap()
 }
 

@@ -1,6 +1,6 @@
 //! AUD-EVENTS — authority mutations leave durable outbox intent.
 
-use chrono::{Duration, Utc};
+use opensesame_time::{Duration, Utc};
 
 use super::{AuthorityIssue, NewAccessDomain, PermissionEntry};
 use crate::Db;

@@ -241,6 +241,29 @@ fn binary_on_path(ctx: &ProbeContext, binary: &str) -> bool {
 pub struct CliCapabilityProbe;
 
 impl CliCapabilityProbe {
+    fn probe_with_presence(
+        ctx: &ProbeContext,
+        mut present: impl FnMut(&str) -> bool,
+    ) -> Vec<OfferItem> {
+        let mut items = Vec::new();
+        for tool in CLI_TOOLS {
+            if !present(tool.binary) {
+                continue;
+            }
+            let confidence = if Self::is_live(ctx, tool) {
+                Confidence::High
+            } else {
+                Confidence::Low
+            };
+            items.extend(
+                tool.provider_ids
+                    .iter()
+                    .map(|provider_id| Self::offer(tool, provider_id, confidence)),
+            );
+        }
+        items
+    }
+
     fn is_live(ctx: &ProbeContext, tool: &CliToolSpec) -> bool {
         let Some(check) = &tool.liveness else {
             return false;
@@ -279,65 +302,20 @@ impl CapabilityProbe for CliCapabilityProbe {
     }
 
     fn probe(&self, ctx: &ProbeContext) -> Result<Vec<OfferItem>, ProbeError> {
-        let mut items = Vec::new();
-        for tool in CLI_TOOLS {
-            if !binary_on_path(ctx, tool.binary) {
-                continue;
-            }
-            let confidence = if Self::is_live(ctx, tool) {
-                Confidence::High
-            } else {
-                Confidence::Low
-            };
-            items.extend(
-                tool.provider_ids
-                    .iter()
-                    .map(|provider_id| Self::offer(tool, provider_id, confidence)),
-            );
-        }
-        Ok(items)
+        Ok(Self::probe_with_presence(ctx, |binary| {
+            binary_on_path(ctx, binary)
+        }))
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_fixtures::FakeBin;
     use opensesame_connection_detect::{CommandStatus, MockCommandRunner, MockKeychain};
     use std::collections::BTreeMap;
-    use std::fs;
-    use std::path::{Path, PathBuf};
+    use std::path::PathBuf;
     use std::sync::{Arc, Mutex};
-
-    /// A fake `bin/` directory holding empty executable files, so presence
-    /// checks resolve without touching the host's real PATH.
-    struct FakeBin {
-        dir: tempfile::TempDir,
-    }
-
-    #[cfg(unix)]
-    fn make_executable(path: &Path) {
-        use std::os::unix::fs::PermissionsExt;
-        fs::set_permissions(path, fs::Permissions::from_mode(0o755)).expect("chmod");
-    }
-
-    #[cfg(not(unix))]
-    fn make_executable(_path: &Path) {}
-
-    impl FakeBin {
-        fn with(binaries: &[&str]) -> Self {
-            let dir = tempfile::tempdir().expect("tempdir");
-            for binary in binaries {
-                let path = dir.path().join(binary);
-                fs::write(&path, b"#!/bin/sh\n").expect("write fake binary");
-                make_executable(&path);
-            }
-            Self { dir }
-        }
-
-        fn path(&self) -> String {
-            self.dir.path().to_string_lossy().into_owned()
-        }
-    }
 
     fn ctx_with(bin: &FakeBin, commands: MockCommandRunner) -> ProbeContext {
         let mut env = BTreeMap::new();
@@ -361,6 +339,10 @@ mod tests {
         )
     }
 
+    fn probe(bin: &FakeBin, ctx: &ProbeContext) -> Vec<OfferItem> {
+        CliCapabilityProbe::probe_with_presence(ctx, |binary| bin.present(binary))
+    }
+
     fn offer_for<'a>(items: &'a [OfferItem], provider: &str) -> &'a OfferItem {
         items
             .iter()
@@ -372,7 +354,7 @@ mod tests {
     fn a_live_cli_is_a_high_confidence_invoke_through_offer() {
         let bin = FakeBin::with(&["gh"]);
         let ctx = ctx_with(&bin, live(&["gh", "auth", "token"]));
-        let items = CliCapabilityProbe.probe(&ctx).expect("probe");
+        let items = probe(&bin, &ctx);
         let github = offer_for(&items, "github");
         assert_eq!(github.confidence, Confidence::High);
         assert_eq!(
@@ -393,12 +375,10 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn a_cli_in_a_directory_anyone_can_write_is_not_present() {
-        use std::os::unix::fs::PermissionsExt;
         let bin = FakeBin::with(&["gh", "kubectl"]);
-        let open = fs::Permissions::from_mode(0o777);
-        fs::set_permissions(bin.dir.path(), open).expect("chmod");
+        bin.allow_untrusted_writes();
         let ctx = ctx_with(&bin, live(&["gh", "auth", "token"]));
-        let items = CliCapabilityProbe.probe(&ctx).expect("probe");
+        let items = probe(&bin, &ctx);
         assert!(items.is_empty(), "planted CLIs were offered: {items:?}");
     }
 
@@ -406,7 +386,7 @@ mod tests {
     fn presence_without_liveness_is_low_confidence() {
         let bin = FakeBin::with(&["az", "vault", "docker"]);
         let ctx = ctx_with(&bin, MockCommandRunner::new());
-        let items = CliCapabilityProbe.probe(&ctx).expect("probe");
+        let items = probe(&bin, &ctx);
         for provider in ["azure-sm", "vault", "docker"] {
             let offer = offer_for(&items, provider);
             assert_eq!(offer.confidence, Confidence::Low, "{provider}");
@@ -425,7 +405,7 @@ mod tests {
             },
         );
         let ctx = ctx_with(&bin, commands);
-        let items = CliCapabilityProbe.probe(&ctx).expect("probe");
+        let items = probe(&bin, &ctx);
         assert_eq!(offer_for(&items, "github").confidence, Confidence::Low);
     }
 
@@ -441,7 +421,7 @@ mod tests {
             },
         );
         let ctx = ctx_with(&bin, commands);
-        let items = CliCapabilityProbe.probe(&ctx).expect("probe");
+        let items = probe(&bin, &ctx);
         assert_eq!(offer_for(&items, "github").confidence, Confidence::Low);
     }
 
@@ -478,7 +458,7 @@ mod tests {
                 },
             );
         let ctx = ctx_with(&bin, commands);
-        let items = CliCapabilityProbe.probe(&ctx).expect("probe");
+        let items = probe(&bin, &ctx);
         for provider in ["aws", "gcp"] {
             assert!(
                 offer_for(&items, provider)
@@ -500,7 +480,7 @@ mod tests {
     fn binaries_not_on_path_produce_no_offers() {
         let bin = FakeBin::with(&[]);
         let ctx = ctx_with(&bin, MockCommandRunner::new());
-        let items = CliCapabilityProbe.probe(&ctx).expect("probe");
+        let items = probe(&bin, &ctx);
         assert!(items.is_empty());
     }
 
@@ -549,7 +529,7 @@ mod tests {
         let bin = FakeBin::with(&["bw", "rbw", "keepassxc-cli", "gopass"]);
         let runner = Arc::new(RecordingRunner::default());
         let ctx = ctx_with_runner(&bin, runner.clone());
-        let items = CliCapabilityProbe.probe(&ctx).expect("probe");
+        let items = probe(&bin, &ctx);
         assert!(
             runner.calls.lock().unwrap().is_empty(),
             "a presence-only tool executed {:?}",
@@ -572,7 +552,7 @@ mod tests {
         // and tells an empty store from a populated one.
         let bin = FakeBin::with(&["pass"]);
         let ctx = ctx_with(&bin, live(&["pass", "ls"]));
-        let items = CliCapabilityProbe.probe(&ctx).expect("probe");
+        let items = probe(&bin, &ctx);
         assert_eq!(
             offer_for(&items, "password-store").confidence,
             Confidence::High
@@ -588,7 +568,7 @@ mod tests {
             },
         );
         let ctx = ctx_with(&bin, commands);
-        let items = CliCapabilityProbe.probe(&ctx).expect("probe");
+        let items = probe(&bin, &ctx);
         assert_eq!(
             offer_for(&items, "password-store").confidence,
             Confidence::Low
@@ -629,7 +609,7 @@ mod tests {
         let bin = FakeBin::with(&["bw", "rbw", "keepassxc-cli", "pass", "gopass", "gh"]);
         let runner = Arc::new(RecordingRunner::default());
         let ctx = ctx_with_runner(&bin, runner);
-        let items = CliCapabilityProbe.probe(&ctx).expect("probe");
+        let items = probe(&bin, &ctx);
         let wire = serde_json::to_string(&items).expect("offers serialize");
         assert!(!wire.contains("PLANTED"), "{wire}");
         for forbidden in ["value", "prefix", "length", "secret", "digest"] {

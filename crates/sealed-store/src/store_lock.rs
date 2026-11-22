@@ -7,9 +7,12 @@
 //!
 //! - rotation holds an **exclusive** lock on `.opensesame-lock` for its whole
 //!   run, and refuses to start while any writer holds it;
-//! - every ordinary write holds a **shared** lock for its own duration, refuses
-//!   (never blocks) while a rotation holds the exclusive one, and refuses while
-//!   `.opensesame-rotation/` exists (a rotation is running or was interrupted);
+//! - mutations of the revision maps hold an **exclusive** lock for their own
+//!   duration. This serializes their read-modify-write operations with each
+//!   other, older shared-lock writers, and rotation; it refuses (never blocks)
+//!   while the lock is held or `.opensesame-rotation/` exists;
+//! - native writes also update the outside rollback witness under that lock;
+//!   foreign-format writes that do not mutate revision maps hold a shared lock;
 //! - a write that seals under the root first proves its key is the store's
 //!   current root (the key file's manifest MAC), so a key unlocked before a
 //!   rotation cannot write under the old root after it.
@@ -126,20 +129,36 @@ impl StoreLock {
     /// `add` racing a `remove` would write the removed protector back), and
     /// refused, like any write, while a rotation's staging exists.
     pub(crate) fn key_file_edit(root: &Path) -> Result<Self, StoreError> {
+        Self::exclusive_mutation(root)
+    }
+
+    fn exclusive_mutation(root: &Path) -> Result<Self, StoreError> {
         refuse_staging(root)?;
         let lock = Self::exclusive(root)?;
         refuse_staging(root)?;
         Ok(lock)
     }
 
-    /// A write that seals `name` under `key`: [`Self::shared`], plus a refusal
-    /// of reserved locations and of a key that is not the store's current root.
+    /// An exclusive store mutation that must use the currently authenticated
+    /// root key. The verification happens after the lock is held, closing the
+    /// unlock-to-lock race with a concurrent root rotation.
+    pub(crate) fn exclusive_for_key(root: &Path, key: &ItemDataKey) -> Result<Self, StoreError> {
+        let lock = Self::key_file_edit(root)?;
+        ensure_current_root(root, key)?;
+        Ok(lock)
+    }
+
+    /// A write that seals `name` under `key`: exclusive, with reserved-path
+    /// checks and authentication against the current root.
     pub(crate) fn for_sealing(
         root: &Path,
         name: &str,
         key: &ItemDataKey,
     ) -> Result<Self, StoreError> {
-        Self::for_writing(root, name, Some(key))
+        refuse_reserved_name(name)?;
+        let lock = Self::exclusive_mutation(root)?;
+        ensure_current_root(root, key)?;
+        Ok(lock)
     }
 
     /// A trusted migration reads and rewrites one entry and its revision as
@@ -163,13 +182,12 @@ impl StoreLock {
         key: Option<&ItemDataKey>,
     ) -> Result<Self, StoreError> {
         refuse_reserved_name(name)?;
-        let lock = Self::shared(root)?;
         if let Some(key) = key {
-            ensure_current_root(root, key)?;
+            return Self::for_sealing(root, name, key);
         } else if root.join(KEY_FILE_NAME).exists() {
             return Err(StoreError::NotInitialized(root.to_path_buf()));
         }
-        Ok(lock)
+        Self::shared(root)
     }
 }
 
@@ -253,5 +271,15 @@ mod tests {
         for name in ["Dev/.git", ".gitx/token", "Dev/.GIT/x", ".npmrc", "Dev/.w2"] {
             assert!(refuse_reserved_name(name).is_ok(), "{name}");
         }
+    }
+
+    #[test]
+    fn native_writers_serialize_shared_witness_mutations() {
+        let root = tempfile::tempdir().unwrap();
+        let key = ItemDataKey::generate();
+        let first = StoreLock::for_sealing(root.path(), "Dev/one", &key).unwrap();
+        assert!(StoreLock::for_sealing(root.path(), "Dev/two", &key).is_err());
+        drop(first);
+        StoreLock::for_sealing(root.path(), "Dev/two", &key).unwrap();
     }
 }

@@ -17,14 +17,24 @@
 
 use std::path::PathBuf;
 
-use opensesame_domain::transport::{TransportError, TrustProfileKind};
+use opensesame_domain::transport::{TlsVersion, TransportError, TrustProfileKind};
 use opensesame_transport_security::{NativeIdentitySpec, NativeTrustSpec};
 
 use crate::nats_policy::{
     NatsAuth, NatsServerName, NatsTransport, NatsTransportPolicy, NatsTransportPublic,
     NatsTransportSource, NatsTransportView,
 };
-use crate::nats_transport_env::{malformed, url_hosts};
+use crate::nats_transport_env::{identity_kind, malformed, trust_kind, url_hosts};
+
+/// One server selection per connection cycle lets async-nats terminate a spent
+/// injected config. Ordinary sessions keep the operator's requested limit.
+pub(crate) fn reconnect_limit(injected: bool, requested: Option<usize>) -> Option<usize> {
+    if injected {
+        Some(1)
+    } else {
+        requested
+    }
+}
 
 /// Private locators from the deployment plane.
 #[derive(Clone, Default)]
@@ -154,7 +164,7 @@ impl NatsTransportSpec {
     ///
     /// # Errors
     ///
-    /// - `PolicyDowngradeRefused`: credentials or an identity on a plaintext
+    /// - `PolicyDowngradeRefused`: credentials or TLS settings on a plaintext
     ///   profile, or a `nats://` host beside a `tls://` one.
     /// - `TrustUnknown`: TLS required with no server trust reference.
     /// - `MalformedConfiguration`: a server name that is not the dialed host
@@ -163,6 +173,40 @@ impl NatsTransportSpec {
     ///   policy, or a SPIFFE policy on a non-SPIFFE bundle.
     pub fn normalized(mut self, nats_url: &str) -> Result<Self, TransportError> {
         let hosts = url_hosts(nats_url)?;
+        if let Some(locator) = &self.locators.identity {
+            let identity = self
+                .transport
+                .client_identity
+                .as_ref()
+                .ok_or(TransportError::IdentityMissing)?;
+            if identity.kind != identity_kind(locator) {
+                return Err(TransportError::IdentityMissing);
+            }
+        }
+        if let Some(locator) = &self.locators.trust {
+            let trust = self
+                .transport
+                .server_trust
+                .as_ref()
+                .ok_or(TransportError::TrustUnknown)?;
+            if trust.kind != trust_kind(locator) {
+                return Err(TransportError::TrustUnknown);
+            }
+        }
+        match &self.auth {
+            NatsAuth::None
+                if self.locators.nkey_seed_file.is_some() || self.locators.creds_file.is_some() =>
+            {
+                return Err(TransportError::IdentityMissing);
+            }
+            NatsAuth::Nkey { .. } if self.locators.creds_file.is_some() => {
+                return Err(TransportError::EnforcementUnsupported);
+            }
+            NatsAuth::Creds { .. } if self.locators.nkey_seed_file.is_some() => {
+                return Err(TransportError::EnforcementUnsupported);
+            }
+            _ => {}
+        }
         let any_tls = hosts.iter().any(|(scheme, _)| scheme == "tls");
         let any_plain = hosts.iter().any(|(scheme, _)| scheme != "tls");
         if any_tls {
@@ -173,6 +217,11 @@ impl NatsTransportSpec {
         }
         if !self.transport.require_tls {
             if self.transport.client_identity.is_some()
+                || self.transport.server_trust.is_some()
+                || self.transport.server_name.is_some()
+                || self.transport.min_version != TlsVersion::Tls13
+                || self.locators.crl_file.is_some()
+                || self.locators.provision.is_some()
                 || self.auth != NatsAuth::None
                 || self.transport.tls_first
             {

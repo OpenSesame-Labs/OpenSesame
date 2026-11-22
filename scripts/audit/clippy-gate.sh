@@ -26,3 +26,6 @@ else
   tail -50 "$OPENSESAME_AUDIT_DIR/clippy.err" >&2
   exit "$clippy_status"
 fi
+
+echo "==> cargo check -p opensesame-task-bus --no-default-features"
+cargo check --locked -p opensesame-task-bus --no-default-features

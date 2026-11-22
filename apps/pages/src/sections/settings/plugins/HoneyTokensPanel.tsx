@@ -200,9 +200,11 @@ export function HoneyTokensPanel({
   };
 
   const copy = async (token: HoneyTokenRecord): Promise<void> => {
-    if ((await copySecret(token.token)) === "copied") {
+    try {
+      const outcome = await copySecret(token.token);
+      if (outcome !== "copied") throw new Error("clipboard unavailable");
       setError(null);
-    } else {
+    } catch {
       setError("Copy the token from the field instead.");
     }
   };

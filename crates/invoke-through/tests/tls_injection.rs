@@ -91,7 +91,7 @@ async fn serve(server: TlsIdentity, policy: TransportPolicy, client_ca: &Disposa
     };
     let generations = TransportGenerations::new(
         candidate
-            .into_generation(1, chrono::Utc::now())
+            .into_generation(1, opensesame_time::Utc::now())
             .expect("generation"),
     );
     let profile = move |generation: &Generation| {
@@ -223,6 +223,28 @@ async fn right_name_wrong_root_is_refused_before_any_request_byte() {
 }
 
 #[tokio::test]
+async fn pinned_webpki_keeps_public_root_verification() {
+    let private_servers = DisposableCa::new("private-servers");
+    let clients = DisposableCa::new("clients");
+    let served = serve(
+        private_servers.issue_server(HOST).identity(),
+        TransportPolicy::ServerTls,
+        &clients,
+    )
+    .await;
+    let invoker =
+        Invoker::with_pinned_webpki(rules(&[HOST]), HOST, &[served.addr]).allow_http_for_tests();
+    let err = call(
+        &invoker,
+        format!("https://{HOST}:{}/ok", served.addr.port()),
+    )
+    .await
+    .expect_err("an address pin must not replace WebPKI verification");
+    assert!(matches!(err, InvokeError::Transport(_)), "{err}");
+    assert_eq!(served.seen.hits.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
 async fn mtls_presents_the_injected_identity_and_returns_a_redirect_as_data() {
     let servers = DisposableCa::new("servers");
     let clients = DisposableCa::new("clients");
@@ -307,7 +329,8 @@ async fn a_pinned_client_dials_nothing_but_its_authority() {
     )
     .await
     .expect_err("not the pinned authority");
-    assert!(matches!(err, InvokeError::Transport(_)), "{err}");
+    // The pinned-destination check fires at preflight, before any dial.
+    assert!(matches!(err, InvokeError::EgressDenied { .. }), "{err}");
     assert_eq!(served.seen.hits.load(Ordering::SeqCst), 0);
 }
 

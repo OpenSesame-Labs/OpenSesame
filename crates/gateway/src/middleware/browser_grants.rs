@@ -104,7 +104,7 @@ async fn preflight(st: &AppState, headers: &HeaderMap, path: &str, origin: &str)
     let creating = method == "POST" && pairing_path(path);
     let paired = st
         .db
-        .active_browser_origin(origin, chrono::Utc::now().timestamp())
+        .active_browser_origin(origin, opensesame_time::Utc::now().timestamp())
         .await
         .unwrap_or(false);
     if !(creating || paired && required_capability(method, path).is_some()) {
@@ -180,7 +180,7 @@ async fn authenticate(
         .filter(|value| value.len() == 64)
         .ok_or_else(|| refusal("invalid_grant"))?;
     let digest = hash_secret(raw);
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     let grant = st
         .db
         .browser_grant(&digest, now.timestamp())

@@ -23,10 +23,11 @@ pub(super) fn sealed_generation(name: &str, plaintext: &[u8]) -> Vec<u8> {
     let wrapper = XChaCha20Poly1305::new_from_slice(&*kek).unwrap();
     let cipher = XChaCha20Poly1305::new_from_slice(&*dek).unwrap();
     let mut bytes = wrap_nonce.to_vec();
+    let wrap_nonce_ref: &XNonce = (&wrap_nonce).into();
     bytes.extend(
         wrapper
             .encrypt(
-                XNonce::from_slice(&wrap_nonce),
+                wrap_nonce_ref,
                 Payload {
                     msg: &*dek,
                     aad: &aad("wrap"),
@@ -35,10 +36,11 @@ pub(super) fn sealed_generation(name: &str, plaintext: &[u8]) -> Vec<u8> {
             .unwrap(),
     );
     bytes.extend(nonce);
+    let nonce_ref: &XNonce = (&nonce).into();
     bytes.extend(
         cipher
             .encrypt(
-                XNonce::from_slice(&nonce),
+                nonce_ref,
                 Payload {
                     msg: plaintext,
                     aad: &aad("data"),

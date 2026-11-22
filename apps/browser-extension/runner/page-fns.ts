@@ -64,12 +64,13 @@ export function pfFill(
   selector: string,
   value: string,
   expectedOrigin: string,
-): "ok" | "no_such_field" | "invalid" {
+): "ok" | "no_such_field" | "invalid" | "off_origin" {
   const win = document.defaultView;
   if (!win) return "no_such_field";
   // This runs in the destination document, after executeScript has selected
-  // it. A background tab check alone can race a navigation to another origin.
-  if (win.location.origin !== expectedOrigin) throw new Error("off_origin");
+  // it. A background tab check alone can race a navigation to another origin,
+  // so the origin is checked before the document is read.
+  if (win.location.origin !== expectedOrigin) return "off_origin";
   let element: Element | null;
   try {
     element = document.querySelector(selector);

@@ -1,9 +1,9 @@
-use chrono::Utc;
 use opensesame_storage::agent_hook_policy::decisions::{
     AgentHookDecisionFilter, NewAgentHookDecision,
 };
 use opensesame_storage::web_login_runs::StoredAgentHookRecord;
 use opensesame_storage::StoredObservationRun;
+use opensesame_time::Utc;
 
 use super::*;
 use crate::app_state::test_demo_state;
@@ -74,7 +74,7 @@ async fn footprint(state: &AppState, id: &str) -> [i64; 3] {
 async fn a_pass_trims_old_decisions_and_expired_runs_and_only_those() {
     let state = test_demo_state().await;
     let now = Utc::now();
-    let stamp = |days: i64| (now - chrono::Duration::days(days)).to_rfc3339();
+    let stamp = |days: i64| (now - opensesame_time::Duration::days(days)).to_rfc3339();
     decision_at(&state, &stamp(100)).await;
     decision_at(&state, &stamp(89)).await;
     decision_at(&state, &stamp(1)).await;
@@ -167,7 +167,7 @@ fn the_environment_names_the_retention() {
 #[tokio::test]
 async fn the_actor_trims_at_startup_without_being_asked() {
     let state = test_demo_state().await;
-    let old = (Utc::now() - chrono::Duration::days(200)).to_rfc3339();
+    let old = (Utc::now() - opensesame_time::Duration::days(200)).to_rfc3339();
     decision_at(&state, &old).await;
     decision_at(&state, &Utc::now().to_rfc3339()).await;
 

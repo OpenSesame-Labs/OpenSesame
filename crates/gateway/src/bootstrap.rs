@@ -2,7 +2,6 @@ use std::collections::BTreeMap;
 
 use crate::app_state::Bootstrap;
 use crate::config;
-use chrono::{Duration, Utc};
 use opensesame_authz::PolicyEngine;
 use opensesame_broker::Broker;
 use opensesame_connector_host::HostRuntime;
@@ -11,6 +10,7 @@ use opensesame_domain::{
     OfflineUse, OrganizationId, PrincipalId, ProjectId,
 };
 use opensesame_storage::Db;
+use opensesame_time::{Duration, Utc};
 
 pub struct BootstrapArtifacts {
     pub demo: Option<Bootstrap>,

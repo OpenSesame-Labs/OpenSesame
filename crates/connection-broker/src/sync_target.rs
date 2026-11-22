@@ -11,8 +11,8 @@ mod authority;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use chrono::Utc;
 use opensesame_domain::OrganizationId;
+use opensesame_time::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -693,17 +693,17 @@ impl ConnectionBroker {
         if let Some(body) = body {
             request = request.json(&body);
         }
-        let response = request.send().await.map_err(|e| e.to_string())?;
+        let response = request
+            .send()
+            .await
+            .map_err(|_| "upstream request failed".to_string())?;
         let status = response.status();
-        let text = response.text().await.map_err(|e| e.to_string())?;
+        // Credentialed mutations have no response-data contract; discard both
+        // success and error bodies so reflected secrets cannot escape.
         if !(200..300).contains(&status.as_u16()) {
-            let snippet: String = text.chars().take(240).collect();
-            return Err(format!("upstream {status}: {snippet}"));
+            return Err(format!("upstream {status}"));
         }
-        if text.trim().is_empty() {
-            return Ok(json!({}));
-        }
-        serde_json::from_str(&text).map_err(|e| e.to_string())
+        Ok(json!({}))
     }
 }
 
@@ -790,7 +790,7 @@ mod pact {
         let https = production
             .find("sync egress requires https")
             .expect("https fence");
-        let send = production.find(".send().await").expect("send");
+        let send = production.find(".send()").expect("send");
         assert!(https < send);
     }
 }

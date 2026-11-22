@@ -126,7 +126,7 @@ fn live_secure_runtime(address: std::net::SocketAddr) -> std::sync::Arc<super::T
         own_trust: None,
         identity_required: true,
     }
-    .into_generation(1, chrono::Utc::now())
+    .into_generation(1, opensesame_time::Utc::now())
     .expect("generation");
     let mut config = super::test_support::mtls_config();
     config.listener.as_mut().unwrap().listen = address;

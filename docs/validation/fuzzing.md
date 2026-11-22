@@ -39,6 +39,10 @@ Override duration with `FUZZ_SECONDS`. Override the Miri nightly with
 - `tests/fuzz/cargo/corpus/<target>/` — committed seeds; the gates copy them
   into a private audit directory outside the checkout, where corpus growth
   stays
+- `tests/fuzz/cargo/corpus-bundles/capability_algebra.json` — the preserved
+  capability-algebra seeds. Python 3 materializes them into that same private
+  corpus for the gates and `bash scripts/fuzz/fuzz-one.sh capability_algebra`;
+  a bare `cargo fuzz run` does not load the bundle
 - `tests/fuzz/cargo/artifacts/` — gitignored; `tests/fuzz/clusterfuzzlite/build.sh`
   puts built targets and seed-corpus zips there when `OUT` is unset. Crashes
   from `npm run audit:fuzz*` and `npm run test:fuzz*` land in a private audit

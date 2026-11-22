@@ -127,7 +127,7 @@ export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "item.copy-password",
     description:
-      "Copies the open account's password to the clipboard without showing it. The clipboard is cleared again when the vault locks, and after the delay set in Settings if there is one. Drawn only when the login has a password.",
+      "Copies the open account's password to the clipboard without showing it. The vault tries to clear it on lock and after the delay set in Settings, if there is one; the browser may block clearing or keep clipboard history. Drawn only when the login has a password.",
     role: "action",
     routes: ["/vault/item"],
     capabilityId: "vault.items.reveal",

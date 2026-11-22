@@ -6,8 +6,8 @@
 //! staleness is a reported fact, never a silent pass. A CRL with no
 //! `nextUpdate` at all counts as stale from the moment it is read.
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::transport::TransportError;
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::app_state::AppState;

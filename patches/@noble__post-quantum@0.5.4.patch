@@ -1,0 +1,12 @@
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -11,6 +11,6 @@
+   ],
+   "dependencies": {
+-    "@noble/curves": "~2.0.0",
+-    "@noble/hashes": "~2.0.0"
++    "@noble/curves": "2.4.0",
++    "@noble/hashes": "2.4.0"
+   },
+   "devDependencies": {

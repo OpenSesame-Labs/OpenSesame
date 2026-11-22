@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -6,6 +7,14 @@ import { describe, expect, it } from "vitest";
 const root = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 
 describe("Rust fuzz tooling", () => {
+  it("preserves the capability corpus through local and hosted fuzzing", () => {
+    execFileSync(
+      "python3",
+      [join(root, "scripts/fuzz/capability-corpus.test.py")],
+      { cwd: root, stdio: "pipe", timeout: 30_000 },
+    );
+  }, 30_000);
+
   it.each([
     "scripts/fuzz/fuzz-pr-gate.sh",
     "tests/fuzz/clusterfuzzlite/build.sh",
@@ -31,17 +40,25 @@ describe("Rust fuzz tooling", () => {
       join(root, ".github/workflows/ci-release-checks.yml"),
       "utf8",
     );
-    const declared = [
+    const toolchains = [
       ...workflow.matchAll(
         /OPENSESAME_FUZZ_TOOLCHAIN: (nightly-\d{4}-\d{2}-\d{2})/gu,
       ),
     ].map((match) => match[1]);
-    const toolchain = declared[0];
-    expect(toolchain).toBeDefined();
-    expect(new Set(declared).size).toBe(1);
+    expect(toolchains.length).toBeGreaterThan(0);
+    expect(new Set(toolchains).size).toBe(1);
+    const toolchain = toolchains[0];
+    expect(workflow).toContain(
+      "if: matrix.check == 'miri' || matrix.check == 'fuzz-rust'",
+    );
     expect(workflow).toContain(
       `install_args: rust[components=miri]@${toolchain}`,
     );
+    const setup = readFileSync(
+      join(root, "scripts/release/deep-tools.sh"),
+      "utf8",
+    );
+    expect(setup).toContain(`cargo +${toolchain} fuzz --version`);
     expect(workflow).toContain(`MIRI_TOOLCHAIN: ${toolchain}`);
   });
 

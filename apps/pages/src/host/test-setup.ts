@@ -3,13 +3,13 @@ import { composeHost, configureHost } from "@opensesame/app-core/host.js";
 import { installWipeGuard } from "@opensesame/app-core/lib/duress/wipe/test-guard.js";
 import { clearNotices } from "@opensesame/app-core/lib/notices.js";
 import {
-  assertOwnedStorageWrites,
-  recordStorageWrite,
-} from "@opensesame/app-core/test-host-storage-writes.js";
-import {
   repairInertWebStorage,
   testAtRestKeys,
 } from "@opensesame/app-core/test-host.js";
+import {
+  assertOwnedStorageWrites,
+  recordStorageWrite,
+} from "@opensesame/app-core/test-host-storage-writes.js";
 /**
  * Vitest setup: the same host main.tsx installs, with Vitest's own
  * `import.meta.env` (BASE_URL "/", DEV true), so modules see what they did
@@ -17,6 +17,7 @@ import {
  */
 import { loadPack, packEntries } from "@opensesame/vault-item-types";
 import { afterEach } from "vitest";
+import { stubCanvas2d } from "../components/CipherWordmark/test-canvas.js";
 import { closeJsdomGaps } from "./jsdom-gaps.js";
 import { shellBuild } from "./shell-build.js";
 
@@ -32,6 +33,7 @@ configureHost(
   }),
 );
 closeJsdomGaps();
+stubCanvas2d();
 
 // A test that wrote a Web Storage key the app does not own fails here, even
 // when the code under test swallowed the write's outcome.
