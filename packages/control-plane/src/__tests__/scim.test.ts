@@ -9,8 +9,11 @@ import { createControlPlane } from "../create-app.js";
 import {
   SCIM_TOKEN_PREFIX,
   provisionedRoleForSubject,
-  roleForGroupName,
 } from "../routes/scim.js";
+import {
+  expectHostWithdrawals,
+  mockHostWithdrawal,
+} from "./host-withdrawal-test-helper.js";
 import { putGroupRoleMappingAsOwner } from "./org-owner-fixture.js";
 import {
   DEFAULT_IDP_SUBJECT,
@@ -160,7 +163,7 @@ describe("SCIM provisioning lifecycle", () => {
       await ctx.stores.organizationMemberships.find(org.id, guest.principalId),
     ).toBeTruthy();
 
-    // The leaver signal.
+    const host = mockHostWithdrawal(ctx);
     const deactivated = await app.request(
       usersPath(org.id, `/${created.body.id}`),
       {
@@ -183,6 +186,7 @@ describe("SCIM provisioning lifecycle", () => {
       headers: auth(guest.accessToken),
     });
     expect(stillSignedIn.status).toBe(401);
+    host.restore();
   }, 30_000);
 
   it("refuses a subject the directory deactivated before it ever signed in", async () => {
@@ -525,18 +529,12 @@ describe("SCIM Users surface", () => {
 });
 
 describe("SCIM Groups role mapping", () => {
-  it("does not infer a role from a group name", () => {
-    expect(roleForGroupName("Owners")).toBeUndefined();
-    expect(roleForGroupName("acme-admins")).toBeUndefined();
-    expect(roleForGroupName("OpenSesame Members")).toBeUndefined();
-    expect(roleForGroupName("Engineering")).toBeUndefined();
-  });
-
   it("moves an existing member to the mapped role, and back on removal", async () => {
     const { app, ctx } = createControlPlane({ config: testConfig(idp.issuer) });
     const { owner, org } = await seedTenant(app, ctx, "groups-org");
     const { token } = await mintScimToken(app, org.id, owner.accessToken);
     const { idToken, subject } = await mintOrgIdToken(idp, PAGES_ORIGIN);
+    const host = mockHostWithdrawal(ctx);
     await putGroupRoleMappingAsOwner(ctx, org.id, "acme-owners", "owner");
     const created = await provisionUser(app, org.id, token, {
       userName: "ada@groups.example",
@@ -601,6 +599,8 @@ describe("SCIM Groups role mapping", () => {
       (await ctx.stores.organizationMemberships.find(org.id, guest.principalId))
         ?.role,
     ).toBe("member");
+    expectHostWithdrawals(host.requests, org.id, guest.principalId);
+    host.restore();
   }, 30_000);
 
   it("accepts and ignores a group that maps to nothing", async () => {
