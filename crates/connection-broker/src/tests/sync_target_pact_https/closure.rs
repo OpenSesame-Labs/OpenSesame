@@ -1,17 +1,19 @@
 //! Closure-local `return` does not satisfy the HTTPS guard.
-use super::super::sync_target_pact_norm::{non_code_len, string_len};
+use super::super::sync_target_pact_norm::non_code_len;
 use super::is_ident_char;
 
 pub(crate) fn closure_owns(before: &str) -> bool {
     let bytes = before.as_bytes();
+    let code = code_mask(bytes);
     let mut index = 0usize;
     while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
+        // A `|` inside a comment or string is not a closure pipe.
+        if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }
         if bytes[index] == b'|'
-            && pipe_is_closure(before, index)
+            && pipe_is_closure(before, index, &code)
             && closure_body_at(before, index).is_some_and(|at| runs_to_end(&before[at..]))
         {
             return true;
@@ -21,10 +23,14 @@ pub(crate) fn closure_owns(before: &str) -> bool {
     false
 }
 
-fn pipe_is_closure(body: &str, pipe: usize) -> bool {
+fn pipe_is_closure(body: &str, pipe: usize, code: &[bool]) -> bool {
     let bytes = body.as_bytes();
+    // Skip comment/string regions too, like `guard.rs::preceded_by_else`: on
+    // a raw prefix, `flag | /* c */ |x|` is a closure operand of `|`, so its
+    // `return` is closure-local and must not satisfy the guard
+    // (Kimi council R5 chunk03).
     let mut at = pipe;
-    while at > 0 && bytes[at - 1].is_ascii_whitespace() {
+    while at > 0 && (!code[at - 1] || bytes[at - 1].is_ascii_whitespace()) {
         at -= 1;
     }
     if at == 0 {
@@ -42,6 +48,25 @@ fn pipe_is_closure(body: &str, pipe: usize) -> bool {
     }
     matches!(prev, b'=' | b'(' | b'{' | b',' | b';' | b'[')
         || matches!(trailing_name(&body[..at]), "move" | "async")
+}
+
+/// `true` for code bytes; strings and comments are not code. Mirrors
+/// `guard.rs::code_mask`.
+fn code_mask(bytes: &[u8]) -> Vec<bool> {
+    let mut code = vec![true; bytes.len()];
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = non_code_len(bytes, index) {
+            let end = (index + len).min(bytes.len());
+            for slot in &mut code[index..end] {
+                *slot = false;
+            }
+            index = end.max(index + 1);
+            continue;
+        }
+        index += 1;
+    }
+    code
 }
 
 /// Closure parameter pipe after `||`, not the operator's own second `|`.
@@ -234,6 +259,41 @@ mod probes {
         // that could wrongly end the closure body.
         let prefix = r#"{if url.scheme()!="https" { |x| x /* ; */ return Err("x".into()); } client.get(url)."#;
         assert!(!super::super::guard::guarded(prefix, Some("url")), "{prefix}");
+        let kept = r#"{if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#;
+        assert!(super::super::guard::guarded(kept, Some("url")), "{kept}");
+    }
+
+    /// The backward walk that classifies a pipe must skip comments and
+    /// strings, like `guard.rs::preceded_by_else`: on a raw prefix,
+    /// `flag | /* c */ |x| return` is a closure operand of `|`, so the
+    /// `return` is closure-local and cannot satisfy the guard
+    /// (Kimi council R5 chunk03).
+    #[test]
+    fn kimi_council_r5_commented_pipe_still_opens_closure() {
+        for before in [
+            "flag | /* c */ |x| ",
+            "flag | // c\n|x| ",
+            "flag || /* c */ |x| ",
+            "flag = /* c */ |x| ",
+            "flag & /* c */ |x| ",
+            "call(move /* c */ |x| ",
+            "flag | \"s\" |x| ",
+        ] {
+            assert!(super::closure_owns(before), "{before}");
+        }
+        // Controls: a `|` inside a comment is not a closure pipe, so a real
+        // `return` after it still dominates, and a closure body that ends
+        // before the statement end does not own the return.
+        assert!(!super::closure_owns("/* |x| x */ "));
+        assert!(!super::closure_owns("arr.map(|x| x) | /* c */ "));
+        // Through `guarded`: the closure-local return must not read as the
+        // branch's fail-close when a comment sits between the operator and
+        // the closure.
+        let prefix = r#"{if url.scheme()!="https" { flag | /* c */ |x| return Err("x".into()); } client.get(url)."#;
+        assert!(
+            !super::super::guard::guarded(prefix, Some("url")),
+            "{prefix}"
+        );
         let kept = r#"{if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#;
         assert!(super::super::guard::guarded(kept, Some("url")), "{kept}");
     }
