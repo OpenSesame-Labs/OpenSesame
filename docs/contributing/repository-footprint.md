@@ -118,3 +118,21 @@ tests replay each response from the bundles. The reviewed Gitleaks evidence is
 rebound to the exact new file hashes and match locations. Together these
 changes reduce the tracked checkout by 31 files without reducing test cases,
 current documentation, or security evidence.
+
+## Consolidated per-case fixture corpora
+
+The November 2026 file-budget review consolidated three per-case fixture
+directories into keyed bundles, a net reduction of 266 tracked files. Each
+bundle entry was compared with the original file at the parent commit (256
+files, deep JSON/YAML equality; the SOPS YAML sources byte for byte), and every
+consumer was moved to the bundle in the same change. Every test case and its
+name is kept; the test counts are unchanged. None of these paths is bound by
+the exposure matrix, the formal proof registry or the reviewed Gitleaks
+evidence. Git history retains the per-case files.
+
+| Removed files | Reason and maintained replacement |
+|---|---|
+| `packages/contracts/fixtures/transport-security/{valid,invalid}/*.json` (37 + 104) | Shared Rust ↔ zod ↔ os-domain corpus, now `valid.json` and `invalid.json`, each mapping the former file stem to the unchanged `{kind, input, expect}` fixture. `crates/domain/src/transport/corpus_tests.rs` and `packages/contracts/src/__tests__/transport-security-corpus.test.ts` read the bundles and still enforce the valid/invalid split and kind coverage; ADR 0132's evidence table points at the bundles. |
+| `packages/contracts/src/duress/testdata/scenarios/*.{json,yaml}` (13 + 13) | Scenario policies, now `scenarios.json` and `scenarios.yaml` keyed by scenario id. `fixtures.test.ts` compiles every JSON scenario, builds the import preview from the YAML bundle, and now also asserts that each YAML scenario equals its JSON twin. |
+| `packages/contracts/src/duress/testdata/invalid/*.json` (15) and `invalid/*.yaml` (16) | The JSON files were generated copies of `INVALID_FIXTURES`; they are now the single generated `invalid.json` keyed by error code, compared on every run and rewritten by `UPDATE_DURESS_FIXTURES=1`. The YAML files had no consumer, duplicated the JSON documents, and two had drifted (`unsupported_factor.yaml` named a retired error code; `contradictory_actions-canary-removal.yaml` only renamed `contradictory_actions`). Every error code remains covered by `INVALID_FIXTURES`. |
+| `packages/app-core/src/lib/sops/fixtures/tree/*.{yaml,tree.json}` (37 + 37) | YAML loader conformance pairs, now `fixtures/tree.json` mapping each case name to its verbatim YAML source and the upstream loader's `documents` or `error`. `yaml-parse.test.ts` runs all 37 cases and the emit round trip; `apps/pages/scripts/sops-fixtures.mjs` reads the `comments` source from the bundle. |

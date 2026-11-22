@@ -1,14 +1,10 @@
 import { execFileSync } from "node:child_process";
-import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  writeFileSync,
-} from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { z } from "zod";
 import { CompilerErrorCodeSchema } from "./evidence.js";
 import {
   type CompilerCatalog,
@@ -25,21 +21,41 @@ const EXAMPLES = join(dirname(fileURLToPath(import.meta.url)), "testdata");
 const REPO_ROOT = resolve(EXAMPLES, "../../../../..");
 
 /**
- * `testdata/invalid/<code>.json` is generated from `INVALID_FIXTURES`. A
- * normal run only compares the checked-in files with it and fails on drift;
- * the flag rewrites them, formatted by the repository's Biome so the output
- * is byte-for-byte what `npm run lint` accepts:
+ * `testdata/invalid.json` maps every compiler error code to its document and
+ * is generated from `INVALID_FIXTURES`. A normal run only compares the
+ * checked-in bundle with it and fails on drift; the flag rewrites it,
+ * formatted by the repository's Biome so the output is byte-for-byte what
+ * `npm run lint` accepts:
  *
  *   UPDATE_DURESS_FIXTURES=1 npm exec -w @opensesame/contracts -- \
  *     vitest run src/duress/fixtures.test.ts
  */
 const UPDATE = process.env.UPDATE_DURESS_FIXTURES !== undefined;
 
-const invalidFixturePath = (code: CompilerErrorCode) =>
-  join(EXAMPLES, "invalid", `${code}.json`);
+const INVALID_BUNDLE = join(EXAMPLES, "invalid.json");
 
-const invalidFixtureText = (code: CompilerErrorCode) =>
-  `${JSON.stringify({ expectedError: code, document: INVALID_FIXTURES[code] }, null, 2)}\n`;
+const invalidBundleText = () =>
+  `${JSON.stringify(
+    Object.fromEntries(
+      CompilerErrorCodeSchema.options.map((code) => [
+        code,
+        INVALID_FIXTURES[code],
+      ]),
+    ),
+    null,
+    2,
+  )}\n`;
+
+/** `testdata/scenarios.{json,yaml}` each map a scenario id to its policy. */
+const readExample = (name: string) =>
+  readFileSync(join(EXAMPLES, name), "utf8");
+const ScenarioBundleSchema = z.record(z.string(), PolicyDocumentSchema);
+const SCENARIOS_JSON = ScenarioBundleSchema.parse(
+  JSON.parse(readExample("scenarios.json")),
+);
+const SCENARIOS_YAML = ScenarioBundleSchema.parse(
+  parseYaml(readExample("scenarios.yaml")),
+);
 
 const catalog: CompilerCatalog = {
   ownerPrincipalRefs: ["owner-1"],
@@ -76,21 +92,19 @@ const catalog: CompilerCatalog = {
 
 beforeAll(() => {
   if (!UPDATE) return;
-  mkdirSync(join(EXAMPLES, "invalid"), { recursive: true });
-  const paths = CompilerErrorCodeSchema.options.map((code) => {
-    writeFileSync(invalidFixturePath(code), invalidFixtureText(code));
-    return invalidFixturePath(code);
-  });
-  execFileSync("npm", ["exec", "--", "biome", "format", "--write", ...paths], {
-    cwd: REPO_ROOT,
-    stdio: "inherit",
-  });
+  writeFileSync(INVALID_BUNDLE, invalidBundleText());
+  execFileSync(
+    "npm",
+    ["exec", "--", "biome", "format", "--write", INVALID_BUNDLE],
+    { cwd: REPO_ROOT, stdio: "inherit" },
+  );
 });
 
 describe("scenario fixtures", () => {
   it.each([...SCENARIO_IDS])("%s validates and compiles", (id) => {
-    const raw = readFileSync(join(EXAMPLES, "scenarios", `${id}.json`), "utf8");
-    const doc = PolicyDocumentSchema.parse(JSON.parse(raw));
+    const doc = SCENARIOS_JSON[id];
+    expect(doc, id).toBeDefined();
+    if (!doc) return;
     const result = compileDuressPolicy(doc, catalog);
     expect(result.ok, JSON.stringify(result)).toBe(true);
     if (result.ok) expect(result.armed).toBe(false);
@@ -145,10 +159,7 @@ describe("invalid fixtures", () => {
 
 describe("import preview", () => {
   it("strips secrets and never arms", () => {
-    const yaml = readFileSync(
-      join(EXAMPLES, "scenarios", "SC-ALERT-ONLY.yaml"),
-      "utf8",
-    );
+    const yaml = stringifyYaml(SCENARIOS_YAML["SC-ALERT-ONLY"]);
     const poisoned = `${yaml}\ntriggerSecret: hunter2\n`;
     const preview = importDuressPolicyPreview(poisoned, "yaml", catalog);
     expect(preview.armed).toBe(false);
@@ -159,23 +170,31 @@ describe("import preview", () => {
 });
 
 describe("examples directory coverage", () => {
-  it("has yaml+json for every scenario", () => {
-    const files = readdirSync(join(EXAMPLES, "scenarios"));
+  it("has yaml+json for every scenario, and they agree", () => {
+    expect(Object.keys(SCENARIOS_JSON).sort()).toEqual(
+      [...SCENARIO_IDS].sort(),
+    );
+    expect(Object.keys(SCENARIOS_YAML).sort()).toEqual(
+      [...SCENARIO_IDS].sort(),
+    );
     for (const id of SCENARIO_IDS) {
-      expect(files).toContain(`${id}.json`);
-      expect(files).toContain(`${id}.yaml`);
+      expect(SCENARIOS_YAML[id], id).toEqual(SCENARIOS_JSON[id]);
     }
+    // The raw documents agree too, before any schema parsing.
+    expect(parseYaml(readExample("scenarios.yaml"))).toEqual(
+      JSON.parse(readExample("scenarios.json")),
+    );
   });
 
   it.each(CompilerErrorCodeSchema.options)(
-    "invalid/%s.json matches INVALID_FIXTURES",
+    "invalid.json %s matches INVALID_FIXTURES",
     (code: CompilerErrorCode) => {
-      const path = invalidFixturePath(code);
-      const hint = `${path} is stale; rerun with UPDATE_DURESS_FIXTURES=1`;
-      expect(existsSync(path), hint).toBe(true);
-      expect(JSON.parse(readFileSync(path, "utf8")), hint).toEqual(
-        JSON.parse(invalidFixtureText(code)),
+      const hint = `${INVALID_BUNDLE} is stale; rerun with UPDATE_DURESS_FIXTURES=1`;
+      const bundle = JSON.parse(readFileSync(INVALID_BUNDLE, "utf8"));
+      expect(Object.keys(bundle).sort(), hint).toEqual(
+        [...CompilerErrorCodeSchema.options].sort(),
       );
+      expect(bundle[code], hint).toEqual(JSON.parse(invalidBundleText())[code]);
     },
   );
 });

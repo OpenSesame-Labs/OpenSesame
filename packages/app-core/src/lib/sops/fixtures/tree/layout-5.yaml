@@ -1,4 +1,0 @@
-a: # line on key with map value
-  b: 1
-s: # line on key with seq value
-  - x

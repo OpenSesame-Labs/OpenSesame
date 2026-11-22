@@ -1,3 +1,0 @@
-{
-  "error": "yaml: unmarshal errors:\n  line 2: mapping key \"a\" already defined at line 1"
-}

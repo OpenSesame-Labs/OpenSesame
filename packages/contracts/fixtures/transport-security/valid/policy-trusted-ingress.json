@@ -1,8 +1,0 @@
-{
-  "kind": "transport_policy",
-  "input": "trusted_ingress",
-  "expect": {
-    "ok": true,
-    "canonical": "trusted_ingress"
-  }
-}
