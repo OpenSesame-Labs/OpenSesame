@@ -1,11 +1,18 @@
 import { createHash, randomBytes } from "node:crypto";
 import { appendAuditEvent } from "@opensesame/audit";
+import { ScimAdminCapacityError } from "@opensesame/database";
 import { Hono } from "hono";
 import type { AppContext } from "../context.js";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
-import { mintScimToken, revokeScimToken } from "../services/org-admin.js";
+import {
+  mintScimToken,
+  purgeRevokedScimToken,
+  revokeScimToken,
+} from "../services/org-admin.js";
 import { asActiveOrgOwner } from "./org-owner-gate.js";
+import { scimOwnerPage } from "./scim-protocol.js";
+import { consumeScimMutation } from "./scim-rate-limit.js";
 
 /** Provisioning-token prefix. Shown once, at mint; only the hash is stored. */
 export const SCIM_TOKEN_PREFIX = "sct_";
@@ -31,14 +38,28 @@ scimTokenAdminRoutes.post(
       c,
       OWNER,
       async ({ ctx, org, proof, actor, organization }) => {
+        if (
+          !(await consumeScimMutation(
+            ctx,
+            organization.id,
+            undefined,
+            1,
+            "admin",
+          ))
+        ) {
+          c.header("Retry-After", "60");
+          return c.json({ error: "rate_limited" }, 429);
+        }
         // This plaintext token is returned once; only its digest is stored.
         const token = `${SCIM_TOKEN_PREFIX}${randomBytes(32).toString("base64url")}`;
-        const minted = await mintScimToken(
-          ctx,
-          org,
-          proof,
-          scimTokenHash(token),
-        );
+        let minted: { id: string };
+        try {
+          minted = await mintScimToken(ctx, org, proof, scimTokenHash(token));
+        } catch (error) {
+          if (error instanceof ScimAdminCapacityError)
+            return c.json({ error: "scim_token_capacity" }, 409);
+          throw error;
+        }
         await appendAuditEvent(ctx.repos.auditEvents, {
           eventType: "organization.scim_token_minted",
           outcome: "succeeded",
@@ -62,15 +83,55 @@ scimTokenAdminRoutes.get(
   requirePrincipal(),
   async (c) =>
     asActiveOrgOwner(c, OWNER, async ({ ctx, organization }) => {
-      const tokens = await ctx.stores.scim.tokens.list(organization.id);
+      const page = scimOwnerPage(c);
+      if (!page) return c.json({ error: "validation_error" }, 400);
+      const totalResults = await ctx.stores.scim.tokens.count(organization.id);
+      if (!page.paged && totalResults > page.limit)
+        return c.json({ error: "pagination_required", totalResults }, 409);
+      const tokens =
+        page.offset >= totalResults
+          ? []
+          : await ctx.stores.scim.tokens.list(organization.id, {
+              offset: page.offset,
+              limit: page.limit,
+            });
       return c.json({
         tokens: tokens.map((record) => ({
           id: record.id,
           createdAt: record.createdAt.toISOString(),
           revokedAt: record.revokedAt?.toISOString() ?? null,
         })),
+        totalResults,
+        startIndex: page.startIndex,
+        itemsPerPage: tokens.length,
       });
     }),
+);
+
+scimTokenAdminRoutes.delete(
+  "/:organizationId/scim/tokens/:tokenId/record",
+  requirePrincipal(),
+  async (c) =>
+    asActiveOrgOwner(
+      c,
+      OWNER,
+      async ({ ctx, org, proof, actor, organization }) => {
+        const tokenId = c.req.param("tokenId") ?? "";
+        if (!(await purgeRevokedScimToken(ctx, org, proof, tokenId)))
+          return c.json({ error: "revoked_token_required" }, 409);
+        await appendAuditEvent(ctx.repos.auditEvents, {
+          eventType: "organization.scim_token_record_purged",
+          outcome: "succeeded",
+          principalId: actor.value,
+          organizationId: organization.id,
+          correlationId: c.get("correlationId"),
+          targetType: "scim_token",
+          targetId: tokenId,
+          metadata: { action: "organization.scim_token.record.purge" },
+        });
+        return c.body(null, 204);
+      },
+    ),
 );
 
 scimTokenAdminRoutes.delete(

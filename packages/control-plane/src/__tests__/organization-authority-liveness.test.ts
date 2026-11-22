@@ -76,9 +76,11 @@ it.each(["provisional", "suspended", "deleted"] as const)(
       await request(`/members/${member.principalId}`, "DELETE"),
       await request("/scim/mappings", "GET"),
       await request("/scim/mappings/team", "PUT", { role: "owner" }),
+      await request("/scim/mappings/team", "DELETE"),
       await request("/scim/tokens", "GET"),
       await request("/scim/tokens", "POST"),
       await request(`/scim/tokens/${token.id}`, "DELETE"),
+      await request(`/scim/tokens/${token.id}/record`, "DELETE"),
     ]) {
       expect(response.status).toBe(404);
       expect(await response.json()).toEqual({ error: "not_found" });

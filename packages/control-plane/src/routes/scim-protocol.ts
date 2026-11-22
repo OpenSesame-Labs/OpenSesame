@@ -166,3 +166,17 @@ export function scimPage(
     limit: Math.min(parsedCount ?? 100, 200),
   };
 }
+
+/**
+ * Owner listings take the same paging. A request without paging parameters
+ * must fit the default page: a client that never pages would otherwise read
+ * a truncated list as complete.
+ */
+export function scimOwnerPage(c: Context<{ Variables: Variables }>) {
+  const rawStart = c.req.query("startIndex");
+  const rawCount = c.req.query("count");
+  const page = scimPage(rawStart, rawCount);
+  return page
+    ? { ...page, paged: rawStart !== undefined || rawCount !== undefined }
+    : undefined;
+}
