@@ -182,6 +182,21 @@ describe("IdentityCeremony", () => {
     expect(clearSession).not.toHaveBeenCalled();
   });
 
+  it("offers no refresh to an adopted (pasted) token, which has no cookie", () => {
+    Object.assign(identityCeremonyDependencies, {
+      useIdentitySession: () => ({
+        principalId: "prn_cli",
+        accessToken: "t",
+        issuerOrigin: "http://127.0.0.1:18788",
+        adopted: true,
+      }),
+    });
+    render(<IdentityCeremony connector={connector()} onClose={() => {}} />);
+    expect(
+      screen.queryByRole("button", { name: "Refresh session" }),
+    ).toBeNull();
+  });
+
   it("reports a failed refresh instead of claiming success", async () => {
     Object.assign(identityCeremonyDependencies, {
       ensureIdentitySession: vi

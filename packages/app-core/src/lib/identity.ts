@@ -411,7 +411,7 @@ async function inspectRemoteIdentitySessionDefault(
   return { kind: "present", session: nextSession };
 }
 
-/** The rebound cookie names the new token; revoke only the old bearer. */
+/** Revoke only the old bearer; a fresh guest's rebound bearer stays cookie-less. */
 function standOnRebound(
   token: string,
   principalId: string,
@@ -425,18 +425,18 @@ function standOnRebound(
     (!session.issuerBase || session.issuerBase === issuerBase)
       ? session.accessToken
       : undefined;
+  const guest = session?.bearerOnly || guestIsolationActive();
   session = {
     principalId,
     accessToken: token,
     adopted: true,
     issuerOrigin,
     issuerBase,
+    ...(guest ? { bearerOnly: true } : undefined),
   };
   setOrphan(false);
   emit();
-  if (previous && previous !== token) {
-    queueRevoke(previous, issuerBase);
-  }
+  if (previous && previous !== token) queueRevoke(previous, issuerBase);
 }
 
 /** Revoke a rebound token if sign-out or lock ended its session. */

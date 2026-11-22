@@ -324,6 +324,18 @@ describe("rebound sessions", () => {
     );
   });
 
+  it("keeps a fresh guest's rebound session bearer-only", async () => {
+    stubBasic((url, init) =>
+      url === `${IDENTITY}/v1/principals/me` &&
+      new Headers(init?.headers).get("authorization") === "Bearer rebound_tok"
+        ? jsonResponse({ id: "principal_existing" })
+        : undefined,
+    );
+    await connectFreshProvisional();
+    await rebindSession("rebound_tok");
+    expect(currentSession()).toMatchObject({ bearerOnly: true });
+  });
+
   it("rebinds without presenting the cookie that already names the new session", async () => {
     const spy = stubBasic((url, init) => {
       if (

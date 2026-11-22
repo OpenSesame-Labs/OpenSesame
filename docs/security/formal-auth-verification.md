@@ -56,7 +56,7 @@ Git blob IDs, but that consistency check does not establish that an independent
 review occurred or that AUTH-C1 is correct; future changes require a new
 independent review and snapshot update:
 
-- `packages/app-core/src/lib/identity.ts`: `43e35c6e66e62647e33711a5b8ca1af388aff1df`
+- `packages/app-core/src/lib/identity.ts`: `2a32eaa5964bb442741f3181102da51315cd5149`
 - `packages/app-core/src/lib/identity-probe.ts`: `eeff84e7fc64eccc07426cd49cf04aca60a76364`
 - `packages/app-core/src/lib/identity-token-proof.ts`: `47c7a46311b3a9e68a819ccbcf608d96f148fb76`
 - `packages/app-core/src/lib/identity-session-types.ts`: `264a48c5fd9b232fcaa5abaca6dcdc9f9418077b`
@@ -70,7 +70,7 @@ independent review and snapshot update:
 - `packages/app-core/src/lib/claims/ceremony.ts`: `4a2206a3ddb5dbc33b12d80cbff87ba6c2b6b24a`
 - `packages/control-plane/src/app.ts`: `d467ad8513b50361446c5b4f93e755aa68e9b900`
 - `packages/control-plane/src/routes/principals.ts`: `19d13097728bae571fc71b5c1cb45cac96b01b77`
-- `apps/pages/src/components/IdentityCeremony.tsx`: `2bd99c32bb1428f518da4b283737ba86346f7de7`
+- `apps/pages/src/components/IdentityCeremony.tsx`: `a26e68d32330338317ff679cd35a86f6f6b889f7`
 - `apps/pages/src/components/ConnectionCeremony.tsx`: `89fc81187818e662b78915b066ae5fd51ebd3e5f`
 - `apps/pages/src/components/status-mark.css`: `ae855527fd73a13db16e382e5dd04a6249933ad7`
 - `apps/pages/src/screens/FrontDoor.tsx`: `f115adb482976ad92ef252cd4fb2613145d9bc2e`
@@ -78,6 +78,8 @@ independent review and snapshot update:
 - `apps/pages/src/screens/unlock/GuestRoad.tsx`: `cea5725e83f995950ccb2e95482455b66a5d110b`
 
 2026-11-22 re-review of `IdentityCeremony.tsx`: the session-refresh control is no longer drawn for a bearer-only (fresh-guest) session. Refreshing cleared the guest's only bearer, and with guest isolation active the reconnect minted a different provisional principal, stranding the guest's data. The change removes a path; it adds no credential handling or request, and every AUTH-C1 guard is unchanged. Regression: `IdentityCeremony.test.tsx` (`offers no refresh to a bearer-only guest…`), 12/12.
+
+2026-11-22 re-review of `identity.ts` and `IdentityCeremony.tsx`: a fresh guest that links into an existing account (`standOnRebound`) now keeps `bearerOnly`, since the link request withheld cookies and the rebound bearer remains its only credential; the refresh control is also withheld for adopted (pasted) sessions, which have no cookie to renew from. Both changes keep a cookie-less session from being cleared and replaced by a newly minted principal; no request, credential or guard is added or relaxed. Regressions: `identity-rebind.test.ts` (`keeps a fresh guest's rebound session bearer-only`) and `IdentityCeremony.test.tsx` (`offers no refresh to an adopted (pasted) token…`).
 
 The Lean theorems quantify over their declared model inputs. Time in the model
 is an arbitrary integer. The correspondence test exercises 8 principal cases,
