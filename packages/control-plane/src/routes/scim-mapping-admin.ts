@@ -29,29 +29,33 @@ scimMappingAdminRoutes.put(
   "/:organizationId/scim/mappings/:groupId",
   requirePrincipal(),
   async (c) =>
-    asActiveOrgOwner(c, OWNER, async ({ ctx, actor, org, proof, organization }) => {
-      const groupId = decodeURIComponent(c.req.param("groupId") ?? "");
-      const body = overlapCast(await c.req.json().catch(() => ({})));
-      const role = isString(body.role) ? body.role : "";
-      if (
-        !groupId ||
-        (role !== "owner" && role !== "admin" && role !== "member")
-      ) {
-        return c.json({ error: "validation_error" }, 400);
-      }
-      const result = await putGroupRoleMapping(
-        ctx,
-        actor,
-        org,
-        proof,
-        groupId,
-        role,
-      );
-      if (!result.ok) return c.json({ error: result.error }, result.status);
-      return c.json({
-        organizationId: organization.id,
-        groupId,
-        role,
-      });
-    }),
+    asActiveOrgOwner(
+      c,
+      OWNER,
+      async ({ ctx, actor, org, proof, organization }) => {
+        const groupId = decodeURIComponent(c.req.param("groupId") ?? "");
+        const body = overlapCast(await c.req.json().catch(() => ({})));
+        const role = isString(body.role) ? body.role : "";
+        if (
+          !groupId ||
+          (role !== "owner" && role !== "admin" && role !== "member")
+        ) {
+          return c.json({ error: "validation_error" }, 400);
+        }
+        const result = await putGroupRoleMapping(
+          ctx,
+          actor,
+          org,
+          proof,
+          groupId,
+          role,
+        );
+        if (!result.ok) return c.json({ error: result.error }, result.status);
+        return c.json({
+          organizationId: organization.id,
+          groupId,
+          role,
+        });
+      },
+    ),
 );

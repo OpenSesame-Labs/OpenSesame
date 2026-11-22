@@ -11,10 +11,7 @@ import type { Context } from "hono";
 import type { AppContext } from "../context.js";
 import type { ActorId, OrganizationId } from "../lib/ids.js";
 import type { Variables } from "../middleware/context.js";
-import {
-  type ActiveOrgOwner,
-  activeOrgOwner,
-} from "../proofs/org-owner.js";
+import { type ActiveOrgOwner, activeOrgOwner } from "../proofs/org-owner.js";
 import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import {
   type PreparedWithdrawal,

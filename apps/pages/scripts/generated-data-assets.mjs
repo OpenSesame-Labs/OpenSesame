@@ -128,7 +128,7 @@ const generatedModules = Object.freeze([
   ...[
     [
       "spec/log-scrub/log-scrub.json",
-      "491f70a2e2ca25982abee7d24d965d1a5877e9f708e1d7f11a59804d52ca4644",
+      "31e667e2ab65e714f197f3d69325b129aa2a830cddd4381e0077e41c162b9975",
     ],
     [
       "spec/conformance/password-policy.json",
