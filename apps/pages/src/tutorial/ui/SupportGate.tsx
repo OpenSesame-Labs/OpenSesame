@@ -13,6 +13,12 @@
  */
 
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import {
+  FIRST_VAULT_DOOR_STEPS,
+  FIRST_VAULT_GATE_WALK_STEPS,
+  FIRST_VAULT_SIGN_IN_PASSKEY_STEPS,
+  FIRST_VAULT_SIGN_IN_PIN_STEPS,
+} from "@opensesame/app-core/tutorial/registry/first-vault-guide.js";
 import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
 import { type ReactElement, useEffect, useState } from "react";
 import { type SupportHost, loadBrowserEngine } from "../engine.js";
@@ -66,7 +72,13 @@ export function firstVaultDisplayedGateStep(
   if (!tour) return 0;
   // The sign-in continuation is six steps on the PIN road and two where the
   // passkey seals in one ceremony; both resume after the door's two.
-  return tour.step + (tour.count === 6 || tour.count === 2 ? 2 : 0);
+  return (
+    tour.step +
+    (tour.count === FIRST_VAULT_SIGN_IN_PIN_STEPS ||
+    tour.count === FIRST_VAULT_SIGN_IN_PASSKEY_STEPS
+      ? FIRST_VAULT_DOOR_STEPS
+      : 0)
+  );
 }
 
 export function SupportGate(): ReactElement {
@@ -107,7 +119,7 @@ export function SupportGate(): ReactElement {
         clearFirstVaultSignInHandoff();
         if (sealing && guide?.goal === "gate.front-door") {
           sealing = false;
-          continueFirstVaultGuide(sealingStep || 8);
+          continueFirstVaultGuide(sealingStep || FIRST_VAULT_GATE_WALK_STEPS);
         }
       }
     };

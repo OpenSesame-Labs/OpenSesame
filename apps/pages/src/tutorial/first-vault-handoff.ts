@@ -1,6 +1,7 @@
 import { isCreatableItemKind } from "@opensesame/app-core/lib/item-kinds.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import {
+  FIRST_VAULT_GATE_WALK_STEPS,
   FIRST_VAULT_PACK_GUIDE,
   FIRST_VAULT_SHELL_GUIDE,
   firstVaultSignInGuide,
@@ -11,7 +12,7 @@ import type { SupportController } from "./session.js";
 /** In-memory handoff from the setup gate to the newly opened vault. */
 let pending = false;
 let pendingSignIn = false;
-let pendingGateSteps = 8;
+let pendingGateSteps = FIRST_VAULT_GATE_WALK_STEPS;
 const gateStepsByController = new WeakMap<SupportController, number>();
 const listeners = new Set<() => void>();
 
@@ -26,7 +27,9 @@ function firstVaultTarget(controller: SupportController): string | null {
     : null;
 }
 
-export function continueFirstVaultGuide(gateSteps = 8): void {
+export function continueFirstVaultGuide(
+  gateSteps = FIRST_VAULT_GATE_WALK_STEPS,
+): void {
   pending = true;
   pendingGateSteps = gateSteps;
   for (const listener of [...listeners]) listener();
@@ -41,14 +44,14 @@ export function clearFirstVaultSignInHandoff(): void {
 export function resetFirstVaultHandoff(): void {
   pending = false;
   pendingSignIn = false;
-  pendingGateSteps = 8;
+  pendingGateSteps = FIRST_VAULT_GATE_WALK_STEPS;
 }
 
 function takeFirstVaultSteps(): number | null {
   if (!pending) return null;
   pending = false;
   const result = pendingGateSteps;
-  pendingGateSteps = 8;
+  pendingGateSteps = FIRST_VAULT_GATE_WALK_STEPS;
   return result;
 }
 
@@ -58,7 +61,7 @@ export function takeFirstVaultGuide(): boolean {
 
 /** Completed gate steps for the first-vault guide on this controller. */
 export function firstVaultGateSteps(controller: SupportController): number {
-  return gateStepsByController.get(controller) ?? 8;
+  return gateStepsByController.get(controller) ?? FIRST_VAULT_GATE_WALK_STEPS;
 }
 
 function subscribeFirstVaultGuide(listener: () => void): () => void {

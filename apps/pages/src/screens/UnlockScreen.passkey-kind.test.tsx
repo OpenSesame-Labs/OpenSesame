@@ -40,6 +40,14 @@ describe("UnlockScreen — first run, which authenticator", () => {
     v.methods = ["password"];
     v.preferred = "password";
     v.host = { ok: true };
+    // WebAuthn present with the capability probe still unanswered: the road
+    // stays while PRF is unknown. Tests that need another answer re-stub.
+    vi.stubGlobal(
+      "PublicKeyCredential",
+      Object.assign(function PublicKeyCredential() {}, {
+        getClientCapabilities: async () => ({}),
+      }),
+    );
     for (const fn of Object.values(v.store)) fn.mockReset();
     v.store.createWithPasskey.mockResolvedValue(undefined);
     v.store.createWithPin.mockResolvedValue(undefined);

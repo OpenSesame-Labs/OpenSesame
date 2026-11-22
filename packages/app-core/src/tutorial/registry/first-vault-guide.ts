@@ -79,6 +79,19 @@ export function firstVaultSignInGuide(): string {
 }
 
 /**
+ * Counted steps of the authored first-vault walks (every presenting beat but
+ * the closing one, per `planGuideSteps`). The pages shell's gate handoff
+ * keys off these: the sign-in continuation measures six steps on the PIN
+ * road and two on the passkey road, and both resume after the door's own
+ * two steps. Re-author a walk and these move with it.
+ */
+export const FIRST_VAULT_DOOR_STEPS = 2;
+export const FIRST_VAULT_SIGN_IN_PIN_STEPS = 6;
+export const FIRST_VAULT_SIGN_IN_PASSKEY_STEPS = 2;
+/** The door's whole walk on the PIN road: the resume fallback when no tour is live to measure. */
+export const FIRST_VAULT_GATE_WALK_STEPS = 8;
+
+/**
  * The password walk every first-vault road shares.
  *
  * The Save step waits until the vault HOLDS an item (`vault.has-items`),
