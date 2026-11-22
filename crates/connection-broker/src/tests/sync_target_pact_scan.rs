@@ -34,6 +34,11 @@ pub(crate) fn response_body_reads(source: &str) -> Vec<&'static str> {
         "::copy_to::<",
         "::copy_to(",
         ".headers(",
+        "::headers(",
+        ".headers_mut(",
+        "::headers_mut(",
+        ".into_body(",
+        "::into_body(",
         "response.into",
         "res.into",
         "upstream.into",
@@ -53,6 +58,7 @@ pub(crate) fn response_body_reads(source: &str) -> Vec<&'static str> {
         || delegated_body_reader(&scanned)
         || alias_reader(&scanned, &alias_calls, &alias_modules)
         || super::sync_target_pact_rename::response_into_read(&scanned)
+        || super::sync_target_pact_rename::ufcs_response_move(&scanned)
     {
         hits.push("::text;");
     }
@@ -122,6 +128,8 @@ fn stream_consumption_reads(scanned: &str) -> bool {
         ".fold(",
         "try_fold",
         "::next(",
+        "::try_next(",
+        "::fold(",
         "::collect(",
         "StreamExt::next",
         "StreamExt::for_each",
