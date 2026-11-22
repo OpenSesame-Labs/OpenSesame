@@ -57,6 +57,8 @@ export class MemoryScimUserStore implements ScimUserStore {
     user: ScimUserRecord,
     limit: number,
   ): Promise<ScimUserRecord | null> {
+    // A duplicate userName is a conflict even at capacity (ADR 0056).
+    this.checkUserName(normalizeScimUser(user));
     if (this.ofOrg(user.organizationId).length >= limit) return null;
     return this.create(user);
   }

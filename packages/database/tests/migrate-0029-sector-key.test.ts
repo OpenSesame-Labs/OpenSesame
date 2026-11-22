@@ -6,10 +6,8 @@
  * API stored them before canonicalization, then applies 0029 alone.
  */
 import type { PGlite } from "@electric-sql/pglite";
-import { overlapCast } from "@opensesame/os-domain";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { sectorKeyOf } from "../src/client-sector-claims.js";
-import { type Database, PostgresRepositories } from "../src/repos/postgres.js";
 import { makePrincipal } from "./factories.js";
 import {
   type SectorRow as Row,
@@ -96,10 +94,21 @@ describe("drizzle 0029 sector_key backfill", () => {
     const fresh = await databaseBefore0029();
     client = fresh.client;
     const db = fresh.db;
-    const database: Database = overlapCast(db);
-    const repos = new PostgresRepositories(database);
+    // Seed with the pre-0029 columns: the current repository writes columns
+    // that later migrations add (session_authority_version, 0034).
     for (const principal of Object.values(owner)) {
-      await repos.principals.create(principal);
+      await client.query(
+        `insert into principals (id, state, assurance, version, created_at,
+           updated_at) values ($1, $2, $3, $4, $5, $6)`,
+        [
+          principal.id,
+          principal.state,
+          principal.assurance,
+          principal.version,
+          principal.createdAt.toISOString(),
+          principal.updatedAt.toISOString(),
+        ],
+      );
     }
     // Owner A registered first; owner B later registered two other spellings
     // of the same sector — one live, one already revoked.
