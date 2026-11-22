@@ -5,9 +5,10 @@
 //! the tuple walker still sees that paren. A `{` unwraps only when the value
 //! is the block tail, including after earlier statements in the block.
 //! `unsafe`, `if` / `else`, `match`, and `loop { break … }` are part of that
-//! tail. `;` and `{` inside strings or character literals are not boundaries.
+//! tail. `;` and `{` inside strings, character literals, or comments are not
+//! boundaries.
 
-use super::super::sync_target_pact_norm::string_len;
+use super::super::sync_target_pact_norm::non_code_len;
 
 /// Walk left from a value through RHS wrappers.
 pub(super) fn peel_expr_prefix(
@@ -94,11 +95,11 @@ fn skip_ws_back(bytes: &[u8], mut index: usize) -> usize {
     index
 }
 
-fn code_mask(bytes: &[u8]) -> Vec<bool> {
+pub(super) fn code_mask(bytes: &[u8]) -> Vec<bool> {
     let mut code = vec![true; bytes.len()];
     let mut index = 0usize;
     while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
+        if let Some(len) = non_code_len(bytes, index) {
             let end = (index + len).min(bytes.len());
             for slot in &mut code[index..end] {
                 *slot = false;
@@ -364,5 +365,35 @@ mod probes {
         ] {
             assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
         }
+    }
+
+    #[test]
+    fn council_p1_comment_semicolon_does_not_break_block_tail() {
+        let hits = [
+            "fn f() { let dispatch = { Path::send /* ; */ }; dispatch(request); }",
+            "fn f() { let dispatch = { Path::send // ;\n }; dispatch(request); }",
+            "fn f() { let dispatch = { Path::send /* { ; } */ }; dispatch(request); }",
+        ];
+        for sample in hits {
+            assert_eq!(
+                super::super::dispatch_alias_calls(sample).len(),
+                1,
+                "{sample}"
+            );
+        }
+        let gaps = [
+            r#"async fn f() { let dispatch = { Path::send /* ; */ }; dispatch(request).await?; }"#,
+            "async fn f() { let dispatch = { Path::send // ;\n }; dispatch(request).await?; }",
+        ];
+        for sample in gaps {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+        }
+        let guarded = r#"async fn f() { if parsed.scheme() != "https" { return Err("x".into()); } let dispatch = { Path::send /* ; */ }; dispatch(request).await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(guarded), (1, 0));
+        let stopped = "fn f() { let dispatch = { Path::send; /* } */ }; dispatch(request); }";
+        assert!(
+            super::super::dispatch_alias_calls(stopped).is_empty(),
+            "{stopped}"
+        );
     }
 }

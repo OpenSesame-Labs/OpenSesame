@@ -1,5 +1,5 @@
 //! Bind a credentialed dispatch to the URL its builder was given.
-use super::super::sync_target_pact_norm::{is_keyword_at, string_len};
+use super::super::sync_target_pact_norm::{is_keyword_at, non_code_len, string_len};
 use super::strip_turbofish;
 
 #[path = "bind_tail.rs"]
@@ -86,7 +86,7 @@ fn assigned_builder_url(prefix: &str, name: &str) -> Option<String> {
     let mut scope = UrlScope::default();
     let mut index = 0usize;
     while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
+        if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }
@@ -99,6 +99,8 @@ fn assigned_builder_url(prefix: &str, name: &str) -> Option<String> {
 struct UrlBinding {
     depth: i32,
     url: String,
+    /// `let` at the branch depth must not escape. An assignment may.
+    is_let: bool,
 }
 
 struct PendingElse {
@@ -190,6 +192,24 @@ impl UrlScope {
     }
 
     fn close_brace(&mut self, prefix: &str, index: usize) -> usize {
+        // `request = client.get(url)` with no earlier binding is stored at the
+        // branch depth. Keep that assignment for the arm merge. A `let` here
+        // shadows only the branch. A `}` inside a comment never reaches this
+        // path: the scan skips non-code bytes.
+        if self
+            .conds
+            .last()
+            .is_some_and(|cond| cond.depth == self.depth)
+        {
+            let outer = self.depth.saturating_sub(1);
+            self.layers
+                .retain(|binding| binding.depth != self.depth || !binding.is_let);
+            for binding in &mut self.layers {
+                if binding.depth == self.depth {
+                    binding.depth = outer;
+                }
+            }
+        }
         if self.depth > 0 {
             self.depth -= 1;
         }
@@ -240,6 +260,7 @@ impl UrlScope {
             self.layers.push(UrlBinding {
                 depth: self.depth,
                 url,
+                is_let: true,
             });
             return;
         }
@@ -250,6 +271,7 @@ impl UrlScope {
         self.layers.push(UrlBinding {
             depth: self.depth,
             url,
+            is_let: false,
         });
     }
 }
@@ -277,6 +299,7 @@ fn fail_closed(entry: &[UrlBinding]) -> Vec<UrlBinding> {
     out.push(UrlBinding {
         depth: 0,
         url: String::new(),
+        is_let: false,
     });
     out
 }
@@ -528,17 +551,25 @@ fn call_arg_url(expr: &str) -> Option<&str> {
     let bytes = expr.as_bytes();
     let mut index = 0usize;
     let mut found = None;
+    let mut disagreed = false;
     while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
+        if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }
         if let Some(url) = free_call_url(expr, index) {
-            found = Some(url);
+            // `build(evil)` and `build(url)` are not one URL. Same rule as `.get`.
+            if !note_mark(&mut found, Some(url)) {
+                disagreed = true;
+            }
         }
         index += 1;
     }
-    found
+    if disagreed {
+        Some("")
+    } else {
+        found
+    }
 }
 
 fn free_call_url(expr: &str, index: usize) -> Option<&str> {
