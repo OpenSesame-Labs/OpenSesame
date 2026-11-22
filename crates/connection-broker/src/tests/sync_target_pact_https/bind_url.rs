@@ -25,7 +25,7 @@ pub(super) fn has_builder_call(expr: &str) -> bool {
     let bytes = expr.as_bytes();
     let mut index = 0usize;
     while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
+        if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }
@@ -44,7 +44,10 @@ fn marked_url(expr: &str) -> Option<&str> {
     let mut found: Option<&str> = None;
     let mut bad = false;
     while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
+        // Comments are not code: a commented-out `.get(evil)` must not mark
+        // a URL or count as builder evidence (`call_arg_url` already walks
+        // with `non_code_len`; Kimi council chunk03 P2).
+        if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }
@@ -288,7 +291,34 @@ pub(super) fn plain_receiver(expr: &str) -> Option<&str> {
 
 #[cfg(test)]
 mod probes {
-    use super::builder_url;
+    use super::{builder_url, has_builder_call};
+
+    /// `marked_url` and `has_builder_call` skip comment regions via
+    /// `non_code_len`, like `call_arg_url` and the guard modules: a
+    /// commented-out `.get(evil)` must not lend builder URL evidence
+    /// (Kimi council chunk03 P2).
+    #[test]
+    fn kimi_council_r2_commented_builder_call_lends_no_url_evidence() {
+        for expr in [
+            "/* client.get(evil) */ client.get(url)",
+            "client.get(url) // .get(evil)",
+            "client.get(url) /* .post(evil) */",
+            "// client.get(evil)\nclient.get(url)",
+        ] {
+            assert_eq!(builder_url(expr), Some("url"), "{expr}");
+        }
+        for expr in ["/* client.get(evil) */", "// client.get(evil)"] {
+            assert_eq!(builder_url(expr), None, "{expr}");
+        }
+        // A real free-call mark stands; the trailing commented `.get(evil)`
+        // must not disagree with it.
+        assert_eq!(builder_url("make(url) /* client.get(evil) */"), Some("url"));
+        assert!(!has_builder_call("/* client.get(evil) */ make()"));
+        assert!(!has_builder_call("// client.get(evil)\nmake()"));
+        assert!(has_builder_call("client.get(url)"));
+        // A string literal is still not code.
+        assert!(!has_builder_call("let _ = \"client.get(url)\";"));
+    }
 
     /// UFCS one-arg calls and parenthesized keyword conditions do not choose
     /// the binding's URL (Kimi council chunk03 P2). `Type::from(row)` or

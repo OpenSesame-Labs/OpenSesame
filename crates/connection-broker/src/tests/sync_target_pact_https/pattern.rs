@@ -1,5 +1,5 @@
 //! Tuple patterns that bind a request to one builder element.
-use super::super::sync_target_pact_norm::string_len;
+use super::super::sync_target_pact_norm::{is_keyword_at, non_code_len, string_len};
 use super::is_ident_char;
 
 /// `let (request,) = (client.get(evil),)` binds `request` to that element,
@@ -27,12 +27,67 @@ pub(super) fn destructured_url(
         }
     }
     if !super::bind::is_single_eq(bytes, at) {
-        return None;
+        // A match arm (`match (client.get(evil),) { (request,) => … }`) binds
+        // the scrutinee element, not a value from an `=` RHS. The scrutinee
+        // is the expression between the `match` keyword and the match body's
+        // opening brace (Kimi council chunk04 P2).
+        if is_let || bytes.get(at) != Some(&b'=') || bytes.get(at + 1) != Some(&b'>') {
+            return None;
+        }
+        let body = match_body_open(prefix, open)?;
+        let scrutinee = scrutinee_span(prefix, body)?;
+        let piece = descend_rhs(&prefix[scrutinee..body], &path);
+        let url = super::bind::builder_url(piece).unwrap_or("").to_string();
+        return Some((url, close + 1, false));
     }
     let end = super::bind::stmt_end(bytes, at + 1);
     let piece = descend_rhs(prefix[at + 1..end].trim(), &path);
     let url = super::bind::builder_url(piece).unwrap_or("").to_string();
     Some((url, end, is_let))
+}
+
+/// Most recent unclosed `{` before the arm pattern: the match body's open.
+/// Earlier arms, guards, and scrutinee groups are balanced by then; the fn
+/// body below the stack is not the top.
+fn match_body_open(source: &str, before: usize) -> Option<usize> {
+    let bytes = source.as_bytes();
+    let mut stack: Vec<usize> = Vec::new();
+    let mut index = 0usize;
+    while index < before {
+        if let Some(len) = non_code_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'{' => stack.push(index),
+            b'}' => {
+                stack.pop();
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    stack.pop()
+}
+
+/// End of the `match` keyword whose scrutinee feeds the arm: the last
+/// `match` before the match body's open. Strings and comments are skipped;
+/// earlier closed blocks cannot contribute a later keyword.
+fn scrutinee_span(source: &str, body_open: usize) -> Option<usize> {
+    let bytes = source.as_bytes();
+    let mut index = 0usize;
+    let mut match_at = None;
+    while index < body_open {
+        if let Some(len) = non_code_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        if is_keyword_at(bytes, index, b"match") {
+            match_at = Some(index);
+        }
+        index += 1;
+    }
+    match_at.map(|at| at + "match".len())
 }
 
 /// Outermost tuple pattern around `name_at`, including `((request,),)`, with
@@ -46,7 +101,7 @@ fn tuple_around(source: &str, name_at: usize) -> Option<(usize, usize, bool)> {
         if let_pattern_intro(&source[..open]) {
             return Some((open, close, true));
         }
-        if statement_intro(&source[..open]) {
+        if statement_intro(&source[..open]) || arm_intro(&source[..open], source, close) {
             return Some((open, close, false));
         }
         let (outer, _) = tuple_pattern_open(source, open)?;
@@ -55,6 +110,23 @@ fn tuple_around(source: &str, name_at: usize) -> Option<(usize, usize, bool)> {
         }
         open = outer;
     }
+}
+
+/// `(request,) => …` match arm: the pattern sits at an arm boundary (`{` or
+/// `,` before it — later arms follow an earlier arm's `}` and a comma) and
+/// the arm arrow follows the close. A tuple assignment `(request,) = …`
+/// never has `=>` after the pattern.
+fn arm_intro(before_paren: &str, source: &str, close: usize) -> bool {
+    let last = before_paren.trim_end().as_bytes().last();
+    if !matches!(last, Some(b'{' | b',' | b'}' | b';')) {
+        return false;
+    }
+    let bytes = source.as_bytes();
+    let mut at = close + 1;
+    while at < bytes.len() && bytes[at].is_ascii_whitespace() {
+        at += 1;
+    }
+    bytes.get(at) == Some(&b'=') && bytes.get(at + 1) == Some(&b'>')
 }
 
 /// The tuple opens a statement (`;`, `{`, or `}` right before it), the shape

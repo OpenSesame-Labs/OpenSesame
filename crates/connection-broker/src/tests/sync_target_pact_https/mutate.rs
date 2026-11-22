@@ -68,8 +68,7 @@ fn mutates_name(source: &str, mut at: usize) -> bool {
     bytes.get(at) == Some(&b'(') || source[at..].starts_with("::")
 }
 
-/// `&mut name` in any later expression: UFCS `Url::set_scheme`, `mem::replace`,
-/// or `let alias = &mut name`.
+/// `&mut name` in any later expression: UFCS `Url::set_scheme`, `mem::replace`, or `let alias = &mut name`.
 fn mut_borrowed(source: &str, name: &str) -> bool {
     let bytes = source.as_bytes();
     let mut index = 0usize;
@@ -159,8 +158,8 @@ fn tuple_lhs_binds(before_eq: &str, name: &str) -> bool {
 
 /// `if let url = evil` / `while let mut url = evil` bind `url` only inside
 /// the condition's block, so they are not assignments to the checked binding
-/// — once that block closes before the send. A send inside the block still
-/// uses the rebound value, and must keep failing closed.
+/// — once that block closes before the send. A send inside the block uses
+/// the rebound value and must keep failing closed.
 fn cond_let_binds(source: &str, name: &str, name_at: usize) -> bool {
     let mut head = source[..name_at].trim_end();
     for _ in 0..3 {
@@ -184,19 +183,33 @@ fn cond_let_binds(source: &str, name: &str, name_at: usize) -> bool {
         return false;
     };
     // The first code `{` after the pattern's `=` may belong to the scrutinee
-    // (`if let url = Make { .. } { … }`): a brace whose close is followed by
-    // another `{` was the scrutinee, not the condition's block. If the block
-    // never closes within this scan, the send sits inside it.
+    // (`if let url = Make { x: 1 }.build() { … }`): a brace group whose close
+    // is followed by `{` or by an expression continuation (`.`, `?`, `)`,
+    // `]`, `,`) was the scrutinee — the condition's block is a later `{`. A
+    // group whose close is followed by a fresh statement was the block (the
+    // binding ended there); if it never closes within this scan, the send
+    // sits inside it.
     let Some(mut open) = find_code_byte(bytes, eq + 1, b'{') else {
         return false;
     };
-    while let Some(close) = match_brace(bytes, open) {
-        match next_code_at(bytes, close + 1) {
-            Some(next) if bytes[next] == b'{' => open = next,
-            _ => break,
+    loop {
+        let Some(close) = match_brace(bytes, open) else {
+            return false;
+        };
+        let Some(next) = next_code_at(bytes, close + 1) else {
+            return true;
+        };
+        match bytes[next] {
+            b'{' => open = next,
+            b'.' | b'?' | b')' | b']' | b',' => {
+                let Some(after) = find_code_byte(bytes, close + 1, b'{') else {
+                    return false;
+                };
+                open = after;
+            }
+            _ => return true,
         }
     }
-    match_brace(bytes, open).is_some()
 }
 
 /// Next code byte position at or after `at`: whitespace, comments, and
@@ -288,10 +301,9 @@ mod probes {
 
     /// `(url,) = …` right after a `}`-terminated guard block must void the
     /// HTTPS guard on the guard side: the backward scan stops at the finished
-    /// block, so the LHS is parsed as a tuple rather than swallowed into the
-    /// preceding statement. Asserted through `shadows` directly — the
-    /// end-to-end gap count alone would be masked by dest-side pattern
-    /// tracking at the send.
+    /// block, so the LHS parses as a tuple. Asserted through `shadows`
+    /// directly — the end-to-end gap count alone would be masked by dest-side
+    /// pattern tracking at the send.
     #[test]
     fn chunk04_tuple_lhs_after_guard_block_voids_guard_side() {
         let voided = r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } (url,) = (evil,); client.get(url).send().await?; }"#;
@@ -305,11 +317,10 @@ mod probes {
         assert!(!super::shadows(untouched, "url"), "{untouched}");
     }
 
-    /// `if let` / `while let` bind `url` only inside the condition's block,
-    /// so a send after the block keeps its scheme guard — the tuple pattern
-    /// forms included, matching `pattern.rs`. A send inside the block reads
-    /// the rebound value and still fails closed, and a plain `let` or an
-    /// assignment still voids the guard.
+    /// `if let` / `while let` bind `url` only inside the condition's block, so a
+    /// send after the block keeps its scheme guard — tuple patterns included,
+    /// matching `pattern.rs`. A send inside the block reads the rebound value
+    /// and still fails closed; a plain `let` or an assignment still voids it.
     #[test]
     fn chunk02_if_and_while_let_patterns_do_not_void_the_guard() {
         let kept = [
@@ -336,8 +347,7 @@ mod probes {
     }
 
     /// Read-only URL inspection (`as_str`, `host_str`, `path`, …) after the
-    /// guard keeps it: the checked value is unchanged (Codex
-    /// PRRT_kwDOTwzAKs65i9UU).
+    /// guard keeps it: the checked value is unchanged (Codex PRRT_kwDOTwzAKs65i9UU).
     #[test]
     fn codex_thread_read_only_url_methods_keep_the_guard() {
         let kept = [
@@ -367,8 +377,8 @@ mod probes {
     }
 
     /// A struct-literal scrutinee puts its own `{` before the condition's
-    /// block. The block is still the binding's scope: a send inside it reads
-    /// the rebound value and fails closed; a send after it keeps the guard
+    /// block, which is still the binding's scope: a send inside it reads the
+    /// rebound value and fails closed; a send after it keeps the guard
     /// (Kimi council r2 chunk04).
     #[test]
     fn kimi_council_r2_struct_literal_scrutinee_keeps_cond_let_scope() {

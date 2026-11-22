@@ -31,7 +31,19 @@ pub(crate) fn ownership_escape(
     // Only the start of a callee name qualifies, and only for a plain free
     // call: methods (`request.json`), UFCS (`Type::method`), macros (`name!`),
     // and mid-identifier positions have their own paths or are not calls.
-    if at > 0 && (is_ident_byte(bytes[at - 1]) || matches!(bytes[at - 1], b'.' | b':' | b'!')) {
+    if at > 0 && (is_ident_byte(bytes[at - 1]) || matches!(bytes[at - 1], b'.' | b'!')) {
+        return None;
+    }
+    // A path-qualified free call (`helpers::transmit(request)`) hands the
+    // request to a callee this scan cannot trace, exactly like a bare
+    // `transmit(request)` — a module path segment is lowercase. A `::` prefix
+    // naming a type (`Wrapper::new(request)`) is UFCS and stays excluded
+    // (Kimi council chunk03 P2).
+    if at >= 2
+        && bytes[at - 1] == b':'
+        && bytes[at - 2] == b':'
+        && type_segment_before(bytes, at - 2)
+    {
         return None;
     }
     let name = &rest[..name_len];
@@ -127,4 +139,54 @@ fn name_binding_eq(bytes: &[u8], index: usize, name: &str) -> Option<usize> {
         return None;
     }
     eq_after_name(bytes, index + name.len())
+}
+
+/// The identifier segment before the `::` at `at` starts uppercase: a type
+/// name (`Wrapper::new`) rather than a module path (`helpers::transmit`).
+fn type_segment_before(bytes: &[u8], at: usize) -> bool {
+    let mut start = at;
+    while start > 0 && is_ident_byte(bytes[start - 1]) {
+        start -= 1;
+    }
+    matches!(bytes.get(start), Some(b'A'..=b'Z'))
+}
+
+#[cfg(test)]
+mod probes {
+    use crate::tests::sync_target_pact_https::credentialed_send_https_gaps;
+
+    /// A path-qualified free call (`helpers::transmit(request)`) hands the
+    /// built request to a callee this single-file scan cannot trace, exactly
+    /// like a bare `transmit(request)`; rejecting every `::`-prefixed callee
+    /// dropped that escape and let a guarded-looking send pass unflagged
+    /// (Kimi council chunk03 P2). UFCS on a type name (`Wrapper::new`) keeps
+    /// its own exclusion contract.
+    #[test]
+    fn kimi_council_r2_path_qualified_free_call_is_an_ownership_escape() {
+        let guarded = [
+            r#"async fn f() { let request = client.get(url); if url.scheme() != "https" { return Err("x".into()); } helpers::transmit(request).await?; }"#,
+            r#"async fn f() { let request = client.get(url); if url.scheme() != "https" { return Err("x".into()); } crate::helpers::transmit(request).await?; }"#,
+            r#"async fn f() { let request = client.get(url); if url.scheme() != "https" { return Err("x".into()); } self::transmit(request).await?; }"#,
+        ];
+        for sample in guarded {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+        }
+        let unguarded =
+            r#"async fn f() { let request = client.get(url); helpers::transmit(request).await?; }"#;
+        assert_eq!(
+            credentialed_send_https_gaps(unguarded),
+            (1, 1),
+            "{unguarded}"
+        );
+        // A commented-out `.get(evil)` lends no builder evidence.
+        let commented = r#"async fn f() { let request = /* client.get(evil) */ make(); helpers::transmit(request).await?; }"#;
+        assert_eq!(
+            credentialed_send_https_gaps(commented),
+            (0, 0),
+            "{commented}"
+        );
+        // UFCS on a type name is not a free call and stays uncounted.
+        let ufcs = r#"async fn f() { let request = client.get(url); Wrapper::new(request); }"#;
+        assert_eq!(credentialed_send_https_gaps(ufcs), (0, 0), "{ufcs}");
+    }
 }

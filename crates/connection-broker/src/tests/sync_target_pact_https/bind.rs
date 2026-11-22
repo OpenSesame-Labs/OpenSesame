@@ -68,6 +68,29 @@ fn receiver_expr<'a>(source: &'a str, fn_start: usize, dot: usize) -> &'a str {
             b'}' if depth > 0 => depth = close_block(bytes, depth, index, &mut start),
             b';' if depth == 0 => start = index + 1,
             b'=' if depth == 0 && is_single_eq(bytes, index) => start = index + 1,
+            // `=>` opens a match arm: a receiver inside the arm body begins
+            // after the arrow (and an arm-body brace), not at an earlier
+            // statement — otherwise the slice swallows the scrutinee and the
+            // arm rebinding is read as a stale outer builder (Kimi council
+            // chunk04 P2). `{ builder }.send()` has no arrow and keeps its
+            // block-tail receiver.
+            b'=' if bytes.get(index + 1) == Some(&b'>') => {
+                start = index + 2;
+                let mut at = start;
+                loop {
+                    while at < bytes.len() && bytes[at].is_ascii_whitespace() {
+                        at += 1;
+                    }
+                    if let Some(len) = non_code_len(bytes, at) {
+                        at += len;
+                        continue;
+                    }
+                    break;
+                }
+                if bytes.get(at) == Some(&b'{') {
+                    start = at + 1;
+                }
+            }
             _ => {}
         }
         index += 1;

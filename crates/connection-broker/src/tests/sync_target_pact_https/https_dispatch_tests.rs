@@ -216,4 +216,57 @@ mod dispatch_tests {
         let ufcs = "async fn f() { let parsed = Url::parse(&url).unwrap(); if Url::scheme(&parsed) != \"https\" { return Err(\"x\".into()); } Client::get(&client, url).send().await?; }";
         assert_eq!(credentialed_send_https_gaps(ufcs), (1, 0));
     }
+
+    /// A struct-literal scrutinee with a trailing call/`?` puts its brace
+    /// group before the condition's real block (`if let url = Make { x: 1 }
+    /// .build() { … }`). The scan must keep looking for the block past the
+    /// suffix: a send inside it reads the rebound value and fails closed; a
+    /// send after it keeps the guard (Kimi council chunk04 P2).
+    #[test]
+    fn kimi_council_r2_suffixed_struct_scrutinee_keeps_cond_let_scope() {
+        let voided = [
+            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } if let url = Make { x: 1 }.build() { client.get(url).send().await?; } }"#,
+            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } while let url = Make { x: 1 }.build() { client.get(url).send().await?; } }"#,
+            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } if let url = parse(Make { x: 1 })? { client.get(url).send().await?; } }"#,
+        ];
+        for sample in voided {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+        }
+        let kept = [
+            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } if let url = Make { x: 1 }.build() { let _ = 1; } client.get(url).send().await?; }"#,
+            r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } if let url = Make { x: 1 }.build()? { let _ = 1; } client.get(url).send().await?; }"#,
+        ];
+        for sample in kept {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+        }
+    }
+
+    /// A match-arm tuple pattern is a real binding: `(request,) => …` binds
+    /// the scrutinee element, so a send inside the arm must not fall back to
+    /// a stale outer binding (Kimi council chunk04 P2). The scrutinee here
+    /// carries no builder mark, so only the arm binding can attribute the
+    /// send's URL.
+    #[test]
+    fn kimi_council_r2_match_arm_tuple_binds_scrutinee_element() {
+        let masked = [
+            r#"async fn f() { let request = client.get(url); if url.scheme() != "https" { return Err("x".into()); } match (boxed,) { (request,) => { request.send().await?; } } }"#,
+            r#"async fn f() { let request = client.get(url); if url.scheme() != "https" { return Err("x".into()); } match (boxed,) { other => { let _ = 1; } (request,) => { request.send().await?; } } }"#,
+        ];
+        for sample in masked {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+        }
+        let kept = [
+            r#"async fn f() { let request = client.get(evil); if url.scheme() != "https" { return Err("x".into()); } match (client.get(url),) { (request,) => { request.send().await?; } } }"#,
+            r#"async fn f() { let request = client.get(evil); if url.scheme() != "https" { return Err("x".into()); } match (client.get(url),) { other => { let _ = 1; } (request,) => { request.send().await?; } } }"#,
+        ];
+        for sample in kept {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+        }
+        let unguarded = r#"async fn f() { match (client.get(evil),) { (request,) => { request.send().await?; } } }"#;
+        assert_eq!(
+            credentialed_send_https_gaps(unguarded),
+            (1, 1),
+            "{unguarded}"
+        );
+    }
 }
