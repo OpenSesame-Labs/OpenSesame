@@ -122,27 +122,109 @@ fn first_arg(source: &str, open: usize) -> Option<&str> {
     None
 }
 
-fn place_ident(mut expr: &str) -> Option<String> {
+/// Receiver place: `response`, `&mut response`, `response.clone()`, `self.response`.
+fn place_ident(expr: &str) -> Option<String> {
+    let mut expr = expr.trim();
     loop {
-        expr = expr.trim();
-        if let Some(rest) = expr.strip_prefix("&mut") {
-            if rest.chars().next().is_none_or(|ch| !is_ident_char(ch)) {
-                expr = rest.trim_start();
-                continue;
-            }
-        }
-        if expr.starts_with(['&', '*']) {
-            expr = expr[1..].trim_start();
+        if let Some(rest) = strip_ref_prefix(expr) {
+            expr = rest;
             continue;
         }
-        if expr.starts_with('(') && expr.ends_with(')') && expr.len() >= 2 {
-            expr = expr[1..expr.len() - 1].trim();
+        if let Some(inner) = outer_group(expr) {
+            expr = inner;
+            continue;
+        }
+        if let Some(recv) = method_receiver(expr) {
+            expr = recv;
             continue;
         }
         break;
     }
-    let name: String = expr.chars().take_while(|ch| is_ident_char(*ch)).collect();
-    (!name.is_empty() && name.len() == expr.len()).then_some(name)
+    let name = expr.rsplit('.').next().unwrap_or(expr).trim();
+    plain_place(name).then(|| name.to_string())
+}
+
+fn strip_ref_prefix(expr: &str) -> Option<&str> {
+    if let Some(rest) = expr.strip_prefix("&mut") {
+        if rest.chars().next().is_none_or(|ch| !is_ident_char(ch)) {
+            return Some(rest.trim_start());
+        }
+    }
+    expr.starts_with(['&', '*']).then(|| expr[1..].trim_start())
+}
+
+fn outer_group(expr: &str) -> Option<&str> {
+    if !expr.starts_with('(') {
+        return None;
+    }
+    let close = paren_close(expr, 0)?;
+    (close + 1 == expr.len()).then(|| expr[1..close].trim())
+}
+
+fn method_receiver(expr: &str) -> Option<&str> {
+    let open = paren_open_at_end(expr)?;
+    let before = expr[..open].trim_end();
+    let dot = before.rfind('.')?;
+    let method = before[dot + 1..].trim();
+    plain_place(method).then(|| before[..dot].trim())
+}
+
+fn plain_place(name: &str) -> bool {
+    !name.is_empty() && name.chars().all(is_ident_char)
+}
+
+fn paren_close(source: &str, open: usize) -> Option<usize> {
+    let bytes = source.as_bytes();
+    if bytes.get(open) != Some(&b'(') {
+        return None;
+    }
+    let mut depth = 0i32;
+    let mut index = open;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(index);
+                }
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    None
+}
+
+fn paren_open_at_end(source: &str) -> Option<usize> {
+    let bytes = source.as_bytes();
+    if bytes.last() != Some(&b')') {
+        return None;
+    }
+    let mut stack = Vec::new();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'(' => stack.push(index),
+            b')' => {
+                let open = stack.pop()?;
+                if index + 1 == bytes.len() {
+                    return Some(open);
+                }
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    None
 }
 
 fn matching_open_paren(source: &str, close: usize) -> Option<usize> {
@@ -258,3 +340,28 @@ mod peel;
 mod tuple;
 
 pub(crate) use alias::dispatch_alias_calls;
+
+#[cfg(test)]
+mod probes {
+    use super::super::sync_target_pact_scan::response_body_reads;
+
+    fn reads(sample: &str) -> bool {
+        !response_body_reads(sample).is_empty()
+    }
+
+    #[test]
+    fn p5_streamext_place_receivers_are_body_reads() {
+        for sample in [
+            "StreamExt::map(response.clone(), |b| b).collect()",
+            "StreamExt::map(self.response, |b| b).collect()",
+            "StreamExt::map(response.by_ref(), |b| b).collect()",
+            "futures::StreamExt::map((&mut response).clone(), |b| b).collect()",
+        ] {
+            assert!(reads(sample), "{sample}");
+        }
+        assert!(!reads(
+            "rows.into_iter().map(SyncTargetView::from).collect()"
+        ));
+        assert!(!reads("StreamExt::map(rows.clone(), |b| b).collect()"));
+    }
+}
