@@ -63,9 +63,10 @@ ln -s ~/.agents/skills/<name> ~/.claude/skills/<name>   # per skill
 Project skills work differently in-repo: first-party source is `skills/`
 (tracked, aliased from `.agents/skills/`); reviewed third-party skills install
 into `.agents/skills/` with `.claude/skills/` and `.grok/skills/` mirrors, all
-gitignored. Container start verifies their exact `skills-lock.json` hashes
-offline and quarantines mismatches. Maintainers explicitly run
-`npm run skills:install` to fetch updates and review the resulting lock change.
+gitignored. Nothing installs or runs them at container start. `npm run
+skills:verify` checks their exact `skills-lock.json` hashes offline and
+quarantines mismatches; maintainers explicitly run `npm run skills:install` to
+fetch updates through the pinned installer and review the resulting lock change.
 Harness-specific variants an installer writes are install output too;
 `node scripts/dev/sync-agent-skills.mjs` collapses duplicate mirrors to
 links and `--check` verifies them.
@@ -145,9 +146,9 @@ for device-login setups (see the Grok config in the dotfiles repo).
   hooks in `postCreateCommand`; only the npm cache is a named
   (per-workspace) volume — executable caches (cargo target, npm)
   stay container-local so no cache crosses checkouts.
-  `postStartCommand` runs `scripts/dev/install-agent-skills.sh` only
-  (offline hash verification of gitignored third-party roots; mismatches are
-  quarantined and reported). No other `postAttach` work, no host paths, no dotfiles.
+  There is no `postStartCommand` or `postAttach` work: a container start
+  fetches and runs no third-party installer or skill (ADR 0222), and the
+  locked toolchain pins no agent-skill installer CLI. No host paths, no dotfiles.
   In-container planes use `127.0.0.1` defaults (`scripts/dev/local-env.sh`).
 - **Host-agent (opt-in, not tracked):** if you run host planes, add your
   own devcontainer override with
@@ -162,8 +163,8 @@ for device-login setups (see the Grok config in the dotfiles repo).
   dotfiles revision (`git -C "$(chezmoi source-path)" checkout <rev>`).
 - Personal skills: update in `~/.agents/skills` only; links follow.
   Rollback = restore that directory; no repo change needed.
-- Project skills: devcontainer start authenticates installed content against
-  the reviewed `skills-lock.json` hashes without network access. Run
+- Project skills: `npm run skills:verify` authenticates installed content
+  against the reviewed `skills-lock.json` hashes without network access. Run
   `npm run skills:install` explicitly to refresh; review and commit the lock
   change, or restore the prior lock and installed content to roll back. Check
   `.agents/.skills-currency.json` for the last verification result.
@@ -181,7 +182,7 @@ for device-login setups (see the Grok config in the dotfiles repo).
 - [ ] `node scripts/dev/sync-agent-skills.mjs --check` exits 0; no broken
       symlinks under `.claude/skills`, `.grok/skills`, `.agents/skills`
       (when present locally)
-- [ ] Devcontainer: `postStart` runs only offline skills verification, no `postAttach`,
+- [ ] Devcontainer: no `postStart` or `postAttach` command,
       no `host.docker.internal`,
       no `${localEnv:HOME}` mount; `id` in lifecycle is `vscode`;
       `node -v`, `npm -v`, `cargo -V` succeed after create

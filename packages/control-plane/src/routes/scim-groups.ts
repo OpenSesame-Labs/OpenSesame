@@ -1,12 +1,16 @@
 import type { Named } from "@gdp-ts/core";
 import { appendAuditEvent } from "@opensesame/audit";
-import type { ScimGroupRecord } from "@opensesame/database";
+import {
+  SCIM_GROUP_ID_MAX,
+  ScimGroupCapacityError,
+  ScimGroupPayloadError,
+  type ScimGroupRecord,
+} from "@opensesame/database";
 import type {
   JsonObject,
   Organization,
   OrganizationRole,
 } from "@opensesame/os-domain";
-import { isJsonObject } from "@opensesame/os-domain";
 import type { Context } from "hono";
 import type { AppContext } from "../context.js";
 import type { ActorId, OrganizationId } from "../lib/ids.js";
@@ -18,29 +22,46 @@ import {
   finishOrganizationWithdrawal,
 } from "../services/organization-withdrawal.js";
 import { SCIM_ROLE_ATTRIBUTE, applyRole, roleOf } from "./scim-effects.js";
+import { foldGroupPatch } from "./scim-group-patch.js";
+import { memberIds, parseMemberSelector } from "./scim-member-selector.js";
 import {
-  memberIds,
-  parseMemberSelector,
-  resolveMemberIds,
-} from "./scim-member-selector.js";
-import {
-  type ScimPatchOperation,
-  boundedScimString,
   readScimJsonBody,
   scimAuditActor,
   scimBody,
   scimError,
   scimPatchOperations,
 } from "./scim-protocol.js";
+import { consumeScimMutation } from "./scim-rate-limit.js";
 
 const GROUP_SCHEMA = "urn:ietf:params:scim:schemas:core:2.0:Group";
-const MAX_DISPLAY_LENGTH = 512;
 
 const ROLE_RANK = {
   member: 1,
   admin: 2,
   owner: 3,
 } as const;
+
+const RATE_LIMITED = "Provisioning rate limit reached.";
+
+type GroupRefusal = {
+  refused: { status: 400 | 409 | 429; detail: string; scimType?: string };
+  retry?: true;
+};
+type GroupPatchOutcome =
+  | GroupRefusal
+  | {
+      stored: ScimGroupRecord;
+      affected: string[];
+      prepared: PreparedWithdrawal[];
+    };
+
+function refusal(
+  status: 400 | 409,
+  detail: string,
+  scimType?: string,
+): GroupRefusal {
+  return { refused: { status, detail, ...(scimType ? { scimType } : {}) } };
+}
 
 export type ScimSession = {
   ctx: AppContext;
@@ -104,6 +125,16 @@ export async function putGroupRoleMapping<A, O>(
   return { ok: true };
 }
 
+/** Removing only neutral mappings cannot confer new authority. */
+export function removeNeutralGroupRoleMapping<A, O>(
+  ctx: AppContext,
+  org: Named<O, OrganizationId>,
+  _proof: ActiveOrgOwner<A, O>,
+  groupId: string,
+) {
+  return ctx.stores.scim.mappings.removeIfNeutral(org.value, groupId);
+}
+
 export async function patchScimGroup(
   c: Context<{ Variables: Variables }>,
   session: ScimSession,
@@ -112,28 +143,55 @@ export async function patchScimGroup(
   const body = await readScimJsonBody(c);
   if (!body) return scimError(c, 400, "Body is not a SCIM PatchOp.");
   const groupId = decodeURIComponent(c.req.param("groupId") ?? "");
-  if (!groupId) return scimError(c, 400, "group id is required.");
+  if (!groupId) return scimError(c, 400, "Invalid group id.", "invalidValue");
 
   const operations = scimPatchOperations(body);
   const outcome = await withScimOrganizationBoundary(
     ctx,
     organization.id,
-    async (tx) => {
+    async (tx): Promise<GroupPatchOutcome> => {
       const existing = await tx.stores.scim.groups.getById(
         organization.id,
         groupId,
       );
+      // The id ceiling bounds new groups only. A group that predates it must
+      // stay reducible, or the privileges its mapping confers could not be
+      // withdrawn.
+      if (!existing && groupId.length > SCIM_GROUP_ID_MAX)
+        return refusal(400, "Invalid group id.", "invalidValue");
       const folded = foldGroupPatch(body, operations, existing, groupId);
-      if ("error" in folded) return folded;
+      if ("error" in folded)
+        return refusal(400, folded.error.detail, folded.error.scimType);
+      // One unit was spent before parsing. Charge each additional target
+      // before a group update can trigger member reconciliation and audits.
+      if (
+        folded.affected.length > 1 &&
+        !(await consumeScimMutation(
+          ctx,
+          organization.id,
+          undefined,
+          folded.affected.length - 1,
+        ))
+      )
+        return { refused: { status: 429, detail: RATE_LIMITED }, retry: true };
       const now = ctx.clock();
-      const stored = await tx.stores.scim.groups.upsert({
-        id: groupId,
-        organizationId: organization.id,
-        displayName: folded.displayName,
-        memberIds: folded.memberIds,
-        createdAt: existing?.createdAt ?? now,
-        updatedAt: now,
-      });
+      let stored: ScimGroupRecord;
+      try {
+        stored = await tx.stores.scim.groups.upsert({
+          id: groupId,
+          organizationId: organization.id,
+          displayName: folded.displayName,
+          memberIds: folded.memberIds,
+          createdAt: existing?.createdAt ?? now,
+          updatedAt: now,
+        });
+      } catch (error) {
+        if (error instanceof ScimGroupCapacityError)
+          return refusal(409, "Provisioned group capacity reached.");
+        if (error instanceof ScimGroupPayloadError)
+          return refusal(400, "Group exceeds the storage limit.", "tooMany");
+        throw error;
+      }
       const prepared: PreparedWithdrawal[] = [];
       for (const memberId of folded.affected) {
         prepared.push(
@@ -148,8 +206,11 @@ export async function patchScimGroup(
       return { stored, affected: folded.affected, prepared };
     },
   );
-  if ("error" in outcome)
-    return scimError(c, 400, outcome.error.detail, outcome.error.scimType);
+  if ("refused" in outcome) {
+    if ("retry" in outcome) c.header("Retry-After", "60");
+    const { status, detail, scimType } = outcome.refused;
+    return scimError(c, status, detail, scimType);
+  }
   await finishRoleChanges(ctx, outcome.prepared);
   for (const memberId of outcome.affected) {
     await auditDerivedRole(ctx, organization, memberId, c);
@@ -163,84 +224,6 @@ function groupResource(group: ScimGroupRecord): JsonObject {
     id: group.id,
     displayName: group.displayName,
     members: group.memberIds.map((id) => ({ value: id })),
-  };
-}
-
-function foldDisplayName(
-  body: JsonObject,
-  operations: ScimPatchOperation[],
-  fallback: string,
-): string {
-  let displayName =
-    boundedScimString(body.displayName, MAX_DISPLAY_LENGTH) ?? fallback;
-  for (const operation of operations) {
-    if (operation.path?.toLowerCase() !== "displayname") continue;
-    if (operation.value === undefined) continue;
-    displayName =
-      boundedScimString(operation.value, MAX_DISPLAY_LENGTH) ?? displayName;
-  }
-  return displayName;
-}
-
-function targetsMembers(operation: ScimPatchOperation): boolean {
-  if (operation.path !== undefined) {
-    const path = operation.path.trim();
-    return parseMemberSelector(path) !== undefined || /^members/i.test(path);
-  }
-  return isJsonObject(operation.value) && operation.value.members !== undefined;
-}
-
-function foldGroupPatch(
-  body: JsonObject,
-  operations: ScimPatchOperation[],
-  existing: ScimGroupRecord | null,
-  groupId: string,
-):
-  | { displayName: string; memberIds: string[]; affected: string[] }
-  | { error: { detail: string; scimType: string } } {
-  let memberList = existing ? [...existing.memberIds] : [];
-  const affected = new Set<string>();
-  for (const operation of operations) {
-    if (!targetsMembers(operation)) continue;
-    const resolved = resolveMemberIds(operation);
-    if ("error" in resolved) return resolved;
-    const applied = applyMemberOp(memberList, operation.op, resolved.ids);
-    if ("error" in applied) return applied;
-    for (const id of resolved.ids) affected.add(id);
-    memberList = applied.memberIds;
-  }
-  return {
-    displayName: foldDisplayName(
-      body,
-      operations,
-      existing?.displayName ?? groupId,
-    ),
-    memberIds: memberList,
-    affected: [...affected],
-  };
-}
-
-function applyMemberOp(
-  current: string[],
-  op: string,
-  ids: string[],
-): { memberIds: string[] } | { error: { detail: string; scimType: string } } {
-  if (op === "add") {
-    const next = [...current];
-    for (const id of ids) {
-      if (!next.includes(id)) next.push(id);
-    }
-    return { memberIds: next };
-  }
-  if (op === "remove") {
-    const drop = new Set(ids);
-    return { memberIds: current.filter((id) => !drop.has(id)) };
-  }
-  return {
-    error: {
-      detail: "Bulk member replace is not supported.",
-      scimType: "invalidValue",
-    },
   };
 }
 

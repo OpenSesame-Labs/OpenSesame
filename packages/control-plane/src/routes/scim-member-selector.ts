@@ -32,10 +32,9 @@ export function parseMemberSelector(
 
 /** Member ids named by one Groups operation value. */
 export function memberIds(value: BoundaryValue | undefined): string[] {
+  while (isJsonObject(value) && value.members !== undefined)
+    value = value.members;
   if (value === undefined) return [];
-  if (isJsonObject(value) && value.members !== undefined) {
-    return memberIds(value.members);
-  }
   const entries = Array.isArray(value) ? value : [value];
   const ids: string[] = [];
   for (const entry of entries) {

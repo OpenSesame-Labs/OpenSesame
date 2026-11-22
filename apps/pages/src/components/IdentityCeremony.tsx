@@ -1,32 +1,47 @@
-import { briefOrigin } from "@opensesame/os-domain";
-import { useState } from "react";
-import { useGuestsAllowed } from "../bindings/guest-access.js";
-
 import type { ConnectorStatus } from "@opensesame/app-core/lib/connectors.js";
-import { defaultUpstream } from "@opensesame/app-core/lib/federation.js";
-import { beginSignIn } from "@opensesame/app-core/lib/federation.js";
-import { claimGuestAuth } from "@opensesame/app-core/lib/guest-auth.js";
+import {
+  beginSignIn,
+  defaultUpstream,
+} from "@opensesame/app-core/lib/federation.js";
+import {
+  FRESH_GUEST_SIGN_OUT_MESSAGE,
+  claimGuestAuth,
+} from "@opensesame/app-core/lib/guest-auth.js";
 import {
   adoptToken,
   clearSession,
+  connectFreshProvisional,
+  ensureIdentitySession,
   identityBase,
 } from "@opensesame/app-core/lib/identity.js";
+import { signOut } from "@opensesame/app-core/lib/session-exit.js";
+import { briefOrigin } from "@opensesame/os-domain";
+import { useState } from "react";
+import { useGuestsAllowed } from "../bindings/guest-access.js";
+import { useIdentitySession } from "../bindings/identity.js";
 import { type CeremonyAlt, CeremonyShell } from "./CeremonyShell.js";
 import { FieldShell } from "./FieldShell.js";
-import { IconLogin, IconRefresh, IconTerminal, IconUser } from "./Icons.js";
-import { StatusNote } from "./StatusNote.js";
-
-import { useConnect, useIdentitySession } from "../bindings/identity.js";
 import { FormCommit } from "./FormCommit.js";
+import {
+  IconLogin,
+  IconPower,
+  IconRefresh,
+  IconTerminal,
+  IconUser,
+} from "./Icons.js";
+import { StatusMark } from "./StatusMark.js";
+import { StatusNote } from "./StatusNote.js";
 export const identityCeremonyDependencies = {
-  useConnect,
   useIdentitySession,
   beginSignIn,
   defaultUpstream,
   claimGuestAuth,
+  connectFreshProvisional,
   adoptToken,
   clearSession,
   identityBase,
+  signOut,
+  ensureIdentitySession,
 };
 
 type Flash = { tone: "ok" | "warn" | "err"; text: string } | null;
@@ -71,12 +86,11 @@ export function IdentityCeremony({
   onClose: () => void;
 }) {
   const session = identityCeremonyDependencies.useIdentitySession();
-  const { connect, connecting, error } =
-    identityCeremonyDependencies.useConnect();
   const upstream = identityCeremonyDependencies.defaultUpstream();
   const [flash, setFlash] = useState<Flash>(null);
   const [busy, setBusy] = useState<"guest" | "refresh" | null>(null);
   const guestsAllowed = useGuestsAllowed();
+  const requiresSignOut = flash?.text === FRESH_GUEST_SIGN_OUT_MESSAGE;
 
   const issuer = briefOrigin(
     session?.issuerOrigin ?? identityCeremonyDependencies.identityBase(),
@@ -90,7 +104,7 @@ export function IdentityCeremony({
         // Drop the credential first: `ensureIdentitySession` reuses a live one,
         // so refreshing without clearing would be a no-op that reports success.
         identityCeremonyDependencies.clearSession();
-        await connect();
+        await identityCeremonyDependencies.ensureIdentitySession();
         setFlash({ tone: "ok", text: "Session refreshed." });
       } catch (caught) {
         setFlash({
@@ -108,7 +122,7 @@ export function IdentityCeremony({
     setFlash(null);
     void (async () => {
       try {
-        await connect();
+        await identityCeremonyDependencies.connectFreshProvisional();
         await identityCeremonyDependencies.claimGuestAuth();
         onClose();
       } catch (caught) {
@@ -157,10 +171,33 @@ export function IdentityCeremony({
 
   return (
     <>
+      {requiresSignOut ? (
+        <div className="actions status-mark-reserved">
+          <StatusMark tone="err" label={flash.text} />
+          <FormCommit
+            label="Sign out to continue"
+            icon={<IconPower size={18} />}
+            onClick={() => {
+              identityCeremonyDependencies.signOut();
+              onClose();
+            }}
+          />
+        </div>
+      ) : null}
       <CeremonyShell
-        ok={connector.tone === "live"}
-        top={session ? "Session active" : "No session"}
-        name={session?.principalId ?? "Not signed in"}
+        ok={connector.tone === "live" && !requiresSignOut}
+        top={
+          requiresSignOut
+            ? "Browser session detected"
+            : session
+              ? "Session active"
+              : "No session"
+        }
+        name={
+          requiresSignOut
+            ? "Sign out before continuing"
+            : (session?.principalId ?? "Not signed in")
+        }
         facts={[
           { key: "Issuer", value: issuer || "not configured" },
           {
@@ -169,38 +206,39 @@ export function IdentityCeremony({
           },
         ]}
         primary={
-          session
-            ? {
-                label: busy === "refresh" ? "Refreshing…" : "Refresh session",
-                icon: <IconRefresh size={18} />,
-                onClick: refresh,
-                busy: busy === "refresh",
-              }
-            : {
-                label: `Sign in with ${upstream.accountKind}`,
-                choice: true,
-                onClick: () => {
-                  void identityCeremonyDependencies.beginSignIn(upstream);
-                },
-                disabled: connecting || busy !== null,
-              }
+          // A bearer-only or adopted session holds only its bearer, with no
+          // cookie to renew from: clearing it to "refresh" would mint a
+          // different principal and strand its data, so none is offered.
+          requiresSignOut || session?.bearerOnly || session?.adopted
+            ? undefined
+            : session
+              ? {
+                  label: busy === "refresh" ? "Refreshing…" : "Refresh session",
+                  icon: <IconRefresh size={18} />,
+                  onClick: refresh,
+                  busy: busy === "refresh",
+                }
+              : {
+                  label: `Sign in with ${upstream.accountKind}`,
+                  choice: true,
+                  onClick: () => {
+                    void identityCeremonyDependencies.beginSignIn(upstream);
+                  },
+                  disabled: busy !== null,
+                }
         }
         secondary={
-          session || !guestsAllowed
+          requiresSignOut || session || !guestsAllowed
             ? undefined
             : {
                 label: busy === "guest" ? "Connecting…" : "Use this device",
                 choice: true,
                 busy: busy === "guest",
-                disabled: connecting,
+                disabled: busy !== null,
                 onClick: startGuest,
               }
         }
-        alts={alts}
-      />
-      <StatusNote
-        title="Identity"
-        message={error ? { tone: "warn", text: error } : null}
+        alts={requiresSignOut ? [] : alts}
       />
       <StatusNote title="Identity" message={flash} />
     </>

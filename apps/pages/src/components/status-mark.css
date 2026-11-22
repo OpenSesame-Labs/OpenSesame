@@ -16,3 +16,11 @@
   overflow-wrap: anywhere;
   pointer-events: none;
 }
+
+.status-mark-reserved > .status-mark[data-touch-twin] {
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+}

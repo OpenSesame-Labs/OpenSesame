@@ -14,7 +14,7 @@ import type {
   ProvisionalSession,
 } from "@opensesame/os-domain";
 import { Hono } from "hono";
-import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import { getCookie, setCookie } from "hono/cookie";
 import {
   cookieAuthAllowed,
   requirePrincipal,
@@ -55,6 +55,25 @@ export { consumeProvisionalMintBudget } from "./provisional-mint-budget.js";
 
 principalRoutes.post(
   "/provisional",
+  async (c, next) => {
+    // Fresh guest mints are bearer-only; reject credentials on the request.
+    if (
+      c.req.header("x-opensesame-fresh-guest") === "1" &&
+      (c.get("principalId") ||
+        c.req.header("authorization") ||
+        getCookie(c, c.get("ctx").config.provisionalCookieName) !== undefined)
+    ) {
+      return c.json(
+        {
+          error: "fresh_guest_requires_sign_out",
+          message:
+            "Sign out of the current account first, then continue as a fresh guest.",
+        },
+        409,
+      );
+    }
+    await next();
+  },
   idempotencyMiddleware("principals.provisional"),
   async (c) => {
     const ctx = c.get("ctx");
@@ -178,27 +197,30 @@ principalRoutes.post(
         const accessToken = `pst_${randomBytes(24).toString("base64url")}`;
         await saveProvisional(ctx.stores, provisionalSession, accessToken);
 
-        setCookie(
-          c,
-          restoreProofHash
-            ? boundCookieName(
-                ctx.config.provisionalCookieName,
-                provisionalSession.id,
-              )
-            : ctx.config.provisionalCookieName,
-          accessToken,
-          {
-            httpOnly: true,
-            sameSite: restoreProofHash
-              ? boundCookieSameSite(ctx.config.publicUrl)
-              : "Lax",
-            path: restoreProofHash
-              ? boundCookiePath(ctx.config.publicUrl)
-              : "/",
-            maxAge: Math.floor(ctx.config.provisionalTtlMs / 1000),
-            secure: ctx.config.publicUrl.startsWith("https://"),
-          },
-        );
+        // A fresh guest is bearer-only: it must not replace a shared cookie.
+        if (c.req.header("x-opensesame-fresh-guest") !== "1") {
+          setCookie(
+            c,
+            restoreProofHash
+              ? boundCookieName(
+                  ctx.config.provisionalCookieName,
+                  provisionalSession.id,
+                )
+              : ctx.config.provisionalCookieName,
+            accessToken,
+            {
+              httpOnly: true,
+              sameSite: restoreProofHash
+                ? boundCookieSameSite(ctx.config.publicUrl)
+                : "Lax",
+              path: restoreProofHash
+                ? boundCookiePath(ctx.config.publicUrl)
+                : "/",
+              maxAge: Math.floor(ctx.config.provisionalTtlMs / 1000),
+              secure: ctx.config.publicUrl.startsWith("https://"),
+            },
+          );
+        }
 
         await appendAuditEvent(ctx.repos.auditEvents, {
           eventType: "principal.provisional_created",
@@ -230,18 +252,12 @@ principalRoutes.post(
   },
 );
 
-/**
- * End the caller's provisional session. Clearing client memory is not enough:
- * the cookie alone authenticates, so the session must die server-side too.
- */
+/** Revoke server-side: the cookie can authenticate without client memory. */
 principalRoutes.post("/provisional/revoke", async (c) => {
   const ctx = c.get("ctx");
   const cookie = getCookie(c, ctx.config.provisionalCookieName);
 
-  // A bearer takes precedence over a cookie for authentication, so a request
-  // carrying both would otherwise revoke the bearer's session while clearing a
-  // cookie belonging to another — leaving that one alive and unreachable. Both
-  // were presented, so end both.
+  // Sign-out ends both presented sessions, even when their owners differ.
   const revoking = new Set<string>();
   const authenticated = c.get("provisionalSessionId");
   if (authenticated) revoking.add(authenticated);
@@ -261,18 +277,8 @@ principalRoutes.post("/provisional/revoke", async (c) => {
     });
   }
 
-  // Clear only a cookie this request actually presented. Deleting
-  // unconditionally would let a late response wipe a cookie issued by a newer
-  // session, since deletion is by name and cannot name a value. Attributes must
-  // match the ones it was set with or the browser keeps the original.
-  if (cookie !== undefined) {
-    deleteCookie(c, ctx.config.provisionalCookieName, {
-      httpOnly: true,
-      sameSite: "Lax",
-      path: "/",
-      secure: ctx.config.publicUrl.startsWith("https://"),
-    });
-  }
+  // The revoked cookie no longer authenticates. A name-only deletion could
+  // arrive after a newer sign-in and erase that newer session's cookie.
   return c.body(null, 204);
 });
 
@@ -551,13 +557,7 @@ principalRoutes.delete("/identities/:id", requirePrincipal(), async (c) => {
 });
 
 /**
- * Host-plane mapping resolve (ADR 0042).
- *
- * Looks up canonical principal by upstream issuer + subject only.
- * Email is never accepted as a join key — requests that send `email` are denied.
- * Authenticated as a service — the shared secret or a bound mTLS service
- * identity per `OPENSESAME_MAPPING_AUTH` (`transport/mapping-auth.ts`) —
- * never a user session, and that identity is good for nothing else.
+ * Service-authenticated issuer/subject mapping (ADR 0042); email is never a join key.
  */
 principalRoutes.get("/mapping/resolve", async (c) => {
   const ctx = c.get("ctx");

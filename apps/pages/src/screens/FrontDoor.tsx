@@ -21,7 +21,12 @@
  */
 
 import { clearAuthOutcome } from "@opensesame/app-core/lib/auth-outcome.js";
-import { continueAsGuest } from "@opensesame/app-core/lib/guest-auth.js";
+import {
+  FRESH_GUEST_SIGN_OUT_MESSAGE,
+  FRESH_GUEST_STATUS_UNKNOWN_MESSAGE,
+  continueAsGuest,
+} from "@opensesame/app-core/lib/guest-auth.js";
+import { signOut } from "@opensesame/app-core/lib/session-exit.js";
 import { useEffect, useRef, useState } from "react";
 import { FailureNotice } from "../components/FailureNotice.js";
 import { GateTools } from "../components/GateTools.js";
@@ -51,6 +56,39 @@ interface FrontDoorProps {
   onOpenSetup: (join?: boolean) => void;
   /** Join a session: a live one browser to browser (ADR 0150), or a Host's. */
   onOpenJoin: () => void;
+}
+
+function GuestFailureAction({
+  message,
+  onRetry,
+  onClear,
+}: {
+  message: string | null;
+  onRetry: () => void;
+  onClear: () => void;
+}) {
+  return message ? (
+    <div className="door__guest-action">
+      <StatusMark tone="err" label={message} />
+      {message === FRESH_GUEST_SIGN_OUT_MESSAGE ? (
+        <button
+          type="button"
+          className="unlock__switch"
+          onClick={() => {
+            signOut();
+            onClear();
+          }}
+        >
+          Sign out
+        </button>
+      ) : null}
+      {message === FRESH_GUEST_STATUS_UNKNOWN_MESSAGE ? (
+        <button type="button" className="unlock__switch" onClick={onRetry}>
+          Try again
+        </button>
+      ) : null}
+    </div>
+  ) : null;
 }
 
 export function FrontDoor({ onOpenSetup, onOpenJoin }: FrontDoorProps) {
@@ -89,6 +127,11 @@ export function FrontDoor({ onOpenSetup, onOpenJoin }: FrontDoorProps) {
         <GuestSkip busy={busy} onGuest={startGuest} lands />
         <PendingLinkBanner />
         <GateNoticeSeat />
+        <GuestFailureAction
+          message={guestFailed}
+          onRetry={startGuest}
+          onClear={() => setGuestFailed(null)}
+        />
         <header className="door__hero">
           <Wordmark as="h1" className="door__wordmark" fit={HERO_FIT} />
           <p className="door__lede">Set up your own vault, or join one.</p>
@@ -134,7 +177,6 @@ export function FrontDoor({ onOpenSetup, onOpenJoin }: FrontDoorProps) {
           data-first-visit-return="unlock.setup"
         />
 
-        {guestFailed ? <StatusMark tone="err" label={guestFailed} /> : null}
         <FailureNotice
           id="front-door:guest"
           title="Guest"

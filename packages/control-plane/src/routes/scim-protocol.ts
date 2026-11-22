@@ -10,7 +10,7 @@ import type { Variables } from "../middleware/context.js";
 
 const ERROR_SCHEMA = "urn:ietf:params:scim:api:messages:2.0:Error";
 const SCIM_CONTENT_TYPE = "application/scim+json";
-type ScimStatus = 400 | 401 | 403 | 404 | 409;
+type ScimStatus = 400 | 401 | 403 | 404 | 409 | 413 | 429;
 
 export function scimBody(
   c: Context<{ Variables: Variables }>,
@@ -165,4 +165,18 @@ export function scimPage(
     offset: startIndex - 1,
     limit: Math.min(parsedCount ?? 100, 200),
   };
+}
+
+/**
+ * Owner listings take the same paging. A request without paging parameters
+ * must fit the default page: a client that never pages would otherwise read
+ * a truncated list as complete.
+ */
+export function scimOwnerPage(c: Context<{ Variables: Variables }>) {
+  const rawStart = c.req.query("startIndex");
+  const rawCount = c.req.query("count");
+  const page = scimPage(rawStart, rawCount);
+  return page
+    ? { ...page, paged: rawStart !== undefined || rawCount !== undefined }
+    : undefined;
 }

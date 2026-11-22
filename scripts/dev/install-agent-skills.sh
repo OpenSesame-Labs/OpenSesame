@@ -4,23 +4,24 @@
 # These skills are install output, not source: .gitignore covers every
 # harness root except the repo-built adapters whitelisted there, and the
 # third-party trees were removed from source control. skills-lock.json is the
-# reviewed content-integrity catalogue. Container startup never fetches or
-# updates executable instructions. A maintainer may pass --refresh to update
-# installed copies and the catalogue together for review. The installer CLI is
-# version-pinned in mise.toml. Tiers live in skills/profiles.json. First-party
-# skills in skills/ are tracked source and need no install; core
+# reviewed content-integrity catalogue. Nothing runs this automatically: the
+# dev container neither installs the installer CLI nor starts this script, so
+# no third-party code or instructions are fetched or executed at container
+# start (ADR 0222). `npm run skills:verify` checks installed copies offline;
+# `npm run skills:install` passes --refresh, the one explicit path that updates
+# installed copies and the catalogue together for review, through the
+# version-pinned installer CLI below. Tiers live in skills/profiles.json.
+# First-party skills in skills/ are tracked source and need no install; core
 # validation passes without any of this.
 #
-# Runs in verification-only mode on every devcontainer start and refreshes only
-# via `npm run skills:install`. Safe to re-run; a lock
+# Safe to re-run; a lock
 # file (override: OPENSESAME_SKILLS_LOCK_FILE) serializes concurrent
 # runs. Hash mismatches and uncatalogued third-party skills are moved out of
 # discovery roots; the outcome is recorded in
-# .agents/.skills-currency.json instead of failing container start.
+# .agents/.skills-currency.json instead of failing the run.
 set -uo pipefail
 
-# Pinned installer tool version. `mise install` puts it on PATH; npx below uses
-# the same pin only during an explicit refresh.
+# Pinned installer tool version, fetched by npx only during an explicit refresh.
 SKILLS_CLI="skills@1.7.4"
 
 REFRESH="false"
@@ -36,7 +37,7 @@ warn() { echo "install-agent-skills: WARN: $*" >&2; }
 STATUS="ok"
 degrade() { STATUS="degraded"; warn "$*"; }
 
-# Serialize concurrent runs (postStart + manual) when flock is available.
+# Serialize concurrent manual runs when flock is available.
 mkdir -p .agents
 LOCK_FILE="${OPENSESAME_SKILLS_LOCK_FILE:-.agents/.skills-install.lock}"
 if command -v flock >/dev/null 2>&1; then
@@ -69,9 +70,6 @@ if [ "$REFRESH" = "true" ] && ! missing=$(node -e "
 "); then
   degrade "could not read skills-lock.json; skipping catalogue install"
   missing=""
-fi
-if [ "$REFRESH" = "true" ] && ! command -v skills >/dev/null 2>&1; then
-  echo "install-agent-skills: HINT: mise install npm:skills installs the pinned CLI; using npx ${SKILLS_CLI}" >&2
 fi
 if [ -n "$missing" ]; then
   while IFS="$(printf '\t')" read -r name source; do
@@ -154,7 +152,7 @@ fi
 #    skills). Then restore tracked adapters that installers rewrite —
 #    but only files that were clean before this run; pre-existing local
 #    edits are left alone. An explicit refresh leaves skills-lock.json changed
-#    for review; ordinary startup never writes it.
+#    for review; verification alone never writes it.
 node scripts/dev/sync-agent-skills.mjs || degrade "skill mirror sync reported problems"
 for f in $TRACKED; do
   if printf '%s\n' "$DIRTY_BEFORE" | grep -qx "$f"; then
@@ -165,8 +163,8 @@ for f in $TRACKED; do
 done
 
 # 6. Record currency durably, then gate. A failed check degrades the run
-#    (recorded + warned) instead of failing container start; CI gates the
-#    fresh tracked tree separately.
+#    (recorded + warned) instead of failing; CI gates the fresh tracked tree
+#    separately.
 if ! node scripts/dev/sync-agent-skills.mjs --check; then
   degrade "sync --check failed after install (see above)"
 fi

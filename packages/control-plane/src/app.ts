@@ -123,6 +123,7 @@ export function createHonoApp(
       "X-OpenSesame-Revoke-Session",
       "X-OpenSesame-Revoke-Secret",
       "X-OpenSesame-Revoke-Principal",
+      "X-OpenSesame-Fresh-Guest",
     ],
     allowMethods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     exposeHeaders: ["X-OpenSesame-Cookie-Bound"],

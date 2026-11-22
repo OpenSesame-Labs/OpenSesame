@@ -117,6 +117,8 @@ export async function completeMagicLink(
       issuerOrigin: new URL(pending.identityBase).origin,
     },
     pending.sessionEpoch,
+    // Fence the adoption to the Identity API this link was requested from.
+    pending.identityBase,
   );
   return true;
 }

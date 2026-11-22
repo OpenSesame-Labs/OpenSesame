@@ -21,6 +21,10 @@
  */
 
 import { isClaimToken } from "@opensesame/ceremony-kit";
+import {
+  FRESH_GUEST_SIGN_OUT_MESSAGE,
+  FRESH_GUEST_STATUS_UNKNOWN_MESSAGE,
+} from "../guest-auth.js";
 import type { ClaimArrival } from "./link.js";
 import {
   ClaimError,
@@ -298,15 +302,23 @@ export function createClaimCeremony(deps: ClaimCeremonyDeps) {
     presented: boolean,
   ): Promise<ClaimStep | null> {
     try {
-      await deps.transport.provisional();
-    } catch {
+      await deps.transport.freshProvisional();
+    } catch (caught) {
       const phase: ClaimPhase = {
         kind: "paused",
         token,
         presented,
         reason: "identity",
       };
-      return { phase, message: CLAIM_WORDS.guestFailed };
+      return {
+        phase,
+        message:
+          caught instanceof Error &&
+          (caught.message === FRESH_GUEST_SIGN_OUT_MESSAGE ||
+            caught.message === FRESH_GUEST_STATUS_UNKNOWN_MESSAGE)
+            ? caught.message
+            : CLAIM_WORDS.guestFailed,
+      };
     }
     return load(token, presented);
   }

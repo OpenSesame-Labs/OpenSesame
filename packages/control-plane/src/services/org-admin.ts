@@ -109,6 +109,15 @@ export function revokeScimToken<A, O>(
   return ctx.stores.scim.tokens.revoke(org.value, tokenId);
 }
 
+export function purgeRevokedScimToken<A, O>(
+  ctx: AppContext,
+  org: Org<O>,
+  _proof: ActiveOrgOwner<A, O>,
+  tokenId: string,
+): ReturnType<AppContext["stores"]["scim"]["tokens"]["purgeRevoked"]> {
+  return ctx.stores.scim.tokens.purgeRevoked(org.value, tokenId);
+}
+
 export async function writeOrganization<A, O>(
   ctx: AppContext,
   org: Org<O>,

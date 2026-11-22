@@ -57,7 +57,7 @@ async fn credentialed_egress_client(
             .map_err(|_| BrokerError::Invalid("malformed custom provider URL".into()))?;
         return config.custom_egress().client(&endpoint, timeout).await;
     }
-    credentialed_client(url, timeout).await
+    credentialed_client(url, timeout, provider_id == "mock").await
 }
 
 fn credential_header(auth: &AuthMethod, tokens: &TokenSet) -> Result<(String, String)> {

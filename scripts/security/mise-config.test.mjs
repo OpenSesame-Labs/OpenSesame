@@ -156,25 +156,24 @@ test("mise.lock exists and names every install platform", () => {
   }
 });
 
-test("mise.toml pins agent skill tools and the project installer uses only the catalogue CLI", () => {
+test("mise.lock covers exactly the configured tools and no skill installer CLI", () => {
+  // `mise install --locked` runs at dev container creation, so a tool pinned
+  // here is installed without review. Agent-skill installer CLIs stay out;
+  // the explicit refresh fetches its own pin through npx.
   const mise = parseToml(readText("mise.toml"));
   const tools = asTable(mise.tools, "tools");
   const script = readText("scripts/dev/install-agent-skills.sh");
-  const pins = [
-    ["npm:skills", "skills@1.7.4"],
-    ["npm:impeccable", "impeccable@4.8.0"],
-    ["npm:typeui.sh", "typeui.sh@0.7.1"],
-  ];
   const lock = readText("mise.lock");
-  for (const [tool, spec] of pins) {
-    const version = spec.slice(spec.indexOf("@") + 1);
-    const slug = tool.slice("npm:".length).replaceAll(".", "-");
-    const sidecar = `.mise/locks/npm-${slug}/${version}`;
-    assert.equal(asString(tools[tool], tool), version);
-    assert.ok(lock.includes(`path = "${sidecar}"`), sidecar);
-    assert.ok(readText(`${sidecar}/aube-lock.yaml`).includes(version), sidecar);
+  const entries = [
+    ...lock.matchAll(/^\[\[tools\.(?:"([^"]+)"|([A-Za-z0-9_-]+))\]\]$/gmu),
+  ];
+  const names = entries.map((entry) => entry[1] ?? entry[2]);
+  assert.deepEqual(sorted(names), sorted(Object.keys(tools)));
+  for (const tool of ["npm:skills", "npm:impeccable", "npm:typeui.sh"]) {
+    assert.equal(Object.hasOwn(tools, tool), false, tool);
   }
-  assert.ok(script.includes("skills@1.7.4"));
+  assert.doesNotMatch(lock, /\.mise\/locks\/npm-/u);
+  assert.ok(script.includes('SKILLS_CLI="skills@1.7.4"'));
   assert.doesNotMatch(script, /npx[^\n]*(?:impeccable|typeui\.sh)/u);
   for (const path of ["AGENTS.md", "docs/contributing/commands.md"]) {
     assert.doesNotMatch(readText(path), /\bpnpm\b/u, path);

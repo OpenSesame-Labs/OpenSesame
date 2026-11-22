@@ -21,6 +21,7 @@ import {
   readString,
 } from "@opensesame/os-domain";
 import {
+  connectFreshProvisional,
   connectProvisional,
   currentSession,
   identityFetch,
@@ -39,6 +40,8 @@ export interface ClaimTransport {
   principal(): string | null;
   /** Mint a provisional principal in place and return its id. */
   provisional(): Promise<string>;
+  /** Mint only when the authority confirms no existing session cookie. */
+  freshProvisional(): Promise<string>;
 }
 
 const UNREACHABLE =
@@ -127,4 +130,5 @@ export const identityClaimTransport: ClaimTransport = {
   fetch: (path, init) => identityFetch(path, init),
   principal: () => currentSession()?.principalId ?? null,
   provisional: async () => (await connectProvisional()).principalId,
+  freshProvisional: async () => (await connectFreshProvisional()).principalId,
 };

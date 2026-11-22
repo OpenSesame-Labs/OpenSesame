@@ -5,6 +5,10 @@ import { isUniqueViolation } from "./client-origin-store.js";
 import { ConflictError, normalizeIssuer } from "./repos/interfaces.js";
 import type { Database } from "./repos/postgres.js";
 import * as schema from "./schema/index.js";
+import {
+  SCIM_USERS_PER_DEPLOYMENT,
+  validateScimRaw,
+} from "./scim-user-limits.js";
 import { mapScimUser, normalizeScimUser } from "./scim-users-common.js";
 
 export { mapScimUser, normalizeScimUser } from "./scim-users-common.js";
@@ -143,15 +147,23 @@ export async function createPostgresByoWithinLimit(
   }
 }
 
+/**
+ * `limit` is the caller's tenant limit; the deployment-wide bound applies to
+ * every tenant together, inactive rows included.
+ */
 export async function createPostgresScimWithinLimit(
   db: Database,
   user: ScimUserRecord,
   limit: number,
+  deploymentLimit = SCIM_USERS_PER_DEPLOYMENT,
 ): Promise<ScimUserRecord | null> {
+  validateScimRaw(user.raw);
   const normalized = normalizeScimUser(user);
   try {
     return await db.transaction(async (tx) => {
       // Lock the tenant through admission so separate API processes share it.
+      // The tenant row comes first, as in the SCIM organization boundary; the
+      // shared deployment-wide lock is always taken last, so no cycle forms.
       const [organization] = await tx
         .select({ id: schema.organizations.id })
         .from(schema.organizations)
@@ -162,6 +174,9 @@ export async function createPostgresScimWithinLimit(
           `scim organization not found: ${normalized.organizationId}`,
         );
       }
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('OpenSesame:ScimUsers'), 0)`,
+      );
       const [duplicate] = await tx
         .select({ id: schema.scimUsers.id })
         .from(schema.scimUsers)
@@ -177,11 +192,17 @@ export async function createPostgresScimWithinLimit(
           `scim user already exists: ${normalized.userName}`,
         );
       }
-      const [total] = await tx
-        .select({ value: count() })
-        .from(schema.scimUsers)
-        .where(eq(schema.scimUsers.organizationId, normalized.organizationId));
-      if (Number(total?.value ?? 0) >= limit) return null;
+      const [usage] = await tx
+        .select({
+          deployment: count(),
+          organization: sql<number>`count(*) filter (where ${schema.scimUsers.organizationId} = ${normalized.organizationId})`,
+        })
+        .from(schema.scimUsers);
+      if (
+        Number(usage?.organization ?? 0) >= limit ||
+        Number(usage?.deployment ?? 0) >= deploymentLimit
+      )
+        return null;
       const [inserted] = await tx
         .insert(schema.scimUsers)
         .values({

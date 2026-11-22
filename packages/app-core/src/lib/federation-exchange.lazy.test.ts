@@ -7,6 +7,12 @@ import {
   resetAmbientAuthSeams,
 } from "./ambient-auth-seam.js";
 import {
+  clearSession,
+  completeSignIn,
+  federationExchangeSeams,
+  loadSession,
+} from "./federation.js";
+import {
   type TokenFault,
   callbackHost,
   exchangeIssuer,
@@ -14,12 +20,7 @@ import {
 } from "./federation-exchange.test-support.js";
 import { PKCE_KEY, peekPending, storePending } from "./federation-pending.js";
 import { readFederationSessionJson } from "./federation-session-store.js";
-import {
-  clearSession,
-  completeSignIn,
-  federationExchangeSeams,
-  loadSession,
-} from "./federation.js";
+import { saveSettings } from "./settings.js";
 
 const closes: (() => Promise<void>)[] = [];
 beforeEach(() => {
@@ -172,6 +173,53 @@ it("captures the ordinary callback before the ambient seam's existing await and 
   expect(peekPending().pending?.state).toBe("state-original-callback");
   expect(issuer.requests).toEqual([]);
 });
+it.each(["signout", "settings-aba", "callback"] as const)(
+  "does not apply a successful held ambient return after %s",
+  async (withdrawal) => {
+    const { host, issuer, gate } = await setup();
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.spyOn(ambientAuthSeams, "completeIfPresent").mockImplementation(
+      async () => {
+        await held;
+        return {
+          identity: {
+            issuer: issuer.issuer,
+            upstreamId: "ambient",
+            idToken: "ambient-token",
+            pairwiseSub: "ambient-subject",
+            audience: "callback-spa",
+            jwksUri: `${issuer.issuer}/jwks`,
+            expiresAt: Date.now() + 60_000,
+          },
+        };
+      },
+    );
+    const completion = completeSignIn();
+    if (withdrawal === "signout") clearSession();
+    if (withdrawal === "settings-aba") {
+      const original = issuer.settings.identityApi;
+      issuer.settings.identityApi = "https://other.example";
+      saveSettings(issuer.settings);
+      issuer.settings.identityApi = original;
+      saveSettings(issuer.settings);
+    }
+    if (withdrawal === "callback")
+      host.navigate("/?code=foreign&state=foreign-state");
+    release();
+    await expect(completion).rejects.toMatchObject({
+      code: withdrawal === "signout" ? "sign_in_cancelled" : "invalid_request",
+    });
+    if (withdrawal === "callback")
+      expect(new URL(host.href()).search).toBe(
+        "?code=foreign&state=foreign-state",
+      );
+    expect(gate.load).not.toHaveBeenCalled();
+    expect(issuer.requests).toEqual([]);
+  },
+);
 it("does not load the exchange for an ordinary page or malformed callback", async () => {
   const host = callbackHost();
   const load = vi.spyOn(federationExchangeSeams, "load");

@@ -78,7 +78,7 @@ export function DeviceApproval({
             autoComplete="off"
             autoCapitalize="characters"
             spellCheck={false}
-            placeholder="WORD-WORD"
+            placeholder="XXXX-XXXX"
             value={code}
             disabled={busy}
             aria-describedby={result ? `${id}-mark` : undefined}

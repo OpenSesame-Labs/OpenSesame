@@ -133,6 +133,28 @@ export * from "./schema/index.js";
 export * from "./schema/scim-groups.js";
 export * from "./schema/wallet-interactions.js";
 export {
+  SCIM_ADMIN_PAGE_DEFAULT,
+  SCIM_ADMIN_PAGE_MAX,
+  SCIM_MAPPINGS_PER_DEPLOYMENT,
+  SCIM_MAPPINGS_PER_ORGANIZATION,
+  SCIM_TOKENS_PER_DEPLOYMENT,
+  SCIM_TOKENS_PER_ORGANIZATION,
+  ScimAdminCapacityError,
+  type ScimAdminLimits,
+  type ScimListPage,
+} from "./scim-admin-limits.js";
+export {
+  SCIM_GROUPS_PER_DEPLOYMENT,
+  SCIM_GROUPS_PER_ORGANIZATION,
+  SCIM_GROUP_CHANGES_MAX,
+  SCIM_GROUP_ID_MAX,
+  SCIM_GROUP_MEMBERS_MAX,
+  ScimGroupCapacityError,
+  type ScimGroupLimits,
+  ScimGroupPayloadError,
+  scimMappingAdmissible,
+} from "./scim-group-limits.js";
+export {
   type ScimGroupMapping,
   type ScimGroupMappingStore,
   type ScimGroupRecord,
@@ -150,6 +172,16 @@ export {
   MemoryScimGroupMappingStore,
   MemoryScimGroupStore,
 } from "./scim-groups-memory.js";
+export {
+  SCIM_USERS_PER_DEPLOYMENT,
+  SCIM_USERS_PER_ORGANIZATION,
+  SCIM_USER_RAW_MAX_BYTES,
+  SCIM_USER_RAW_MAX_DEPTH,
+  SCIM_USER_RAW_MAX_NODES,
+  ScimUserCapacityError,
+  type ScimUserLimits,
+  ScimUserPayloadError,
+} from "./scim-user-limits.js";
 export { MemoryScimUserStore } from "./scim-users-memory.js";
 export { PostgresScimUserStore } from "./scim-users-postgres.js";
 export { openSecretText, sealSecretText } from "./secret-seal.js";

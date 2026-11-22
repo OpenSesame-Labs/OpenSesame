@@ -74,6 +74,7 @@ it("keeps the verifier tab-local and adopts only a matching callback", async () 
       issuerOrigin: base,
     }),
     expect.any(Number),
+    base,
   );
   await expect(
     completeMagicLink("code-once", retryBody.state, () => undefined),

@@ -156,8 +156,9 @@ joins nothing.
 Per-organization endpoints under `/v1/organizations/:organizationId/scim/v2`, authenticated by
 an org-scoped provisioning token. Users: POST create, GET by id, GET with `userName eq "…"`,
 PATCH (including `active`), DELETE (which SCIM treats as deactivation intent). Groups: a
-minimal PATCH that maps a configured group *name* to an org role; everything else in Groups is
-accepted and ignored, per SCIM's leniency norm. Errors use the
+minimal PATCH updates group membership; an owner-configured group ID mapping selects an org
+role, and a group name alone grants nothing. Unmodelled attributes are accepted and ignored,
+per SCIM's leniency norm. Errors use the
 `urn:ietf:params:scim:api:messages:2.0:Error` envelope, because a bare `{error}` is reported
 by Okta as an unknown failure with no detail.
 
@@ -183,6 +184,59 @@ before comparing. A read of the database therefore never yields a usable credent
 token material reaches a log or an audit row. An unknown organization, a suspended one, a
 missing bearer and a wrong bearer all answer the same 401 — anything else makes this an
 org-existence oracle.
+
+**Provisioning capacity and paging.** A deployment admits at most 10,000 SCIM
+user records per organization and 100,000 in total, both enforced atomically
+by the store across replicas. Inactive records count: they remain the standing denial used by later sign-ins. A create that reaches a
+limit returns a SCIM `409`, while updates and deactivation remain possible at
+capacity. New directory-supplied attributes are limited to 32 KiB per user;
+the server refuses larger records, structures deeper than 32 levels, or more
+than 4,096 attribute values with a SCIM `413` rather than silently dropping
+attributes. Subject history is limited to 64 distinct identifiers; a
+rename beyond that limit returns `409`, while deactivation without a new
+identifier still works. Deprovisioning persists at most 64 new retry targets at
+a time, clears a batch after successful revocation, and retains unprocessed
+legacy retry targets across failures. Existing records are not truncated to
+satisfy a new limit.
+
+`GET /Users` pages in the database by one-based `startIndex` and `count`
+(100 users by default, at most 200 per page), and `totalResults` is the
+tenant's full count. Clients must follow pages to read a large directory.
+
+Group PATCH admits at most 2,000 groups per organization and 20,000 per deployment, 1,000 members per group, and 100 member changes per request;
+updates to existing groups remain possible at capacity. Existing over-limit
+groups can be reduced without discarding their members.
+
+Authenticated SCIM directory mutations also have fixed one-minute budgets of
+600 units per organization and 6,000 per deployment, shared across database
+replicas. A request costs one unit, with a group update charged for each member
+it may reconcile. A rate refusal returns SCIM `429` with `Retry-After`; no
+directory mutation was accepted, and a client must retry, including for
+deactivation. Local-only deployments use an in-memory budget. The resource
+ceilings are admission controls, not a migration: pre-existing over-limit rows
+are retained and prevent additional admissions until usage is below the limit.
+
+Owner-managed SCIM data is bounded separately: a tenant can retain 64 token
+records and 2,000 group-role mappings, with deployment ceilings of 20,000 each.
+Minting a replacement may discard the oldest revoked token records to make room;
+live credentials are never evicted, and the audit trail remains. If every slot
+holds a live credential, the owner can revoke one and then mint its replacement.
+An owner can also remove a revoked record explicitly with
+`DELETE /scim/tokens/:tokenId/record`; this never removes a live credential.
+Existing mappings can be updated at capacity. To retire one, set it to the
+neutral `member` role and then `DELETE /scim/mappings/:groupId`; deleting a
+non-neutral mapping is refused so the removal cannot grant authority.
+
+Token and mapping lists accept the same one-based `startIndex` and `count` as
+`GET /Users` (100 by default, at most 200) and return the total alongside the
+existing array. For an older organization with more than 100 records, a request
+without paging parameters returns `pagination_required` rather than silently
+hiding active tokens or mappings.
+Explicit pages remain available, and owners can revoke any listed token or
+purge its already-revoked record even while the organization exceeds a quota.
+Owner mint and mapping changes have a separate mutation budget; token revocation,
+revoked-record removal and neutral-mapping removal remain available when the
+budget is exhausted.
 
 ### 8. Home-realm discovery, and email as routing only
 An organization owner claims an email domain, publishes a DNS TXT record

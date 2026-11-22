@@ -6,12 +6,26 @@ import type {
   ScimUserStore,
   VersionedScimUser,
 } from "./scim-store.js";
+import {
+  ScimUserCapacityError,
+  type ScimUserLimits,
+  scimUserLimits,
+  validateScimRaw,
+} from "./scim-user-limits.js";
 import { assertScimIdentity, normalizeScimUser } from "./scim-users-common.js";
 
 export class MemoryScimUserStore implements ScimUserStore {
   readonly #users = new Map<string, VersionedScimUser>();
   readonly #generations = new Map<string, bigint>();
+  readonly #limits: ScimUserLimits;
   #scope: string | undefined;
+  /** In a fork: other tenants' rows, which count against the deployment. */
+  #outside = 0;
+
+  /** `options` lowers the hard ceilings for smaller deployments and tests. */
+  constructor(options?: Partial<ScimUserLimits>) {
+    this.#limits = scimUserLimits(options);
+  }
 
   private checkScope(orgId: string): void {
     if (this.#scope !== undefined && this.#scope !== orgId) {
@@ -40,32 +54,40 @@ export class MemoryScimUserStore implements ScimUserStore {
     }
   }
 
-  async create(user: ScimUserRecord): Promise<ScimUserRecord> {
+  /**
+   * `limit` is the caller's tenant limit; the deployment-wide bound applies to
+   * every tenant together, inactive rows included. Duplicates win over capacity.
+   */
+  private admit(user: ScimUserRecord, limit: number): ScimUserRecord | null {
     this.checkScope(user.organizationId);
+    validateScimRaw(user.raw);
     const row = normalizeScimUser(user);
     if (this.#users.has(row.id)) {
       throw new ConflictError(`scim user already exists: ${row.userName}`);
     }
     this.checkUserName(row);
+    if (
+      this.ofOrg(row.organizationId).length >=
+        Math.min(limit, this.#limits.perOrganization) ||
+      this.#outside + this.#users.size >= this.#limits.perDeployment
+    )
+      return null;
     this.#users.set(row.id, { user: row, revision: randomUUID() });
     this.touch(row.organizationId);
     return normalizeScimUser(row);
+  }
+
+  async create(user: ScimUserRecord): Promise<ScimUserRecord> {
+    const created = this.admit(user, this.#limits.perOrganization);
+    if (!created) throw new ScimUserCapacityError();
+    return created;
   }
 
   async createWithinLimit(
     user: ScimUserRecord,
     limit: number,
   ): Promise<ScimUserRecord | null> {
-    this.checkScope(user.organizationId);
-    const row = normalizeScimUser(user);
-    if (this.#users.has(row.id)) {
-      throw new ConflictError(`scim user already exists: ${row.userName}`);
-    }
-    this.checkUserName(row);
-    if (this.ofOrg(row.organizationId).length >= limit) return null;
-    this.#users.set(row.id, { user: row, revision: randomUUID() });
-    this.touch(row.organizationId);
-    return normalizeScimUser(row);
+    return this.admit(user, limit);
   }
 
   async getById(orgId: string, id: string): Promise<ScimUserRecord | null> {
@@ -154,7 +176,11 @@ export class MemoryScimUserStore implements ScimUserStore {
     page?: { offset: number; limit: number },
   ): Promise<ScimUserRecord[]> {
     const ordered = this.ofOrg(orgId)
-      .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+      .sort(
+        (a, b) =>
+          a.createdAt.getTime() - b.createdAt.getTime() ||
+          (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+      )
       .map(normalizeScimUser);
     return page
       ? ordered.slice(page.offset, page.offset + page.limit)
@@ -180,7 +206,7 @@ export class MemoryScimUserStore implements ScimUserStore {
     if (this.#scope !== undefined)
       throw new Error("SCIM transaction cannot be forked");
     const expected = this.#generations.get(orgId) ?? 0n;
-    const staged = new MemoryScimUserStore();
+    const staged = new MemoryScimUserStore(this.#limits);
     staged.#scope = orgId;
     for (const [id, value] of this.#users) {
       if (value.user.organizationId === orgId) {
@@ -190,8 +216,16 @@ export class MemoryScimUserStore implements ScimUserStore {
         });
       }
     }
+    staged.#outside = this.#users.size - staged.#users.size;
     const validate = () => {
       if ((this.#generations.get(orgId) ?? 0n) !== expected) return false;
+      // Another tenant may have been admitted since the fork was taken.
+      const outside = this.#users.size - this.ofOrg(orgId).length;
+      if (
+        staged.#users.size > this.ofOrg(orgId).length &&
+        outside + staged.#users.size > this.#limits.perDeployment
+      )
+        return false;
       for (const [id, value] of staged.#users) {
         if (value.user.organizationId !== orgId) return false;
         const existing = this.#users.get(id);

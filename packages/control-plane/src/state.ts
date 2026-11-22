@@ -142,6 +142,10 @@ export interface AppStores {
    * JIT-join path when an organization marks provisioning authoritative.
    */
   scim: ScimStores;
+  /** Shared mutation windows for authenticated SCIM directory traffic. */
+  scimMutationRates: SecurityMap<
+    import("./routes/scim-rate-limit.js").ScimMutationWindow
+  >;
   /** Org email domains (home-realm discovery) and per-org LDAP configuration. */
   orgFederation: OrgFederationStores;
   /** SAML SP-initiated pending requests and the assertion replay cache. */
@@ -280,6 +284,7 @@ export function createAppStores(options?: {
     enrollmentTickets: new Map(),
     claimMappings: new Map(),
     hostAuthorizations: new Map(),
+    scimMutationRates: new Map(),
     principalMutations: new Map(),
     idempotencyLocks: new Map(),
     provisionalMints: new Map(),

@@ -6,19 +6,29 @@ import { createTestHost } from "../test-host.js";
 import { advanceAuthGeneration } from "./auth-generation.js";
 import { readAuthOutcome } from "./auth-outcome.js";
 import {
+  adoptBrokeredSession,
+  clearSession,
+  completeSignIn,
+  loadSession,
+} from "./federation.js";
+import {
   callbackHost,
   exchangeIssuer,
 } from "./federation-exchange.test-support.js";
 import { federationSessionGeneration } from "./federation-native-session.js";
 import { readFederationSessionJson } from "./federation-session-store.js";
 import {
-  adoptBrokeredSession,
-  clearSession,
-  completeSignIn,
-  loadSession,
-} from "./federation.js";
-import { clearSession as clearIdentity, currentSession } from "./identity.js";
+  clearSession as clearIdentity,
+  currentSession,
+  identitySeams,
+} from "./identity.js";
+import {
+  hasPendingBearerRevokes,
+  retryBearerRevokes,
+  settleRevokes,
+} from "./identity-token-proof.js";
 import { kvDelete } from "./kv.js";
+import { saveSettings } from "./settings.js";
 import { vaultStore } from "./vault/store.js";
 import {
   BODY_PATH,
@@ -163,6 +173,7 @@ it.each([
   "signout",
   "lock",
   "configuration",
+  "settings-aba",
   "auth-generation",
   "route",
   "host",
@@ -182,6 +193,13 @@ it.each([
     if (withdrawal === "lock") vaultStore.lock();
     if (withdrawal === "configuration")
       issuer.settings.signIn.providers.splice(0);
+    if (withdrawal === "settings-aba") {
+      const original = issuer.settings.identityApi;
+      issuer.settings.identityApi = "https://other.example";
+      saveSettings(issuer.settings);
+      issuer.settings.identityApi = original;
+      saveSettings(issuer.settings);
+    }
     if (withdrawal === "auth-generation") advanceAuthGeneration();
     if (withdrawal === "route") page.navigate("/different-ceremony");
     if (withdrawal === "host") configureHost({ ...host() });
@@ -200,11 +218,53 @@ it.each([
     });
     expect(currentSession()).toBeNull();
     expect(readAuthOutcome()).toBeNull();
+    vi.unstubAllGlobals();
+    await settleRevokes();
+    await retryBearerRevokes(issuer.issuer);
     expect(issuer.requests).toEqual([
       "POST /token",
       "GET /jwks",
       "POST /v1/principals/federated-session",
+      "POST /v1/principals/provisional/revoke",
     ]);
+    expect(issuer.revoked).toEqual(["Bearer adopted-opaque-session"]);
+    expect(issuer.errors).toEqual([]);
+  },
+);
+it("keeps a returned bearer for its original issuer until that issuer is selected again", async () => {
+  const { issuer } = await setup();
+  const held = issuer.holdAdoption();
+  const returning = processReturn();
+  await held.arrived;
+  issuer.settings.identityApi = "https://other.example";
+  saveSettings(issuer.settings);
+  held.release();
+  await expect(returning).rejects.toMatchObject({ code: "invalid_request" });
+  await settleRevokes();
+  expect(currentSession()).toBeNull();
+  expect(hasPendingBearerRevokes(issuer.issuer)).toBe(true);
+  expect(issuer.revoked).toEqual([]);
+  issuer.settings.identityApi = issuer.issuer;
+  saveSettings(issuer.settings);
+  expect(await retryBearerRevokes(issuer.issuer)).toBe(true);
+  expect(issuer.revoked).toEqual(["Bearer adopted-opaque-session"]);
+  expect(issuer.errors).toEqual([]);
+});
+it.each(["malformed response", "refused response", "restore failure"] as const)(
+  "retires the issued bearer after a %s",
+  async (fault) => {
+    const { issuer } = await setup();
+    if (fault === "malformed response")
+      Reflect.deleteProperty(issuer.adoptionResponse, "principalId");
+    else if (fault === "refused response") issuer.adoptionStatus.value = 503;
+    else
+      vi.spyOn(identitySeams, "restoreSession").mockImplementation(() => {
+        throw new Error("Restore failed");
+      });
+    await expect(processReturn()).rejects.toThrow();
+    await settleRevokes();
+    expect(currentSession()).toBeNull();
+    expect(issuer.revoked).toEqual(["Bearer adopted-opaque-session"]);
     expect(issuer.errors).toEqual([]);
   },
 );
@@ -223,6 +283,11 @@ it("a later real signed authentication survives an older held brokered adoption"
   expect(loadSession()?.issuer).toBe(second.issuer);
   expect(currentSession()).toBeNull();
   expect(second.requests).toEqual(["POST /token", "GET /jwks"]);
+  await settleRevokes();
+  expect(hasPendingBearerRevokes(first.issuer.issuer)).toBe(true);
+  second.settings.identityApi = first.issuer.issuer;
+  expect(await retryBearerRevokes(first.issuer.issuer)).toBe(true);
+  expect(first.issuer.revoked).toEqual(["Bearer adopted-opaque-session"]);
   expect(first.issuer.errors).toEqual([]);
   expect(second.errors).toEqual([]);
 });

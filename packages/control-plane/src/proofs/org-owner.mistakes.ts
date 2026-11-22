@@ -10,9 +10,13 @@
 import { name } from "@gdp-ts/core";
 import type { AppContext } from "../context.js";
 import { actorId, organizationId } from "../lib/ids.js";
-import { putGroupRoleMapping } from "../routes/scim-groups.js";
+import {
+  putGroupRoleMapping,
+  removeNeutralGroupRoleMapping,
+} from "../routes/scim-groups.js";
 import {
   mintScimToken,
+  purgeRevokedScimToken,
   putLdapConfig,
   removeLdapConfig,
   removeOrganizationMembership,
@@ -59,10 +63,14 @@ export async function orgOwnerMistakes(
       await removeOrganizationMembership(ctx, orgA, verdict.proof, "prn_1");
       // @ts-expect-error — active owner proof required for role mappings.
       await putGroupRoleMapping(ctx, orgA, verdict.proof, "group", "owner");
+      // @ts-expect-error — removing a mapping requires an active owner proof too.
+      await removeNeutralGroupRoleMapping(ctx, orgA, verdict.proof, "group");
       // @ts-expect-error — active owner proof required for SCIM token minting.
       await mintScimToken(ctx, orgA, verdict.proof, "hash");
       // @ts-expect-error — active owner proof required for SCIM token revocation.
       await revokeScimToken(ctx, orgA, verdict.proof, "token");
+      // @ts-expect-error — active owner proof required to purge token records.
+      await purgeRevokedScimToken(ctx, orgA, verdict.proof, "token");
 
       const active = await activeOrgOwner(ctx.stores, actor, orgA);
       if (!active.ok) return;

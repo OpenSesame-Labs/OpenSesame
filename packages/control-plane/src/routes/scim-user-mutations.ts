@@ -6,6 +6,7 @@ import {
   deprovision,
   deprovisionJournal,
   prepareDeprovision,
+  rememberedSubjects,
   withRememberedSubjects,
 } from "./scim-effects.js";
 import { prepareLegacyDeprovision } from "./scim-legacy-recovery.js";
@@ -17,8 +18,11 @@ export type UserPatch = {
   externalId?: string;
 };
 
+/** Subjects a user may accumulate; deactivation never grows the history. */
+const MAX_REMEMBERED_SUBJECTS = 64;
+
 type MutationResult =
-  | { error: "not_found" | "conflict" }
+  | { error: "not_found" | "conflict" | "subject_limit" }
   | { user: ScimUserRecord; updated: ScimUserRecord };
 
 export async function patchScimUser(
@@ -82,6 +86,12 @@ async function prepareUserPatch(
     if (clash && clash.id !== user.id) return { error: "conflict" as const };
   }
   let next = nextUser(user, patch, tx.clock());
+  const nextCount = rememberedSubjects(next).length;
+  if (
+    nextCount > MAX_REMEMBERED_SUBJECTS &&
+    nextCount > rememberedSubjects(user).length
+  )
+    return { error: "subject_limit" as const };
   if (user.active && !next.active)
     next = await prepareDeprovision(tx, organization, next, correlationId);
   const replaced = await tx.stores.scim.users.replaceIfRevision(

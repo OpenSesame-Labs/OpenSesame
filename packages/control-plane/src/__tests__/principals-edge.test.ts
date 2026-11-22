@@ -143,9 +143,7 @@ describe("principals routes edge cases", () => {
       headers: { cookie, origin: "http://127.0.0.1:8788" },
     });
     expect(withOrigin.status).toBe(204);
-    expect(withOrigin.headers.get("set-cookie")).toContain(
-      `${config.provisionalCookieName}=`,
-    );
+    expect(withOrigin.headers.get("set-cookie")).toBeNull();
 
     const me = await app.request("/v1/principals/me", {
       headers: { authorization: `Bearer ${created.accessToken}` },

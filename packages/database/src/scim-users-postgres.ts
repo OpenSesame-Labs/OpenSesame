@@ -12,6 +12,11 @@ import type {
   VersionedScimUser,
 } from "./scim-store.js";
 import {
+  ScimUserCapacityError,
+  type ScimUserLimits,
+  scimUserLimits,
+} from "./scim-user-limits.js";
+import {
   assertScimIdentity,
   mapScimUser,
   normalizeScimUser,
@@ -19,40 +24,39 @@ import {
 import { isCanonicalUuid } from "./uuid.js";
 
 export class PostgresScimUserStore implements ScimUserStore {
-  constructor(private readonly db: Database) {}
+  readonly #limits: ScimUserLimits;
+
+  /** `options` lowers the hard ceilings for smaller deployments and tests. */
+  constructor(
+    private readonly db: Database,
+    options?: Partial<ScimUserLimits>,
+  ) {
+    this.#limits = scimUserLimits(options);
+  }
+
+  private admit(
+    user: ScimUserRecord,
+    limit: number,
+  ): Promise<ScimUserRecord | null> {
+    return createPostgresScimWithinLimit(
+      this.db,
+      user,
+      Math.min(limit, this.#limits.perOrganization),
+      this.#limits.perDeployment,
+    );
+  }
 
   async create(user: ScimUserRecord): Promise<ScimUserRecord> {
-    const row = normalizeScimUser(user);
-    try {
-      const [inserted] = await this.db
-        .insert(schema.scimUsers)
-        .values({
-          id: row.id,
-          organizationId: row.organizationId,
-          externalId: row.externalId ?? null,
-          userName: row.userName,
-          active: row.active,
-          displayName: row.displayName ?? null,
-          raw: row.raw,
-          createdAt: row.createdAt,
-          updatedAt: row.updatedAt,
-        })
-        .returning();
-      if (!inserted) throw new Error("insert scim user returned no row");
-      return mapScimUser(inserted);
-    } catch (error) {
-      if (isUniqueViolation(overlapCast(error))) {
-        throw new ConflictError(`scim user already exists: ${row.userName}`);
-      }
-      throw error;
-    }
+    const created = await this.admit(user, this.#limits.perOrganization);
+    if (!created) throw new ScimUserCapacityError();
+    return created;
   }
 
   async createWithinLimit(
     user: ScimUserRecord,
     limit: number,
   ): Promise<ScimUserRecord | null> {
-    return createPostgresScimWithinLimit(this.db, user, limit);
+    return this.admit(user, limit);
   }
 
   async getVersioned(

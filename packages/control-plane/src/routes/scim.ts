@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { appendAuditEvent } from "@opensesame/audit";
-import { ConflictError, type ScimUserRecord } from "@opensesame/database";
+import {
+  ConflictError,
+  ScimUserPayloadError,
+  type ScimUserRecord,
+} from "@opensesame/database";
 import {
   type BoundaryValue,
   type JsonObject,
@@ -37,6 +41,7 @@ import {
   scimUserNameFilter,
   scimUserUpdateAudit,
 } from "./scim-protocol.js";
+import { budgetScimMutation } from "./scim-rate-limit.js";
 import {
   SCIM_TOKEN_PREFIX,
   scimBase,
@@ -164,10 +169,17 @@ async function authenticate(
   // The first-party directory uses the authenticated owner session, never a
   // provisioning secret copied into a browser. SCIM tokens keep their own path.
   if (c.get("principalId") && !header.slice(7).startsWith(SCIM_TOKEN_PREFIX)) {
-    return asActiveOrgOwner(c, OWNER, async ({ ctx, organization }) => ({
-      ctx,
-      organization,
-    }));
+    const session = await asActiveOrgOwner(
+      c,
+      OWNER,
+      async ({ ctx, organization }) => ({
+        ctx,
+        organization,
+      }),
+    );
+    return session instanceof Response
+      ? session
+      : budgetScimMutation(c, session);
   }
   if (!header.toLowerCase().startsWith("bearer ")) return unauthorized();
   const presented = header.slice(7).trim();
@@ -183,7 +195,7 @@ async function authenticate(
     scimTokenHash(presented),
   );
   if (!live) return unauthorized();
-  return { ctx, organization };
+  return budgetScimMutation(c, { ctx, organization });
 }
 
 /** Fold one PATCH body into the fields this service models. */
@@ -287,6 +299,8 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
       if (!created.active)
         await deprovision(ctx, organization, created, c.get("correlationId"));
     } catch (error) {
+      if (error instanceof ScimUserPayloadError)
+        return scimError(c, 413, "User attributes exceed the storage limit.");
       if (error instanceof ConflictError) {
         return scimError(
           c,
@@ -296,7 +310,8 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
         );
       }
       if (error instanceof ScimCapacityError) {
-        return scimError(c, 409, "Organization SCIM user capacity reached.");
+        // Tenant or deployment-wide bound: either way the directory must stop.
+        return scimError(c, 409, "Provisioned user capacity reached.");
       }
       throw error;
     }
@@ -405,6 +420,8 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
     if ("error" in outcome) {
       if (outcome.error === "not_found")
         return scimError(c, 404, "User not found.");
+      if (outcome.error === "subject_limit")
+        return scimError(c, 409, "User subject history limit reached.");
       return scimError(
         c,
         409,
