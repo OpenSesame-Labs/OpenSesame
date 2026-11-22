@@ -22,6 +22,7 @@ LIVE_FILES = (
     Path("scripts/security/cargo-lock-projection.py"),
     Path("scripts/security/formal-cargo-isolation.py"),
     Path("scripts/security/formal-cargo-freshness.py"),
+    Path("scripts/security/formal_cargo_packages.py"),
 )
 
 

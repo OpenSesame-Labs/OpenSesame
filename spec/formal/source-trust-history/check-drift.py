@@ -202,6 +202,7 @@ PATHS = [
     'scripts/security/cargo-workspace-multipackage.py',
     'scripts/security/formal-cargo-isolation.py',
     'scripts/security/formal-cargo-freshness.py',
+    'scripts/security/formal_cargo_packages.py',
     'scripts/security/formal-proof-source-history.mjs',
     'scripts/security/test_formal_cargo_freshness.py',
     'spec/formal/source-trust-history/SourceTrustHistory.lean',
@@ -223,7 +224,12 @@ OPTIONAL_PATHS = ["apps/Cargo.toml", "crates/Cargo.toml", *BUILD_PATHS, ".cargo/
 # src/invocations.rs). Migrations are still the literal MIGRATIONS table in
 # src/migrations.rs with include_str! paths, and this root change cannot
 # shadow or redirect them, so the pin moves to the reviewed current bytes.
-MIGRATION_ROOT_SHA256 = "eafab5f9688d370d28e57a9dc14232252b137cb22708ebd43c37578f994db327"
+# 2026-11-22 review: main #2885 added one private `mod cert_completion;`
+# declaration (no `#[path]`, resolves to src/cert_completion.rs). That module
+# holds one guarded certificate-issuance transaction: no include_str!, no
+# macro, and no item named after migrations. `mod migrations` and its
+# MIGRATIONS table are unchanged, so the pin moves to the reviewed bytes.
+MIGRATION_ROOT_SHA256 = "c4f53cb771ca9aba298fc7fc0f3aa074e73fa4a2f65624efa3030e605a6ad47c"
 CARGO_TARGETS = {
     'apps/cli/Cargo.toml': {'package': 'opensesame-cli',
         'bin': {'opensesame': 'src/main.rs'},

@@ -243,6 +243,7 @@ can serve as editorial review. A tag push does not start another build or publis
 | Failure | Required recovery |
 |---|---|
 | Main CI fails | Fix or revert on main; subsequent scope includes unchecked changes. |
+| A required reporter (**TypeScript**, **Rust**, **Bundle budgets**) or a qualification gate reports an upstream job `abandoned`, `cancelled` or `skipped` | Use GitHub's **Re-run all jobs**, or push a new commit (an empty retrigger commit is fine). A partial re-run (**Re-run failed jobs**, or re-running only a reporter) leaves the upstream build out of that attempt, so GitHub reports it `abandoned`. The reporter names each such job and keeps failing on every attempt; it never reads as a green trunk signal. |
 | Nightly build/dev fails | No new dev receipt; fix and dispatch nightly again. Integration continues. |
 | Prerelease/deep check fails | Publication stops. Fix source, then qualify its new candidate; never waive an absent report. |
 | Artifact expires or policy changes | Rebuild/requalify compatible source through nightly. |
