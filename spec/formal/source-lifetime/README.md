@@ -3,7 +3,7 @@
 This suite connects the source ownership and lifetime decisions in
 [`source_lifetime.rs`](../../../crates/transport-security/src/source_lifetime.rs)
 to the SPIFFE source, its production sink, and the Host's transport admission.
-The parent contract is [ADR 0223](../../../docs/adr/0223-spiffe-withdrawal-under-ambiguous-snapshots.md).
+The parent contract is [ADR 0227](../../../docs/adr/0227-spiffe-withdrawal-under-ambiguous-snapshots.md).
 The reviewed base and exact source hashes are in [coverage.json](coverage.json).
 
 | Requirement | Lean evidence | Real-code evidence |

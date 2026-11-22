@@ -47,11 +47,17 @@ import { passTheDoor } from "./lib/front-door.mjs";
 import { sealLocalOnly } from "./lib/pages-journey.mjs";
 import { inShard, isFirstShard, parseShard } from "./lib/shard.mjs";
 import { createHarness } from "./lib/static-origin-harness.mjs";
+import {
+  runFirstVaultPass,
+  walkFirstItem,
+} from "./lib/tutorial-first-vault.mjs";
 import { gatePass, popupPass } from "./lib/tutorial-gates.mjs";
+import { walkGuestPassword } from "./lib/tutorial-guest-password.mjs";
 import {
   escapeEndsTheTour,
   moveAdvancesTheTour,
 } from "./lib/tutorial-interact.mjs";
+import { createTutorialPageFactory, isPhone } from "./lib/tutorial-page.mjs";
 import { seedVault } from "./lib/tutorial-seed.mjs";
 import {
   listTutorials,
@@ -120,26 +126,7 @@ const browser = devUrl
     })
   : await harness.launch();
 
-const PHONE = {
-  viewport: { width: 390, height: 844 },
-  hasTouch: true,
-  isMobile: true,
-  deviceScaleFactor: 2,
-};
-
-async function newPage(width) {
-  const device = width < 600 ? PHONE : { viewport: { width, height: 900 } };
-  if (!devUrl) {
-    const made = await harness.newPage(browser, { device });
-    return made;
-  }
-  const context = await browser.newContext(device);
-  const page = await context.newPage();
-  page.on("pageerror", (error) =>
-    harness.record("PAGE-ERROR", String(error.message).slice(0, 300)),
-  );
-  return { page, context };
-}
+const newPage = createTutorialPageFactory({ browser, devUrl, harness });
 
 const say = (line) => {
   if (verbose) console.log(line);
@@ -211,7 +198,7 @@ async function walkGate(page, entry, { phone, width }) {
 const helpers = { say, wants, walkGate, guarded };
 
 async function shellPass(width) {
-  const phone = width < 600;
+  const phone = isPhone(width);
   where = `${width}px shell`;
   const { page, context } = await sealedShell(width);
   const listed = await listTutorials(page);
@@ -237,7 +224,22 @@ async function shellPass(width) {
       moveAdvancesTheTour(page, { check, base }),
     );
   }
-  await walkEntries(page, entries, { phone, width });
+  await walkEntries(
+    page,
+    entries.filter((entry) => entry.id !== "vault.item.first"),
+    { phone, width },
+  );
+  where = `${width}px first item`;
+  await walkFirstItem(entries, {
+    width,
+    phone,
+    sealedShell,
+    guarded,
+    origin,
+    check,
+    out,
+    keepShots,
+  });
   // A tutorial that points at an item is offered only where the vault holds
   // one, so a second pass adds items the way a person does and walks what the
   // library offers then that it did not before.
@@ -254,7 +256,9 @@ async function shellPass(width) {
   await walkEntries(page, later, { phone, width });
   const seconds = Math.round((Date.now() - started) / 1000);
   const total = entries.length + later.length;
-  check(total > 0, "the library offers tutorials");
+  if (only.size === 0 || [...only].some((id) => !id.startsWith("gate."))) {
+    check(total > 0, "the library offers tutorials");
+  }
   console.log(`${width}px: ${total} tutorials walked in ${seconds}s`);
   if (gatesWanted) {
     const popupsBegan = Date.now();
@@ -301,7 +305,7 @@ async function walkEntries(page, entries, { phone, width }) {
 
 async function gateScreens(width) {
   const began = Date.now();
-  const phone = width < 600;
+  const phone = isPhone(width);
   where = `${width}px gates`;
   try {
     await gatePass({
@@ -310,6 +314,7 @@ async function gateScreens(width) {
       newPage,
       origin,
       base,
+      out,
       check,
       setWhere: (next) => {
         where = next;
@@ -330,6 +335,32 @@ async function gateScreens(width) {
 
 try {
   for (const width of widths) {
+    if (firstShard && wants("gate.front-door")) {
+      where = `${width}px first vault`;
+      await runFirstVaultPass({
+        newPage,
+        width,
+        origin,
+        base,
+        check,
+        phone: isPhone(width),
+        out,
+        keepShots,
+      });
+    }
+    if (firstShard) {
+      where = `${width}px guest password`;
+      await walkGuestPassword({
+        phone: isPhone(width),
+        wants,
+        newPage,
+        width,
+        origin,
+        base,
+        check,
+      });
+    }
+    if (only.size === 1 && only.has("gate.front-door")) continue;
     await shellPass(width);
     if (gatesWanted) await gateScreens(width);
   }

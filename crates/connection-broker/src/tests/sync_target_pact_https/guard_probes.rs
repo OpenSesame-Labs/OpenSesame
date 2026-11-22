@@ -1,0 +1,330 @@
+use crate::tests::sync_target_pact_https::credentialed_send_https_gaps;
+
+#[test]
+fn p5_typed_parsed_url_guard_covers_send() {
+    let sample = r#"async fn f() { let parsed: Url = Url::parse(&url); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#;
+    assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+    let qualified = r#"async fn f() { let parsed: url::Url = Url::parse(&url); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#;
+    assert_eq!(
+        credentialed_send_https_gaps(qualified),
+        (1, 0),
+        "{qualified}"
+    );
+}
+
+#[test]
+fn p5_query_client_execute_is_a_send() {
+    let http = "async fn f() { let query = client; query.execute(request).await?; }";
+    assert_eq!(credentialed_send_https_gaps(http), (1, 1), "{http}");
+    let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let query = client; query.execute(request).await?; }";
+    assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
+    let db = "async fn f() { let q = sqlx::query(\"select 1\"); q.execute(&self.pool).await?; }";
+    assert_eq!(credentialed_send_https_gaps(db), (0, 0), "{db}");
+    let spelled = "async fn f() { query.execute(&self.pool).await?; }";
+    assert_eq!(credentialed_send_https_gaps(spelled), (1, 1), "{spelled}");
+}
+
+#[test]
+fn chunk02_unwrap_or_parse_binds_outer_url() {
+    let nested = [
+        r#"async fn f() { let parsed = Url::parse(evil).unwrap_or(Url::parse(url).unwrap()); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+        r#"async fn f() { let parsed = Url::parse(&evil).unwrap_or_else(|_| Url::parse(url).unwrap()); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+        r#"async fn f() { let parsed = url::Url::parse(evil).unwrap_or(Url::parse(&url).unwrap()); if parsed.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+    ];
+    for sample in nested {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+    }
+    let kept = [
+        r#"async fn f() { let parsed = Url::parse(url).unwrap_or(Url::parse(fallback).unwrap()); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+        r#"async fn f() { let parsed = url::Url::parse(&url).unwrap_or(Url::parse(evil).unwrap()); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+        r#"async fn f() { let parsed = (Url::parse(&url)).unwrap(); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+    ];
+    for sample in kept {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+    }
+}
+
+/// `.map(…)` / `.and_then(…)` replaces the parsed value, so the guard
+/// subject checks the closure's result — a decoy there must not cover the
+/// sent URL the way the head `Url::parse(&url)` alone would.
+#[test]
+fn chunk02_map_and_then_parse_do_not_cover_dest() {
+    let decoy = [
+        r#"async fn f() { let parsed = Url::parse(&url).map(|_| decoy); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+        r#"async fn f() { let parsed = Url::parse(&url).and_then(|_| Url::parse(decoy)); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+        r#"async fn f() { let parsed = url::Url::parse(url).map(|p| if p.scheme() == "https" { decoy } else { decoy }); if parsed.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+        r#"async fn f() { let parsed = (Url::parse(&url)).map(|_| decoy); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+    ];
+    for sample in decoy {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+    }
+    let kept = [
+        r#"async fn f() { let parsed = Url::parse(&url); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+        r#"async fn f() { let parsed = Url::parse(&url).map_err(|e| e.to_string())?; if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+        r#"async fn f() { let parsed = (Url::parse(&url)).map_err(|e| format!("{e}")); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+    ];
+    for sample in kept {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+    }
+}
+
+/// A turbofish'd value-replacing adapter still replaces the parsed value, so
+/// the guard subject checks the closure's result — a decoy there must not
+/// cover the sent URL (Kimi council chunk03 P2).
+#[test]
+fn kimi_council_r3_turbofish_map_and_then_do_not_cover_dest() {
+    let decoy = [
+        r#"async fn f() { let parsed = Url::parse(&url).map::<Url>(|_| decoy); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+        r#"async fn f() { let parsed = Url::parse(&url).and_then::<()>(|_| Ok(decoy)); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+    ];
+    for sample in decoy {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+    }
+    // Controls: a non-replacing turbofish'd adapter and the plain parse
+    // still cover the send.
+    let kept = [
+        r#"async fn f() { let parsed = Url::parse(&url).map_err::<()>(|e| e); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+        r#"async fn f() { let parsed = Url::parse(&url); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+    ];
+    for sample in kept {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+    }
+}
+
+/// Mutating the parsed subject between `Url::parse` and the predicate checks
+/// a value the sent URL no longer has (Codex PRRT_kwDOTwzAKs65ukv0).
+#[test]
+fn codex_thread_mutated_parsed_subject_does_not_cover_dest() {
+    let voided = [
+        r#"async fn f() { let mut parsed = Url::parse(&url)?; parsed.set_scheme("https"); if parsed.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+        r#"async fn f() { let mut parsed = Url::parse(&url)?; parsed = Url::parse(&other)?; if parsed.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+    ];
+    for sample in voided {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+    }
+    let kept = [
+        r#"async fn f() { let mut parsed = Url::parse(&url)?; if parsed.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+        r#"async fn f() { let parsed = Url::parse(&url)?; parsed.host_str(); if parsed.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+    ];
+    for sample in kept {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+    }
+}
+
+/// Comment bytes are not code: a commented-out fake guard must not count as
+/// a fail-close HTTPS guard (GLM council chunk03 P1). The entry point strips
+/// comments first, and the scanner itself must stay correct when the prefix
+/// still carries comment bytes. Conditions are spelled compacted, the way
+/// `compact_source` delivers them in production.
+#[test]
+fn glm_chunk03_commented_fake_guard_is_not_a_guard() {
+    let line = r#"{// if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#;
+    assert!(!super::guarded(line, Some("url")), "{line}");
+    let block = r#"{/* if url.scheme()!="https" { return Err("x".into()); } */ client.get(url)."#;
+    assert!(!super::guarded(block, Some("url")), "{block}");
+    // End-to-end control: the entry point strips the comment, gap stays open.
+    let sample = "async fn f() {\n// if url.scheme() != \"https\" { return Err(\"x\".into()); }\nclient.get(url).send().await?; }";
+    assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+}
+
+/// A `return` inside `/* … */` or `//` must not satisfy `depth0_return`, so a
+/// real scheme guard whose block only *seems* to return stays open (GLM
+/// council chunk03 P1).
+#[test]
+fn glm_chunk03_commented_return_does_not_fail_close() {
+    assert!(!super::depth0_return(r#"/* return Err("x"); */"#));
+    assert!(!super::depth0_return(
+        "// return Err(\"x\");\nside_effect();"
+    ));
+    assert!(super::depth0_return(" return Err(\"x\"); "));
+    let block = r#"{if url.scheme()!="https" {/* return Err("x".into()); */} client.get(url)."#;
+    assert!(!super::guarded(block, Some("url")), "{block}");
+    let line = "{if url.scheme()!=\"https\" {\n// return Err(\"x\".into());\n} client.get(url).";
+    assert!(!super::guarded(line, Some("url")), "{line}");
+}
+
+/// A comment `}` must not corrupt `guarded()`'s brace depth: a commented
+/// closing brace before a real dominating `if` must not demote it below
+/// depth 1 (GLM council chunk03 P1).
+#[test]
+fn glm_chunk03_comment_brace_does_not_corrupt_depth() {
+    let prefix = "{// }\nif url.scheme()!=\"https\" { return Err(\"x\".into()); } client.get(url).";
+    assert!(super::guarded(prefix, Some("url")), "{prefix}");
+    // End-to-end control: the real guard still counts once comments are gone.
+    let sample = "async fn f() {\n// }\nif url.scheme() != \"https\" { return Err(\"x\".into()); }\nclient.get(url).send().await?; }";
+    assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+}
+
+/// `last_rhs` must skip comments: a commented-out later rebinding is not the
+/// "last" RHS, so `// parsed = Url::parse(&url)` cannot lend `&url`
+/// provenance to a subject parsed from `evil` (GLM council chunk03 P2).
+#[test]
+fn glm_chunk03_commented_rebind_is_not_last_rhs() {
+    let source = "let parsed = Url::parse(evil); // parsed = Url::parse(&url);";
+    let (rhs, _) = super::guard_parse::last_rhs(source, "parsed").expect("real binding remains");
+    assert_eq!(rhs.trim(), "Url::parse(evil)", "{source}");
+    let no_real = "// let parsed = Url::parse(&url);\nother();";
+    assert!(
+        super::guard_parse::last_rhs(no_real, "parsed").is_none(),
+        "{no_real}"
+    );
+    // Through `guarded`: the subject parsed `evil`, so it covers no dest.
+    let prefix = "{let parsed = Url::parse(evil); // parsed = Url::parse(&url);\nif parsed.scheme()!=\"https\" { return Err(\"x\".into()); } client.get(&url).";
+    assert!(!super::guarded(prefix, Some("url")), "{prefix}");
+    // End-to-end control: the entry point strips the comment, gap stays open.
+    let sample = "async fn f() { let parsed = Url::parse(evil);\n// parsed = Url::parse(&url);\nif parsed.scheme() != \"https\" { return Err(\"x\".into()); } client.get(&url).send().await?; }";
+    assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+}
+
+/// A `return` token inside a macro invocation's token tree does not fail-close
+/// the branch — the macro may never emit it (Codex PRRT_kwDOTwzAKs65wAMY).
+#[test]
+fn codex_thread_macro_return_token_is_not_fail_closed() {
+    let open = [
+        r#"async fn f() { if url.scheme() != "https" { swallow!(return Err("x".into());); } client.get(url).send().await?; }"#,
+        r#"async fn f() { if url.scheme() != "https" { swallow![return Err("x".into())]; } client.get(url).send().await?; }"#,
+        r#"async fn f() { if url.scheme() != "https" { let _ = emit!(return Err("x".into())); } client.get(url).send().await?; }"#,
+    ];
+    for sample in open {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+    }
+    let kept = [
+        r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+        r#"async fn f() { if url.scheme() != "https" { swallow!(1); return Err("x".into()); } client.get(url).send().await?; }"#,
+    ];
+    for sample in kept {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+    }
+}
+
+/// `last_rhs` is scope-aware: a `let` inside a block that has closed before
+/// the guard is scoped away, so it cannot lend its RHS provenance to the
+/// outer binding (Kimi council chunk03 P1). The textual-last inner
+/// `let parsed = Url::parse(&url)` must not cover a send of `url` when the
+/// guard's `parsed` is the outer parse of `evil`.
+#[test]
+fn kimi_council_chunk03_inner_scope_rebind_is_not_last_rhs() {
+    let prefix = "{let parsed = Url::parse(&evil); if c { let parsed = Url::parse(&url); } if parsed.scheme()!=\"https\" { return Err(\"x\".into()); } client.get(&url).";
+    let (rhs, _) = super::guard_parse::last_rhs(prefix, "parsed").expect("outer binding remains");
+    assert_eq!(rhs.trim(), "Url::parse(&evil)", "{prefix}");
+    assert!(!super::guarded(prefix, Some("url")), "{prefix}");
+    // End-to-end red: the outer parse is evil, so the guard covers no dest.
+    let sample = "async fn f() { let parsed = Url::parse(&evil); if c { let parsed = Url::parse(&url); } if parsed.scheme() != \"https\" { return Err(\"x\".into()); } client.get(&url).send().await?; }";
+    assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+    // Green: the outer parse of `url` still covers the send.
+    let kept = "async fn f() { let parsed = Url::parse(&url); if c { other(); } if parsed.scheme() != \"https\" { return Err(\"x\".into()); } client.get(&url).send().await?; }";
+    assert_eq!(credentialed_send_https_gaps(kept), (1, 0), "{kept}");
+}
+
+/// An `if` expression inside a macro invocation's token tree is not a
+/// dominating guard — the macro may never emit it. Statement-level analog of
+/// the macro-`return` shape (Kimi council chunk03 P2).
+#[test]
+fn kimi_council_r3_macro_nested_if_is_not_a_guard() {
+    let open = [
+        r#"{m!(if url.scheme()!="https" { return Err("x".into()); }); client.get(url)."#,
+        r#"{m![if url.scheme()!="https" { return Err("x".into()); }]; client.get(url)."#,
+        r#"{println!("{:?}", if url.scheme()!="https" { return Err("x".into()) } else { other }); client.get(url)."#,
+    ];
+    for prefix in open {
+        assert!(!super::guarded(prefix, Some("url")), "{prefix}");
+    }
+    // Controls: a real dominating guard still counts, alone or after a
+    // macro call elsewhere in the body.
+    let kept = [
+        r#"{m!(1); if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+        r#"{if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+    ];
+    for prefix in kept {
+        assert!(super::guarded(prefix, Some("url")), "{prefix}");
+    }
+}
+
+/// `else /* c */ if` on a raw prefix is still an else-if: the chain can fall
+/// through to the send unguarded when the first branch runs, so it must not
+/// count as dominating. A commented-out `else` leaves a real new `if`
+/// dominating (Kimi council chunk03 P2).
+#[test]
+fn kimi_council_r3_commented_else_if_is_not_dominating() {
+    let open = [
+        r#"{if ready { } else /* fallthrough */ if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+        "{\nif ready { } else // fallthrough\nif url.scheme()!=\"https\" { return Err(\"x\".into()); } client.get(url).",
+        r#"{if ready { } else if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+    ];
+    for prefix in open {
+        assert!(!super::guarded(prefix, Some("url")), "{prefix}");
+    }
+    let kept = [
+        r#"{/* else */ if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+        r#"{if ready { } else { } if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+    ];
+    for prefix in kept {
+        assert!(super::guarded(prefix, Some("url")), "{prefix}");
+    }
+}
+
+/// `!=` binds tighter than `^` and the ordered comparisons, so
+/// `flag ^ url.scheme() != "https"` / `flag > url.scheme() != "https"` run
+/// the branch on some non-https paths: the scheme check does not dominate the
+/// send and must not register as a guard (Kimi council chunk03 P2).
+#[test]
+fn kimi_council_r4_non_dominating_scheme_compare_is_not_a_guard() {
+    // `!=` binds tighter than `^` / the ordered comparisons, so the branch
+    // runs on some non-https paths even though a `scheme` comparison is the
+    // tail of the condition. The dotted `.scheme()` receiver is already
+    // refused (`flag ^ url` is not a plain receiver); the reachable hole is
+    // the UFCS subject, whose prefix the old scan accepted.
+    let open = [
+        r#"{if flag ^ Scheme::scheme(&url)!="https" { return Err("x".into()); } client.get(url)."#,
+        r#"{if flag > Scheme::scheme(&url)!="https" { return Err("x".into()); } client.get(url)."#,
+        r#"{if flag < Scheme::scheme(&url)!="https" { return Err("x".into()); } client.get(url)."#,
+        r#"{if flag ^ url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+    ];
+    for prefix in open {
+        assert!(!super::guarded(prefix, Some("url")), "{prefix}");
+    }
+    let kept = [
+        r#"{if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+        // `||` still covers every non-https path on its own; only a stronger
+        // operand combining the check into one non-dominating condition is
+        // rejected.
+        r#"{if url.scheme()!="https" || flag { return Err("x".into()); } client.get(url)."#,
+        r#"{if flag || url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+    ];
+    for prefix in kept {
+        assert!(super::guarded(prefix, Some("url")), "{prefix}");
+    }
+}
+
+/// A braceless closure body leaves its `if` at depth 1, the same depth as
+/// the function body's statements: `let f = |x| if url.scheme() != "https"
+/// { return … };` only runs that `return` when the closure is invoked (and a
+/// closure `return` exits the closure, not the function), so it cannot
+/// dominate the send. Same "may never execute" class as the macro
+/// token-tree exclusion (Kimi council R6 chunk03).
+#[test]
+fn kimi_council_r6_closure_body_if_is_not_a_guard() {
+    let prefix = r#"{let f = |x| if url.scheme()!="https" { return Err("x".into()); }; client.get(url)."#;
+    assert!(!super::guarded(prefix, Some("url")), "{prefix}");
+    // Shapes: empty params, `move`, a typed param, and a nested `if` whose
+    // enclosing closure body is itself the `if` expression.
+    let open = [
+        r#"async fn f() { let f = |x| if url.scheme() != "https" { return Err("x".into()); }; client.get(url).send().await?; }"#,
+        r#"async fn f() { let f = || if url.scheme() != "https" { return Err("x".into()); }; client.get(url).send().await?; }"#,
+        r#"async fn f() { let f = move |x: u8| if url.scheme() != "https" { return Err("x".into()); }; client.get(url).send().await?; }"#,
+        r#"async fn f() { let f = |x| if url.scheme() != "https" { return Err("x".into()); } else { x }; client.get(url).send().await?; }"#,
+    ];
+    for sample in open {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+    }
+    // Controls: a real dominating guard still counts, and a complete closure
+    // statement before the guard (its body ended by `;`) must not demote it.
+    let kept = [
+        r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+        r#"async fn f() { let g = |x| x; if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+    ];
+    for sample in kept {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+    }
+}
+

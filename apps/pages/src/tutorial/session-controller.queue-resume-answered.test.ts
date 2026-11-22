@@ -135,8 +135,9 @@ describe("queued walkthrough completion", () => {
       ...QUEUED_RESUME_PROGRAM,
       goal: "vault.lock",
     });
+    let feed: (snapshot: GuideRuntimeSnapshot) => void = () => {};
     engine.subscribeGuide = (listener) => {
-      listener(lockStepSnapshot(true));
+      feed = listener;
       return () => {};
     };
     const controller = createSupportController({
@@ -149,6 +150,9 @@ describe("queued walkthrough completion", () => {
     let started = false;
     engine.runGuide = () => {
       started = true;
+      // A real engine reports the lock step once its run is underway;
+      // a snapshot before the run would read as a tour already active.
+      feed(lockStepSnapshot(true));
       return new Promise((resolve) => {
         resolveRun = resolve;
       });
@@ -174,8 +178,9 @@ describe("queued walkthrough completion", () => {
       ...QUEUED_RESUME_PROGRAM,
       goal: "vault.lock",
     });
+    let feed: (snapshot: GuideRuntimeSnapshot) => void = () => {};
     engine.subscribeGuide = (listener) => {
-      listener(lockStepSnapshot(true));
+      feed = listener;
       return () => {};
     };
     const controller = createSupportController({
@@ -188,6 +193,9 @@ describe("queued walkthrough completion", () => {
     let started = false;
     engine.runGuide = () => {
       started = true;
+      // A real engine reports the lock step once its run is underway;
+      // a snapshot before the run would read as a tour already active.
+      feed(lockStepSnapshot(true));
       return new Promise((resolve) => {
         resolveRun = resolve;
       });
@@ -211,8 +219,9 @@ describe("queued walkthrough completion", () => {
       ...QUEUED_RESUME_PROGRAM,
       goal: "vault.lock",
     });
+    let feed: (snapshot: GuideRuntimeSnapshot) => void = () => {};
     engine.subscribeGuide = (listener) => {
-      listener(lockStepSnapshot(false));
+      feed = listener;
       return () => {};
     };
     const controller = createSupportController({
@@ -225,6 +234,9 @@ describe("queued walkthrough completion", () => {
     let started = false;
     engine.runGuide = () => {
       started = true;
+      // A real engine reports the lock step once its run is underway;
+      // a snapshot before the run would read as a tour already active.
+      feed(lockStepSnapshot(false));
       return new Promise((resolve) => {
         resolveRun = resolve;
       });

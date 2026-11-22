@@ -33,6 +33,25 @@ describe("where a tour's navigate goes", () => {
     ).toBeNull();
   });
 
+  it.each(["gate.front-door", "vault.item.first"])(
+    "opens an account-producing list for the %s walkthrough",
+    (goal) => {
+      expect(
+        guideNavigationPath("/vault/list", here("/vault", "?f=note"), goal),
+      ).toBe("/vault?f=account");
+      expect(
+        guideNavigationPath(
+          "/vault/list",
+          here("/vault", "?f=account&folder=old"),
+          goal,
+        ),
+      ).toBe("/vault?f=account");
+      expect(
+        guideNavigationPath("/vault/list", here("/vault", "?f=account"), goal),
+      ).toBeNull();
+    },
+  );
+
   it("opens the first item that is not in the trash", () => {
     const trashed = {
       ...createItem("secret", "gone"),
@@ -44,6 +63,71 @@ describe("where a tour's navigate goes", () => {
     expect(guideNavigationPath("/vault/item", here("/vault"))).toBe(
       "/vault/itm_live",
     );
+  });
+
+  it("opens an account with both copy controls for the copy tutorial", () => {
+    const secret = { ...createItem("secret", "First"), id: "itm_secret" };
+    const incomplete = {
+      ...createItem("account", "No password"),
+      id: "itm_empty",
+      username: "user",
+    };
+    const account = createItem("account", "Ready");
+    const method = account.methods[0];
+    if (method?.type !== "password") throw new Error("missing password method");
+    const ready = {
+      ...account,
+      id: "itm_ready",
+      username: "user",
+      methods: [
+        {
+          ...method,
+          generator: { id: "manual" as const },
+          secret: "example",
+          pepper: false,
+        },
+      ],
+    };
+    holding(secret, incomplete, ready);
+    expect(
+      guideNavigationPath(
+        "/vault/item",
+        here("/vault/itm_secret"),
+        "vault.item.copy",
+      ),
+    ).toBe("/vault/itm_ready");
+    expect(
+      guideNavigationPath(
+        "/vault/item",
+        here("/vault/itm_ready"),
+        "vault.item.copy",
+      ),
+    ).toBeNull();
+  });
+
+  it("opens an item that actually has the control the tutorial needs", () => {
+    const drop = { ...createItem("drop", "A"), id: "itm_drop" };
+    const note = { ...createItem("note", "B"), id: "itm_note" };
+    const secret = {
+      ...createItem("secret", "C"),
+      id: "itm_secret",
+      value: "example",
+    };
+    holding(drop, note, secret);
+    expect(
+      guideNavigationPath(
+        "/vault/item",
+        here("/vault/itm_drop"),
+        "vault.item.edit",
+      ),
+    ).toBe("/vault/itm_note");
+    expect(
+      guideNavigationPath(
+        "/vault/item",
+        here("/vault/itm_note"),
+        "vault.item.share",
+      ),
+    ).toBe("/vault/itm_secret");
   });
 
   it("stays on the item that is already open", () => {

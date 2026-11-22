@@ -63,13 +63,14 @@ export function resolveWalks(profilesDir, names = WALK_NAMES) {
   return walks;
 }
 
-function run(appRoot, file, args, env) {
+function run(appRoot, file, args, env, spawnEnv = {}) {
   execFileSync(process.execPath, [file, ...args], {
     cwd: appRoot,
     stdio: "inherit",
     env: {
       ...process.env,
       NODE_OPTIONS: "--max-old-space-size=8192",
+      ...spawnEnv,
       ...env,
     },
   });
@@ -82,6 +83,7 @@ export function buildDist({
   outDir,
   capabilityProfile,
   viteEnv = {},
+  spawnEnv = {},
 }) {
   if (
     process.env.VERIFY_SKIP_BUILD === "1" &&
@@ -98,13 +100,25 @@ export function buildDist({
   console.error(
     `[checklist] build ${capabilityProfile ?? "stock"} → ${outDir}`,
   );
-  run(appRoot, path.join(scriptsDir, "security-profile.mjs"), [], env);
+  run(
+    appRoot,
+    path.join(scriptsDir, "security-profile.mjs"),
+    [],
+    env,
+    spawnEnv,
+  );
   const viteBin = path.join(
     path.dirname(require.resolve("vite/package.json")),
     "bin/vite.js",
   );
   mkdirSync(path.dirname(outDir), { recursive: true });
-  run(appRoot, viteBin, ["build", "--outDir", outDir, "--emptyOutDir"], env);
+  run(
+    appRoot,
+    viteBin,
+    ["build", "--outDir", outDir, "--emptyOutDir"],
+    env,
+    spawnEnv,
+  );
 }
 
 export function appPaths() {

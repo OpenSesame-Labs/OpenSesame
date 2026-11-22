@@ -10,7 +10,7 @@ export const ACTIVITY_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "nav.activity",
     description:
-      "Rail entry that opens Activity, the durable log of vault, settings, access and request events.",
+      "Open Activity to review vault, settings, access and request events.",
     role: "navigation",
     routes: [],
     capabilityId: "app.navigate",

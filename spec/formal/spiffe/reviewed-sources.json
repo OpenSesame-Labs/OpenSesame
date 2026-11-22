@@ -147,9 +147,9 @@
     },
     {
       "path": "crates/spiffe-source/tests/trust_reduction_policy.rs",
-      "sha256": "d59b90bae9c90f6c2fde728d0adfb8c276309fc95d6a16345fba1c098bf9fb6a",
+      "sha256": "89595827fe83961ae2a74ab469c68998bb382c923e6f4de7e9b56a66c1c782e3",
       "base_blob": null,
-      "reviewed_blob": "ce4c0cf85cc97146a853849943621ab4a89e67af"
+      "reviewed_blob": "76137866884f4957169c2a6c5f123b2cdbc8eae9"
     },
     {
       "path": "crates/spiffe-source/tests/withdrawal_policy.rs",
@@ -159,9 +159,9 @@
     },
     {
       "path": "crates/transport-security/Cargo.toml",
-      "sha256": "74c6e322dfcd18a0b495b2ac88ed850afc2b165e80e5dbbeff4fda406a72d12e",
+      "sha256": "eddf59255b6f4b7469cbc16d05ef2c86c75a8703c16cc8e0f07288097f5f3de5",
       "base_blob": "7590761f7e7ef26959be40eeaa5b91fb8617eef2",
-      "reviewed_blob": "db3af157ffd3d1891dc8a41aca7b753aa3cf7c23"
+      "reviewed_blob": "1175f2eed9196a047fe0df74fb9ad9682ae00730"
     },
     {
       "path": "crates/transport-security/src/generations.rs",
@@ -207,9 +207,15 @@
     },
     {
       "path": "scripts/security/formal-cargo-freshness.py",
-      "sha256": "246565be88eb0c64a17a8c2551906c06698d07a0df76b69aea7f27e7aa63bf5c",
+      "sha256": "2979653de809551b07132fcc526b115125bdcb9e32ae360feaae6a63f5f0ca89",
       "base_blob": null,
-      "reviewed_blob": "21190ac37bf0f739a273e0475f395a7183cff58c"
+      "reviewed_blob": "69c01c15fe36438610c8f603e798634f7358a845"
+    },
+    {
+      "path": "scripts/security/formal_cargo_packages.py",
+      "sha256": "ba1a9a5455c84891ec5f917015d4ec28f21d470f094f1e20785b77f927480eb4",
+      "base_blob": null,
+      "reviewed_blob": "aa9d1612c903ede6f76b6448d3e7a19d28665cbd"
     },
     {
       "path": "scripts/security/formal-cargo-isolation.py",

@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { nodeResolve } from "@rollup/plugin-node-resolve";
 import { rollup } from "rollup";
-import { isFunction, isNumber } from "../lib/json-boundary.mjs";
+import { isFunction } from "../lib/json-boundary.mjs";
 
 test("the actual Rollup resolver selects package exports with the supported deepmerge", async () => {
   const temp = await mkdtemp(join(tmpdir(), "opensesame-node-resolve-"));
@@ -69,14 +69,17 @@ test2(
   "Noble consumers resolve compatible reviewed primitive versions",
   async () => {
     const exact20Consumers = [
-      "node_modules/@scure/bip32/node_modules/@noble/curves",
-      "node_modules/@scure/bip32/node_modules/@noble/hashes",
       "node_modules/@scure/bip39/node_modules/@noble/hashes",
       "node_modules/nostr-tools/node_modules/@noble/curves",
       "node_modules/nostr-tools/node_modules/@noble/hashes",
     ];
     for (const path of exact20Consumers)
       assert2.equal(packageAt(path)?.version, "2.0.1", path);
+    const bip32 = packageAt("node_modules/@scure/bip32");
+    for (const name of ["@noble/curves", "@noble/hashes"]) {
+      assert2.equal(bip32.dependencies[name], "2.4.0", name);
+      assert2.equal(packageAt(`node_modules/${name}`).version, "2.4.0", name);
+    }
     const postQuantum = packageAt("node_modules/@noble/post-quantum");
     assert2.equal(
       postQuantum.resolved,
@@ -155,7 +158,9 @@ test2(
   "Promptfoo uses genuine fixed Hono and keeps its CJS and ESM APIs",
   async () => {
     const promptfooLock = packageAt("node_modules/promptfoo");
-    const honoLock = packageAt("node_modules/@hono/node-server");
+    const honoLock = packageAt(
+      "node_modules/promptfoo/node_modules/@hono/node-server",
+    );
     assert2.equal(promptfooLock.version, "0.125.1");
     assert2.equal(
       promptfooLock.resolved,
@@ -174,10 +179,6 @@ test2(
     assert2.equal(
       honoLock.integrity,
       "sha512-p/KH9MnfNcsm3sR6x4lNgm5j+QN4Et8srKredl9DZfXiyZ1UQ3aQ2YVpFLbqktYN5JI+DB+VZFKM2PqE5hLKjQ==",
-    );
-    assert2.equal(
-      packageAt("node_modules/promptfoo/node_modules/@hono/node-server"),
-      void 0,
     );
     assert2.equal(
       packageAt("node_modules/promptfoo").dependencies.zod,
@@ -231,7 +232,11 @@ test2(
     assert2.equal(promptfoo.version, "0.125.1");
     assert2.equal(promptfoo.dependencies["@hono/node-server"], "2.1.5");
     assert2.equal(manifest.overrides.promptfoo["@hono/node-server"], "2.1.6");
-    assert2.equal(packageAt("node_modules/@hono/node-server").version, "2.1.6");
+    assert2.equal(
+      packageAt("node_modules/promptfoo/node_modules/@hono/node-server")
+        .version,
+      "2.1.6",
+    );
     assert2.equal(
       promptfoo.dependencies.zod,
       packageAt("node_modules/zod").version,
@@ -244,54 +249,6 @@ test2(
       packageAt("node_modules/node-turn").dependencies.log4js,
       packageAt("node_modules/log4js").version,
     );
-  },
-);
-
-// scripts/security/glob-backport-sourcemaps.test.mjs
-import assert3 from "node:assert/strict";
-import { readFileSync as readFileSync2 } from "node:fs";
-import { SourceMap, createRequire as createRequire3 } from "node:module";
-import {
-  dirname as dirname2,
-  join as join3,
-  resolve as resolve3,
-} from "node:path";
-import { test as test3 } from "node:test";
-
-var root3 = resolve3(import.meta.dirname, "../..");
-function originalLine(file, needle) {
-  const lines = readFileSync2(file, "utf8").split("\n");
-  const line = lines.findIndex((item) => item.includes(needle));
-  assert3.notEqual(line, -1, `${needle} missing from ${file}`);
-  const map = JSON.parse(readFileSync2(`${file}.map`, "utf8"));
-  const mapping = new SourceMap(map).findEntry(
-    line,
-    lines[line].indexOf(needle),
-  );
-  assert3.equal(isNumber(mapping.originalLine), true);
-  return map.sourcesContent[0].split("\n")[mapping.originalLine];
-}
-test3(
-  "backported glob and minimatch source maps show the changed guard",
-  () => {
-    for (const consumer of ["archiver-utils", "workbox-build"]) {
-      const local = createRequire3(
-        join3(root3, "node_modules", consumer, "package.json"),
-      );
-      const glob = local.resolve("glob");
-      const matcher = createRequire3(glob).resolve("minimatch");
-      const globRoot = dirname2(dirname2(dirname2(glob)));
-      const matcherRoot = dirname2(dirname2(dirname2(matcher)));
-      for (const format of ["commonjs", "esm"]) {
-        const walker = join3(globRoot, "dist", format, "walker.js");
-        const index = join3(matcherRoot, "dist", format, "index.js");
-        assert3.match(originalLine(walker, "return cb()"), /return cb\(\)/);
-        assert3.match(
-          originalLine(index, "globParts.length <= 1000"),
-          /globParts\.length <= 1000/,
-        );
-      }
-    }
   },
 );
 

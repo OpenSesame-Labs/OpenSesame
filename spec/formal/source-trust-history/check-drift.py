@@ -202,6 +202,7 @@ PATHS = [
     'scripts/security/cargo-workspace-multipackage.py',
     'scripts/security/formal-cargo-isolation.py',
     'scripts/security/formal-cargo-freshness.py',
+    'scripts/security/formal_cargo_packages.py',
     'scripts/security/formal-proof-source-history.mjs',
     'scripts/security/test_formal_cargo_freshness.py',
     'spec/formal/source-trust-history/SourceTrustHistory.lean',
@@ -218,7 +219,17 @@ BUILD_PATHS = [str(Path(path).with_name("build.rs")) for path in MANIFESTS]
 OPTIONAL_PATHS = ["apps/Cargo.toml", "crates/Cargo.toml", *BUILD_PATHS, ".cargo/config", ".cargo/config.toml"]
 # A changed crate root could shadow include_str or redirect the module. Update
 # this trusted pin only with a separate review of migration name resolution.
-MIGRATION_ROOT_SHA256 = "98e0b2b10bb691e03068f0cb5b1a4f6f71674d3676cd6f7c1b08dacc95196856"
+# 2026-11-21 review: main #2725 changed `mod invocations` to `pub mod
+# invocations` (visibility only; the module already resolved to
+# src/invocations.rs). Migrations are still the literal MIGRATIONS table in
+# src/migrations.rs with include_str! paths, and this root change cannot
+# shadow or redirect them, so the pin moves to the reviewed current bytes.
+# 2026-11-22 review: main #2885 added one private `mod cert_completion;`
+# declaration (no `#[path]`, resolves to src/cert_completion.rs). That module
+# holds one guarded certificate-issuance transaction: no include_str!, no
+# macro, and no item named after migrations. `mod migrations` and its
+# MIGRATIONS table are unchanged, so the pin moves to the reviewed bytes.
+MIGRATION_ROOT_SHA256 = "c4f53cb771ca9aba298fc7fc0f3aa074e73fa4a2f65624efa3030e605a6ad47c"
 CARGO_TARGETS = {
     'apps/cli/Cargo.toml': {'package': 'opensesame-cli',
         'bin': {'opensesame': 'src/main.rs'},

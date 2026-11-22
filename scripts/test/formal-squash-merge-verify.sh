@@ -104,8 +104,11 @@ PY
   # Identity is per invocation. `git config` here writes the shared repo
   # config and would replace the caller's name and email.
   git add -A
+  # A branch that leaves the authority, DPoP and SPIFFE inputs untouched
+  # overlays no change, so the simulated squash is empty. Commit it anyway:
+  # the drift checks below must still run against origin/main.
   git -c user.name="formal-squash-verify" -c user.email="formal-squash-verify@example.invalid" \
-    commit -qm "squash-sim: formal stack on origin/main"
+    commit -q --allow-empty -m "squash-sim: formal stack on origin/main"
 )
 python3 "$SCRATCH/spec/formal/authority/check-drift.py"
 python3 "$SCRATCH/spec/formal/dpop/check_drift.py"

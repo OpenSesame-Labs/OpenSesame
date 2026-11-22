@@ -171,6 +171,8 @@ export const PINNED_FORMAL_SUITES = [
       "patches/vendor/sqlx-sqlite-0.9.0/src/types/uuid.rs",
       "crates/domain/src/lib.rs",
       "crates/domain/build.rs",
+      "crates/time/build.rs",
+      "patches/vendor/sqlx-sqlite-0.9.0/build.rs",
     ],
     lockProjection: { path: "Cargo.lock", root: "opensesame-domain" },
     manifestProjection: {
@@ -274,6 +276,12 @@ export const PINNED_FORMAL_SUITES = [
     proofs: [
       "spec/formal/spiffe/SpiffePolicy.lean",
       "spec/formal/spiffe/required-theorems.lean",
+      "spec/formal/spiffe/verify.sh",
+      "spec/formal/spiffe/check-drift.py",
+      "spec/formal/spiffe/coverage.json",
+      "spec/formal/spiffe/reviewed-sources.json",
+      "spec/formal/spiffe/negative-controls.py",
+      "spec/formal/spiffe/NEGATIVE-CONTROLS.md",
       "spec/formal/required-theorem-command.lean",
       "spec/formal/check-axioms.sh",
       "spec/formal/check-axioms.test.mjs",
@@ -516,6 +524,11 @@ export const PINNED_FORMAL_SUITES = [
     proofs: [
       "spec/formal/source-lifetime/SourceLifetime.lean",
       "spec/formal/source-lifetime/required-theorems.lean",
+      "spec/formal/source-lifetime/verify.sh",
+      "spec/formal/source-lifetime/check-drift.py",
+      "spec/formal/source-lifetime/coverage.json",
+      "spec/formal/source-lifetime/negative-controls.py",
+      "spec/formal/source-lifetime/NEGATIVE-CONTROLS.md",
       "spec/formal/required-theorem-command.lean",
       "spec/formal/check-axioms.sh",
       "spec/formal/check-axioms.test.mjs",

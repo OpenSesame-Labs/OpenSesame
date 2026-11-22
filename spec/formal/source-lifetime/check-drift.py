@@ -1,26 +1,27 @@
 #!/usr/bin/env python3
-"""Reject unreviewed changes to the source-owned generation boundary."""
+"""Reject unreviewed changes to the source-owned generation boundary.
+
+Each covered source records a sha256 of the reviewed bytes and the git blob id
+of those bytes (`reviewed_blob`), as the SPIFFE checker does: a coverage edit
+cannot point at bytes the repository does not contain. `reviewed_revision`
+stays a main ancestor. Its tree is the pre-fix base: `base_blob` is
+`git rev-parse revision:path` when the path existed there, and null when it
+did not. The reviewed blob is the post-fix evidence, which is what remains
+reachable after a squash merge replaces the branch commit.
+"""
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 import re
 import stat
+import subprocess
 import sys
 
 ROOT = Path(__file__).resolve().parents[3]
-TARGETS = {
-    "crates/domain/Cargo.toml": {"package": "opensesame-domain", "lib": ("opensesame_domain", "src/lib.rs")},
-    "crates/transport-security/Cargo.toml": {
-        "package": "opensesame-transport-security", "lib": ("opensesame_transport_security", "src/lib.rs"),
-        "test": {name: f"tests/{name}.rs" for name in (
-            "source_lifetime_formal", "signing_fence_races", "source_lifetime_tls12", "source_lifetime", "source_lifetime_edges",
-        )},
-    },
-    "crates/spiffe-source/Cargo.toml": {"package": "opensesame-spiffe-source", "lib": ("opensesame_spiffe_source", "src/lib.rs")},
-    "crates/storage/Cargo.toml": {"package": "opensesame-storage", "lib": ("opensesame_storage", "src/lib.rs")},
-    "crates/gateway/Cargo.toml": {"package": "opensesame-gateway", "lib": ("opensesame_gateway", "src/lib.rs")},
-}
+sys.path.insert(0, str(ROOT / "scripts" / "security"))
+from formal_coverage_drift import assert_reviewed_revision_on_main  # noqa: E402
 PATHS = [
     "crates/domain/Cargo.toml",
     "crates/domain/src/lib.rs",
@@ -102,6 +103,7 @@ PATHS = [
     "crates/spiffe-source/src/source_lease_tests.rs",
     "scripts/security/formal-cargo-isolation.py",
     "scripts/security/formal-cargo-freshness.py",
+    "scripts/security/formal_cargo_packages.py",
     "scripts/security/cargo-lock-projection.py",
 ]
 OPTIONAL_PATHS = [
@@ -111,6 +113,17 @@ OPTIONAL_PATHS = [
     "crates/gateway/build.rs",
     "crates/storage/build.rs",
 ]
+BLOB_RE = re.compile(r"[0-9a-f]{40}\Z")
+SHA_RE = re.compile(r"[0-9a-f]{64}\Z")
+
+
+def git(*args: str) -> subprocess.CompletedProcess[bytes]:
+    return subprocess.run(
+        ["git", "-C", str(ROOT), *args],
+        capture_output=True,
+        env={**os.environ, "GIT_NO_REPLACE_OBJECTS": "1"},
+        check=False,
+    )
 
 
 def regular_path(name, optional=False):
@@ -139,36 +152,76 @@ def optional_hash(name):
     return None if path is None else hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def blob_bytes(blob: str) -> bytes:
+    if not isinstance(blob, str) or BLOB_RE.fullmatch(blob) is None:
+        raise ValueError(f"invalid git blob id {blob!r}")
+    result = git("cat-file", "blob", blob)
+    if result.returncode != 0:
+        raise ValueError(f"reviewed blob {blob} is not in this repository")
+    return result.stdout
+
+
+def revision_blob(revision: str, path: str) -> str | None:
+    result = git("rev-parse", f"{revision}:{path}")
+    if result.returncode != 0:
+        return None
+    blob = result.stdout.decode().strip()
+    if BLOB_RE.fullmatch(blob) is None:
+        raise ValueError(f"invalid blob id for {revision}:{path}")
+    return blob
+
+
+def verify_sources(entries: list, revision: str) -> None:
+    for item in entries:
+        path = item["path"]
+        expected = item["sha256"]
+        if not isinstance(path, str) or SHA_RE.fullmatch(str(expected)) is None:
+            raise ValueError(f"malformed covered source entry for {path!r}")
+        if path.startswith("/") or ".." in Path(path).parts:
+            raise ValueError(f"covered source path must stay in-repo: {path!r}")
+        work = hashlib.sha256(regular_path(path).read_bytes()).hexdigest()
+        if work != expected:
+            raise ValueError(f"review source drift: {path}")
+        reviewed = hashlib.sha256(blob_bytes(item["reviewed_blob"])).hexdigest()
+        if reviewed != expected:
+            raise ValueError(f"reviewed blob does not match hashed bytes: {path}")
+        ancestor = revision_blob(revision, path)
+        base_blob = item["base_blob"]
+        if base_blob is None:
+            if ancestor is not None:
+                raise ValueError(f"reviewed revision contains {path} but base_blob is null")
+        else:
+            if ancestor != base_blob:
+                raise ValueError(f"reviewed revision blob for {path} does not match base_blob")
+            shown = git("show", f"{revision}:{path}")
+            if shown.returncode != 0:
+                raise ValueError(f"reviewed revision bytes unavailable for {path}")
+            if hashlib.sha256(shown.stdout).hexdigest() != hashlib.sha256(blob_bytes(base_blob)).hexdigest():
+                raise ValueError(f"reviewed revision bytes do not match base blob: {path}")
+
+
 def main():
     try:
         coverage = json.loads((ROOT / "spec/formal/source-lifetime/coverage.json").read_text())
         entries = coverage["sources"]
-        if (coverage.get("version") != 1 or
-                not re.fullmatch(r"[0-9a-f]{40}", str(coverage.get("reviewed_revision", ""))) or
+        revision = str(coverage.get("reviewed_revision", ""))
+        if (coverage.get("version") != 2 or
+                not re.fullmatch(r"[0-9a-f]{40}", revision) or
                 [entry.get("path") for entry in entries] != PATHS):
             raise ValueError("invalid reviewed source manifest")
-        verified = {}
-        for entry in entries:
-            source = regular_path(entry["path"]).read_bytes()
-            if hashlib.sha256(source).hexdigest() != entry["sha256"]:
-                raise ValueError(f"review source drift: {entry['path']}")
-            verified[entry["path"]] = source
+        assert_reviewed_revision_on_main(ROOT, revision, "source-lifetime-formal")
+        verify_sources(entries, revision)
         optional = coverage["optional_sources"]
         if ([entry.get("path") for entry in optional] != OPTIONAL_PATHS or
                 any(optional_hash(entry["path"]) != entry["sha256"] for entry in optional)):
             raise ValueError("review optional source/build-script drift")
-        helper_name = "scripts/security/formal-cargo-isolation.py"
-        scope = {"__name__": "reviewed_cargo_isolation", "__file__": str(ROOT / helper_name)}
-        exec(compile(verified[helper_name], scope["__file__"], "exec", dont_inherit=True), scope)
-        scope["check_cargo_targets"](ROOT, TARGETS, set(verified))
-        helper_name = "scripts/security/cargo-lock-projection.py"
-        helper = regular_path(helper_name)
+        helper = regular_path("scripts/security/cargo-lock-projection.py")
         spec = importlib.util.spec_from_file_location("cargo_lock_projection", helper)
         if spec is None or spec.loader is None:
             raise ValueError("lock projection helper unavailable")
         projection = importlib.util.module_from_spec(spec)
         sys.modules[spec.name] = projection
-        exec(compile(verified[helper_name], str(helper), "exec", dont_inherit=True), projection.__dict__)
+        exec(compile(helper.read_bytes(), str(helper), "exec", dont_inherit=True), projection.__dict__)
         recorded = coverage["lock_projection"]
         if (recorded.get("root") != "opensesame-spiffe-source" or
                 recorded.get("algorithm") != "cargo-lock-projection-v1-sha256"):
@@ -178,7 +231,7 @@ def main():
             raise ValueError("review source-lifetime dependency graph drift")
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise SystemExit(f"source-lifetime-formal: {exc}") from exc
-    print(f"source-lifetime-formal: reviewed sources and dependencies match base {coverage['reviewed_revision']}")
+    print(f"source-lifetime-formal: reviewed source blobs and dependencies match base {coverage['reviewed_revision']}")
 
 
 if __name__ == "__main__":

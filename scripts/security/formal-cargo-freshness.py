@@ -6,6 +6,7 @@ Assumes trusted Cargo/rustc and no concurrent source or target-cache writes.
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -14,18 +15,26 @@ import stat
 import subprocess
 import sys
 import tempfile
-import tomllib
 
 
-class FreshnessError(ValueError):
-    """Inputs or Cargo artifacts cannot establish the claimed fresh build."""
+def _packages_helper():
+    # Load the reviewed sibling by path; never search sys.path or the CWD.
+    path = Path(__file__).resolve().with_name("formal_cargo_packages.py")
+    spec = importlib.util.spec_from_file_location("formal_cargo_packages", path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"formal Cargo package helper unavailable: {path}")
+    module = importlib.util.module_from_spec(spec)
+    # Execute the reviewed bytes themselves, never a cached bytecode file.
+    exec(compile(path.read_bytes(), str(path), "exec", dont_inherit=True), module.__dict__)
+    return module
 
-def scratch_fds(env: dict[str, str]) -> tuple[int, ...]:
-    raw = env.get("OPENSESAME_FORMAL_SCRATCH_LOCK_FD")
-    if raw is None: return ()
-    if not raw.isdecimal() or int(raw) < 3 or not stat.S_ISREG(os.fstat(int(raw)).st_mode):
-        raise FreshnessError("invalid scratch lock descriptor")
-    return (int(raw),)
+
+_packages = _packages_helper()
+FreshnessError = _packages.FreshnessError
+scratch_fds = _packages.scratch_fds
+regular_inside = _packages.regular_inside
+metadata = _packages.metadata
+local_packages = _packages.local_packages
 
 
 def command_env() -> dict[str, str]:
@@ -36,25 +45,6 @@ def command_env() -> dict[str, str]:
     if not env.get("RUSTC_WORKSPACE_WRAPPER"):
         raise FreshnessError("reviewed RUSTC_WORKSPACE_WRAPPER is required")
     return env
-
-
-def regular_inside(root: Path, value: str | Path) -> Path:
-    path = Path(value)
-    if not path.is_absolute():
-        path = root / path
-    try:
-        relative = path.relative_to(root)
-    except ValueError as exc:
-        raise FreshnessError(f"path outside reviewed repository: {path}") from exc
-    if not relative.parts or any(part in (".", "..") for part in relative.parts):
-        raise FreshnessError(f"invalid repository path: {path}")
-    current = root
-    for index, part in enumerate(relative.parts):
-        current = current / part
-        mode = current.lstat().st_mode
-        if not (stat.S_ISREG(mode) if index == len(relative.parts) - 1 else stat.S_ISDIR(mode)):
-            raise FreshnessError(f"path is not a regular file: {path}")
-    return current
 
 
 def private_state(path: Path, create: bool = False) -> int:
@@ -87,100 +77,6 @@ def read_state(path: Path) -> dict:
     if not isinstance(value, dict):
         raise FreshnessError("freshness state is not an object")
     return value
-
-
-def metadata(root: Path, manifest: Path, env: dict[str, str]) -> dict:
-    result = subprocess.run(
-        ["cargo", "metadata", "--locked", "--no-deps",
-         "--format-version", "1", "--manifest-path", str(manifest)],
-        cwd=root, env=env, text=True, capture_output=True, check=False, timeout=60, pass_fds=scratch_fds(env),
-    )
-    if result.returncode:
-        raise FreshnessError(f"Cargo metadata failed: {result.stderr[-4000:]}")
-    value = json.loads(result.stdout)
-    if not isinstance(value, dict) or not isinstance(value.get("packages"), list):
-        raise FreshnessError("Cargo metadata has no package list")
-    return value
-
-
-def local_packages(root: Path, manifest: Path, names: list[str], env: dict[str, str]) -> dict:
-    packages: dict[str, dict] = {}
-    workspaces: set[str] = set()
-
-    def load(path: Path) -> None:
-        value = metadata(root, path, env)
-        workspace_root = value.get("workspace_root")
-        if not isinstance(workspace_root, str):
-            raise FreshnessError("Cargo metadata has no workspace root")
-        workspace_manifest = regular_inside(root, Path(workspace_root) / "Cargo.toml")
-        document = tomllib.loads(workspace_manifest.read_text())
-        patches = document.get("patch", {})
-        replacements = document.get("replace", {})
-        if not isinstance(patches, dict) or not isinstance(replacements, dict):
-            raise FreshnessError("malformed Cargo patch or replacement table")
-        for entries in [*patches.values(), replacements]:
-            if not isinstance(entries, dict):
-                raise FreshnessError("malformed Cargo patch entries")
-            if any(isinstance(item, dict) and "path" in item for item in entries.values()):
-                raise FreshnessError("local Cargo patches require separately reviewed coverage")
-        members = value.get("workspace_members")
-        if not isinstance(members, list) or any(not isinstance(item, str) for item in members):
-            raise FreshnessError("Cargo metadata has invalid workspace members")
-        workspaces.update(members)
-        for package in value["packages"]:
-            if not isinstance(package, dict) or not isinstance(package.get("id"), str):
-                raise FreshnessError("Cargo metadata has an invalid package")
-            manifest_path = regular_inside(root, package["manifest_path"])
-            key = str(manifest_path.parent)
-            if key in packages and packages[key]["id"] != package["id"]:
-                raise FreshnessError(f"ambiguous local package at {key}")
-            packages[key] = package
-
-    load(manifest)
-    original_workspace = set(workspaces)
-    roots = []
-    for name in names:
-        found = [package for package in packages.values() if package.get("name") == name]
-        if len(found) != 1:
-            raise FreshnessError(f"root package is absent or ambiguous: {name}")
-        roots.append(found[0])
-    selected: dict[str, dict] = {}
-    pending = roots[:]
-    while pending:
-        package = pending.pop()
-        package_id = package["id"]
-        if package_id in selected:
-            continue
-        if package.get("source") is not None:
-            raise FreshnessError("a selected local package has a nonlocal source")
-        targets = package.get("targets")
-        dependencies = package.get("dependencies")
-        if not isinstance(targets, list) or not isinstance(dependencies, list):
-            raise FreshnessError(f"invalid package metadata: {package_id}")
-        selected[package_id] = {
-            "name": package["name"], "workspace": package_id in original_workspace,
-        }
-        for target in targets:
-            if not isinstance(target, dict) or not isinstance(target.get("src_path"), str):
-                raise FreshnessError(f"invalid local target: {package_id}")
-            path = regular_inside(root, target["src_path"])
-            os.utime(path, None, follow_symlinks=False)
-        for dependency in dependencies:
-            if not isinstance(dependency, dict):
-                raise FreshnessError(f"invalid local dependency: {package_id}")
-            path = dependency.get("path")
-            if path is None:
-                continue
-            if not isinstance(path, str):
-                raise FreshnessError(f"invalid dependency path: {package_id}")
-            dependency_manifest = regular_inside(root, Path(path) / "Cargo.toml")
-            key = str(dependency_manifest.parent)
-            if key not in packages:
-                load(dependency_manifest)
-            if key not in packages:
-                raise FreshnessError(f"local dependency not found by Cargo metadata: {key}")
-            pending.append(packages[key])
-    return selected
 
 
 def artifact_key(message: dict) -> str:
@@ -352,6 +248,9 @@ def main() -> None:
     init.add_argument("--manifest", type=Path, required=True)
     init.add_argument("--state", type=Path, required=True)
     init.add_argument("--package", action="append", required=True)
+    init.add_argument("--reviewed-patch", action="append", default=[], metavar="NAME=PATH",
+                      help="path patch covered by the suite's reviewed sources, "
+                           "with PATH relative to the repository root")
     run = sub.add_parser("run")
     run.add_argument("--state", type=Path, required=True)
     run.add_argument("--input-check", type=Path, required=True)
@@ -361,10 +260,17 @@ def main() -> None:
     if options.action == "init":
         root = options.repo.resolve(strict=True)
         manifest = regular_inside(root, options.manifest)
-        packages = local_packages(root, manifest, options.package, env)
+        reviewed: dict[str, str] = {}
+        for item in options.reviewed_patch:
+            patched, separator, patch_path = item.partition("=")
+            if not separator or not patched or not patch_path or patched in reviewed:
+                raise SystemExit(f"malformed --reviewed-patch declaration: {item}")
+            reviewed[patched] = patch_path
+        packages = local_packages(root, manifest, options.package, env, reviewed)
         save_state(options.state, {
             "root": str(root), "manifest": str(manifest), "roots": options.package,
             "packages": packages, "seen": [],
+            "reviewed_patches": sorted(f"{name}={path}" for name, path in reviewed.items()),
         }, create=True)
         print(f"formal Cargo freshness: prepared {len(packages)} local packages")
         return

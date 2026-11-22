@@ -1,4 +1,7 @@
-import { rememberTourAnswered } from "@opensesame/app-core/lib/guidance.js";
+import {
+  noteScreenAnswered,
+  rememberTourAnswered,
+} from "@opensesame/app-core/lib/guidance.js";
 import { setStatusNotice } from "@opensesame/app-core/lib/notices.js";
 import { completeQueuedTutorial } from "@opensesame/app-core/lib/tutorial-queue.js";
 import type { GuideRouteId } from "@opensesame/app-core/tutorial/registry/routes.js";
@@ -222,6 +225,10 @@ export class SupportControllerCore {
       if (this.engine === loaded && outcome.kind === "completed") {
         const closing = this.state.guide?.message;
         if (closing) this.push("note", closing, []);
+        // Finishing a tour answers its screen for the session: the inline
+        // offer for this route stays quiet, exactly as if the offer card had
+        // been the thing that started the tour.
+        noteScreenAnswered(this.state.route);
       }
       rememberTourAnswered(outcome.goal);
       completeQueuedTutorial(outcome.goal);

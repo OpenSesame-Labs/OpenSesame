@@ -38,6 +38,12 @@ Import from the root: `import { openVaultFile } from "@opensesame/vault-core"`.
 | `file-parts.ts` | `sealFile`, `openFile`, `readFileManifest` — 1 MiB encrypted parts and a text manifest ([ADR 0054](../../docs/adr/0054-file-attachment-storage.md)) |
 | `bytes.ts` | The one base64 / base64url implementation |
 
+File manifests accept at most 1 GiB, 4,096 parts and 1 MiB of manifest text;
+each encrypted part is at most 1 MiB plus its GCM tag. Part and size limits
+must be safe integers. The tailnet drive client also bounds part responses
+and its part list (65,536 keys). Files or drive inventories above these
+limits are refused instead of being loaded partially.
+
 ## Develop
 
 ```bash

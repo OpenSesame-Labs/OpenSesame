@@ -9,6 +9,8 @@ import sys
 import tempfile
 
 root = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(root / "scripts" / "security"))
+from formal_coverage_drift import assert_reviewed_revision_on_main  # noqa: E402
 
 paths = [
     "crates/domain/Cargo.toml",
@@ -91,8 +93,10 @@ paths = [
     "spec/formal/authority/conformance.rs",
     "scripts/security/formal-cargo-isolation.py",
     "scripts/security/formal-cargo-freshness.py",
+    "scripts/security/formal_cargo_packages.py",
     "scripts/security/cargo-lock-projection.py",
     "scripts/security/cargo-workspace-projection.py",
+    "scripts/security/formal_coverage_drift.py",
 ]
 root_package = "opensesame-domain"
 TARGETS = {
@@ -290,6 +294,11 @@ def main():
     try:
         manifest = json.loads((root / "spec/formal/authority/coverage.json").read_text())
         verify(manifest)
+        # reviewed_revision stays a main ancestor (#2800). Content drift is
+        # reported first so a scratch mutant fails before the git-lineage check.
+        assert_reviewed_revision_on_main(
+            root, str(manifest.get("reviewed_revision", "")), "authority-formal"
+        )
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise SystemExit(f"authority-formal: {exc}; review the model before updating coverage.json") from exc
     print(f"authority-formal: covered sources and Cargo inputs match reviewed revision {manifest['reviewed_revision']}")
