@@ -1085,6 +1085,34 @@
         }
       ],
       "limits": "The sketch does not prove the full resolver or store linearizability."
+    },
+    {
+      "id": "formal-tutorial-pause",
+      "claim": "A tour speaks only when guidance is not off and this session is not paused. A reload drops the pause and keeps queued goal ids. A superseded stop does not queue, and a profile name is not stored.",
+      "implementation": [
+        "packages/app-core/src/lib/tutorial-queue.ts",
+        "packages/app-core/src/lib/tutorial-queue-present.ts"
+      ],
+      "evidence": [
+        {
+          "kind": "model",
+          "path": "spec/formal-verification/tutorial-pause/TutorialPause.tla",
+          "config": "spec/formal-verification/tutorial-pause/TutorialPause.cfg",
+          "invariants": ["TypeOK", "NoSpeechWhileQuiet", "NoProfileStored"],
+          "scope": "TLC checks the finite pause, queue, reload, and speak sketch."
+        },
+        {
+          "kind": "example-test",
+          "path": "packages/app-core/src/lib/tutorial-pause-formal.replay.test.ts",
+          "scope": "Replays pause, reload, queue, and resume on the production queue."
+        },
+        {
+          "kind": "browser-test",
+          "path": "apps/pages/scripts/verify-setup-tutorial-pause.mjs",
+          "scope": "Browser walk of the four setup profiles, the minimal confirm, opt-out, pause, and resume."
+        }
+      ],
+      "limits": "The sketch does not prove the coach runtime, OPFS durability, or every tutorial step."
     }
   ]
 }

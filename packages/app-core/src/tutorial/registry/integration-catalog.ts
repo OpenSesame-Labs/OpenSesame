@@ -20,15 +20,14 @@ export const INTEGRATION_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "integration.services",
     description:
-      "The Services section of Settings › Integrations: developer APIs, productivity, communication, storage and CRM providers, each opening its own supported configuration page.",
+      "Configure developer APIs, productivity, communication, storage and CRM services.",
     role: "surface",
     routes: ["/settings/integrations"],
     capabilityId: null,
   },
   {
     id: "integration.identity",
-    description:
-      "The Identity section of Settings › Integrations: the identity providers that can sign people in beside browser-local identity, each opening its own page.",
+    description: "Configure identity providers for sign-in.",
     role: "surface",
     routes: ["/settings/integrations"],
     capabilityId: null,
@@ -36,39 +35,35 @@ export const INTEGRATION_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "integration.encryption",
     description:
-      "The Encryption section of Settings › Integrations: the key services this installation can reference — a cloud key service, a hardware key, an age recipient — each configured by reference.",
+      "Configure cloud key services, hardware keys and age recipients by reference.",
     role: "surface",
     routes: ["/settings/integrations"],
     capabilityId: null,
   },
   {
     id: "integration.certificates",
-    description:
-      "The Certificate authority section of Settings › Integrations: the authorities this installation can connect to, each by reference.",
+    description: "Configure certificate authorities by reference.",
     role: "surface",
     routes: ["/settings/integrations"],
     capabilityId: null,
   },
   {
     id: "integration.backups",
-    description:
-      "The Backups section of Settings › Integrations: the git providers the encrypted vault can back up to.",
+    description: "Configure a git provider for encrypted vault backups.",
     role: "surface",
     routes: ["/settings/integrations"],
     capabilityId: null,
   },
   {
     id: "integration.password-managers",
-    description:
-      "The Password managers section of Settings › Integrations: the managers this installation can connect to, each by reference.",
+    description: "Configure password manager integrations by reference.",
     role: "surface",
     routes: ["/settings/integrations"],
     capabilityId: null,
   },
   {
     id: "integration.cloud-secret-storage",
-    description:
-      "The Cloud secret storage section of Settings › Integrations: the cloud secret stores this installation can connect to, each by reference.",
+    description: "Configure cloud secret stores by reference.",
     role: "surface",
     routes: ["/settings/integrations"],
     capabilityId: null,
@@ -76,7 +71,7 @@ export const INTEGRATION_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "integration.payments",
     description:
-      "The Payments section of Settings › Integrations: the card issuers and wallet-pass providers the Wallet can connect to, each by reference.",
+      "Configure card issuers and wallet-pass providers by reference.",
     role: "surface",
     routes: ["/settings/integrations"],
     capabilityId: null,
@@ -84,7 +79,7 @@ export const INTEGRATION_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "integration.password-reset",
     description:
-      "The Password reset section of Settings › Integrations: computer-use runtimes such as Vercel Sandbox, E2B and Browserbase CDP, each configured by reference. Model providers are in AI.",
+      "Configure computer-use runtimes for password reset. Model providers are under AI.",
     role: "surface",
     routes: ["/settings/integrations"],
     capabilityId: null,
@@ -92,15 +87,14 @@ export const INTEGRATION_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "integration.ai",
     description:
-      "The AI section of Settings › Integrations: connect agent harnesses and AI model providers. Voice and inference model choices are in Settings › Features › AI.",
+      "Connect agent harnesses and AI model providers. Choose models under Settings → Features → AI.",
     role: "surface",
     routes: ["/settings/integrations"],
     capabilityId: null,
   },
   {
     id: "integration.networking",
-    description:
-      "The Networking section of Settings › Integrations: the tailnet providers this installation can reach, each by reference.",
+    description: "Configure tailnet providers by reference.",
     role: "surface",
     routes: ["/settings/integrations"],
     capabilityId: null,

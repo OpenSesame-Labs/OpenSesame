@@ -7,9 +7,12 @@
 //!
 //! - rotation holds an **exclusive** lock on `.opensesame-lock` for its whole
 //!   run, and refuses to start while any writer holds it;
-//! - native writes hold an **exclusive** lock because they update one shared
-//!   monotonic rollback witness; foreign-format writes hold a shared lock;
-//!   both refuse while rotation is active or interrupted;
+//! - mutations of the revision maps hold an **exclusive** lock for their own
+//!   duration. This serializes their read-modify-write operations with each
+//!   other, older shared-lock writers, and rotation; it refuses (never blocks)
+//!   while the lock is held or `.opensesame-rotation/` exists;
+//! - native writes also update the outside rollback witness under that lock;
+//!   foreign-format writes that do not mutate revision maps hold a shared lock;
 //! - a write that seals under the root first proves its key is the store's
 //!   current root (the key file's manifest MAC), so a key unlocked before a
 //!   rotation cannot write under the old root after it.
@@ -145,9 +148,8 @@ impl StoreLock {
         Ok(lock)
     }
 
-    /// A write that seals `name` under `key`: globally serialized because all
-    /// native entries share one monotonic witness, plus a refusal of reserved
-    /// locations and of a key that is not the store's current root.
+    /// A write that seals `name` under `key`: exclusive, with reserved-path
+    /// checks and authentication against the current root.
     pub(crate) fn for_sealing(
         root: &Path,
         name: &str,
@@ -155,6 +157,19 @@ impl StoreLock {
     ) -> Result<Self, StoreError> {
         refuse_reserved_name(name)?;
         let lock = Self::exclusive_mutation(root)?;
+        ensure_current_root(root, key)?;
+        Ok(lock)
+    }
+
+    /// A trusted migration reads and rewrites one entry and its revision as
+    /// one protected operation, excluding other writers as well as rotation.
+    pub(crate) fn for_legacy_migration(
+        root: &Path,
+        name: &str,
+        key: &ItemDataKey,
+    ) -> Result<Self, StoreError> {
+        refuse_reserved_name(name)?;
+        let lock = Self::key_file_edit(root)?;
         ensure_current_root(root, key)?;
         Ok(lock)
     }

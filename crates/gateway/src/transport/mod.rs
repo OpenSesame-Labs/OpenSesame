@@ -38,6 +38,7 @@ pub mod probe;
 pub mod proof;
 pub mod routes;
 pub mod runtime;
+pub mod source_history;
 pub mod status;
 
 #[cfg(test)]
@@ -58,6 +59,9 @@ mod proof_tests;
 mod revocation_handshake_tests;
 #[cfg(test)]
 mod routes_tests;
+#[cfg(test)]
+#[path = "runtime_spiffe_boot_tests.rs"]
+mod spiffe_boot_tests;
 #[cfg(test)]
 pub(crate) mod test_support;
 

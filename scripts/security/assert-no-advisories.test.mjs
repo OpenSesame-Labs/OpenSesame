@@ -13,6 +13,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { isString } from "../lib/json-boundary.mjs";
 import { attestRepairedFindings } from "./assert-no-advisories.mjs";
 
 const gate = fileURLToPath(
@@ -20,20 +21,16 @@ const gate = fileURLToPath(
 );
 const root = resolve(dirname(gate), "../..");
 const exactFinding = Object.freeze({
-  id: "GHSA-fc5q-39xc-vjpf",
+  id: "GHSA-3g3m-2fjr-6pw4",
   ecosystem: "npm",
-  package: "picomatch",
-  version: "2.3.2",
+  package: "glob",
+  version: "10.5.0",
   source: join(root, "package-lock.json"),
 });
 const repairedTuples = [
   ["GHSA-3g3m-2fjr-6pw4", "glob", "10.5.0"],
   ["GHSA-3g3m-2fjr-6pw4", "glob", "11.1.0"],
-  ["GHSA-3g3m-2fjr-6pw4", "glob", "13.0.7"],
   ["GHSA-g3hv-75wg-m249", "minimatch", "9.0.9"],
-  ["GHSA-g3hv-75wg-m249", "minimatch", "10.2.6"],
-  ["GHSA-fc5q-39xc-vjpf", "picomatch", "2.3.2"],
-  ["GHSA-fc5q-39xc-vjpf", "picomatch", "4.0.7"],
 ];
 function repairedFindings(directory = root) {
   return repairedTuples.map(([id, packageName, version]) => ({
@@ -124,7 +121,7 @@ test("the exact repaired advisory tuples pass their complete attestation", () =>
     );
     assert.ifError(result.error);
     assert.equal(result.status, 0, result.stderr);
-    assert.match(result.stdout, /7 exact repaired findings attested/);
+    assert.match(result.stdout, /3 exact repaired findings attested/);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -136,6 +133,20 @@ test("new IDs, tuple drift, duplicate findings and a foreign lock fail", () => {
     { ...exactFinding, version: "2.3.3" },
     { ...exactFinding, package: "other" },
     { ...exactFinding, source: "/tmp/foreign/package-lock.json" },
+    {
+      id: "GHSA-fc5q-39xc-vjpf",
+      ecosystem: "npm",
+      package: "picomatch",
+      version: "2.3.2",
+      source: join(root, "package-lock.json"),
+    },
+    {
+      id: "GHSA-fc5q-39xc-vjpf",
+      ecosystem: "npm",
+      package: "picomatch",
+      version: "4.0.7",
+      source: join(root, "package-lock.json"),
+    },
   ]) {
     assert.throws(() =>
       attestRepairedFindings(root, [finding], { execute: () => {} }),
@@ -160,16 +171,11 @@ const fixtureFiles = [
   "patches/glob@10.5.0.patch",
   "patches/glob@11.1.0.patch",
   "patches/minimatch@9.0.9.patch",
-  "patches/minimatch@10.2.6.patch",
-  "patches/picomatch@2.3.2.patch",
-  "patches/picomatch@4.0.7.patch",
   "patches/vendor/glob-10.5.0.tgz",
   "patches/vendor/glob-11.1.0.tgz",
   "patches/vendor/minimatch-9.0.9.tgz",
-  "patches/vendor/minimatch-10.2.6.tgz",
-  "patches/vendor/picomatch-2.3.2.tgz",
-  "patches/vendor/picomatch-4.0.7.tgz",
   "scripts/security/dependency-override-upgrade.test.mjs",
+  "scripts/security/glob-override-upgrade.test.mjs",
   "scripts/security/removed-dependencies.test.mjs",
   "scripts/security/picomatch-backport.test.mjs",
   "scripts/security/patched-dependencies.mjs",
@@ -197,25 +203,35 @@ function writeJson(path, value) {
   writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
+function lockPackageName(location, entry) {
+  if (isString(entry?.name)) return entry.name;
+  const marker = "node_modules/";
+  const at = location.lastIndexOf(marker);
+  return at === -1 ? undefined : location.slice(at + marker.length);
+}
+
 test("patch, tarball, upstream source and named-test drift fail closed", (t) => {
   for (const mutate of [
     (directory) =>
-      appendFileSync(join(directory, "patches/picomatch@2.3.2.patch"), "\n"),
+      appendFileSync(join(directory, "patches/glob@10.5.0.patch"), "\n"),
     (directory) =>
       appendFileSync(
-        join(directory, "patches/vendor/picomatch-2.3.2.tgz"),
+        join(directory, "patches/vendor/glob-10.5.0.tgz"),
         "drift",
       ),
     (directory) => {
       const path = join(directory, "patches/vendor/manifest.json");
       const manifest = JSON.parse(readFileSync(path, "utf8"));
-      manifest.vendored["picomatch@2.3.2"].upstreamFileMapSha256 = "0".repeat(
-        64,
-      );
+      manifest.vendored["glob@10.5.0"].upstreamFileMapSha256 = "0".repeat(64);
       writeJson(path, manifest);
     },
     (directory) =>
-      rmSync(join(directory, "scripts/security/picomatch-backport.test.mjs")),
+      rmSync(
+        join(
+          directory,
+          "scripts/security/dependency-override-upgrade.test.mjs",
+        ),
+      ),
   ]) {
     const directory = driftFixture(t);
     mutate(directory);
@@ -232,9 +248,12 @@ test("lock integrity, missing occurrences and override range drift fail closed",
     (directory) => {
       const path = join(directory, "package-lock.json");
       const lock = JSON.parse(readFileSync(path, "utf8"));
-      const entry = Object.values(lock.packages).find(
-        (item) => item.name === "picomatch" && item.version === "2.3.2",
-      );
+      const entry = Object.entries(lock.packages).find(([location, item]) => {
+        return (
+          lockPackageName(location, item) === "glob" &&
+          item.version === "10.5.0"
+        );
+      })[1];
       entry.integrity = `sha512-${"A".repeat(88)}`;
       writeJson(path, lock);
     },
@@ -242,14 +261,17 @@ test("lock integrity, missing occurrences and override range drift fail closed",
       const path = join(directory, "package-lock.json");
       const lock = JSON.parse(readFileSync(path, "utf8"));
       for (const [location, entry] of Object.entries(lock.packages))
-        if (entry.name === "picomatch" && entry.version === "2.3.2")
+        if (
+          lockPackageName(location, entry) === "glob" &&
+          entry.version === "10.5.0"
+        )
           delete lock.packages[location];
       writeJson(path, lock);
     },
     (directory) => {
       const path = join(directory, "package.json");
       const manifest = JSON.parse(readFileSync(path, "utf8"));
-      manifest.overrides["picomatch@^2"] = "4.0.7";
+      manifest.overrides["glob@^10.0.0"] = "10.5.0";
       writeJson(path, manifest);
     },
   ]) {

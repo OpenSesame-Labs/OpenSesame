@@ -32,7 +32,8 @@ pub struct AttestedPeer {
     pub tls_version: TlsVersion,
     pub authenticated_at: DateTime<Utc>,
     pub usable_until: DateTime<Utc>,
-    /// Required (and only allowed) when `source` is `TrustedIngressAssertion`.
+    /// Raw ingress evidence is never accepted. Forwarded assertions must
+    /// pass an already sealed ingress to `into_verified_with_ingress`.
     pub ingress: Option<Box<AttestedPeer>>,
 }
 
@@ -52,6 +53,10 @@ impl AttestedPeer {
     ///   ingress on a non-assertion, or an ingress that is not itself a
     ///   directly authenticated `TrustedIngress` peer.
     pub fn into_verified(self) -> Result<VerifiedPeer, TransportError> {
+        self.seal(None)
+    }
+
+    fn seal(self, ingress: Option<Box<VerifiedPeer>>) -> Result<VerifiedPeer, TransportError> {
         validate_thumbprint(
             "attested.leaf_thumbprint_sha256",
             &self.leaf_thumbprint_sha256,
@@ -60,7 +65,7 @@ impl AttestedPeer {
         let identities = self.validated_identities()?;
         self.check_window()?;
         self.check_policy()?;
-        let ingress = self.verified_ingress()?;
+        let ingress = self.verified_ingress(ingress)?;
         Ok(VerifiedPeer {
             source: self.source,
             identities,
@@ -77,6 +82,77 @@ impl AttestedPeer {
             usable_until: self.usable_until,
             ingress,
         })
+    }
+
+    /// Seal direct TLS evidence whose profile authorizes only its exact
+    /// SPIFFE ID. Forwarded assertions must preserve their sealed ingress via
+    /// [`Self::into_verified_spiffe_with_ingress`]. The caller must already
+    /// have verified the leaf's chain and the ID's trust domain; this
+    /// constructor does not perform TLS validation.
+    /// The leaf thumbprint remains available separately for revocation.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::into_verified`], or when the evidence is not direct TLS,
+    /// contains an ingress, or lacks exactly one SPIFFE identity.
+    pub fn into_verified_spiffe(self) -> Result<VerifiedPeer, TransportError> {
+        if self.source != EvidenceSource::DirectTls || self.ingress.is_some() {
+            return Err(TransportError::ForwardedEvidenceUnverified);
+        }
+        if !matches!(
+            self.identities.as_slice(),
+            [PeerIdentitySelector::SpiffeId(_)]
+        ) {
+            return Err(TransportError::malformed(
+                "SPIFFE evidence requires one exact SPIFFE ID",
+            ));
+        }
+        let mut verified = self.into_verified()?;
+        verified
+            .identities
+            .retain(|id| matches!(id, PeerIdentitySelector::SpiffeId(_)));
+        Ok(verified)
+    }
+
+    /// Seal forwarded evidence while preserving an already verified ingress.
+    /// The sealed ingress is not reconstructed from its public fields: doing
+    /// so could widen the identity selectors its verifier allowed.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::into_verified`], or when raw ingress evidence is supplied
+    /// or the sealed peer is not a directly authenticated ingress.
+    pub fn into_verified_with_ingress(
+        self,
+        ingress: VerifiedPeer,
+    ) -> Result<VerifiedPeer, TransportError> {
+        self.seal(Some(Box::new(ingress)))
+    }
+
+    /// Seal forwarded SPIFFE evidence and preserve its sealed ingress.
+    /// The caller must first verify the forwarded chain and SPIFFE profile.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::into_verified_with_ingress`], or unless exactly one SPIFFE
+    /// identity is supplied.
+    pub fn into_verified_spiffe_with_ingress(
+        self,
+        ingress: VerifiedPeer,
+    ) -> Result<VerifiedPeer, TransportError> {
+        if !matches!(
+            self.identities.as_slice(),
+            [PeerIdentitySelector::SpiffeId(_)]
+        ) {
+            return Err(TransportError::malformed(
+                "SPIFFE evidence requires one exact SPIFFE ID",
+            ));
+        }
+        let mut verified = self.into_verified_with_ingress(ingress)?;
+        verified
+            .identities
+            .retain(|id| matches!(id, PeerIdentitySelector::SpiffeId(_)));
+        Ok(verified)
     }
 
     fn validated_identities(&self) -> Result<Vec<PeerIdentitySelector>, TransportError> {
@@ -151,18 +227,22 @@ impl AttestedPeer {
         }
     }
 
-    fn verified_ingress(&self) -> Result<Option<Box<VerifiedPeer>>, TransportError> {
-        match (self.source, &self.ingress) {
-            (EvidenceSource::TrustedIngressAssertion, Some(ingress)) => {
-                let accepted = ingress.source == EvidenceSource::DirectTls
-                    && ingress.policy == TransportPolicy::TrustedIngress
-                    && ingress.ingress.is_none();
-                if !accepted {
-                    return Err(TransportError::ForwardedEvidenceUnverified);
-                }
-                Ok(Some(Box::new(ingress.as_ref().clone().into_verified()?)))
+    fn verified_ingress(
+        &self,
+        ingress: Option<Box<VerifiedPeer>>,
+    ) -> Result<Option<Box<VerifiedPeer>>, TransportError> {
+        if self.ingress.is_some() {
+            return Err(TransportError::ForwardedEvidenceUnverified);
+        }
+        match (self.source, ingress) {
+            (EvidenceSource::TrustedIngressAssertion, Some(ingress))
+                if ingress.source() == EvidenceSource::DirectTls
+                    && ingress.policy() == TransportPolicy::TrustedIngress
+                    && ingress.ingress().is_none() =>
+            {
+                Ok(Some(ingress))
             }
-            (EvidenceSource::TrustedIngressAssertion, None) | (_, Some(_)) => {
+            (EvidenceSource::TrustedIngressAssertion, _) | (_, Some(_)) => {
                 Err(TransportError::ForwardedEvidenceUnverified)
             }
             (_, None) => Ok(None),

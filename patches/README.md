@@ -73,7 +73,7 @@ When upstream ships the fix: bump the dependency, delete the `.patch` file, the 
 | `@aws-sdk/xml-builder@3.972.42` | Preserves XML Unicode and entities and bounds custom entity expansion | `scripts/security/aws-xml-compat.test.mjs` and `.deepsec/aws-xml-compat.test.mjs` |
 | `kdbxweb@2.1.1` | Preserves tabs and carriage returns in XML text and CDATA and uses the reviewed fixed XML parser | `scripts/security/kdbxweb-compat.test.mjs` |
 | `glob@10.5.0`, `glob@11.1.0` | Stop filesystem traversal after cancellation while retaining compatible glob behavior | [compatibility note](#glob-and-minimatch-compatibility) |
-| `minimatch@9.0.9`, `minimatch@10.2.6` | Bound glob-part expansion while preserving matching behavior for older consumers | [compatibility note](#glob-and-minimatch-compatibility) |
+| `minimatch@9.0.9`, `minimatch@11.0.9` | Bound glob-part expansion while preserving matching behavior for older consumers | [compatibility note](#glob-and-minimatch-compatibility) |
 | `@joshwooding/vite-plugin-react-docgen-typescript@0.7.0`, `react-docgen-typescript@2.4.0` | Use the TypeScript 6 compiler API alongside the workspace's TypeScript 7 | `scripts/security/removed-dependencies.test.mjs` |
 | `node-turn@0.0.6` | Declares the reviewed security-fixed `js-yaml` and `log4js` releases used by the live TURN verifier | `scripts/security/dependency-override-upgrade.test.mjs` |
 | `@noble/post-quantum@0.5.4` | Declares the compatible, reviewed Noble 2.4 primitives already used by the workspace | `scripts/security/dependency-override-upgrade.test.mjs` |
@@ -107,24 +107,26 @@ The npm tarballs are pinned to these published versions and patched sources:
 - `glob` 10.5.0 and 11.1.0: the four abort branches return after invoking the
   callback, matching the upstream cancellation fix for GHSA-3g3m-2fjr-6pw4.
   Both CommonJS and ESM distributions receive the change.
-- `minimatch` 9.0.9 and 10.2.6: the upstream glob-part expansion cap and
-  quadratic deduplication cutoff address GHSA-g3hv-75wg-m249. The 9.x branch
-  uses the upstream default cap; the 10.x branch also respects its existing
-  `braceExpandMax` option. Invalid runtime values fall back to the bounded
-  default before both brace and glob-part expansion; an explicit `Infinity`
-  remains the opt-in for callers that deliberately need an unbounded result.
-  Matching behavior for ordinary patterns is retained.
+- `minimatch` 9.0.9 and 11.0.9: the 9.x tarball keeps the glob-part expansion cap
+  for legacy consumers; the 11.0.9 tarball is outside GHSA-g3hv-75wg-m249 and
+  adds the same bounded `braceExpandMax` default used on the old 10.x backport.
 - `minimatch` 5.1.9 uses `brace-expansion` 2.1.8. Both are published versions
   within the older consumers' declared ranges and outside the known affected
   ranges in the local advisory database.
 
-The published `glob` 13.0.7 already has the four cancellation returns. The
-local OSV data still lists releases before 14.0.2 as affected. The audit gate
-keeps that raw finding, and the Glob, Minimatch, and Picomatch findings, in its
-artifact while a fail-closed attestation binds each exact tuple to every lock
-occurrence, published or reverse-reconstructed upstream source, patch and
-vendored tarball digest, and named behavior regression. It cannot classify a
-new advisory, version, range, occurrence, source, patch, tarball, or test.
+The published `glob` 13.0.7 already has the four cancellation returns, but the
+local OSV data still lists releases before 14.0.2 as affected. The
+`glob@^13.0.1` and `glob@^13.0.6` overrides, and the direct glob pins for
+those same consumers, therefore select published `glob` 14.0.6. That release
+depends on `minimatch` 11, so those glob edges do not force the patched
+`minimatch` 10 tarball. Glob 10 and 11 stay on the patched tarballs so older
+consumers keep their matching behavior. The withdrawn picomatch advisory
+GHSA-fc5q-39xc-vjpf is no longer a scanner finding. The audit gate keeps the
+four patched Glob and Minimatch findings in its artifact while a fail-closed
+attestation binds each exact tuple to every lock occurrence, published or
+reverse-reconstructed upstream source, patch and vendored tarball digest, and
+named behavior regression. It cannot classify a new advisory, version, range,
+occurrence, source, patch, tarball, or test.
 
 `removed-dependencies.test.mjs` exercises promise and stream cancellation
 through the installed CommonJS and ESM packages. Its consumer tests cover the
@@ -160,8 +162,9 @@ repository's source-size ratchet; CI runs it alongside the other patch checks.
 The only source change requires KDBX4 binary timestamps to decode to exactly
 eight bytes and uses checked date arithmetic. This prevents malformed vault
 timestamps from panicking the importer or overflowing the representable date
-range. The original archive, licenses, and every unchanged source byte remain
-in the repository.
+range. The vendored `Cargo.lock` is omitted, as with sqlx-sqlite, so it
+cannot be mistaken for a workspace lockfile. The original archive, licenses,
+and every other unchanged source byte remain in the repository.
 
 `python3 scripts/security/verify-vendored-keepass.py` checks the published
 archive digest, full file inventory, exact patched-file digest, both Cargo path

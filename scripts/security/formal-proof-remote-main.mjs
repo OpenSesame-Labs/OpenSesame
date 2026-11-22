@@ -4,6 +4,33 @@ import { hasControl } from "./formal-proof-push-gate-registry.mjs";
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const objectId = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
 
+export function pushDestination(root, remote, git, exact = false) {
+  if (!remote || hasControl(remote))
+    throw new Error(
+      "A push destination is required to inspect formal proof policy",
+    );
+  const names = decoder
+    .decode(git(root, ["remote"]))
+    .split("\n")
+    .filter(Boolean);
+  if (!names.includes(remote)) return remote;
+  if (exact)
+    throw new Error("Ambiguous push destination; use an explicit URL or path");
+  const urls = decoder
+    .decode(git(root, ["remote", "get-url", "--push", "--all", "--", remote]))
+    .split("\n")
+    .filter(Boolean);
+  if (urls.length > 1)
+    throw new Error(
+      "Multiple push destinations require an explicit URL or path",
+    );
+  if (urls.length !== 1 || !urls[0] || hasControl(urls[0]))
+    throw new Error("Cannot resolve the push destination");
+  if (names.includes(urls[0]))
+    throw new Error("Ambiguous push destination; use an explicit URL or path");
+  return urls[0];
+}
+
 function advertisedMain(root, remote, git) {
   const lines = decoder
     .decode(git(root, ["ls-remote", "--refs", "--", remote, "refs/heads/main"]))

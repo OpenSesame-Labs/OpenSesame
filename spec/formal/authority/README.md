@@ -3,12 +3,41 @@
 These properties cover grant attenuation in the Host domain. They are one
 slice of [ADR 0005](../../../docs/adr/0005-authority-handle-connectionref.md)
 and [ADR 0046](../../../docs/adr/0046-relayed-execution-and-authorization-inbox.md).
-The reviewed source revision and SHA-256 hashes are recorded in `coverage.json`.
-A source hash is a drift alarm, not proof that a review was correct.
-The pre-push registry selects this suite for its mapped Rust implementation
-files. Changes only to the reviewed Cargo manifests or lockfile do not select it;
-the release qualification gate runs every suite and catches that drift. Run
-this suite explicitly when those build inputs change.
+The reviewed source revision, source hashes, and bounded Cargo input projections
+are recorded in `coverage.json`. These are drift alarms, not proof that the
+review or model is correct. The pre-push registry selects this suite for its
+mapped Rust files and domain manifest, for a change in the domain's resolved
+root lockfile closure, or for a relevant root workspace manifest change. It
+also checks changes that are later reverted or arrive through a merge.
+The crate root's reviewed token sequence is independently pinned so module
+redirects and re-exports cannot be introduced merely by refreshing coverage
+hashes. The currently absent `build.rs` is mapped and its absence is pinned;
+enabling a build script or a custom library path requires a separate verifier
+and mapping review. The drift check runs before Cargo and again afterwards.
+
+The workspace projection retains the domain's inherited package fields and
+workspace dependency keys (including build, development, optional and
+target-specific declarations), resolver and global Cargo settings, relevant
+patches and package profile overrides, and explicit domain membership. It
+uses the union of the before and after lock closures to select named overrides;
+unsupported package selectors and workspace member patterns fail closed.
+It ignores unrelated workspace dependencies, members, metadata, and
+package-specific overrides. Global settings can conservatively select the
+suite even when a particular edit would not affect this package.
+
+The lockfile graph includes inactive optional, development and target-specific
+packages; it does not encode which features or targets are active. This bounded
+projection does not model feature unification caused by other workspace
+packages, `.cargo/config*`, the toolchain, dependency build scripts, or environment
+inputs. Path packages declared by the workspace manifest or a patch are hashed
+in `coverage.json` and mapped as proof inputs. Any other path dependency in the
+domain closure fails closed until its source and manifest coverage is explicitly
+added. Those other inputs
+require separate review. The standalone harness has its own
+reviewed manifest and lockfile; the drift check requires its direct domain
+dependency identities and checksums to match the production lock. The full
+standalone and workspace graphs may differ because the latter records unioned
+dependency edges, so equality of those graphs is not claimed.
 
 | ID | Requirement | Implementation | Lean theorem |
 |---|---|---|---|
@@ -28,20 +57,23 @@ missing/same/different bindings for every scope dimension
 client, and actor instance) and for proof keys; and all subsets of the two
 sample actions. Each of the six scope vectors is applied once per dimension.
 A fresh grant ID is used for each fixture. The [Rust lock file](Cargo.lock)
-pins the harness dependency versions; its selected dependency versions match
-the reviewed repository lock.
-That lock, the harness `Cargo.toml`, and `conformance.rs` are hashed in
-`coverage.json` and listed in the proof registry.
+pins the harness dependencies separately from the production workspace.
 
-Run with Lean 4.24.0, the repository Rust toolchain, and its usual shared Cargo
-cache:
+Run with Lean 4.24.0 and the repository Rust toolchain:
 
 ```sh
 bash spec/formal/authority/check.sh
 ```
 
 Set `OPENSESAME_LEAN_BIN` to the Lean executable when it is not on `PATH`.
-`CARGO_TARGET_DIR` should name the shared Cargo target directory. The command
+The covered `conformance.rs` proof input is explicitly selected as the
+`authority-conformance` Cargo binary; changing that proof input alone does not
+select a pre-push implementation proof. The harness uses a private temporary
+Cargo target because its domain dependency is outside the harness workspace.
+Negative controls place that target inside
+their leased scratch checkout. A surviving compiler keeps the lease after an
+interruption, and a later run can clean the checkout once the compiler exits.
+The command
 fails on Lean warnings such as `sorry`, failed Rust correspondence cases, or a
 covered-source hash change. On a covered source change, re-review the mapping
 and update the hashes only after rechecking the model. Advance the reviewed
@@ -51,10 +83,10 @@ The correspondence check was run against separate scratch mutations that
 removed the export, replacement, issuer, scope, dropped-key, transferred-key,
 and action guards. Each mutation caused a failing Rust assertion. The unchanged
 source passed afterward. Repeat those controls with
-`python3 spec/formal/authority/negative-control.py`. It creates a temporary Git
-worktree, copies the covered current source into it, restores each mutation,
-and removes the temporary worktree afterward. It requires the same Lean and
-Rust environment as the main check.
+`python3 spec/formal/authority/negative-control.py`. It requires an empty Git
+index, archives the committed tree into a locked scratch checkout, overlays the
+current modified and untracked files without following symlinks, and restores
+each mutation. It requires the same Lean and Rust environment as the main check.
 
 The Lean chain theorem assumes every hop uses the modeled export check. The
 code test covers one delegation hop and one replacement in a fixed set of grant

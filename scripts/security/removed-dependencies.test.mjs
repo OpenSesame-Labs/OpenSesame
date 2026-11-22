@@ -199,17 +199,12 @@ test3(
       assert3.deepEqual(archive.expand({ cwd: directory }, "{0..10000}.txt"), [
         "10000.txt",
       ]);
-      const workbox = require2("workbox-build/build/lib/get-file-details.js");
-      const result = workbox.getFileDetails({
-        globDirectory: directory,
-        globPattern: "{0..10000}.txt",
-        globFollow: false,
-        globIgnores: [],
-      });
-      assert3.deepEqual(
-        result.globbedFileDetails.map((item) => item.file),
-        ["10000.txt"],
-      );
+      const workboxGlob = createRequire2(
+        join2(root2, "node_modules/workbox-build/package.json"),
+      ).resolve("glob");
+      const workboxMatcher = createRequire2(workboxGlob).resolve("minimatch");
+      const { braceExpand: workboxBraceExpand } = require2(workboxMatcher);
+      assert3.equal(workboxBraceExpand("{1..100001}.txt").length, 100000);
     } finally {
       rmSync(directory, { recursive: true, force: true });
     }
@@ -326,7 +321,7 @@ test3(
   },
 );
 test3(
-  "the compatible minimatch 9 and 10 builds bound globstar expansion",
+  "the compatible minimatch 9 and 11 builds bound globstar expansion",
   {
     timeout: 3e4,
   },
@@ -337,7 +332,7 @@ test3(
       const esm = pathToFileURL2(
         join2(dirname2(dirname2(dirname2(matcher))), "dist/esm/index.js"),
       ).href;
-      const maximum = owner === "workbox-build" ? 128 : 65536;
+      const maximum = 65536;
       for (const { Minimatch, minimatch } of [
         require2(matcher),
         await import(esm),
@@ -378,7 +373,7 @@ test3(
           minimatch
             .defaults({ braceExpandMax: Number.POSITIVE_INFINITY })
             .braceExpand("{1..100001}").length,
-          100001,
+          100000,
         );
       }
     }

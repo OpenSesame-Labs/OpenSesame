@@ -22,6 +22,7 @@ type AesWork = {
 self.addEventListener(
   "message",
   (event: MessageEvent<Argon2Work | AesWork>) => {
+    if (event.origin !== "" && event.origin !== self.location.origin) return;
     void (async () => {
       const work = event.data;
       const { password, salt } = work;

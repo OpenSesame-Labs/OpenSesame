@@ -18,7 +18,13 @@ import { isRemoteIdentityConfigured } from "../../lib/device-identity.js";
 import { currentSession } from "../../lib/identity.js";
 import { vaultStore } from "../../lib/vault/store.js";
 import { listAvailableUnlockMethods } from "../../lib/vault/unlock-methods.js";
-import { isOnline, page } from "../../ports.js";
+import { checkWebauthnHost } from "../../lib/vault/webauthn-host.js";
+import {
+  credentials,
+  isOnline,
+  page,
+  publicKeyCredentialApi,
+} from "../../ports.js";
 import {
   type GuideRouteId,
   guideRouteForPath,
@@ -31,6 +37,11 @@ import {
   isKnownGuidePredicate,
 } from "./state.js";
 import { isMountedGuideTarget } from "./targets.js";
+import {
+  isCopyableAccount,
+  isEditableTutorialItem,
+  isShareableTutorialItem,
+} from "./vault-routes.js";
 
 /**
  * Whether the Connections area is currently showing at least one live
@@ -63,6 +74,8 @@ export type GuideDeviceForm = Readonly<{
   narrow: boolean;
   /** A precise pointer is attached, so Settings draws Keybindings. */
   keys: boolean;
+  /** The primary pointer is touch, regardless of the viewport width. */
+  touch?: boolean;
 }>;
 
 let deviceForm: () => GuideDeviceForm = () => ({ narrow: false, keys: true });
@@ -154,6 +167,22 @@ export const GUIDE_PREDICATES: readonly GuidePredicateDescriptor[] = [
         ),
   },
   {
+    id: "vault.has-editable-item",
+    description: "The vault has an item that can be edited.",
+    read: () => vaultStore.getSnapshot().items.some(isEditableTutorialItem),
+  },
+  {
+    id: "vault.has-shareable-item",
+    description: "The vault has an item with a value that can be shared.",
+    read: () => vaultStore.getSnapshot().items.some(isShareableTutorialItem),
+  },
+  {
+    id: "vault.has-copyable-account",
+    description:
+      "The vault has an account with a username and a password that can be copied in one step.",
+    read: () => vaultStore.getSnapshot().items.some(isCopyableAccount),
+  },
+  {
     id: "vault.has-trash",
     description:
       "The open vault has at least one item in the trash. False while it is locked.",
@@ -226,6 +255,15 @@ export const GUIDE_PREDICATES: readonly GuidePredicateDescriptor[] = [
       listAvailableUnlockMethods(vaultStore.getSnapshot().header).length > 0,
   },
   {
+    id: "vault.seal-passkey",
+    description:
+      "This browser can run a passkey ceremony, so sealing a vault leads with a passkey road and keeps the PIN as the fallback walk.",
+    read: () =>
+      checkWebauthnHost().ok &&
+      publicKeyCredentialApi() !== undefined &&
+      credentials()?.create !== undefined,
+  },
+  {
     id: "install.offered",
     description:
       "Settings draws an Install panel: this browser has an install to offer or to report that the one-gesture dialog does not cover.",
@@ -236,6 +274,12 @@ export const GUIDE_PREDICATES: readonly GuidePredicateDescriptor[] = [
     description:
       "The Connections section is showing at least one connection that has not been revoked.",
     read: () => connectionsPresent,
+  },
+  {
+    id: "connections.needs-attention",
+    description:
+      "The Connections page has an unfinished authorization to review.",
+    read: () => isMountedGuideTarget("connections.attention"),
   },
   {
     id: "connections.github.native",
@@ -265,6 +309,17 @@ export const GUIDE_PREDICATES: readonly GuidePredicateDescriptor[] = [
     description:
       "A precise pointer is attached, so Settings draws the Keybindings category.",
     read: () => deviceForm().keys,
+  },
+  {
+    id: "shell.touch",
+    description: "The primary pointer is a touchscreen.",
+    read: () => deviceForm().touch === true,
+  },
+  {
+    id: "shell.keyboard-primary",
+    description:
+      "The primary pointer is not touch and keyboard controls are available.",
+    read: () => deviceForm().keys && deviceForm().touch !== true,
   },
   {
     id: "vault.recovery-made",

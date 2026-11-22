@@ -25,11 +25,13 @@ fn unknown_fields_are_rejected_during_deserialization() {
         "version": 2,
         "cursor": {"device_id": "device", "epoch": 0},
         "blobs": [{"id": "entry", "epoch": 1, "ciphertext": [1], "extra": 1}],
-        "integrity": "00".repeat(64),
+        "integrity": "00".repeat(32),
     });
-    assert!(
-        SyncStore::from_persisted_json(&DeviceKey::generate(), &persisted.to_string()).is_err()
-    );
+    let err = match SyncStore::from_persisted_json(&DeviceKey::generate(), &persisted.to_string()) {
+        Err(error) => error.to_string(),
+        Ok(_) => panic!("persisted blob with extra field was accepted"),
+    };
+    assert!(err.contains("unknown field"), "{err}");
     let mut bad_cursor = snapshot(vec![]);
     bad_cursor["cursor"]["extra"] = json!(1);
     assert!(CiphertextSyncSnapshot::from_json(&bad_cursor.to_string()).is_err());

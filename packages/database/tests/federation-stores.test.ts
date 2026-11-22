@@ -425,6 +425,24 @@ describe.each(backends)("$name federation storage", ({ create }) => {
       ).rejects.toThrow(/already registered/);
     });
 
+    it("preserves duplicate-before-capacity semantics", async () => {
+      const first = byoUpstream();
+      const limit = (await backend.repos.byoUpstreams.count()) + 1;
+      await backend.repos.byoUpstreams.createWithinLimit(first, limit);
+      await expect(
+        backend.repos.byoUpstreams.createWithinLimit(
+          byoUpstream({ issuer: first.issuer }),
+          limit,
+        ),
+      ).rejects.toThrow(/already registered/);
+      expect(
+        await backend.repos.byoUpstreams.createWithinLimit(
+          byoUpstream(),
+          limit,
+        ),
+      ).toBeNull();
+    });
+
     it("round-trips credentials, lastUsedAt and state", async () => {
       const record = await backend.repos.byoUpstreams.create(
         byoUpstream({
@@ -587,6 +605,24 @@ describe.each(backends)("$name federation storage", ({ create }) => {
       const read = await backend.scim.users.getById(organization.id, user.id);
       expect(Object.hasOwn(read ?? {}, "externalId")).toBe(false);
       expect(Object.hasOwn(read ?? {}, "displayName")).toBe(false);
+    });
+
+    it("preserves SCIM duplicate-before-capacity semantics", async () => {
+      const organization = await seedOrganization();
+      const first = scimUser(organization.id);
+      await backend.scim.users.createWithinLimit(first, 1);
+      await expect(
+        backend.scim.users.createWithinLimit(
+          scimUser(organization.id, { userName: first.userName }),
+          1,
+        ),
+      ).rejects.toThrow(/already exists/);
+      expect(
+        await backend.scim.users.createWithinLimit(
+          scimUser(organization.id),
+          1,
+        ),
+      ).toBeNull();
     });
 
     it("findBySubject prefers externalId over userName", async () => {
@@ -948,3 +984,5 @@ describe.each(backends)("$name federation storage", ({ create }) => {
     });
   });
 });
+
+// Real-Postgres capacity races: `@postgres-race` in capacity-admission.test.ts (one shared 60s migration boot).

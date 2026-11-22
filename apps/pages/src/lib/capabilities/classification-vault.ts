@@ -234,6 +234,7 @@ export const TUTORIAL_RULES = [
       "session",
       // The first-visit offer rides in the support capability (ADR 0221).
       "first-visit/",
+      "first-vault-handoff",
       "support-controller.test-support",
       "tutorial-route.property.test",
       "use-support-route",

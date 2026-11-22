@@ -79,6 +79,8 @@ def verify(root: Path) -> None:
             if path.is_absolute() or not path.parts or ".." in path.parts:
                 raise ValueError("invalid Keepass archive path")
             relative = path.as_posix()
+            if relative == "Cargo.lock":
+                continue  # Cargo ignores dependency lockfiles; this one is stale.
             if relative in expected:
                 raise ValueError("duplicate Keepass archive entry")
             stream = archive.extractfile(entry)

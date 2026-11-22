@@ -4,7 +4,7 @@
 //! name-free operation subjects (`seal: add entry`, `seal: edit entry`,
 //! `seal: remove entry`, `seal: restore entry`), so neither the secret nor the
 //! entry it belongs to is named. History is scoped by path, not by subject. Restore never rewrites history and never winds
-//! the anti-rollback counter back: for `.osseal` entries the old plaintext is
+//! the local revision counter back: for `.osseal` entries the old plaintext is
 //! recovered and re-sealed at a **bumped** revision (writing the literal old
 //! blob would be refused by the revision check), committed as a NEW
 //! restore commit; for `.gpg`/`.age` entries — which carry no local
@@ -149,7 +149,7 @@ fn blob_at(root: &Path, rev: &str, name: &str) -> Result<Option<CommittedBlob>, 
 /// Restore an entry's content from commit `rev` as a NEW commit.
 ///
 /// Refuses when the entry's file is absent at that rev (or the rev does not
-/// exist). Returns the new anti-rollback revision for `.osseal` entries
+/// exist). Returns the new local revision for `.osseal` entries
 /// (`None` for `.gpg`/`.age`, which carry no local counter). The counter only
 /// ever advances — see the module docs for why the old blob is re-sealed
 /// rather than copied for `.osseal`.
@@ -182,7 +182,7 @@ pub fn restore_entry(
         let entry = Entry::parse(&text);
         root.write_entry_unchecked(name, &entry, key)?;
         auto_commit(&root.path, crate::store::COMMIT_RESTORE)?;
-        return Ok(root.revisions()?.get(name).copied());
+        return root.revision(name);
     }
     confined_write(&root.path, &blob.rel, &blob.bytes)?;
     auto_commit(&root.path, crate::store::COMMIT_RESTORE)?;

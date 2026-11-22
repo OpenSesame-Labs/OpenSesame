@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { TextDecoder } from "node:util";
+import { lockAffectedSuites } from "./formal-proof-lock-history.mjs";
 import {
   assertCleanWorktree,
   assertProofFiles,
@@ -14,11 +15,19 @@ import {
   inspectPolicyHistory,
   selectHistoricalSuites,
 } from "./formal-proof-push-history.mjs";
-import { remoteMain } from "./formal-proof-remote-main.mjs";
+import { pushDestination, remoteMain } from "./formal-proof-remote-main.mjs";
 import {
   registryPath,
   requirementsPath,
 } from "./formal-proof-required-suites.mjs";
+import {
+  assertProjectionRunnerHistory,
+  assertRunnerHistory,
+} from "./formal-proof-runner-history.mjs";
+import {
+  RUNNER_INVENTORY_PATH,
+  validateRunnerInventoryHistory,
+} from "./formal-proof-runner-pins.mjs";
 
 export { assertProofFiles, parseRegistry };
 
@@ -116,31 +125,11 @@ function pathSet(output) {
   return new Set(text.split("\0").filter(Boolean));
 }
 
-function pushDestination(root, remote) {
+function remoteTips(root, remote) {
   if (!remote || hasControl(remote))
     throw new Error("A remote is required to inspect a newly created ref");
-  // `ls-remote <name>` reads the fetch URL. A configured pushurl, or the
-  // pre-push hook's destination URL, is the history that selects proofs.
-  const configured = spawnSync(
-    "git",
-    ["remote", "get-url", "--push", "--", remote],
-    {
-      cwd: root,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
-  if (configured.status !== 0) return remote;
-  const url = configured.stdout.trim();
-  if (!url || hasControl(url))
-    throw new Error("A remote is required to inspect a newly created ref");
-  return url;
-}
-
-function remoteTips(root, remote) {
-  const destination = pushDestination(root, remote);
   const advertised = decoder
-    .decode(git(root, ["ls-remote", "--refs", "--", destination]))
+    .decode(git(root, ["ls-remote", "--refs", "--", remote]))
     .split("\n")
     .filter(Boolean)
     .map((line) => {
@@ -164,7 +153,7 @@ function remoteTips(root, remote) {
       "--no-recurse-submodules",
       "--filter=blob:none",
       "--",
-      destination,
+      remote,
       ...refs,
     ]);
   }
@@ -192,8 +181,7 @@ function remoteTips(root, remote) {
 
 function nonCommitTag(root, remoteRef, oid) {
   if (!remoteRef.startsWith("refs/tags/")) return false;
-  // Tags can name trees or blobs, directly or through annotated tags. They do
-  // not introduce a commit whose implementation needs proof verification.
+  // A tag naming a tree or blob introduces no commit to verify.
   const peeled = decoder
     .decode(git(root, ["rev-parse", "--verify", `${oid}^{}`]))
     .trim();
@@ -233,7 +221,7 @@ function changedForUpdate(root, ref, remote, getRemoteTips, getRemoteMain) {
         "--no-recurse-submodules",
         "--filter=blob:none",
         "--",
-        pushDestination(root, remote),
+        remote,
         ref.remoteRef,
       ]);
       previous = commit(root, ref.remoteOid);
@@ -286,7 +274,7 @@ function changedForUpdate(root, ref, remote, getRemoteTips, getRemoteMain) {
   };
 }
 
-export function planPush(root, refs, remote) {
+export function planPush(root, refs, remote, exactDestination = false) {
   if (
     refs.some((ref) => !zero(ref.localOid)) &&
     decoder
@@ -299,9 +287,12 @@ export function planPush(root, refs, remote) {
   let tips;
   let main;
   let checkedMain = false;
+  const destination = refs.some((ref) => !zero(ref.localOid))
+    ? pushDestination(root, remote, git, exactDestination)
+    : remote;
   const getTips = () => {
     if (!tips) {
-      tips = remoteTips(root, remote);
+      tips = remoteTips(root, destination);
       main = tips.main;
       checkedMain = true;
     }
@@ -309,7 +300,7 @@ export function planPush(root, refs, remote) {
   };
   const getMain = () => {
     if (!checkedMain) {
-      main = remoteMain(root, remote, { git, hasObject, commit });
+      main = remoteMain(root, destination, { git, hasObject, commit });
       checkedMain = true;
     }
     return main;
@@ -317,10 +308,15 @@ export function planPush(root, refs, remote) {
   const planned = new Map();
   const head = commit(root, "HEAD");
   for (const ref of refs) {
-    const change = changedForUpdate(root, ref, remote, getTips, getMain);
+    const change = changedForUpdate(root, ref, destination, getTips, getMain);
     if (!change) continue;
     const history = inspectPolicyHistory(root, change, head, git);
-    const selected = selectHistoricalSuites(change, history);
+    assertProjectionRunnerHistory(root, change, history, head, git);
+    const lockAffected = lockAffectedSuites(root, change, history, head, git);
+    const selected = selectHistoricalSuites(change, history, lockAffected);
+    if (change.changed.has(RUNNER_INVENTORY_PATH))
+      validateRunnerInventoryHistory(root, change, git);
+    if (selected.length) assertRunnerHistory(root, change, selected, head, git);
     if (!selected.length) continue;
     const existing = planned.get(change.target) ?? new Map();
     for (const suite of selected) existing.set(suite.id, suite);
@@ -332,8 +328,8 @@ export function planPush(root, refs, remote) {
   }));
 }
 
-export function runPushGate(root, input, remote) {
-  const plan = planPush(root, parsePushRefs(input), remote);
+export function runPushGate(root, input, remote, exactDestination = false) {
+  const plan = planPush(root, parsePushRefs(input), remote, exactDestination);
   if (!plan.length) {
     console.log("formal proof push gate: no mapped implementation changes");
     return;
@@ -388,8 +384,12 @@ if (
     const root = decoder
       .decode(git(process.cwd(), ["rev-parse", "--show-toplevel"]))
       .trim();
-    // pre-push: argv[2] is the remote name, argv[3] is this push's URL.
-    runPushGate(root, readFileSync(0), process.argv[3] ?? process.argv[2]);
+    runPushGate(
+      root,
+      readFileSync(0),
+      process.argv[3] ?? process.argv[2],
+      process.argv[3] !== undefined,
+    );
   } catch (error) {
     console.error(`formal proof push gate: ${error.message}`);
     process.exitCode = 1;

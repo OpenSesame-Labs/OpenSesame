@@ -1,14 +1,20 @@
-import { createHash } from "node:crypto";
 /**
  * Deterministic headless screenshots of the live Pages Preview deploy.
- * Single browser, single context, one page — no retry sleeps (Hurl already polled CDN).
+ * Single browser, single context, one page — no retry sleeps. Hurl and the
+ * shell-asset poll already ran. A failed step after the page exists still
+ * writes failure evidence for the CI artifact upload.
  */
-import { mkdir, writeFile } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { launchHeadlessPlaywright } from "../../../apps/pages/scripts/duress/headless-playwright.mjs";
 import { readString } from "../../lib/json-boundary.mjs";
 import { normalizePagesBase } from "./prepare-vars.mjs";
+import {
+  bootstrapSmokeEvidence,
+  redactDiagnosticText,
+} from "./smoke-failure-evidence.mjs";
 
 /**
  * The shell document `pages.hurl` proves:
@@ -110,6 +116,148 @@ async function captureFullSignInRoad(page, fullChoice, outRoot) {
   return guestPath;
 }
 
+const MAX_DIAGNOSTIC_ENTRIES = 200;
+
+function truncateEntry(entry) {
+  const out = { ...entry };
+  for (const key of ["text", "url", "error"]) {
+    const text = readString(out[key]);
+    // redactDiagnosticText replaces secrets first and only then caps the
+    // length, so no entry field can leak a sliced secret.
+    if (text !== undefined) out[key] = redactDiagnosticText(text);
+  }
+  return out;
+}
+
+/** Ring buffer: newest events win when the cap is reached. */
+export function pushDiagnostic(entries, entry) {
+  const next = truncateEntry(entry);
+  if (entries.length < MAX_DIAGNOSTIC_ENTRIES) {
+    entries.push(next);
+    return;
+  }
+  entries.shift();
+  entries.push(next);
+}
+
+function callMethod(target, name) {
+  try {
+    const method = target[name];
+    return method.call(target);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Console and network events from the live page, for a failed capture. */
+function recordPageDiagnostics(page, consoleEntries, networkEntries) {
+  try {
+    page.on("console", (message) => {
+      pushDiagnostic(consoleEntries, {
+        type: callMethod(message, "type") ?? "log",
+        text: String(callMethod(message, "text") ?? ""),
+      });
+    });
+    page.on("pageerror", (error) => {
+      const text =
+        error instanceof Error ? (error.stack ?? error.message) : String(error);
+      // No slicing before redaction: a cut secret would survive the redactor.
+      pushDiagnostic(consoleEntries, { type: "pageerror", text });
+    });
+    page.on("response", (response) => {
+      const request = callMethod(response, "request");
+      pushDiagnostic(networkEntries, {
+        url: String(callMethod(response, "url") ?? ""),
+        status: callMethod(response, "status") ?? 0,
+        method: String(callMethod(request, "method") ?? "GET"),
+      });
+    });
+    page.on("requestfailed", (request) => {
+      const failure = callMethod(request, "failure");
+      pushDiagnostic(networkEntries, {
+        url: String(callMethod(request, "url") ?? ""),
+        method: String(callMethod(request, "method") ?? "GET"),
+        error: readString(failure?.errorText) ?? "failed",
+      });
+    });
+  } catch {
+    // Stub pages in unit tests do not implement Playwright event wiring.
+  }
+}
+
+/** Evidence-write failures are diagnostics too; never let them replace the error. */
+function reportEvidenceError(error) {
+  const text =
+    error instanceof Error ? error.message : "failure evidence was not written";
+  console.error(redactDiagnosticText(text));
+}
+
+async function writeFailureFiles(
+  outRoot,
+  consoleEntries,
+  networkEntries,
+  error,
+  phase,
+) {
+  const raw =
+    error instanceof Error ? error.message : "preview smoke capture failed";
+  const message = redactDiagnosticText(raw);
+  const body = (entries) =>
+    `${JSON.stringify({ error: message, phase, entries }, null, 2)}\n`;
+  await writeFile(join(outRoot, "failure-console.json"), body(consoleEntries));
+  await writeFile(join(outRoot, "failure-network.json"), body(networkEntries));
+  await writeFile(
+    join(outRoot, "failure-summary.json"),
+    `${JSON.stringify(
+      {
+        format: "cd-pwa-preview-smoke-failure",
+        phase,
+        error: message,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+}
+
+async function writeFailureEvidence(
+  page,
+  outRoot,
+  consoleEntries,
+  networkEntries,
+  error,
+  phase,
+) {
+  try {
+    await page.screenshot({
+      path: join(outRoot, "failure-screenshot.png"),
+      animations: "disabled",
+    });
+  } catch (shotError) {
+    const text =
+      shotError instanceof Error
+        ? shotError.message
+        : "failure screenshot failed";
+    pushDiagnostic(consoleEntries, { type: "evidence", text });
+  }
+  await writeFailureFiles(
+    outRoot,
+    consoleEntries,
+    networkEntries,
+    error,
+    phase,
+  );
+}
+
+async function writePrePageFailureEvidence(
+  outRoot,
+  error,
+  consoleEntries,
+  phase = "launch",
+) {
+  await writeFailureFiles(outRoot, consoleEntries, [], error, phase);
+}
+
 export async function captureLiveSmokeEvidence(env, deps = {}) {
   const { pagesBase, sha, outRoot, repoRoot } = readCaptureInputs(env);
   const findChromium = deps.findChromium ?? (await loadFindChromium(repoRoot));
@@ -121,22 +269,42 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
     process.env.PLAYWRIGHT_CHROMIUM = discovery.path;
   }
 
-  await mkdir(outRoot, { recursive: true });
+  await bootstrapSmokeEvidence(env);
   const started = Date.now();
+  const consoleEntries = [];
+  const networkEntries = [];
   const launch =
     deps.launchHeadlessPlaywright ??
     (async () =>
       launchHeadlessPlaywright({
         args: ["--no-sandbox", "--disable-dev-shm-usage"],
       }));
-  const { browser } = await launch();
+  let browser;
+  let page;
+  try {
+    ({ browser } = await launch());
+  } catch (launchError) {
+    try {
+      await writePrePageFailureEvidence(outRoot, launchError, consoleEntries);
+      if (launchError instanceof Error) launchError.phaseWritten = true;
+    } catch (evidenceError) {
+      reportEvidenceError(evidenceError);
+    }
+    throw launchError;
+  }
+  // A browser that launched can still fail to produce a context or a page;
+  // those phases are distinct from a true launch failure.
+  let phase = "context";
   try {
     const context = await browser.newContext({
       viewport: { width: 1280, height: 720 },
       reducedMotion: "reduce",
       serviceWorkers: "block",
     });
-    const page = await context.newPage();
+    phase = "page";
+    page = await context.newPage();
+    phase = "capture";
+    recordPageDiagnostics(page, consoleEntries, networkEntries);
     const entryUrl = smokeBrowserEntryUrl(pagesBase, sha);
     await page.goto(entryUrl, {
       waitUntil: "load",
@@ -168,7 +336,35 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
       `${JSON.stringify(manifest, null, 2)}\n`,
     );
     return manifest;
+  } catch (error) {
+    try {
+      if (page !== undefined) {
+        await writeFailureEvidence(
+          page,
+          outRoot,
+          consoleEntries,
+          networkEntries,
+          error,
+          phase,
+        );
+      } else {
+        await writePrePageFailureEvidence(
+          outRoot,
+          error,
+          consoleEntries,
+          phase,
+        );
+      }
+      if (error instanceof Error) error.phaseWritten = true;
+    } catch (evidenceError) {
+      reportEvidenceError(evidenceError);
+    }
+    throw error;
   } finally {
-    await browser.close();
+    try {
+      await browser?.close()?.catch(() => undefined);
+    } catch {
+      // A synchronous close failure must not mask the capture error.
+    }
   }
 }

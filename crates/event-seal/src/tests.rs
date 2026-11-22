@@ -195,14 +195,23 @@ fn malformed_envelopes_fail_closed() {
 }
 
 #[test]
-fn truncated_and_invalid_nonce_envelopes_fail_closed() {
-    let max_header_and_tag = NONCE_LEN + WRAPPED_KEY_LEN + NONCE_LEN + 16;
-    for length in 0..=max_header_and_tag {
-        let body = URL_SAFE_NO_PAD.encode(vec![0_u8; length]);
-        assert!(sealer().open("t.c", &format!("{PREFIX}{body}")).is_err());
-        assert!(sealer()
-            .open_legacy_for_migration("t.c", &format!("{LEGACY_PREFIX}{body}"))
-            .is_err());
+fn every_truncated_envelope_is_refused_in_both_formats() {
+    for (prefix, sealed) in [
+        (PREFIX, sealer().seal("t.c", "value")),
+        (LEGACY_PREFIX, legacy_value("t.c", "value")),
+    ] {
+        let packed = URL_SAFE_NO_PAD
+            .decode(sealed.strip_prefix(prefix).unwrap())
+            .unwrap();
+        for length in 0..packed.len() {
+            let truncated = format!("{prefix}{}", URL_SAFE_NO_PAD.encode(&packed[..length]));
+            let result = if prefix == PREFIX {
+                sealer().open("t.c", &truncated)
+            } else {
+                sealer().open_legacy_for_migration("t.c", &truncated)
+            };
+            assert!(result.is_err(), "{prefix} accepted {length} bytes");
+        }
     }
 }
 

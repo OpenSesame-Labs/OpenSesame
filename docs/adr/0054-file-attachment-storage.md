@@ -55,8 +55,8 @@ provider seeing ciphertext and nothing else.
    `OSCHNK1\n` + a 24-byte nonce + XChaCha20-Poly1305 ciphertext: 48 bytes of
    overhead. Routing chunks through the existing `.osseal` envelope would have
    cost roughly 37% in base64-in-JSON expansion and held the whole payload in
-   memory. Manifests are small, so they keep the envelope and inherit its
-   anti-rollback machinery unchanged.
+   memory. Manifests are small, so they keep the envelope and are checked
+   against the authenticated outside-store rollback checkpoint.
 
 3. **Every chunk binds its position.** The AEAD associated data is the digest
    of `{envelope_version, attachment_id, item_id, chunk_index, chunk_count}`.
@@ -86,8 +86,9 @@ provider seeing ciphertext and nothing else.
 6. **Attachment ciphertext is committed and backed up like any other.**
    `auto_commit`'s allowlist gains `.osattach` and `.oschunk`, extending
    ADR 0038 §2's "only ciphertext travels" to the new file types. The local
-   anti-rollback map `.opensesame-attachment-revisions.json` is deliberately
-   excluded, exactly as the entry revision map is.
+   revision map `.opensesame-attachment-revisions.json` is deliberately
+   excluded, exactly as the entry revision map is. The independent checkpoint
+   also records attachment revisions and deletion tombstones.
 
 7. **Ordering is chunks first, manifest last.** A crash between the two leaves
    orphan objects, which are unreferenced ciphertext. `attach gc` reclaims
@@ -110,6 +111,12 @@ provider seeing ciphertext and nothing else.
    have nothing to replicate. `pass attach sync --to-dir` covers the
    encrypted-disk case with no gateway involvement at all, and needs no
    passphrase, since replication never opens what it moves.
+
+Keyed attachment access requires the outside checkpoint. Existing stores must
+explicitly anchor an independently verified attachment inventory, and all
+readers and writers must be upgraded. Passphrase-free replication cannot
+authenticate that checkpoint or prove freshness. Protect the checkpoint
+independently: restoring it and the checkout together can restore old state.
 
 ## Consequences
 

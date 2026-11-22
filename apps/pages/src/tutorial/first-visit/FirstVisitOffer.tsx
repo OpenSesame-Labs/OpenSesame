@@ -27,6 +27,12 @@ import {
   rememberTourAnswered,
   screenAnsweredThisSession,
 } from "@opensesame/app-core/lib/guidance.js";
+import {
+  sessionTutorialsPaused,
+  subscribeSessionTutorialsPaused,
+  tutorialsMaySpeak,
+} from "@opensesame/app-core/lib/tutorial-queue.js";
+import { noteTutorialDeclined } from "@opensesame/app-core/lib/tutorial-queue-present.js";
 import { firstVisitTour } from "@opensesame/app-core/tutorial/registry/first-visit.js";
 import { guideRouteWithin } from "@opensesame/app-core/tutorial/registry/routes.js";
 import {
@@ -41,6 +47,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useGuidance } from "../../lib/use-guidance.js";
+import { firstVaultSignInPending } from "../first-vault-handoff.js";
 import { gateIsPresent, subscribeGatePresence } from "../gate-presence.js";
 import { useSupport } from "../session.js";
 import { useTutorialGate } from "../ui/use-tutorial-gate.js";
@@ -100,20 +107,7 @@ type Asked = Readonly<{
 /** The sentence under the tour's name. */
 export function offerBody(steps: number): string {
   const length = steps === 1 ? "1 step" : `${steps} steps`;
-  return `New here? This walkthrough takes ${length}, on the real controls. It only points — nothing changes unless you do it.`;
-}
-
-function compactOfferBody(steps: number): string {
-  const length = steps === 1 ? "1 step" : `${steps} steps`;
-  return `${length}. It only points; you make the changes.`;
-}
-
-function bodyForOffer(offer: InlineOffer): string {
-  return offer.host.dataset.firstVisitOffer === "gate" ||
-    offer.host.dataset.firstVisitOffer === "shell" ||
-    offer.host.closest(".gate-offer-frame") !== null
-    ? compactOfferBody(offer.steps)
-    : offerBody(offer.steps);
+  return `Follow ${length} to complete this task.`;
 }
 
 function offerHost(gateScreen: boolean): HTMLElement | null {
@@ -143,17 +137,33 @@ function usePendingFirstVisit(
   // it does (below), never at the moment it was asked for.
   const asked = useRef<Asked | null>(null);
   useEffect(() => {
+    return subscribeSessionTutorialsPaused(() => {
+      if (!sessionTutorialsPaused()) return;
+      const pending = asked.current;
+      if (pending === null) return;
+      // A guide already on screen for another goal is not this row's to stop.
+      // The marker stays until this row's own tour appears, so a pause in
+      // between must not cancel whatever else is running.
+      if (running !== null && running !== pending.goal) return;
+      // The engine may still be loading. stopGuide is a no-op until a guide
+      // exists, and clearing the marker here lets that startGuide run with
+      // nothing left to cancel it. The effect below stops the tour once it
+      // appears, because this session is paused.
+      support.stopGuide("superseded");
+    });
+  }, [support, running]);
+
+  useEffect(() => {
     const pending = asked.current;
     if (pending === null || running !== pending.goal) return;
     asked.current = null;
     const onItsScreens = pending.screens.some((screen) =>
       guideRouteWithin(route, screen),
     );
-    if (!onItsScreens || mode !== "auto") {
-      // It was started for a screen the person has left, or tours were
-      // switched off meanwhile: it does not start over the wrong controls.
-      // A tour's own first move (many begin by navigating) is not leaving.
-      support.stopGuide();
+    if (!onItsScreens || mode !== "auto" || sessionTutorialsPaused()) {
+      // It was started for a screen the person has left, tours were switched
+      // off, or this session was paused while the engine was loading.
+      support.stopGuide("superseded");
       return;
     }
     noteScreenAnswered(pending.route);
@@ -173,6 +183,7 @@ type Placement = {
   support: ReturnType<typeof useSupport>["support"];
   asked: { current: Asked | null };
   githubReady: boolean;
+  paused: boolean;
 };
 
 function useFirstVisitPlacement({
@@ -186,15 +197,24 @@ function useFirstVisitPlacement({
   support,
   asked,
   githubReady,
+  paused,
 }: Placement) {
   const [inline, setInline] = useState<InlineOffer | null>(null);
   useEffect(() => {
-    if (mode === "off" || !idle || (!gateScreen && gatePresent)) return;
+    if (!tutorialsMaySpeak(mode, paused)) {
+      setInline(null);
+      return;
+    }
+    if (!idle || (!gateScreen && gatePresent)) return;
     let timer: ReturnType<typeof setTimeout>;
     const speak = () => {
       // A sheet owns the screen, or an edit is under way: wait and ask again,
       // since neither ending changes anything this effect depends on.
-      if (firstVisitSeams.modalOpen() || firstVisitSeams.editing()) {
+      if (
+        firstVaultSignInPending(route) ||
+        firstVisitSeams.modalOpen() ||
+        firstVisitSeams.editing()
+      ) {
         timer = setTimeout(speak, firstVisitSeams.retryMs);
         return;
       }
@@ -240,7 +260,10 @@ function useFirstVisitPlacement({
         title: goal.title,
         steps,
         start,
-        dismiss: answer,
+        dismiss: () => {
+          answer();
+          noteTutorialDeclined(goal.id, goal.title);
+        },
       });
     };
     timer = setTimeout(speak, firstVisitSeams.delayMs);
@@ -260,6 +283,7 @@ function useFirstVisitPlacement({
     support,
     asked,
     githubReady,
+    paused,
   ]);
   return { inline, close: () => setInline(null) };
 }
@@ -283,6 +307,11 @@ export function FirstVisitOffer({
     gateIsPresent,
     () => false,
   );
+  const paused = useSyncExternalStore(
+    subscribeSessionTutorialsPaused,
+    sessionTutorialsPaused,
+    () => false,
+  );
   const idle = !view.open && view.guide?.tour == null;
   const answered = useMemo(() => new Set(guidance.tours), [guidance.tours]);
   const mode =
@@ -303,12 +332,13 @@ export function FirstVisitOffer({
     support,
     asked,
     githubReady,
+    paused,
   });
 
   return inline && (gateScreen || !gatePresent) ? (
     <FirstVisitInlineOffer
       offer={inline}
-      body={bodyForOffer(inline)}
+      body={offerBody(inline.steps)}
       onClose={close}
     />
   ) : null;

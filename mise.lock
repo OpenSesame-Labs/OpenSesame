@@ -20,6 +20,14 @@ url = "https://dl.google.com/go/go1.26.11.linux-arm64.tar.gz"
 checksum = "sha256:9849f4e04ee35303714e34fbc3ac8ab44ea3e448a95aa182f91e3b9b79c710ec"
 url = "https://dl.google.com/go/go1.26.11.linux-amd64.tar.gz"
 
+[tools.go."platforms.linux-arm64-musl"]
+checksum = "sha256:6c2f29b458b5add0835f18b776f69c8881a6d88428f1484a6da55755e620757e"
+url = "https://dl.google.com/go/go1.26.11.linux-arm64.tar.gz"
+
+[tools.go."platforms.linux-x64-musl"]
+checksum = "sha256:9849f4e04ee35303714e34fbc3ac8ab44ea3e448a95aa182f91e3b9b79c710ec"
+url = "https://dl.google.com/go/go1.26.11.linux-amd64.tar.gz"
+
 [tools.go."platforms.macos-arm64"]
 checksum = "sha256:e3a42e67a7a8acf450ebada2b074c7ca863000ca514907b7185b45e8f5cdff57"
 url = "https://dl.google.com/go/go1.26.11.darwin-arm64.tar.gz"
@@ -43,6 +51,16 @@ url = "https://github.com/Orange-OpenSource/hurl/releases/download/8.1.0/hurl-8.
 url_api = "https://api.github.com/repos/Orange-OpenSource/hurl/releases/assets/681974520"
 
 [tools.hurl."platforms.linux-x64"]
+checksum = "sha256:b497e7ab328100c507f1f3323ebe7cc5990d831ae4f9473b74d40b02971da4ca"
+url = "https://github.com/Orange-OpenSource/hurl/releases/download/8.1.0/hurl-8.1.0-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/Orange-OpenSource/hurl/releases/assets/681974496"
+
+[tools.hurl."platforms.linux-arm64-musl"]
+checksum = "sha256:33c39409d4a24febb91d3766d3a5cb4074b7b86ad89d612f26fa35ab5e8cec79"
+url = "https://github.com/Orange-OpenSource/hurl/releases/download/8.1.0/hurl-8.1.0-aarch64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/Orange-OpenSource/hurl/releases/assets/681974520"
+
+[tools.hurl."platforms.linux-x64-musl"]
 checksum = "sha256:b497e7ab328100c507f1f3323ebe7cc5990d831ae4f9473b74d40b02971da4ca"
 url = "https://github.com/Orange-OpenSource/hurl/releases/download/8.1.0/hurl-8.1.0-x86_64-unknown-linux-gnu.tar.gz"
 url_api = "https://api.github.com/repos/Orange-OpenSource/hurl/releases/assets/681974496"
@@ -75,6 +93,13 @@ url = "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0
 checksum = "sha256:3808d1d15e3ec6bd5b84057fb5d84c33d8a1536a258146bcea2e603fc726e08e"
 url = "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20.1%2B1/OpenJDK17U-jdk_x64_linux_hotspot_17.0.20.1_1.tar.gz"
 
+# linux-arm64-musl is omitted. Adoptium publishes no Temurin Alpine/musl
+# aarch64 JDK. Apple Silicon devcontainers use apk openjdk17 instead.
+
+[tools.java."platforms.linux-x64-musl"]
+checksum = "sha256:0c4fcdefa2737ccd66e049245fdb9dc431f91796182141204cd5f8192cb288e6"
+url = "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20.1%2B1/OpenJDK17U-jdk_x64_alpine-linux_hotspot_17.0.20.1_1.tar.gz"
+
 [tools.java."platforms.macos-arm64"]
 checksum = "sha256:196d13ba5f10414bef7f6a05a9b3f00edacb18ebacef2b99485db9e2ee18f0e8"
 url = "https://github.com/adoptium/temurin17-binaries/releases/download/jdk-17.0.20.1%2B1/OpenJDK17U-jdk_aarch64_mac_hotspot_17.0.20.1_1.tar.gz"
@@ -99,6 +124,14 @@ url = "https://nodejs.org/dist/v24.22.2/node-v24.22.2-linux-arm64.tar.gz"
 [tools.node."platforms.linux-x64"]
 checksum = "sha256:361718c444e49af2ca5a110c83ba6a8901143f23ab285ebbef0341f391f482a9"
 url = "https://nodejs.org/dist/v24.22.2/node-v24.22.2-linux-x64.tar.gz"
+
+[tools.node."platforms.linux-arm64-musl"]
+checksum = "sha256:70afd250a927fbc32f3d95a58597efdf14aa8ad194e894268f9b8309a2dab84e"
+url = "https://unofficial-builds.nodejs.org/download/release/v24.22.2/node-v24.22.2-linux-arm64-musl.tar.gz"
+
+[tools.node."platforms.linux-x64-musl"]
+checksum = "sha256:11ebd16c8d7819c0675211225505273d7aea305a8dd85a9c0aeb1fbec2343320"
+url = "https://nodejs.org/dist/v24.22.2/node-v24.22.2-linux-x64-musl.tar.gz"
 
 [tools.node."platforms.macos-arm64"]
 checksum = "sha256:aa9549349e47dffaa42dcf95d6e06ade8c4bdafc980979883b88767670df385a"

@@ -1,0 +1,400 @@
+//! One-element tuple patterns that bind a dispatch function item.
+pub(super) fn tuple_binding_name(source: &str, head: usize) -> Option<String> {
+    let path_start = super::alias::path_prefix_start(source, head);
+    let (open, element) = tuple_open_and_index(source, path_start)?;
+    let eq = super::peel::eq_before(source.as_bytes(), open)?;
+    let tail = super::alias::statement_tail(&source[..eq]);
+    let paren = first_code_byte(tail, b'(')?;
+    if !let_introduces_pattern(&tail[..paren]) {
+        return None;
+    }
+    let inside = paren_inside(&tail[paren..])?;
+    let elements = tuple_elements(inside);
+    let elem = elements.get(element)?.trim();
+    pattern_name(elem)
+}
+
+fn tuple_open_and_index(source: &str, path_start: usize) -> Option<(usize, usize)> {
+    let bytes = source.as_bytes();
+    // `((Path::send),)` — the inner paren is grouping. Peel it so the comma
+    // walk starts inside the tuple paren that `=` introduces.
+    let mut index = super::peel::peel_expr_prefix(bytes, path_start, true)?;
+    if index == 0 {
+        return None;
+    }
+    // `";"` and `';'` are not statement ends. Comments are not either.
+    let code = super::peel::code_mask(bytes);
+    let mut depth = 0i32;
+    // `<>` tracking: a comma inside an earlier element's turbofish
+    // (`foo::<A, B>(x)`) is not a tuple comma. Every `>` at depth 0 opens a
+    // region — a generic close (`>>` coalesces nested closes into stacked
+    // regions), a comparison, or a shift. Depth-0 commas wait in their
+    // region: popped regions whose close is a turbofish `::<` are discarded
+    // (their commas were generic args); any other close or the tuple paren
+    // itself commits them as real separators, because a comparison region
+    // that never meets its `<` held tuple commas after all.
+    let mut regions: Vec<usize> = Vec::new();
+    let mut commas = 0usize;
+    while index > 0 {
+        index -= 1;
+        if !code[index] {
+            continue;
+        }
+        match bytes[index] {
+            b')' | b']' | b'}' => depth += 1,
+            b'(' | b'[' | b'{' if depth > 0 => depth -= 1,
+            b'(' if depth == 0 => {
+                commas += regions.iter().sum::<usize>();
+                return Some((index, commas));
+            }
+            b'>' if depth == 0
+                && !matches!(bytes.get(index.wrapping_sub(1)), Some(b'-' | b'=')) =>
+            {
+                regions.push(0);
+            }
+            b'<' if depth == 0 => {
+                let held = regions.pop().unwrap_or(0);
+                if bytes.get(index.wrapping_sub(1)) == Some(&b':') {
+                    // `::<A, B>`: the held commas were generic args.
+                } else if let Some(top) = regions.last_mut() {
+                    // A comparison/generic close inside an outer region rides
+                    // along to the outer region's own decision.
+                    *top += held;
+                } else {
+                    commas += held;
+                }
+            }
+            b',' if depth == 0 => {
+                if let Some(top) = regions.last_mut() {
+                    *top += 1;
+                } else {
+                    commas += 1;
+                }
+            }
+            // `==` / `!=` / `<=` / `>=` / `=>` inside an earlier element are
+            // not the tuple-introducing `=`: skip them like `peel::eq_before`.
+            b'=' if depth == 0 && compound_eq(bytes, index) => {}
+            b'=' | b';' | b'{' if depth == 0 && regions.is_empty() => return None,
+            _ => {}
+        }
+    }
+    None
+}
+
+/// `=` that is part of `==` / `!=` / `<=` / `>=` / `=>`, like `eq_before`.
+fn compound_eq(bytes: &[u8], eq: usize) -> bool {
+    if matches!(
+        eq.checked_sub(1).and_then(|prev| bytes.get(prev)),
+        Some(b'=' | b'!' | b'<' | b'>')
+    ) {
+        return true;
+    }
+    matches!(bytes.get(eq + 1), Some(b'=' | b'>'))
+}
+
+fn paren_inside(at_paren: &str) -> Option<&str> {
+    let bytes = at_paren.as_bytes();
+    if bytes.first() != Some(&b'(') {
+        return None;
+    }
+    let code = super::peel::code_mask(bytes);
+    let mut depth = 0i32;
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if !code[index] {
+            index += 1;
+            continue;
+        }
+        match bytes[index] {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&at_paren[1..index]);
+                }
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    None
+}
+
+fn tuple_elements(inside: &str) -> Vec<&str> {
+    let bytes = inside.as_bytes();
+    let code = super::peel::code_mask(bytes);
+    let (mut depth, mut index, mut start) = (0i32, 0usize, 0usize);
+    let mut out = Vec::new();
+    while index < bytes.len() {
+        if !code[index] {
+            index += 1;
+            continue;
+        }
+        match bytes[index] {
+            b'(' | b'[' | b'{' | b'<' => depth += 1,
+            b')' | b']' | b'}' | b'>' if depth > 0 => depth -= 1,
+            b',' if depth == 0 => {
+                out.push(inside[start..index].trim());
+                start = index + 1;
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    out.push(inside[start..].trim());
+    out
+}
+
+/// First `target` byte that is not inside a string or comment.
+fn first_code_byte(source: &str, target: u8) -> Option<usize> {
+    let bytes = source.as_bytes();
+    let code = super::peel::code_mask(bytes);
+    bytes
+        .iter()
+        .enumerate()
+        .position(|(index, byte)| code[index] && *byte == target)
+}
+
+fn pattern_name(elem: &str) -> Option<String> {
+    let mut elem = trim_code_ends(elem);
+    if let Some(rest) = strip_kw(elem, "mut") {
+        elem = trim_code_ends(rest);
+    }
+    if let Some(rest) = strip_kw(elem, "ref") {
+        elem = trim_code_ends(rest);
+        if let Some(rest) = strip_kw(elem, "mut") {
+            elem = trim_code_ends(rest);
+        }
+    }
+    let name: String = elem
+        .chars()
+        .take_while(|ch| super::is_ident_char(*ch))
+        .collect();
+    if name.is_empty() || name == "_" {
+        return None;
+    }
+    let rest = trim_code_ends(elem[name.len()..].trim_start());
+    if rest.starts_with('@') {
+        // `dispatch @ _` binds the name across the whole subpattern.
+        return Some(name);
+    }
+    (rest.is_empty() || rest.starts_with(':')).then_some(name)
+}
+
+fn strip_kw<'a>(source: &'a str, keyword: &str) -> Option<&'a str> {
+    let rest = source.strip_prefix(keyword)?;
+    rest.chars()
+        .next()
+        .is_none_or(|ch| !super::is_ident_char(ch))
+        .then(|| rest.trim_start())
+}
+
+/// `let (name,)` or `let /* c */ mut (name,)`. Comments are not code.
+fn let_introduces_pattern(before_paren: &str) -> bool {
+    let before = trim_code_end(before_paren);
+    if ends_with_kw(before, "let") {
+        return true;
+    }
+    let Some(rest) = before.strip_suffix("mut") else {
+        return false;
+    };
+    if rest.chars().next_back().is_some_and(super::is_ident_char) {
+        return false;
+    }
+    ends_with_kw(trim_code_end(rest), "let")
+}
+
+fn trim_code_end(source: &str) -> &str {
+    let (end, _) = code_ends(source);
+    &source[..end]
+}
+
+fn trim_code_ends(source: &str) -> &str {
+    let (end, start) = code_ends(source);
+    &source[start..end]
+}
+
+/// `(end, start)` of the code span, skipping whitespace and comments at both ends.
+fn code_ends(source: &str) -> (usize, usize) {
+    let bytes = source.as_bytes();
+    let code = super::peel::code_mask(bytes);
+    let mut start = 0usize;
+    let mut end = bytes.len();
+    while start < end && (bytes[start].is_ascii_whitespace() || !code[start]) {
+        start += 1;
+    }
+    while end > start && (bytes[end - 1].is_ascii_whitespace() || !code[end - 1]) {
+        end -= 1;
+    }
+    (end, start)
+}
+
+#[cfg(test)]
+mod probes {
+    use super::super::super::sync_target_pact_https::credentialed_send_https_gaps;
+    use super::super::dispatch_alias_calls;
+
+    #[test]
+    fn council_p1_string_semicolon_keeps_tuple_send_alias() {
+        let hits = [
+            r#"fn f() { let (a, dispatch) = (";".into(), Path::send); dispatch(request); }"#,
+            r#"fn f() { let (a, dispatch) = (';', Path::send); dispatch(request); }"#,
+            r#"fn f() { let (a, dispatch) = ("{".into(), Path::send); dispatch(request); }"#,
+            r#"fn f() { let (a, dispatch) = ("=".into(), reqwest::RequestBuilder::send); dispatch(request); }"#,
+        ];
+        for sample in hits {
+            assert_eq!(dispatch_alias_calls(sample).len(), 1, "{sample}");
+        }
+        let bare = r#"async fn f() { let (a, dispatch) = (";".into(), Path::send); dispatch(request).await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(bare), (1, 1), "{bare}");
+        let guarded = r#"async fn f() { if parsed.scheme() != "https" { return Err("x".into()); } let (a, dispatch) = (";".into(), Path::send); dispatch(request).await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
+        let other = r#"fn f() { let (a, dispatch) = (";".into(), other); dispatch(request); }"#;
+        assert!(
+            super::super::dispatch_alias_calls(other).is_empty(),
+            "{other}"
+        );
+    }
+
+    #[test]
+    fn chunk01_comment_in_tuple_pattern_keeps_send_alias() {
+        let hits = [
+            "fn f() { let /* c */ (dispatch,) = (Path::send,); dispatch(request); }",
+            "fn f() { let // c\n (dispatch,) = (Path::send,); dispatch(request); }",
+            "fn f() { let /* c */ mut /* d */ (dispatch,) = (Path::send,); dispatch(request); }",
+            "fn f() { let /* ( */ (dispatch,) = (Path::send,); dispatch(request); }",
+            "fn f() { let (dispatch /* ) */,) = (Path::send,); dispatch(request); }",
+            "fn f() { let (/* ) */ dispatch,) = (Path::send,); dispatch(request); }",
+            "fn f() { let (/* , */ dispatch,) = (Path::send,); dispatch(request); }",
+            "fn f() { if cond { a; } let /* c */ (dispatch,) = (Path::send,); dispatch(request); }",
+        ];
+        for sample in hits {
+            assert_eq!(dispatch_alias_calls(sample).len(), 1, "{sample}");
+        }
+        let bare =
+            "async fn f() { let /* c */ (dispatch,) = (Path::send,); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(bare), (1, 1), "{bare}");
+        let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let (dispatch /* ) */,) = (Path::send,); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
+        let misses = [
+            "fn f() { let /* c */ (n,) = (Path::send,); dispatch(request); }",
+            "fn f() { let (/* ) */ n,) = (Path::send,); dispatch(request); }",
+            "fn f() { let /* dispatch */ (n,) = (Path::send,); dispatch(request); }",
+        ];
+        for sample in misses {
+            assert!(
+                super::super::dispatch_alias_calls(sample).is_empty(),
+                "{sample}"
+            );
+        }
+    }
+
+    /// `==` / `!=` / `<=` / `>=` inside an earlier element are not the
+    /// tuple's assignment `=`: the walk must skip them like `eq_before`, or
+    /// the alias binding silently disappears (GLM council chunk02).
+    #[test]
+    fn chunk02_comparison_in_earlier_tuple_element_keeps_send_alias() {
+        let hits = [
+            "fn f() { let (a, dispatch) = (x == y, Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (x != y, Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (x <= y, Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (x >= y, Path::send); dispatch(request); }",
+            "fn f() { let (a, b, dispatch) = (x == y, z, Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = ((x == y).then_some(z), Path::send); dispatch(request); }",
+        ];
+        for sample in hits {
+            assert_eq!(dispatch_alias_calls(sample).len(), 1, "{sample}");
+        }
+        let bare =
+            "async fn f() { let (a, dispatch) = (x == y, Path::send); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(bare), (1, 1), "{bare}");
+        let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let (a, dispatch) = (x == y, Path::send); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
+        let single_eq = "fn f() { let a = (x == y, Path::send); dispatch(request); }";
+        assert!(
+            super::super::dispatch_alias_calls(single_eq).is_empty(),
+            "{single_eq}"
+        );
+    }
+
+    /// A comma inside an earlier element's turbofish (`foo::<A, B>(x)`) is
+    /// not a tuple comma: counting it gives `Path::send` the wrong element
+    /// index and drops the alias dispatch (Kimi council chunk02 P1).
+    #[test]
+    fn kimi_council_r2_turbofish_comma_in_earlier_element_keeps_send_alias() {
+        let hits = [
+            "fn f() { let (a, dispatch) = (foo::<A, B>(x), Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (Some::<A, B>, Path::send); dispatch(request); }",
+            "fn f() { let (a, b, dispatch) = (x, foo::<A, B>(y), Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (foo::<HashMap<String, Vec<u8>>, Other>(x), Path::send); dispatch(request); }",
+        ];
+        for sample in hits {
+            assert_eq!(dispatch_alias_calls(sample).len(), 1, "{sample}");
+        }
+        let bare = "async fn f() { let (a, dispatch) = (foo::<A, B>(x), Path::send); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(bare), (1, 1), "{bare}");
+        let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let (a, dispatch) = (foo::<A, B>(x), Path::send); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
+        // Comparisons in earlier elements still count their real tuple commas.
+        let cmp = [
+            "fn f() { let (a, dispatch) = (x >= y, Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (x > y, Path::send); dispatch(request); }",
+            "fn f() { let (a, b, dispatch) = (q, x >= y, Path::send); dispatch(request); }",
+        ];
+        for sample in cmp {
+            assert_eq!(dispatch_alias_calls(sample).len(), 1, "{sample}");
+        }
+    }
+
+    /// `let (dispatch @ _,) = …` binds `dispatch` across the whole
+    /// subpattern, so the later call is still a credentialed alias dispatch.
+    #[test]
+    fn chunk02_at_subpattern_tuple_keeps_send_alias() {
+        let hits = [
+            "fn f() { let (dispatch @ _,) = (Path::send,); dispatch(request); }",
+            "fn f() { let (mut dispatch @ _,) = (Path::send,); dispatch(request); }",
+            "fn f() { let (dispatch @ Some(_),) = (Path::send,); dispatch(request); }",
+            "fn f() { let (dispatch /* c */ @ _,) = (Path::send,); dispatch(request); }",
+        ];
+        for sample in hits {
+            assert_eq!(dispatch_alias_calls(sample).len(), 1, "{sample}");
+        }
+        let bare =
+            "async fn f() { let (dispatch @ _,) = (Path::send,); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(bare), (1, 1), "{bare}");
+        let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let (dispatch @ _,) = (Path::send,); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
+    }
+
+    /// A `>` run walking left (`>>` nested generic closes, a shift, or a
+    /// comparison after a turbofish call) must not leave a turbofish region
+    /// unclosed at the tuple paren: its generic-arg commas would be committed
+    /// as tuple separators and `Path::send` would get the wrong element index
+    /// (Kimi council chunk02 P1).
+    #[test]
+    fn kimi_council_r4_generic_close_run_keeps_element_index() {
+        let hits = [
+            "fn f() { let (a, dispatch) = (foo::<A, B>(x) > y, Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (foo::<A, B>(x) >> y, Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (foo::<HashMap<String, Vec<u8>>, Other>(x) > y, Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (foo::<{1 > 2}, B>(x), Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (foo::<A, B>(x > y), Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (x > foo::<A, B>(y), Path::send); dispatch(request); }",
+        ];
+        for sample in hits {
+            assert_eq!(dispatch_alias_calls(sample).len(), 1, "{sample}");
+        }
+        let bare = "async fn f() { let (a, dispatch) = (foo::<A, B>(x) > y, Path::send); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(bare), (1, 1), "{bare}");
+        let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let (a, dispatch) = (foo::<A, B>(x) > y, Path::send); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
+    }
+}
+
+pub(super) fn ends_with_kw(source: &str, keyword: &str) -> bool {
+    source.strip_suffix(keyword).is_some_and(|rest| {
+        rest.chars()
+            .next_back()
+            .is_none_or(|ch| !super::is_ident_char(ch))
+    })
+}

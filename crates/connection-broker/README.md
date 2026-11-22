@@ -52,7 +52,11 @@ and sync targets, and the connector transport.
 Environment read by `BrokerConfig`: `OPENSESAME_CONNECTION_KEY` (the sealing
 key; without it credential storage is disabled), `OPENSESAME_PUBLIC_URL`
 (default `http://127.0.0.1:8787`), `OPENSESAME_CONNECTION_REDIRECT_ALLOWLIST`,
-and per-provider `OPENSESAME_PROVIDER_<ID>_CLIENT_ID` and related variables.
+`OPENSESAME_CUSTOM_PROVIDER_PRIVATE_ORIGINS`,
+`OPENSESAME_CUSTOM_PROVIDER_TOKEN_ORIGINS`, and per-provider
+`OPENSESAME_PROVIDER_<ID>_CLIENT_ID` and related variables. The custom-provider
+lists are operator-owned, comma-separated HTTPS origins; private origins and
+cross-origin token endpoints need separate authorization.
 
 The opt-in `testkit` feature provides
 `ConnectionBroker::new_without_system_proxy`, which constructs both credential

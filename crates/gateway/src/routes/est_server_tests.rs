@@ -266,3 +266,6 @@ mod certificate_proof;
 
 #[path = "est_source_budget_tests.rs"]
 mod source_budget;
+
+#[path = "est_mint_withdrawal_tests.rs"]
+mod mint_withdrawal;

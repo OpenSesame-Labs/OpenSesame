@@ -5,6 +5,9 @@ import { peerStates } from "./live-rtc.mjs";
 
 const PIN = "48291037";
 
+/** Only an unsettled connection is eligible for the loopback retry. */
+export class LiveConnectionTimeout extends Error {}
+
 /** These two browsers share a machine; authorize its address through Routes. */
 export async function nameKeyboardMachine(page, tabTo) {
   const panel = page.getByRole("dialog", {
@@ -45,7 +48,13 @@ export async function allowKeyboardMachine(page, tabTo) {
 
 /** Joining opens the person's own vault; return to shared items with keys. */
 export async function reopenKeyboardSession(page, tabTo, focusIn) {
-  await expect(inLiveSession(page)).toBeAttached({ timeout: 45_000 });
+  try {
+    await expect(inLiveSession(page)).toBeAttached({ timeout: 45_000 });
+  } catch (cause) {
+    throw new LiveConnectionTimeout("The live session did not connect", {
+      cause,
+    });
+  }
   await focusIn(page, ".vault", "after Connect opens the local vault");
   const open = page
     .getByRole("button", { name: "Open live session", exact: true })
