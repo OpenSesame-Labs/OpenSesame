@@ -76,7 +76,7 @@ async fn pending_pairing(st: &crate::app_state::AppState, user_code: &str, devic
             dpop_jkt: "test-jkt",
             audience: &st.resource,
             capabilities_json: "[\"host.sync.read\"]",
-            now: chrono::Utc::now().timestamp(),
+            now: opensesame_time::Utc::now().timestamp(),
         })
         .await
         .unwrap();
@@ -118,7 +118,7 @@ async fn failed_role_provision_leaves_no_redeemable_approval_and_allows_retry() 
         .await
         .unwrap();
     assert_eq!(failed.status(), StatusCode::SERVICE_UNAVAILABLE);
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     let digest = hash_low_entropy(&st.claim_pepper, "browser-pairing-v1", code);
     assert!(st
         .db
@@ -196,7 +196,7 @@ async fn a_denied_or_expired_pairing_cannot_create_a_role() {
     pending_pairing(&st, "LMNP-QRST", "synthetic-expired-device").await;
     let digest = hash_low_entropy(&st.claim_pepper, "browser-pairing-v1", "LMNP-QRST");
     sqlx::query("UPDATE browser_pairings SET expires_at=? WHERE user_code_digest=?")
-        .bind(chrono::Utc::now().timestamp() - 1)
+        .bind(opensesame_time::Utc::now().timestamp() - 1)
         .bind(digest)
         .execute(st.db.pool())
         .await
@@ -248,7 +248,7 @@ async fn pairing_expired_while_waiting_for_storage_is_not_approved() {
     pending_pairing(&st, code, "synthetic-expiring-device").await;
     let digest = hash_low_entropy(&st.claim_pepper, "browser-pairing-v1", code);
     sqlx::query("UPDATE browser_pairings SET expires_at=? WHERE user_code_digest=?")
-        .bind(chrono::Utc::now().timestamp() + 1)
+        .bind(opensesame_time::Utc::now().timestamp() + 1)
         .bind(digest)
         .execute(st.db.pool())
         .await

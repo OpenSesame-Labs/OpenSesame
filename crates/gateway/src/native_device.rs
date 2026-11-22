@@ -4,7 +4,7 @@ use crate::{
     middleware::auth::same_principal_subject,
     session_claims::HostSessionClaims,
 };
-use chrono::Utc;
+use opensesame_time::Utc;
 use opensesame_claims::{hash_eq, hash_low_entropy, hash_secret};
 use sqlx::Row;
 
