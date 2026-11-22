@@ -252,7 +252,36 @@ mod tests {
         );
         let view = claims.public_view();
         assert_eq!(view["assurance"], "local_unverified");
-        for field in ["session_id", "session_digest", "access_token", "token"] {
+        for field in [
+            "principal_id",
+            "approved_as",
+            "organization_id",
+            "organization_role",
+            "client_id",
+            "audience",
+            "assurance",
+            "auth_time",
+            "amr",
+            "last_step_up_at",
+            "capability_ceiling",
+            "project_id",
+            "actor_id",
+            "credential_handle",
+            "issued_at",
+            "expires_at",
+            "local_session",
+            "membership_incarnation",
+            "authority_revision",
+        ] {
+            assert!(view.get(field).is_some(), "missing public field {field}");
+        }
+        for field in [
+            "session_id",
+            "session_digest",
+            "access_token",
+            "token",
+            "issuer",
+        ] {
             assert!(view.get(field).is_none());
         }
     }
