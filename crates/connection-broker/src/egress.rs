@@ -38,6 +38,24 @@ const RESERVED_HEADERS: &[&str] = &[
     "transfer-encoding",
 ];
 
+/// Build the no-proxy, no-redirect client for one credentialed request.
+/// Catalog providers get the DNS-pinned client that resolved the approved
+/// authority once; custom providers get the operator-policy client that vets
+/// every DNS answer (ADR 0115).
+pub(crate) async fn credentialed_egress_client(
+    config: &crate::config::BrokerConfig,
+    provider_id: &str,
+    url: &str,
+    timeout: Duration,
+) -> Result<reqwest::Client> {
+    if provider_id.starts_with(crate::CUSTOM_PROVIDER_PREFIX) {
+        let endpoint = url::Url::parse(url)
+            .map_err(|_| BrokerError::Invalid("malformed custom provider URL".into()))?;
+        return config.custom_egress().client(&endpoint, timeout).await;
+    }
+    credentialed_client(url, timeout).await
+}
+
 fn credential_header(auth: &AuthMethod, tokens: &TokenSet) -> Result<(String, String)> {
     match auth {
         AuthMethod::OAuth2AuthCode { .. } | AuthMethod::OpenRouterPkce { .. } => Ok((
@@ -235,7 +253,13 @@ impl ConnectionBroker {
                 )));
             }
         }
-        let client = credentialed_client(url, Duration::from_secs(60)).await?;
+        let client = credentialed_egress_client(
+            &self.config,
+            &row.provider_id,
+            url,
+            Duration::from_secs(60),
+        )
+        .await?;
 
         let key = *self.sealing_key()?;
         let credential = store::get_credential(&self.pool, &row.id)

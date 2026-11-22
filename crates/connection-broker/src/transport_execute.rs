@@ -214,7 +214,7 @@ impl ConnectorTransportExecutor {
         })?;
 
         // 6. Only now is the sealed credential opened, for this one request.
-        invoker.ensure_pinned_destination(&prepared)?;
+        invoker.validate_pinned_destination(&prepared)?;
         let token = credential.open_bearer(ctx).await?;
 
         // 7. The wire.

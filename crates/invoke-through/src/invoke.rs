@@ -246,7 +246,7 @@ impl Invoker {
     /// dial the approved IP on an unapproved port. Requiring every returned
     /// socket to agree also prevents a mixed-port pin set from being widened
     /// by that rewrite.
-    pub(crate) fn validate_pinned_destination(
+    pub fn validate_pinned_destination(
         &self,
         prepared: &PreparedRequest,
     ) -> Result<(), InvokeError> {
@@ -260,7 +260,7 @@ impl Invoker {
                 80
             }
         });
-        if prepared.host != *host
+        if !prepared.host.eq_ignore_ascii_case(host)
             || addresses.is_empty()
             || addresses
                 .iter()

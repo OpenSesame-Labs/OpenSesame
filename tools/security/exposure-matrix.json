@@ -7,10 +7,19 @@
       "area": "hosted-drop",
       "flow": "hosted-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["ciphertext", "guess-oracle"],
+      "artifacts": [
+        "ciphertext",
+        "guess-oracle"
+      ],
       "verification": "server",
-      "controls": ["mandatory-proof", "bearer-before-budget"],
-      "guarantees": ["single-use", "expiry"],
+      "controls": [
+        "mandatory-proof",
+        "bearer-before-budget"
+      ],
+      "guarantees": [
+        "single-use",
+        "expiry"
+      ],
       "enforcement": "authoritative",
       "entropyBits": 40,
       "minSecretBytes": 0,
@@ -52,7 +61,7 @@
         "packages/control-plane/src/__tests__/claims-present.test.ts",
         "packages/app-core/src/lib/vault/drop-present.test.ts"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-21: classified dependency-only change to packages/control-plane/package.json for the Dependabot npm-minor-and-patch batch #2855 (hono 4.13.16 to 4.13.18, @hono/node-server 2.1.6 to 2.1.8, jose 6.2.15 to 6.2.17, nodemailer 10.3.1 to 10.5.0, @electric-sql/pglite 0.5.15 to 0.5.16); no route, store or policy code changed. Regressions executed at the bump head: claims-drop-completion.security.test.ts, claims-drop-code.security.test.ts and claims-present.test.ts (20 tests in 3 files), os-domain claim-token.test.ts and claim-token-extended.test.ts (23 tests in 2), app-core drop-present.test.ts within a 12-file targeted run (161 tests); npm run audit:exposure CLEAN after the rotation. The manifest fingerprint is deterministic output of the reviewed byte change, not a blind refresh."
     },
     {
       "id": "portable-secret-drop",
@@ -60,9 +69,15 @@
       "area": "portable-drop",
       "flow": "portable-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["ciphertext"],
+      "artifacts": [
+        "ciphertext"
+      ],
       "verification": "code-aead",
-      "controls": ["code-derived-aead", "bounded-kdf", "cryptographic-random"],
+      "controls": [
+        "code-derived-aead",
+        "bounded-kdf",
+        "cryptographic-random"
+      ],
       "guarantees": [],
       "enforcement": "advisory",
       "entropyBits": 80,
@@ -94,7 +109,9 @@
       "area": "portable-drop",
       "flow": "hosted-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["payload-key"],
+      "artifacts": [
+        "payload-key"
+      ],
       "verification": "none",
       "controls": [],
       "guarantees": [],
@@ -129,7 +146,7 @@
         "packages/ceremony-kit/src/claim-link.test.ts",
         "packages/ceremony-kit/src/claim-stash.test.ts"
       ],
-      "review": "The hosted share link exposes its payload key without the separate code. Only the server-withheld ciphertext is code-gated; this key cannot borrow that protection."
+      "review": "The hosted share link exposes its payload key without the separate code. Only the server-withheld ciphertext is code-gated; this key cannot borrow that protection. 2026-11-21: classified dependency-only change to packages/app-core/package.json for the Dependabot npm-minor-and-patch batch #2855 (better-auth 1.7.22, jose 6.2.17, xmldsigjs/xml-core 3.1.0, hash-wasm 4.13.0, effect 4.1.4, ai 7.0.172, @azure/msal-browser 5.29.1, @vercel/connect 2.9.2, @scure/bip32 2.4.0, fake-indexeddb 6.2.8, @ai-sdk/provider 4.0.38); no link, stash or drop code changed. Regressions executed at the bump head: drop.test.ts, arrival.test.ts, link.test.ts, stash.test.ts and route-model.test.ts, plus the full ceremony-kit suite incl. claim-link and claim-stash (268 tests in 20 files); npm run audit:exposure CLEAN after the rotation. The manifest fingerprint is deterministic output of the reviewed byte change, not a blind refresh."
     },
     {
       "id": "portable-link-key",
@@ -137,7 +154,9 @@
       "area": "portable-drop",
       "flow": "portable-secret-drop",
       "observer": "link-holder",
-      "artifacts": ["payload-key"],
+      "artifacts": [
+        "payload-key"
+      ],
       "verification": "none",
       "controls": [],
       "guarantees": [],
@@ -173,7 +192,7 @@
         "packages/ceremony-kit/src/claim-link.test.ts",
         "packages/ceremony-kit/src/claim-stash.test.ts"
       ],
-      "review": "The fragment exposes the payload key without the code. The portable manifest containing the payload ciphertext remains protected by the independent code-derived AEAD envelope."
+      "review": "The fragment exposes the payload key without the code. The portable manifest containing the payload ciphertext remains protected by the independent code-derived AEAD envelope. 2026-11-21: classified dependency-only change to packages/app-core/package.json for the Dependabot npm-minor-and-patch batch #2855 (same reviewed bump set recorded under hosted-link-key); no portable-drop code changed. Regressions executed at the bump head: drop.test.ts, arrival.test.ts, link.test.ts, stash.test.ts and route-model.test.ts, plus the full ceremony-kit suite (268 tests in 20 files); npm run audit:exposure CLEAN after the rotation. The manifest fingerprint is deterministic output of the reviewed byte change, not a blind refresh."
     },
     {
       "id": "account-totp",
@@ -181,9 +200,13 @@
       "area": "account-totp",
       "flow": "account-totp",
       "observer": "authenticated",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
-      "controls": ["mandatory-proof"],
+      "controls": [
+        "mandatory-proof"
+      ],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -227,9 +250,15 @@
       "area": "est-enrollment",
       "flow": "est-password",
       "observer": "public",
-      "artifacts": ["public-certificate", "guess-oracle"],
+      "artifacts": [
+        "public-certificate",
+        "guess-oracle"
+      ],
       "verification": "server",
-      "controls": ["mandatory-proof", "trusted-budget-source"],
+      "controls": [
+        "mandatory-proof",
+        "trusted-budget-source"
+      ],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -284,9 +313,13 @@
       "area": "est-enrollment",
       "flow": "est-policy",
       "observer": "authenticated",
-      "artifacts": ["authority-api"],
+      "artifacts": [
+        "authority-api"
+      ],
       "verification": "signature",
-      "controls": ["preserve-policy-on-omission"],
+      "controls": [
+        "preserve-policy-on-omission"
+      ],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
@@ -296,7 +329,9 @@
         "crates/gateway/src/routes/est_server.rs",
         "crates/gateway/src/routes/est_config_policy.rs"
       ],
-      "regressions": ["crates/gateway/src/routes/est_server_tests_budget.rs"],
+      "regressions": [
+        "crates/gateway/src/routes/est_server_tests_budget.rs"
+      ],
       "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
     },
     {
@@ -305,9 +340,15 @@
       "area": "est-enrollment",
       "flow": "est-client-certificate",
       "observer": "network-peer",
-      "artifacts": ["public-certificate", "certificate-binding"],
+      "artifacts": [
+        "public-certificate",
+        "certificate-binding"
+      ],
       "verification": "signature",
-      "controls": ["originating-client-proof", "exact-bootstrap-trust"],
+      "controls": [
+        "originating-client-proof",
+        "exact-bootstrap-trust"
+      ],
       "guarantees": [],
       "enforcement": "authoritative",
       "entropyBits": 0,
@@ -348,7 +389,9 @@
       "area": "host-admission",
       "flow": "host-testkit-listener",
       "observer": "network-peer",
-      "artifacts": ["authority-api"],
+      "artifacts": [
+        "authority-api"
+      ],
       "verification": "none",
       "controls": [
         "all-listeners-classified",
@@ -415,14 +458,15 @@
         "crates/gateway/tests/host-consumer.test.ts",
         "crates/connection-broker/src/constructor_tests.rs"
       ],
-      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. Relay execution is now disabled and the unused liveness map is removed from production and testkit state; the testkit keeps the same four-route fence. The focused relay and testkit server and integration regressions and the live TypeScript consumer passed before the latest main integration; broker-mode regressions passed again on the updated base. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-20: reviewed the Dependabot #2872 aws-sigv4 pin refresh (1.6.4 -> 1.6.5) in the connection-broker manifest; a dependency-version-only change with no authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file. cargo test -p opensesame-connection-broker --lib --locked passed. Remaining limit: the manifest comment still names the 1.6.4 smithy-rs set while the pin and Cargo.lock now resolve 1.6.5; this records the reviewed source as it stands and claims no new control. 2026-11-20 (council chunk 01): aligned the manifest comment to name the 1.6.5 / 1.3.1 / 1.21.0 smithy-rs set, matching the exact pins and the Cargo.lock resolution. Comment-only change: no dependency, authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file; the remaining limit recorded above is resolved. 2026-11-20: reviewed the credentialed-egress client consolidation \u2014 the duplicate ambient `http_bytes` client is removed from the broker and its test constructor, and catalog-provider credentialed egress again resolves and pins the approved authority per request before the credential is opened; the testkit fence, routes and admission are unchanged. Broker lib tests (351, including the constructor proxy-isolation regression with the testkit feature), invoke-through lib tests (88), gateway testkit server and integration tests, and the live TypeScript consumer test (vitest against the real testkit server) all passed at this head. 2026-11-21: repaired this source fingerprint for crates/storage/src/lib.rs. The e19e283a restack refresh (90dc23a7f) recorded bytes that never matched a committed blob (CI run 44944627312 reported EM-DRIFT on this path before any suite ran); the worktree file is byte-identical to the origin/main reviewed blob (sha256 eafab5f9688d370d, git blob 52382dd55b6e), whose only change from the previously pinned blob is `mod invocations` -> `pub mod invocations` (main #2725, receipt retries bound to authority). Visibility-only widening of an existing module: no route, fence, admission, storage-schema or migration-resolution change, so this listener classification is unchanged and the fingerprint was restored to the reviewed main bytes. Regressions re-run at this head: cargo test -p opensesame-gateway --features testkit (testkit server unit test and tests/testkit.rs integration, 5 run / 4 passed / 1 ignored-needs-Node), cargo test -p opensesame-connection-broker --features testkit --lib (353 passed, including the constructor proxy-isolation regression), and the live TypeScript consumer test against a running HostTestkit fixture (3 passed). Remaining limit: none beyond those already recorded above; no implementation change is claimed."    },
-    {
+      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. Relay execution is now disabled and the unused liveness map is removed from production and testkit state; the testkit keeps the same four-route fence. The focused relay and testkit server and integration regressions and the live TypeScript consumer passed before the latest main integration; broker-mode regressions passed again on the updated base. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-20: reviewed the Dependabot #2872 aws-sigv4 pin refresh (1.6.4 -> 1.6.5) in the connection-broker manifest; a dependency-version-only change with no authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file. cargo test -p opensesame-connection-broker --lib --locked passed. Remaining limit: the manifest comment still names the 1.6.4 smithy-rs set while the pin and Cargo.lock now resolve 1.6.5; this records the reviewed source as it stands and claims no new control. 2026-11-20 (council chunk 01): aligned the manifest comment to name the 1.6.5 / 1.3.1 / 1.21.0 smithy-rs set, matching the exact pins and the Cargo.lock resolution. Comment-only change: no dependency, authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file; the remaining limit recorded above is resolved. 2026-11-20: reviewed the credentialed-egress client consolidation \u2014 the duplicate ambient `http_bytes` client is removed from the broker and its test constructor, and catalog-provider credentialed egress again resolves and pins the approved authority per request before the credential is opened; the testkit fence, routes and admission are unchanged. Broker lib tests (351, including the constructor proxy-isolation regression with the testkit feature), invoke-through lib tests (88), gateway testkit server and integration tests, and the live TypeScript consumer test (vitest against the real testkit server) all passed at this head. 2026-11-21: repaired this source fingerprint for crates/storage/src/lib.rs. The e19e283a restack refresh (90dc23a7f) recorded bytes that never matched a committed blob (CI run 44944627312 reported EM-DRIFT on this path before any suite ran); the worktree file is byte-identical to the origin/main reviewed blob (sha256 eafab5f9688d370d, git blob 52382dd55b6e), whose only change from the previously pinned blob is `mod invocations` -> `pub mod invocations` (main #2725, receipt retries bound to authority). Visibility-only widening of an existing module: no route, fence, admission, storage-schema or migration-resolution change, so this listener classification is unchanged and the fingerprint was restored to the reviewed main bytes. Regressions re-run at this head: cargo test -p opensesame-gateway --features testkit (testkit server unit test and tests/testkit.rs integration, 5 run / 4 passed / 1 ignored-needs-Node), cargo test -p opensesame-connection-broker --features testkit --lib (353 passed, including the constructor proxy-isolation regression), and the live TypeScript consumer test against a running HostTestkit fixture (3 passed). Remaining limit: none beyond those already recorded above; no implementation change is claimed."    },    {
       "id": "host-listeners",
       "kind": "listener",
       "area": "host-admission",
       "flow": "host-listeners",
       "observer": "network-peer",
-      "artifacts": ["authority-api"],
+      "artifacts": [
+        "authority-api"
+      ],
       "verification": "none",
       "controls": [
         "all-listeners-classified",
@@ -548,16 +592,24 @@
       "area": "host-admission",
       "flow": "certificate-binding",
       "observer": "authenticated",
-      "artifacts": ["certificate-binding"],
+      "artifacts": [
+        "certificate-binding"
+      ],
       "verification": "signature",
-      "controls": ["originating-client-proof"],
+      "controls": [
+        "originating-client-proof"
+      ],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
       "minSecretBytes": 0,
       "budget": null,
-      "implementation": ["crates/gateway/src/transport/proof.rs"],
-      "regressions": ["crates/gateway/src/transport/proof_tests.rs"],
+      "implementation": [
+        "crates/gateway/src/transport/proof.rs"
+      ],
+      "regressions": [
+        "crates/gateway/src/transport/proof_tests.rs"
+      ],
       "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
     },
     {
@@ -566,7 +618,9 @@
       "area": "bitwarden",
       "flow": "bitwarden-account",
       "observer": "public",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -660,7 +714,10 @@
       "area": "bitwarden",
       "flow": "bitwarden-send",
       "observer": "link-holder",
-      "artifacts": ["ciphertext", "guess-oracle"],
+      "artifacts": [
+        "ciphertext",
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -710,7 +767,9 @@
       "area": "bitwarden",
       "flow": "bitwarden-api-key",
       "observer": "public",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -752,7 +811,9 @@
       "area": "bitwarden",
       "flow": "bitwarden-device-code",
       "observer": "public",
-      "artifacts": ["guess-oracle"],
+      "artifacts": [
+        "guess-oracle"
+      ],
       "verification": "server",
       "controls": [
         "mandatory-proof",
@@ -795,7 +856,12 @@
       "area": "bitwarden",
       "flow": "bitwarden-import",
       "observer": "device-owner",
-      "artifacts": ["ciphertext", "code-verifier", "raw-secret", "otp-seed"],
+      "artifacts": [
+        "ciphertext",
+        "code-verifier",
+        "raw-secret",
+        "otp-seed"
+      ],
       "verification": "none",
       "controls": [
         "confined-import-paths",
@@ -852,9 +918,13 @@
       "area": "signing-keys",
       "flow": "public-signing-keys",
       "observer": "public",
-      "artifacts": ["public-key"],
+      "artifacts": [
+        "public-key"
+      ],
       "verification": "none",
-      "controls": ["public-parameter-allowlist"],
+      "controls": [
+        "public-parameter-allowlist"
+      ],
       "guarantees": [],
       "enforcement": "none",
       "entropyBits": 0,
@@ -908,7 +978,12 @@
       "area": "local-vault-activation",
       "flow": "local-vault-activation",
       "observer": "device-owner",
-      "artifacts": ["ciphertext", "payload-key", "raw-secret", "private-key"],
+      "artifacts": [
+        "ciphertext",
+        "payload-key",
+        "raw-secret",
+        "private-key"
+      ],
       "verification": "client-only",
       "controls": [
         "original-owner-lifetime",
@@ -1113,7 +1188,7 @@
         "packages/auth-upstream/src/__tests__/webauthn.test.ts",
         "packages/sdk-browser/src/webauthn.test.ts"
       ],
-      "review": "LOCAL device-owner process custody only. Original session/scope and transport-bound completions retain ownership; cancel, expiry and lock synchronously revoke provisional key/body/VFS custody. Before configured factors and trusted quorum complete, a revocable private IAM handle permits only bounded policy/directory/credential reads and genuine WebAuthn assertion-counter advancement, with no ordinary VFS, key export or consumable IAM sign-in evidence. Activation and leases publish once under their original owner; metadata, preferences and device-key reconciliation retain operation checks. Bound regressions use genuine sealed stores, real contact assertions and controlled completion boundaries. Copied vault artifacts with primary unlock material can be decrypted outside this local gate: this is neither offline cryptographic quorum nor global lifecycle enforcement. Source fingerprints require deliberate source-path review and executed relevant regressions after every change; they do not prove crash atomicity or cancel already accepted physical writes. 2026-11-10: classification-cross.ts gains one shared rule, for lib/tailscale-key-prefix. That module holds only the provider's key-prefix strings and a function that joins them; the native Tailscale connector and tailnet devices both import it, and until now it matched no rule, so the classification test failed on main. The rule grants no capability and changes no existing rule, including the private-IAM and WebAuthn helper rules this row binds. Passed: every test under apps/pages/src/lib/capabilities (204 tests in 24 files), classification.test.ts among them. 2026-11-20: classified dependency-only change to packages/auth-upstream/package.json for @simplewebauthn/server 14.1.0; regressions packages/auth-upstream/src/__tests__/webauthn.test.ts, apps/pages/scripts/webauthn-browser-entry.test.mjs, npm run audit:exposure CLEAN. Fingerprints for packages/auth-upstream/package.json bindings are deterministic output, not a blind refresh. 2026-11-20: packages/auth-upstream/package.json gained the verify:simplewebauthn-v14 script, wiring the pinned v14 surface regression (webauthn.test.ts and simplewebauthn-v14-surface.test.ts) into scripts/verify; dependency pins, exports and custody behavior are unchanged from the classified 14.1.0 bump. Regressions executed after the change: npm run verify:simplewebauthn-v14 -w @opensesame/auth-upstream passed (13 tests in 2 files) and npm test -w @opensesame/auth-upstream passed (109 tests in 18 files); the manifest fingerprint was rotated to the reviewed file, deterministic output of the reviewed byte change, and npm run audit:exposure is CLEAN against it. 2026-11-21: PR #2860 rebased onto post-#2859 main; classified dependency-only manifest changes for the @peculiar/x509 3.1.0 hoist — packages/auth-upstream/package.json asn1js 3.1.0 to 4.0.0 (the single hoisted copy the root overrides force) and packages/app-core/package.json @peculiar/x509 1.14.3 to 3.1.0 plus its verify:x509-3 script line. No custody, authority, egress or admission logic changed and the bindings are unchanged. Regressions executed at the rebased head before rotating: pages pin gates saml-peer-ownership.test.mjs and webauthn-browser-entry.test.mjs (2 files, 7 tests), npm test -w @opensesame/auth-upstream (18 files, 109 tests), npm run verify:x509-3 -w @opensesame/app-core (10 files, 229 tests), npm test -w ./tools/mock-upstream-idp (11 files, 68 tests), and npm run audit:exposure CLEAN; fingerprints for both manifests rotated to the reviewed files."
+      "review": "LOCAL device-owner process custody only. Original session/scope and transport-bound completions retain ownership; cancel, expiry and lock synchronously revoke provisional key/body/VFS custody. Before configured factors and trusted quorum complete, a revocable private IAM handle permits only bounded policy/directory/credential reads and genuine WebAuthn assertion-counter advancement, with no ordinary VFS, key export or consumable IAM sign-in evidence. Activation and leases publish once under their original owner; metadata, preferences and device-key reconciliation retain operation checks. Bound regressions use genuine sealed stores, real contact assertions and controlled completion boundaries. Copied vault artifacts with primary unlock material can be decrypted outside this local gate: this is neither offline cryptographic quorum nor global lifecycle enforcement. Source fingerprints require deliberate source-path review and executed relevant regressions after every change; they do not prove crash atomicity or cancel already accepted physical writes. 2026-11-10: classification-cross.ts gains one shared rule, for lib/tailscale-key-prefix. That module holds only the provider's key-prefix strings and a function that joins them; the native Tailscale connector and tailnet devices both import it, and until now it matched no rule, so the classification test failed on main. The rule grants no capability and changes no existing rule, including the private-IAM and WebAuthn helper rules this row binds. Passed: every test under apps/pages/src/lib/capabilities (204 tests in 24 files), classification.test.ts among them. 2026-11-20: classified dependency-only change to packages/auth-upstream/package.json for @simplewebauthn/server 14.1.0; regressions packages/auth-upstream/src/__tests__/webauthn.test.ts, apps/pages/scripts/webauthn-browser-entry.test.mjs, npm run audit:exposure CLEAN. Fingerprints for packages/auth-upstream/package.json bindings are deterministic output, not a blind refresh. 2026-11-20: packages/auth-upstream/package.json gained the verify:simplewebauthn-v14 script, wiring the pinned v14 surface regression (webauthn.test.ts and simplewebauthn-v14-surface.test.ts) into scripts/verify; dependency pins, exports and custody behavior are unchanged from the classified 14.1.0 bump. Regressions executed after the change: npm run verify:simplewebauthn-v14 -w @opensesame/auth-upstream passed (13 tests in 2 files) and npm test -w @opensesame/auth-upstream passed (109 tests in 18 files); the manifest fingerprint was rotated to the reviewed file, deterministic output of the reviewed byte change, and npm run audit:exposure is CLEAN against it. 2026-11-21: PR #2860 rebased onto post-#2859 main; classified dependency-only manifest changes for the @peculiar/x509 3.1.0 hoist \u2014 packages/auth-upstream/package.json asn1js 3.1.0 to 4.0.0 (the single hoisted copy the root overrides force) and packages/app-core/package.json @peculiar/x509 1.14.3 to 3.1.0 plus its verify:x509-3 script line. No custody, authority, egress or admission logic changed and the bindings are unchanged. Regressions executed at the rebased head before rotating: pages pin gates saml-peer-ownership.test.mjs and webauthn-browser-entry.test.mjs (2 files, 7 tests), npm test -w @opensesame/auth-upstream (18 files, 109 tests), npm run verify:x509-3 -w @opensesame/app-core (10 files, 229 tests), npm test -w ./tools/mock-upstream-idp (11 files, 68 tests), and npm run audit:exposure CLEAN; fingerprints for both manifests rotated to the reviewed files."
     },
     {
       "id": "native-provider-custody",
@@ -1121,7 +1196,11 @@
       "area": "native-provider-custody",
       "flow": "native-provider-custody",
       "observer": "device-owner",
-      "artifacts": ["ciphertext", "payload-key", "raw-secret"],
+      "artifacts": [
+        "ciphertext",
+        "payload-key",
+        "raw-secret"
+      ],
       "verification": "client-only",
       "controls": [
         "original-provider-transport",
@@ -1271,7 +1350,7 @@
         "apps/pages/src/modules/connectors.external/native-oauth-resource-runtime.integration.test.tsx",
         "packages/sdk-browser/src/client.test.ts"
       ],
-      "review": "Local admitted provider-result custody. Reviewed original transport and captured revision through private record reads, authenticated decryption, final revision locks, generic API resources, configured OAuth publication and registered API dispatch with or without a caller signal. Actual held-WebCrypto/Web-Lock/physical-close/public-mapping regressions and live-value positives plus bound provider, PKCE, storage and bridge consumers. No copied-secret revocation or global lifecycle claim."
+      "review": "Local admitted provider-result custody. Reviewed original transport and captured revision through private record reads, authenticated decryption, final revision locks, generic API resources, configured OAuth publication and registered API dispatch with or without a caller signal. Actual held-WebCrypto/Web-Lock/physical-close/public-mapping regressions and live-value positives plus bound provider, PKCE, storage and bridge consumers. No copied-secret revocation or global lifecycle claim. 2026-11-21: classified dependency-only manifest changes for the Dependabot npm-minor-and-patch batch #2855: packages/app-core/package.json (@azure/msal-browser 5.28.0 to 5.29.1 with the batch set recorded under hosted-link-key) and packages/sdk-browser/package.json (jose 6.2.15 to 6.2.17, plus the Biome 2.6.7 formatting of its files array); no connector, key or transport code changed. Regressions executed at the bump head: packages/sdk-browser/src/client.test.ts within the full sdk-browser suite (118 tests in 13 files); app-core native-bitwarden-crypto.test.ts, native-azure-ac.test.ts and native-api-http.test.ts within a 12-file targeted run (161 tests); npm run audit:exposure CLEAN after the rotation. The manifest fingerprints are deterministic output of the reviewed byte changes, not a blind refresh."
     }
   ],
   "sources": {

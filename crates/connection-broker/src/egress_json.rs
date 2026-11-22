@@ -1,7 +1,7 @@
 //! Credentialed JSON egress and owner connection identity checks.
 
 use super::{
-    credential_header, credentialed_client, AuthMethod, BrokerError, ConnectionBroker,
+    credential_header, credentialed_egress_client, AuthMethod, BrokerError, ConnectionBroker,
     ConnectionStatus, Duration, OrganizationId, Result, TokenSet,
 };
 use crate::response_guard::{read_bounded_body, ResponseBodyError};
@@ -197,7 +197,13 @@ impl ConnectionBroker {
             .allows_url(url)
             .map_err(|e| BrokerError::Invalid(e.to_string()))?;
 
-        let client = credentialed_client(url, Duration::from_secs(20)).await?;
+        let client = credentialed_egress_client(
+            &self.config,
+            &row.provider_id,
+            url,
+            Duration::from_secs(20),
+        )
+        .await?;
         let key = *self.sealing_key()?;
         let credential = store::get_credential(&self.pool, &row.id)
             .await?
