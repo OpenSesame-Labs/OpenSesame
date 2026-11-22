@@ -247,11 +247,31 @@ fn p5_tuple_and_send_response_renames_are_body_reads() {
 }
 
 #[test]
-fn p5_body_from_item_without_response_call_is_clear() {
-    assert_clear("let make_body = reqwest::Body::from;");
-    assert_clear("let make_body = reqwest::Body::from; make_body(payload)");
-    assert_read("let make_body = reqwest::Body::from; make_body(response)");
-    assert_read("let make_body = reqwest::Body::from; let payload = response; make_body(payload)");
+fn p5_body_from_function_item_moves_the_body() {
+    for sample in [
+        "let make_body = reqwest::Body::from;",
+        "let f = Body::from;",
+        "pass(Body::from)",
+        "let make_body = reqwest::Body::from; make_body(payload)",
+        "let make_body = reqwest::Body::from; make_body(response)",
+        "let make_body = reqwest::Body::from; let payload = response; make_body(payload)",
+        "reqwest::Body::from(response)",
+        "{ let tmp = { 1 }; response }.into()",
+        "{ let s = \"{\"; response }.into()",
+        "{{ response }}.into()",
+    ] {
+        assert_read(sample);
+    }
+    for sample in [
+        "let make_body = Other::from;",
+        "pass(Other::from)",
+        "reqwest::Body::from(payload)",
+        "make_body(payload)",
+        "{ let tmp = { response }; status }.into()",
+        "{ let tmp = { 1 }; status }.into()",
+    ] {
+        assert_clear(sample);
+    }
 }
 
 #[test]
