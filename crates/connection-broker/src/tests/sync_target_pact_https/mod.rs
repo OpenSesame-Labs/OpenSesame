@@ -70,9 +70,22 @@ fn credentialed_dispatch_site(source: &str, index: usize) -> bool {
     if !rest.starts_with(".execute") {
         return true;
     }
-    // sqlx `query.execute(&self.pool)` is not an HTTP send. A client stored in
-    // `query` still is, when the argument is `request`.
-    receiver_name(&source[..index]) != "query" || query_execute_is_http(rest)
+    let receiver = &source[..index].trim_end();
+    if is_sqlx_query_receiver(receiver) {
+        return false;
+    }
+    // sqlx-style `query.execute(&pool)` is not HTTP; `query.execute(request)` is.
+    if receiver_name(receiver) == "query" {
+        return query_execute_is_http(rest);
+    }
+    if receiver_name(receiver) == "pool" {
+        return false;
+    }
+    true
+}
+
+fn is_sqlx_query_receiver(prefix: &str) -> bool {
+    prefix.contains("sqlx::query") || prefix.contains("sqlx::Query")
 }
 
 fn receiver_name(prefix: &str) -> String {
