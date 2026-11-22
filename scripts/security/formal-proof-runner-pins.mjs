@@ -19,7 +19,6 @@ const scriptName = /^verify:[a-z0-9]+(?:-[a-z0-9]+)*$/u;
 const pathChars = /^[A-Za-z0-9._/-]+$/u;
 const maxInventoryBytes = 256 * 1024;
 const objectId = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/u;
-
 export const MINIMUM_SHARED_RUNNERS = Object.freeze([
   ".githooks/pre-push",
   ".npmrc",
@@ -45,6 +44,7 @@ const cargoRunners = [
   "rust-toolchain.toml",
   "scripts/security/formal-cargo-isolation.py",
   "scripts/security/formal-cargo-freshness.py",
+  "scripts/security/formal_cargo_packages.py",
   "scripts/security/cargo-lock-projection.py",
 ];
 const workspaceRunners = [
