@@ -2,6 +2,7 @@ import {
   FIRST_VAULT_PIN_STEPS,
   FIRST_VAULT_SEAL_INSTRUCTION,
   firstVaultGateGuide,
+  firstVaultSealRoadSteps,
 } from "./first-vault-guide.js";
 import type { GuideGoalDescriptor } from "./goal-types.js";
 import { isKnownGuidePredicate, readGuidePredicate } from "./state.js";
@@ -99,6 +100,8 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
     id: "gate.unlock.passkey",
     title: "Open this device's vault with a passkey",
     routes: ["/unlock/passkey"],
+    // Composed when the tour starts, so the seal road is read live: a
+    // passkey browser never waits for the PIN fields (ADR 0180).
     get guide() {
       const creating =
         isKnownGuidePredicate("vault.key-enrolled") &&
@@ -111,12 +114,7 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
         creating
           ? `focus "unlock.seal-actions" "${FIRST_VAULT_SEAL_INSTRUCTION}" side=bottom`
           : 'focus "unlock.submit" "Select Unlock with passkey, then approve the prompt." side=top',
-        ...(creating
-          ? [
-              'wait target "unlock.seal-pin-entry" event=appear timeout=60000',
-              ...FIRST_VAULT_PIN_STEPS,
-            ]
-          : []),
+        ...(creating ? firstVaultSealRoadSteps() : []),
         'success "If you enrolled a second step, enter its code when asked."',
         "end",
       ].join("\n");
