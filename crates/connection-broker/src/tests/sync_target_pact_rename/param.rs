@@ -8,32 +8,12 @@ use super::bind::skip_type;
 use super::marker::is_ident_char;
 use super::peel::match_delim;
 
+/// Whether the parameter covering the end of `prefix` is `Response`-typed.
+/// The nearest covering parameter wins: an earlier sibling
+/// `fn a(reply: Response)` must not type a later `fn b(reply: Status)` use
+/// (Kimi council chunk06 P1).
 pub(super) fn param_is_response(prefix: &str, name: &str) -> bool {
-    let bytes = prefix.as_bytes();
-    let mut index = 0usize;
-    while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        if typed_param_is_response(prefix, bytes, index, name) {
-            return true;
-        }
-        index += 1;
-    }
-    false
-}
-
-fn typed_param_is_response(prefix: &str, bytes: &[u8], index: usize, name: &str) -> bool {
-    if !is_keyword_at(bytes, index, name.as_bytes()) || !param_slot(prefix, index) {
-        return false;
-    }
-    let at = skip_ws(bytes, index + name.len());
-    if bytes.get(at) != Some(&b':') || bytes.get(at + 1) == Some(&b':') {
-        return false;
-    }
-    let end = skip_type(bytes, at + 1);
-    type_is_response(&prefix[at + 1..end])
+    param_shadows_let(prefix, name, 0).unwrap_or(false)
 }
 
 fn param_slot(source: &str, name_at: usize) -> bool {
@@ -382,6 +362,35 @@ mod probes {
             assert!(
                 !reads(sample),
                 "shadowed or unrelated reply is not a body read: {sample}"
+            );
+        }
+    }
+
+    /// With no local binding, the nearest covering parameter types the use —
+    /// not the first same-named parameter in the prefix. An earlier sibling
+    /// `fn a(reply: Response)` must not make `fn b(reply: Status)` look
+    /// response-typed, and a later `Response` param must still win over an
+    /// earlier `Status` one (Kimi council chunk06 P1).
+    #[test]
+    fn kimi_council_r3_param_resolves_nearest_covering_fn_param() {
+        let hits = [
+            "fn a(reply: Status) { let _ = reply; } fn b(reply: Response) { reply.into() }",
+            "fn a(reply: Response) { let _ = reply; } fn b(reply: Response) { reply.into() }",
+        ];
+        for sample in hits {
+            assert!(
+                reads(sample),
+                "nearest covering param is the Response one: {sample}"
+            );
+        }
+        let misses = [
+            "fn a(reply: Response) { let _ = reply; } fn b(reply: Status) { reply.into() }",
+            "fn a(reply: Response) { let _ = reply; } fn b() { reply.into() }",
+        ];
+        for sample in misses {
+            assert!(
+                !reads(sample),
+                "an earlier sibling param must not type this use: {sample}"
             );
         }
     }

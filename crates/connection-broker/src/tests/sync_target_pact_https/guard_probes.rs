@@ -68,6 +68,29 @@ fn chunk02_map_and_then_parse_do_not_cover_dest() {
     }
 }
 
+/// A turbofish'd value-replacing adapter still replaces the parsed value, so
+/// the guard subject checks the closure's result — a decoy there must not
+/// cover the sent URL (Kimi council chunk03 P2).
+#[test]
+fn kimi_council_r3_turbofish_map_and_then_do_not_cover_dest() {
+    let decoy = [
+        r#"async fn f() { let parsed = Url::parse(&url).map::<Url>(|_| decoy); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+        r#"async fn f() { let parsed = Url::parse(&url).and_then::<()>(|_| Ok(decoy)); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+    ];
+    for sample in decoy {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+    }
+    // Controls: a non-replacing turbofish'd adapter and the plain parse
+    // still cover the send.
+    let kept = [
+        r#"async fn f() { let parsed = Url::parse(&url).map_err::<()>(|e| e); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+        r#"async fn f() { let parsed = Url::parse(&url); if parsed.scheme() != "https" { return Err("x".into()); } client.get(&url).send().await?; }"#,
+    ];
+    for sample in kept {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+    }
+}
+
 /// Mutating the parsed subject between `Url::parse` and the predicate checks
 /// a value the sent URL no longer has (Codex PRRT_kwDOTwzAKs65ukv0).
 #[test]
@@ -191,4 +214,51 @@ fn kimi_council_chunk03_inner_scope_rebind_is_not_last_rhs() {
     // Green: the outer parse of `url` still covers the send.
     let kept = "async fn f() { let parsed = Url::parse(&url); if c { other(); } if parsed.scheme() != \"https\" { return Err(\"x\".into()); } client.get(&url).send().await?; }";
     assert_eq!(credentialed_send_https_gaps(kept), (1, 0), "{kept}");
+}
+
+/// An `if` expression inside a macro invocation's token tree is not a
+/// dominating guard — the macro may never emit it. Statement-level analog of
+/// the macro-`return` shape (Kimi council chunk03 P2).
+#[test]
+fn kimi_council_r3_macro_nested_if_is_not_a_guard() {
+    let open = [
+        r#"{m!(if url.scheme()!="https" { return Err("x".into()); }); client.get(url)."#,
+        r#"{m![if url.scheme()!="https" { return Err("x".into()); }]; client.get(url)."#,
+        r#"{println!("{:?}", if url.scheme()!="https" { return Err("x".into()) } else { other }); client.get(url)."#,
+    ];
+    for prefix in open {
+        assert!(!super::guarded(prefix, Some("url")), "{prefix}");
+    }
+    // Controls: a real dominating guard still counts, alone or after a
+    // macro call elsewhere in the body.
+    let kept = [
+        r#"{m!(1); if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+        r#"{if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+    ];
+    for prefix in kept {
+        assert!(super::guarded(prefix, Some("url")), "{prefix}");
+    }
+}
+
+/// `else /* c */ if` on a raw prefix is still an else-if: the chain can fall
+/// through to the send unguarded when the first branch runs, so it must not
+/// count as dominating. A commented-out `else` leaves a real new `if`
+/// dominating (Kimi council chunk03 P2).
+#[test]
+fn kimi_council_r3_commented_else_if_is_not_dominating() {
+    let open = [
+        r#"{if ready { } else /* fallthrough */ if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+        "{\nif ready { } else // fallthrough\nif url.scheme()!=\"https\" { return Err(\"x\".into()); } client.get(url).",
+        r#"{if ready { } else if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+    ];
+    for prefix in open {
+        assert!(!super::guarded(prefix, Some("url")), "{prefix}");
+    }
+    let kept = [
+        r#"{/* else */ if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+        r#"{if ready { } else { } if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#,
+    ];
+    for prefix in kept {
+        assert!(super::guarded(prefix, Some("url")), "{prefix}");
+    }
 }

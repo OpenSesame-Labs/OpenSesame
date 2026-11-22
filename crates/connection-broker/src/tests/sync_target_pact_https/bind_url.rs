@@ -176,26 +176,66 @@ fn call_arg_count(args: &str) -> usize {
 
 fn is_free_call(expr: &str, paren: usize) -> bool {
     let bytes = expr.as_bytes();
-    if paren == 0 || !super::super::is_ident_byte(bytes[paren - 1]) {
+    if paren == 0 {
         return false;
     }
-    let mut start = paren;
-    while start > 0 && super::super::is_ident_byte(bytes[start - 1]) {
-        start -= 1;
-    }
     // UFCS (`Type::from(row)`) is a method shape, not a free call, and a
-    // parenthesized keyword (`if (url)`) is a condition, not a callee. Either
-    // would mark an unrelated ident as the binding's URL, so a coincidental
-    // scheme guard on that name could cover an unrelated send (Kimi council
-    // chunk03 P2).
+    // parenthesized keyword (`if (url)`) is a condition, not a callee; either
+    // would let a coincidental scheme guard cover an unrelated send (Kimi
+    // council chunk03 P2). `build_request::<T>(url)` is still a free call:
+    // the byte before `(` may be the turbofish closer, like `builder_paren`.
+    let Some((start, name_end)) = callee_span(bytes, paren) else {
+        return false;
+    };
     let prev = start.checked_sub(1).and_then(|at| bytes.get(at));
     if prev.is_some_and(|byte| matches!(byte, b'.' | b':')) {
         return false;
     }
     !matches!(
-        &expr[start..paren],
+        &expr[start..name_end],
         "if" | "while" | "match" | "for" | "loop" | "return" | "break" | "continue"
     )
+}
+
+/// Callee name span before `paren`: `name` or `name::<…>`. A `>` inside a
+/// const-generic block (`{1 > 0}`) is a comparison, like the forward
+/// `strip_turbofish`.
+fn callee_span(bytes: &[u8], paren: usize) -> Option<(usize, usize)> {
+    if super::super::is_ident_byte(bytes[paren - 1]) {
+        let mut start = paren;
+        while start > 0 && super::super::is_ident_byte(bytes[start - 1]) {
+            start -= 1;
+        }
+        return Some((start, paren));
+    }
+    if bytes[paren - 1] != b'>' {
+        return None;
+    }
+    let (mut depth, mut brace, mut index) = (0i32, 0i32, paren);
+    while index > 0 {
+        index -= 1;
+        match bytes[index] {
+            b'>' if brace == 0 => depth += 1,
+            b'<' if brace == 0 => {
+                depth -= 1;
+                if depth == 0 {
+                    if index < 2 || bytes[index - 1] != b':' || bytes[index - 2] != b':' {
+                        return None;
+                    }
+                    let name_end = index - 2;
+                    let mut start = name_end;
+                    while start > 0 && super::super::is_ident_byte(bytes[start - 1]) {
+                        start -= 1;
+                    }
+                    return (start < name_end).then_some((start, name_end));
+                }
+            }
+            b'}' => brace += 1,
+            b'{' => brace = brace.saturating_sub(1),
+            _ => {}
+        }
+    }
+    None
 }
 
 pub(crate) fn skip_ascription(bytes: &[u8], start: usize) -> usize {
@@ -338,5 +378,23 @@ mod probes {
         // Controls: a free one-arg call and a builder method still mark.
         assert_eq!(builder_url("build_request(other)"), Some("other"));
         assert_eq!(builder_url("client.get(url)"), Some("url"));
+    }
+
+    /// A turbofish'd free call still marks the binding URL (Kimi council
+    /// chunk03 P2): `build_request::<T>(url)` resolves like the plain free
+    /// call; UFCS and keyword shapes stay excluded.
+    #[test]
+    fn kimi_council_r3_turbofish_free_call_marks_binding_url() {
+        for (expr, want) in [
+            ("build_request::<T>(url)", Some("url")),
+            ("build_request::<Vec<T>>(url)", Some("url")),
+            ("build_request::<{1 > 0}>(url)", Some("url")),
+            ("make(url)", Some("url")),
+            ("Wrapper::new::<T>(row)", None),
+            ("if (url) { a } else { b }", None),
+            ("foo!(url)", None),
+        ] {
+            assert_eq!(builder_url(expr), want, "{expr}");
+        }
     }
 }

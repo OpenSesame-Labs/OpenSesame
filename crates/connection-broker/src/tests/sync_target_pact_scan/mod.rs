@@ -148,6 +148,7 @@ mod alias;
 mod alt_debug;
 mod block_into;
 mod debug;
+mod debug_probes;
 mod delegated;
 mod pattern;
 mod stream;
@@ -339,6 +340,36 @@ mod probes {
             assert!(
                 reads(sample),
                 "response-rooted chain is a body read: {sample}"
+            );
+        }
+    }
+
+    /// Dot-form `collect` / `count` on a response-derived receiver match
+    /// their UFCS forms: `StreamExt::count(body, …)` was already caught, so
+    /// `body.count().await` must not escape (Kimi council chunk08 P2).
+    #[test]
+    fn kimi_council_r3_dot_collect_and_count_are_body_reads() {
+        let hits = [
+            "response.collect::<Vec<u8>>().await",
+            "body.count().await",
+            "res.collect().await",
+            "http_response.collect::<Bytes>()",
+        ];
+        for sample in hits {
+            assert!(
+                reads(sample),
+                "dot collect/count on a response receiver is a body read: {sample}"
+            );
+        }
+        let misses = [
+            "rows.collect::<Vec<_>>().await",
+            "entries.count().await",
+            "response_headers.collect()",
+        ];
+        for sample in misses {
+            assert!(
+                !reads(sample),
+                "unrelated receiver is not a body read: {sample}"
             );
         }
     }

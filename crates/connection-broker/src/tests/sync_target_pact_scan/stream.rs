@@ -17,6 +17,8 @@ const DOT_METHODS: &[&str] = &[
     "for_each",
     "fold",
     "try_fold",
+    "collect",
+    "count",
     "try_collect",
     "try_for_each",
 ];

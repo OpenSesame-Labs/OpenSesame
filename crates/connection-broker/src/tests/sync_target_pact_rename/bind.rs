@@ -145,6 +145,9 @@ pub(super) fn rhs_ident(source: &str, at: usize) -> Option<(String, usize)> {
     let trimmed = &raw[lead..];
     let expr = strip_ref(unwrap_value(trimmed));
     let expr_at = at + lead + slice_offset(trimmed, expr);
+    // The RHS ends at its statement: a later `.send()` / `sqlx::` must not be
+    // mistaken for this binding's RHS (`let reply = status; request.send()`).
+    let expr = rhs_stmt(expr);
     if matches!(read_ident_at(expr, 0).as_deref(), Some("if" | "match")) {
         if let Some(found) = branch_response(source, expr, expr_at) {
             return Some(found);
@@ -155,6 +158,35 @@ pub(super) fn rhs_ident(source: &str, at: usize) -> Option<(String, usize)> {
     }
     let name = read_ident_at(expr, 0)?;
     Some((name, expr_at))
+}
+
+/// The binding RHS ends at the first depth-0 `;` or `,`, or at a close
+/// delimiter that drops depth below zero (the end of an enclosing group).
+/// Same stops as `branch_response`: without them the credentialed-send check
+/// would run into the next statement.
+fn rhs_stmt(expr: &str) -> &str {
+    let bytes = expr.as_bytes();
+    let mut depth = 0i32;
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'(' | b'[' | b'{' => depth += 1,
+            b')' | b']' | b'}' => {
+                if depth == 0 {
+                    return &expr[..index];
+                }
+                depth -= 1;
+            }
+            b';' | b',' if depth == 0 => return &expr[..index],
+            _ => {}
+        }
+        index += 1;
+    }
+    expr
 }
 
 fn slice_offset(outer: &str, inner: &str) -> usize {
@@ -331,6 +363,34 @@ mod probes {
         ];
         for sample in misses {
             assert!(!reads(sample), "a plain rebind still replaces: {sample}");
+        }
+    }
+
+    /// The credentialed-send check stops at the binding's statement: a later
+    /// `.send()` must not make `let reply = status` response-rooted, and a
+    /// later `sqlx::` must not suppress a real `execute` on the RHS
+    /// (Kimi council chunk06 P1).
+    #[test]
+    fn kimi_council_r3_rhs_scan_stops_at_statement_end() {
+        let misses = [
+            "let reply = status; request.send(); reply.into()",
+            "let reply = status; query.execute(request).await?; reply.into()",
+            "let reply = status; client.get(other).send().await?; reply.into()",
+            "let reply = (status); request.send(); reply.into()",
+        ];
+        for sample in misses {
+            assert!(
+                !reads(sample),
+                "a later send is not this binding's RHS: {sample}"
+            );
+        }
+        let hits = [
+            "let reply = request.send(); reply.into()",
+            "let reply = client.get(url).send().await?; side_effect(); reply.into()",
+            "let reply = client.execute(request).await?; sqlx::query(\"select 1\"); reply.into()",
+        ];
+        for sample in hits {
+            assert!(reads(sample), "the RHS send stays response-rooted: {sample}");
         }
     }
 }

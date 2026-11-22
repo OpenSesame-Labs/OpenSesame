@@ -1,5 +1,5 @@
 //! Closure-local `return` does not satisfy the HTTPS guard.
-use super::super::sync_target_pact_norm::string_len;
+use super::super::sync_target_pact_norm::{non_code_len, string_len};
 use super::is_ident_char;
 
 pub(crate) fn closure_owns(before: &str) -> bool {
@@ -63,7 +63,9 @@ fn closure_body_at(body: &str, pipe: usize) -> Option<usize> {
     }
     let (mut depth, mut index) = (0i32, pipe + 1);
     while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
+        // Comments are not code: a `;` / `=` inside a comment does not end
+        // the parameter list (Kimi council chunk03 P2).
+        if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }
@@ -87,7 +89,10 @@ fn runs_to_end(body: &str) -> bool {
     // later `return` counts as the function guard.
     let (mut depth, mut brace, mut angle, mut index) = (0i32, 0i32, 0i32, 0usize);
     while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
+        // Comments are not code: a `;` / `,` inside a comment does not end
+        // the body, so a closure-local `return` stays closure-owned
+        // (Kimi council chunk03 P2).
+        if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }
@@ -203,6 +208,34 @@ mod probes {
         }
         let kept = r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#;
         assert_eq!(credentialed_send_https_gaps(kept), (1, 0));
+    }
+
+    /// Comment bytes are not code on the raw-prefix path either: a `;` or
+    /// `=` inside a comment must not end a closure's parameter list or body,
+    /// so a closure-local `return` stays closure-owned and cannot satisfy
+    /// the guard (Kimi council chunk03 P2).
+    #[test]
+    fn kimi_council_r3_commented_semicolon_does_not_end_closure() {
+        for before in [
+            "|x| x /* ; */ || ",
+            "|x| x // ;\n|| ",
+            "|x /* ; */| x || ",
+            "|x // ;\n| x || ",
+        ] {
+            assert!(super::closure_owns(before), "{before}");
+        }
+        // Controls: a real depth-0 `;` still ends the body, and a closure
+        // whose body does not run to the end does not own the return.
+        assert!(!super::closure_owns("|x| x; y || "));
+        assert!(!super::closure_owns("arr.map(|x| x) || "));
+        // Through `guarded`: the closure-local return must not fail-close
+        // when the closure body carries a comment `;`. Without a `||`
+        // short-circuit in the statement, the comment `;` is the only thing
+        // that could wrongly end the closure body.
+        let prefix = r#"{if url.scheme()!="https" { |x| x /* ; */ return Err("x".into()); } client.get(url)."#;
+        assert!(!super::super::guard::guarded(prefix, Some("url")), "{prefix}");
+        let kept = r#"{if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#;
+        assert!(super::super::guard::guarded(kept, Some("url")), "{kept}");
     }
 
     #[test]

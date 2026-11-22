@@ -147,10 +147,16 @@ fn transforms_value(tail: &str) -> bool {
     false
 }
 
-/// `name(` at the head: `.map(`, not `.map_err(` or `.map_or(`.
+/// `name(` / `name::<…>(` at the head: `.map(`, `.map::<T>(`, not
+/// `.map_err(` or `.map_or(` (Kimi council chunk03 P2: a turbofish'd
+/// value-replacing adapter still replaces the parsed value).
 fn method_opens(at: &str, name: &str) -> bool {
-    at.strip_prefix(name)
-        .is_some_and(|rest| rest.starts_with('('))
+    let Some(rest) = at.strip_prefix(name) else {
+        return false;
+    };
+    super::super::strip_turbofish(rest)
+        .unwrap_or(rest)
+        .starts_with('(')
 }
 
 /// Empty, or a path ending in `::` (`url::`, `foo::bar::`).

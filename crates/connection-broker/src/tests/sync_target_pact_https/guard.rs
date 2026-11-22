@@ -22,10 +22,14 @@ pub(super) fn guarded(prefix: &str, dest: Option<&str>) -> bool {
             continue;
         }
         match bytes[index] {
-            b'{' => depth += 1,
-            b'}' => depth -= 1,
+            b'{' | b'(' | b'[' => depth += 1,
+            b'}' | b')' | b']' => depth -= 1,
             _ => {}
         }
+        // Paren and bracket depth count, not only braces: an `if` expression
+        // inside a macro invocation's token tree (`m!(if … { return })`) is
+        // an argument the macro may never emit, so it cannot dominate the
+        // send (Kimi council chunk03 P2).
         if depth == 1
             && is_keyword_at(bytes, index, b"if")
             && !preceded_by_else(bytes, index)
@@ -40,11 +44,35 @@ pub(super) fn guarded(prefix: &str, dest: Option<&str>) -> bool {
 
 /// `else if` is still conditional: the send after the chain runs when `else` is skipped.
 fn preceded_by_else(bytes: &[u8], index: usize) -> bool {
+    // Skip comment and string regions too, not only whitespace: on a prefix
+    // that still carries comment bytes, `else /* c */ if` is still an
+    // else-if whose chain can fall through to the send unguarded, while a
+    // commented-out `else` leaves a real new `if` guard dominating
+    // (Kimi council chunk03 P2).
+    let code = code_mask(bytes);
     let mut at = index;
-    while at > 0 && bytes[at - 1].is_ascii_whitespace() {
+    while at > 0 && (!code[at - 1] || bytes[at - 1].is_ascii_whitespace()) {
         at -= 1;
     }
     at >= 4 && is_keyword_at(bytes, at - 4, b"else")
+}
+
+/// `true` for code bytes; strings and comments are not code.
+fn code_mask(bytes: &[u8]) -> Vec<bool> {
+    let mut code = vec![true; bytes.len()];
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = non_code_len(bytes, index) {
+            let end = (index + len).min(bytes.len());
+            for slot in &mut code[index..end] {
+                *slot = false;
+            }
+            index = end.max(index + 1);
+            continue;
+        }
+        index += 1;
+    }
+    code
 }
 
 fn if_guard(prefix: &str, if_at: usize, dest: Option<&str>) -> bool {
