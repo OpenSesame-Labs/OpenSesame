@@ -40,9 +40,14 @@ Import from the root: `import { openVaultFile } from "@opensesame/vault-core"`.
 
 File manifests accept at most 1 GiB, 4,096 parts and 1 MiB of manifest text;
 each encrypted part is at most 1 MiB plus its GCM tag. Part and size limits
-must be safe integers. The tailnet drive client also bounds part responses
-and its part list (65,536 keys). Files or drive inventories above these
-limits are refused instead of being loaded partially.
+must be safe integers. A manifest written now records `partBytes`, and its
+parts are held to that size. Only a legacy v1 manifest without `partBytes`
+may name encrypted parts up to the drive daemon's former limit of
+1 MiB + 1,024 bytes, so existing attachments stay readable; nothing writes a
+part that large, and a tailnet sync pass leaves such a part where it is. The
+tailnet drive client also bounds part responses and its part list
+(65,536 keys). Files or drive inventories above these limits are refused
+instead of being loaded partially.
 
 ## Develop
 

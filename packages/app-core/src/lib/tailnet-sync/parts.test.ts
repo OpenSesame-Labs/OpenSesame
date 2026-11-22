@@ -5,7 +5,7 @@
  */
 import { asBufferSource, ownBytes } from "@opensesame/os-domain";
 import {
-  MAX_ENCRYPTED_FILE_PART_BYTES,
+  MAX_LEGACY_ENCRYPTED_FILE_PART_BYTES,
   type ObjectStore,
   type VaultItem,
   createItem,
@@ -206,7 +206,9 @@ describe("untrusted drive response bounds", () => {
           ),
         });
       }
-      return new Response(new Uint8Array(MAX_ENCRYPTED_FILE_PART_BYTES + 1));
+      return new Response(
+        new Uint8Array(MAX_LEGACY_ENCRYPTED_FILE_PART_BYTES + 1),
+      );
     };
     await expect(listDriveParts(PAIRING)).rejects.toThrow(
       "too many file parts",
@@ -232,7 +234,7 @@ describe("untrusted drive response bounds", () => {
         new ReadableStream({
           start(controller) {
             controller.enqueue(
-              new Uint8Array(MAX_ENCRYPTED_FILE_PART_BYTES + 1),
+              new Uint8Array(MAX_LEGACY_ENCRYPTED_FILE_PART_BYTES + 1),
             );
           },
           cancel() {
