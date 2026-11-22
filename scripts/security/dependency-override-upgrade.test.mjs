@@ -69,14 +69,17 @@ test2(
   "Noble consumers resolve compatible reviewed primitive versions",
   async () => {
     const exact20Consumers = [
-      "node_modules/@scure/bip32/node_modules/@noble/curves",
-      "node_modules/@scure/bip32/node_modules/@noble/hashes",
       "node_modules/@scure/bip39/node_modules/@noble/hashes",
       "node_modules/nostr-tools/node_modules/@noble/curves",
       "node_modules/nostr-tools/node_modules/@noble/hashes",
     ];
     for (const path of exact20Consumers)
       assert2.equal(packageAt(path)?.version, "2.0.1", path);
+    const bip32 = packageAt("node_modules/@scure/bip32");
+    for (const name of ["@noble/curves", "@noble/hashes"]) {
+      assert2.equal(bip32.dependencies[name], "2.4.0", name);
+      assert2.equal(packageAt(`node_modules/${name}`).version, "2.4.0", name);
+    }
     const postQuantum = packageAt("node_modules/@noble/post-quantum");
     assert2.equal(
       postQuantum.resolved,
@@ -155,7 +158,9 @@ test2(
   "Promptfoo uses genuine fixed Hono and keeps its CJS and ESM APIs",
   async () => {
     const promptfooLock = packageAt("node_modules/promptfoo");
-    const honoLock = packageAt("node_modules/@hono/node-server");
+    const honoLock = packageAt(
+      "node_modules/promptfoo/node_modules/@hono/node-server",
+    );
     assert2.equal(promptfooLock.version, "0.125.1");
     assert2.equal(
       promptfooLock.resolved,
@@ -174,10 +179,6 @@ test2(
     assert2.equal(
       honoLock.integrity,
       "sha512-p/KH9MnfNcsm3sR6x4lNgm5j+QN4Et8srKredl9DZfXiyZ1UQ3aQ2YVpFLbqktYN5JI+DB+VZFKM2PqE5hLKjQ==",
-    );
-    assert2.equal(
-      packageAt("node_modules/promptfoo/node_modules/@hono/node-server"),
-      void 0,
     );
     assert2.equal(
       packageAt("node_modules/promptfoo").dependencies.zod,
@@ -231,7 +232,11 @@ test2(
     assert2.equal(promptfoo.version, "0.125.1");
     assert2.equal(promptfoo.dependencies["@hono/node-server"], "2.1.5");
     assert2.equal(manifest.overrides.promptfoo["@hono/node-server"], "2.1.6");
-    assert2.equal(packageAt("node_modules/@hono/node-server").version, "2.1.6");
+    assert2.equal(
+      packageAt("node_modules/promptfoo/node_modules/@hono/node-server")
+        .version,
+      "2.1.6",
+    );
     assert2.equal(
       promptfoo.dependencies.zod,
       packageAt("node_modules/zod").version,

@@ -46,10 +46,10 @@ test("empty scanner findings pass", () => {
     assert.equal(result.status, 0, result.stderr);
     assert.match(result.stdout, /CLEAN \(no findings\)/);
   }
-  const cveLite = runReport(
-    JSON.stringify({ findingCount: 0, findings: [] }),
-    ["--attest-repaired", root],
-  );
+  const cveLite = runReport(JSON.stringify({ findingCount: 0, findings: [] }), [
+    "--attest-repaired",
+    root,
+  ]);
   assert.equal(cveLite.status, 0, cveLite.stderr);
   assert.match(cveLite.stdout, /CLEAN \(no findings\)/);
 });

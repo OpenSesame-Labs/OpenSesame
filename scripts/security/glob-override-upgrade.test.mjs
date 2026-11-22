@@ -101,7 +101,11 @@ test("no glob or minimatch copy is inside the GHSA-3g3m or GHSA-g3hv ranges", ()
 });
 
 test("the glob and minimatch backport aliases are gone", () => {
-  for (const alias of ["glob10-patched", "glob11-patched", "minimatch9-patched"]) {
+  for (const alias of [
+    "glob10-patched",
+    "glob11-patched",
+    "minimatch9-patched",
+  ]) {
     assert.equal(manifest.devDependencies[alias], undefined, alias);
     assert.equal(packageAt(`node_modules/${alias}`), undefined, alias);
   }
