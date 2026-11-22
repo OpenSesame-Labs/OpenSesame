@@ -162,7 +162,8 @@ describe("setStatusNotice", () => {
   });
 
   it("swaps only the act closure in place, without an emit", () => {
-    setStatusNotice(statusInput());
+    const run0 = vi.fn();
+    setStatusNotice(statusInput({ act: { label: "Turn off", run: run0 } }));
     const listener = vi.fn();
     subscribeNotices(listener);
     const run = vi.fn();

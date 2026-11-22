@@ -1,7 +1,6 @@
 //! Pipe-captured mutations must never disclose secrets by default.
 use opensesame_sealed_store::{init_store, init_store_key, unlock_store_key, Entry, StoreRoot};
 use std::io::Write;
-use std::path::Path;
 use std::process::{Command, Output, Stdio};
 
 mod cli_app_integration_mock;
@@ -11,10 +10,19 @@ const OLD: &str = "old-secret-never-disclose-3mk8";
 const TRAILER: &str = "private-trailer-never-disclose-7hg4\n";
 const NEW: &str = "provided-new-secret-never-disclose-8pf6";
 
-fn fixture() -> tempfile::TempDir {
+struct Fixture {
+    _dir: tempfile::TempDir,
+    store: std::path::PathBuf,
+    witness: std::path::PathBuf,
+}
+
+fn fixture() -> Fixture {
     let dir = tempfile::tempdir().unwrap();
-    let root = init_store(dir.path(), &[]).unwrap();
-    let key = init_store_key(dir.path(), PASSWORD.as_bytes()).unwrap();
+    let store = dir.path().join("store");
+    let witness = dir.path().join("witness");
+    init_store(&store, &[]).unwrap();
+    let root = StoreRoot::open_with_test_witness_root(&store, &witness).unwrap();
+    let key = init_store_key(&store, PASSWORD.as_bytes()).unwrap();
     for name in ["first", "second"] {
         root.insert(
             name,
@@ -27,22 +35,30 @@ fn fixture() -> tempfile::TempDir {
         )
         .unwrap();
     }
-    dir
+    Fixture {
+        _dir: dir,
+        store,
+        witness,
+    }
 }
 
-fn read(path: &Path, name: &str) -> Entry {
-    let key = unlock_store_key(path, PASSWORD.as_bytes()).unwrap();
-    StoreRoot::open(path).unwrap().show(name, &key).unwrap()
+fn read(fixture: &Fixture, name: &str) -> Entry {
+    let key = unlock_store_key(&fixture.store, PASSWORD.as_bytes()).unwrap();
+    StoreRoot::open_with_test_witness_root(&fixture.store, &fixture.witness)
+        .unwrap()
+        .show(name, &key)
+        .unwrap()
 }
 
-fn run(path: &Path, args: &[&str], input: &str) -> Output {
+fn run(fixture: &Fixture, args: &[&str], input: &str) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_opensesame"));
     command
         .args(["vault", "pass"])
         .args(args)
         .arg("--path")
-        .arg(path)
+        .arg(&fixture.store)
         .env("OPENSESAME_STORE_PASSWORD", PASSWORD)
+        .env("OPENSESAME_TEST_ROLLBACK_WITNESS_DIR", &fixture.witness)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -64,14 +80,14 @@ fn assert_private(output: &Output, secrets: &[&str]) {
 
 #[test]
 fn generated_password_is_stored_without_disclosure() {
-    let dir = fixture();
+    let fixture = fixture();
     let output = run(
-        dir.path(),
+        &fixture,
         &["generate", "fresh", "--length", "41", "--no-symbols"],
         "",
     );
     assert!(output.status.success(), "{output:?}");
-    let next = read(dir.path(), "fresh");
+    let next = read(&fixture, "fresh");
     assert_eq!(next.secret.len(), 41);
     assert!(next.secret.chars().all(|c| c.is_ascii_alphanumeric()));
     assert_private(&output, &[OLD, TRAILER.trim(), &next.secret]);
@@ -84,7 +100,7 @@ fn generated_password_is_stored_without_disclosure() {
 #[test]
 fn generated_and_provided_updates_change_the_store_without_disclosure() {
     for provided in [false, true] {
-        let dir = fixture();
+        let fixture = fixture();
         let mut args = vec![
             "update",
             "first",
@@ -97,9 +113,9 @@ fn generated_and_provided_updates_change_the_store_without_disclosure() {
             args.push("--provide");
         }
         let input = format!("{NEW}\n{NEW}\n");
-        let output = run(dir.path(), &args, &input);
+        let output = run(&fixture, &args, &input);
         assert!(output.status.success(), "{output:?}");
-        let next = read(dir.path(), "first");
+        let next = read(&fixture, "first");
         assert_ne!(next.secret, OLD);
         assert_eq!(next.trailer, TRAILER);
         if provided {
@@ -117,27 +133,29 @@ fn generated_and_provided_updates_change_the_store_without_disclosure() {
 
 #[test]
 fn piped_reveal_is_refused_before_any_mutation() {
-    let dir = fixture();
-    let output = run(dir.path(), &["generate", "fresh", "--reveal"], "");
+    let fixture = fixture();
+    let output = run(&fixture, &["generate", "fresh", "--reveal"], "");
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("interactive terminals"));
-    assert!(StoreRoot::open(dir.path())
-        .unwrap()
-        .ls("fresh")
-        .unwrap()
-        .is_empty());
+    assert!(
+        StoreRoot::open_with_test_witness_root(&fixture.store, &fixture.witness)
+            .unwrap()
+            .ls("fresh")
+            .unwrap()
+            .is_empty()
+    );
     assert_private(&output, &[OLD, TRAILER.trim(), NEW]);
     for provided in [false, true] {
         let mut args = vec!["update", "first", "second", "--force", "--reveal"];
         if provided {
             args.push("--provide");
         }
-        let output = run(dir.path(), &args, &format!("{NEW}\n{NEW}\n"));
+        let output = run(&fixture, &args, &format!("{NEW}\n{NEW}\n"));
         assert!(!output.status.success());
         assert!(String::from_utf8_lossy(&output.stderr).contains("interactive terminals"));
         assert_private(&output, &[OLD, TRAILER.trim(), NEW]);
         for name in ["first", "second"] {
-            let unchanged = read(dir.path(), name);
+            let unchanged = read(&fixture, name);
             assert_eq!(unchanged.secret, OLD);
             assert_eq!(unchanged.trailer, TRAILER);
         }
@@ -146,9 +164,9 @@ fn piped_reveal_is_refused_before_any_mutation() {
 
 #[test]
 fn declining_an_update_never_discloses_the_existing_entry() {
-    let dir = fixture();
-    let output = run(dir.path(), &["update", "first"], "n\n");
+    let fixture = fixture();
+    let output = run(&fixture, &["update", "first"], "n\n");
     assert!(output.status.success(), "{output:?}");
     assert_private(&output, &[OLD, TRAILER.trim()]);
-    assert_eq!(read(dir.path(), "first").secret, OLD);
+    assert_eq!(read(&fixture, "first").secret, OLD);
 }

@@ -53,6 +53,11 @@ same shell, and unlike 1Password’s CLI ↔ app integration model.
 - **Hard limit:** `hardLimitSeconds` in the spec is **43200** (12 h).
 - **`run` / `env run`:** every desktop and non-desktop injection path requires
   app approval after D4-6 (no unapproved injection lane).
+- **Temporary availability:** all CLI app-integration approvals are refused
+  until authenticator provenance can be verified. This includes `read`,
+  `reveal`, `env-resolve`, `run`, `pass-reveal` and unknown verbs; an existing
+  session does not lift the refusal. Separately authorized run grants remain a
+  distinct path. See [ADR 0206](0206-device-key-trust-d7-2.md).
 - Service-account paths remain token-gated where the reveal gate already
   excludes them.
 - Agent-context env markers are removed from `cli-reveal-gate.json`; do not reintroduce

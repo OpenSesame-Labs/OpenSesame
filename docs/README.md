@@ -33,7 +33,6 @@ index page with one line per document.
 | [implementation/](implementation/README.md) | Working plans and baselines for multi-part features still being built out. | Record |
 | [research/](research/README.md) | Ecosystem research and [competitor notes](research/competitors/index.md). | Explanation |
 | [contributing/](contributing/README.md) | How work gets done here: gates, automation routines, team runbooks. | How-to |
-| [archive/](archive/README.md) | Superseded plans and one-shot agent prompts, kept for provenance. | Record |
 
 The repository root also carries documents that tools read by name:
 [`AGENTS.md`](../AGENTS.md) (the rulebook for coding agents and humans),
@@ -75,5 +74,7 @@ A few words carry specific meaning everywhere in these documents.
   recordings and drafts stay in ignored `work/evidence/` or temp. Preserve prior
   evidence through Git history and commit-SHA links; follow the
   [persistence contract](evidence/README.md).
-- **Plans that are done move to `archive/`**, with a line in its index saying
-  what replaced them.
+- **Plans that are done are retired after their binding decisions move to ADRs
+  or approved evidence.** Git history preserves the superseded working record;
+  document the maintained replacement in the
+  [repository footprint contract](contributing/repository-footprint.md).

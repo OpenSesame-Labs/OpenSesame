@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
 use opensesame_domain::{ClaimSession, ClaimState, DomainError};
+use opensesame_time::{DateTime, Utc};
 use rand::{Rng, RngExt};
 use sha2::{Digest, Sha256};
 
@@ -121,8 +121,8 @@ pub fn complete_claim(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Duration;
     use opensesame_domain::*;
+    use opensesame_time::Duration;
     use serde_json::json;
 
     #[test]

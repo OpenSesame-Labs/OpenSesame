@@ -5,7 +5,6 @@ import {
   type ApprovalReceipt,
   type AuthorizationRequest,
   type BoundaryValue,
-  type ByoUpstream,
   type ClaimSession,
   type ComparisonChallenge,
   type ExternalChannelBinding,
@@ -40,6 +39,11 @@ import {
 } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import type postgres from "postgres";
+import {
+  countPostgresByoUpstreams,
+  createPostgresByoWithinLimit,
+  mapByoUpstream,
+} from "../capacity-admission.js";
 import type { EventSealer } from "../event-seal.js";
 import * as schema from "../schema/index.js";
 import { createPostgresAgentAuthRepository } from "./agent-auth-repo.js";
@@ -144,23 +148,6 @@ function mapIdentity(
     ...(row.lastAuthenticatedAt
       ? { lastAuthenticatedAt: row.lastAuthenticatedAt }
       : undefined),
-  };
-}
-
-function mapByoUpstream(
-  row: typeof schema.byoUpstreams.$inferSelect,
-): ByoUpstream {
-  return {
-    id: row.id,
-    issuer: row.issuer,
-    label: row.label,
-    clientId: row.clientId,
-    clientAuth: overlapCast(row.clientAuth),
-    registrationSource: overlapCast(row.registrationSource),
-    state: overlapCast(row.state),
-    createdAt: row.createdAt,
-    ...(row.clientSecret ? { clientSecret: row.clientSecret } : undefined),
-    ...(row.lastUsedAt ? { lastUsedAt: row.lastUsedAt } : undefined),
   };
 }
 
@@ -783,6 +770,14 @@ export class PostgresRepositories implements Repositories {
     },
   };
 
+  /**
+   * Capacity admission is isolated with its transaction lock, duplicate
+   * precedence, count, and insert as one indivisible database operation.
+   * Keeping this property as a delegate preserves the repository API while
+   * preventing the main repository class from owning another protocol-sized
+   * transaction body or obscuring the lock ordering details that make the
+   * bound durable across API processes.
+   */
   readonly byoUpstreams: ByoUpstreamRepository = {
     create: async (record) => {
       const issuer = normalizeIssuer(record.issuer);
@@ -815,6 +810,9 @@ export class PostgresRepositories implements Repositories {
       }
     },
 
+    createWithinLimit: (record, limit) =>
+      createPostgresByoWithinLimit(this.db, record, limit),
+
     getById: async (id) => {
       const [row] = await this.db
         .select()
@@ -839,6 +837,8 @@ export class PostgresRepositories implements Repositories {
         .set({ lastUsedAt: at })
         .where(eq(schema.byoUpstreams.id, id));
     },
+
+    count: () => countPostgresByoUpstreams(this.db),
 
     list: async () => {
       const rows = await this.db

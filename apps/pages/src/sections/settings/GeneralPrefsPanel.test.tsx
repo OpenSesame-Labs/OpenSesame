@@ -79,6 +79,27 @@ describe("GeneralPrefsPanel", () => {
     expect(screen.queryByRole("button", { name: "Visual" })).toBeNull();
   });
 
+  it("describes clipboard clearing limits with the setting", () => {
+    render(
+      <MemoryRouter>
+        <GeneralPrefsPanel />
+      </MemoryRouter>,
+    );
+    expect(
+      screen.getByRole("combobox", {
+        name: "Clear copied secrets after",
+        description:
+          /Clearing is best effort:.*may replace whatever is currently on the clipboard\./,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("combobox", {
+        name: "Lock after inactivity",
+        description: /Clearing is best effort/,
+      }),
+    ).toBeNull();
+  });
+
   it("draws no sign-out-of-Identity switch while there is no Identity to sign out of", () => {
     render(
       <MemoryRouter>

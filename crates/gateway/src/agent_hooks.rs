@@ -154,7 +154,7 @@ pub(crate) struct DecisionRecord<'a> {
 /// The insert fails. The caller must not hand the verdict out unrecorded.
 pub(crate) async fn record_decision(db: &Db, record: &DecisionRecord<'_>) -> anyhow::Result<()> {
     let organization_id = record.organization_id.to_string();
-    let created_at = chrono::Utc::now().to_rfc3339();
+    let created_at = opensesame_time::Utc::now().to_rfc3339();
     db.append_agent_hook_decision(&NewAgentHookDecision {
         organization_id: &organization_id,
         caller: record.caller,

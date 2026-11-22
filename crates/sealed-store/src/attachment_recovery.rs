@@ -22,17 +22,32 @@ impl StoreRoot {
         let _lock = crate::store_lock::StoreLock::for_sealing(&self.path, name, key)?;
         let rel = attach_relative(name)?;
         let blob = confined_read(&self.path, &rel)?;
-        let opened = open_osseal_in(COLLECTION_ATTACHMENTS, &blob, key, name, None)?;
+        let (opened, bound_name) = crate::envelope::open_osseal_in_for_path(
+            COLLECTION_ATTACHMENTS,
+            &blob,
+            key,
+            name,
+            None,
+        )?;
         let plaintext = Zeroizing::new(opened.plaintext);
         parse_attachment_manifest(&plaintext)?;
         let current = self
             .attachment_revision(name)?
             .unwrap_or(0)
             .max(opened.revision);
-        let next = current
-            .checked_add(1)
-            .ok_or_else(|| StoreError::Crypto("attachment revision exhausted".into()))?;
-        let sealed = seal_osseal_in(COLLECTION_ATTACHMENTS, &plaintext, key, name, next)?;
+        let next = match self.recover_attachment_witness(
+            name,
+            &self.path.join(&rel),
+            key,
+            current,
+            &plaintext,
+        )? {
+            Some(next) => next,
+            None => current
+                .checked_add(1)
+                .ok_or_else(|| StoreError::Crypto("attachment revision exhausted".into()))?,
+        };
+        let sealed = seal_osseal_in(COLLECTION_ATTACHMENTS, &plaintext, key, &bound_name, next)?;
         self.record_attachment_revision(name, next)?;
         confined_atomic_write(&self.path, &rel, &sealed)?;
         auto_commit(&self.path, crate::store::COMMIT_RESTORE)?;
@@ -40,7 +55,7 @@ impl StoreRoot {
     }
 }
 
-pub(super) fn parse_attachment_manifest(
+pub(crate) fn parse_attachment_manifest(
     plaintext: &[u8],
 ) -> Result<AttachmentManifest, StoreError> {
     let manifest: AttachmentManifest = serde_json::from_slice(plaintext)
@@ -59,7 +74,13 @@ pub(super) fn parse_attachment_manifest(
     if manifest.filename.len() > MAX_FILENAME_BYTES {
         return Err(StoreError::Crypto("manifest filename too long".into()));
     }
-    let declared: u64 = manifest.chunks.iter().map(|c| c.pt_bytes).sum();
+    let mut declared = 0u64;
+    for chunk in &manifest.chunks {
+        declared = declared.checked_add(chunk.pt_bytes).ok_or_else(|| {
+            StoreError::Crypto("manifest chunk sizes overflow".into())
+        })?;
+        super::object_relative(&chunk.digest)?;
+    }
     if declared != manifest.total_bytes {
         return Err(StoreError::Crypto("manifest size mismatch".into()));
     }

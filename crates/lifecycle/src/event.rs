@@ -5,7 +5,7 @@
 //! only, never renamed, and pinned by a unit test so a refactor cannot quietly
 //! break every registered hook.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 

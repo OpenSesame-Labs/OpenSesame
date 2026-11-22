@@ -63,7 +63,7 @@ mod secret_config_store {
         list_secret_configs, load_config_values_sealed, mark_config_sync_published,
         park_config_sync, upsert_config_value, SecretConfigRow, UpsertConfigValue,
     };
-    use chrono::Utc;
+    use opensesame_time::Utc;
 
     const ORG: &str = "org_test";
     const PROJECT: &str = "proj_test";

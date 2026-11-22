@@ -1,5 +1,5 @@
 use crate::{AuthorityHandle, ConnectionId, OrganizationId, ProjectId};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

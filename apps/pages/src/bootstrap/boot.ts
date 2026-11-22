@@ -18,8 +18,8 @@ import {
   vaultIdOf,
 } from "@opensesame/app-core/lib/capabilities/invalidation.js";
 import { vaultSelectionKey } from "@opensesame/app-core/lib/capabilities/keys.js";
-import { applyPersonalLocalPwaDefaults } from "@opensesame/app-core/lib/capabilities/store-pwa-defaults.js";
 import { compositionStore } from "@opensesame/app-core/lib/capabilities/store.js";
+import { applyPersonalLocalPwaDefaults } from "@opensesame/app-core/lib/capabilities/store-pwa-defaults.js";
 import { captureAliasArrivalFromPage } from "@opensesame/app-core/lib/ceremony-aliases.js";
 import {
   bindClaimLockReset,
@@ -76,6 +76,10 @@ export const bootSeams = {
 async function hydrateBootConfiguration(): Promise<ParsedRuntimeConfig> {
   const runtimeConfig = await loadRuntimeConfig();
   await kvHydrate([...CORE_BOOT_KEYS]);
+  const { rehydrateTutorialQueueNotices } = await import(
+    "@opensesame/app-core/lib/tutorial-queue-present.js"
+  );
+  rehydrateTutorialQueueNotices();
   // A configured provider revalidates its assertion while the local vault
   // opens. Unconfigured installations make no identity request.
   restoreConfiguredIdentityAtBootIfPresent();

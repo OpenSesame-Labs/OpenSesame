@@ -75,8 +75,10 @@ fn an_echo_of_something_else_is_left_alone() {
 #[test]
 fn a_header_value_echo_in_any_dialect_is_scrubbed_as_text() {
     let needles = Needles::new(TOKEN);
-    let (out, hit) =
-        needles.scrub_str("x tok%2fwith%2breserved%3dchars%26more'(1)*~ y".to_string());
+    let (out, hit) = scrub_needles_str(
+        std::slice::from_ref(&needles),
+        "x tok%2fwith%2breserved%3dchars%26more'(1)*~ y".to_string(),
+    );
     assert!(hit);
     assert_eq!(out, "x [redacted:credential] y");
 }

@@ -4,12 +4,12 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::Utc;
 use opensesame_connector_host::providers;
 use opensesame_domain::{
     ConnectionId, ConnectionRecord, OrganizationId, OrganizationRole, ProjectId,
 };
 use opensesame_provider_openbao::CredentialAuthority;
+use opensesame_time::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -22,8 +22,8 @@ struct ConnectionView {
     provider_id: String,
     display_name: String,
     public_config: Value,
-    created_at: chrono::DateTime<Utc>,
-    updated_at: chrono::DateTime<Utc>,
+    created_at: opensesame_time::DateTime<Utc>,
+    updated_at: opensesame_time::DateTime<Utc>,
 }
 
 impl From<ConnectionRecord> for ConnectionView {

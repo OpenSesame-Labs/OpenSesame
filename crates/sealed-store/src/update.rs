@@ -61,8 +61,7 @@ impl RotationChangelogEvent {
             "ssrot_{}",
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_nanos())
-                .unwrap_or(0)
+                .map_or(0, |d| d.as_nanos())
         );
         Self {
             event_type: CHANGELOG_SECRET_VALUE_CHANGED,

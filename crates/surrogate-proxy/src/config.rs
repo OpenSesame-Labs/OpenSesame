@@ -14,7 +14,7 @@ use crate::tripwire::{RunObserver, RunWatch};
 
 /// How long a run's CA and its leaves stay valid. A run that outlives it
 /// fails closed: its child's handshakes start failing, nothing downgrades.
-pub const DEFAULT_CA_VALIDITY: Duration = Duration::from_secs(7 * 24 * 60 * 60);
+pub const DEFAULT_CA_VALIDITY: Duration = Duration::from_hours(7 * 24);
 
 /// How many credential-tool runs (`gh auth token`, …) one run may have going
 /// at once. A child that opens many tunnels and fires admitted requests

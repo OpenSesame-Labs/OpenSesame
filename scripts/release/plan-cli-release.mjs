@@ -5,7 +5,8 @@
  * The npm version is semver without +build. npm strips build metadata, so the
  * short git SHA is recorded in the GitHub Release title instead.
  *
- * `--mode cd` uses 0.0.0-<preid>.N from the npm registry (trunk CD).
+ * `--mode cd` uses 0.0.0-<preid>.N from the npm registry. `--local-proof`
+ * selects a fixed local-only version without accessing the registry.
  *
  * Prints KEY=value lines: version, tag, release_title, short_sha,
  * npm_dist_tag, also_github_packages.
@@ -117,8 +118,13 @@ function parseArgs(argv) {
   let mode = "";
   let sha = "";
   let sawMode = false;
+  let localProof = false;
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (arg === "--local-proof") {
+      localProof = true;
+      continue;
+    }
     if (arg === "--mode" || arg === "--sha") {
       const value = argv[index + 1];
       if (value === undefined || value.startsWith("--")) {
@@ -134,7 +140,8 @@ function parseArgs(argv) {
     fail(`unknown argument ${arg}`);
   }
   if (!sawMode) fail("--mode is required");
-  return { mode, sha };
+  if (localProof && mode !== "cd") fail("--local-proof requires --mode cd");
+  return { mode, sha, localProof };
 }
 
 function main() {
@@ -148,7 +155,10 @@ function main() {
           sha,
           tagPrefix: "cli-v",
           releaseName: "cli",
-          preid: process.env.NPM_PRERELEASE_ID ?? CD_PREVIEW_DIST_TAG,
+          preid: parsed.localProof
+            ? CD_PREVIEW_DIST_TAG
+            : (process.env.NPM_PRERELEASE_ID ?? CD_PREVIEW_DIST_TAG),
+          npmVersions: parsed.localProof ? [] : undefined,
         })
       : planCliRelease({
           mode: parsed.mode,

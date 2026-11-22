@@ -39,7 +39,7 @@ options page (`entrypoints/options/`).
 | Piece | What it does |
 |---|---|
 | `runner/loop.ts`, `drive.ts`, `readiness.ts` | One pass over the person's runs every minute (an alarm), plus one when an origin is armed. A run is claimed only when the Host lists it as the person's, it is `agent_driving` with the agent as driver, its origin is **armed** and the browser still **grants** it, a credential for the origin is held, a recovery key is pinned and a private window is allowed. The run is re-read before every claim; the moment a person asks for the page, is parked for or takes it, nothing more is claimed and the page is left as it is |
-| `runner/driver.ts`, `verify.ts` | One step, executed. `navigate` (inside the run's origin only), `wait_for`, `fill_credential`, `assert_present`, `submit`, `read_dom_redacted`, `verify_login` (a fresh login in a private window), and the custody steps `generate_candidate`, `seal_candidate`, `promote_candidate`. `screenshot_redacted` answers `failed/refused`: this browser adapter cannot prove which masked document its screenshot contains. A step it does not know is refused and not settled; the two ceremony captures answer `failed` because no envelope scheme exists to seal to |
+| `runner/driver.ts`, `verify.ts` | One step, executed. `navigate` (inside the run's origin only), `wait_for`, `fill_credential`, `assert_present`, `submit`, `read_dom_redacted`, `screenshot_redacted` (frames carry `{image, epoch, masked_boxes}`), `verify_login` (a fresh login in a private window), and the custody steps `generate_candidate`, `seal_candidate`, `promote_candidate`. A step it does not know is refused and not settled; the two ceremony captures answer `failed` because no envelope scheme exists to seal to |
 | `runner/page-fns.ts`, `tab.ts`, `browser.ts` | The functions injected into the run's tab (isolated world, top frame, on demand — no content script), and the tab, grants and private window around them |
 | `runner/wire.ts` | Outcomes in exactly the shape the Host decodes (it refuses unknown fields). No constructor takes a value; every answer passes `guard` against the step it answers; page text is scrubbed of every value the runner holds |
 | `runner/vault.ts`, `backup.ts`, `store.ts` | The runner's own credentials and candidates, **sealed at rest** (`sealForRest`, [ADR 0149](../../docs/adr/0149-nothing-stored-in-the-clear.md)) and bound to their names. A candidate is backed up as a hybrid envelope (RSA-OAEP-256 + AES-256-GCM) addressed to a **recovery key** whose private half the person keeps off this device, put in the Host's ciphertext store and read back byte for byte; only then is `seal_candidate` answered `backed_up: true`. With no recovery key, or a Host that refuses or returns something else, it is `backed_up: false` and the run stops before the submit |
@@ -51,16 +51,6 @@ check for an origin, then press **Allow this site** while a run is waiting. The
 browser asks for that one origin and `scripting` on that click; the grant is
 given back when the run ends or the arm expires. Messages that arm, disarm or
 ask for status are answered only to this extension's own pages.
-
-Screenshots remain unavailable even when a run has a site grant. Chromium's
-`captureVisibleTab` targets whichever tab is active and does not bind the
-pixels to the document where masks were installed; the active tab or document
-can change during capture. The runner therefore returns `failed/refused`
-instead of a frame. A future tab-targeted capture mechanism would also need to
-prove that the captured document and mask generation match. Chrome's debugger
-API could target a tab, but would add a powerful permission and still require
-that document and mask proof; adopting it requires a separate permission and
-design review. Other runner steps remain available.
 
 The runner authenticates with a bearer session token and holds its own
 credentials. A DPoP-bound token is one the Host refuses without its proof key

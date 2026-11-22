@@ -1,0 +1,10 @@
+# Alpine runs this binary. musl-gcc compiles C dependencies (AWS-LC, vendored
+# libdbus, bundled SQLite) and links the musl target. rustc's musl driver passes
+# -nostartfiles, so musl-gcc does not add a second crt. mold is a gnu-target
+# linker; -fuse-ld=mold breaks this link (musl-gcc cannot find ld.mold).
+
+[target.x86_64-unknown-linux-musl]
+linker = "musl-gcc"
+
+[env]
+CC_x86_64_unknown_linux_musl = "musl-gcc"

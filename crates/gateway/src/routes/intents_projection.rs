@@ -10,9 +10,9 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::Utc;
 use opensesame_provider_openfga::{invoke_check_tuple, RemotePdp};
 use opensesame_storage::authority::ProjectionMark;
+use opensesame_time::Utc;
 use serde_json::json;
 
 use crate::app_state::AppState;

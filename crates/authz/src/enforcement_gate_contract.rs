@@ -8,7 +8,6 @@ use crate::{
     descriptor_for_invoke, surface_for, terms_of, AuthorityUse, AuthzError, EnforcementRefused,
     PolicyEngine,
 };
-use chrono::{Duration, Utc};
 use opensesame_domain::{
     AuthorityOperation, ConnectionId, ConnectionRef, Grant, GrantConstraints, GrantId, InvokeLevel,
     OfflineUse, OrganizationId, PrincipalId,
@@ -18,6 +17,7 @@ use opensesame_enforcement::{
     Mechanism, Observability, Remedy, Shortfall, SubjectSurface, Survival, Unsupported,
     UnsupportedReason,
 };
+use opensesame_time::{Duration, Utc};
 
 const MODULE: AdapterStatus = AdapterStatus::Implemented {
     module: "crates/authz/src/enforcement_gate.rs",

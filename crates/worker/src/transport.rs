@@ -129,7 +129,7 @@ pub fn load(listen: &str, lookup: &Lookup<'_>) -> Result<SecureProfile, Transpor
     candidate
         .peer_trust
         .insert(trust_profile.clone(), client_trust);
-    let generation = candidate.into_generation(1, chrono::Utc::now())?;
+    let generation = candidate.into_generation(1, opensesame_time::Utc::now())?;
     Ok(SecureProfile {
         listen,
         generations: TransportGenerations::new(generation),

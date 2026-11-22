@@ -52,7 +52,7 @@
         "packages/control-plane/src/__tests__/claims-present.test.ts",
         "packages/app-core/src/lib/vault/drop-present.test.ts"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-18: reviewed the separate bounded SCIM mutation-rate namespace added to shared security maps; existing claim and TOTP namespaces and admission are unchanged. SCIM cross-replica rate and capacity regressions passed; these unrelated surface suites were not rerun for the new namespace."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-21: classified dependency-only change to packages/control-plane/package.json for the Dependabot npm-minor-and-patch batch #2855 (hono 4.13.16 to 4.13.18, @hono/node-server 2.1.6 to 2.1.8, jose 6.2.15 to 6.2.17, nodemailer 10.3.1 to 10.5.0, @electric-sql/pglite 0.5.15 to 0.5.16); no route, store or policy code changed. Regressions executed at the bump head: claims-drop-completion.security.test.ts, claims-drop-code.security.test.ts and claims-present.test.ts (20 tests in 3 files), os-domain claim-token.test.ts and claim-token-extended.test.ts (23 tests in 2), app-core drop-present.test.ts within a 12-file targeted run (161 tests); npm run audit:exposure CLEAN after the rotation. The manifest fingerprint is deterministic output of the reviewed byte change, not a blind refresh."
     },
     {
       "id": "portable-secret-drop",
@@ -129,7 +129,7 @@
         "packages/ceremony-kit/src/claim-link.test.ts",
         "packages/ceremony-kit/src/claim-stash.test.ts"
       ],
-      "review": "The hosted share link exposes its payload key without the separate code. Only the server-withheld ciphertext is code-gated; this key cannot borrow that protection."
+      "review": "The hosted share link exposes its payload key without the separate code. Only the server-withheld ciphertext is code-gated; this key cannot borrow that protection. 2026-11-21: classified dependency-only change to packages/app-core/package.json for the Dependabot npm-minor-and-patch batch #2855 (better-auth 1.7.22, jose 6.2.17, xmldsigjs/xml-core 3.1.0, hash-wasm 4.13.0, effect 4.1.4, ai 7.0.172, @azure/msal-browser 5.29.1, @vercel/connect 2.9.2, @scure/bip32 2.4.0, fake-indexeddb 6.2.8, @ai-sdk/provider 4.0.38); no link, stash or drop code changed. Regressions executed at the bump head: drop.test.ts, arrival.test.ts, link.test.ts, stash.test.ts and route-model.test.ts, plus the full ceremony-kit suite incl. claim-link and claim-stash (268 tests in 20 files); npm run audit:exposure CLEAN after the rotation. The manifest fingerprint is deterministic output of the reviewed byte change, not a blind refresh."
     },
     {
       "id": "portable-link-key",
@@ -173,7 +173,7 @@
         "packages/ceremony-kit/src/claim-link.test.ts",
         "packages/ceremony-kit/src/claim-stash.test.ts"
       ],
-      "review": "The fragment exposes the payload key without the code. The portable manifest containing the payload ciphertext remains protected by the independent code-derived AEAD envelope."
+      "review": "The fragment exposes the payload key without the code. The portable manifest containing the payload ciphertext remains protected by the independent code-derived AEAD envelope. 2026-11-21: classified dependency-only change to packages/app-core/package.json for the Dependabot npm-minor-and-patch batch #2855 (same reviewed bump set recorded under hosted-link-key); no portable-drop code changed. Regressions executed at the bump head: drop.test.ts, arrival.test.ts, link.test.ts, stash.test.ts and route-model.test.ts, plus the full ceremony-kit suite (268 tests in 20 files); npm run audit:exposure CLEAN after the rotation. The manifest fingerprint is deterministic output of the reviewed byte change, not a blind refresh."
     },
     {
       "id": "account-totp",
@@ -200,6 +200,9 @@
       },
       "implementation": [
         "packages/control-plane/src/routes/interaction-activation-spend.ts",
+        "packages/control-plane/src/routes/interaction-activation-deadline.ts",
+        "packages/control-plane/src/routes/interaction-activation-budget.ts",
+        "packages/control-plane/src/services/interaction-clock.ts",
         "packages/control-plane/src/routes/interaction-activation-totp.ts",
         "packages/control-plane/src/routes/interaction-activation.ts",
         "packages/control-plane/src/routes/mfa-base32.ts",
@@ -213,9 +216,10 @@
         "packages/control-plane/src/repos/security-maps.ts"
       ],
       "regressions": [
-        "packages/control-plane/src/__tests__/interaction-totp-budget.security.test.ts"
+        "packages/control-plane/src/__tests__/interaction-totp-budget.security.test.ts",
+        "packages/control-plane/src/__tests__/interaction-activation-clock.security.test.ts"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-18: reviewed the separate bounded SCIM mutation-rate namespace added to shared security maps; existing claim and TOTP namespaces and admission are unchanged. SCIM cross-replica rate and capacity regressions passed; these unrelated surface suites were not rerun for the new namespace."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
     },
     {
       "id": "est-password",
@@ -249,6 +253,10 @@
         "crates/gateway/src/routes/est_server.rs",
         "crates/gateway/src/routes/est_server_tests_budget.rs",
         "crates/gateway/src/routes/est_wire.rs",
+        "crates/gateway/src/routes/est_auth.rs",
+        "crates/gateway/src/routes/est_freshness.rs",
+        "crates/transport-security/src/generations.rs",
+        "crates/transport-security/src/source_lifetime.rs",
         "crates/storage/migrations/0057_est_passphrase_budget.sql",
         "crates/storage/migrations/0059_est_source_budgets.sql",
         "crates/storage/src/est_scep.rs",
@@ -260,10 +268,16 @@
         "crates/gateway/src/routes/est_legacy_passphrase_tests.rs",
         "crates/gateway/src/routes/est_budget_source_tests.rs",
         "crates/gateway/src/routes/est_source_budget_tests.rs",
+        "crates/gateway/src/routes/est_server_tests.rs",
+        "crates/gateway/src/routes/est_mint_withdrawal_tests.rs",
+        "crates/gateway/src/routes/est_certificate_proof_tests.rs",
+        "crates/gateway/src/routes/est_certificate_freshness_tests.rs",
+        "crates/gateway/src/routes/est_test_pause.rs",
+        "crates/transport-security/src/source_lifetime_tests.rs",
         "crates/storage/tests/est_passphrase_budget.rs",
         "crates/storage/tests/certmgr_pact.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-18: reviewed the append-only invocation-budget migration and the migration sequence assertion; neither changes EST budget behavior. The migration contract regression passed."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Source-lifetime review: the authenticated request rechecks its transport after the awaited password-budget reservation. Twelve EST certificate, freshness and TLS tests and five budget tests passed; source-lifetime clock and deadline controls passed in the integrated proof suite. 2026-11-21: re-reviewed the pre-issuance trust recheck on the rebased HEAD bytes (e2b69c67a): authenticate now reports its admission basis (Certificate or Passphrase) and enroll re-runs the freshness fence at the mint boundary, after the policy and issuer awaits \u2014 the live-transport check for both bases plus current evidence for the certificate basis \u2014 so a source withdrawn after admission is refused with 401 before the signer runs; withdrawal after admission is denied. record_issued now creates the issuance request unfulfilled and settles it through the new guarded complete_keyfree_certificate_issuance transaction, storing the SAN document as dns_names/ip_addrs. Executed reruns on the reviewed bytes: 36 gateway EST route lib tests (including the new mint-withdrawal control and refusal pair), the 138-test storage lib suite, the est_passphrase_budget (5) and certmgr_pact (9) storage integrations, and the 6-test transport-security source-lifetime suite all passed; the Lean source-lifetime proof suite still cannot run here (pre-existing spiffe-source drift at main, no Lean toolchain), so its finite Rust regressions are the executed evidence."
     },
     {
       "id": "est-policy",
@@ -284,7 +298,7 @@
         "crates/gateway/src/routes/est_config_policy.rs"
       ],
       "regressions": ["crates/gateway/src/routes/est_server_tests_budget.rs"],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-21: re-reviewed the mint-boundary change to est_server.rs on the rebased HEAD bytes (e2b69c67a) \u2014 enroll now re-proves admission after the policy and issuer awaits, before the signer runs; the policy lookup itself and its omission behavior are unchanged. Executed rerun on the reviewed bytes: the 36 gateway EST route lib tests passed."
     },
     {
       "id": "est-client-certificate",
@@ -302,6 +316,13 @@
       "budget": null,
       "implementation": [
         "crates/gateway/src/routes/est_wire.rs",
+        "crates/gateway/src/routes/est_auth.rs",
+        "crates/gateway/src/routes/est_freshness.rs",
+        "crates/transport-security/src/generations.rs",
+        "crates/transport-security/src/source_lifetime.rs",
+        "crates/transport-security/src/source_trust.rs",
+        "crates/gateway/src/transport_lifecycle/mod.rs",
+        "crates/gateway/src/transport_lifecycle/trust_activate.rs",
         "crates/domain/src/lib.rs",
         "crates/domain/src/transport/mod.rs",
         "crates/domain/src/transport/evidence.rs",
@@ -310,13 +331,18 @@
       ],
       "regressions": [
         "crates/gateway/src/routes/est_server_tests.rs",
+        "crates/gateway/src/routes/est_mint_withdrawal_tests.rs",
         "crates/gateway/src/routes/est_certificate_proof_tests.rs",
         "crates/gateway/src/routes/est_certificate_tls_tests.rs",
         "crates/gateway/src/routes/est_certificate_freshness_tests.rs",
+        "crates/gateway/src/routes/est_test_pause.rs",
+        "crates/transport-security/src/source_lifetime_tests.rs",
+        "crates/gateway/src/transport_lifecycle/trust_generation_tests.rs",
+        "crates/gateway/src/transport_lifecycle/trust_source_tests.rs",
         "crates/domain/src/transport/evidence_tests.rs",
         "crates/domain/src/transport/source_contract_tests.rs"
       ],
-      "review": "EST certificate enrollment and replacement require usable current direct-client MtlsRequired TLS evidence. A direct TLS proxy leaf, TrustedIngress policy and forwarded assertions are refused. Explicit bootstrap pins require the complete listener anchor set to match because VerifiedPeer does not retain the validated path. Strong-password fallback remains limited to profiles that explicitly permit it."
+      "review": "EST certificate authorization requires usable current direct-client MtlsRequired TLS evidence. A direct TLS proxy leaf, TrustedIngress policy and forwarded assertions are refused. Explicit bootstrap pins require the complete listener anchor set to match because VerifiedPeer does not retain the validated path. Strong-password fallback remains limited to profiles that explicitly permit it. The peer and transport generation are checked again after the awaited inventory lookup; the relevant twelve EST certificate, freshness and TLS tests passed. Source-trust preparation preserves source-owned and reserved names; the source-collision regression passed. 2026-11-21: re-reviewed the pre-issuance trust recheck on the rebased HEAD bytes (e2b69c67a): the live transport and the peer generation are now re-checked a second time at the mint boundary, after the policy and issuer awaits, with current direct-client evidence re-proved for the certificate basis; a source whose trust is withdrawn after admission, or whose evidence lapses during those awaits, is refused with 401 before the signer runs, so withdrawal after admission is denied. Executed reruns on the reviewed bytes: 36 gateway EST route lib tests (including the new mint-withdrawal control and refusal pair), 91 transport-lifecycle tests, the 6-test transport-security source-lifetime suite, and 45 domain transport contract tests all passed."
     },
     {
       "id": "host-testkit-listener",
@@ -370,8 +396,6 @@
         "crates/connection-broker/src/config_custom_egress.rs",
         "crates/connection-broker/src/custom_egress.rs",
         "crates/connection-broker/src/constructor.rs",
-        "crates/connection-broker/src/egress.rs",
-        "crates/connection-broker/src/egress_http.rs",
         "crates/connection-broker/src/store.rs",
         "crates/storage/src/lib.rs",
         "crates/storage/src/tenancy.rs",
@@ -393,10 +417,9 @@
         "crates/gateway/src/testkit/server_tests.rs",
         "crates/gateway/tests/testkit.rs",
         "crates/gateway/tests/host-consumer.test.ts",
-        "crates/connection-broker/src/constructor_tests.rs",
-        "crates/connection-broker/src/egress_http_tests.rs"
+        "crates/connection-broker/src/constructor_tests.rs"
       ],
-      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-18: reviewed the storage invocation module becoming public for the typed idempotency API. The testkit still exposes only its four read-only routes, with no invocation endpoint; the gateway testkit unit and integration regressions and the live TypeScript consumer all passed. 2026-11-18: reviewed removal of the shared byte client and the pinned provider-egress helper. The testkit still has no provider invocation route. The no-proxy mock, built-in public-address fence, error handling and direct credential checks passed their focused wire and proxy regressions; arbitrary transformed data in successful provider output is not proven secret-free. 2026-11-18: reviewed the invocation-budget module declaration; the synthetic testkit still exposes no invocation route. Delegation retry, migration and budget regressions passed; testkit behavior was not rerun for this declaration-only change."
+      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. Relay execution is now disabled and the unused liveness map is removed from production and testkit state; the testkit keeps the same four-route fence. The focused relay and testkit server and integration regressions and the live TypeScript consumer passed before the latest main integration; broker-mode regressions passed again on the updated base. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-20: reviewed the Dependabot #2872 aws-sigv4 pin refresh (1.6.4 -> 1.6.5) in the connection-broker manifest; a dependency-version-only change with no authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file. cargo test -p opensesame-connection-broker --lib --locked passed. Remaining limit: the manifest comment still names the 1.6.4 smithy-rs set while the pin and Cargo.lock now resolve 1.6.5; this records the reviewed source as it stands and claims no new control. 2026-11-20 (council chunk 01): aligned the manifest comment to name the 1.6.5 / 1.3.1 / 1.21.0 smithy-rs set, matching the exact pins and the Cargo.lock resolution. Comment-only change: no dependency, authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file; the remaining limit recorded above is resolved. 2026-11-20: reviewed the credentialed-egress client consolidation \u2014 the duplicate ambient `http_bytes` client is removed from the broker and its test constructor, and catalog-provider credentialed egress again resolves and pins the approved authority per request before the credential is opened; the testkit fence, routes and admission are unchanged. Broker lib tests (351, including the constructor proxy-isolation regression with the testkit feature), invoke-through lib tests (88), gateway testkit server and integration tests, and the live TypeScript consumer test (vitest against the real testkit server) all passed at this head. 2026-11-21: repaired this source fingerprint for crates/storage/src/lib.rs. The e19e283a restack refresh (90dc23a7f) recorded bytes that never matched a committed blob (CI run 44944627312 reported EM-DRIFT on this path before any suite ran); the worktree file is byte-identical to the origin/main reviewed blob (sha256 eafab5f9688d370d, git blob 52382dd55b6e), whose only change from the previously pinned blob is `mod invocations` -> `pub mod invocations` (main #2725, receipt retries bound to authority). Visibility-only widening of an existing module: no route, fence, admission, storage-schema or migration-resolution change, so this listener classification is unchanged and the fingerprint was restored to the reviewed main bytes. Regressions re-run at this head: cargo test -p opensesame-gateway --features testkit (testkit server unit test and tests/testkit.rs integration, 5 run / 4 passed / 1 ignored-needs-Node), cargo test -p opensesame-connection-broker --features testkit --lib (353 passed, including the constructor proxy-isolation regression), and the live TypeScript consumer test against a running HostTestkit fixture (3 passed). Remaining limit: none beyond those already recorded above; no implementation change is claimed. 2026-11-21: reviewed the one-line addition of the cert_completion module to crates/storage/src/lib.rs on the rebased bytes (c4f53cb7) \u2014 the EST key-free issuance completion split out of cert_issuance.rs; no listener, authority, egress or admission change, so this classification is unchanged and the fingerprint was refreshed to the reviewed file. Executed reruns on the reviewed bytes: the feature-gated testkit server lib test (1), the four testkit integration tests, the live TypeScript API-client consumer test, and the connection-broker lib regressions (344 passed; the single failure is a pre-existing GitHub-App conversion error-string expectation on unmodified main, unrelated to this change) all ran; the Rust regressions passed."
     },
     {
       "id": "host-listeners",
@@ -417,6 +440,8 @@
       "minSecretBytes": 0,
       "budget": null,
       "implementation": [
+        "apps/cli/src/serve.rs",
+        "crates/gateway/src/app_state.rs",
         "crates/gateway/src/bootstrap.rs",
         "crates/gateway/src/config.rs",
         "crates/gateway/src/lib.rs",
@@ -424,6 +449,8 @@
         "crates/gateway/src/transport/admission.rs",
         "crates/gateway/src/transport/bindings.rs",
         "crates/gateway/src/transport/boot.rs",
+        "crates/gateway/src/transport/source_trust_selection.rs",
+        "crates/gateway/src/transport/source_trust_selection_formal.rs",
         "crates/gateway/src/transport/config.rs",
         "crates/gateway/src/transport/managed.rs",
         "crates/gateway/src/transport/mod.rs",
@@ -431,14 +458,95 @@
         "crates/gateway/src/transport/proof.rs",
         "crates/gateway/src/transport/routes.rs",
         "crates/gateway/src/transport/runtime.rs",
+        "crates/gateway/src/transport/source_history.rs",
+        "crates/gateway/src/transport/source_history/coordinator.rs",
+        "crates/gateway/src/transport/source_history/file_lock.rs",
         "crates/gateway/src/transport/status.rs",
-        "crates/gateway/src/transport/test_support.rs"
+        "crates/gateway/src/transport/test_support.rs",
+        "crates/transport-security/src/lib.rs",
+        "crates/transport-security/src/client.rs",
+        "crates/transport-security/src/generations.rs",
+        "crates/transport-security/src/guard.rs",
+        "crates/transport-security/src/identity.rs",
+        "crates/transport-security/src/listener.rs",
+        "crates/transport-security/src/server.rs",
+        "crates/transport-security/src/server_conn.rs",
+        "crates/transport-security/src/signing_fence.rs",
+        "crates/transport-security/src/testkit/mod.rs",
+        "crates/transport-security/src/testkit/ca.rs",
+        "crates/transport-security/src/testkit/leaf.rs",
+        "crates/transport-security/src/source_lifetime.rs",
+        "crates/transport-security/src/source_history_activation.rs",
+        "crates/transport-security/src/source_trust.rs",
+        "crates/gateway/src/transport_lifecycle/mod.rs",
+        "crates/gateway/src/transport_lifecycle/boot.rs",
+        "crates/gateway/src/transport_lifecycle/routes.rs",
+        "crates/gateway/src/transport_lifecycle/trust_activate.rs",
+        "crates/gateway/src/transport_lifecycle/trust_store.rs",
+        "crates/transport-security/src/bounded.rs",
+        "crates/transport-security/src/provenance.rs",
+        "crates/transport-security/src/leaf.rs",
+        "crates/transport-security/src/svid_profile.rs",
+        "crates/transport-security/src/svid_tls.rs",
+        "crates/transport-security/src/trust.rs",
+        "crates/transport-security/src/verify_spiffe.rs",
+        "crates/domain/src/transport/attest.rs",
+        "crates/domain/src/transport/binding.rs",
+        "crates/domain/src/transport/evidence.rs",
+        "crates/ingress-evidence/src/admission.rs",
+        "crates/ingress-evidence/src/verify.rs",
+        "crates/gateway/src/transport_lifecycle/trust.rs",
+        "crates/spiffe-source/src/source.rs",
+        "crates/spiffe-source/src/source_history_flow.rs",
+        "crates/spiffe-source/src/sink.rs",
+        "crates/spiffe-source/src/sink/transport.rs",
+        "crates/spiffe-source/src/svid_profile.rs",
+        "crates/storage/src/host_kv.rs",
+        "crates/storage/src/migrations.rs",
+        "crates/storage/migrations/0009_host_kv.sql",
+        "crates/human-vault/src/lib.rs",
+        "crates/human-vault/src/root_protection/mod.rs",
+        "crates/human-vault/src/root_protection/physical_writer_lease.rs",
+        "crates/human-vault/src/unix_private_files.rs",
+        "crates/human-vault/src/unix_private_files/writer_lease.rs"
       ],
       "regressions": [
+        "apps/cli/tests/host_startup_security.rs",
+        "apps/cli/tests/entry_startup.rs",
+        "crates/gateway/src/transport/source_history/tests.rs",
+        "crates/gateway/src/transport/source_history/coordinator_tests.rs",
+        "crates/gateway/src/transport/source_history/integration_tests.rs",
+        "crates/gateway/src/transport_lifecycle/trust_history_tests.rs",
+        "crates/gateway/src/transport_lifecycle/routes_tests.rs",
+        "crates/spiffe-source/tests/durable_history_policy.rs",
+        "crates/spiffe-source/tests/durable_history_supersession.rs",
+        "crates/transport-security/tests/source_history_reservation.rs",
         "crates/gateway/src/config_listener_tests.rs",
-        "crates/gateway/src/transport/boot_tests.rs"
+        "crates/gateway/src/transport/boot_tests.rs",
+        "crates/gateway/src/transport/boot_source_trust_tests.rs",
+        "crates/gateway/src/transport/admission_tests.rs",
+        "crates/gateway/src/transport/admission_source_tests.rs",
+        "crates/gateway/src/transport/status_tests.rs",
+        "crates/transport-security/src/signing_fence_tests.rs",
+        "crates/transport-security/src/source_lifetime_tests.rs",
+        "crates/transport-security/tests/common/mod.rs",
+        "crates/transport-security/tests/signing_fence_races.rs",
+        "crates/transport-security/tests/source_lifetime.rs",
+        "crates/transport-security/tests/source_lifetime_edges.rs",
+        "crates/transport-security/tests/source_lifetime_tls12.rs",
+        "crates/gateway/src/transport_lifecycle/trust_generation_tests.rs",
+        "crates/gateway/src/transport_lifecycle/trust_source_tests.rs",
+        "crates/transport-security/tests/spiffe_peer_domain.rs",
+        "crates/transport-security/tests/spiffe_peer_rotation.rs",
+        "crates/transport-security/tests/servername.rs",
+        "crates/domain/src/transport/spiffe_attest_tests.rs",
+        "crates/domain/src/transport/spiffe_domain_formal_tests.rs",
+        "crates/ingress-evidence/tests/verify.rs",
+        "crates/ingress-evidence/tests/revocation.rs",
+        "crates/gateway/src/transport_lifecycle/trust_tests.rs",
+        "crates/spiffe-source/tests/production_sink_policy.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Relay route registrations remain mounted, but heartbeat, submission, executable delivery, approval and result reporting fail closed. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. One listener configuration, 14 transport configuration and 6 listener boot tests passed. This does not add a listener or a fallback. Source-lifetime review: service admission refuses an expired source; status reports quarantined and expired generations unloaded and preserves revocation precedence. The focused admission, status and source-owned trust collision tests and integrated deadline controls passed. The listener wraps its signer and preclaim session cache with generation checks; source-owned listeners disable resumption. Signer, resumption-race and TLS 1.2/1.3 regressions exercise those boundaries. Testkit files support those regressions and add no production authority. An in-flight key operation or a signature released immediately before withdrawal cannot be revoked, and already-admitted work is not cancelled. Standalone client and server configurations are outside the listener fence. Host source-trust selection requires the generation-bound authoritative source bundle with the requested profile and kind. On the fingerprinted source, the pinned Lean 4.24.0 selector model re-emitted the complete 32-vector selector matrix and the correspondence test compared every vector against the production selector; the exact two-bundle return control and the live reconstructed-manager TLS regression also passed. 2026-11-22 coverage re-pin: the selector coverage moved to reviewed main 827648d2, which carries the #2725 storage lib.rs bytes (the invocations module becomes public; no selector behavior change), the #2723 connection-broker manifest bytes, and the #2622 guard.rs, trust_activate.rs, transport-security manifest and spiffe-source bytes, and the pinned Lean 4.24.0 selector model check and the three registered source-trust-selection regressions (32-vector correspondence, exact two-bundle return control, live reconstructed-manager TLS regression) were re-executed and passed on those bytes. The correspondence module is compiled only for tests and adds no production authority. That regression reuses an in-memory store; it is not a process restart or a real Workload API test. Durable source history remains a separate boundary. Peer-domain review: a SPIFFE bundle carries its explicit domain, certificate validation and SVID checks precede peer evidence, and service binding uses exact SPIFFE identity with separate leaf revocation. The configured Host source domain must match the authoritative selected bundle. The peer-domain, live TLS admission, resumption/rotation, forwarded-evidence and wrong-domain controls passed; the correspondence proves only its stated Boolean properties, not Rust refinement. The NATS client opts into a one-use server verifier with TLS resumption disabled; existing host-listener verification remains unchanged. Source-history review: the registered history suite passed 77 Linux tests in 16 groups on the fingerprinted source (reviewed main 827648d2), including SQLite union and cancellation, the cooperative file lease, offline attestation, a real bindings-only Host startup, source supersession, stored-trust quarantine, reconciliation and the focused PEM collision witness; the pinned Lean 4.24.0 history model stages and every named assertion in the formal runner passed on those bytes as ordinary locked Cargo invocations. The Host-process case does not prove secure-listener or request-guard enforcement. The complete attestation, continuous database identity and cooperative trusted filesystem are assumptions; raw writers, older binaries, backup rollback and physical power-loss durability are not proved. Windows-only startup and initializer refusal tests have not been run on Windows. The proof suite separately pins the executed migration inventory; its hashes do not establish implementation refinement. 2026-11-20 restack repair: the pins for guard.rs, identity.rs, tests/source_lifetime.rs, testkit/{mod,ca,leaf}.rs, tests/spiffe_peer_rotation.rs and human-vault/src/lib.rs matched no blob on this branch (stale since their introduction). identity.rs, the testkit helpers and human-vault/src/lib.rs are byte-identical to the reviewed merge-base. The guard.rs branch change is fail-closed: peer credential/trust and listener-provenance generations must equal the current generation, and withdrawal and source-deadline enforcement moved into checked_current. tests/source_lifetime.rs and tests/spiffe_peer_rotation.rs are new branch regressions for source-owned expiry and SPIFFE domain rebinding across rotation. A latent compile break in tests/source_lifetime.rs was fixed (Duration::nanoseconds does not exist in opensesame_time; milliseconds(1) preserves the inclusive-latch intent). The full opensesame-transport-security suite with the testkit feature passed (118 tests) and the opensesame-human-vault suite passed before re-pinning all eight files to the reviewed blobs."
     },
     {
       "id": "certificate-binding",
@@ -547,9 +655,10 @@
         "crates/bitwarden-server/tests/attempt_budget_capacity.rs",
         "crates/bitwarden-server/tests/hardening.rs",
         "crates/bitwarden-server/src/hashing/tests.rs",
-        "crates/bitwarden-server/tests/attempt_budgets.rs"
+        "crates/bitwarden-server/tests/attempt_budgets.rs",
+        "crates/bitwarden-server/tests/security_default_durations.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. cargo test -p opensesame-bitwarden-server --test security_default_durations passed 1 test. cargo test -p opensesame-bitwarden-server --lib hashing::tests:: passed 10 tests. cargo test -p opensesame-bitwarden-server --test attempt_budgets --test attempt_budget_capacity passed 3 attempt_budget_capacity tests and 2 attempt_budgets tests. cargo test -p opensesame-bitwarden-server --lib limiter::tests:: passed 6 tests. cargo test -p opensesame-bitwarden-server --lib a_request_stays_open_for_its_window passed 1 test. cargo test -p opensesame-bitwarden-server --lib open_ended_connections_keep_their_one_year_limit passed 1 test. cargo test -p opensesame-bitwarden-server --test live_sync passed 4 tests. This review does not expand the release boundary."
     },
     {
       "id": "bitwarden-send",
@@ -596,9 +705,10 @@
         "crates/bitwarden-server/tests/files.rs",
         "crates/bitwarden-server/tests/attempt_budget_capacity.rs",
         "crates/bitwarden-server/src/hashing/tests.rs",
-        "crates/bitwarden-server/tests/attempt_budgets.rs"
+        "crates/bitwarden-server/tests/attempt_budgets.rs",
+        "crates/bitwarden-server/tests/security_default_durations.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. cargo test -p opensesame-bitwarden-server --test security_default_durations passed 1 test. cargo test -p opensesame-bitwarden-server --lib hashing::tests:: passed 10 tests. cargo test -p opensesame-bitwarden-server --test attempt_budgets --test attempt_budget_capacity passed 3 attempt_budget_capacity tests and 2 attempt_budgets tests. This review does not expand the release boundary."
     },
     {
       "id": "bitwarden-api-key",
@@ -640,7 +750,7 @@
         "crates/bitwarden-server/tests/sign_in_methods.rs",
         "crates/bitwarden-server/tests/attempt_budgets.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. cargo test -p opensesame-bitwarden-server --lib open_ended_connections_keep_their_one_year_limit passed 1 test. cargo test -p opensesame-bitwarden-server --test live_sync passed 4 tests. This review does not expand the release boundary."
     },
     {
       "id": "bitwarden-device-code",
@@ -683,7 +793,7 @@
         "crates/bitwarden-server/tests/device_login.rs",
         "crates/bitwarden-server/tests/attempt_budgets.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. cargo test -p opensesame-bitwarden-server --lib open_ended_connections_keep_their_one_year_limit passed 1 test. cargo test -p opensesame-bitwarden-server --test live_sync passed 4 tests. cargo test -p opensesame-bitwarden-server --lib a_request_stays_open_for_its_window passed 1 test. cargo test -p opensesame-bitwarden-server --test device_login passed 4 tests. This review does not expand the release boundary."
     },
     {
       "id": "bitwarden-import",
@@ -796,7 +906,7 @@
         "apps/pages/src/modules/identity.ceremonies/ClaimRoute.test.tsx",
         "apps/pages/src/modules/identity.ceremonies/ClaimRoute.portable-drop.test.tsx"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-10: the portable-drop disclosure changed form, not content. SentDropsPanel.tsx states it as a fact on the row ('Reopens after expiry · cannot be revoked') in place of a caption under it. ShareForm.tsx and drop-card-fields.tsx state it as two field rows ('After expiry: A saved link and code still open it' and 'Revoke: Not possible') in place of a caption, before sealing and on the ready card. Both facts still appear wherever they did, only for a portable drop. No expiry, claim, storage or revocation logic changed, and a portable row still offers no Revoke control. Passed: SentDropsPanel.test.tsx, ClaimRoute.test.tsx, ClaimRoute.portable-drop.test.tsx and the DropCeremony suites (34 tests in 6 files), and outbound-drops.test.ts (8). DropCeremony.share.test.tsx now asserts both facts before sealing as well as on the ready card; the form had no such assertion before. Observed in headless Chromium at 390px against the dev server: both rows render in the share form and on the ready card. Enforcement stays advisory: the disclosure informs the sender and does not stop a saved link and code from reopening the copy."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-10: the portable-drop disclosure changed form, not content. SentDropsPanel.tsx states it as a fact on the row ('Reopens after expiry \u00b7 cannot be revoked') in place of a caption under it. ShareForm.tsx and drop-card-fields.tsx state it as two field rows ('After expiry: A saved link and code still open it' and 'Revoke: Not possible') in place of a caption, before sealing and on the ready card. Both facts still appear wherever they did, only for a portable drop. No expiry, claim, storage or revocation logic changed, and a portable row still offers no Revoke control. Passed: SentDropsPanel.test.tsx, ClaimRoute.test.tsx, ClaimRoute.portable-drop.test.tsx and the DropCeremony suites (34 tests in 6 files), and outbound-drops.test.ts (8). DropCeremony.share.test.tsx now asserts both facts before sealing as well as on the ready card; the form had no such assertion before. Observed in headless Chromium at 390px against the dev server: both rows render in the share form and on the ready card. Enforcement stays advisory: the disclosure informs the sender and does not stop a saved link and code from reopening the copy. 2026-11-18: Biome reordered imports only; SentDropsPanel regressions passed (6/6) before refreshing the reviewed fingerprint."
     },
     {
       "id": "local-vault-activation",
@@ -1009,7 +1119,7 @@
         "packages/auth-upstream/src/__tests__/webauthn.test.ts",
         "packages/sdk-browser/src/webauthn.test.ts"
       ],
-      "review": "LOCAL device-owner process custody only. Original session/scope and transport-bound completions retain ownership; cancel, expiry and lock synchronously revoke provisional key/body/VFS custody. Before configured factors and trusted quorum complete, a revocable private IAM handle permits only bounded policy/directory/credential reads and genuine WebAuthn assertion-counter advancement, with no ordinary VFS, key export or consumable IAM sign-in evidence. Activation and leases publish once under their original owner; metadata, preferences and device-key reconciliation retain operation checks. Bound regressions use genuine sealed stores, real contact assertions and controlled completion boundaries. Copied vault artifacts with primary unlock material can be decrypted outside this local gate: this is neither offline cryptographic quorum nor global lifecycle enforcement. Source fingerprints require deliberate source-path review and executed relevant regressions after every change; they do not prove crash atomicity or cancel already accepted physical writes. 2026-11-10: classification-cross.ts gains one shared rule, for lib/tailscale-key-prefix. That module holds only the provider's key-prefix strings and a function that joins them; the native Tailscale connector and tailnet devices both import it, and until now it matched no rule, so the classification test failed on main. The rule grants no capability and changes no existing rule, including the private-IAM and WebAuthn helper rules this row binds. Passed: every test under apps/pages/src/lib/capabilities (204 tests in 24 files), classification.test.ts among them."
+      "review": "LOCAL device-owner process custody only. Original session/scope and transport-bound completions retain ownership; cancel, expiry and lock synchronously revoke provisional key/body/VFS custody. Before configured factors and trusted quorum complete, a revocable private IAM handle permits only bounded policy/directory/credential reads and genuine WebAuthn assertion-counter advancement, with no ordinary VFS, key export or consumable IAM sign-in evidence. Activation and leases publish once under their original owner; metadata, preferences and device-key reconciliation retain operation checks. Bound regressions use genuine sealed stores, real contact assertions and controlled completion boundaries. Copied vault artifacts with primary unlock material can be decrypted outside this local gate: this is neither offline cryptographic quorum nor global lifecycle enforcement. Source fingerprints require deliberate source-path review and executed relevant regressions after every change; they do not prove crash atomicity or cancel already accepted physical writes. 2026-11-10: classification-cross.ts gains one shared rule, for lib/tailscale-key-prefix. That module holds only the provider's key-prefix strings and a function that joins them; the native Tailscale connector and tailnet devices both import it, and until now it matched no rule, so the classification test failed on main. The rule grants no capability and changes no existing rule, including the private-IAM and WebAuthn helper rules this row binds. Passed: every test under apps/pages/src/lib/capabilities (204 tests in 24 files), classification.test.ts among them. 2026-11-20: classified dependency-only change to packages/auth-upstream/package.json for @simplewebauthn/server 14.1.0; regressions packages/auth-upstream/src/__tests__/webauthn.test.ts, apps/pages/scripts/webauthn-browser-entry.test.mjs, npm run audit:exposure CLEAN. Fingerprints for packages/auth-upstream/package.json bindings are deterministic output, not a blind refresh. 2026-11-20: packages/auth-upstream/package.json gained the verify:simplewebauthn-v14 script, wiring the pinned v14 surface regression (webauthn.test.ts and simplewebauthn-v14-surface.test.ts) into scripts/verify; dependency pins, exports and custody behavior are unchanged from the classified 14.1.0 bump. Regressions executed after the change: npm run verify:simplewebauthn-v14 -w @opensesame/auth-upstream passed (13 tests in 2 files) and npm test -w @opensesame/auth-upstream passed (109 tests in 18 files); the manifest fingerprint was rotated to the reviewed file, deterministic output of the reviewed byte change, and npm run audit:exposure is CLEAN against it. 2026-11-21: PR #2860 rebased onto post-#2859 main; classified dependency-only manifest changes for the @peculiar/x509 3.1.0 hoist \u2014 packages/auth-upstream/package.json asn1js 3.1.0 to 4.0.0 (the single hoisted copy the root overrides force) and packages/app-core/package.json @peculiar/x509 1.14.3 to 3.1.0 plus its verify:x509-3 script line. No custody, authority, egress or admission logic changed and the bindings are unchanged. Regressions executed at the rebased head before rotating: pages pin gates saml-peer-ownership.test.mjs and webauthn-browser-entry.test.mjs (2 files, 7 tests), npm test -w @opensesame/auth-upstream (18 files, 109 tests), npm run verify:x509-3 -w @opensesame/app-core (10 files, 229 tests), npm test -w ./tools/mock-upstream-idp (11 files, 68 tests), and npm run audit:exposure CLEAN; fingerprints for both manifests rotated to the reviewed files. 2026-11-21: classified dependency-only manifest changes for the Dependabot npm-minor-and-patch batch #2855: packages/app-core/package.json and packages/auth-upstream/package.json better-auth 1.7.18 to 1.7.22, packages/app-core/package.json jose 6.2.15 to 6.2.17, packages/sdk-browser/package.json jose 6.2.15 to 6.2.17 plus the Biome 2.6.7 formatting of its files array; auth-upstream keeps @simplewebauthn/server 14.1.0 and the v14 surface script from #2859, and no custody, activation or WebAuthn code changed. Regressions executed at the bump head: npm test -w @opensesame/auth-upstream (109 tests in 18 files, including webauthn.test.ts and simplewebauthn-v14-surface.test.ts), npm test -w @opensesame/sdk-browser (118 tests in 13 files, including webauthn.test.ts), app-core store-unlock-activation.test.ts, store-passkey.test.ts and store-second-step.test.ts within a 12-file targeted run (161 tests); npm run audit:exposure CLEAN after the rotation. The manifest fingerprints are deterministic output of the reviewed byte changes, not a blind refresh. 2026-11-21: PR #2855 rebased onto post-#2860 main; packages/app-core/package.json and packages/auth-upstream/package.json now carry both reviewed sets \u2014 the #2860 pins (@peculiar/x509 3.1.0 with its verify:x509-3 script, asn1js 4.0.0) and the #2855 batch bumps above \u2014 with no other bytes changed; fingerprints rotated to the combined manifests."
     },
     {
       "id": "native-provider-custody",
@@ -1167,40 +1277,10 @@
         "apps/pages/src/modules/connectors.external/native-oauth-resource-runtime.integration.test.tsx",
         "packages/sdk-browser/src/client.test.ts"
       ],
-      "review": "Local admitted provider-result custody. Reviewed original transport and captured revision through private record reads, authenticated decryption, final revision locks, generic API resources, configured OAuth publication and registered API dispatch with or without a caller signal. Actual held-WebCrypto/Web-Lock/physical-close/public-mapping regressions and live-value positives plus bound provider, PKCE, storage and bridge consumers. No copied-secret revocation or global lifecycle claim."
+      "review": "Local admitted provider-result custody. Reviewed original transport and captured revision through private record reads, authenticated decryption, final revision locks, generic API resources, configured OAuth publication and registered API dispatch with or without a caller signal. Actual held-WebCrypto/Web-Lock/physical-close/public-mapping regressions and live-value positives plus bound provider, PKCE, storage and bridge consumers. No copied-secret revocation or global lifecycle claim. 2026-11-21: classified dependency-only manifest changes for the Dependabot npm-minor-and-patch batch #2855: packages/app-core/package.json (@azure/msal-browser 5.28.0 to 5.29.1 with the batch set recorded under hosted-link-key) and packages/sdk-browser/package.json (jose 6.2.15 to 6.2.17, plus the Biome 2.6.7 formatting of its files array); no connector, key or transport code changed. Regressions executed at the bump head: packages/sdk-browser/src/client.test.ts within the full sdk-browser suite (118 tests in 13 files); app-core native-bitwarden-crypto.test.ts, native-azure-ac.test.ts and native-api-http.test.ts within a 12-file targeted run (161 tests); npm run audit:exposure CLEAN after the rotation. The manifest fingerprints are deterministic output of the reviewed byte changes, not a blind refresh."
     }
   ],
   "sources": {
-    "crates/connection-broker/src/egress.rs": [
-      "8cea5122",
-      "00c2a3c9",
-      "5d78278b",
-      "1096cdde",
-      "a2813dd8",
-      "6e503c5c",
-      "455e1477",
-      "fdefc1b3"
-    ],
-    "crates/connection-broker/src/egress_http.rs": [
-      "2a96ed0f",
-      "ad8491c6",
-      "64258337",
-      "dee811a5",
-      "70d178bc",
-      "efc395e2",
-      "3047e800",
-      "6703ad3a"
-    ],
-    "crates/connection-broker/src/egress_http_tests.rs": [
-      "0cdf7f28",
-      "9a17fce9",
-      "68490600",
-      "0f267d96",
-      "8615992a",
-      "81d79ede",
-      "8642f962",
-      "a89d0897"
-    ],
     "crates/bitwarden-server/src/budget_subject.rs": [
       "b67c8d64",
       "7d189880",
@@ -1212,14 +1292,14 @@
       "5d19d45d"
     ],
     "crates/bitwarden-server/src/budget_subject_tests.rs": [
-      "77ed17a3",
-      "6bcba062",
-      "13aaf3c5",
-      "cb7c8ff4",
-      "52a02854",
-      "aff4fc3c",
-      "16279d85",
-      "a9da63d4"
+      "f7ad8271",
+      "d4e9d337",
+      "641879dc",
+      "b7151dd3",
+      "61ee2b71",
+      "1fe57a7a",
+      "bae460bd",
+      "3b3cea2a"
     ],
     "crates/bitwarden-server/src/hashing_work.rs": [
       "2d8248fd",
@@ -1242,34 +1322,34 @@
       "c31ea976"
     ],
     "crates/bitwarden-server/tests/attempt_budget_capacity.rs": [
-      "5b9f586c",
-      "266339a6",
-      "5854211e",
-      "1a1f9b79",
-      "93b5d911",
-      "5432a3ac",
-      "b2e99b59",
-      "c8d9d9b5"
+      "80f63ec6",
+      "c5c9c950",
+      "f11823d3",
+      "66064b63",
+      "298f1956",
+      "1a680335",
+      "570d063c",
+      "3cbdf810"
     ],
     "crates/bitwarden-server/tests/hardening.rs": [
-      "6c8501a8",
-      "854c43f4",
-      "9ee8c092",
-      "ac9ad170",
-      "bd4bd92f",
-      "ed923d7c",
-      "0beb09a6",
-      "0f84a70e"
+      "b98565c1",
+      "72a27951",
+      "a1873535",
+      "9219b238",
+      "76e57a49",
+      "85a9c66b",
+      "63bab09e",
+      "117bf82f"
     ],
     "crates/gateway/src/routes/est_budget_source.rs": [
-      "64ea0842",
-      "90f5e2ac",
-      "4e57605c",
-      "d7b6a6ce",
-      "e5f69818",
-      "734edb4a",
-      "7e8f2b97",
-      "2bb4f4eb"
+      "838bfedf",
+      "739d6113",
+      "53655e39",
+      "098edc6c",
+      "1b4c0362",
+      "405fbfdb",
+      "82fd4f6b",
+      "5b30c8ad"
     ],
     "crates/gateway/src/routes/est_budget_source_tests.rs": [
       "475afa22",
@@ -1312,24 +1392,24 @@
       "9861c64a"
     ],
     "crates/storage/tests/certmgr_pact.rs": [
-      "d895e470",
-      "41c81946",
-      "afcfea05",
-      "0790b90d",
-      "0e666c75",
-      "9ee8719d",
-      "2aa7da24",
-      "873364d4"
+      "817d04fa",
+      "0df8724d",
+      "a9648c39",
+      "a9c89c68",
+      "45e5ee2b",
+      "2051ffab",
+      "9b708231",
+      "b3e2a57f"
     ],
     "packages/app-core/package.json": [
-      "3f0ba320",
-      "68f4e591",
-      "a2aa6cb8",
-      "bf40dd81",
-      "ef342624",
-      "3301fe9b",
-      "deb36ede",
-      "0cc398e2"
+      "ff6d0078",
+      "c269d7b4",
+      "eca4393e",
+      "957a066d",
+      "de3383de",
+      "2a6e2ef2",
+      "b9220759",
+      "ddde9c6c"
     ],
     "packages/app-core/src/lib/claims/arrival.ts": [
       "5e98e948",
@@ -1592,14 +1672,14 @@
       "27a312bd"
     ],
     "packages/control-plane/package.json": [
-      "645222e6",
-      "49debf15",
-      "3c32a27a",
-      "1fc08db5",
-      "ee583d0f",
-      "72c565ec",
-      "e58ca1c6",
-      "e79e300e"
+      "ec042d86",
+      "28882068",
+      "632f4d09",
+      "b05ab3d0",
+      "dabe6bcb",
+      "781d31d5",
+      "1d22c5a7",
+      "963314d7"
     ],
     "packages/os-domain/package.json": [
       "e3dcffdf",
@@ -1682,44 +1762,44 @@
       "f80a31be"
     ],
     "crates/gateway/src/routes/est_server_tests.rs": [
-      "d7383b14",
-      "7bdd6d3e",
-      "9e72653b",
-      "55a89cd7",
-      "cd736c97",
-      "2da52133",
-      "2fb27f71",
-      "27a58ee8"
+      "b10bf2db",
+      "80e12361",
+      "5d51da50",
+      "23faa293",
+      "1823a892",
+      "be8853df",
+      "ce995418",
+      "c5c44179"
     ],
     "crates/gateway/src/routes/est_certificate_proof_tests.rs": [
-      "dffc83d5",
-      "18d696ae",
-      "f0bdacae",
-      "2a56b2c5",
-      "951cbf4c",
-      "d5911467",
-      "531a50b6",
-      "b69d122a"
+      "95eaaaee",
+      "8a1e6f6d",
+      "9847cde8",
+      "d6edcf42",
+      "3b019080",
+      "bd420af3",
+      "5fcae24b",
+      "4ff8a5d5"
     ],
     "crates/gateway/src/routes/est_certificate_tls_tests.rs": [
-      "ff673ff3",
-      "619bff5f",
-      "01c4fc47",
-      "0771c6f2",
-      "c11eccf1",
-      "0f7cc6db",
-      "9abdcc58",
-      "a6690cd4"
+      "419654a2",
+      "523cdf22",
+      "f4fbfd64",
+      "59a4ba27",
+      "4baf8fa2",
+      "b1e9399e",
+      "d1157d8c",
+      "717c457a"
     ],
     "crates/gateway/src/routes/est_certificate_freshness_tests.rs": [
-      "0d29cf94",
-      "2cf4040e",
-      "13b779dd",
-      "29f42b3b",
-      "79682fdc",
-      "1a58d968",
-      "ca1dce56",
-      "0f9917a4"
+      "ec77c61b",
+      "a787ae0f",
+      "57a0c9bb",
+      "0aa4e672",
+      "f3fa0b96",
+      "a8a39996",
+      "a0dfc279",
+      "148938e7"
     ],
     "crates/domain/src/lib.rs": [
       "2db2ace5",
@@ -1732,24 +1812,24 @@
       "dc7437ae"
     ],
     "crates/domain/src/transport/mod.rs": [
-      "416e1855",
-      "f1f76630",
-      "4368504e",
-      "6b88f5f7",
-      "dfd3e097",
-      "7686ad1e",
-      "9aa75b50",
-      "16a15c20"
+      "284a3a02",
+      "018577f2",
+      "f7207d0b",
+      "ca1b5355",
+      "a80f8575",
+      "d47f7054",
+      "70c9f502",
+      "7fee6610"
     ],
     "crates/domain/src/transport/evidence.rs": [
-      "dd3f77cd",
-      "0cd6ed57",
-      "b34f52af",
-      "fae999e8",
-      "ef38fb8c",
-      "35657c98",
-      "5412294c",
-      "35815fd8"
+      "5d352186",
+      "426a3e24",
+      "a209f126",
+      "ba708a76",
+      "b16535a1",
+      "5e218327",
+      "3ed4ca42",
+      "c87f0de3"
     ],
     "crates/domain/src/transport/policy.rs": [
       "dc84e64a",
@@ -1762,24 +1842,24 @@
       "e1d37bd6"
     ],
     "crates/domain/src/transport/attest.rs": [
-      "df10fd52",
-      "dab2dad0",
-      "0a518235",
-      "472039f5",
-      "e04fd5db",
-      "46f770b3",
-      "4883118d",
-      "5eeea36d"
+      "78a4b151",
+      "ff43001f",
+      "f70c42f3",
+      "545f2ef4",
+      "1dd1bfa2",
+      "f58f6993",
+      "d7af339e",
+      "00a2fab0"
     ],
     "crates/domain/src/transport/evidence_tests.rs": [
-      "8bc7c34e",
-      "b7e91e80",
-      "a4273b59",
-      "012d61f4",
-      "adcf97f9",
-      "f8d2557e",
-      "087081cd",
-      "d3372cd8"
+      "6ba27f84",
+      "76d2b449",
+      "d104cc83",
+      "52e0c2af",
+      "60b3f2ae",
+      "2a98cff4",
+      "ca7b28f5",
+      "64ec8778"
     ],
     "crates/domain/src/transport/source_contract_tests.rs": [
       "79606113",
@@ -1892,24 +1972,24 @@
       "408f09c8"
     ],
     "crates/bitwarden-server/Cargo.toml": [
-      "35b1b88b",
-      "7ff9b6dc",
-      "db262df5",
-      "784a4641",
-      "4e20109d",
-      "82d89cbd",
-      "8458c120",
-      "9e4e741a"
+      "c6b1aefb",
+      "ac5a6c3c",
+      "16aeb8d4",
+      "753afe5a",
+      "dbbf3803",
+      "ddf03378",
+      "7ad7a3d6",
+      "9854732c"
     ],
     "crates/bitwarden-server/src/import/account.rs": [
-      "f7092176",
-      "1947dc64",
-      "a6c1b33b",
-      "a48a9ffd",
-      "75b05234",
-      "18edf4e6",
-      "3c309ddc",
-      "d3cb2512"
+      "8f6f4810",
+      "9b704bda",
+      "24d47486",
+      "e70664e1",
+      "951dbebf",
+      "a9029b69",
+      "fb5d534c",
+      "cb65a1da"
     ],
     "crates/bitwarden-server/src/import/account_options.rs": [
       "4b73f21b",
@@ -1922,14 +2002,14 @@
       "97976770"
     ],
     "crates/bitwarden-server/src/import/account_files.rs": [
-      "34bf73e1",
-      "9011f29a",
-      "6b2433ca",
-      "1c9c4973",
-      "d190e0d1",
-      "059665cd",
-      "a8e58f79",
-      "e2196cda"
+      "7d83e413",
+      "5c94d8ac",
+      "e6b7c5cc",
+      "b8882e5c",
+      "1fc451a5",
+      "28637f65",
+      "abec8554",
+      "ffd0b625"
     ],
     "crates/bitwarden-server/src/import/files.rs": [
       "ae4b65d0",
@@ -1952,14 +2032,14 @@
       "f58f92b4"
     ],
     "crates/bitwarden-server/src/import/mod.rs": [
-      "dbe77031",
-      "800c349e",
-      "6f386be1",
-      "daa26ed1",
-      "1a42d620",
-      "f52a2f3b",
-      "e1337bb2",
-      "e01f37ac"
+      "aaf4ae46",
+      "060e2da5",
+      "bf6adc46",
+      "546f398c",
+      "d50e1abd",
+      "3a94603d",
+      "d8db9a43",
+      "9adfdc6e"
     ],
     "crates/bitwarden-server/src/import/shared.rs": [
       "58fc1fdb",
@@ -1972,54 +2052,54 @@
       "d5081d8c"
     ],
     "crates/bitwarden-server/src/import/vaultwarden.rs": [
-      "47d9ea24",
-      "2fee65b3",
-      "ad8d7a40",
-      "ab3a6100",
-      "f527e418",
-      "92dbd75e",
-      "9f67d680",
-      "a69d85ed"
+      "78694b82",
+      "94dc7cb0",
+      "11b1ef88",
+      "4c90c2ce",
+      "56398893",
+      "530ec83a",
+      "921f9b3a",
+      "cdc3a23c"
     ],
     "crates/bitwarden-server/src/import/vaultwarden/emergency.rs": [
-      "4b01984c",
-      "9ae946c0",
-      "77a93ae3",
-      "088c135b",
-      "45e2643f",
-      "c38cd9f8",
-      "504ba345",
-      "0ea5e3ea"
+      "3bcc468f",
+      "3117977a",
+      "a04a4f3d",
+      "8e769c22",
+      "6527a17f",
+      "3967be2e",
+      "744cd579",
+      "505cb240"
     ],
     "crates/bitwarden-server/src/import/vaultwarden/files.rs": [
-      "4cf1c339",
-      "dd4e0ec7",
-      "a8782c8f",
-      "33451d25",
-      "ce9deff7",
-      "3affea25",
-      "e25d6574",
-      "79a8d1fb"
+      "0e35bfeb",
+      "366d0c85",
+      "8d4bbb4e",
+      "9af0ae50",
+      "e47c1100",
+      "38764651",
+      "d26aa93e",
+      "524785f8"
     ],
     "crates/bitwarden-server/src/import/vaultwarden/orgs.rs": [
-      "09bbdd27",
-      "86bc149d",
-      "f64fbe7d",
-      "84f6924a",
-      "b223d2c6",
-      "8eca834d",
-      "6ae6a62f",
-      "1a5bf6a1"
+      "d636f32d",
+      "ba8b3196",
+      "11474e25",
+      "819f6357",
+      "dcd53006",
+      "af1a1838",
+      "e7f6953e",
+      "444fbea5"
     ],
     "crates/bitwarden-server/src/import/vaultwarden/rows.rs": [
-      "5bf83ce6",
-      "927929d3",
-      "cfc22200",
-      "a5c9e6e6",
-      "57900bd3",
-      "6fe1eedd",
-      "e3ed1c28",
-      "b78265dd"
+      "4feb4e29",
+      "6cfa16a4",
+      "3864849f",
+      "2dab3f68",
+      "88fd5c8c",
+      "daa732af",
+      "efaf93bc",
+      "e837d0c1"
     ],
     "crates/bitwarden-server/src/import/vaultwarden/sign_in.rs": [
       "503d2c6f",
@@ -2032,14 +2112,14 @@
       "3f3a2ad3"
     ],
     "crates/bitwarden-server/src/import/tests.rs": [
-      "b89dce4b",
-      "1bd3d3f3",
-      "62d304a3",
-      "7359c9e5",
-      "baede5dc",
-      "3f410135",
-      "ecc2a322",
-      "588de4bb"
+      "77641e12",
+      "4c75ba0c",
+      "42927b30",
+      "3b91b06a",
+      "de0945ec",
+      "dc625050",
+      "eb277cbd",
+      "aaabe63d"
     ],
     "crates/bitwarden-server/src/import/account_files_tests.rs": [
       "9c594e5f",
@@ -2082,14 +2162,14 @@
       "5d79ffd1"
     ],
     "crates/bitwarden-server/tests/import_files.rs": [
-      "68a60af8",
-      "295b1d03",
-      "f1745ec0",
-      "f201af7f",
-      "a46084e4",
-      "dba40c84",
-      "6d9c38cd",
-      "02945a94"
+      "58152db6",
+      "3540dba7",
+      "8d430e90",
+      "05c3d306",
+      "d7e3d4d2",
+      "e0f91788",
+      "814496fe",
+      "cb54adc6"
     ],
     "crates/bitwarden-server/tests/import_orgs.rs": [
       "7f9feb59",
@@ -2102,14 +2182,14 @@
       "67e954fc"
     ],
     "crates/bitwarden-server/tests/import_sign_in.rs": [
-      "affc237a",
-      "d34c7b94",
-      "1e90ae15",
-      "ce2b4dfb",
-      "4c342f53",
-      "cdd0051f",
-      "80016299",
-      "5770a81b"
+      "ae633cf1",
+      "71d20872",
+      "3f0b8dc7",
+      "17d3f978",
+      "04dc9235",
+      "c7d56aed",
+      "233a6833",
+      "5b857d28"
     ],
     "crates/bitwarden-server/src/hashing/argon2id.rs": [
       "e717e809",
@@ -2142,14 +2222,14 @@
       "4252f58f"
     ],
     "crates/bitwarden-server/src/hashing/tests.rs": [
-      "e86c3b62",
-      "0a0ce1ff",
-      "a389cafa",
-      "3ce7c084",
-      "8da15053",
-      "88daf11a",
-      "5784bd2b",
-      "eeefb8f1"
+      "75b21066",
+      "9dfd328a",
+      "8d5ab3d7",
+      "21304c83",
+      "a771aa1d",
+      "4ef32f45",
+      "5af968df",
+      "ff7a677e"
     ],
     "crates/bitwarden-server/src/notifications/anonymous.rs": [
       "c68de20d",
@@ -2162,44 +2242,44 @@
       "8f7e15e7"
     ],
     "crates/bitwarden-server/src/notifications/frames.rs": [
-      "e8826731",
-      "40c0c7ab",
-      "92c95075",
-      "603fc473",
-      "69d3c8e6",
-      "22833359",
-      "9df9b8de",
-      "c05c62d0"
+      "96bffdec",
+      "e59c7c43",
+      "3c2d8877",
+      "9f2e12d4",
+      "374a4dd7",
+      "99183ee3",
+      "0be1eb41",
+      "018c8802"
     ],
     "crates/bitwarden-server/src/notifications/mod.rs": [
-      "1eb7e6fc",
-      "5ce7383c",
-      "3048886a",
-      "545e121a",
-      "46d240af",
-      "e6da81b1",
-      "754f698c",
-      "51ac7498"
+      "2a3dcd0d",
+      "6c76ddb6",
+      "906f3102",
+      "15c7466c",
+      "b4152913",
+      "e83f1988",
+      "b10cd9da",
+      "92edf1ae"
     ],
     "crates/bitwarden-server/src/wire/account.rs": [
-      "4c421cfb",
-      "b36aa36b",
-      "62eec79e",
-      "2df66890",
-      "fd3aa30e",
-      "9d20c06d",
-      "3c9781b7",
-      "40750591"
+      "939fdb79",
+      "e4a463c5",
+      "cc47528e",
+      "cf673d84",
+      "91c611f8",
+      "8d1b0090",
+      "6b27fd33",
+      "44342c84"
     ],
     "crates/bitwarden-server/src/wire/cipher.rs": [
-      "6e195f30",
-      "2ba1bffb",
-      "e56a2f11",
-      "c12911c6",
-      "8141fde1",
-      "81881cb7",
-      "0aed88e3",
-      "38b95347"
+      "abbd910d",
+      "ae7d82de",
+      "5c9c4fe3",
+      "0a2f948d",
+      "d26009a0",
+      "c4e539cf",
+      "30dccf28",
+      "2987b0d9"
     ],
     "crates/bitwarden-server/src/wire/files.rs": [
       "183b582d",
@@ -2232,14 +2312,14 @@
       "bf78ed88"
     ],
     "crates/bitwarden-server/src/wire/send.rs": [
-      "8c011421",
-      "747dd98f",
-      "98ebe9dd",
-      "95a49ec9",
-      "82e91859",
-      "afed7e0f",
-      "1196f19d",
-      "98928225"
+      "c6e85143",
+      "7dab231d",
+      "a9a4b404",
+      "6784faa5",
+      "20fc7781",
+      "9d10c02d",
+      "916ada7a",
+      "81b4463d"
     ],
     "packages/app-core/src/lib/vault/drop.test.ts": [
       "636d01a2",
@@ -2272,14 +2352,14 @@
       "f08af2d5"
     ],
     "apps/pages/src/sections/access/SentDropsPanel.tsx": [
-      "0f78efa6",
-      "fe898881",
-      "e530ccfa",
-      "26026734",
-      "4caa75ca",
-      "b2f6729e",
-      "1affd5de",
-      "99dbd308"
+      "71d97286",
+      "7f953937",
+      "234d92e3",
+      "18e18704",
+      "27ca1810",
+      "d97785f6",
+      "d28853ba",
+      "9a535d8b"
     ],
     "apps/pages/src/sections/vault/DropTtl.tsx": [
       "41c68515",
@@ -2342,34 +2422,34 @@
       "5630460c"
     ],
     "crates/bitwarden-server/src/lib.rs": [
-      "4ccbcf18",
-      "8aa565a4",
-      "a6eaecbb",
-      "f0597753",
-      "b894001c",
-      "b1b9e00e",
-      "e505fc38",
-      "dd38b5e4"
+      "ff295b2b",
+      "eb271706",
+      "93791fbe",
+      "98111999",
+      "777926db",
+      "4ad3fe1d",
+      "927a9856",
+      "a783e918"
     ],
     "crates/bitwarden-server/src/limiter.rs": [
-      "f5504047",
-      "afaf0d3a",
-      "01bb4139",
-      "4e464eb1",
-      "e38a8099",
-      "acc0a5ff",
-      "a41bede1",
-      "78c5ac0a"
+      "440214af",
+      "7f1c0c00",
+      "b35903f4",
+      "1e9dcc15",
+      "2de0ff29",
+      "d5a28310",
+      "03af3414",
+      "9525d5bf"
     ],
     "crates/bitwarden-server/src/limiter_tests.rs": [
-      "c21f9cb1",
-      "08711322",
-      "bb4681c6",
-      "44dfe919",
-      "d4ad13b0",
-      "160244f9",
-      "725394d1",
-      "cc9f1c4c"
+      "33815046",
+      "af15f520",
+      "ae06756c",
+      "40d45817",
+      "b6ff0e6b",
+      "6b9ed3c5",
+      "3d05da33",
+      "449c9c9b"
     ],
     "crates/bitwarden-server/src/routes/account_extras.rs": [
       "b2178b51",
@@ -2392,54 +2472,54 @@
       "c0633170"
     ],
     "crates/bitwarden-server/src/routes/attachments.rs": [
-      "646363c3",
-      "f7d2f15a",
-      "b69d1fb4",
-      "d449dda3",
-      "9aa10747",
-      "5eb510f8",
-      "129a365d",
-      "12cf6cd7"
+      "633edc3e",
+      "beaea881",
+      "0a038906",
+      "9dcc8056",
+      "99741bdb",
+      "4186dc0f",
+      "26811b96",
+      "46575ea4"
     ],
     "crates/bitwarden-server/src/routes/auth_requests.rs": [
-      "49b10801",
-      "03ec2b10",
-      "243ae29f",
-      "30cdf1c4",
-      "f171b49c",
-      "e3194e58",
-      "2a694fc7",
-      "2a55529d"
+      "56c3d686",
+      "4c53abbd",
+      "6a313368",
+      "36e86e66",
+      "3ea2694c",
+      "c674191a",
+      "2125a8bd",
+      "f2de9f83"
     ],
     "crates/bitwarden-server/src/routes/cipher_bulk.rs": [
-      "165b280f",
-      "274ead3e",
-      "a89ac62f",
-      "30a5c9ff",
-      "e47e1b71",
-      "04a8f0d7",
-      "be976bdf",
-      "109ea033"
+      "86eccf48",
+      "78fff2f5",
+      "dbce773b",
+      "eae5732c",
+      "195bed9f",
+      "dc590bb3",
+      "5540c929",
+      "be42a18d"
     ],
     "crates/bitwarden-server/src/routes/ciphers.rs": [
-      "1aafa506",
-      "aa0bddd5",
-      "e763e401",
-      "a2c86f17",
-      "ab326e31",
-      "9ce33a70",
-      "fd486dd7",
-      "dcbcfc06"
+      "5bd0d4bd",
+      "0b23bfc6",
+      "173b930a",
+      "9a192920",
+      "a3ad00fc",
+      "a577d82e",
+      "020eefa9",
+      "88d96796"
     ],
     "crates/bitwarden-server/src/routes/collections.rs": [
-      "1fdf46d0",
-      "ac1af663",
-      "a14971c5",
-      "6b068d2d",
-      "d56998b0",
-      "143e42dc",
-      "2bf1736c",
-      "0d7f3c99"
+      "2cec74d7",
+      "5b2f9963",
+      "3097d7c2",
+      "446dc0ff",
+      "3760903c",
+      "23894d76",
+      "d1cef4f0",
+      "6ed7f4ae"
     ],
     "crates/bitwarden-server/src/routes/credentials.rs": [
       "4a748f5c",
@@ -2452,24 +2532,24 @@
       "041016c2"
     ],
     "crates/bitwarden-server/src/routes/emergency.rs": [
-      "d8e46090",
-      "0c6bc621",
-      "f090dbab",
-      "7aba3f1d",
-      "3d59e4af",
-      "f088027d",
-      "e518e4ad",
-      "aaa7993e"
+      "ec2ff123",
+      "0fee6251",
+      "b3aa4616",
+      "9c06fa07",
+      "4f71c468",
+      "32e69cda",
+      "1f66f7a5",
+      "66bfcd76"
     ],
     "crates/bitwarden-server/src/routes/emergency_steps.rs": [
-      "14973578",
-      "77431161",
-      "e290ca52",
-      "e2290aac",
-      "831cd942",
-      "2337bcb7",
-      "59006b42",
-      "12977e06"
+      "5877577c",
+      "e6c5edbb",
+      "df651a93",
+      "67cb1ee8",
+      "3d6d9c22",
+      "14bd06fe",
+      "672ba0b8",
+      "bfee98cf"
     ],
     "crates/bitwarden-server/src/routes/emergency_use.rs": [
       "fb9ad84c",
@@ -2492,74 +2572,74 @@
       "eec5335e"
     ],
     "crates/bitwarden-server/src/routes/folders.rs": [
-      "cc1f20fd",
-      "fbe5bec6",
-      "afa19237",
-      "bc2ee7b2",
-      "e03a1006",
-      "05e034bd",
-      "e8b3d704",
-      "5bcf31e4"
+      "eff5242a",
+      "27bfdc7d",
+      "7bf1696f",
+      "8cf25027",
+      "e34c4f6b",
+      "67f77c1a",
+      "6de603a0",
+      "f0202bd2"
     ],
     "crates/bitwarden-server/src/routes/identity.rs": [
-      "15c01c32",
-      "a9fd0f00",
-      "b3c150bf",
-      "9cc2268f",
-      "455ccfca",
-      "5d6debb4",
-      "218ab575",
-      "0599a559"
+      "3c6d5ad5",
+      "90f3f96e",
+      "bfbf5572",
+      "4221e6f4",
+      "f1ea23b2",
+      "ceee17c0",
+      "d86e93a0",
+      "cd3f8768"
     ],
     "crates/bitwarden-server/src/routes/meta.rs": [
-      "4b9990d0",
-      "bf65cfbb",
-      "e69d92a7",
-      "448d78a4",
-      "642f3d4d",
-      "90b3610c",
-      "a156e53c",
-      "78e773b9"
+      "397c8672",
+      "1fabdf46",
+      "dee12321",
+      "e894c706",
+      "489536be",
+      "cb1a41b6",
+      "cc2b8aeb",
+      "e300317d"
     ],
     "crates/bitwarden-server/src/routes/mod.rs": [
-      "db38d63e",
-      "a62ca756",
-      "ae9ce9a0",
-      "e3f6dcb0",
-      "5fd5f338",
-      "36aa521a",
-      "c2767597",
-      "7d58d26c"
+      "417a3d5f",
+      "ec374a92",
+      "15528512",
+      "11d93209",
+      "38e1cdae",
+      "634b2ce1",
+      "34084a10",
+      "97fdd796"
     ],
     "crates/bitwarden-server/src/routes/org_ciphers.rs": [
-      "479ee5e7",
-      "076fcc34",
-      "ff2f873b",
-      "d78ea816",
-      "59024dbb",
-      "f846746b",
-      "5f634a9c",
-      "4946375c"
+      "861d34fa",
+      "7b0d4691",
+      "ba88b7e4",
+      "47c690f2",
+      "07c830ad",
+      "269002e9",
+      "0a13bde4",
+      "7d27ecbf"
     ],
     "crates/bitwarden-server/src/routes/org_import.rs": [
-      "fd59b66b",
-      "40065e94",
-      "8c6aea63",
-      "d19807a6",
-      "ec32d8bb",
-      "c19776bc",
-      "43d4c40d",
-      "e8df3d57"
+      "f705ac87",
+      "4fb1dfb7",
+      "a3bc37bc",
+      "5235bdd8",
+      "0820110f",
+      "39f52f42",
+      "2c580576",
+      "9a53ad80"
     ],
     "crates/bitwarden-server/src/routes/org_joining.rs": [
-      "20c067d2",
-      "5c9f10b6",
-      "86c64c97",
-      "eaf29519",
-      "a99bf612",
-      "22397add",
-      "3b1d2bfa",
-      "373ad03f"
+      "13142fe9",
+      "c0635734",
+      "d7a773a5",
+      "db755fc0",
+      "fd6e9327",
+      "301a8ae6",
+      "51da4b47",
+      "ac26a599"
     ],
     "crates/bitwarden-server/src/routes/org_member_status.rs": [
       "6f4c79bd",
@@ -2582,34 +2662,34 @@
       "8d0fb33c"
     ],
     "crates/bitwarden-server/src/routes/org_share.rs": [
-      "375258db",
-      "40798a90",
-      "28a3b1da",
-      "22eaead0",
-      "37b5d2f6",
-      "e08f13f2",
-      "a2012b48",
-      "69091b82"
+      "e59f074c",
+      "80070a94",
+      "72da84b8",
+      "a176f6db",
+      "c4bb9f51",
+      "0854334e",
+      "80755e30",
+      "251c5604"
     ],
     "crates/bitwarden-server/src/routes/organizations.rs": [
-      "ae7ae68a",
-      "78d457b8",
-      "7baa8f6d",
-      "a1bab13f",
-      "d6e121e0",
-      "2b029e59",
-      "cab472ef",
-      "e5880c89"
+      "4c244833",
+      "91d72f77",
+      "28ef8216",
+      "5676c57e",
+      "6abcd0d7",
+      "3b70470e",
+      "4259d50d",
+      "d4435628"
     ],
     "crates/bitwarden-server/src/routes/policies.rs": [
-      "1d676200",
-      "654c1d32",
-      "65c4e5f7",
-      "9ea598ee",
-      "4522322e",
-      "11ba0f7e",
-      "e9d08f87",
-      "b3cf1bfa"
+      "2cb79444",
+      "1c155e8f",
+      "ad69c17b",
+      "b476cf59",
+      "de46f005",
+      "983aa49e",
+      "274dc0e7",
+      "379ede8b"
     ],
     "crates/bitwarden-server/src/routes/policy_rules.rs": [
       "28464507",
@@ -2622,64 +2702,64 @@
       "8dbfd81c"
     ],
     "crates/bitwarden-server/src/routes/register.rs": [
-      "c85ab427",
-      "3fb501c7",
-      "a91242bf",
-      "914a270a",
-      "bf0b7e97",
-      "4548eacf",
-      "147eccc2",
-      "555a9eb3"
+      "ed913963",
+      "dff19ad7",
+      "c8b430d4",
+      "eedecf03",
+      "dd20e343",
+      "8a17bbbf",
+      "6abc415e",
+      "5c2f063c"
     ],
     "crates/bitwarden-server/src/routes/rotation.rs": [
-      "42d4e965",
-      "e079d5dd",
-      "ba5d54c2",
-      "ecc6de47",
-      "6ff1b80f",
-      "209f1a72",
-      "f04354e2",
-      "94f2e0f6"
+      "f1adacb0",
+      "ee90bd55",
+      "a04cefca",
+      "ab8cf7c8",
+      "9767ac83",
+      "97eba12a",
+      "6f96d505",
+      "89b8bdc1"
     ],
     "crates/bitwarden-server/src/routes/second_step.rs": [
-      "f0eb30e1",
-      "3980ebf4",
-      "29e5531c",
-      "6c31ba19",
-      "c6796517",
-      "d3f79d18",
-      "ff30885e",
-      "8ce79365"
+      "be9e2e4e",
+      "b18f24a5",
+      "aca90e93",
+      "4daf4f4e",
+      "93c6fac3",
+      "e38f5394",
+      "2f106f1c",
+      "d9e0b10f"
     ],
     "crates/bitwarden-server/src/routes/send_access.rs": [
-      "d07c956e",
-      "d0cfd37c",
-      "5a6fcd74",
-      "05dea5cd",
-      "8b0e48df",
-      "430171e0",
-      "a4b2404e",
-      "9d45c775"
+      "1f740108",
+      "10c93c13",
+      "623ec23a",
+      "f2125338",
+      "29da967f",
+      "e640118c",
+      "4dc90855",
+      "6fdf96a6"
     ],
     "crates/bitwarden-server/src/routes/sends.rs": [
-      "d221b87e",
-      "bea5c8f5",
-      "3ccf648e",
-      "2af4c935",
-      "273cbdb0",
-      "257b0c29",
-      "77a64dd1",
-      "0e8fb1cc"
+      "bd7cda1d",
+      "bbd9b021",
+      "dfa02bec",
+      "db080e31",
+      "b681d437",
+      "d9879792",
+      "de5dd406",
+      "226409b5"
     ],
     "crates/bitwarden-server/src/routes/two_factor.rs": [
-      "8bfa7851",
-      "d0ea26cf",
-      "2463d274",
-      "855f0dfd",
-      "83c92d3c",
-      "9e6f2aa8",
-      "a41705b2",
-      "dfb3aa09"
+      "a8a9ceb6",
+      "20f3f39e",
+      "6e7bc5cb",
+      "53f8d7c3",
+      "fe314c6a",
+      "89a7a8ad",
+      "d5a3d3a3",
+      "02689d6f"
     ],
     "crates/bitwarden-server/src/routes/vault_view.rs": [
       "b9c1d183",
@@ -2712,14 +2792,14 @@
       "8563b1ce"
     ],
     "crates/bitwarden-server/src/tokens.rs": [
-      "47fa8d22",
-      "cf96b6f8",
-      "68a8418e",
-      "3e9d3523",
-      "d9de842e",
-      "599a2566",
-      "9c5d8ecd",
-      "0cea3cd1"
+      "ed36865d",
+      "c68677d1",
+      "4273cc48",
+      "fd158eeb",
+      "1af0d447",
+      "73ea09df",
+      "623f2954",
+      "036e18cd"
     ],
     "crates/bitwarden-server/tests/attempt_budgets.rs": [
       "65c969c9",
@@ -2742,44 +2822,54 @@
       "1bcf61e5"
     ],
     "crates/bitwarden-server/tests/files.rs": [
-      "814db4d2",
-      "12ee2250",
-      "91ed8817",
-      "c3fc192f",
-      "cdf3018e",
-      "1fb8c023",
-      "0504d780",
-      "5b7aed3f"
+      "db2942b4",
+      "f206be24",
+      "fcfd0858",
+      "171fdaaf",
+      "3bc2e0ff",
+      "d04b3069",
+      "40255f27",
+      "e118be1d"
+    ],
+    "crates/bitwarden-server/tests/security_default_durations.rs": [
+      "4e3ada1d",
+      "e61dbc3b",
+      "927e3b98",
+      "03bc7517",
+      "02f0cd02",
+      "d2e2b244",
+      "2a85036e",
+      "e6c600d7"
     ],
     "crates/bitwarden-server/tests/sign_in_methods.rs": [
-      "35fd7fe9",
-      "ce2f8bec",
-      "910b4565",
-      "c0288c3f",
-      "65922fee",
-      "ef72d019",
-      "2cf097a8",
-      "8da5a177"
+      "359f291d",
+      "fb5d4aaf",
+      "4b7b0e9d",
+      "bb69b616",
+      "7f7b5bd5",
+      "d7761b8c",
+      "705075ab",
+      "6e0a7b14"
     ],
     "crates/gateway/src/bootstrap.rs": [
-      "6399dbe2",
-      "7ae21497",
-      "de0cb509",
-      "d721de2f",
-      "774386d3",
-      "1dc0688e",
-      "6dd5ee9a",
-      "821ba82d"
+      "907a4817",
+      "cc99e344",
+      "ecfd4772",
+      "caefc154",
+      "66362fb0",
+      "dc8d097d",
+      "9baa22a4",
+      "d49fa90d"
     ],
     "crates/gateway/src/config.rs": [
-      "4c58e95b",
-      "a3471dd0",
-      "2df38b07",
-      "16e6bf53",
-      "35e64b9e",
-      "e154936b",
-      "d1710188",
-      "4b81e7b6"
+      "7732beba",
+      "4593fc00",
+      "e2c7cc5f",
+      "c38d87d5",
+      "94771c7a",
+      "98f3de0a",
+      "d2efa186",
+      "0d887a47"
     ],
     "crates/gateway/src/config_listener_tests.rs": [
       "af16ae93",
@@ -2792,14 +2882,14 @@
       "b997cc50"
     ],
     "crates/gateway/src/lib.rs": [
-      "aad5d529",
-      "8f6ab859",
-      "540bb2bf",
-      "a1bd71c2",
-      "ef3207cb",
-      "543250d0",
-      "2aebeb8a",
-      "1b4e22d9"
+      "0e5988ea",
+      "f0273eda",
+      "3d1f002a",
+      "32a671a5",
+      "97e45874",
+      "6dc0ff95",
+      "14a1e34a",
+      "cdb50dd4"
     ],
     "crates/gateway/src/routes/est_config_policy.rs": [
       "f610fa83",
@@ -2832,34 +2922,34 @@
       "c7ef8a02"
     ],
     "crates/gateway/src/routes/est_passphrase_budget.rs": [
-      "5363ee4e",
-      "e7962f64",
-      "e805301c",
-      "d78a5920",
-      "da2dcf21",
-      "414b9b8d",
-      "5acc1e19",
-      "1328d041"
+      "31f3c4d8",
+      "8f0f2510",
+      "078c0c6e",
+      "4e2e807e",
+      "dfedcfda",
+      "a99ddd94",
+      "fe773b5a",
+      "f6dbb28f"
     ],
     "crates/gateway/src/routes/est_records.rs": [
-      "c1049a7d",
-      "a73170f8",
-      "df75ee84",
-      "ae0cbb42",
-      "496f7327",
-      "7b2ccd85",
-      "dddac17b",
-      "720da4bf"
+      "f646282f",
+      "b2df66d4",
+      "b15612db",
+      "993feac0",
+      "f2847a7a",
+      "28167c3b",
+      "d51fc16f",
+      "d36cdee8"
     ],
     "crates/gateway/src/routes/est_server.rs": [
-      "068e0712",
-      "20c88c1a",
-      "d0fdd176",
-      "598b04b6",
-      "c6fdbd21",
-      "396a5b7c",
-      "dc5339f9",
-      "926bccc7"
+      "90f45ca8",
+      "ec4f5908",
+      "8dd9a8c7",
+      "6a5dd29b",
+      "c65ea56e",
+      "d06cb881",
+      "d143569f",
+      "b5f129f3"
     ],
     "crates/gateway/src/routes/est_server_tests_budget.rs": [
       "2bd670d8",
@@ -2872,34 +2962,34 @@
       "4cdfc600"
     ],
     "crates/gateway/src/routes/est_wire.rs": [
-      "5c830b18",
-      "dd3e8241",
-      "abbfb91b",
-      "db71a4ab",
-      "53484209",
-      "19bcade6",
-      "728ea1ff",
-      "c9262dce"
+      "d1912cf0",
+      "92872c46",
+      "a0c0789f",
+      "19341e0c",
+      "4f8f1d08",
+      "beab8e8f",
+      "90df9365",
+      "004d7551"
     ],
     "crates/gateway/src/routes/mod.rs": [
-      "b34b6927",
-      "b0fb9222",
-      "3d3a937a",
-      "3172998c",
-      "7719cb63",
-      "7d60a7d2",
-      "a194b36f",
-      "45697cd4"
+      "d7c3af66",
+      "f8de9276",
+      "c38735c6",
+      "f2ca0bb1",
+      "cbf59aa2",
+      "14ac87dd",
+      "4874275d",
+      "143fe740"
     ],
     "crates/gateway/src/transport/admission.rs": [
-      "38fd26bc",
-      "0317fc63",
-      "321c3306",
-      "1151ca35",
-      "44ec74f3",
-      "5c6ac7af",
-      "12ecdefa",
-      "17b4c637"
+      "97ee3c87",
+      "5a204154",
+      "67e440c4",
+      "7885cce9",
+      "8bd09963",
+      "f6d44085",
+      "835900c8",
+      "29bdd90e"
     ],
     "crates/gateway/src/transport/bindings.rs": [
       "634cd253",
@@ -2912,64 +3002,94 @@
       "161580e7"
     ],
     "crates/gateway/src/transport/boot.rs": [
-      "9cab3c37",
-      "fddfb755",
-      "2b10f358",
-      "d793a9cf",
-      "8f63083a",
-      "a2dd25c0",
-      "86ce59f2",
-      "b5f8e1ab"
+      "7869ef16",
+      "1dd6f69f",
+      "b9dd4e34",
+      "4c7a226a",
+      "2f993a37",
+      "6af192c2",
+      "0fc54162",
+      "89913c85"
+    ],
+    "crates/gateway/src/transport/boot_source_trust_tests.rs": [
+      "bc3f0229",
+      "72371bab",
+      "586d3d6a",
+      "7364322d",
+      "dec9b0b5",
+      "178b0954",
+      "88c38666",
+      "849c2c0a"
     ],
     "crates/gateway/src/transport/boot_tests.rs": [
-      "a6c90c3f",
-      "f5f84b0f",
-      "d5795b6d",
-      "f5ef23c2",
-      "7f484c84",
-      "c11e5138",
-      "4d6e2543",
-      "7c2d2415"
+      "30dd640f",
+      "f02e04f8",
+      "c6e19ef2",
+      "9802c0aa",
+      "07554c4c",
+      "4e00d21d",
+      "37b7355f",
+      "daf1ccc2"
+    ],
+    "crates/gateway/src/transport/source_trust_selection.rs": [
+      "7043906e",
+      "50f23d11",
+      "7756072d",
+      "1ab16b3e",
+      "200f331b",
+      "3eacb650",
+      "7a25b102",
+      "e7f6bc3e"
+    ],
+    "crates/gateway/src/transport/source_trust_selection_formal.rs": [
+      "73d4b95d",
+      "4b1f3327",
+      "e59854a7",
+      "3c10bd70",
+      "d1e306a4",
+      "53e2455c",
+      "a15f6cc8",
+      "1c8efb79"
     ],
     "crates/gateway/src/transport/config.rs": [
-      "0ebd0b88",
-      "632dde4b",
-      "37945901",
-      "a103b9ab",
-      "12010a8e",
-      "ea76fc85",
-      "8c87622a",
-      "d2241db3"
+      "83f34ade",
+      "b43ce15c",
+      "536524f4",
+      "a4010901",
+      "4d4086a7",
+      "52edeed5",
+      "488dc320",
+      "9280d4cf"
     ],
     "crates/gateway/src/transport/managed.rs": [
-      "7cbe63b1",
-      "95fa14e2",
-      "07314f54",
-      "43e613d3",
-      "917927da",
-      "174fe657",
-      "a1287468",
-      "daf74991"
+      "95f2f2f8",
+      "9c6792e8",
+      "e1809fdc",
+      "5b3e12bd",
+      "d508bad5",
+      "dc2758be",
+      "03797ca8",
+      "974c6ed1"
     ],
     "crates/gateway/src/transport/mod.rs": [
-      "93083feb",
-      "8574bf58",
-      "3b13d3cc",
-      "860f4dd6",
-      "4d8374b1",
-      "1f3b1c2a",
-      "0de7e8d2",
-      "ebbe6614"
+      "34033997",
+      "b096b90b",
+      "2932e456",
+      "3e057785",
+      "c80f3acc",
+      "f4b823bc",
+      "21f91e8a",
+      "83828b8b"
     ],
     "crates/gateway/src/transport/probe.rs": [
-      "226a1a8c",
-      "53473827",
-      "15541b35",
-      "c591fcf4",
-      "099f0680",
-      "3e7c8647",
-      "b3f64533",
-      "c85688a5"
+      "281791f2",
+      "b3714d96",
+      "9d87730d",
+      "64cf5cbb",
+      "012f4156",
+      "44ab4674",
+      "005fd693",
+      "8314523a"
     ],
     "crates/gateway/src/transport/proof.rs": [
       "0f0d77c6",
@@ -3002,34 +3122,34 @@
       "0b777fc2"
     ],
     "crates/gateway/src/transport/runtime.rs": [
-      "86d1889c",
-      "6a5bed5e",
-      "ca61aad2",
-      "8924209f",
-      "f2668f5d",
-      "ffdd76a8",
-      "06732637",
-      "af67618d"
+      "789d8d4b",
+      "5acb25b5",
+      "46aa1091",
+      "3c202642",
+      "95d33579",
+      "b38e1e0d",
+      "8abaa606",
+      "1cf07153"
     ],
     "crates/gateway/src/transport/status.rs": [
-      "3b8c710f",
-      "0025850d",
-      "48c52a61",
-      "a67a5cb3",
-      "07dc0a24",
-      "2ae0349a",
-      "23e69ba1",
-      "ed91c016"
+      "daac4453",
+      "00f33a61",
+      "1b5354ee",
+      "4bf9ea8f",
+      "9a2c5637",
+      "ed29ea48",
+      "5b231c49",
+      "a9a37fce"
     ],
     "crates/gateway/src/transport/test_support.rs": [
-      "a602ba7e",
-      "12a06e83",
-      "c29791a4",
-      "d8330e47",
-      "2c3712a8",
-      "d1d442f2",
-      "58e1d705",
-      "12fe1c96"
+      "d7084b75",
+      "682ee7d4",
+      "bb5ff3a6",
+      "1b7fc31c",
+      "308bf6e5",
+      "fbfbcab7",
+      "69028291",
+      "a2a7f218"
     ],
     "crates/storage/migrations/0057_est_passphrase_budget.sql": [
       "9efda976",
@@ -3062,14 +3182,14 @@
       "7301dfad"
     ],
     "crates/storage/src/migrations.rs": [
-      "f88231ae",
-      "2e253b1b",
-      "08785ac5",
-      "054710a8",
-      "8175d80e",
-      "834066e2",
-      "a61f6643",
-      "ba76bcd3"
+      "5427e2a5",
+      "1adcce8b",
+      "9a30aa75",
+      "5be66679",
+      "31e52203",
+      "7bcc31f5",
+      "c4dbb582",
+      "89d9e17a"
     ],
     "crates/storage/tests/est_passphrase_budget.rs": [
       "c4e115a8",
@@ -3351,35 +3471,75 @@
       "1922caf9",
       "109d1bcf"
     ],
+    "packages/control-plane/src/__tests__/interaction-activation-clock.security.test.ts": [
+      "f87c706e",
+      "b537dfb0",
+      "72833217",
+      "16255cd9",
+      "f050a30b",
+      "de42418f",
+      "7509993d",
+      "91bbc940"
+    ],
+    "packages/control-plane/src/routes/interaction-activation-deadline.ts": [
+      "5406681c",
+      "c0544c73",
+      "989d50ad",
+      "124ae69e",
+      "a68ca29b",
+      "8bfc3640",
+      "14d7520f",
+      "560842fc"
+    ],
+    "packages/control-plane/src/routes/interaction-activation-budget.ts": [
+      "ca465935",
+      "d62f80b5",
+      "c4ec77a5",
+      "bbaf3f45",
+      "bbe36683",
+      "cae965be",
+      "6e1af329",
+      "23565dcd"
+    ],
     "packages/control-plane/src/routes/interaction-activation-spend.ts": [
-      "162c887b",
-      "e113346a",
-      "e1853fdd",
-      "1e04a68a",
-      "700d88b7",
-      "a996a9f3",
-      "a952b72c",
-      "022e9233"
+      "94bf40ba",
+      "d7d5d6c9",
+      "100d05d8",
+      "f246963f",
+      "1e3deb08",
+      "4dd1c37d",
+      "94f9dbdd",
+      "6c5837c5"
+    ],
+    "packages/control-plane/src/services/interaction-clock.ts": [
+      "d3077e54",
+      "dde48e23",
+      "074a4605",
+      "3d24ff6d",
+      "1d52cf32",
+      "d3070c36",
+      "c1eb5d9c",
+      "704daeb6"
     ],
     "packages/control-plane/src/routes/interaction-activation-totp.ts": [
-      "2a3c0043",
-      "9fcb20fa",
-      "e70b5cad",
-      "18a11b7d",
-      "83e176ab",
-      "489f42aa",
-      "5089496f",
-      "7447fc2b"
+      "9fe3baff",
+      "7c8a025e",
+      "a95425d9",
+      "ec9e8135",
+      "5658cd59",
+      "00471c33",
+      "9ca26c60",
+      "7224ea7c"
     ],
     "packages/control-plane/src/routes/interaction-activation.ts": [
-      "1a1881c1",
-      "6fb978b8",
-      "eeac944b",
-      "08557a8b",
-      "6377642b",
-      "cafde87e",
-      "2cdc53e0",
-      "c8904d90"
+      "c1ae2023",
+      "6fdc7031",
+      "9bdd1fc3",
+      "b812816e",
+      "a29081f7",
+      "0b9bd10b",
+      "94eaeca0",
+      "c0cdfcf3"
     ],
     "packages/control-plane/src/routes/mfa-base32.ts": [
       "76ea6e72",
@@ -3872,14 +4032,14 @@
       "6a40f178"
     ],
     "packages/app-core/src/lib/vault/store-unlock-session.ts": [
-      "50fbcb3f",
-      "cb0544ec",
-      "a300b0ca",
-      "7d43828c",
-      "08c7b499",
-      "d67eaaf6",
-      "9b7e4e1c",
-      "3d1dda2a"
+      "0adba9d4",
+      "008f58e8",
+      "817802ac",
+      "73fc502a",
+      "042c5485",
+      "22a47124",
+      "fe24fa7b",
+      "3f86c103"
     ],
     "packages/app-core/src/lib/vault/store-unlock-races.fixture.ts": [
       "add17b6d",
@@ -4282,14 +4442,14 @@
       "d01796b5"
     ],
     "packages/auth-upstream/package.json": [
-      "a90e5ac0",
-      "c7a6c3a2",
-      "88a9f889",
-      "5efc3b0a",
-      "bba5d6a2",
-      "5b111171",
-      "ecd45e7a",
-      "69d2bc21"
+      "603836a8",
+      "5efa3c2b",
+      "9254268b",
+      "47386bad",
+      "80e409c0",
+      "55c60f1e",
+      "4970b398",
+      "ec2ab992"
     ],
     "packages/auth-upstream/src/browser.ts": [
       "5bbe4849",
@@ -4322,14 +4482,14 @@
       "42d75070"
     ],
     "packages/sdk-browser/package.json": [
-      "d299217c",
-      "d8df197e",
-      "5ed61acc",
-      "e11d3e6b",
-      "ec99cdd5",
-      "1658cbfd",
-      "fbd4e208",
-      "76d5a3ed"
+      "2ba86b53",
+      "4d59bf57",
+      "fa6d5470",
+      "bb815061",
+      "deabfd15",
+      "70380ecf",
+      "230b71a3",
+      "daf6a788"
     ],
     "packages/sdk-browser/src/index.ts": [
       "c41cc32a",
@@ -6582,44 +6742,44 @@
       "1c05799e"
     ],
     "crates/gateway/Cargo.toml": [
-      "8878317c",
-      "aaa15442",
-      "d8e5b4e2",
-      "a2037a8f",
-      "6cc37404",
-      "825b99a1",
-      "65facdab",
-      "df73edff"
+      "69f2859b",
+      "3b2d5d5b",
+      "9e2095f3",
+      "7343afc9",
+      "d9612f2d",
+      "f32c117e",
+      "0409bae6",
+      "a23325a7"
     ],
     "crates/gateway/src/app_state.rs": [
-      "982e3b26",
-      "8509ce92",
-      "b0bb5479",
-      "e7cc6ba7",
-      "e7a3d110",
-      "25fbd47e",
-      "0f54ae85",
-      "d23902e2"
+      "05cab6d9",
+      "42fa31d7",
+      "a812bef8",
+      "3ef026d2",
+      "abfd1bea",
+      "e0573035",
+      "2739e904",
+      "348c5911"
     ],
     "crates/gateway/src/testkit/mod.rs": [
-      "dd98ef36",
-      "395e30a7",
-      "d4f53cd8",
-      "9f010e0f",
-      "6af72a84",
-      "ec0ba531",
-      "af8551f8",
-      "00166434"
+      "18d8967d",
+      "01502152",
+      "537efa43",
+      "9021a598",
+      "54fc0e37",
+      "95655866",
+      "79387a2c",
+      "b83bd9ed"
     ],
     "crates/gateway/src/testkit/state.rs": [
-      "2a9df6e9",
-      "f30e3855",
-      "fea89b3a",
-      "49e7b4bc",
-      "2eefd248",
-      "9c51da61",
-      "248cc723",
-      "63f3a9e2"
+      "d9f16459",
+      "e1d76610",
+      "d7d59125",
+      "ba362cea",
+      "3bad673b",
+      "cd276a8e",
+      "019168ca",
+      "4aaf74ff"
     ],
     "crates/gateway/src/testkit/server.rs": [
       "1de97a97",
@@ -6662,14 +6822,14 @@
       "a47984b2"
     ],
     "crates/gateway/src/routes/session.rs": [
-      "fb21fcf9",
-      "25f9325b",
-      "20ebf11b",
-      "3140d228",
-      "4c7743eb",
-      "6f1af4be",
-      "f95ff7cd",
-      "b0379573"
+      "6868b567",
+      "4fbc695e",
+      "ac302078",
+      "225d09a8",
+      "f312b320",
+      "b33d0ef7",
+      "6d6509c0",
+      "86c52cfc"
     ],
     "crates/gateway/src/routes/connections.rs": [
       "4ab1439a",
@@ -6682,34 +6842,34 @@
       "3bec49e5"
     ],
     "crates/gateway/src/routes/agent_capabilities.rs": [
-      "909707b3",
-      "5db19178",
-      "b21aea0a",
-      "d2656d68",
-      "7004f0c5",
-      "70af4940",
-      "2994b76b",
-      "d1c5582d"
+      "488be129",
+      "ed31bd51",
+      "d78af310",
+      "ee695241",
+      "1bf4fd9a",
+      "1d8ac157",
+      "3a1b734a",
+      "b191baab"
     ],
     "crates/gateway/src/routes/browser_pairings.rs": [
-      "5af0623e",
-      "d9000778",
-      "fb4cde7c",
-      "b5d6ff97",
-      "d4354481",
-      "872e988a",
-      "919edaaf",
-      "d7a8c9d7"
+      "244bfdf9",
+      "957aefaf",
+      "63437504",
+      "cae79017",
+      "2214e3a2",
+      "fe81cee5",
+      "08ca38b5",
+      "a273adfa"
     ],
     "crates/gateway/src/browser_pairing_proof.rs": [
-      "a65e9ba0",
-      "97943595",
-      "51812ff0",
-      "71b6aaf1",
-      "53448ff8",
-      "491b832e",
-      "bdf3b03b",
-      "15c1d8f1"
+      "05ab8d32",
+      "96462043",
+      "30ce2876",
+      "f5752331",
+      "bce1aaf5",
+      "03236652",
+      "f8966d46",
+      "2feff855"
     ],
     "crates/gateway/src/middleware/mod.rs": [
       "2389fc92",
@@ -6722,34 +6882,34 @@
       "d40676bf"
     ],
     "crates/gateway/src/middleware/auth.rs": [
-      "e724e41e",
-      "469fa329",
-      "b25fe8f1",
-      "a18bc972",
-      "1bbf0c61",
-      "08ceee91",
-      "5dfe37a4",
-      "790fbdf1"
+      "79d3114a",
+      "f43df682",
+      "6c61a04a",
+      "4c64b044",
+      "b0e821ed",
+      "d99d657a",
+      "67b4681b",
+      "d51aea81"
     ],
     "crates/gateway/src/middleware/agent_grants.rs": [
-      "8044a6db",
-      "5a35e569",
-      "72232a4d",
-      "5a941de2",
-      "6dc62193",
-      "78a3281b",
-      "8941edc7",
-      "3a039eed"
+      "17a299e6",
+      "38c26761",
+      "58bd97d0",
+      "a24ce47e",
+      "17c1f5d7",
+      "d26454fb",
+      "6d5addd3",
+      "ad429a91"
     ],
     "crates/gateway/src/middleware/browser_grants.rs": [
-      "86f969f0",
-      "b674fdbd",
-      "1dbe96bb",
-      "ad343f40",
-      "a4a82595",
-      "84b29ed0",
-      "27e70069",
-      "1be1bd41"
+      "cde1d0c9",
+      "b23d4793",
+      "169c886f",
+      "7582bc20",
+      "7722d233",
+      "6f80be3c",
+      "09b988bd",
+      "8e99e5c0"
     ],
     "crates/gateway/src/middleware/browser_user_routes.rs": [
       "634a2058",
@@ -6762,14 +6922,14 @@
       "5e1e864a"
     ],
     "crates/gateway/src/middleware/public_enrollment.rs": [
-      "7d114ad7",
-      "ed1b58f8",
-      "920a21e6",
-      "e502d85b",
-      "c17cddfc",
-      "2d2218c3",
-      "b4c8b494",
-      "a7b0ff44"
+      "148b6c76",
+      "00e4b756",
+      "66c64ba8",
+      "2abac592",
+      "fd2003e8",
+      "96422249",
+      "98f55bef",
+      "9b88dc6f"
     ],
     "crates/host-core/src/operator.rs": [
       "6ff3fa9f",
@@ -6782,14 +6942,14 @@
       "0892cca1"
     ],
     "crates/host-core/src/http_security.rs": [
-      "3441643e",
-      "96e62003",
-      "8edaafd9",
-      "2d88e23d",
-      "41f0efa1",
-      "60ec2b70",
-      "c79b3a44",
-      "2f2ca4b3"
+      "a87f3f3c",
+      "334ecdca",
+      "322e44de",
+      "fadc5340",
+      "d237a267",
+      "b1aec9de",
+      "9e621b0b",
+      "7353c3f4"
     ],
     "crates/host-core/src/deployment_mode.rs": [
       "92a5648d",
@@ -6802,34 +6962,34 @@
       "a12f8558"
     ],
     "crates/connection-broker/Cargo.toml": [
-      "33e718d8",
-      "5e217361",
-      "f42b9e85",
-      "e6eba563",
-      "1aa64169",
-      "72991a5f",
-      "da3e2bca",
-      "4d04dd2f"
+      "4bf1510f",
+      "de0cd4a5",
+      "4e4cd84f",
+      "fe76ccb6",
+      "b5b991c6",
+      "8543f128",
+      "efaae27b",
+      "3a9e0ade"
     ],
     "crates/connection-broker/src/lib.rs": [
-      "bfcbec0e",
-      "35cf7c32",
-      "ba121ece",
-      "3458ec95",
-      "0ffd0ebb",
-      "1c256def",
-      "0f4114bc",
-      "d106fee8"
+      "00a21fa7",
+      "4cff6203",
+      "217ecf2f",
+      "54527484",
+      "ce41eceb",
+      "32919288",
+      "478582fa",
+      "e59b318e"
     ],
     "crates/connection-broker/src/config.rs": [
-      "4e2535ca",
-      "e9f2e1e2",
-      "46a34000",
-      "a1ec9d83",
-      "cda3e5c3",
-      "36283f29",
-      "1bf3b918",
-      "fe29509e"
+      "a58e7d55",
+      "66ce0cd6",
+      "82129148",
+      "0c29fb4a",
+      "89762ac9",
+      "9863ca75",
+      "42ea558c",
+      "81e664a9"
     ],
     "crates/connection-broker/src/config_custom_egress.rs": [
       "37d7b208",
@@ -6862,24 +7022,24 @@
       "3c570132"
     ],
     "crates/connection-broker/src/store.rs": [
-      "5ab48843",
-      "98cda7d2",
-      "b0051b99",
-      "266f9539",
-      "fe16e8ce",
-      "5baba841",
-      "fe6020ae",
-      "ad9510bf"
+      "46faaeb3",
+      "b765533f",
+      "dedebf8d",
+      "a150ad8c",
+      "e57d00cc",
+      "d1ef9187",
+      "8877a3ce",
+      "7555a60e"
     ],
     "crates/storage/src/lib.rs": [
-      "2a9e7bcc",
-      "62fd04fb",
-      "979bb80d",
-      "1bd56ebc",
-      "ac58083c",
-      "c2a67867",
-      "3b9ec8b7",
-      "6487659b"
+      "c4f53cb7",
+      "71ca9aba",
+      "298fc7fc",
+      "0f3aa074",
+      "e73fa4a2",
+      "f65624ef",
+      "a3030e60",
+      "5a6ad47c"
     ],
     "crates/storage/src/tenancy.rs": [
       "10cd6d36",
@@ -6902,14 +7062,14 @@
       "643cf881"
     ],
     "crates/gateway/tests/testkit.rs": [
-      "09035427",
-      "7eb651ca",
-      "65544b45",
-      "1d11df92",
-      "e880b4a3",
-      "87a66180",
-      "9efe592e",
-      "15f00296"
+      "9bb61d7b",
+      "1b39bfd6",
+      "92be9c37",
+      "958de9e2",
+      "185f1c01",
+      "49b9a9f0",
+      "67fcf6c8",
+      "4dfdc953"
     ],
     "crates/gateway/tests/host-consumer.test.ts": [
       "0731c186",
@@ -6922,14 +7082,14 @@
       "99c1cc3f"
     ],
     "crates/connection-broker/src/constructor_tests.rs": [
-      "e808c2bd",
-      "b85e7259",
-      "3e0e73f1",
-      "26b0f917",
-      "5dc3225d",
-      "8e915566",
-      "c68a68a2",
-      "fa495522"
+      "9102931f",
+      "a7f26119",
+      "d37a0baa",
+      "93d505d1",
+      "2ed98da0",
+      "e5201764",
+      "5dfa6c6e",
+      "95cc0ffe"
     ],
     "crates/audit/src/lib.rs": [
       "623075cb",
@@ -6942,24 +7102,24 @@
       "c91ac387"
     ],
     "crates/authz/src/engine.rs": [
-      "0d310e97",
-      "1f2070dd",
-      "5e70d219",
-      "2236d5fb",
-      "2fe9294b",
-      "99d677a0",
-      "dbfbda08",
-      "2497f909"
+      "45441f7f",
+      "4f3a39ad",
+      "a173bef5",
+      "60f4c0c8",
+      "9a9a7c3f",
+      "94b1fd6b",
+      "a37fef34",
+      "07b6b84b"
     ],
     "crates/connector-host/src/lib.rs": [
-      "cc69443c",
-      "e103d539",
-      "bb3bcc35",
-      "06b5112f",
-      "b2e90346",
-      "c53fa38b",
-      "8ffcbcfa",
-      "30e470c9"
+      "d7b555cc",
+      "28dda0ba",
+      "316ee3e4",
+      "819294e1",
+      "ee514c1c",
+      "aec78eac",
+      "a0e2bfb4",
+      "bf259842"
     ],
     "crates/connector-host/src/constrained_http.rs": [
       "1077414d",
@@ -7002,14 +7162,14 @@
       "54a5d375"
     ],
     "crates/task-access/src/engine.rs": [
-      "4d19f346",
-      "7cf303c5",
-      "219f4faf",
-      "78b4d179",
-      "cbfd5978",
-      "9982a8e6",
-      "1e5c3169",
-      "b5ae9e77"
+      "a673efca",
+      "26002f94",
+      "d8ec7063",
+      "3b0756ce",
+      "1d330c0d",
+      "27d129bf",
+      "400b657f",
+      "ca673196"
     ],
     "crates/gateway/src/task_engine.rs": [
       "1b395d0d",
@@ -7032,24 +7192,24 @@
       "e2cccc6d"
     ],
     "crates/gateway/src/transport_lifecycle/mod.rs": [
-      "8e439b18",
-      "aa670a0d",
-      "75f99740",
-      "55d8ca2f",
-      "0e61601b",
-      "f5963b13",
-      "79789ff7",
-      "6d89dcf5"
+      "105794dd",
+      "a13d2832",
+      "087586ba",
+      "431af6c1",
+      "1a2b820c",
+      "718320fa",
+      "67b904c4",
+      "7a67a462"
     ],
     "crates/gateway/src/transport_lifecycle/trust.rs": [
-      "d24c39e9",
-      "bbaf1629",
-      "01bfbafe",
-      "5ed381ae",
-      "f37244ab",
-      "c3b85587",
-      "7cf4e2e3",
-      "b90d6fe0"
+      "4314c1e8",
+      "4d77d9d4",
+      "ce28daaa",
+      "e16a07b3",
+      "38157c29",
+      "5a577974",
+      "ec290c2d",
+      "be8c4eb3"
     ],
     "crates/connection-broker/src/catalog.rs": [
       "34fbc4b1",
@@ -7060,6 +7220,806 @@
       "aa16d365",
       "41a1a39f",
       "85ce9bc4"
+    ],
+    "crates/gateway/src/routes/est_auth.rs": [
+      "d2efc200",
+      "52fe4b4a",
+      "68fa05b4",
+      "dadbd941",
+      "ce72c443",
+      "c47b0a0a",
+      "6e03ac5d",
+      "af4a065c"
+    ],
+    "crates/gateway/src/routes/est_freshness.rs": [
+      "e03f7d56",
+      "c50cb057",
+      "e7595b61",
+      "49a3f22d",
+      "d7ee7141",
+      "75cb718e",
+      "ab0115d7",
+      "4defbfba"
+    ],
+    "crates/gateway/src/routes/est_test_pause.rs": [
+      "36c869c8",
+      "2c27a5ca",
+      "e430fc0a",
+      "4b22b1ba",
+      "b34110ca",
+      "cf680a9d",
+      "8f9c30b6",
+      "c010b54a"
+    ],
+    "crates/gateway/src/transport/admission_tests.rs": [
+      "ee3f780a",
+      "1c3cacde",
+      "b41bc6df",
+      "da43da7f",
+      "055b05d0",
+      "432d05e6",
+      "381d7125",
+      "83484ae5"
+    ],
+    "crates/gateway/src/transport/admission_source_tests.rs": [
+      "f303c3ba",
+      "fe2ac5cc",
+      "412b965f",
+      "4110ea82",
+      "4b931ece",
+      "d3dd86d7",
+      "4db0c735",
+      "aada4db2"
+    ],
+    "crates/gateway/src/transport/status_tests.rs": [
+      "59b1b652",
+      "48d0246a",
+      "e33365a3",
+      "734148dc",
+      "15b6a083",
+      "780b161a",
+      "12d3afb4",
+      "d635702d"
+    ],
+    "crates/transport-security/src/generations.rs": [
+      "626e1506",
+      "38f14d21",
+      "a60fd207",
+      "ebba34a9",
+      "b38173ea",
+      "766b87ba",
+      "327c58e4",
+      "ca31101f"
+    ],
+    "crates/transport-security/src/source_lifetime.rs": [
+      "3f6cd17b",
+      "0ffd8373",
+      "ef9067f6",
+      "6c30f1a3",
+      "3f2d8570",
+      "fe9918aa",
+      "44d804a9",
+      "3deee613"
+    ],
+    "crates/transport-security/src/source_lifetime_tests.rs": [
+      "b4ae3455",
+      "45dd68d0",
+      "51587ba6",
+      "650f323a",
+      "cd1a8b77",
+      "95d7745e",
+      "bc0a68c9",
+      "51b8353e"
+    ],
+    "crates/transport-security/src/source_trust.rs": [
+      "96dacd5d",
+      "17c55ef5",
+      "6e665afc",
+      "47c8c6b7",
+      "97f3bd31",
+      "29bfe18f",
+      "b768c78c",
+      "f3e46fc0"
+    ],
+    "crates/gateway/src/transport_lifecycle/trust_activate.rs": [
+      "67b97e9c",
+      "2b45cf90",
+      "03fc706e",
+      "3aafddab",
+      "1c77ae3c",
+      "cab7b3a7",
+      "5bb5dd2c",
+      "f0796db1"
+    ],
+    "crates/gateway/src/transport_lifecycle/trust_generation_tests.rs": [
+      "6435c614",
+      "d94e2fd7",
+      "0e779196",
+      "691614cc",
+      "f4321eeb",
+      "d189a0cc",
+      "e1813f1e",
+      "d88b2885"
+    ],
+    "crates/gateway/src/transport_lifecycle/trust_source_tests.rs": [
+      "a9569037",
+      "9eb353f6",
+      "0f851090",
+      "d4c4b8d3",
+      "f3f5d8c6",
+      "4cae1f7a",
+      "707ebb45",
+      "556eacfd"
+    ],
+    "crates/transport-security/src/lib.rs": [
+      "4d2c9614",
+      "dae83fca",
+      "5d5d4c8d",
+      "e1b75cc5",
+      "01b25df3",
+      "0b62aaa7",
+      "20e38b0a",
+      "a92b0fc8"
+    ],
+    "crates/transport-security/src/client.rs": [
+      "a3e38ba0",
+      "c474758f",
+      "907f9771",
+      "f739df3e",
+      "0f8fc5ac",
+      "177ddd20",
+      "aebec851",
+      "25012c7b"
+    ],
+    "crates/transport-security/src/guard.rs": [
+      "175f026c",
+      "13b31980",
+      "1b5312cc",
+      "42ce1377",
+      "ba2103e1",
+      "0ca49888",
+      "8d3f2d2a",
+      "9f2359fe"
+    ],
+    "crates/transport-security/src/identity.rs": [
+      "90310fc5",
+      "d8b6ae87",
+      "f70c2bc9",
+      "554ba023",
+      "982890ce",
+      "42bf7329",
+      "4d693081",
+      "5e436b22"
+    ],
+    "crates/transport-security/src/listener.rs": [
+      "66d35c81",
+      "0ea8f7f2",
+      "3e7df5b7",
+      "f363b892",
+      "0a07c71c",
+      "83e6fa94",
+      "139f6ca9",
+      "579517ae"
+    ],
+    "crates/transport-security/src/server.rs": [
+      "4c805865",
+      "d6aa3f98",
+      "c9b3afa0",
+      "489d5e8f",
+      "368bb01a",
+      "284d88d6",
+      "8efc92c7",
+      "55237c45"
+    ],
+    "crates/transport-security/src/server_conn.rs": [
+      "12ac0e74",
+      "4bc1ae84",
+      "5331eda1",
+      "ce33df82",
+      "2663a8a4",
+      "96ae4eb6",
+      "9745952e",
+      "f9e20541"
+    ],
+    "crates/transport-security/src/signing_fence.rs": [
+      "5c38a5c3",
+      "7314c680",
+      "13604df4",
+      "084699b1",
+      "3ba4ff1f",
+      "f4c0ef43",
+      "d2e442f1",
+      "17a6b8ab"
+    ],
+    "crates/transport-security/src/signing_fence_tests.rs": [
+      "388e13ae",
+      "2da6e4ec",
+      "d7a9c5b9",
+      "7a21f566",
+      "15b8c724",
+      "29065839",
+      "19c4ae38",
+      "bd2960ba"
+    ],
+    "crates/transport-security/tests/common/mod.rs": [
+      "51cfa68b",
+      "5a3ee6b3",
+      "fdf23376",
+      "625865c5",
+      "71044596",
+      "9995a56a",
+      "adb8d46a",
+      "520494a6"
+    ],
+    "crates/transport-security/tests/signing_fence_races.rs": [
+      "9dab78ed",
+      "09e5a9ce",
+      "945eda2e",
+      "a748333d",
+      "048c0785",
+      "98dbf9d9",
+      "eb5604f9",
+      "78bc126b"
+    ],
+    "crates/transport-security/tests/source_lifetime.rs": [
+      "6aa6b649",
+      "2f010519",
+      "6ad6c8a6",
+      "5ebd9862",
+      "9461eb07",
+      "73d41591",
+      "93430d68",
+      "85fabf38"
+    ],
+    "crates/transport-security/tests/source_lifetime_edges.rs": [
+      "919e5a39",
+      "e787cd64",
+      "9bc3e963",
+      "4d998ce7",
+      "bbfea6d4",
+      "d41b4a8a",
+      "510d6c50",
+      "ce21a131"
+    ],
+    "crates/transport-security/tests/source_lifetime_tls12.rs": [
+      "64358730",
+      "2519fec2",
+      "4f69cbfd",
+      "1618805b",
+      "5e8c137d",
+      "f660b60e",
+      "65091e90",
+      "fe17231c"
+    ],
+    "crates/transport-security/src/testkit/mod.rs": [
+      "e00bca97",
+      "89958743",
+      "fee8fbec",
+      "0234277a",
+      "5197b66c",
+      "e2617def",
+      "6a8bf486",
+      "30bedfe2"
+    ],
+    "crates/transport-security/src/testkit/ca.rs": [
+      "dda885e6",
+      "e2a4f2a3",
+      "e2b8b338",
+      "c7106cc7",
+      "c944cfdd",
+      "f2cd73cc",
+      "e7544dfe",
+      "c4cf1ef4"
+    ],
+    "crates/transport-security/src/testkit/leaf.rs": [
+      "4c2852f2",
+      "b105116f",
+      "ec329078",
+      "c8c8baf0",
+      "b836fac8",
+      "110801ae",
+      "84e2bc32",
+      "9dfa31c4"
+    ],
+    "crates/domain/src/transport/binding.rs": [
+      "b78bf1bb",
+      "e2465d95",
+      "15b1e980",
+      "03ecab63",
+      "280bcf7d",
+      "cbd97772",
+      "ea405b53",
+      "7c8a5f50"
+    ],
+    "crates/domain/src/transport/spiffe_attest_tests.rs": [
+      "d4333270",
+      "a70dce3b",
+      "2b842ee5",
+      "91b23d7b",
+      "7402ccd5",
+      "a80cac98",
+      "a34eec47",
+      "cd74824e"
+    ],
+    "crates/domain/src/transport/spiffe_domain_formal_tests.rs": [
+      "9d480dba",
+      "44bf28ea",
+      "941863c2",
+      "5c3c5551",
+      "636aed4c",
+      "48a08d78",
+      "d50f9f23",
+      "a8a6fc8a"
+    ],
+    "crates/gateway/src/transport_lifecycle/trust_tests.rs": [
+      "626da9b7",
+      "eb431df1",
+      "44f882d3",
+      "e58a9d1a",
+      "3bd048db",
+      "6c988b04",
+      "c9329173",
+      "0d8ec3ad"
+    ],
+    "crates/ingress-evidence/src/admission.rs": [
+      "66b20e3e",
+      "585982e5",
+      "cf54bfec",
+      "b37fb821",
+      "a3a93ce8",
+      "ad72907a",
+      "0be40828",
+      "ca361e6d"
+    ],
+    "crates/ingress-evidence/src/verify.rs": [
+      "9d5695ef",
+      "b57cfab4",
+      "24a050bc",
+      "4ac9f9fd",
+      "7a35e85d",
+      "16085621",
+      "3ae556d4",
+      "815e0f4d"
+    ],
+    "crates/ingress-evidence/tests/revocation.rs": [
+      "b132c9a5",
+      "bc439624",
+      "10a2ec45",
+      "2d1bee9f",
+      "56c076c3",
+      "bb5dfa4f",
+      "aa7b2408",
+      "4c4e9241"
+    ],
+    "crates/ingress-evidence/tests/verify.rs": [
+      "f6392c85",
+      "2b9ed397",
+      "8d3fcc84",
+      "7113bed2",
+      "bc4f48cf",
+      "563f38e9",
+      "15c8a2df",
+      "36f9cc68"
+    ],
+    "crates/spiffe-source/src/sink/transport.rs": [
+      "7899240d",
+      "30a93c99",
+      "8074e1ea",
+      "8a83e31d",
+      "8c8ec272",
+      "d210d4df",
+      "58861c4f",
+      "ab8d7e70"
+    ],
+    "crates/spiffe-source/src/svid_profile.rs": [
+      "ae5e6c1d",
+      "83841ef1",
+      "d7f81cbd",
+      "af85452e",
+      "be791d0c",
+      "829524f1",
+      "da6af1d6",
+      "702bc288"
+    ],
+    "crates/spiffe-source/tests/production_sink_policy.rs": [
+      "cf48e651",
+      "caab825f",
+      "1d32a62a",
+      "f616238d",
+      "2cfa2139",
+      "d8ba1b1e",
+      "e4346df5",
+      "a1d4f64b"
+    ],
+    "crates/transport-security/src/bounded.rs": [
+      "c3d952c0",
+      "1f7096c2",
+      "94f238d6",
+      "de12ed54",
+      "b0b0037a",
+      "ca510921",
+      "b254a4c8",
+      "c86bbf22"
+    ],
+    "crates/transport-security/src/leaf.rs": [
+      "43995ea1",
+      "a4457e59",
+      "2c44a5d1",
+      "3c3cea90",
+      "df360151",
+      "bd4849bb",
+      "cbddeacd",
+      "85749a59"
+    ],
+    "crates/transport-security/src/provenance.rs": [
+      "0f1d3486",
+      "9a873368",
+      "91c06625",
+      "c7442681",
+      "4f7097db",
+      "dc5cbb35",
+      "7ef53abf",
+      "075856e5"
+    ],
+    "crates/transport-security/src/svid_profile.rs": [
+      "b13202de",
+      "e43322cf",
+      "226cb8b2",
+      "02aecfba",
+      "83ae993d",
+      "c4a160e4",
+      "caec3dcf",
+      "2cafb38c"
+    ],
+    "crates/transport-security/src/svid_tls.rs": [
+      "4450a982",
+      "00bf7594",
+      "61b695ed",
+      "9e7b0210",
+      "a05804c2",
+      "ef45791a",
+      "20d2312c",
+      "78b4679c"
+    ],
+    "crates/transport-security/src/trust.rs": [
+      "bcfef72a",
+      "7112e58f",
+      "852b5986",
+      "2700d6b7",
+      "4b4762dc",
+      "3cf378a3",
+      "3d7e7bcb",
+      "f9587e52"
+    ],
+    "crates/transport-security/src/verify_spiffe.rs": [
+      "db876501",
+      "3b198c88",
+      "07c6c94c",
+      "d1c7011c",
+      "8ee2650d",
+      "6ed63c0b",
+      "3c6f836a",
+      "9f328adb"
+    ],
+    "crates/transport-security/tests/servername.rs": [
+      "08a4dbec",
+      "61d47db1",
+      "4568009f",
+      "edeedbdc",
+      "a5d80f3a",
+      "1425954a",
+      "8fc1632b",
+      "30d7e0ac"
+    ],
+    "crates/transport-security/tests/spiffe_peer_domain.rs": [
+      "f2ae2cbb",
+      "a589f3e6",
+      "6ae4bb61",
+      "c3d50c31",
+      "5cd49bd0",
+      "b00e3125",
+      "7bce21e6",
+      "aa3f2fc3"
+    ],
+    "crates/transport-security/tests/spiffe_peer_rotation.rs": [
+      "a31b0f0b",
+      "4add6e81",
+      "bd1b7fa4",
+      "8a9a9da8",
+      "221851fa",
+      "4a4d57b4",
+      "c0aca546",
+      "8098b097"
+    ],
+    "apps/cli/src/serve.rs": [
+      "a1f1c931",
+      "e2a35e23",
+      "2ce043db",
+      "3db8e675",
+      "f9dd941e",
+      "e7fce845",
+      "d672addf",
+      "2a4ed460"
+    ],
+    "apps/cli/tests/entry_startup.rs": [
+      "9d847cb3",
+      "fea49120",
+      "29dba00b",
+      "38e2060c",
+      "9aed1fd1",
+      "ee6d2a3d",
+      "90d38724",
+      "c942afe8"
+    ],
+    "apps/cli/tests/host_startup_security.rs": [
+      "424f1e64",
+      "95795375",
+      "580f2448",
+      "c52f0891",
+      "eb7ca571",
+      "71eaae02",
+      "814493af",
+      "649037de"
+    ],
+    "crates/gateway/src/transport/source_history.rs": [
+      "b1fc87d0",
+      "bf9c93cc",
+      "8bc857e5",
+      "243688ae",
+      "9193e54b",
+      "cee95cd0",
+      "b7177d03",
+      "94aaeede"
+    ],
+    "crates/gateway/src/transport/source_history/coordinator.rs": [
+      "c3db844d",
+      "ad3922e8",
+      "56f252dc",
+      "0f9640ea",
+      "4aa1157e",
+      "aa4563fb",
+      "1da94427",
+      "462c62e4"
+    ],
+    "crates/gateway/src/transport/source_history/coordinator_tests.rs": [
+      "c14acc25",
+      "133eeef0",
+      "0fa99039",
+      "5b8dc679",
+      "68acb938",
+      "31c5a934",
+      "26389dc4",
+      "9cac5592"
+    ],
+    "crates/gateway/src/transport/source_history/file_lock.rs": [
+      "7759de84",
+      "2cdcd41f",
+      "e16f5192",
+      "43d9d386",
+      "e7ec83e4",
+      "d8eacbd0",
+      "23accfa0",
+      "8b63ebd8"
+    ],
+    "crates/gateway/src/transport/source_history/integration_tests.rs": [
+      "96eb078b",
+      "852a06f1",
+      "471a0dfc",
+      "9be6a267",
+      "41449fa6",
+      "c5956fa6",
+      "53b870ca",
+      "853a8941"
+    ],
+    "crates/gateway/src/transport/source_history/tests.rs": [
+      "3e2c3f91",
+      "e1525065",
+      "6bf25bd8",
+      "94f8a70a",
+      "3907265c",
+      "29ef31b6",
+      "1fabdced",
+      "97e183ad"
+    ],
+    "crates/gateway/src/transport_lifecycle/boot.rs": [
+      "b728fc1e",
+      "55821a9a",
+      "7e1ad305",
+      "821a89a4",
+      "de553600",
+      "fdc4b500",
+      "53e704a2",
+      "cbeecde6"
+    ],
+    "crates/gateway/src/transport_lifecycle/routes.rs": [
+      "ca543131",
+      "a123881b",
+      "4d8d893f",
+      "da9c13b3",
+      "cc87022f",
+      "651754bb",
+      "e8efe387",
+      "7ed8abe4"
+    ],
+    "crates/gateway/src/transport_lifecycle/routes_tests.rs": [
+      "373004f9",
+      "6ff28ffa",
+      "eccd52a3",
+      "243cd81a",
+      "85b71b12",
+      "999e87cb",
+      "af5aff7f",
+      "63f7384f"
+    ],
+    "crates/gateway/src/transport_lifecycle/trust_history_tests.rs": [
+      "de4a97c0",
+      "28587428",
+      "3660dcb5",
+      "925b4cbf",
+      "03769352",
+      "4a50bdd7",
+      "225d8e54",
+      "036352a0"
+    ],
+    "crates/gateway/src/transport_lifecycle/trust_store.rs": [
+      "e107589e",
+      "040f088b",
+      "62043262",
+      "aba6977e",
+      "178281e8",
+      "a6602349",
+      "e8e6201e",
+      "a26a7e5d"
+    ],
+    "crates/human-vault/src/lib.rs": [
+      "65687ad4",
+      "8d3d031f",
+      "d25d395d",
+      "cb39f6f2",
+      "88242de4",
+      "b17097ce",
+      "451b4266",
+      "fc2ce86c"
+    ],
+    "crates/human-vault/src/root_protection/mod.rs": [
+      "719a5157",
+      "68346ccc",
+      "47d6b10b",
+      "89ab92b1",
+      "63bc02dd",
+      "3cc8079c",
+      "4615ef30",
+      "9f1ed0c5"
+    ],
+    "crates/human-vault/src/root_protection/physical_writer_lease.rs": [
+      "680c20a2",
+      "dfee124f",
+      "4dd94960",
+      "a9b6977f",
+      "dcd6a934",
+      "9a60d01c",
+      "e83fbb81",
+      "19871acd"
+    ],
+    "crates/human-vault/src/unix_private_files.rs": [
+      "70a5d12e",
+      "8e561692",
+      "d6650ed0",
+      "9a7953c4",
+      "ae59ba03",
+      "ea9b01b7",
+      "d02c1443",
+      "25bc2cc0"
+    ],
+    "crates/human-vault/src/unix_private_files/writer_lease.rs": [
+      "2dcc88d9",
+      "1892039c",
+      "7e42ad84",
+      "a57a23f4",
+      "a2eee7bd",
+      "027a31dd",
+      "50b27a84",
+      "bb173037"
+    ],
+    "crates/spiffe-source/src/sink.rs": [
+      "ce5603f9",
+      "280b48da",
+      "dcc2ceef",
+      "9640b667",
+      "ac839ad0",
+      "197190db",
+      "9a9d8c3a",
+      "0c72191d"
+    ],
+    "crates/spiffe-source/src/source.rs": [
+      "021a25db",
+      "40801d1e",
+      "677c8487",
+      "d7e54d48",
+      "376001c0",
+      "4896f3f8",
+      "0a36157a",
+      "7d531871"
+    ],
+    "crates/spiffe-source/src/source_history_flow.rs": [
+      "19b03ad5",
+      "4435eb1c",
+      "95b38288",
+      "2ec52f19",
+      "191ec5af",
+      "75e1139b",
+      "310e5661",
+      "6dbe05c2"
+    ],
+    "crates/spiffe-source/tests/durable_history_policy.rs": [
+      "0d8a6603",
+      "1ca9b6cf",
+      "77a25266",
+      "3efd49c3",
+      "ea3ca432",
+      "8ef79b0a",
+      "814f6ff9",
+      "2f81761d"
+    ],
+    "crates/spiffe-source/tests/durable_history_supersession.rs": [
+      "99594e03",
+      "483bf160",
+      "5d233120",
+      "c0075d2d",
+      "a09c0d50",
+      "a0176422",
+      "4369b6bf",
+      "5e981398"
+    ],
+    "crates/storage/migrations/0009_host_kv.sql": [
+      "89d07686",
+      "7a75d582",
+      "bb5ec566",
+      "e5db5aac",
+      "30523ef0",
+      "43d9b129",
+      "deaeb297",
+      "607908ca"
+    ],
+    "crates/storage/src/host_kv.rs": [
+      "a3e44491",
+      "df0d1340",
+      "4e9f98f8",
+      "27bf23ba",
+      "44d077a4",
+      "81b13d08",
+      "6eed6ee0",
+      "83a6556d"
+    ],
+    "crates/transport-security/src/source_history_activation.rs": [
+      "c9059d04",
+      "ddf349a4",
+      "4d3a291a",
+      "28c0e3fb",
+      "0505a551",
+      "aabfe801",
+      "db93c3a9",
+      "af992ff1"
+    ],
+    "crates/transport-security/tests/source_history_reservation.rs": [
+      "2fa0c01e",
+      "2617115b",
+      "956de985",
+      "487e2bc9",
+      "f998df19",
+      "6bd1721e",
+      "0e4f42fc",
+      "f3bccb15"
+    ],
+    "crates/gateway/src/routes/est_mint_withdrawal_tests.rs": [
+      "104ec402",
+      "e0f51aa6",
+      "ade5868e",
+      "bfc9c960",
+      "0fa8c563",
+      "2d9add1d",
+      "8814ed1d",
+      "8c005d6a"
     ]
   }
 }

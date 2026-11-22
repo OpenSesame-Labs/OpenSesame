@@ -820,19 +820,19 @@ mod tests {
         assert_store_object_safe::<PostgresTaskStore>();
     }
 
-    /// Live Postgres CAS — enabled with `--features postgres-integration` and
-    /// `OPENSESAME_TEST_DATABASE_URL`. Durable CAS is covered mandatorily by
+    /// Live PostgreSQL CAS is opt-in; durable CAS is mandatory in
     /// `sqlite_store::tests::sqlite_store_round_trip_cas_and_fence`.
     #[tokio::test]
     #[cfg(feature = "postgres-integration")]
+    #[ignore = "requires OPENSESAME_TEST_DATABASE_URL and a live PostgreSQL server"]
     async fn postgres_store_round_trip_and_cas() {
         use crate::{ProposeRestrictionParams, StartTaskParams, TaskAccessEngine, TaskAccessError};
-        use chrono::{Duration, Utc};
         use opensesame_domain::{
             AuthorityContext, AuthorityContextId, AuthorityContextMode, Capability, CapabilitySet,
             CeilingInput, DomainError, OrganizationId, PrincipalId, ResourceSelector,
             TaskTemplateId,
         };
+        use opensesame_time::{Duration, Utc};
 
         let url = std::env::var("OPENSESAME_TEST_DATABASE_URL")
             .expect("set OPENSESAME_TEST_DATABASE_URL for postgres-integration feature");

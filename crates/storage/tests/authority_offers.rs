@@ -7,7 +7,7 @@
 
 mod authority_support;
 
-use chrono::Utc;
+use opensesame_time::Utc;
 
 use authority_support::{entry, issue, seed_grant, seed_realm};
 use opensesame_storage::authority::{ActivationOutcome, NewGrantOffer, OfferActivation};
@@ -303,7 +303,7 @@ async fn seed_person(db: &Db, organization_id: &str, domain_id: &str, grant_id: 
     child.delegation_depth_remaining = 0;
     // Envelope is [now-1m, now+1h] at seed time; stay strictly inside it.
     child.not_before = Utc::now();
-    child.expires_at = Utc::now() + chrono::Duration::minutes(30);
+    child.expires_at = Utc::now() + opensesame_time::Duration::minutes(30);
     db.issue_authority(&child, &[entry("resource:A", "read")])
         .await
         .unwrap();

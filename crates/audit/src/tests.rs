@@ -1,6 +1,6 @@
 use super::*;
-use chrono::Utc;
 use opensesame_domain::*;
+use opensesame_time::Utc;
 
 #[test]
 fn a_secret_in_a_summary_value_is_scrubbed_before_the_receipt_is_signed() {

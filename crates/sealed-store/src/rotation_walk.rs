@@ -19,6 +19,8 @@ use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use opensesame_human_vault::root_protection::sync_dir;
+
 use crate::attachment::ATTACH_EXT;
 use crate::path::logical_to_relative;
 use crate::rotation::ROTATION_STAGING_DIR;
@@ -65,6 +67,53 @@ pub(crate) fn inventory(root: &Path) -> Result<SealedInventory, StoreError> {
     let mut out = SealedInventory::default();
     walk(root, &mut Vec::new(), &mut out)?;
     Ok(out)
+}
+
+pub(crate) fn swap_staged(
+    root: &Path,
+    staging: &Path,
+    swaps: &[PathBuf],
+) -> Result<(), StoreError> {
+    let mut parents = BTreeSet::new();
+    for (index, rel) in swaps.iter().enumerate() {
+        refuse_symlinked_parents(root, rel)?;
+        let target = root.join(rel);
+        let slot = index.to_string();
+        fs::rename(&target, staging.join("old").join(&slot))?;
+        fs::rename(staging.join("new").join(&slot), &target)?;
+        if let Some(parent) = target.parent() {
+            parents.insert(parent.to_path_buf());
+        }
+    }
+    for parent in parents {
+        sync_dir(&parent);
+    }
+    Ok(())
+}
+
+/// `rename` follows directory symlinks in the parent path; the confined reads
+/// that staged these files refused them, so refuse them here too.
+fn refuse_symlinked_parents(root: &Path, rel: &Path) -> Result<(), StoreError> {
+    let mut current = root.to_path_buf();
+    for component in rel.parent().into_iter().flat_map(Path::components) {
+        current.push(component);
+        if fs::symlink_metadata(&current)?.file_type().is_symlink() {
+            return Err(StoreError::InvalidPath(
+                "symlink inside the store during rotation".into(),
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub(crate) fn create_private_dir(path: &Path) -> Result<(), StoreError> {
+    let builder = fs::DirBuilder::new();
+    #[cfg(unix)]
+    let mut builder = builder;
+    #[cfg(unix)]
+    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
+    builder.create(path)?;
+    Ok(())
 }
 
 /// How a directory relates to the store's reserved locations.

@@ -10,7 +10,7 @@ use crate::{
     GrantConstraints, GrantId, OfflineUse, OrganizationId, PrincipalId, ProjectId,
     ValidatedGrantChain,
 };
-use chrono::{Duration, Utc};
+use opensesame_time::{Duration, Utc};
 
 /// A parent that fences every dimension, so a child can be caught escaping any
 /// one of them in isolation.

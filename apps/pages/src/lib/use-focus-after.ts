@@ -15,7 +15,7 @@
  * stays where they put it (AGENTS.md: never steal focus from an active user).
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useLayoutEffect, useState } from "react";
 import { keyboardIsIdle, landFocus } from "./focus.js";
 
 /** Where to land, asked only once the change has settled: a row's key may have left with its row. */
@@ -29,7 +29,7 @@ export function byId(id: string): FocusTarget {
 export function useFocusAfter(busy: boolean): (target: FocusTarget) => void {
   // Boxed, so the lookup is stored rather than called as a state updater.
   const [pending, setPending] = useState<{ to: FocusTarget } | null>(null);
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (busy || !pending) return;
     setPending(null);
     if (keyboardIsIdle()) landFocus(pending.to());

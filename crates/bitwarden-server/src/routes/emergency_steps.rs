@@ -6,8 +6,8 @@
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::Json;
-use chrono::Utc;
 use opensesame_storage::bitwarden::{emergency_status as status, BitwardenEmergencyAccess};
+use opensesame_time::Utc;
 use serde_json::Value;
 
 use super::credentials::text;

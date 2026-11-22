@@ -30,10 +30,10 @@ use std::sync::Mutex;
 use std::thread::JoinHandle;
 use std::time::Instant;
 
-use chrono::Utc;
 use opensesame_agent_events::{surrogate_refusal_notice, SurrogateRefusalReport};
 use opensesame_invoke_through::Refusal;
 use opensesame_plugin_settings::{NOTICES_ROTATED_FILE, TRIPWIRES_FILE};
+use opensesame_time::Utc;
 
 use crate::ports::{LoginRefusal, RefusalSink};
 

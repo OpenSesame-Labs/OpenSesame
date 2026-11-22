@@ -40,5 +40,4 @@ npm run wallet:test:protocols
 
 - [ADR 0123](../../docs/adr/0123-wallet-spending-authority.md) — wallet spending authority
 - [ADR 0086](../../docs/adr/0086-wallet-native-interaction-layer.md) — digest-bound approvals
-- [Wallet consent baseline](../../docs/implementation/wallet-consent-baseline.md)
 - [`scripts/wallet/README.md`](../../scripts/wallet/README.md) — the `npm run wallet:*` gates

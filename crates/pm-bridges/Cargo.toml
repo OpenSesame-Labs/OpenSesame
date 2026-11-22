@@ -24,6 +24,7 @@ libc = { workspace = true }
 [dev-dependencies]
 insta = { workspace = true, features = ["redactions"] }
 tempfile = { workspace = true }
+opensesame-sealed-store = { path = "../../crates/sealed-store", features = ["testkit"] }
 
 [features]
 # Everything is opt-in (constitution C7): a default build compiles the shared
@@ -34,3 +35,4 @@ browserpass = []
 gopass = []
 secret-service = []
 webdav = []
+testkit = ["opensesame-sealed-store/testkit"]

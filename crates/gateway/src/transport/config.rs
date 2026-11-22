@@ -129,6 +129,13 @@ fn process_env(name: &str) -> Option<String> {
 }
 
 impl TransportConfig {
+    pub(crate) fn is_unconfigured(&self) -> bool {
+        self.listener.is_none()
+            && self.service_bindings_file.is_none()
+            && self.mapping_auth != AuthMode::Mtls
+            && self.callout_auth != AuthMode::Mtls
+    }
+
     /// Read the process environment.
     ///
     /// # Errors

@@ -70,6 +70,17 @@ async fn persona_attack_chain_is_refused() {
         .await
         .unwrap();
     let parsed: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    if opensesame_cli_app_integration::is_approval_blocked("read") {
+        #[cfg(unix)]
+        {
+            assert_eq!(parsed["status"], "denied");
+            assert_eq!(parsed["reason"], "authenticator_provenance_unavailable");
+            assert!(parsed["requestId"].is_null());
+        }
+        #[cfg(not(unix))]
+        assert_eq!(parsed["error"], "uds_peer_required");
+        return;
+    }
     let request_id = parsed["requestId"].as_str().expect("request id");
     let pending = Request::builder()
         .method("GET")
@@ -294,6 +305,17 @@ async fn persona_r7_pairing_self_approve_chain_refused() {
         .await
         .unwrap();
     let parsed: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    if opensesame_cli_app_integration::is_approval_blocked("read") {
+        #[cfg(unix)]
+        {
+            assert_eq!(parsed["status"], "denied");
+            assert_eq!(parsed["reason"], "authenticator_provenance_unavailable");
+            assert!(parsed["requestId"].is_null());
+        }
+        #[cfg(not(unix))]
+        assert_eq!(parsed["error"], "uds_peer_required");
+        return;
+    }
     let request_id = parsed["requestId"].as_str().expect("request id");
     let pending = Request::builder()
         .method("GET")

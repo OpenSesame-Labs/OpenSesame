@@ -1,8 +1,8 @@
 use super::*;
-use chrono::{Duration, Utc};
 use opensesame_domain::{
     ConnectionId, GrantConstraints, OfflineUse, OrganizationId, PrincipalId, ProjectId,
 };
+use opensesame_time::{Duration, Utc};
 fn sample_grant() -> Grant {
     let now = Utc::now();
     Grant {

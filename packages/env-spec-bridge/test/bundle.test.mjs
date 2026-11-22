@@ -75,9 +75,12 @@ test("the bundle carries the parser inside it and imports only node builtins", (
   for (const specifier of specifiers) {
     assert.match(specifier, /^node:/, specifier);
   }
-  // The parser's own module, named as it sits under node_modules and not by
-  // a path into one machine's package store.
-  assert.match(text, /^\/\/ node_modules\/@env-spec\/parser\/dist\/\S+\.mjs$/m);
+  // npm may hoist the parser to a parent node_modules. Its bundle comment
+  // must still be a portable relative path, never a machine's package store.
+  assert.match(
+    text,
+    /^\/\/ (?:\.\.\/)*node_modules\/@env-spec\/parser\/dist\/\S+\.mjs$/m,
+  );
   assert.match(text, /\bParsedEnvSpecStaticValue = class\b/);
   assert.ok(text.startsWith("#!/usr/bin/env node\n"));
 });

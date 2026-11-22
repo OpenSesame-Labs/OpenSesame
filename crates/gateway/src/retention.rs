@@ -22,8 +22,8 @@
 
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
 use opensesame_storage::web_login_runs::retention::WebLoginPurge;
+use opensesame_time::{DateTime, Utc};
 
 use crate::app_state::AppState;
 
@@ -95,7 +95,7 @@ pub(crate) async fn pass(
     now: DateTime<Utc>,
     decision_days: i64,
 ) -> anyhow::Result<PassReport> {
-    let cutoff = now - chrono::Duration::days(decision_days);
+    let cutoff = now - opensesame_time::Duration::days(decision_days);
     let decisions = state
         .db
         .purge_agent_hook_decisions(&cutoff.to_rfc3339())

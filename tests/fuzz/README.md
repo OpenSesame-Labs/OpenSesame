@@ -23,7 +23,7 @@ opt-in.
 
 | Directory | What it is |
 |---|---|
-| [`cargo/`](cargo) | Cargo package `opensesame-fuzz`: 48 libFuzzer targets in `fuzz_targets/` over the Host-plane crates (grants, proof, authn, redaction, vault envelopes and attachments, claims, audit, env-spec, connectors, Bitwarden, KDBX, PKI parsers, transport security, NATS callout, gateway paths). Shared `Arbitrary` types and oracles in `src/`, seeds in `corpus/<target>/`. Excluded from the root Cargo workspace (it needs nightly) and carries its own `Cargo.lock`. |
+| [`cargo/`](cargo) | Cargo package `opensesame-fuzz`: 48 libFuzzer targets in `fuzz_targets/` over the Host-plane crates (grants, proof, authn, redaction, vault envelopes and attachments, claims, audit, env-spec, connectors, Bitwarden, KDBX, PKI parsers, transport security, NATS callout, gateway paths). Shared `Arbitrary` types and oracles in `src/`; seeds are in `corpus/<target>/`, with the capability-algebra corpus also stored in `corpus-bundles/`. Excluded from the root Cargo workspace (it needs nightly) and carries its own `Cargo.lock`. |
 | [`jazzer/`](jazzer) | npm run package `@opensesame/fuzz`: 16 Jazzer.js targets in `src/`, each exporting `fuzz(Buffer)` — agent-auth contracts and tokens, audit redaction, the claim engine, client admission, origin normalization, safe metadata URLs, the task-bus contract, WebAuthn ceremonies and others. `src/run.ts` is the uninstrumented fallback runner. |
 | [`clusterfuzzlite/`](clusterfuzzlite) | `project.yaml`, `Dockerfile` and `build.sh` for ClusterFuzzLite or OSS-Fuzz: builds every cargo-fuzz target with address sanitizer and zips seed corpora. No workflow uses it. |
 
@@ -34,7 +34,7 @@ npm run audit:fuzz                  # 60s per cargo target mapped from files cha
 npm run audit:fuzz:batch            # every cargo target, 3600s each; FUZZ_BATCH_BUDGET caps the total
 npm run test:fuzz                   # every Jazzer.js target, 30s each
 npm run test:fuzz:batch             # every Jazzer.js target, 300s each
-cargo +nightly fuzz run <target> --fuzz-dir tests/fuzz/cargo     # one target by hand
+bash scripts/fuzz/fuzz-one.sh <target> -- -max_total_time=60   # one target by hand
 cargo test --manifest-path tests/fuzz/cargo/Cargo.toml --lib   # oracle unit tests
 npm run test -w @opensesame/fuzz
 npm run typecheck -w @opensesame/fuzz
@@ -47,6 +47,15 @@ nightly toolchain invoked as `cargo +nightly`; do not switch
 cannot load; `JAZZER_ALLOW_FALLBACK=1` runs `src/run.ts` instead and reports
 `DEGRADED`, never `CLEAN`.
 
+The gates and single-target runner require Python 3 to materialize the packed
+`capability_algebra` seeds into a fresh private audit directory. They also copy
+tracked loose seeds and regressions without modifying the checkout. A bare
+`cargo fuzz run` does not read the bundle; use the runner above to include it.
+ClusterFuzzLite exports the same bundled bytes, plus any loose corpus files, to
+its seed-corpus ZIP. Materialization limits the JSON bundle to 2 MiB and its
+decoded seeds to 10,000 files and 1 MiB total; the same seed limits apply to the
+combined ClusterFuzzLite corpus.
+
 To add a cargo target: add `fuzz_targets/<name>.rs` and its `[[bin]]` entry,
 refresh and commit `cargo/Cargo.lock` (both gates run `--locked` and refuse a
 stale lock), seed `corpus/<name>/`, map the crate to the target in
@@ -56,6 +65,18 @@ exporting `fuzz`; the gate picks up every non-test file except `oracles.ts`,
 `provider.ts` and `run.ts`. A minimized crasher goes in
 `cargo/regressions/<target>/` (no such directory is committed yet), which the
 gates also read as seeds.
+
+The runner prints `Private audit artifacts: <dir>`; new seeds remain under
+`<dir>/corpus/<target>/` until selected for review. Promote selected inputs as
+uniquely named tracked files in `cargo/corpus/<target>/`; the gates merge them
+with any bundle and reject conflicting names. Names such
+as `seed-reviewed-<id>` avoid the ignore rule for generated hash names. The
+capability-algebra bundle can later be regenerated deterministically with
+`scripts/fuzz/capability-corpus.py`: materialize it into a new private directory,
+add reviewed seeds under unique flat names without overwriting existing files,
+then `pack` that directory to a new file. Review its names and bytes before
+replacing the bundle or removing the now-bundled loose files. Update the baseline digest in
+`capability-corpus.test.py` only after reviewing that change.
 
 ## Related
 

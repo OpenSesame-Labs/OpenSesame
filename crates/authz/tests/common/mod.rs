@@ -4,13 +4,13 @@
 //! needs, so the module is compiled several times with different fixtures live.
 #![allow(dead_code)]
 
-use chrono::{DateTime, Duration, Utc};
 use opensesame_authz::{
     AuthZenAction, AuthZenRequest, AuthZenResource, AuthZenSubject, PolicyEngine,
 };
 use opensesame_domain::{
     Grant, GrantConstraints, GrantId, OfflineUse, OrganizationId, PrincipalId,
 };
+use opensesame_time::{DateTime, Duration, Utc};
 use serde_json::{json, Value};
 
 pub const SUBJECT: &str = "user:alice";

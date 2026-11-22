@@ -11,7 +11,7 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use rustls_pki_types::{CertificateDer, UnixTime};
 use spiffe::X509Context;
 use webpki::{EndEntityCert, KeyUsage};
@@ -104,6 +104,15 @@ impl TrustDomainBundles {
     #[must_use]
     pub fn get(&self, trust_domain: &str) -> Option<&[CertificateDer<'static>]> {
         self.domains.get(trust_domain).map(Vec::as_slice)
+    }
+
+    /// Whether every previously trusted anchor is still present in its domain.
+    pub(crate) fn contains_all(&self, previous: &Self) -> bool {
+        previous.domains.iter().all(|(domain, anchors)| {
+            self.domains
+                .get(domain)
+                .is_some_and(|current| anchors.iter().all(|anchor| current.contains(anchor)))
+        })
     }
 
     /// Trust domain names, sorted.

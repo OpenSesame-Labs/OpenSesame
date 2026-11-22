@@ -11,29 +11,37 @@ import {
   pfWaitFor,
 } from "./page-fns";
 
-const ORIGIN = window.location.origin;
-
 // Call the actual instrumented production functions against DOM globals.
 // Existing source-serialization tests remain a separate executeScript oracle.
 afterEach(() => {
   vi.unstubAllGlobals();
-  pfUnmask(ORIGIN);
+  pfUnmask();
   document.body.replaceChildren();
+});
+
+it("refuses to place a credential into a document from another origin", () => {
+  document.body.innerHTML = '<input id="field" value="unchanged">';
+  expect(pfFill("#field", "secret", "https://different.example")).toBe(
+    "off_origin",
+  );
+  expect(document.querySelector<HTMLInputElement>("#field")?.value).toBe(
+    "unchanged",
+  );
 });
 
 it("waits for actual attribute and child mutations, and rejects malformed or absent selectors", async () => {
   document.body.innerHTML = '<div id="later"></div>';
-  expect(await pfWaitFor("#later", 50, ORIGIN)).toBe("ok");
-  expect(await pfWaitFor("[", 50, ORIGIN)).toBe("invalid");
-  const attribute = pfWaitFor('[data-ready="yes"]', 100, ORIGIN);
+  expect(await pfWaitFor("#later", 50)).toBe("ok");
+  expect(await pfWaitFor("[", 50)).toBe("invalid");
+  const attribute = pfWaitFor('[data-ready="yes"]', 100);
   document.getElementById("later")?.setAttribute("data-ready", "yes");
   expect(await attribute).toBe("ok");
-  const child = pfWaitFor("#child", 100, ORIGIN);
+  const child = pfWaitFor("#child", 100);
   const element = document.createElement("p");
   element.id = "child";
   document.body.append(element);
   expect(await child).toBe("ok");
-  expect(await pfWaitFor("#absent", 1, ORIGIN)).toBe("timeout");
+  expect(await pfWaitFor("#absent", 1)).toBe("timeout");
 });
 
 it("fills actual allowed input kinds and textarea through native setters and bubbling events", () => {
@@ -75,14 +83,14 @@ it("fills actual allowed input kinds and textarea through native setters and bub
       throw new Error("Expected actual field");
     const changed: string[] = [];
     field.addEventListener("change", () => changed.push(field.value));
-    expect(pfFill(`#${type}`, "public-fixture-value", ORIGIN)).toBe("ok");
+    expect(
+      pfFill(`#${type}`, "public-fixture-value", window.location.origin),
+    ).toBe("ok");
     expect(field.value).toBe("public-fixture-value");
     expect(changed).toEqual(["public-fixture-value"]);
     expect(document.activeElement).toBe(field);
-    expect(pfPresence(`#${type}`, "public-fixture-value", ORIGIN)).toBe(
-      "present",
-    );
-    expect(pfPresence(`#${type}`, "different", ORIGIN)).toBe("mismatch");
+    expect(pfPresence(`#${type}`, "public-fixture-value")).toBe("present");
+    expect(pfPresence(`#${type}`, "different")).toBe("mismatch");
   }
   expect(events).toEqual(["input:text"]);
 });
@@ -109,18 +117,20 @@ it("refuses noneditable, hidden, shadow-contained and nonfield nodes without cha
     "missing",
     "shadow-field",
   ])
-    expect(pfFill(`#${id}`, "replacement", ORIGIN), id).toBe("no_such_field");
-  expect(pfFill("[", "replacement", ORIGIN)).toBe("invalid");
+    expect(pfFill(`#${id}`, "replacement", window.location.origin), id).toBe(
+      "no_such_field",
+    );
+  expect(pfFill("[", "replacement", window.location.origin)).toBe("invalid");
   expect(document.querySelector<HTMLInputElement>("#disabled")?.value).toBe(
     "unchanged",
   );
   expect(shadow.querySelector<HTMLInputElement>("#shadow-field")?.value).toBe(
     "shadow-public-fixture",
   );
-  expect(pfPresence("#missing", "fixture", ORIGIN)).toBe("absent");
-  expect(pfPresence("#text", "label", ORIGIN)).toBe("absent");
-  expect(pfPresence("#hidden", "fixture", ORIGIN)).toBe("absent");
-  expect(pfPresence("[", "fixture", ORIGIN)).toBe("invalid");
+  expect(pfPresence("#missing", "fixture")).toBe("absent");
+  expect(pfPresence("#text", "label")).toBe("absent");
+  expect(pfPresence("#hidden", "fixture")).toBe("absent");
+  expect(pfPresence("[", "fixture")).toBe("invalid");
 });
 
 it("denies detached-document fields and non-HTMLElement submission without returning values", () => {
@@ -128,10 +138,12 @@ it("denies detached-document fields and non-HTMLElement submission without retur
   detached.body.innerHTML =
     '<input id="field" value="public-fixture"><svg id="vector"></svg>';
   vi.stubGlobal("document", detached);
-  expect(pfFill("#field", "other", ORIGIN)).toBe("no_such_field");
-  expect(pfPresence("#field", "public-fixture", ORIGIN)).toBe("absent");
-  expect(pfSubmit("#field", ORIGIN)).toBe("no_such_element");
-  expect(pfLayout(ORIGIN).split("|")[1]).toBe("0x0");
+  expect(pfFill("#field", "other", window.location.origin)).toBe(
+    "no_such_field",
+  );
+  expect(pfPresence("#field", "public-fixture")).toBe("absent");
+  expect(pfSubmit("#field")).toBe("no_such_element");
+  expect(pfLayout().split("|")[1]).toBe("0x0");
 });
 
 it("dispatches real click and form submission exactly once, retaining invalid-selector refusals", () => {
@@ -142,12 +154,12 @@ it("dispatches real click and form submission exactly once, retaining invalid-se
     event.preventDefault();
     submitted.push(event);
   });
-  expect(pfSubmit("#form", ORIGIN)).toBe("ok");
-  expect(pfSubmit("#submit", ORIGIN)).toBe("ok");
+  expect(pfSubmit("#form")).toBe("ok");
+  expect(pfSubmit("#submit")).toBe("ok");
   expect(submitted).toHaveLength(2);
-  expect(pfSubmit("#svg", ORIGIN)).toBe("no_such_element");
-  expect(pfSubmit("#missing", ORIGIN)).toBe("no_such_element");
-  expect(pfSubmit("[", ORIGIN)).toBe("invalid");
+  expect(pfSubmit("#svg")).toBe("no_such_element");
+  expect(pfSubmit("#missing")).toBe("no_such_element");
+  expect(pfSubmit("[")).toBe("invalid");
 });
 
 it("redacts actual fields and requested markup while preserving live DOM and public control labels", () => {
@@ -157,8 +169,8 @@ it("redacts actual fields and requested markup while preserving live DOM and pub
     '<input type="submit" value="Public submit"><div id="strip" value="remove-fixture">strip-fixture</div>' +
     "<script>script-fixture</script><style>style-fixture</style><template>template-fixture</template>" +
     '<noscript>noscript-fixture</noscript><link href="fixture.css"><!--comment-fixture-->';
-  expect(pfFill("#typed", "live-fixture", ORIGIN)).toBe("ok");
-  const result = pfReadDom(["[", "#strip"], ORIGIN);
+  expect(pfFill("#typed", "live-fixture", window.location.origin)).toBe("ok");
+  const result = pfReadDom(["[", "#strip"]);
   for (const gone of [
     "attribute-fixture",
     "live-fixture",
@@ -181,7 +193,7 @@ it("redacts actual fields and requested markup while preserving live DOM and pub
   );
   expect(document.querySelector("script")).not.toBeNull();
   document.body.textContent = "x".repeat(210_000);
-  expect(pfReadDom([], ORIGIN)).toHaveLength(200_000);
+  expect(pfReadDom([])).toHaveLength(200_000);
 });
 
 it("tracks real geometry changes, bounds sampled controls and removes every actual opaque mask", () => {
@@ -190,18 +202,18 @@ it("tracks real geometry changes, bounds sampled controls and removes every actu
   const field = document.getElementById("box");
   if (!field) throw new Error("Expected actual geometry target");
   field.getBoundingClientRect = () => new DOMRect(10.4, 20.6, 100.2, 30.8);
-  expect(pfLayout(ORIGIN).split("|")[3]).toContain("10,21,100,31");
-  expect(pfMask(["input,textarea", "#absent", "[", "#box"], ORIGIN)).toBe(2);
+  expect(pfLayout().split("|")[3]).toContain("10,21,100,31");
+  expect(pfMask(["input,textarea", "#absent", "[", "#box"])).toBe(2);
   const covers = document.querySelectorAll<HTMLElement>(
     "[data-opensesame-mask]",
   );
   expect(covers).toHaveLength(3);
   expect(covers[0]?.style.left).toBe("10.4px");
   expect(covers[0]?.style.pointerEvents).toBe("none");
-  expect(pfUnmask(ORIGIN)).toBe(3);
-  expect(pfUnmask(ORIGIN)).toBe(0);
+  expect(pfUnmask()).toBe(3);
+  expect(pfUnmask()).toBe(0);
   document.body.innerHTML = "<input>".repeat(205);
-  const layout = pfLayout(ORIGIN).split("|");
+  const layout = pfLayout().split("|");
   expect(layout[2]).toBe("205");
   expect(layout[3]?.split(";")).toHaveLength(200);
 });

@@ -28,16 +28,17 @@ impl StoreRoot {
         let rel = Self::entry_relative(name, "osseal")?;
         let original = confined_read(&self.path, &rel)?;
         let plaintext = Zeroizing::new(open_legacy_for_trusted_migration(&original, key)?);
-        let revision = self
-            .revision(name)?
-            .unwrap_or(0)
-            .checked_add(1)
-            .ok_or_else(|| StoreError::Crypto("entry revision exhausted".into()))?;
+        let revision = self.next_trusted_revision(
+            name,
+            &self.path.join(&rel),
+            key,
+            0,
+            Some(&plaintext),
+        )?;
         let sealed = seal_osseal(&plaintext, key, name, revision)?;
         // If interrupted between these writes, the old unbound file still
         // requires another explicitly trusted migration; it never opens
         // through the ordinary reader.
-        self.record_revision(name, revision)?;
         confined_atomic_write(&self.path, &rel, &sealed)?;
         auto_commit(&self.path, COMMIT_REBIND)?;
         Ok(())

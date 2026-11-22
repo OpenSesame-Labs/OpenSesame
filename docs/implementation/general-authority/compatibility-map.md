@@ -130,7 +130,7 @@ baseline.
 - [ADR 0005](../../adr/0005-authority-handle-connectionref.md) — authority is a handle
 - [ADR 0086](../../adr/0086-wallet-native-interaction-layer.md) — one interaction primitive; do not add a second authority model
 - [ADR 0115](../../adr/0115-front-door-and-connector-directory.md) — connector binding is a local share grant, not a parallel model
-- [`repository-baseline.md`](repository-baseline.md) — what was actually read, and when
+- [ADR 0120](../../adr/0120-generalized-hierarchical-authority.md) — the accepted model and its repository context
 
 ## Decision status (2026-09-17)
 

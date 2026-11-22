@@ -10,7 +10,7 @@ use super::error::TransportError;
 use super::evidence::PeerEvidenceView;
 use super::policy::{Custody, IdentitySourceKind, TransportPolicy};
 use super::{timestamp, validate_id};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

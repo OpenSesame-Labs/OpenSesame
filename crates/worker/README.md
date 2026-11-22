@@ -28,8 +28,8 @@ accepts no work and has no invocation endpoint.
 | `OPENSESAME_WORKER_TRANSPORT` | `existing_local` (loopback plus `OPENSESAME_WORKER_TOKEN` or `OPENSESAME_OPERATOR_TOKEN`) or `mtls_required` |
 | `OPENSESAME_WORKER_TLS`, `OPENSESAME_WORKER_BINDINGS_FILE`, `OPENSESAME_WORKER_TLS_CLIENT_TRUST_PROFILE` | `mtls_required` material and service bindings |
 
-`existing_local` resolves the listen address once and refuses to start if any
-resolved address is not loopback. Use `mtls_required` for a network listener.
+`existing_local` accepts only a parsed loopback socket address. Wildcard, LAN,
+and hostname binds fail closed. Use `mtls_required` for a network listener.
 
 Routes: `GET /health/live`, `GET /health/ready`, `GET /v1/providers`.
 

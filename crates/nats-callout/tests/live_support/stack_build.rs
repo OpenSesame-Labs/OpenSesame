@@ -50,7 +50,7 @@ pub(super) async fn start_host(
         number: 1,
         identity: Some(Arc::clone(&identity)),
         peer_trust: [(profile_name, trust)].into_iter().collect(),
-        activated_at: chrono::Utc::now(),
+        activated_at: opensesame_time::Utc::now(),
         withdrawn: None,
     };
     let generations = TransportGenerations::new(generation);

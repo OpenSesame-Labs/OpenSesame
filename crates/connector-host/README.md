@@ -55,7 +55,7 @@ a feature — runs Wasm component connectors.
 | `manifest` | `ConnectorManifest` for `connectors/<id>/connector.yaml` (`opensesame.dev/v1alpha1`, `ConnectorDefinition`, max 64 KiB) |
 | `providers` | External secret-provider catalogue (`catalog`, `find`), `probe_local` / `probe_live`, `human_plan` / `execute_human_plan`, `crypto_plan` / `execute_crypto_plan` |
 | `password_agent` | Human-operated 1Password-parity planning over the `op` CLI's output (`documents`, `reference`, `validate_summary`, `validate_item`; `discover`, `env`, `lease`, `policy`, `request`, `service`, `writes`); no guest materialization path |
-| `wasm` (feature `wasm-connectors`) | `WasmConnector`, `GuestLimits`, `HostEgress` — binds only `types`, `host-http`, `host-crypto`, `host-oauth`; a fresh `Store` per invocation under fuel, epoch and memory limits; the component's sha256 must match the manifest and be pinned in `trusted_digests` |
+| `wasm` (feature `wasm-connectors`) | `WasmConnector`, `GuestLimits`, `HostEgress` — binds only `types`, `host-http`, `host-crypto`, `host-oauth`; a fresh `Store` per invocation under fuel, epoch and memory limits; the component's sha256 must match the manifest and be pinned in `trusted_digests`; guest result bytes remain opaque and receipts expose only their host-derived size and digest |
 
 | Cargo feature | Effect |
 |---|---|

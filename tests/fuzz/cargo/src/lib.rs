@@ -6,7 +6,7 @@
 pub mod oracles;
 pub mod types;
 
-use chrono::{TimeZone, Utc};
+use opensesame_time::{TimeZone, Utc};
 use jsonwebtoken::jwk::Jwk;
 use opensesame_audit::{receipt_key_id, ReceiptSigner, ReceiptVerifier};
 use opensesame_authn::{
@@ -943,7 +943,7 @@ pub fn fuzz_bitwarden_encstring(data: &[u8]) {
     }
 }
 
-fn secs_to_dt(secs: i64) -> chrono::DateTime<Utc> {
+fn secs_to_dt(secs: i64) -> opensesame_time::DateTime<Utc> {
     Utc.timestamp_opt(secs.clamp(0, 2_000_000_000), 0)
         .single()
         .unwrap_or_else(|| Utc.timestamp_opt(0, 0).unwrap())

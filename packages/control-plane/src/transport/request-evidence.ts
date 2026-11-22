@@ -12,7 +12,7 @@
  * REQUEST, never per socket: two requests on one keep-alive ingress socket
  * carry independent evidence (AT-INGRESS-POOL).
  */
-import type { IncomingMessage } from "node:http";
+import { IncomingMessage } from "node:http";
 import type { TransportPolicy, VerifiedPeer } from "./peer-evidence.js";
 import {
   type AdmissionResult,
@@ -46,7 +46,7 @@ export interface RequestEvidence {
   ): AdmissionResult;
 }
 
-const evidence = new WeakMap<object, RequestEvidence>();
+const evidence = new WeakMap<IncomingMessage, RequestEvidence>();
 
 export interface RecordEvidenceInput {
   provenance: ListenerProvenance;
@@ -126,11 +126,35 @@ export function recordRequestEvidence(
   return record;
 }
 
-/** The evidence recorded for a request, or none for one never dispatched. */
-export function requestEvidenceOf(
-  req: IncomingMessage | object | undefined,
+/**
+ * Read recorded evidence.
+ *
+ * The map is keyed by the Node request. `checkRequestTokenBinding` also
+ * receives an opaque object; that value is evidence only when it is an
+ * `IncomingMessage`. Anything else is unread.
+ */
+function readRequestEvidence<Carrier extends object>(
+  req: Carrier | undefined,
 ): RequestEvidence | undefined {
-  return req ? evidence.get(req) : undefined;
+  if (!(req instanceof IncomingMessage)) return undefined;
+  return evidence.get(req);
+}
+
+/**
+ * The evidence recorded for a request, or none for one never dispatched.
+ * An opaque carrier matches the request argument of the token-binding check
+ * and contributes evidence only as an `IncomingMessage`.
+ */
+export function requestEvidenceOf(
+  req: IncomingMessage | undefined,
+): RequestEvidence | undefined;
+export function requestEvidenceOf<Carrier extends object>(
+  req: Carrier | undefined,
+): RequestEvidence | undefined;
+export function requestEvidenceOf<Carrier extends object>(
+  req: Carrier | undefined,
+): RequestEvidence | undefined {
+  return readRequestEvidence(req);
 }
 
 /** Copy evidence onto a replayed request object (same socket, same bytes). */
@@ -148,7 +172,13 @@ export function adoptRequestEvidence(
  * Never the ingress leaf when an originating identity exists (AT-OAUTH-PROXY).
  */
 export function bindingPeerOf(
-  req: IncomingMessage | object | undefined,
+  req: IncomingMessage | undefined,
+): VerifiedPeer | undefined;
+export function bindingPeerOf<Carrier extends object>(
+  req: Carrier | undefined,
+): VerifiedPeer | undefined;
+export function bindingPeerOf<Carrier extends object>(
+  req: Carrier | undefined,
 ): VerifiedPeer | undefined {
   const record = requestEvidenceOf(req);
   if (!record) return undefined;

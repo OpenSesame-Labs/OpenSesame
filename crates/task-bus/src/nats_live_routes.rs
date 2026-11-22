@@ -1,81 +1,272 @@
-//! AT-NATS-TOPOLOGY, routes half: the 2-node cluster whose *route* listener
-//! has its own TLS block. A route certificate from the wrong CA is refused
-//! and the cluster does not form; with route certificates from the route CA
-//! a message published on node B reaches a subscriber on node A. Discovery
-//! (`INFO.connect_urls`) never widens the client's egress.
+//! AT-NATS-TOPOLOGY: route TLS refuses a wrong CA; a correct two-node
+//! cluster forwards messages. `INFO.connect_urls` never widens client egress.
 
-use super::live_harness::{free_port, Pki, Roles, Server};
+use super::live_callout::core_client;
+use super::live_harness::{free_port, route_node as node, Pki, Roles, Server};
 use super::*;
 use futures::StreamExt;
 use std::time::Duration;
 
-pub(crate) fn cluster_env(
-    pki: &Pki,
-    roles: &Roles,
+// The NATS fixture has no maximum-TLS-version setting. This proxy fixes the
+// actual client handshake to TLS 1.2 or 1.3 and forwards NATS traffic to the
+// real pinned server. It authenticates the client certificate itself.
+use crate::nats::live_callout::{handshake_expectations, wait_for_reconnect_limit};
+use crate::nats::live_delivery::material;
+use crate::nats::live_mixed::spiffe_spec;
+use crate::nats::live_tests::{config, direct_nats_reconnect};
+use async_nats::rustls::{self, pki_types::pem::PemObject};
+use opensesame_domain::transport::{TlsVersion, TrustProfileKind, TrustProfileRef};
+use opensesame_transport_security::testkit::{IssuedLeaf, LeafSpec};
+use opensesame_transport_security::{provider, TrustBundle};
+use tokio::sync::mpsc;
+
+type Handshake = Option<(rustls::ProtocolVersion, rustls::HandshakeKind)>;
+
+struct Proxy {
     port: u16,
-    cluster_port: u16,
-    route_to: u16,
-    route: &(std::path::PathBuf, std::path::PathBuf),
-    route_ca: &std::path::Path,
-) -> Vec<(&'static str, String)> {
-    let mut env = roles.env(pki, port);
-    env.retain(|(k, _)| {
-        !k.starts_with("OPENSESAME_NATS_NKEY_") || *k == "OPENSESAME_NATS_NKEY_HOST"
-    });
-    env.push((
-        "OPENSESAME_NATS_CLUSTER_LISTEN",
-        format!("127.0.0.1:{cluster_port}"),
-    ));
-    env.push((
-        "OPENSESAME_NATS_ROUTE_URL",
-        format!("nats-route://127.0.0.1:{route_to}"),
-    ));
-    env.push(("OPENSESAME_NATS_ROUTE_CERT", route.0.display().to_string()));
-    env.push(("OPENSESAME_NATS_ROUTE_KEY", route.1.display().to_string()));
-    env.push(("OPENSESAME_NATS_ROUTE_CA", route_ca.display().to_string()));
-    env
+    events: mpsc::UnboundedReceiver<Handshake>,
+    worker: tokio::task::JoinHandle<()>,
 }
 
-/// A raw core-NATS client on the secure profile (subscribe/publish across
-/// the route needs subjects the `TaskBus` does not expose).
-async fn core_client(pki: &Pki, roles: &Roles, url: &str) -> async_nats::Client {
-    let leaf = pki.client("route-test.nats.opensesame.test");
-    let spec = pki
-        .client_spec(Some(&leaf), Some(&roles.host.0), false)
-        .normalized(url)
-        .expect("spec");
-    let options = crate::nats_connect::connect_options(
-        &spec,
-        NatsRole::Host,
-        &InjectedMaterial::default(),
-        std::sync::Arc::new(BusHealth::default()),
+impl Drop for Proxy {
+    fn drop(&mut self) {
+        self.worker.abort();
+    }
+}
+
+impl Proxy {
+    async fn start(pki: &Pki, leaf: &IssuedLeaf, upstream: u16, tls12: bool) -> Self {
+        let versions: &[&rustls::SupportedProtocolVersion] = if tls12 {
+            &[&rustls::version::TLS12]
+        } else {
+            &[&rustls::version::TLS13]
+        };
+        let roots = TrustBundle::from_pem(
+            TrustProfileRef::new("proxy-clients").unwrap(),
+            TrustProfileKind::PrivateRoot,
+            &pki.ca.ca_pem(),
+        )
+        .unwrap()
+        .roots();
+        let verifier =
+            rustls::server::WebPkiClientVerifier::builder_with_provider(roots, provider())
+                .build()
+                .unwrap();
+        let certs = rustls::pki_types::CertificateDer::pem_slice_iter(&leaf.cert_pem)
+            .collect::<Result<Vec<_>, _>>()
+            .unwrap();
+        let (_, key_path) = pki.write_leaf("reconnect-proxy", leaf);
+        let key_bytes = std::fs::read(key_path).unwrap();
+        let key = rustls::pki_types::PrivateKeyDer::from_pem_slice(&key_bytes).unwrap();
+        let tls = rustls::ServerConfig::builder_with_provider(provider())
+            .with_protocol_versions(versions)
+            .unwrap()
+            .with_client_cert_verifier(verifier)
+            .with_single_cert(certs, key)
+            .unwrap();
+        let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(tls));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let (tx, events) = mpsc::unbounded_channel();
+        let worker = tokio::spawn(async move {
+            let mut connections = tokio::task::JoinSet::new();
+            while let Ok((socket, _)) = listener.accept().await {
+                connections.spawn(forward_socket(
+                    socket,
+                    acceptor.clone(),
+                    tx.clone(),
+                    upstream,
+                ));
+            }
+        });
+        Self {
+            port,
+            events,
+            worker,
+        }
+    }
+
+    fn url(&self) -> String {
+        format!("tls://localhost:{}", self.port)
+    }
+
+    async fn next(&mut self) -> Handshake {
+        tokio::time::timeout(Duration::from_secs(10), self.events.recv())
+            .await
+            .expect("TLS proxy observation timed out")
+            .expect("TLS proxy stopped")
+    }
+}
+
+async fn forward_socket(
+    socket: tokio::net::TcpStream,
+    acceptor: tokio_rustls::TlsAcceptor,
+    tx: mpsc::UnboundedSender<Handshake>,
+    upstream: u16,
+) {
+    let Ok(mut tls) = acceptor.accept(socket).await else {
+        let _ = tx.send(None);
+        return;
+    };
+    let connection = tls.get_ref().1;
+    let event = Some((
+        connection.protocol_version().unwrap(),
+        connection.handshake_kind().unwrap(),
+    ));
+    let mut nats = tokio::net::TcpStream::connect(("127.0.0.1", upstream))
+        .await
+        .unwrap();
+    let _ = tx.send(event);
+    let _ = tokio::io::copy_bidirectional(&mut tls, &mut nats).await;
+}
+
+async fn exercise_guard(
+    mut proxy: Proxy,
+    mut spec: NatsTransportSpec,
+    injected: InjectedMaterial,
+    expected: [bool; 2],
+    version: rustls::ProtocolVersion,
+) {
+    spec.max_reconnects = None;
+    let opened = NatsJetStreamTaskBus::connect_with(
+        config(&proxy.url(), spec.clone(), NatsRole::Publisher, false),
+        injected.clone(),
+    )
+    .await;
+    assert_eq!(opened.is_ok(), expected[0], "fresh handshake gate");
+    let bus = opened.expect("initial NATS session");
+    let old = bus.session.read().await.client.clone();
+    old.flush().await.unwrap();
+    assert_eq!(proxy.next().await.unwrap().0, version);
+    old.force_reconnect().await.unwrap();
+    assert_eq!(
+        proxy.next().await.is_some(),
+        expected[1],
+        "spent handshake reconnected"
+    );
+    wait_for_reconnect_limit(&bus.health()).await;
+    assert!(tokio::time::timeout(Duration::from_secs(5), old.flush())
+        .await
+        .expect("old reconnect worker did not stop")
+        .is_err());
+    tokio::time::timeout(
+        Duration::from_secs(5),
+        Box::pin(bus.rotate(spec, Some(injected))),
     )
     .await
-    .expect("options");
-    options.connect(url).await.expect("core client connects")
+    .expect("rotation did not return")
+    .expect("explicit rotation");
+    let fresh = bus.session.read().await.client.clone();
+    fresh.flush().await.unwrap();
+    assert_eq!(proxy.next().await.unwrap().0, version);
+    fresh.force_reconnect().await.unwrap();
+    assert_eq!(
+        proxy.next().await.is_some(),
+        expected[1],
+        "rotated spent handshake reconnected"
+    );
+    wait_for_reconnect_limit(&bus.health()).await;
 }
 
-/// Start one node of the 2-node cluster.
-fn node(
-    pki: &Pki,
-    roles: &Roles,
-    ports: (u16, u16, u16),
-    route: &(std::path::PathBuf, std::path::PathBuf),
-    route_ca: &std::path::Path,
-) -> Server {
-    let (client_port, route_port, peer_route_port) = ports;
-    Server::start(
-        "secure-routes.conf",
-        &cluster_env(
-            pki,
-            roles,
-            client_port,
-            route_port,
-            peer_route_port,
-            route,
-            route_ca,
-        ),
-    )
+#[tokio::test]
+#[ignore = "requires the pinned NATS fixture and Lean vectors"]
+async fn injected_sessions_fence_reconnect_and_rotation() {
+    assert!(
+        super::live_harness::enabled(),
+        "set OPENSESAME_MTLS_FIXTURES=1"
+    );
+    let expected = handshake_expectations();
+    let pki = Pki::new();
+    let port = free_port();
+    let server = Server::start_with_args(
+        "local-dev.conf",
+        &[("OPENSESAME_NATS_LISTEN", format!("127.0.0.1:{port}"))],
+        &[
+            "-a".into(),
+            "127.0.0.1".into(),
+            "-p".into(),
+            port.to_string(),
+        ],
+    );
+    let client_leaf = pki.client("reconnect-client.test");
+    let dns_leaf = pki.ca.issue_server("localhost");
+    let spiffe_leaf = pki.ca.issue_with(&LeafSpec::spiffe("spiffe://a.test/nats"));
+    let file = pki.client_spec(Some(&client_leaf), None, true);
+    let mut source = spiffe_spec(None);
+    source.transport.tls_first = true;
+    let injected = material(&pki, &client_leaf, false);
+    for tls12 in [true, false] {
+        let version = if tls12 {
+            rustls::ProtocolVersion::TLSv1_2
+        } else {
+            rustls::ProtocolVersion::TLSv1_3
+        };
+        let mut ordinary = Proxy::start(&pki, &dns_leaf, server.port, tls12).await;
+        let mut ordinary_spec = file.clone();
+        ordinary_spec.transport.min_version = if tls12 {
+            TlsVersion::Tls12
+        } else {
+            TlsVersion::Tls13
+        };
+        let client = NatsJetStreamTaskBus::connect(config(
+            &ordinary.url(),
+            ordinary_spec,
+            NatsRole::Publisher,
+            false,
+        ))
+        .await
+        .unwrap();
+        let handle = client.session.read().await.client.clone();
+        handle.flush().await.unwrap();
+        assert_eq!(ordinary.next().await.unwrap().0, version);
+        handle.force_reconnect().await.unwrap();
+        let resumed = ordinary
+            .next()
+            .await
+            .expect("ordinary session must reconnect");
+        assert_eq!(resumed, (version, rustls::HandshakeKind::Resumed));
+        let mut identity_only = file.clone();
+        identity_only.transport.client_identity = source.transport.client_identity.clone();
+        identity_only.locators.identity = source.locators.identity.clone();
+        identity_only.transport.min_version = if tls12 {
+            TlsVersion::Tls12
+        } else {
+            TlsVersion::Tls13
+        };
+        let proxy = Proxy::start(&pki, &dns_leaf, server.port, tls12).await;
+        Box::pin(exercise_guard(
+            proxy,
+            identity_only,
+            InjectedMaterial {
+                identity: injected.identity.clone(),
+                trust: None,
+            },
+            expected,
+            version,
+        ))
+        .await;
+        let mut trust_only = source.clone();
+        trust_only.transport.client_identity = file.transport.client_identity.clone();
+        trust_only.locators.identity = file.locators.identity.clone();
+        trust_only.transport.min_version = if tls12 {
+            TlsVersion::Tls12
+        } else {
+            TlsVersion::Tls13
+        };
+        let proxy = Proxy::start(&pki, &spiffe_leaf, server.port, tls12).await;
+        Box::pin(exercise_guard(
+            proxy,
+            trust_only,
+            InjectedMaterial {
+                identity: None,
+                trust: injected.trust.clone(),
+            },
+            expected,
+            version,
+        ))
+        .await;
+    }
+    Box::pin(direct_nats_reconnect(&pki, injected)).await;
 }
 
 /// A route certificate from the wrong CA: the TLS route handshake fails and

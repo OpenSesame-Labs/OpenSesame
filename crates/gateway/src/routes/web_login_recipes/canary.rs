@@ -19,7 +19,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::Utc;
+use opensesame_time::Utc;
 use serde_json::json;
 
 use super::{error, origin_of};

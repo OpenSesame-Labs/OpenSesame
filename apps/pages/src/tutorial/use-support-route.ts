@@ -56,9 +56,15 @@ export function useSupportRouteSync(
 
   useEffect(() => {
     controller.setNavigator((route) => {
-      if (GUIDE_OVERLAY_ROUTES.has(route)) return;
-      const path = guideNavigationPath(route, location);
-      if (path !== null) navigate(path);
+      if (GUIDE_OVERLAY_ROUTES.has(route)) return false;
+      const path = guideNavigationPath(
+        route,
+        location,
+        controller.view().guide?.goal,
+      );
+      if (path === null) return false;
+      navigate(path);
+      return true;
     });
   }, [controller, navigate, location]);
 }

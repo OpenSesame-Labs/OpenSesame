@@ -6,7 +6,7 @@
 //! statement, so a folder deleted mid-write leaves the cipher in "no folder"
 //! rather than pointing at nothing.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::sqlite::SqliteRow;
 
 use super::accounts::{bitwarden_timestamp, parse_bitwarden_timestamp};

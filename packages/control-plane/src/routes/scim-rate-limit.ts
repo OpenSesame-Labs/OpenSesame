@@ -1,5 +1,9 @@
+import type { Organization } from "@opensesame/os-domain";
+import type { Context } from "hono";
 import type { AppContext } from "../context.js";
+import type { Variables } from "../middleware/context.js";
 import { updateSecurityMap } from "../repos/durable-map.js";
+import { scimError } from "./scim-protocol.js";
 
 export interface ScimMutationWindow {
   count: number;
@@ -113,4 +117,21 @@ export async function consumeScimMutation(
       cost,
     ))
   );
+}
+
+/**
+ * Spend one unit of the tenant and deployment windows for an authenticated
+ * mutation, before any body is parsed or durable row is touched.
+ */
+export async function budgetScimMutation<
+  S extends { ctx: AppContext; organization: Organization },
+>(c: Context<{ Variables: Variables }>, session: S): Promise<S | Response> {
+  if (
+    c.req.method !== "GET" &&
+    !(await consumeScimMutation(session.ctx, session.organization.id))
+  ) {
+    c.header("Retry-After", "60");
+    return scimError(c, 429, "Provisioning rate limit reached.");
+  }
+  return session;
 }

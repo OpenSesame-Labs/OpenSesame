@@ -69,11 +69,35 @@ fn minimal_child_env_on(
 /// A [`CommandRunner`] over `std::process::Command` honoring the C2 contract.
 pub struct ScrubbedCommandRunner {
     env: BTreeMap<String, String>,
+    #[cfg(test)]
+    exact_programs: BTreeMap<String, std::path::PathBuf>,
 }
 
 impl ScrubbedCommandRunner {
     pub fn new(env: BTreeMap<String, String>) -> Self {
-        Self { env }
+        Self {
+            env,
+            #[cfg(test)]
+            exact_programs: BTreeMap::new(),
+        }
+    }
+
+    #[cfg(test)]
+    fn with_exact_program(
+        mut self,
+        binary: impl Into<String>,
+        executable: impl Into<std::path::PathBuf>,
+    ) -> Self {
+        self.exact_programs.insert(binary.into(), executable.into());
+        self
+    }
+
+    fn command(&self, program: &str) -> Result<std::process::Command, ProbeError> {
+        #[cfg(test)]
+        if let Some(executable) = self.exact_programs.get(program) {
+            return programs::command_exact(program, &self.env, executable);
+        }
+        programs::command(program, &self.env)
     }
 }
 
@@ -177,7 +201,8 @@ impl ScrubbedCommandRunner {
         let (program, arguments) = argv
             .split_first()
             .ok_or_else(|| ProbeError::Command("empty argv".to_string()))?;
-        let mut child = programs::command(program, &self.env)?
+        let mut child = self
+            .command(program)?
             .args(arguments)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -235,7 +260,8 @@ impl CommandRunner for ScrubbedCommandRunner {
         let (program, arguments) = argv
             .split_first()
             .ok_or_else(|| ProbeError::Command("empty argv".to_string()))?;
-        let mut child = programs::command(program, &self.env)?
+        let mut child = self
+            .command(program)?
             .args(arguments)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())

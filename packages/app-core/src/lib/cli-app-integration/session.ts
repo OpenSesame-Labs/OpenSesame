@@ -1,5 +1,8 @@
 import type { PendingRequest } from "./pending-request.js";
-import { cliAppIntegrationPolicy } from "./policy-runtime.js";
+import {
+  cliAppIntegrationPolicy,
+  isCliAppApprovalBlocked,
+} from "./policy-runtime.js";
 
 export type EnsureStatus =
   | "approved"
@@ -69,6 +72,9 @@ export class CliAppIntegrationStore {
     reference?: string | undefined,
   ): EnsureResult {
     this.expirePending();
+    if (isCliAppApprovalBlocked()) {
+      return { status: "denied" };
+    }
     if (this.ensureRateLimited(terminalSessionId)) {
       return { status: "denied" };
     }
@@ -130,6 +136,9 @@ export class CliAppIntegrationStore {
   }
 
   approve(requestId: string, terminalSessionId: string): EnsureResult {
+    if (isCliAppApprovalBlocked()) {
+      return { status: "denied" };
+    }
     this.expireIdle();
     const row = this.pending.get(requestId);
     if (!row || row.terminalSessionId !== terminalSessionId) {
@@ -158,6 +167,7 @@ export class CliAppIntegrationStore {
   }
 
   checkApproved(terminalSessionId: string): EnsureStatus {
+    if (isCliAppApprovalBlocked()) return "denied";
     this.expireIdle();
     const session = this.approved.get(terminalSessionId);
     if (!session) return "pending";

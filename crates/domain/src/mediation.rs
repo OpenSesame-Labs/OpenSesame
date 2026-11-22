@@ -4,7 +4,7 @@ use crate::{
     DomainError, EnforcementAcknowledgementId, MediationPointId, ProofBinding, TaskRunId,
     VerificationEvidenceId,
 };
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

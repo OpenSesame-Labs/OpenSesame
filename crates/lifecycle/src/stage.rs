@@ -181,11 +181,10 @@ pub fn newly_crossed(
 ) -> Option<ExpiryStage> {
     ladder(track, renew_before_seconds)
         .into_iter()
-        .filter(|stage| {
+        .rfind(|stage| {
             let threshold = stage.threshold_seconds(renew_before_seconds);
             remaining_seconds <= threshold && threshold < watermark
         })
-        .next_back()
 }
 
 #[cfg(test)]

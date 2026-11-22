@@ -22,7 +22,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use wasmtime::component::{Component, Linker, Resource};
 use wasmtime::{Config, Engine, Store, StoreLimits, StoreLimitsBuilder};
@@ -40,6 +39,11 @@ mod bindings {
         path: "../../spec/wit/connector",
     });
 }
+
+#[path = "wasm_result.rs"]
+mod result_summary;
+// Keep guest bytes out of the model-visible runtime receipt.
+use result_summary::opaque_guest_summary;
 
 use bindings::opensesame::connector::host_http;
 use bindings::opensesame::connector::host_oauth;
@@ -580,11 +584,7 @@ impl Connector for WasmConnector {
         if bytes.len() > self.limits.max_result_bytes {
             return Err(HostError::Connector("result exceeds size cap".into()));
         }
-        let digest = format!("sha256:{}", hex::encode(Sha256::digest(&bytes)));
-        // Guest output is data, never trusted structure: parse as JSON when
-        // it is JSON, otherwise report only its size and digest.
-        let safe_summary = serde_json::from_slice::<Value>(&bytes)
-            .unwrap_or_else(|_| json!({ "bytes": bytes.len() }));
+        let (safe_summary, digest) = opaque_guest_summary(&bytes);
         Ok(InvokeResult {
             ok: true,
             safe_summary,

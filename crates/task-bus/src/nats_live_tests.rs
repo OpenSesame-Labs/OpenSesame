@@ -2,11 +2,18 @@
 //! `OPENSESAME_MTLS_FIXTURES=1`): client mTLS admission, downgrade refusal,
 //! the role matrix, system-subject denial, and identity rotation.
 
+use super::live_callout::wait_for_reconnect_limit;
 use super::live_harness::{secure_server, Pki, Roles};
+use super::live_mixed::{assert_stored_spiffe_profile, bit, options, spiffe_server, spiffe_spec};
 use super::*;
 use crate::nats_transport::NatsTransportSpec;
-use opensesame_domain::transport::TransportError;
+use opensesame_domain::transport::{
+    PeerIdentitySelector, TransportError, TrustProfileKind, TrustProfileRef,
+};
+use opensesame_transport_security::testkit::{DisposableCa, LeafSpec};
+use opensesame_transport_security::TrustBundle;
 use serde_json::json;
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 pub(crate) fn config(
@@ -23,6 +30,26 @@ pub(crate) fn config(
         fetch_expires: Duration::from_millis(500),
         ..NatsJetStreamConfig::default()
     }
+}
+
+pub(crate) async fn direct_nats_reconnect(pki: &Pki, injected: InjectedMaterial) {
+    let (server, _) = spiffe_server(pki);
+    let mut spec = spiffe_spec(None);
+    spec.max_reconnects = Some(1);
+    let bus = NatsJetStreamTaskBus::connect_with(
+        config(&server.url(), spec.clone(), NatsRole::Publisher, false),
+        injected.clone(),
+    )
+    .await
+    .unwrap();
+    let old = bus.session.read().await.client.clone();
+    old.force_reconnect().await.unwrap();
+    wait_for_reconnect_limit(&bus.health()).await;
+    Box::pin(bus.rotate(spec, Some(injected)))
+        .await
+        .expect("direct NATS rotation");
+    let fresh = bus.session.read().await.client.clone();
+    fresh.flush().await.unwrap();
 }
 
 pub(crate) fn backup_config(
@@ -62,6 +89,87 @@ fn is_tls_failure(error: &anyhow::Error) -> bool {
         || text.contains("certificate")
         || text.contains("handshake")
         || text.contains("alert")
+}
+
+#[tokio::test]
+#[ignore = "requires Lean vectors; run spec/formal/source-trust-selection/verify.sh --nats"]
+async fn injected_spiffe_client_matches_locator_and_profile() {
+    let values = HashMap::from([
+        ("OPENSESAME_NATS_REQUIRE_TLS", "1"),
+        ("OPENSESAME_NATS_TLS_TRUST_KIND", "spiffe_trust_domain"),
+        ("OPENSESAME_NATS_TLS_TRUST_NAME", "nats-trust"),
+        ("OPENSESAME_NATS_TLS_TRUST_DOMAIN", "server.test"),
+        (
+            "OPENSESAME_NATS_TLS_SERVER_SPIFFE_ID",
+            "spiffe://server.test/nats",
+        ),
+        ("OPENSESAME_NATS_TLS_IDENTITY_SOURCE", "spiffe"),
+        ("OPENSESAME_NATS_TLS_SPIFFE_ID", "spiffe://client.test/host"),
+        ("OPENSESAME_SPIFFE_ENDPOINT_SOCKET", "/tmp/workload.sock"),
+    ]);
+    let spec = NatsTransportSpec::from_lookup("OPENSESAME_NATS", &|key| {
+        values.get(key).map(ToString::to_string)
+    })
+    .unwrap()
+    .unwrap()
+    .normalized("tls://localhost:4222")
+    .unwrap();
+    let ca = DisposableCa::new("nats-client-svid");
+    let trust = TrustBundle::from_pem(
+        TrustProfileRef::new("nats-trust").unwrap(),
+        TrustProfileKind::SpiffeTrustDomain,
+        &ca.ca_pem(),
+    )
+    .unwrap()
+    .with_spiffe_trust_domain("server.test")
+    .unwrap();
+
+    let path = std::env::var("OPENSESAME_NATS_CLIENT_VECTORS").expect("run NATS verifier");
+    let vectors = std::fs::read_to_string(path).expect("read client SVID vectors");
+    let mut seen = HashSet::new();
+    for line in vectors.lines() {
+        let fields: Vec<_> = line.split('\t').collect();
+        let ["client-svid", matching, profile, expected] = fields.as_slice() else {
+            panic!("invalid client SVID vector: {line}");
+        };
+        let (matching, profile, expected) = (bit(matching), bit(profile), bit(expected));
+        assert!(
+            seen.insert((matching, profile)),
+            "duplicate client SVID input"
+        );
+        let id = if matching {
+            "spiffe://client.test/host"
+        } else {
+            "spiffe://client.test/other"
+        };
+        let mut leaf = LeafSpec::spiffe(id);
+        leaf.server_auth = profile;
+        let injected = InjectedMaterial {
+            trust: Some(trust.clone()),
+            identity: Some(Arc::new(ca.issue_with(&leaf).identity())),
+        };
+        assert_eq!(
+            options(&spec, &injected).await,
+            expected,
+            "configured client ID and SVID profile: {id}, profile={profile}"
+        );
+    }
+    assert_eq!(seen.len(), 4, "incomplete client SVID vector matrix");
+
+    let dns_only = ca.issue_client(PeerIdentitySelector::DnsName("client.test".into()));
+    assert!(
+        !options(
+            &spec,
+            &InjectedMaterial {
+                trust: Some(trust.clone()),
+                identity: Some(Arc::new(dns_only.identity())),
+            },
+        )
+        .await,
+        "a DNS-only certificate is not an SVID"
+    );
+
+    assert_stored_spiffe_profile(&ca, &spec, trust, dns_only).await;
 }
 
 /// AT-NATS-NOCERT: no client certificate → refused in the TLS handshake,
@@ -227,10 +335,10 @@ async fn identity_rotation_keeps_the_durable_consumer() {
     assert_eq!(before.name, crate::DEFAULT_CONSUMER_NAME);
     let old_server_id = host.server_id().await;
 
-    host.rotate(
+    Box::pin(host.rotate(
         pki.client_spec(Some(&second), Some(&roles.host.0), false),
         None,
-    )
+    ))
     .await
     .expect("rotate to the second identity");
     assert_eq!(host.server_id().await, old_server_id);
@@ -259,13 +367,12 @@ async fn identity_rotation_keeps_the_durable_consumer() {
             .issue_client(opensesame_domain::transport::PeerIdentitySelector::DnsName(
                 "stranger".into(),
             ));
-    assert!(host
-        .rotate(
-            pki.client_spec(Some(&stranger), Some(&roles.host.0), false),
-            None
-        )
-        .await
-        .is_err());
+    assert!(Box::pin(host.rotate(
+        pki.client_spec(Some(&stranger), Some(&roles.host.0), false),
+        None
+    ))
+    .await
+    .is_err());
     host.publish(event("r3", "principal.created"))
         .await
         .expect("old session still serves");

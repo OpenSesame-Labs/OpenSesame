@@ -28,7 +28,10 @@
 //!   reference loop does. That is the loop's posture; the rotation host's
 //!   `terminate` is about its executors, not this loop.
 
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::BTreeMap,
+    sync::{Arc, Mutex},
+};
 
 use agent_hooks::ctk::{async_trait, Harness, IdentityPair, RunRecord, VectorSetup};
 use opensesame_rotation_web::hooks::{
@@ -241,7 +244,7 @@ impl Harness for MockLoopHarness {
                 .collect(),
             // The CTK runner fills these from the harness declaration and
             // the vector's host_declaration; a harness starts them empty.
-            postures: Default::default(),
+            postures: BTreeMap::default(),
             load: None,
         }
     }

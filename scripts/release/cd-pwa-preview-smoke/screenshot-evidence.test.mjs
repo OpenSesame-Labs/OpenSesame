@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 import {
   captureLiveSmokeEvidence,
+  pushDiagnostic,
   smokeBrowserEntryUrl,
 } from "./screenshot-evidence.mjs";
 
@@ -161,6 +162,106 @@ test("capture walks the cache-busted shell through Minimal then Full sign-in", a
     );
     assert.equal(manifest.browser_entry_url, goto.url);
     assert.equal(Object.keys(manifest.shots).length, 3);
+    assert.equal(existsSync(join(out, "failure-screenshot.png")), false);
+    assert.equal(existsSync(join(out, "failure-console.json")), false);
+    assert.equal(existsSync(join(out, "failure-network.json")), false);
+  });
+});
+
+test("capture writes failure evidence without lengthening the front-door wait", async () => {
+  await withEvidence(async (out) => {
+    const handlers = {};
+    let frontDoorTimeout;
+    const page = {
+      on(event, handler) {
+        handlers[event] = handler;
+      },
+      async goto() {
+        handlers.console?.({
+          type: () => "error",
+          text: () => "chunk 404",
+        });
+        handlers.response?.({
+          url: () => "https://example.github.io/OpenSesame/assets/main-abc.js",
+          status: () => 404,
+          request: () => ({ method: () => "GET" }),
+        });
+        handlers.requestfailed?.({
+          url: () => "https://example.github.io/OpenSesame/assets/vendor.js",
+          method: () => "GET",
+          failure: () => ({ errorText: "net::ERR_FAILED" }),
+        });
+      },
+      getByRole() {
+        return {
+          async waitFor(opts) {
+            frontDoorTimeout = opts.timeout;
+            throw new Error("button missing");
+          },
+        };
+      },
+      async screenshot(shot) {
+        await writeFile(shot.path, "png");
+      },
+    };
+    await assert.rejects(
+      () =>
+        captureLiveSmokeEvidence(
+          {
+            PAGES_URL: "https://example.github.io/OpenSesame/",
+            GITHUB_SHA: sha,
+            SMOKE_EVIDENCE_OUT: out,
+          },
+          {
+            launchHeadlessPlaywright: async () => ({
+              browser: {
+                async newContext() {
+                  return {
+                    async newPage() {
+                      return page;
+                    },
+                  };
+                },
+                async close() {},
+              },
+            }),
+          },
+        ),
+      /button missing/,
+    );
+    assert.equal(frontDoorTimeout, 20_000);
+    assert.equal(
+      readFileSync(join(out, "failure-screenshot.png"), "utf8"),
+      "png",
+    );
+    const consoleLog = JSON.parse(
+      readFileSync(join(out, "failure-console.json"), "utf8"),
+    );
+    assert.equal(consoleLog.error, "button missing");
+    assert.deepEqual(consoleLog.entries, [
+      { type: "error", text: "chunk 404" },
+    ]);
+    const networkLog = JSON.parse(
+      readFileSync(join(out, "failure-network.json"), "utf8"),
+    );
+    assert.equal(networkLog.error, "button missing");
+    assert.deepEqual(networkLog.entries, [
+      {
+        url: "https://example.github.io/OpenSesame/assets/main-abc.js",
+        status: 404,
+        method: "GET",
+      },
+      {
+        url: "https://example.github.io/OpenSesame/assets/vendor.js",
+        method: "GET",
+        error: "net::ERR_FAILED",
+      },
+    ]);
+    const summary = JSON.parse(
+      readFileSync(join(out, "failure-summary.json"), "utf8"),
+    );
+    assert.equal(summary.phase, "capture");
+    assert.equal(summary.error, "button missing");
   });
 });
 
@@ -178,6 +279,309 @@ test("capture still rejects a front door that offers Continue as guest", async (
           { launchHeadlessPlaywright: harness.launchHeadlessPlaywright },
         ),
       /live front door must not offer Continue as guest/,
+    );
+  });
+});
+
+test("pushDiagnostic keeps a ring buffer of the newest entries", () => {
+  const entries = [];
+  for (let i = 0; i < 205; i += 1)
+    pushDiagnostic(entries, { type: "log", text: String(i) });
+  assert.equal(entries.length, 200);
+  assert.equal(entries[0].text, "5");
+  assert.equal(entries[199].text, "204");
+});
+
+test("capture writes failure evidence when browser launch fails", async () => {
+  await withEvidence(async (out) => {
+    await assert.rejects(
+      () =>
+        captureLiveSmokeEvidence(
+          {
+            PAGES_URL: "https://example.github.io/OpenSesame/",
+            GITHUB_SHA: sha,
+            SMOKE_EVIDENCE_OUT: out,
+          },
+          {
+            launchHeadlessPlaywright: async () => {
+              throw new Error("launch failed");
+            },
+          },
+        ),
+      /launch failed/,
+    );
+    const consoleLog = JSON.parse(
+      readFileSync(join(out, "failure-console.json"), "utf8"),
+    );
+    assert.equal(consoleLog.error, "launch failed");
+    const summary = JSON.parse(
+      readFileSync(join(out, "failure-summary.json"), "utf8"),
+    );
+    assert.equal(summary.phase, "launch");
+  });
+});
+
+test("capture preserves the launch error when evidence writing fails", async () => {
+  await withEvidence(async (out) => {
+    await assert.rejects(
+      () =>
+        captureLiveSmokeEvidence(
+          {
+            PAGES_URL: "https://example.github.io/OpenSesame/",
+            GITHUB_SHA: sha,
+            SMOKE_EVIDENCE_OUT: out,
+          },
+          {
+            launchHeadlessPlaywright: async () => {
+              // The bootstrapped evidence directory vanishes before the
+              // pre-page failure write, so writing evidence must throw.
+              rmSync(out, { recursive: true, force: true });
+              throw new Error("launch failed");
+            },
+          },
+        ),
+      /launch failed/,
+    );
+    assert.equal(existsSync(out), false);
+  });
+});
+
+test("capture labels context and page failures distinctly from launch", async () => {
+  await withEvidence(async (out) => {
+    await assert.rejects(
+      () =>
+        captureLiveSmokeEvidence(
+          {
+            PAGES_URL: "https://example.github.io/OpenSesame/",
+            GITHUB_SHA: sha,
+            SMOKE_EVIDENCE_OUT: out,
+          },
+          {
+            launchHeadlessPlaywright: async () => ({
+              browser: {
+                async newContext() {
+                  throw new Error("context boom");
+                },
+              },
+            }),
+          },
+        ),
+      /context boom/,
+    );
+    assert.equal(
+      JSON.parse(readFileSync(join(out, "failure-summary.json"), "utf8")).phase,
+      "context",
+    );
+
+    await assert.rejects(
+      () =>
+        captureLiveSmokeEvidence(
+          {
+            PAGES_URL: "https://example.github.io/OpenSesame/",
+            GITHUB_SHA: sha,
+            SMOKE_EVIDENCE_OUT: out,
+          },
+          {
+            launchHeadlessPlaywright: async () => ({
+              browser: {
+                async newContext() {
+                  return {
+                    async newPage() {
+                      throw new Error("page boom");
+                    },
+                  };
+                },
+              },
+            }),
+          },
+        ),
+      /page boom/,
+    );
+    assert.equal(
+      JSON.parse(readFileSync(join(out, "failure-summary.json"), "utf8")).phase,
+      "page",
+    );
+  });
+});
+
+test("capture redacts secrets in failure artifacts", async () => {
+  await withEvidence(async (out) => {
+    const handlers = {};
+    const page = {
+      on(event, handler) {
+        handlers[event] = handler;
+      },
+      async goto() {
+        handlers.console?.({
+          type: () => "error",
+          text: () => 'fetch failed {"token":"abc123"} at chunk load',
+        });
+        handlers.requestfailed?.({
+          url: () => "https://example.github.io/OpenSesame/assets/x.js",
+          method: () => "GET",
+          failure: () => ({ errorText: "net::ERR_FAILED token=sekrit" }),
+        });
+      },
+      getByRole() {
+        return {
+          async waitFor() {
+            throw new Error("button missing token=leaked");
+          },
+        };
+      },
+      async screenshot(shot) {
+        await writeFile(shot.path, "png");
+      },
+    };
+    await assert.rejects(
+      () =>
+        captureLiveSmokeEvidence(
+          {
+            PAGES_URL: "https://example.github.io/OpenSesame/",
+            GITHUB_SHA: sha,
+            SMOKE_EVIDENCE_OUT: out,
+          },
+          {
+            launchHeadlessPlaywright: async () => ({
+              browser: {
+                async newContext() {
+                  return {
+                    async newPage() {
+                      return page;
+                    },
+                  };
+                },
+                async close() {},
+              },
+            }),
+          },
+        ),
+      /button missing/,
+    );
+    const consoleLog = JSON.parse(
+      readFileSync(join(out, "failure-console.json"), "utf8"),
+    );
+    assert.equal(consoleLog.error, "button missing [redacted]");
+    assert.deepEqual(consoleLog.entries, [
+      {
+        type: "error",
+        text: 'fetch failed {"token":"[redacted]"} at chunk load',
+      },
+    ]);
+    const networkLog = JSON.parse(
+      readFileSync(join(out, "failure-network.json"), "utf8"),
+    );
+    assert.deepEqual(networkLog.entries, [
+      {
+        url: "https://example.github.io/OpenSesame/assets/x.js",
+        method: "GET",
+        error: "net::ERR_FAILED [redacted]",
+      },
+    ]);
+  });
+});
+
+test("a synchronous browser.close failure does not mask the capture error", async () => {
+  await withEvidence(async (out) => {
+    const page = {
+      on() {},
+      async goto() {},
+      getByRole() {
+        return {
+          async waitFor() {
+            throw new Error("button missing");
+          },
+        };
+      },
+      async screenshot(shot) {
+        await writeFile(shot.path, "png");
+      },
+    };
+    await assert.rejects(
+      () =>
+        captureLiveSmokeEvidence(
+          {
+            PAGES_URL: "https://example.github.io/OpenSesame/",
+            GITHUB_SHA: sha,
+            SMOKE_EVIDENCE_OUT: out,
+          },
+          {
+            launchHeadlessPlaywright: async () => ({
+              browser: {
+                async newContext() {
+                  return {
+                    async newPage() {
+                      return page;
+                    },
+                  };
+                },
+                close() {
+                  throw new Error("close boom");
+                },
+              },
+            }),
+          },
+        ),
+      /button missing/,
+    );
+    const summary = JSON.parse(
+      readFileSync(join(out, "failure-summary.json"), "utf8"),
+    );
+    assert.equal(summary.error, "button missing");
+  });
+});
+
+test("capture records pageerror diagnostics", async () => {
+  await withEvidence(async (out) => {
+    const page = {
+      on(event, handler) {
+        if (event === "pageerror") {
+          handler(new Error("boom"));
+        }
+      },
+      async goto() {},
+      getByRole() {
+        return {
+          async waitFor() {
+            throw new Error("missing");
+          },
+        };
+      },
+      async screenshot(shot) {
+        await writeFile(shot.path, "png");
+      },
+    };
+    await assert.rejects(
+      () =>
+        captureLiveSmokeEvidence(
+          {
+            PAGES_URL: "https://example.github.io/OpenSesame/",
+            GITHUB_SHA: sha,
+            SMOKE_EVIDENCE_OUT: out,
+          },
+          {
+            launchHeadlessPlaywright: async () => ({
+              browser: {
+                async newContext() {
+                  return {
+                    async newPage() {
+                      return page;
+                    },
+                  };
+                },
+                async close() {},
+              },
+            }),
+          },
+        ),
+      /missing/,
+    );
+    const consoleLog = JSON.parse(
+      readFileSync(join(out, "failure-console.json"), "utf8"),
+    );
+    assert.equal(
+      consoleLog.entries.some((e) => e.type === "pageerror"),
+      true,
     );
   });
 });

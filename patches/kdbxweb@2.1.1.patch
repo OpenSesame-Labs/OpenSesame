@@ -1,0 +1,144 @@
+diff --git a/dist/kdbxweb.js b/dist/kdbxweb.js
+index 7d33074..940280b 100644
+--- a/dist/kdbxweb.js
++++ b/dist/kdbxweb.js
+@@ -5372,7 +5372,7 @@ function parse(xml) {
+     const parser = createDOMParser();
+     let doc;
+     // eslint-disable-next-line no-control-regex
+-    xml = xml.replace(/[\x00-\x09\x0B-\x0C\x0E-\x1F]/g, '');
++    xml = xml.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F]/g, '');
+     try {
+         doc = parser.parseFromString(xml, 'application/xml');
+     }
+@@ -5390,11 +5390,41 @@ function parse(xml) {
+     return doc;
+ }
+ exports.parse = parse;
++function opensesameSerializeXml(doc, serializer) {
++    const serialized = serializer.serializeToString(doc);
++    if (!serialized.includes('\r')) return serialized;
++    const used = new Set(serialized.match(/__KDBX_CR_[TC]_\d+__/g) || []);
++    let index = 0;
++    while (used.has(`__KDBX_CR_T_${index}__`) || used.has(`__KDBX_CR_C_${index}__`)) index++;
++    const textMarker = `__KDBX_CR_T_${index}__`;
++    const cdataMarker = `__KDBX_CR_C_${index}__`;
++    const clone = doc.cloneNode(true);
++    const pending = [clone];
++    let changed = false;
++    while (pending.length) {
++        const node = pending.pop();
++        if (!node) continue;
++        if ((node.nodeType === 3 || node.nodeType === 4) && node.nodeValue && node.nodeValue.includes('\r')) {
++            const marker = node.nodeType === 3 ? textMarker : cdataMarker;
++            node.replaceData(0, node.nodeValue.length, node.nodeValue.replace(/\r/g, marker));
++            changed = true;
++        }
++        if (node.childNodes) {
++            for (let i = 0; i < node.childNodes.length; i++) pending.push(node.childNodes[i]);
++        }
++    }
++    return changed
++        ? serializer.serializeToString(clone)
++              .split(textMarker).join('&#13;')
++              .split(cdataMarker).join(']]>&#13;<![CDATA[')
++        : serialized;
++}
++
+ function serialize(doc, prettyPrint = false) {
+     if (prettyPrint) {
+         prettyPrintXmlNode(doc, 0);
+     }
+-    let xml = createXMLSerializer().serializeToString(doc);
++    let xml = opensesameSerializeXml(doc, createXMLSerializer());
+     if (prettyPrint && xml.startsWith('<?')) {
+         xml = xml.replace(/^(<\?.*?\?>)</, '$1\n<');
+     }
+diff --git a/dist/kdbxweb.min.js b/dist/kdbxweb.min.js
+index a3963969801d8811310c524a229fb1ef9a960fe0..b3ea10fac6b83c9b7a5f02d663b8405925a1d189 100644
+GIT binary patch
+delta 749
+zcmZ`%!EVz)5S0%|{Q!F4mIM^-D#l4wkWk&FD#;Cr1F=vg$J!Ws5^uHHwY+OpB(WSm
+z0CCKP6K5_+Nc{;uf<NFF*d}(AP&m$e^G0vp%<nHp-@YELepu7F_2M>}TR$I^?j#qH
+zW>Pd{3POPjXE20}g`CadYQ_=R6fYtvlx_$@9aVFl9O{gTDFW=W32F+5iHPShDAXEd
+zEsQhJc_tdd-HIg<aMKuqM#7neI!aKN(%0qS)fMf(rM}k>=qT<`+MVL%(hso9K{q(*
+zxf7WoS2{_k(AX#{fk&S#ctPpdbl)TUJJQ9x)2SRVa$jH4v90&<ozzwYoQO*SZ)6Op
+z*~4~Bd=+ebWu$qsH5NM@#8fA49TJe(No9&QsQ_M>Y|tqoW|%N@ybmcXm(O-}c?aNj
+zd&|BHc@77~-=S8QpyY7m1v}F&I2oioj9?Jz5cTZ6nU%={Xw!Tg0qTyj?$lfv+h(m^
+zVGOUof3%KEYQm@ICWM6X_$~xh?@BuzY_`l*g7#^j2Dm7yyJr{wdKQHpm2##L!_Kv2
+z0=3$YPfp!d4eJ^Xf`>0R)OpkI4=%k+zlG04v3|a?o<92TtFGU#tn1rfE9>*8KjRPq
+AX8-^I
+
+delta 58
+zcmZ3ph~xbnj)pCa=~axD+cT;d&#*G;On=+Ns5{-bnK4U5uQ;_RGchN#Dm5fOxTGjE
+OFI^*b``l*6{$2o;FcyOV
+
+diff --git a/lib/utils/xml-utils.ts b/lib/utils/xml-utils.ts
+index 2d208bd..121ff8a 100644
+--- a/lib/utils/xml-utils.ts
++++ b/lib/utils/xml-utils.ts
+@@ -61,7 +61,7 @@ export function parse(xml: string): Document {
+ 
+     let doc;
+     // eslint-disable-next-line no-control-regex
+-    xml = xml.replace(/[\x00-\x09\x0B-\x0C\x0E-\x1F]/g, '');
++    xml = xml.replace(/[\x00-\x08\x0B-\x0C\x0E-\x1F]/g, '');
+     try {
+         doc = parser.parseFromString(xml, 'application/xml');
+     } catch (e) {
+@@ -78,11 +78,41 @@ export function parse(xml: string): Document {
+     return doc;
+ }
+ 
++function opensesameSerializeXml(doc: Document, serializer: XMLSerializer): string {
++    const serialized = serializer.serializeToString(doc);
++    if (!serialized.includes('\r')) return serialized;
++    const used = new Set(serialized.match(/__KDBX_CR_[TC]_\d+__/g) || []);
++    let index = 0;
++    while (used.has(`__KDBX_CR_T_${index}__`) || used.has(`__KDBX_CR_C_${index}__`)) index++;
++    const textMarker = `__KDBX_CR_T_${index}__`;
++    const cdataMarker = `__KDBX_CR_C_${index}__`;
++    const clone = doc.cloneNode(true);
++    const pending: Node[] = [clone];
++    let changed = false;
++    while (pending.length) {
++        const node = pending.pop();
++        if (!node) continue;
++        if ((node.nodeType === 3 || node.nodeType === 4) && node.nodeValue && node.nodeValue.includes('\r')) {
++            const marker = node.nodeType === 3 ? textMarker : cdataMarker;
++            (node as Text).replaceData(0, node.nodeValue.length, node.nodeValue.replace(/\r/g, marker));
++            changed = true;
++        }
++        if (node.childNodes) {
++            for (let i = 0; i < node.childNodes.length; i++) pending.push(node.childNodes[i]);
++        }
++    }
++    return changed
++        ? serializer.serializeToString(clone)
++              .split(textMarker).join('&#13;')
++              .split(cdataMarker).join(']]>&#13;<![CDATA[')
++        : serialized;
++}
++
+ export function serialize(doc: Document, prettyPrint = false): string {
+     if (prettyPrint) {
+         prettyPrintXmlNode(doc, 0);
+     }
+-    let xml = createXMLSerializer().serializeToString(doc);
++    let xml = opensesameSerializeXml(doc, createXMLSerializer());
+     if (prettyPrint && xml.startsWith('<?')) {
+         xml = xml.replace(/^(<\?.*?\?>)</, '$1\n<');
+     }
+diff --git a/package.json b/package.json
+index 77f6a15..fc5eb7f 100644
+--- a/package.json
++++ b/package.json
+@@ -66,7 +66,7 @@
+     "webpack-cli": "^4.8.0"
+   },
+   "dependencies": {
+-    "@xmldom/xmldom": "^0.7.4",
++    "@xmldom/xmldom": "0.8.15",
+     "fflate": "^0.7.1"
+   },
+   "funding": {

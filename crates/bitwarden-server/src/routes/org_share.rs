@@ -4,8 +4,8 @@ use std::collections::HashSet;
 
 use axum::extract::{Path, State};
 use axum::Json;
-use chrono::Utc;
 use opensesame_storage::bitwarden::{BitwardenCipher, BitwardenUser};
+use opensesame_time::Utc;
 use serde_json::Value;
 
 use super::ciphers::OUT_OF_DATE;

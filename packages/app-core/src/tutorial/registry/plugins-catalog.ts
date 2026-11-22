@@ -11,7 +11,7 @@ export const SURROGATE_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "settings.surrogate-credentials",
     description:
-      "The surrogate proxy under Surrogate credentials: with no daemon paired, a field for the code opensesame plugins pair prints; once paired, whether the daemon has it installed, its switch there, its recent tripwires by event, time and subject, and a key that forgets the pairing. It is installed at a terminal, never from this page.",
+      "Pair a daemon to check the surrogate proxy, change its state and review recent events. Install the proxy separately in a terminal.",
     role: "ceremony",
     routes: ["/settings"],
     capabilityId: "plugins.surrogate_proxy.switch",
@@ -27,13 +27,13 @@ export const SURROGATE_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "settings.surrogate-credentials"',
-      'say "The surrogate proxy lets a tool hold a stand-in instead of a credential. It is a separate program installed at a terminal on the machine that runs the daemon, and it stays off until it is switched on."',
+      'say "The surrogate proxy gives tools a substitute for a credential. Install it on the daemon host, then enable it here."',
       'wait state "vault.unlocked" is=true timeout=60000',
       'navigate "/settings/features"',
       'wait route "/settings/features" timeout=15000',
       'scroll "feature.surrogates"',
-      'focus "feature.surrogates" "The Surrogate credentials section. Its switch adds the proxy to this installation." side=bottom',
-      'focus "settings.surrogate-credentials" "Its panel pairs with the daemon using the code opensesame plugins pair prints; once paired, its mark says whether the proxy is installed and running, the key beside it switches it there, and the list under it is what it refused." side=top',
+      'focus "feature.surrogates" "Enable Surrogate credentials to add the proxy." side=bottom',
+      'focus "settings.surrogate-credentials" "Pair the daemon using the code from opensesame plugins pair. This panel shows the proxy status and rejected requests." side=top',
       "end",
     ].join("\n"),
   },
@@ -43,7 +43,7 @@ export const AUTOFILL_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "settings.browser-autofill",
     description:
-      "The autofill extension under Browser autofill: with no daemon paired, a field for the code opensesame plugins pair prints; once paired, whether the daemon has it recorded as installed, and its switch there. The extension is installed separately, never from this page.",
+      "Pair a daemon to check and manage the autofill extension. Install the extension separately.",
     role: "ceremony",
     routes: ["/settings"],
     capabilityId: "plugins.browser_autofill.switch",
@@ -59,13 +59,13 @@ export const AUTOFILL_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "settings.browser-autofill"',
-      'say "The autofill extension fills a login field from its own window, by reference. It is installed separately, at a terminal, and stays off until it is switched on."',
+      'say "The autofill extension fills login fields. Install it separately, then enable it here."',
       'wait state "vault.unlocked" is=true timeout=60000',
       'navigate "/settings/features"',
       'wait route "/settings/features" timeout=15000',
       'scroll "feature.autofill"',
-      'focus "feature.autofill" "The Browser autofill section. Its switch adds the extension to this installation." side=bottom',
-      'focus "settings.browser-autofill" "Its panel pairs with the daemon the same way; once paired, its mark says whether the extension is installed and running, and the key beside it switches it there." side=top',
+      'focus "feature.autofill" "Enable Browser autofill to add the extension." side=bottom',
+      'focus "settings.browser-autofill" "Pair the daemon using the code from opensesame plugins pair. This panel shows the extension status." side=top',
       "end",
     ].join("\n"),
   },

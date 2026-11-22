@@ -3,15 +3,19 @@
 //! only absolute, trusted `PATH` entries can supply and a minimal environment;
 //! the child that finally runs gets what it always got.
 //!
-//! The `node` here is a shell script that records its environment and answers
-//! with a one-item document, so the test needs no Node and no parser package.
+//! The test copies the machine's exact `node` executable into its private
+//! executable-adjacent fixture and uses a tiny parser module that records the
+//! environment and answers with a one-item document.
 #![cfg(unix)]
 
 use std::collections::BTreeSet;
-use std::os::unix::fs::PermissionsExt;
+use std::io::{Read as _, Seek as _};
+use std::os::unix::fs::{MetadataExt, OpenOptionsExt, PermissionsExt};
 use std::path::PathBuf;
 use std::process::{Command, Output};
 use std::sync::{Mutex, PoisonError};
+
+use opensesame_trusted_exec::testkit::Fixture;
 
 const BIN: &str = env!("CARGO_BIN_EXE_opensesame");
 const PASSPHRASE: &str = "store-passphrase-for-tests";
@@ -28,42 +32,124 @@ fn fixture_github_token() -> String {
 }
 
 struct Sandbox {
-    dir: tempfile::TempDir,
+    _fixture: Fixture,
+    root: PathBuf,
 }
 
 impl Sandbox {
     fn new() -> Self {
-        let dir = tempfile::tempdir().unwrap();
+        let fixture = Fixture::new("unused");
+        let root = fixture.scratch("bridge-sandbox");
         for (name, mode) in [
             ("work/bin", 0o700),
             ("trusted", 0o700),
+            ("shim", 0o700),
             ("open", 0o777),
             ("out", 0o700),
         ] {
-            let path = dir.path().join(name);
+            let path = root.join(name);
             std::fs::create_dir_all(&path).unwrap();
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode)).unwrap();
         }
-        std::fs::write(dir.path().join("work/x.env.schema"), "# stand-in\n").unwrap();
-        Self { dir }
+        std::fs::write(root.join("work/x.env.schema"), "# stand-in\n").unwrap();
+        let out = serde_json::to_string(&root.join("out").display().to_string()).unwrap();
+        let document = serde_json::to_string(DOCUMENT).unwrap();
+        let parser = format!(
+            r#"import {{ dirname, join }} from "node:path";
+import {{ readFileSync, writeFileSync }} from "node:fs";
+const label = readFileSync(join(dirname(process.execPath), "label"), "utf8");
+const body = Object.entries(process.env)
+  .map(([name, value]) => `${{name}}=${{value}}`)
+  .join("\n") + "\n";
+writeFileSync(join({out}, `${{label}}.env`), body);
+process.stdout.write({document});
+"#
+        );
+        std::fs::write(root.join("work/parse.mjs"), parser).unwrap();
+        Self {
+            _fixture: fixture,
+            root,
+        }
     }
 
     fn path(&self, name: &str) -> PathBuf {
-        self.dir.path().join(name)
+        self.root.join(name)
     }
 
-    /// A `node` in `dir` that writes its environment to `out/<label>.env`.
-    fn plant(&self, dir: &str, label: &str) {
-        let script = format!(
-            "#!/bin/sh\n/usr/bin/env > '{}'\nprintf '%s' '{DOCUMENT}'\n",
-            self.path("out").join(format!("{label}.env")).display()
-        );
+    /// An owned exact copy of the machine's `node`, labelled so the parser
+    /// writes its environment to `out/<label>.env`.
+    fn plant(&self, dir: &str, label: &str) -> PathBuf {
         let node = self.path(dir).join("node");
         let _guard = WRITING_OR_FORKING
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
-        std::fs::write(&node, script).unwrap();
-        std::fs::set_permissions(&node, std::fs::Permissions::from_mode(0o755)).unwrap();
+        let source = std::env::var_os("OPENSESAME_NODE")
+            .map(PathBuf::from)
+            .or_else(|| {
+                std::env::var_os("PATH").and_then(|path| {
+                    std::env::split_paths(&path)
+                        .map(|dir| dir.join("node"))
+                        .find(|candidate| candidate.is_file())
+                })
+            })
+            .expect("these tests need node on PATH or OPENSESAME_NODE")
+            .canonicalize()
+            .expect("canonical node executable");
+        let mut source = std::fs::OpenOptions::new()
+            .read(true)
+            .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
+            .open(&source)
+            .expect("open canonical node executable without following links");
+        let source_meta = source.metadata().unwrap();
+        assert!(source_meta.is_file());
+        assert_ne!(source_meta.mode() & 0o111, 0);
+        let mut prefix = [0_u8; 2];
+        source.read_exact(&mut prefix).unwrap();
+        assert_ne!(prefix, *b"#!", "node source must not use an interpreter");
+        source.rewind().unwrap();
+
+        let mut file = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .mode(0o500)
+            .open(&node)
+            .unwrap();
+        assert_eq!(
+            std::io::copy(&mut source, &mut file).unwrap(),
+            source_meta.len()
+        );
+        file.sync_all().unwrap();
+        let opened = file.metadata().unwrap();
+        // SAFETY: `geteuid` takes no arguments and cannot fail.
+        assert_eq!(opened.uid(), unsafe { libc::geteuid() });
+        assert!(opened.is_file());
+        assert_eq!(opened.nlink(), 1);
+        assert_eq!(opened.mode() & 0o777, 0o500);
+        assert_eq!(opened.len(), source_meta.len());
+        source.rewind().unwrap();
+        file.rewind().unwrap();
+        let mut source_chunk = [0_u8; 64 * 1024];
+        let mut copy_chunk = [0_u8; 64 * 1024];
+        loop {
+            let source_read = source.read(&mut source_chunk).unwrap();
+            let copy_read = file.read(&mut copy_chunk).unwrap();
+            assert_eq!(copy_read, source_read);
+            assert_eq!(copy_chunk[..copy_read], source_chunk[..source_read]);
+            if source_read == 0 {
+                break;
+            }
+        }
+        drop(file);
+        let named = std::fs::symlink_metadata(&node).unwrap();
+        assert_eq!((named.dev(), named.ino()), (opened.dev(), opened.ino()));
+        std::fs::write(self.path(dir).join("label"), label).unwrap();
+        node
+    }
+
+    fn run_with_owned_node(&self, agent: bool, path: &str) -> Output {
+        let node = self.plant("shim", "bridge").display().to_string();
+        self.run_with(agent, path, &[("OPENSESAME_NODE", node)])
     }
 
     fn recorded(&self, label: &str) -> Option<String> {
@@ -87,7 +173,7 @@ impl Sandbox {
         command
             .arg("--schema")
             .arg(self.path("work/x.env.schema"))
-            .args(["run", "--", "sh", "-c", "env > \"$1\"", "sh"])
+            .args(["run", "--", "/bin/sh", "-c", "/usr/bin/env > \"$1\"", "sh"])
             .arg(self.path("out/child.env"))
             .env_clear()
             .current_dir(self.path("work"))
@@ -113,12 +199,9 @@ impl Sandbox {
 }
 
 fn names(recorded: &str) -> BTreeSet<String> {
-    // The shell the recording `node` runs under adds a few of its own.
-    const SHELL_OWN: [&str; 4] = ["PWD", "OLDPWD", "SHLVL", "_"];
     recorded
         .lines()
         .filter_map(|line| line.split_once('=').map(|(name, _)| name.to_owned()))
-        .filter(|name| !SHELL_OWN.contains(&name.as_str()))
         .collect()
 }
 
@@ -138,16 +221,14 @@ fn bridge_names(sandbox: &Sandbox) -> BTreeSet<String> {
 }
 
 fn allowed() -> BTreeSet<String> {
-    ["HOME", "LANG", "PATH"].map(String::from).into()
+    ["HOME", "LANG"].map(String::from).into()
 }
 
 #[test]
 fn the_bridge_gets_a_minimal_environment_and_the_child_gets_what_it_always_got() {
     let sandbox = Sandbox::new();
-    sandbox.plant("trusted", "bridge");
-    let trusted = sandbox.path("trusted").display().to_string();
-    let path = format!("{trusted}:/usr/bin:/bin");
-    let output = sandbox.run(false, &path);
+    let path = ":./bin:.:/nonexistent:";
+    let output = sandbox.run_with_owned_node(false, path);
     assert!(output.status.success(), "{}", said(&output));
     assert_eq!(bridge_names(&sandbox), allowed());
 
@@ -165,20 +246,14 @@ fn the_bridge_gets_a_minimal_environment_and_the_child_gets_what_it_always_got()
     }
 }
 
-/// A CI image's layout: the only `node` sits in an absolute directory this user
-/// owns that its own group can write (`umask 002`, or a runner's tool cache).
+/// The integration harness names its caller-owned Node copy explicitly. PATH
+/// trust decisions remain covered in-process with a synthetic caller.
 #[test]
-fn a_directory_its_own_group_can_write_supplies_the_node() {
+fn an_owned_explicit_node_runs_without_trusting_the_namespace_root() {
     let sandbox = Sandbox::new();
-    std::fs::set_permissions(
-        sandbox.path("trusted"),
-        std::fs::Permissions::from_mode(0o775),
-    )
-    .unwrap();
-    sandbox.plant("trusted", "bridge");
-    sandbox.plant("work", "in-cwd");
-    let path = format!(":./bin:{}:/usr/bin:/bin", sandbox.path("trusted").display());
-    let output = sandbox.run(true, &path);
+    let _ = sandbox.plant("work", "in-cwd");
+    let path = ":./bin:.:/nonexistent:";
+    let output = sandbox.run_with_owned_node(true, path);
     assert!(output.status.success(), "{}", said(&output));
     assert_eq!(bridge_names(&sandbox), allowed());
     assert!(sandbox.recorded("in-cwd").is_none());
@@ -190,7 +265,7 @@ fn a_directory_its_own_group_can_write_supplies_the_node() {
 #[test]
 fn an_operator_named_node_is_used_in_a_directory_anyone_can_write() {
     let sandbox = Sandbox::new();
-    sandbox.plant("open", "bridge");
+    let _ = sandbox.plant("open", "bridge");
     std::fs::set_permissions(
         sandbox.path("open/node"),
         std::fs::Permissions::from_mode(0o777),
@@ -199,7 +274,7 @@ fn an_operator_named_node_is_used_in_a_directory_anyone_can_write() {
     let chosen = sandbox.path("open/node").display().to_string();
     let output = sandbox.run_with(
         true,
-        ":./bin:.:/usr/bin:/bin",
+        ":./bin:.:/nonexistent:",
         &[("OPENSESAME_NODE", chosen)],
     );
     assert!(output.status.success(), "{}", said(&output));
@@ -207,13 +282,16 @@ fn an_operator_named_node_is_used_in_a_directory_anyone_can_write() {
 }
 
 #[test]
-fn an_operator_named_node_wins_over_a_trusted_one_on_path() {
+fn an_operator_named_node_wins_over_a_relative_one_on_path() {
     let sandbox = Sandbox::new();
-    sandbox.plant("trusted", "on-path");
-    sandbox.plant("open", "bridge");
+    let _ = sandbox.plant("work/bin", "on-path");
+    let _ = sandbox.plant("open", "bridge");
     let chosen = sandbox.path("open/node").display().to_string();
-    let path = format!("{}:/usr/bin:/bin", sandbox.path("trusted").display());
-    let output = sandbox.run_with(true, &path, &[("OPENSESAME_NODE", chosen)]);
+    let output = sandbox.run_with(
+        true,
+        ":./bin:.:/nonexistent:",
+        &[("OPENSESAME_NODE", chosen)],
+    );
     assert!(output.status.success(), "{}", said(&output));
     assert!(sandbox.recorded("on-path").is_none(), "PATH's node ran");
     assert_eq!(bridge_names(&sandbox), allowed());
@@ -223,9 +301,12 @@ fn an_operator_named_node_wins_over_a_trusted_one_on_path() {
 fn a_bad_operator_value_stops_the_run_by_name_and_never_falls_back_to_path() {
     for value in ["", "node", "./node", "/nonexistent/node"] {
         let sandbox = Sandbox::new();
-        sandbox.plant("trusted", "on-path");
-        let path = format!("{}:/usr/bin:/bin", sandbox.path("trusted").display());
-        let output = sandbox.run_with(true, &path, &[("OPENSESAME_NODE", value.to_owned())]);
+        let _ = sandbox.plant("work/bin", "on-path");
+        let output = sandbox.run_with(
+            true,
+            ":./bin:.:/nonexistent:",
+            &[("OPENSESAME_NODE", value.to_owned())],
+        );
         let said = said(&output);
         assert!(!output.status.success(), "{value:?}: {said}");
         assert!(said.contains("OPENSESAME_NODE"), "{value:?}: {said}");
@@ -243,9 +324,7 @@ fn a_bad_operator_value_stops_the_run_by_name_and_never_falls_back_to_path() {
 #[test]
 fn an_agent_child_loses_only_the_store_passphrase_as_before() {
     let sandbox = Sandbox::new();
-    sandbox.plant("trusted", "bridge");
-    let path = format!("{}:/usr/bin:/bin", sandbox.path("trusted").display());
-    let output = sandbox.run(true, &path);
+    let output = sandbox.run_with_owned_node(true, ":./bin:.:/nonexistent:");
     assert!(output.status.success(), "{}", said(&output));
     assert_eq!(bridge_names(&sandbox), allowed());
 
@@ -264,16 +343,11 @@ fn an_agent_child_loses_only_the_store_passphrase_as_before() {
 }
 
 #[test]
-fn a_node_planted_where_an_empty_or_relative_path_entry_points_never_runs() {
+fn an_explicit_node_wins_over_nodes_at_empty_and_relative_path_entries() {
     let sandbox = Sandbox::new();
-    sandbox.plant("trusted", "bridge");
-    sandbox.plant("work", "in-cwd");
-    sandbox.plant("work/bin", "relative");
-    let path = format!(
-        ":./bin:.:{}:/usr/bin:/bin",
-        sandbox.path("trusted").display()
-    );
-    let output = sandbox.run(true, &path);
+    let _ = sandbox.plant("work", "in-cwd");
+    let _ = sandbox.plant("work/bin", "relative");
+    let output = sandbox.run_with_owned_node(true, ":./bin:.:/nonexistent:");
     assert!(output.status.success(), "{}", said(&output));
     for label in ["in-cwd", "relative"] {
         if let Some(seen) = sandbox.recorded(label) {
@@ -286,8 +360,8 @@ fn a_node_planted_where_an_empty_or_relative_path_entry_points_never_runs() {
 #[test]
 fn with_no_trusted_node_the_run_stops_before_the_child_and_says_so() {
     let sandbox = Sandbox::new();
-    sandbox.plant("work", "in-cwd");
-    sandbox.plant("work/bin", "relative");
+    let _ = sandbox.plant("work", "in-cwd");
+    let _ = sandbox.plant("work/bin", "relative");
     let output = sandbox.run(true, ":./bin:.:/nonexistent:");
     let said = said(&output);
     assert!(!output.status.success(), "{said}");

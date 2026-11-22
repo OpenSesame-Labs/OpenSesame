@@ -155,7 +155,6 @@ export {
   createPostgresScimStores,
 } from "./scim-group-store.js";
 export {
-  SCIM_PAGE_MAX,
   SCIM_USERS_PER_DEPLOYMENT,
   SCIM_USERS_PER_ORGANIZATION,
   SCIM_USER_RAW_MAX_BYTES,

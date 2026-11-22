@@ -13,7 +13,7 @@ Currently configured project: `opensesame` (target: `..`).
 install, exact Vercel project link, Sandbox/model probes, threat model,
 coverage-guided scans, custom matchers, and first AI processing run.
 
-If setup was interrupted, run `npm run deepsec setup` here or re-run the
+If setup was interrupted, run `npm run deepsec -- setup` here or re-run the
 original init command. Checkpoints in `data/opensesame/setup/setup-state.json`
 skip completed work. The linked Vercel project is always in Sandbox scope.
 
@@ -26,10 +26,10 @@ env vars needed.
 ## Daily commands
 
 ```bash
-npm run deepsec scan
-npm run deepsec process     --concurrency 5
-npm run deepsec revalidate  --concurrency 5                  # cuts FP rate
-npm run deepsec export      --format md-dir --out ./findings
+npm run deepsec -- scan
+npm run deepsec -- process     --concurrency 5
+npm run deepsec -- revalidate  --concurrency 5                  # cuts FP rate
+npm run deepsec -- export      --format md-dir --out ./findings
 ```
 
 ### Grok Build (subscription, `grok-4.7`)
@@ -72,7 +72,7 @@ on Opus by default). Run state goes to `data/opensesame/`.
 To scan another codebase from this same `.deepsec/`:
 
 ```bash
-npm run deepsec init-project ../some-other-package   # path relative to .deepsec/
+npm run deepsec -- init-project ../some-other-package   # path relative to .deepsec/
 ```
 
 Appends an entry to `deepsec.config.ts` and writes
@@ -93,6 +93,19 @@ data/opensesame/
 AGENTS.md                Pointer for coding agents
 .env.local               Tokens (gitignored)
 ```
+
+## Dependency verification
+
+The pinned AWS XML builder is shared with the root workspace as a reviewed
+vendored tarball. It preserves Unicode and entity handling and bounds custom
+entity expansion. After installing this workspace, verify the installed bytes
+and SDK behavior without network access:
+
+```bash
+npm run test:aws-xml
+```
+
+The main DeepSec gate runs this check before its pattern scan.
 
 ## Docs
 

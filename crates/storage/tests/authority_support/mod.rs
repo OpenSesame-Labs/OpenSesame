@@ -7,9 +7,9 @@
 //! the public `Db` API.
 #![allow(dead_code)]
 
-use chrono::{DateTime, Duration, Utc};
 use opensesame_storage::authority::{AuthorityIssue, NewAccessDomain, PermissionEntry};
 use opensesame_storage::Db;
+use opensesame_time::{DateTime, Duration, Utc};
 
 /// Create a realm with one active root domain, returning both ids.
 pub async fn seed_realm(db: &Db, organization_id: &str) -> (String, String) {

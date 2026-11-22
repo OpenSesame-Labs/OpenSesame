@@ -6,11 +6,11 @@
 
 use std::collections::{HashMap, HashSet};
 
-use chrono::Utc;
 use opensesame_storage::bitwarden::{
     BitwardenCipher, BitwardenCollection, BitwardenCollectionAccess, BitwardenMark,
     BitwardenOrgArrival, BitwardenOrgMember, BitwardenOrganization, BitwardenPolicy,
 };
+use opensesame_time::Utc;
 use serde_json::Value;
 use sqlx::sqlite::SqliteRow;
 

@@ -220,6 +220,8 @@ export type ParseInput = DetectInput & {
    * memory for the length of the parse and never stored.
    */
   password?: string;
+  /** Cancels the current import operation; never stored in a preview. */
+  signal?: AbortSignal;
 };
 
 export function emptyDraft<K extends DraftItem["kind"]>(

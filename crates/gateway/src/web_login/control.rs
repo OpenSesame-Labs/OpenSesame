@@ -209,7 +209,7 @@ impl ControlGate {
         };
         match self
             .db
-            .update_observation_control(&update, &chrono::Utc::now().to_rfc3339())
+            .update_observation_control(&update, &opensesame_time::Utc::now().to_rfc3339())
             .await
         {
             Ok(moved) => Ok(moved.is_some()),

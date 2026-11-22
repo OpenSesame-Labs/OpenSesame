@@ -80,7 +80,7 @@ fn the_never_rotated_sentinel_is_stable_and_leaves_room_underneath() {
         let threshold = stage.threshold_seconds(opensesame_lifecycle::NOTICE_SECONDS);
         assert!(
             first
-                .checked_sub_signed(chrono::Duration::seconds(threshold))
+                .checked_sub_signed(opensesame_time::Duration::seconds(threshold))
                 .is_some(),
             "dating {stage:?} must not overflow",
         );

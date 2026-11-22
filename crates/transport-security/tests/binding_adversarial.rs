@@ -56,7 +56,7 @@ fn a_san_matching_a_binding_principal_is_not_that_principal() {
             &profile_ref(CLIENTS),
             &presented,
             BindingPurpose::NatsAuthBridge,
-            chrono::Utc::now(),
+            opensesame_time::Utc::now(),
         )
         .unwrap_err(),
         TransportError::PeerNotBound
@@ -88,7 +88,7 @@ fn no_selector_kind_has_an_accept_any_fallback() {
                 &profile_ref(CLIENTS),
                 std::slice::from_ref(&presented),
                 BindingPurpose::NatsAuthBridge,
-                chrono::Utc::now(),
+                opensesame_time::Utc::now(),
             )
             .unwrap_err(),
             TransportError::PeerNotBound,
@@ -108,7 +108,7 @@ fn purpose_and_trust_profile_are_both_part_of_the_match() {
         bindings: vec![binding(peer.clone(), "nats-bridge")],
     };
     let presented = [peer];
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     assert_eq!(
         set.resolve(
             &profile_ref(CLIENTS),
@@ -147,7 +147,7 @@ fn scopes_do_not_satisfy_one_another() {
     };
     set.validate().expect("valid");
     let presented = [peer];
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     assert_eq!(
         set.resolve(
             &profile_ref(CLIENTS),

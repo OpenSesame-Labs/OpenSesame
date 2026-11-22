@@ -7,11 +7,11 @@ use crate::{
     assert_no_secret_in_agent_payload, authorize_authority_use, github_binding, AuthorityUse,
     AuthzError, PolicyEngine,
 };
-use chrono::{Duration, Utc};
 use opensesame_domain::{
     AuthorityOperation, ConnectionAuthorityBinding, ConnectionId, ConnectionRef, Grant,
     GrantConstraints, GrantId, InvokeLevel, OfflineUse, OrganizationId, PrincipalId,
 };
+use opensesame_time::{Duration, Utc};
 
 fn grant(export: bool) -> Grant {
     let now = Utc::now();

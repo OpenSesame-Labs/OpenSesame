@@ -1,0 +1,1376 @@
+diff --git a/dist-cjs/index.js b/dist-cjs/index.js
+index 450cf9c..cd73e9d 100644
+--- a/dist-cjs/index.js
++++ b/dist-cjs/index.js
+@@ -1,3 +1,6 @@
++const { parseXML: parseLegacyXML } = require("./xml-parser-legacy");
++const { XMLValidator } = require("fast-xml-parser");
++
+ const ATTR_ESCAPE_RE = /[&<>"]/g;
+ const ATTR_ESCAPE_MAP = {
+     "&": "&amp;",
+@@ -122,10 +125,26 @@ class XmlNode {
+     }
+ }
+ 
++// Preserve the previous XML decoder's object-key safety policy.
++const CRITICAL_XML_NAMES = new Set(["__proto__", "constructor", "prototype"]);
++const RESERVED_XML_NAMES = new Set([
++    "hasOwnProperty", "toString", "valueOf", "__defineGetter__", "__defineSetter__",
++    "__lookupGetter__", "__lookupSetter__",
++]);
++function safeXmlName(name) {
++    if (CRITICAL_XML_NAMES.has(name)) {
++        throw new Error(`[SECURITY] Invalid XML name: ${name}`);
++    }
++    return RESERVED_XML_NAMES.has(name) ? `__${name}` : name;
++}
++
+ function writeKey(obj) {
+     Object.defineProperty(obj, "__proto__", { value: undefined, writable: true, enumerable: true, configurable: true });
+ }
+ function parseXML(xml) {
++    if (/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(xml)) {
++        throw new Error("@aws-sdk XML parse error: invalid control character.");
++    }
+     const state = new AwsXmlParser(xml);
+     return state.parse();
+ }
+@@ -133,9 +152,10 @@ class AwsXmlParser {
+     x;
+     i = 0;
+     z;
++    doctypeSeen = false;
+     constructor(x) {
+         this.x = x;
+-        this.x = x.replace(/\r\n?/g, "\n");
++        this.x = x.replace(/^\ufeff/, "").replace(/\r\n?/g, "\n");
+         this.z = this.x.length;
+     }
+     parse() {
+@@ -155,11 +175,35 @@ class AwsXmlParser {
+                 p.trim();
+             }
+             else if (p.isNext("<!DOCTYPE", false)) {
++                if (p.doctypeSeen) throw new Error("@aws-sdk XML parse error: duplicate DOCTYPE.");
++                p.doctypeSeen = true;
++                const doctypeStart = p.i;
+                 p.skipDoctype();
+-                p.trim();
++                // The upstream validator misreads '>' inside a quoted DTD
++                // value. Validate the surrounding document separately; the
++                // legacy parser validates and bounds the declarations.
++                const validation = XMLValidator.validate(p.x.slice(0, doctypeStart) + p.x.slice(p.i));
++                if (validation !== true) {
++                    throw new Error(`@aws-sdk XML parse error: ${validation.err.msg}`);
++                }
++                p.parse();
++                return parseLegacyXML(p.x, false);
+             }
+             else if (p.x[p.i] === "<") {
++                if (!p.doctypeSeen) {
++                    const validation = XMLValidator.validate(p.x);
++                    if (validation !== true) {
++                        throw new Error(`@aws-sdk XML parse error: ${validation.err.msg}`);
++                    }
++                }
+                 const root = p.parseTag();
++                p.trim();
++                while (p.i < z) {
++                    if (p.isNext("<!--")) p.readTo("-->");
++                    else if (p.isNext("<?")) p.readTo("?>");
++                    else throw new Error("@aws-sdk XML parse error: unexpected content after root.");
++                    p.trim();
++                }
+                 return { [root.tag]: root.value };
+             }
+             else {
+@@ -194,23 +238,34 @@ class AwsXmlParser {
+     readAttrValue() {
+         const p = this;
+         const quote = p.x[p.i];
++        if (quote !== "\"" && quote !== "'") {
++            throw new Error("@aws-sdk XML parse error: attribute values must be quoted.");
++        }
+         ++p.i;
+         let value = "";
+         while (p.i < p.z && p.x[p.i] !== quote) {
+             value += p.x[p.i++];
+         }
++        if (p.i >= p.z) {
++            throw new Error("@aws-sdk XML parse error: unclosed attribute value.");
++        }
+         ++p.i;
+         return p.decodeEntities(value);
+     }
+-    parseTag() {
++    parseTag(depth = 0) {
+         const p = this;
++        if (depth > 256) {
++            throw new Error("@aws-sdk XML parse error: maximum nesting exceeded.");
++        }
+         ++p.i;
+         let tag = "";
+         while (p.i < p.z && !" \t\r\n>/".includes(p.x[p.i])) {
+             tag += p.x[p.i++];
+         }
++        const outputTag = safeXmlName(tag);
+         let hasAttrs = false;
+         const attrs = {};
++        const seenAttributes = new Set();
+         while (p.i < p.z) {
+             p.trim();
+             if (">/".includes(p.x[p.i])) {
+@@ -226,10 +281,11 @@ class AwsXmlParser {
+             }
+             ++p.i;
+             p.trim();
+-            if (name === "__proto__") {
+-                writeKey(attrs);
++            if (seenAttributes.has(name)) {
++                throw new Error("@aws-sdk XML parse error: duplicate attribute.");
+             }
+-            attrs[name] = p.readAttrValue();
++            seenAttributes.add(name);
++            attrs[safeXmlName(name)] = p.readAttrValue();
+             hasAttrs = true;
+         }
+         if (p.i >= p.z) {
+@@ -241,7 +297,7 @@ class AwsXmlParser {
+                 throw new Error("@aws-sdk XML parse error: expected > at the end of self-closing tag.");
+             }
+             ++p.i;
+-            return { tag, value: hasAttrs ? attrs : "" };
++            return { tag: outputTag, value: hasAttrs ? attrs : "" };
+         }
+         if (p.x[p.i] !== ">") {
+             throw new Error("@aws-sdk XML parse error: expected > at the end of opening tag.");
+@@ -267,7 +323,7 @@ class AwsXmlParser {
+                 }
+                 else {
+                     hasElementChild = true;
+-                    childTags.push(p.parseTag());
++                    childTags.push(p.parseTag(depth + 1));
+                 }
+             }
+             else {
+@@ -287,14 +343,14 @@ class AwsXmlParser {
+             throw new Error(`@aws-sdk XML parse error: mismatched tags <${tag}> and </${closeTag}>.`);
+         }
+         if (!hasAttrs && textParts.length === 0 && !hasElementChild) {
+-            return { tag, value: "" };
++            return { tag: outputTag, value: "" };
+         }
+         if (!hasAttrs && !hasElementChild) {
+             const text = textParts.length === 1 ? textParts[0] : textParts.join("");
+             if (text.trim() === "" && text.includes("\n")) {
+-                return { tag, value: "" };
++                return { tag: outputTag, value: "" };
+             }
+-            return { tag, value: text };
++            return { tag: outputTag, value: text };
+         }
+         const obj = {};
+         for (const text of textParts) {
+@@ -304,10 +360,7 @@ class AwsXmlParser {
+             obj["#text"] = "#text" in obj ? obj["#text"] + text : text;
+         }
+         for (const child of childTags) {
+-            if (child.tag === "__proto__") {
+-                writeKey(obj);
+-            }
+-            if (child.tag in obj) {
++            if (Object.prototype.hasOwnProperty.call(obj, child.tag)) {
+                 if (Array.isArray(obj[child.tag])) {
+                     obj[child.tag].push(child.value);
+                 }
+@@ -316,6 +369,9 @@ class AwsXmlParser {
+                 }
+             }
+             else {
++                if (child.tag === "__proto__") {
++                    writeKey(obj);
++                }
+                 obj[child.tag] = child.value;
+             }
+         }
+@@ -325,7 +381,7 @@ class AwsXmlParser {
+             }
+             obj[k] = v;
+         }
+-        return { tag, value: obj };
++        return { tag: outputTag, value: obj };
+     }
+     static ENTITIES = {
+         amp: "&",
+@@ -333,6 +389,16 @@ class AwsXmlParser {
+         gt: ">",
+         quot: '"',
+         apos: "'",
++        // Legacy mappings from @nodable/entities v2.1.0, copyright Amit Gupta, MIT.
++        nbsp: "\u00a0", copy: "\u00a9", reg: "\u00ae", trade: "\u2122",
++        mdash: "\u2014", ndash: "\u2013", hellip: "\u2026", laquo: "\u00ab",
++        raquo: "\u00bb", lsquo: "\u2018", rsquo: "\u2019", ldquo: "\u201c",
++        rdquo: "\u201d", bull: "\u2022", para: "\u00b6", sect: "\u00a7",
++        deg: "\u00b0", frac12: "\u00bd", frac14: "\u00bc", frac34: "\u00be",
++        cent: "\u00a2", pound: "\u00a3", curren: "\u00a4", yen: "\u00a5",
++        euro: "\u20ac", dollar: "$", fnof: "\u0192", inr: "\u20b9", af: "\u060b",
++        birr: "\u1265\u122d", peso: "\u20b1", rub: "\u20bd", won: "\u20a9",
++        yuan: "\u00a5", cedil: "\u00b8",
+     };
+     skipDoctype() {
+         const p = this;
+@@ -340,6 +406,15 @@ class AwsXmlParser {
+         let depth = 0;
+         while (p.i < p.z) {
+             const c = p.x[p.i];
++            if (p.isNext("<!--")) {
++                p.readTo("-->");
++                continue;
++            }
++            if (c === "\"" || c === "'") {
++                ++p.i;
++                p.readTo(c);
++                continue;
++            }
+             if (c === "[") {
+                 ++depth;
+             }
+@@ -355,14 +430,16 @@ class AwsXmlParser {
+         throw new Error("@aws-sdk XML parse error: unclosed DOCTYPE.");
+     }
+     decodeEntities(s) {
+-        return s.replace(/&(?:#x([0-9a-fA-F]{1,6})|#(\d{1,7})|([a-zA-Z][a-zA-Z0-9]{0,30}));/g, (_, hex, dec, named) => {
+-            if (hex) {
+-                return String.fromCharCode(parseInt(hex, 16));
+-            }
+-            if (dec) {
+-                return String.fromCharCode(parseInt(dec, 10));
++        return s.replace(/&(?:#x([0-9a-fA-F]+)|#(\d+)|([a-zA-Z][a-zA-Z0-9]{0,30}));/g, (match, hex, dec, named) => {
++            if (hex || dec) {
++                const codePoint = parseInt(hex || dec, hex ? 16 : 10);
++                if (!Number.isFinite(codePoint) || codePoint > 0x10ffff) return match;
++                if (codePoint === 0 || (codePoint >= 0xd800 && codePoint <= 0xdfff)) return "";
++                return String.fromCodePoint(codePoint);
+             }
+-            return AwsXmlParser.ENTITIES[named] ?? "";
++            return Object.prototype.hasOwnProperty.call(AwsXmlParser.ENTITIES, named)
++                ? AwsXmlParser.ENTITIES[named]
++                : match;
+         });
+     }
+ }
+diff --git a/dist-cjs/xml-external/LICENSE.nodable.txt b/dist-cjs/xml-external/LICENSE.nodable.txt
+new file mode 100644
+index 0000000..90d3d5e
+--- /dev/null
++++ b/dist-cjs/xml-external/LICENSE.nodable.txt
+@@ -0,0 +1,21 @@
++MIT License
++
++Copyright (c) Amit Gupta (https://solothought.com)
++
++Permission is hereby granted, free of charge, to any person obtaining a copy
++of this software and associated documentation files (the "Software"), to deal
++in the Software without restriction, including without limitation the rights
++to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++copies of the Software, and to permit persons to whom the Software is
++furnished to do so, subject to the following conditions:
++
++The above copyright notice and this permission notice shall be included in all
++copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++SOFTWARE.
+diff --git a/dist-cjs/xml-external/nodable_entities.js b/dist-cjs/xml-external/nodable_entities.js
+new file mode 100644
+index 0000000..f99dcd8
+--- /dev/null
++++ b/dist-cjs/xml-external/nodable_entities.js
+@@ -0,0 +1,337 @@
++/* Contains code from @nodable/entities v2.1.0. Copyright (c) Amit Gupta (https://solothought.com). MIT; see LICENSE.nodable.txt. */
++"use strict";
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.EntityDecoderImpl = exports.CURRENCY = exports.COMMON_HTML = exports.XML = void 0;
++exports.XML = {
++    amp: "&",
++    apos: "'",
++    gt: ">",
++    lt: "<",
++    quot: '"',
++};
++exports.COMMON_HTML = {
++    nbsp: "\u00a0",
++    copy: "\u00a9",
++    reg: "\u00ae",
++    trade: "\u2122",
++    mdash: "\u2014",
++    ndash: "\u2013",
++    hellip: "\u2026",
++    laquo: "\u00ab",
++    raquo: "\u00bb",
++    lsquo: "\u2018",
++    rsquo: "\u2019",
++    ldquo: "\u201c",
++    rdquo: "\u201d",
++    bull: "\u2022",
++    para: "\u00b6",
++    sect: "\u00a7",
++    deg: "\u00b0",
++    frac12: "\u00bd",
++    frac14: "\u00bc",
++    frac34: "\u00be",
++};
++exports.CURRENCY = {
++    cent: "\u00a2",
++    pound: "\u00a3",
++    curren: "\u00a4",
++    yen: "\u00a5",
++    euro: "\u20ac",
++    dollar: "$",
++    fnof: "\u0192",
++    inr: "\u20b9",
++    af: "\u060b",
++    birr: "\u1265\u122d",
++    peso: "\u20b1",
++    rub: "\u20bd",
++    won: "\u20a9",
++    yuan: "\u00a5",
++    cedil: "\u00b8",
++};
++const SPECIAL_CHARS = new Set("!?\\/[]$%{}^&*()<>|+");
++function validateEntityName(name) {
++    if (name[0] === "#") {
++        throw new Error(`[EntityReplacer] Invalid character '#' in entity name: "${name}"`);
++    }
++    for (const ch of name) {
++        if (SPECIAL_CHARS.has(ch)) {
++            throw new Error(`[EntityReplacer] Invalid character '${ch}' in entity name: "${name}"`);
++        }
++    }
++    return name;
++}
++function mergeEntityMaps(...maps) {
++    const out = Object.create(null);
++    for (const map of maps) {
++        if (!map) {
++            continue;
++        }
++        for (const key of Object.keys(map)) {
++            const raw = map[key];
++            if (typeof raw === "string") {
++                out[key] = raw;
++            }
++            else if (raw && typeof raw === "object" && raw.val !== undefined) {
++                const val = raw.val;
++                if (typeof val === "string") {
++                    out[key] = val;
++                }
++            }
++        }
++    }
++    return out;
++}
++const LIMIT_TIER_EXTERNAL = "external";
++const LIMIT_TIER_BASE = "base";
++const LIMIT_TIER_ALL = "all";
++function parseLimitTiers(raw) {
++    if (!raw || raw === LIMIT_TIER_EXTERNAL) {
++        return new Set([LIMIT_TIER_EXTERNAL]);
++    }
++    if (raw === LIMIT_TIER_ALL) {
++        return new Set([LIMIT_TIER_ALL]);
++    }
++    if (raw === LIMIT_TIER_BASE) {
++        return new Set([LIMIT_TIER_BASE]);
++    }
++    if (Array.isArray(raw)) {
++        return new Set(raw);
++    }
++    return new Set([LIMIT_TIER_EXTERNAL]);
++}
++const NCR_LEVEL = Object.freeze({ allow: 0, leave: 1, remove: 2, throw: 3 });
++const XML10_ALLOWED_C0 = new Set([0x09, 0x0a, 0x0d]);
++function parseNCRConfig(ncr) {
++    if (!ncr) {
++        return { xmlVersion: 1.0, onLevel: NCR_LEVEL.allow, nullLevel: NCR_LEVEL.remove };
++    }
++    const xmlVersion = ncr.xmlVersion === 1.1 ? 1.1 : 1.0;
++    const onLevel = NCR_LEVEL[ncr.onNCR ?? "allow"] ?? NCR_LEVEL.allow;
++    const nullLevel = NCR_LEVEL[ncr.nullNCR ?? "remove"] ?? NCR_LEVEL.remove;
++    const clampedNull = Math.max(nullLevel, NCR_LEVEL.remove);
++    return { xmlVersion, onLevel, nullLevel: clampedNull };
++}
++const EntityDecoderImpl = class EntityDecoderImpl {
++    _limit;
++    _maxTotalExpansions;
++    _maxExpandedLength;
++    _postCheck;
++    _limitTiers;
++    _numericAllowed;
++    _baseMap;
++    _externalMap;
++    _inputMap;
++    _totalExpansions;
++    _expandedLength;
++    _removeSet;
++    _leaveSet;
++    _ncrXmlVersion;
++    _ncrOnLevel;
++    _ncrNullLevel;
++    constructor(options = {}) {
++        this._limit = options.limit || {};
++        this._maxTotalExpansions = this._limit.maxTotalExpansions || 0;
++        this._maxExpandedLength = this._limit.maxExpandedLength || 0;
++        this._postCheck = typeof options.postCheck === "function" ? options.postCheck : (r) => r;
++        this._limitTiers = parseLimitTiers(this._limit.applyLimitsTo ?? LIMIT_TIER_EXTERNAL);
++        this._numericAllowed = options.numericAllowed ?? true;
++        this._baseMap = mergeEntityMaps(exports.XML, options.namedEntities || null);
++        this._externalMap = Object.create(null);
++        this._inputMap = Object.create(null);
++        this._totalExpansions = 0;
++        this._expandedLength = 0;
++        this._removeSet = new Set(options.remove && Array.isArray(options.remove) ? options.remove : []);
++        this._leaveSet = new Set(options.leave && Array.isArray(options.leave) ? options.leave : []);
++        const ncrCfg = parseNCRConfig(options.ncr);
++        this._ncrXmlVersion = ncrCfg.xmlVersion;
++        this._ncrOnLevel = ncrCfg.onLevel;
++        this._ncrNullLevel = ncrCfg.nullLevel;
++    }
++    setExternalEntities(map) {
++        if (map) {
++            for (const key of Object.keys(map)) {
++                validateEntityName(key);
++            }
++        }
++        this._externalMap = mergeEntityMaps(map);
++    }
++    addExternalEntity(key, value) {
++        validateEntityName(key);
++        if (typeof value === "string" && value.indexOf("&") === -1) {
++            this._externalMap[key] = value;
++        }
++    }
++    addInputEntities(map) {
++        this._totalExpansions = 0;
++        this._expandedLength = 0;
++        this._inputMap = mergeEntityMaps(map);
++    }
++    reset() {
++        this._inputMap = Object.create(null);
++        this._totalExpansions = 0;
++        this._expandedLength = 0;
++        return this;
++    }
++    setXmlVersion(version) {
++        this._ncrXmlVersion = version === "1.1" || version === 1.1 ? 1.1 : 1.0;
++    }
++    decode(str) {
++        if (typeof str !== "string" || str.length === 0) {
++            return str;
++        }
++        const original = str;
++        const chunks = [];
++        const len = str.length;
++        let last = 0;
++        let i = 0;
++        const limitExpansions = this._maxTotalExpansions > 0;
++        const limitLength = this._maxExpandedLength > 0;
++        const checkLimits = limitExpansions || limitLength;
++        while (i < len) {
++            if (str.charCodeAt(i) !== 38) {
++                i++;
++                continue;
++            }
++            let j = i + 1;
++            while (j < len && str.charCodeAt(j) !== 59 && j - i <= 32) {
++                j++;
++            }
++            if (j >= len || str.charCodeAt(j) !== 59) {
++                i++;
++                continue;
++            }
++            const token = str.slice(i + 1, j);
++            if (token.length === 0) {
++                i++;
++                continue;
++            }
++            let replacement;
++            let tier;
++            if (this._removeSet.has(token)) {
++                replacement = "";
++                if (tier === undefined) {
++                    tier = LIMIT_TIER_EXTERNAL;
++                }
++            }
++            else if (this._leaveSet.has(token)) {
++                i++;
++                continue;
++            }
++            else if (token.charCodeAt(0) === 35) {
++                const ncrResult = this._resolveNCR(token);
++                if (ncrResult === undefined) {
++                    i++;
++                    continue;
++                }
++                replacement = ncrResult;
++                tier = LIMIT_TIER_BASE;
++            }
++            else {
++                const resolved = this._resolveName(token);
++                replacement = resolved?.value;
++                tier = resolved?.tier;
++            }
++            if (replacement === undefined) {
++                i++;
++                continue;
++            }
++            if (i > last) {
++                chunks.push(str.slice(last, i));
++            }
++            chunks.push(replacement);
++            last = j + 1;
++            i = last;
++            if (checkLimits && this._tierCounts(tier)) {
++                if (limitExpansions) {
++                    this._totalExpansions++;
++                    if (this._totalExpansions > this._maxTotalExpansions) {
++                        throw new Error(`[EntityReplacer] Entity expansion count limit exceeded: ` +
++                            `${this._totalExpansions} > ${this._maxTotalExpansions}`);
++                    }
++                }
++                if (limitLength) {
++                    const delta = replacement.length - (token.length + 2);
++                    if (delta > 0) {
++                        this._expandedLength += delta;
++                        if (this._expandedLength > this._maxExpandedLength) {
++                            throw new Error(`[EntityReplacer] Expanded content length limit exceeded: ` +
++                                `${this._expandedLength} > ${this._maxExpandedLength}`);
++                        }
++                    }
++                }
++            }
++        }
++        if (last < len) {
++            chunks.push(str.slice(last));
++        }
++        const result = chunks.length === 0 ? str : chunks.join("");
++        return this._postCheck(result, original);
++    }
++    _tierCounts(tier) {
++        if (this._limitTiers.has(LIMIT_TIER_ALL)) {
++            return true;
++        }
++        return this._limitTiers.has(tier);
++    }
++    _resolveName(name) {
++        if (name in this._inputMap) {
++            return { value: this._inputMap[name], tier: LIMIT_TIER_EXTERNAL };
++        }
++        if (name in this._externalMap) {
++            return { value: this._externalMap[name], tier: LIMIT_TIER_EXTERNAL };
++        }
++        if (name in this._baseMap) {
++            return { value: this._baseMap[name], tier: LIMIT_TIER_BASE };
++        }
++        return undefined;
++    }
++    _classifyNCR(cp) {
++        if (cp === 0) {
++            return this._ncrNullLevel;
++        }
++        if (cp >= 0xd800 && cp <= 0xdfff) {
++            return NCR_LEVEL.remove;
++        }
++        if (this._ncrXmlVersion === 1.0) {
++            if (cp >= 0x01 && cp <= 0x1f && !XML10_ALLOWED_C0.has(cp)) {
++                return NCR_LEVEL.remove;
++            }
++        }
++        return -1;
++    }
++    _applyNCRAction(action, token, cp) {
++        switch (action) {
++            case NCR_LEVEL.allow:
++                return String.fromCodePoint(cp);
++            case NCR_LEVEL.remove:
++                return "";
++            case NCR_LEVEL.leave:
++                return undefined;
++            case NCR_LEVEL.throw:
++                throw new Error(`[EntityDecoder] Prohibited numeric character reference ` +
++                    `&${token}; (U+${cp.toString(16).toUpperCase().padStart(4, "0")})`);
++            default:
++                return String.fromCodePoint(cp);
++        }
++    }
++    _resolveNCR(token) {
++        const second = token.charCodeAt(1);
++        let cp;
++        if (second === 120 || second === 88) {
++            cp = parseInt(token.slice(2), 16);
++        }
++        else {
++            cp = parseInt(token.slice(1), 10);
++        }
++        if (Number.isNaN(cp) || cp < 0 || cp > 0x10ffff) {
++            return undefined;
++        }
++        const minimum = this._classifyNCR(cp);
++        if (!this._numericAllowed && minimum < NCR_LEVEL.remove) {
++            return undefined;
++        }
++        const effective = minimum === -1 ? this._ncrOnLevel : Math.max(this._ncrOnLevel, minimum);
++        return this._applyNCRAction(effective, token, cp);
++    }
++};
++exports.EntityDecoderImpl = EntityDecoderImpl;
+diff --git a/dist-cjs/xml-parser-legacy.js b/dist-cjs/xml-parser-legacy.js
+new file mode 100644
+index 0000000..8d5985a
+--- /dev/null
++++ b/dist-cjs/xml-parser-legacy.js
+@@ -0,0 +1,51 @@
++"use strict";
++Object.defineProperty(exports, "__esModule", { value: true });
++exports.parseXML = parseXML;
++const fast_xml_parser_1 = require("fast-xml-parser");
++const nodable_entities_1 = require("./xml-external/nodable_entities");
++const entityDecoder = new nodable_entities_1.EntityDecoderImpl({
++    namedEntities: { ...nodable_entities_1.XML, ...nodable_entities_1.COMMON_HTML, ...nodable_entities_1.CURRENCY },
++    numericAllowed: true,
++    limit: {
++        // Only custom entities count toward these limits; standard XML and
++        // HTML entities remain available for ordinary AWS response bodies.
++        maxTotalExpansions: 10000,
++        maxExpandedLength: 1000000,
++    },
++    ncr: {
++        xmlVersion: 1.1,
++    },
++});
++const parser = new fast_xml_parser_1.XMLParser({
++    attributeNamePrefix: "",
++    processEntities: {
++        enabled: true,
++        maxTotalExpansions: 10000,
++        maxExpandedLength: 1000000,
++    },
++    htmlEntities: true,
++    entityDecoder: {
++        setExternalEntities: (entities) => {
++            entityDecoder.setExternalEntities(entities);
++        },
++        addInputEntities: (entities) => {
++            entityDecoder.addInputEntities(entities);
++        },
++        reset: () => {
++            entityDecoder.reset();
++        },
++        decode: (text) => {
++            return entityDecoder.decode(text);
++        },
++        setXmlVersion: (version) => void {},
++    },
++    ignoreAttributes: false,
++    ignoreDeclaration: true,
++    parseTagValue: false,
++    trimValues: false,
++    tagValueProcessor: (_, val) => (val.trim() === "" && val.includes("\n") ? "" : undefined),
++    maxNestedTags: 256,
++});
++function parseXML(xmlString, validate = true) {
++    return parser.parse(xmlString, validate);
++}
+diff --git a/dist-es/xml-external/LICENSE.nodable.txt b/dist-es/xml-external/LICENSE.nodable.txt
+new file mode 100644
+index 0000000..90d3d5e
+--- /dev/null
++++ b/dist-es/xml-external/LICENSE.nodable.txt
+@@ -0,0 +1,21 @@
++MIT License
++
++Copyright (c) Amit Gupta (https://solothought.com)
++
++Permission is hereby granted, free of charge, to any person obtaining a copy
++of this software and associated documentation files (the "Software"), to deal
++in the Software without restriction, including without limitation the rights
++to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++copies of the Software, and to permit persons to whom the Software is
++furnished to do so, subject to the following conditions:
++
++The above copyright notice and this permission notice shall be included in all
++copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++SOFTWARE.
+diff --git a/dist-es/xml-external/nodable_entities.js b/dist-es/xml-external/nodable_entities.js
+new file mode 100644
+index 0000000..a807c38
+--- /dev/null
++++ b/dist-es/xml-external/nodable_entities.js
+@@ -0,0 +1,333 @@
++/* Contains code from @nodable/entities v2.1.0. Copyright (c) Amit Gupta (https://solothought.com). MIT; see LICENSE.nodable.txt. */
++export const XML = {
++    amp: "&",
++    apos: "'",
++    gt: ">",
++    lt: "<",
++    quot: '"',
++};
++export const COMMON_HTML = {
++    nbsp: "\u00a0",
++    copy: "\u00a9",
++    reg: "\u00ae",
++    trade: "\u2122",
++    mdash: "\u2014",
++    ndash: "\u2013",
++    hellip: "\u2026",
++    laquo: "\u00ab",
++    raquo: "\u00bb",
++    lsquo: "\u2018",
++    rsquo: "\u2019",
++    ldquo: "\u201c",
++    rdquo: "\u201d",
++    bull: "\u2022",
++    para: "\u00b6",
++    sect: "\u00a7",
++    deg: "\u00b0",
++    frac12: "\u00bd",
++    frac14: "\u00bc",
++    frac34: "\u00be",
++};
++export const CURRENCY = {
++    cent: "\u00a2",
++    pound: "\u00a3",
++    curren: "\u00a4",
++    yen: "\u00a5",
++    euro: "\u20ac",
++    dollar: "$",
++    fnof: "\u0192",
++    inr: "\u20b9",
++    af: "\u060b",
++    birr: "\u1265\u122d",
++    peso: "\u20b1",
++    rub: "\u20bd",
++    won: "\u20a9",
++    yuan: "\u00a5",
++    cedil: "\u00b8",
++};
++const SPECIAL_CHARS = new Set("!?\\/[]$%{}^&*()<>|+");
++function validateEntityName(name) {
++    if (name[0] === "#") {
++        throw new Error(`[EntityReplacer] Invalid character '#' in entity name: "${name}"`);
++    }
++    for (const ch of name) {
++        if (SPECIAL_CHARS.has(ch)) {
++            throw new Error(`[EntityReplacer] Invalid character '${ch}' in entity name: "${name}"`);
++        }
++    }
++    return name;
++}
++function mergeEntityMaps(...maps) {
++    const out = Object.create(null);
++    for (const map of maps) {
++        if (!map) {
++            continue;
++        }
++        for (const key of Object.keys(map)) {
++            const raw = map[key];
++            if (typeof raw === "string") {
++                out[key] = raw;
++            }
++            else if (raw && typeof raw === "object" && raw.val !== undefined) {
++                const val = raw.val;
++                if (typeof val === "string") {
++                    out[key] = val;
++                }
++            }
++        }
++    }
++    return out;
++}
++const LIMIT_TIER_EXTERNAL = "external";
++const LIMIT_TIER_BASE = "base";
++const LIMIT_TIER_ALL = "all";
++function parseLimitTiers(raw) {
++    if (!raw || raw === LIMIT_TIER_EXTERNAL) {
++        return new Set([LIMIT_TIER_EXTERNAL]);
++    }
++    if (raw === LIMIT_TIER_ALL) {
++        return new Set([LIMIT_TIER_ALL]);
++    }
++    if (raw === LIMIT_TIER_BASE) {
++        return new Set([LIMIT_TIER_BASE]);
++    }
++    if (Array.isArray(raw)) {
++        return new Set(raw);
++    }
++    return new Set([LIMIT_TIER_EXTERNAL]);
++}
++const NCR_LEVEL = Object.freeze({ allow: 0, leave: 1, remove: 2, throw: 3 });
++const XML10_ALLOWED_C0 = new Set([0x09, 0x0a, 0x0d]);
++function parseNCRConfig(ncr) {
++    if (!ncr) {
++        return { xmlVersion: 1.0, onLevel: NCR_LEVEL.allow, nullLevel: NCR_LEVEL.remove };
++    }
++    const xmlVersion = ncr.xmlVersion === 1.1 ? 1.1 : 1.0;
++    const onLevel = NCR_LEVEL[ncr.onNCR ?? "allow"] ?? NCR_LEVEL.allow;
++    const nullLevel = NCR_LEVEL[ncr.nullNCR ?? "remove"] ?? NCR_LEVEL.remove;
++    const clampedNull = Math.max(nullLevel, NCR_LEVEL.remove);
++    return { xmlVersion, onLevel, nullLevel: clampedNull };
++}
++export const EntityDecoderImpl = class EntityDecoderImpl {
++    _limit;
++    _maxTotalExpansions;
++    _maxExpandedLength;
++    _postCheck;
++    _limitTiers;
++    _numericAllowed;
++    _baseMap;
++    _externalMap;
++    _inputMap;
++    _totalExpansions;
++    _expandedLength;
++    _removeSet;
++    _leaveSet;
++    _ncrXmlVersion;
++    _ncrOnLevel;
++    _ncrNullLevel;
++    constructor(options = {}) {
++        this._limit = options.limit || {};
++        this._maxTotalExpansions = this._limit.maxTotalExpansions || 0;
++        this._maxExpandedLength = this._limit.maxExpandedLength || 0;
++        this._postCheck = typeof options.postCheck === "function" ? options.postCheck : (r) => r;
++        this._limitTiers = parseLimitTiers(this._limit.applyLimitsTo ?? LIMIT_TIER_EXTERNAL);
++        this._numericAllowed = options.numericAllowed ?? true;
++        this._baseMap = mergeEntityMaps(XML, options.namedEntities || null);
++        this._externalMap = Object.create(null);
++        this._inputMap = Object.create(null);
++        this._totalExpansions = 0;
++        this._expandedLength = 0;
++        this._removeSet = new Set(options.remove && Array.isArray(options.remove) ? options.remove : []);
++        this._leaveSet = new Set(options.leave && Array.isArray(options.leave) ? options.leave : []);
++        const ncrCfg = parseNCRConfig(options.ncr);
++        this._ncrXmlVersion = ncrCfg.xmlVersion;
++        this._ncrOnLevel = ncrCfg.onLevel;
++        this._ncrNullLevel = ncrCfg.nullLevel;
++    }
++    setExternalEntities(map) {
++        if (map) {
++            for (const key of Object.keys(map)) {
++                validateEntityName(key);
++            }
++        }
++        this._externalMap = mergeEntityMaps(map);
++    }
++    addExternalEntity(key, value) {
++        validateEntityName(key);
++        if (typeof value === "string" && value.indexOf("&") === -1) {
++            this._externalMap[key] = value;
++        }
++    }
++    addInputEntities(map) {
++        this._totalExpansions = 0;
++        this._expandedLength = 0;
++        this._inputMap = mergeEntityMaps(map);
++    }
++    reset() {
++        this._inputMap = Object.create(null);
++        this._totalExpansions = 0;
++        this._expandedLength = 0;
++        return this;
++    }
++    setXmlVersion(version) {
++        this._ncrXmlVersion = version === "1.1" || version === 1.1 ? 1.1 : 1.0;
++    }
++    decode(str) {
++        if (typeof str !== "string" || str.length === 0) {
++            return str;
++        }
++        const original = str;
++        const chunks = [];
++        const len = str.length;
++        let last = 0;
++        let i = 0;
++        const limitExpansions = this._maxTotalExpansions > 0;
++        const limitLength = this._maxExpandedLength > 0;
++        const checkLimits = limitExpansions || limitLength;
++        while (i < len) {
++            if (str.charCodeAt(i) !== 38) {
++                i++;
++                continue;
++            }
++            let j = i + 1;
++            while (j < len && str.charCodeAt(j) !== 59 && j - i <= 32) {
++                j++;
++            }
++            if (j >= len || str.charCodeAt(j) !== 59) {
++                i++;
++                continue;
++            }
++            const token = str.slice(i + 1, j);
++            if (token.length === 0) {
++                i++;
++                continue;
++            }
++            let replacement;
++            let tier;
++            if (this._removeSet.has(token)) {
++                replacement = "";
++                if (tier === undefined) {
++                    tier = LIMIT_TIER_EXTERNAL;
++                }
++            }
++            else if (this._leaveSet.has(token)) {
++                i++;
++                continue;
++            }
++            else if (token.charCodeAt(0) === 35) {
++                const ncrResult = this._resolveNCR(token);
++                if (ncrResult === undefined) {
++                    i++;
++                    continue;
++                }
++                replacement = ncrResult;
++                tier = LIMIT_TIER_BASE;
++            }
++            else {
++                const resolved = this._resolveName(token);
++                replacement = resolved?.value;
++                tier = resolved?.tier;
++            }
++            if (replacement === undefined) {
++                i++;
++                continue;
++            }
++            if (i > last) {
++                chunks.push(str.slice(last, i));
++            }
++            chunks.push(replacement);
++            last = j + 1;
++            i = last;
++            if (checkLimits && this._tierCounts(tier)) {
++                if (limitExpansions) {
++                    this._totalExpansions++;
++                    if (this._totalExpansions > this._maxTotalExpansions) {
++                        throw new Error(`[EntityReplacer] Entity expansion count limit exceeded: ` +
++                            `${this._totalExpansions} > ${this._maxTotalExpansions}`);
++                    }
++                }
++                if (limitLength) {
++                    const delta = replacement.length - (token.length + 2);
++                    if (delta > 0) {
++                        this._expandedLength += delta;
++                        if (this._expandedLength > this._maxExpandedLength) {
++                            throw new Error(`[EntityReplacer] Expanded content length limit exceeded: ` +
++                                `${this._expandedLength} > ${this._maxExpandedLength}`);
++                        }
++                    }
++                }
++            }
++        }
++        if (last < len) {
++            chunks.push(str.slice(last));
++        }
++        const result = chunks.length === 0 ? str : chunks.join("");
++        return this._postCheck(result, original);
++    }
++    _tierCounts(tier) {
++        if (this._limitTiers.has(LIMIT_TIER_ALL)) {
++            return true;
++        }
++        return this._limitTiers.has(tier);
++    }
++    _resolveName(name) {
++        if (name in this._inputMap) {
++            return { value: this._inputMap[name], tier: LIMIT_TIER_EXTERNAL };
++        }
++        if (name in this._externalMap) {
++            return { value: this._externalMap[name], tier: LIMIT_TIER_EXTERNAL };
++        }
++        if (name in this._baseMap) {
++            return { value: this._baseMap[name], tier: LIMIT_TIER_BASE };
++        }
++        return undefined;
++    }
++    _classifyNCR(cp) {
++        if (cp === 0) {
++            return this._ncrNullLevel;
++        }
++        if (cp >= 0xd800 && cp <= 0xdfff) {
++            return NCR_LEVEL.remove;
++        }
++        if (this._ncrXmlVersion === 1.0) {
++            if (cp >= 0x01 && cp <= 0x1f && !XML10_ALLOWED_C0.has(cp)) {
++                return NCR_LEVEL.remove;
++            }
++        }
++        return -1;
++    }
++    _applyNCRAction(action, token, cp) {
++        switch (action) {
++            case NCR_LEVEL.allow:
++                return String.fromCodePoint(cp);
++            case NCR_LEVEL.remove:
++                return "";
++            case NCR_LEVEL.leave:
++                return undefined;
++            case NCR_LEVEL.throw:
++                throw new Error(`[EntityDecoder] Prohibited numeric character reference ` +
++                    `&${token}; (U+${cp.toString(16).toUpperCase().padStart(4, "0")})`);
++            default:
++                return String.fromCodePoint(cp);
++        }
++    }
++    _resolveNCR(token) {
++        const second = token.charCodeAt(1);
++        let cp;
++        if (second === 120 || second === 88) {
++            cp = parseInt(token.slice(2), 16);
++        }
++        else {
++            cp = parseInt(token.slice(1), 10);
++        }
++        if (Number.isNaN(cp) || cp < 0 || cp > 0x10ffff) {
++            return undefined;
++        }
++        const minimum = this._classifyNCR(cp);
++        if (!this._numericAllowed && minimum < NCR_LEVEL.remove) {
++            return undefined;
++        }
++        const effective = minimum === -1 ? this._ncrOnLevel : Math.max(this._ncrOnLevel, minimum);
++        return this._applyNCRAction(effective, token, cp);
++    }
++};
+diff --git a/dist-es/xml-parser-legacy.js b/dist-es/xml-parser-legacy.js
+new file mode 100644
+index 0000000..00cb8e6
+--- /dev/null
++++ b/dist-es/xml-parser-legacy.js
+@@ -0,0 +1,48 @@
++import { XMLParser } from "fast-xml-parser";
++import { COMMON_HTML, CURRENCY, EntityDecoderImpl, XML } from "./xml-external/nodable_entities";
++const entityDecoder = new EntityDecoderImpl({
++    namedEntities: { ...XML, ...COMMON_HTML, ...CURRENCY },
++    numericAllowed: true,
++    limit: {
++        // Only custom entities count toward these limits; standard XML and
++        // HTML entities remain available for ordinary AWS response bodies.
++        maxTotalExpansions: 10000,
++        maxExpandedLength: 1000000,
++    },
++    ncr: {
++        xmlVersion: 1.1,
++    },
++});
++const parser = new XMLParser({
++    attributeNamePrefix: "",
++    processEntities: {
++        enabled: true,
++        maxTotalExpansions: 10000,
++        maxExpandedLength: 1000000,
++    },
++    htmlEntities: true,
++    entityDecoder: {
++        setExternalEntities: (entities) => {
++            entityDecoder.setExternalEntities(entities);
++        },
++        addInputEntities: (entities) => {
++            entityDecoder.addInputEntities(entities);
++        },
++        reset: () => {
++            entityDecoder.reset();
++        },
++        decode: (text) => {
++            return entityDecoder.decode(text);
++        },
++        setXmlVersion: (version) => void {},
++    },
++    ignoreAttributes: false,
++    ignoreDeclaration: true,
++    parseTagValue: false,
++    trimValues: false,
++    tagValueProcessor: (_, val) => (val.trim() === "" && val.includes("\n") ? "" : undefined),
++    maxNestedTags: 256,
++});
++export function parseXML(xmlString, validate = true) {
++    return parser.parse(xmlString, validate);
++}
+diff --git a/dist-es/xml-parser.js b/dist-es/xml-parser.js
+index 447ac1f..3cf48a3 100644
+--- a/dist-es/xml-parser.js
++++ b/dist-es/xml-parser.js
+@@ -1,7 +1,26 @@
++import { parseXML as parseLegacyXML } from "./xml-parser-legacy";
++import { XMLValidator } from "fast-xml-parser";
++
++// Preserve the previous XML decoder's object-key safety policy.
++const CRITICAL_XML_NAMES = new Set(["__proto__", "constructor", "prototype"]);
++const RESERVED_XML_NAMES = new Set([
++    "hasOwnProperty", "toString", "valueOf", "__defineGetter__", "__defineSetter__",
++    "__lookupGetter__", "__lookupSetter__",
++]);
++function safeXmlName(name) {
++    if (CRITICAL_XML_NAMES.has(name)) {
++        throw new Error(`[SECURITY] Invalid XML name: ${name}`);
++    }
++    return RESERVED_XML_NAMES.has(name) ? `__${name}` : name;
++}
++
+ function writeKey(obj) {
+     Object.defineProperty(obj, "__proto__", { value: undefined, writable: true, enumerable: true, configurable: true });
+ }
+ export function parseXML(xml) {
++    if (/[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(xml)) {
++        throw new Error("@aws-sdk XML parse error: invalid control character.");
++    }
+     const state = new AwsXmlParser(xml);
+     return state.parse();
+ }
+@@ -9,9 +28,10 @@ class AwsXmlParser {
+     x;
+     i = 0;
+     z;
++    doctypeSeen = false;
+     constructor(x) {
+         this.x = x;
+-        this.x = x.replace(/\r\n?/g, "\n");
++        this.x = x.replace(/^\ufeff/, "").replace(/\r\n?/g, "\n");
+         this.z = this.x.length;
+     }
+     parse() {
+@@ -31,11 +51,35 @@ class AwsXmlParser {
+                 p.trim();
+             }
+             else if (p.isNext("<!DOCTYPE", false)) {
++                if (p.doctypeSeen) throw new Error("@aws-sdk XML parse error: duplicate DOCTYPE.");
++                p.doctypeSeen = true;
++                const doctypeStart = p.i;
+                 p.skipDoctype();
+-                p.trim();
++                // The upstream validator misreads '>' inside a quoted DTD
++                // value. Validate the surrounding document separately; the
++                // legacy parser validates and bounds the declarations.
++                const validation = XMLValidator.validate(p.x.slice(0, doctypeStart) + p.x.slice(p.i));
++                if (validation !== true) {
++                    throw new Error(`@aws-sdk XML parse error: ${validation.err.msg}`);
++                }
++                p.parse();
++                return parseLegacyXML(p.x, false);
+             }
+             else if (p.x[p.i] === "<") {
++                if (!p.doctypeSeen) {
++                    const validation = XMLValidator.validate(p.x);
++                    if (validation !== true) {
++                        throw new Error(`@aws-sdk XML parse error: ${validation.err.msg}`);
++                    }
++                }
+                 const root = p.parseTag();
++                p.trim();
++                while (p.i < z) {
++                    if (p.isNext("<!--")) p.readTo("-->");
++                    else if (p.isNext("<?")) p.readTo("?>");
++                    else throw new Error("@aws-sdk XML parse error: unexpected content after root.");
++                    p.trim();
++                }
+                 return { [root.tag]: root.value };
+             }
+             else {
+@@ -70,23 +114,34 @@ class AwsXmlParser {
+     readAttrValue() {
+         const p = this;
+         const quote = p.x[p.i];
++        if (quote !== "\"" && quote !== "'") {
++            throw new Error("@aws-sdk XML parse error: attribute values must be quoted.");
++        }
+         ++p.i;
+         let value = "";
+         while (p.i < p.z && p.x[p.i] !== quote) {
+             value += p.x[p.i++];
+         }
++        if (p.i >= p.z) {
++            throw new Error("@aws-sdk XML parse error: unclosed attribute value.");
++        }
+         ++p.i;
+         return p.decodeEntities(value);
+     }
+-    parseTag() {
++    parseTag(depth = 0) {
+         const p = this;
++        if (depth > 256) {
++            throw new Error("@aws-sdk XML parse error: maximum nesting exceeded.");
++        }
+         ++p.i;
+         let tag = "";
+         while (p.i < p.z && !" \t\r\n>/".includes(p.x[p.i])) {
+             tag += p.x[p.i++];
+         }
++        const outputTag = safeXmlName(tag);
+         let hasAttrs = false;
+         const attrs = {};
++        const seenAttributes = new Set();
+         while (p.i < p.z) {
+             p.trim();
+             if (">/".includes(p.x[p.i])) {
+@@ -102,10 +157,11 @@ class AwsXmlParser {
+             }
+             ++p.i;
+             p.trim();
+-            if (name === "__proto__") {
+-                writeKey(attrs);
++            if (seenAttributes.has(name)) {
++                throw new Error("@aws-sdk XML parse error: duplicate attribute.");
+             }
+-            attrs[name] = p.readAttrValue();
++            seenAttributes.add(name);
++            attrs[safeXmlName(name)] = p.readAttrValue();
+             hasAttrs = true;
+         }
+         if (p.i >= p.z) {
+@@ -117,7 +173,7 @@ class AwsXmlParser {
+                 throw new Error("@aws-sdk XML parse error: expected > at the end of self-closing tag.");
+             }
+             ++p.i;
+-            return { tag, value: hasAttrs ? attrs : "" };
++            return { tag: outputTag, value: hasAttrs ? attrs : "" };
+         }
+         if (p.x[p.i] !== ">") {
+             throw new Error("@aws-sdk XML parse error: expected > at the end of opening tag.");
+@@ -143,7 +199,7 @@ class AwsXmlParser {
+                 }
+                 else {
+                     hasElementChild = true;
+-                    childTags.push(p.parseTag());
++                    childTags.push(p.parseTag(depth + 1));
+                 }
+             }
+             else {
+@@ -163,14 +219,14 @@ class AwsXmlParser {
+             throw new Error(`@aws-sdk XML parse error: mismatched tags <${tag}> and </${closeTag}>.`);
+         }
+         if (!hasAttrs && textParts.length === 0 && !hasElementChild) {
+-            return { tag, value: "" };
++            return { tag: outputTag, value: "" };
+         }
+         if (!hasAttrs && !hasElementChild) {
+             const text = textParts.length === 1 ? textParts[0] : textParts.join("");
+             if (text.trim() === "" && text.includes("\n")) {
+-                return { tag, value: "" };
++                return { tag: outputTag, value: "" };
+             }
+-            return { tag, value: text };
++            return { tag: outputTag, value: text };
+         }
+         const obj = {};
+         for (const text of textParts) {
+@@ -180,10 +236,7 @@ class AwsXmlParser {
+             obj["#text"] = "#text" in obj ? obj["#text"] + text : text;
+         }
+         for (const child of childTags) {
+-            if (child.tag === "__proto__") {
+-                writeKey(obj);
+-            }
+-            if (child.tag in obj) {
++            if (Object.prototype.hasOwnProperty.call(obj, child.tag)) {
+                 if (Array.isArray(obj[child.tag])) {
+                     obj[child.tag].push(child.value);
+                 }
+@@ -192,6 +245,9 @@ class AwsXmlParser {
+                 }
+             }
+             else {
++                if (child.tag === "__proto__") {
++                    writeKey(obj);
++                }
+                 obj[child.tag] = child.value;
+             }
+         }
+@@ -201,7 +257,7 @@ class AwsXmlParser {
+             }
+             obj[k] = v;
+         }
+-        return { tag, value: obj };
++        return { tag: outputTag, value: obj };
+     }
+     static ENTITIES = {
+         amp: "&",
+@@ -209,6 +265,16 @@ class AwsXmlParser {
+         gt: ">",
+         quot: '"',
+         apos: "'",
++        // Legacy mappings from @nodable/entities v2.1.0, copyright Amit Gupta, MIT.
++        nbsp: "\u00a0", copy: "\u00a9", reg: "\u00ae", trade: "\u2122",
++        mdash: "\u2014", ndash: "\u2013", hellip: "\u2026", laquo: "\u00ab",
++        raquo: "\u00bb", lsquo: "\u2018", rsquo: "\u2019", ldquo: "\u201c",
++        rdquo: "\u201d", bull: "\u2022", para: "\u00b6", sect: "\u00a7",
++        deg: "\u00b0", frac12: "\u00bd", frac14: "\u00bc", frac34: "\u00be",
++        cent: "\u00a2", pound: "\u00a3", curren: "\u00a4", yen: "\u00a5",
++        euro: "\u20ac", dollar: "$", fnof: "\u0192", inr: "\u20b9", af: "\u060b",
++        birr: "\u1265\u122d", peso: "\u20b1", rub: "\u20bd", won: "\u20a9",
++        yuan: "\u00a5", cedil: "\u00b8",
+     };
+     skipDoctype() {
+         const p = this;
+@@ -216,6 +282,15 @@ class AwsXmlParser {
+         let depth = 0;
+         while (p.i < p.z) {
+             const c = p.x[p.i];
++            if (p.isNext("<!--")) {
++                p.readTo("-->");
++                continue;
++            }
++            if (c === "\"" || c === "'") {
++                ++p.i;
++                p.readTo(c);
++                continue;
++            }
+             if (c === "[") {
+                 ++depth;
+             }
+@@ -231,14 +306,16 @@ class AwsXmlParser {
+         throw new Error("@aws-sdk XML parse error: unclosed DOCTYPE.");
+     }
+     decodeEntities(s) {
+-        return s.replace(/&(?:#x([0-9a-fA-F]{1,6})|#(\d{1,7})|([a-zA-Z][a-zA-Z0-9]{0,30}));/g, (_, hex, dec, named) => {
+-            if (hex) {
+-                return String.fromCharCode(parseInt(hex, 16));
+-            }
+-            if (dec) {
+-                return String.fromCharCode(parseInt(dec, 10));
++        return s.replace(/&(?:#x([0-9a-fA-F]+)|#(\d+)|([a-zA-Z][a-zA-Z0-9]{0,30}));/g, (match, hex, dec, named) => {
++            if (hex || dec) {
++                const codePoint = parseInt(hex || dec, hex ? 16 : 10);
++                if (!Number.isFinite(codePoint) || codePoint > 0x10ffff) return match;
++                if (codePoint === 0 || (codePoint >= 0xd800 && codePoint <= 0xdfff)) return "";
++                return String.fromCodePoint(codePoint);
+             }
+-            return AwsXmlParser.ENTITIES[named] ?? "";
++            return Object.prototype.hasOwnProperty.call(AwsXmlParser.ENTITIES, named)
++                ? AwsXmlParser.ENTITIES[named]
++                : match;
+         });
+     }
+ }
+diff --git a/package.json b/package.json
+index 048e23f..b116ea4 100644
+--- a/package.json
++++ b/package.json
+@@ -48,6 +48,7 @@
+   },
+   "dependencies": {
+     "@smithy/types": "^4.19.0",
++    "fast-xml-parser": "5.12.1",
+     "tslib": "^2.6.2"
+   },
+   "devDependencies": {

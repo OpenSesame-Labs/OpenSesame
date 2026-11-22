@@ -1,5 +1,10 @@
 import type { BoundaryValue, JsonObject } from "@opensesame/os-domain";
-import { isJsonObject, isString, overlapCast } from "@opensesame/os-domain";
+import {
+  isBoolean,
+  isJsonObject,
+  isString,
+  overlapCast,
+} from "@opensesame/os-domain";
 import type { Context } from "hono";
 import type { Variables } from "../middleware/context.js";
 
@@ -106,4 +111,58 @@ export function boundedScimString(
   const trimmed = value.trim();
   if (!trimmed || trimmed.length > max) return undefined;
   return trimmed;
+}
+
+/** Accept the boolean forms emitted by both Okta and Entra. */
+export function scimActive(value: BoundaryValue): boolean | undefined {
+  if (isBoolean(value)) return value;
+  if (!isString(value)) return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true") return true;
+  if (normalized === "false") return false;
+  return undefined;
+}
+
+/** Parse the one filter required by SCIM directory clients. */
+export function scimUserNameFilter(filter: string): string | undefined {
+  const match = filter
+    .trim()
+    .match(/^userName\s+eq\s+(?:"([^"]*)"|'([^']*)')$/i);
+  return match?.[1] ?? match?.[2];
+}
+
+export type ScimPage = { startIndex: number; offset: number; limit: number };
+
+function positiveInteger(value: string | undefined): number | undefined {
+  if (value === undefined || !/^[1-9][0-9]*$/u.test(value)) return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
+}
+
+function nonNegativeInteger(value: string | undefined): number | undefined {
+  if (value === undefined || !/^(?:0|[1-9][0-9]*)$/u.test(value))
+    return undefined;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) ? parsed : undefined;
+}
+
+/** Parse and cap SCIM's one-based pagination contract. */
+export function scimPage(
+  rawStart: string | undefined,
+  rawCount: string | undefined,
+): ScimPage | undefined {
+  const parsedStart = positiveInteger(rawStart);
+  const parsedCount = nonNegativeInteger(rawCount);
+  if (
+    (rawStart !== undefined && parsedStart === undefined) ||
+    (rawCount !== undefined && parsedCount === undefined)
+  ) {
+    return undefined;
+  }
+  const startIndex = parsedStart ?? 1;
+  return {
+    startIndex,
+    offset: startIndex - 1,
+    limit: Math.min(parsedCount ?? 100, 200),
+  };
 }

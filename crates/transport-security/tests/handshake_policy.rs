@@ -8,11 +8,11 @@ mod reject;
 
 use std::sync::Arc;
 
-use chrono::Utc;
 use common::*;
 use opensesame_domain::transport::{
     PeerIdentitySelector, TransportError, TransportPolicy, TrustProfileKind,
 };
+use opensesame_time::Utc;
 use opensesame_transport_security::testkit::{DisposableCa, LeafSpec, SanEntry};
 use opensesame_transport_security::{
     client_config, ClientProfile, SecureListener, ServerProfile, TrustBundle,

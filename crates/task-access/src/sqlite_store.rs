@@ -7,11 +7,11 @@ use crate::credential::{ProtectedResultBuffer, TaskCredentialRecord};
 use crate::engine::TaskStore;
 use crate::postgres::TaskAuthorityBackend;
 use crate::TaskAccessError;
-use chrono::{DateTime, Utc};
 use opensesame_domain::{
     AcknowledgementSet, CapabilitySet, CapabilityStateTransition, CapabilityStateTransitionId,
     CapabilityTransitionStatus, DomainError, TaskRun, TaskRunId, TaskRunStatus,
 };
+use opensesame_time::{DateTime, Utc};
 use sqlx::sqlite::{SqliteConnectOptions, SqlitePool, SqlitePoolOptions, SqliteRow};
 use sqlx::Row;
 use std::str::FromStr;
@@ -739,11 +739,11 @@ mod tests {
     use super::*;
     use crate::postgres::{assert_store_object_safe, distributed_task_authority_ok};
     use crate::{StartTaskParams, TaskAccessEngine};
-    use chrono::{Duration, Utc};
     use opensesame_domain::{
         AuthorityContext, AuthorityContextId, AuthorityContextMode, Capability, CapabilitySet,
         CeilingInput, OrganizationId, PrincipalId, ResourceSelector, TaskTemplateId,
     };
+    use opensesame_time::{Duration, Utc};
     use tempfile::TempDir;
 
     #[test]

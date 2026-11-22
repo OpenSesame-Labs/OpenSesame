@@ -37,11 +37,11 @@
 //! many grants name them: admission precedes connection (ADR 0079 §7), and a
 //! grant row that arrived without a seat is a bug, not a back door.
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::{
     PrincipalId, SessionGrant, SessionGrantId, SessionMode, SessionRole, VaultId, VaultItemId,
 };
 use opensesame_storage::{Db, StoredSession};
+use opensesame_time::{DateTime, Utc};
 
 /// What a caller may do in one session.
 ///

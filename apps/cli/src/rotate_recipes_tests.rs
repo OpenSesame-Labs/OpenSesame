@@ -3,8 +3,8 @@
 
 use std::path::{Path, PathBuf};
 
-use chrono::{Duration, Utc};
 use opensesame_rotation_web::recipe_doc::{parse_public_key_hex, RecipeDocument};
+use opensesame_time::{Duration, Utc};
 use serde_json::{json, Value};
 
 use super::sign::{self, SignOptions};
@@ -153,7 +153,7 @@ fn a_signature_says_only_what_it_was_asked_to() {
         },
     )
     .unwrap();
-    let expires = chrono::DateTime::parse_from_rfc3339(&renewed.expires_at).unwrap();
+    let expires = opensesame_time::DateTime::parse_from_rfc3339(&renewed.expires_at).unwrap();
     let days = (expires.with_timezone(&Utc) - Utc::now()).num_days();
     assert!((59..=60).contains(&days), "{days}");
 

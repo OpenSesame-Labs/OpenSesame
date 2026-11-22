@@ -3,10 +3,10 @@
 
 use std::sync::Arc;
 
-use chrono::{Duration, Utc};
 use opensesame_domain::transport::{
     CredentialStatus, IdentitySourceKind, PeerIdentitySelector, TransportError,
 };
+use opensesame_time::{Duration, Utc};
 use opensesame_transport_security::testkit::{DisposableCa, LeafSpec};
 use opensesame_transport_security::{GenerationCandidate, SecretBytes, TlsIdentity};
 

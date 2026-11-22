@@ -55,6 +55,11 @@ describe("sharing.live runtime", () => {
     expect(wrapper?.id).toBe("live-share");
     const [target] = t.entries("tutorial-target");
     expect(target?.id).toBe("shell.share");
+    expect(
+      t.registered.findIndex((record) => record.kind === "tutorial-target"),
+    ).toBeLessThan(
+      t.registered.findIndex((record) => record.kind === "shell-wrapper"),
+    );
     await handle.dispose();
   });
 

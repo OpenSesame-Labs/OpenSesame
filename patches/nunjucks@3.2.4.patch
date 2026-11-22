@@ -1,0 +1,26 @@
+diff --git a/package.json b/package.json
+index 6eb3ff8..fde9506 100644
+--- a/package.json
++++ b/package.json
+@@ -56,7 +56,7 @@
+     "webpack": "^3.10.0"
+   },
+   "peerDependencies": {
+-    "chokidar": "^3.3.0"
++    "chokidar": "^5.0.0"
+   },
+   "peerDependenciesMeta": {
+     "chokidar": {
+diff --git a/src/node-loaders.js b/src/node-loaders.js
+index 0e8f548..e02617a 100644
+--- a/src/node-loaders.js
++++ b/src/node-loaders.js
+@@ -93,7 +93,7 @@ var NodeResolveLoader = /*#__PURE__*/function (_Loader2) {
+       } catch (e) {
+         throw new Error('watch requires chokidar to be installed');
+       }
+-      _this2.watcher = chokidar.watch();
++      _this2.watcher = chokidar.watch([]);
+       _this2.watcher.on('change', function (fullname) {
+         _this2.emit('update', _this2.pathsToNames[fullname], fullname);
+       });

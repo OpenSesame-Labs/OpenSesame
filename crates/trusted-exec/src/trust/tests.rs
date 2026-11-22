@@ -2,10 +2,7 @@ use super::*;
 
 /// The caller of every row: user 1000 in groups 1000 and 27.
 fn caller() -> Caller {
-    Caller {
-        euid: 1000,
-        groups: vec![1000, 27],
-    }
+    Caller::new(1000, vec![1000, 27])
 }
 
 const fn owner(uid: u32, gid: u32, mode: u32) -> Owner {
@@ -92,10 +89,7 @@ fn directories_are_trusted_or_refused_for_who_could_have_written_them() {
 
 #[test]
 fn a_caller_that_is_root_trusts_root_and_itself_only() {
-    let root = Caller {
-        euid: 0,
-        groups: vec![0],
-    };
+    let root = Caller::new(0, vec![0]);
     assert_eq!(directory(owner(0, 0, 0o775), &root), None);
     assert_eq!(
         directory(owner(1000, 1000, 0o755), &root),
@@ -104,6 +98,18 @@ fn a_caller_that_is_root_trusts_root_and_itself_only() {
     assert_eq!(
         directory(owner(0, 27, 0o775), &root),
         Some(Skip::GroupWritable(27))
+    );
+}
+
+#[test]
+fn a_foreign_owner_is_rejected_even_when_only_the_owner_can_write() {
+    assert_eq!(
+        directory(owner(1001, 1001, 0o700), &caller()),
+        Some(Skip::OwnedBy(1001))
+    );
+    assert_eq!(
+        file(owner(1001, 1001, 0o500), &caller()),
+        Some(Skip::OwnedBy(1001))
     );
 }
 

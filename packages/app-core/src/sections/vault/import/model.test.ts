@@ -201,6 +201,36 @@ describe("import model", () => {
     expect(outcome).toEqual({ stage, error: "Wrong master password" });
   });
 
+  it("passes an unlock's cancellation signal without keeping it in the stage", async () => {
+    const stage: ImportStage = {
+      step: "locked",
+      fileName: "db.kdbx",
+      file: INPUT,
+      source: "keepass-kdbx",
+      note: "",
+    };
+    const controller = new AbortController();
+    const parse = vi.fn(async () => ({
+      source: "keepass-kdbx" as const,
+      items: [],
+      skipped: [],
+      warnings: [],
+    }));
+    importModelSeams.parseImportAsync = parse;
+    const result = await unlockStage(stage, "hunter2", controller.signal);
+    expect(parse).toHaveBeenCalledWith(
+      { ...INPUT, password: "hunter2", signal: controller.signal },
+      "keepass-kdbx",
+    );
+    expect(result.stage).not.toHaveProperty("signal");
+    controller.abort();
+    expect(await unlockStage(stage, "hunter2", controller.signal)).toEqual({
+      stage,
+      error: null,
+    });
+    expect(parse).toHaveBeenCalledOnce();
+  });
+
   it("commits a preview once, and reports a failed write in place", async () => {
     const preview = (await readStage(file("app.env", "A=1\nB=2\n"))).stage;
     const plan: MergePlan = {

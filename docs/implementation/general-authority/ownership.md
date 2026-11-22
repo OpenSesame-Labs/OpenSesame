@@ -17,7 +17,7 @@ Scope: generalizing the existing `Grant` / membership authority into a
 hierarchical authority model that spans both planes, as drafted in
 [ADR 0120](../../adr/0120-generalized-hierarchical-authority.md).
 
-Baseline: [`repository-baseline.md`](repository-baseline.md).
+Decision baseline: [ADR 0120](../../adr/0120-generalized-hierarchical-authority.md).
 Contracts: [`contract-registry.json`](contract-registry.json).
 Status: [`completion-matrix.json`](completion-matrix.json).
 Naming: [`compatibility-map.md`](compatibility-map.md).
