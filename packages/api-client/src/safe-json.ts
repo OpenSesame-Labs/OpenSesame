@@ -15,6 +15,9 @@ const INTEGER_PATTERN = /^-?\d+$/;
 const WHITESPACE = new Set([" ", "\t", "\n", "\r"]);
 const NUMBER_CHAR = /[0-9.eE+-]/;
 
+/** Members of one decoded JSON object, keyed exactly as the text names them. */
+type DecodedMembers = Record<string, BoundaryValue>;
+
 /** Read position over JSON text that `JSON.parse` has already accepted. */
 type Cursor = { readonly text: string; index: number };
 
@@ -56,7 +59,7 @@ function readNumber(cursor: Cursor): number | bigint {
 
 /** Define a member the way `JSON.parse` does, `__proto__` included. */
 function defineMember(
-  target: Record<string, BoundaryValue>,
+  target: DecodedMembers,
   key: string,
   value: BoundaryValue,
 ): void {
@@ -68,8 +71,13 @@ function defineMember(
   });
 }
 
-function readObject(cursor: Cursor): Record<string, BoundaryValue> {
-  const result: Record<string, BoundaryValue> = {};
+/** A fresh member table with the ordinary prototype, as `JSON.parse` builds. */
+function emptyMembers(): DecodedMembers {
+  return {};
+}
+
+function readObject(cursor: Cursor): DecodedMembers {
+  const result = emptyMembers();
   cursor.index += 1;
   skipWhitespace(cursor);
   if (cursor.text[cursor.index] === "}") {
