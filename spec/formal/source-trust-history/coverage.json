@@ -149,7 +149,7 @@
     },
     {
       "path": "crates/storage/src/lib.rs",
-      "sha256": "eafab5f9688d370d28e57a9dc14232252b137cb22708ebd43c37578f994db327"
+      "sha256": "c4f53cb771ca9aba298fc7fc0f3aa074e73fa4a2f65624efa3030e605a6ad47c"
     },
     {
       "path": "crates/storage/src/migrations.rs",
