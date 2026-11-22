@@ -31,7 +31,9 @@ impl StoreRoot {
     /// scratch; chunk paths point at content-addressed files in the store.
     /// After this function releases the lock, a missing or modified chunk must
     /// fail replication before any manifest is published. No key is used, so
-    /// this cannot discover a chunk already missing from an encrypted manifest.
+    /// this cannot authenticate a manifest or discover a chunk already
+    /// missing from one. Existing local counters reject mismatched advertised
+    /// revisions, but neither the header nor the counters prove freshness.
     ///
     /// # Errors
     ///
@@ -57,11 +59,22 @@ impl StoreRoot {
         // never during a network upload.
         let _lock = StoreLock::shared(&self.path)?;
         let mut units = self.attach_replication_units()?;
+        let revisions = self.attachment_revisions()?;
         let mut total = 0usize;
         for (relative, source) in &mut units {
-            if relative.ends_with(".osattach") {
+            if let Some(name) = relative.strip_suffix(".osattach") {
                 let rel = Path::new(relative);
                 let bytes = confined_read_bounded(&self.path, rel, MAX_MANIFEST_BYTES)?;
+                if let Some(expected) = crate::store::revision_for(&revisions, name)? {
+                    // This is only a fail-closed comparison with the local
+                    // counter. The cleartext header has not been authenticated.
+                    let advertised = crate::envelope::envelope_revision(&bytes)?;
+                    if advertised != expected {
+                        return Err(StoreError::Crypto(format!(
+                            "attachment {name} revision does not match local state"
+                        )));
+                    }
+                }
                 total = total
                     .checked_add(bytes.len())
                     .ok_or_else(|| StoreError::Other("attachment snapshot size overflow".into()))?;
@@ -148,5 +161,51 @@ mod tests {
         .unwrap();
         let scratch = tempfile::tempdir().unwrap();
         assert!(root.attach_replication_snapshot(scratch.path()).is_err());
+    }
+
+    #[test]
+    fn snapshot_refuses_a_replayed_manifest_when_local_counter_is_intact() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = init_store(dir.path(), &[]).unwrap();
+        let key = init_store_key(dir.path(), b"correct horse").unwrap();
+        add(&root, &key, b"old", false);
+        let path = dir.path().join("Taxes/2025.osattach");
+        let old = std::fs::read(&path).unwrap();
+        add(&root, &key, b"new", true);
+        std::fs::write(&path, &old).unwrap();
+        let scratch = tempfile::tempdir().unwrap();
+        assert!(root.attach_replication_snapshot(scratch.path()).is_err());
+    }
+
+    #[test]
+    fn snapshot_checks_do_not_authenticate_headers_or_replace_a_witness() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = init_store(dir.path(), &[]).unwrap();
+        let key = init_store_key(dir.path(), b"correct horse").unwrap();
+        add(&root, &key, b"old", false);
+        let path = dir.path().join("Taxes/2025.osattach");
+        let old = std::fs::read(&path).unwrap();
+        add(&root, &key, b"new", true);
+
+        // The unkeyed snapshot can be fooled by editing the advertised
+        // revision. A keyed read still rejects the altered AEAD context.
+        let mut body: serde_json::Value =
+            serde_json::from_slice(&old[crate::OSSEAL_MAGIC.len()..]).unwrap();
+        body["envelope"]["ad"]["revision"] = 2.into();
+        let mut forged = crate::OSSEAL_MAGIC.to_vec();
+        forged.extend(serde_json::to_vec(&body).unwrap());
+        std::fs::write(&path, forged).unwrap();
+        let scratch = tempfile::tempdir().unwrap();
+        assert!(root.attach_replication_snapshot(scratch.path()).is_ok());
+        assert!(root
+            .attach_get("Taxes/2025", &mut Vec::new(), &key)
+            .is_err());
+
+        // A clone has no tracked local counter; it cannot prove whether the
+        // valid old manifest is fresh without an independent witness.
+        std::fs::write(path, old).unwrap();
+        std::fs::remove_file(dir.path().join(crate::ATTACHMENT_REVISION_FILE)).unwrap();
+        let scratch = tempfile::tempdir().unwrap();
+        assert!(root.attach_replication_snapshot(scratch.path()).is_ok());
     }
 }
