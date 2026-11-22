@@ -6,6 +6,7 @@ import {
   render,
   screen,
 } from "@testing-library/react";
+import { useLayoutEffect } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { gestureLimits } from "../lib/gestures.js";
@@ -57,6 +58,24 @@ describe("StatusMark", () => {
     render(<StatusMark tone="err" label={LABEL} />);
     expect(bubble()).toBeNull();
     fireEvent.click(mark());
+    expect(bubble()?.textContent).toBe(LABEL);
+  });
+
+  it("can answer a tap as soon as the mark is committed", async () => {
+    function TapOnArrival() {
+      useLayoutEffect(() => {
+        fireEvent.click(mark());
+      }, []);
+      return null;
+    }
+    await act(async () => {
+      render(
+        <>
+          <StatusMark tone="err" label={LABEL} />
+          <TapOnArrival />
+        </>,
+      );
+    });
     expect(bubble()?.textContent).toBe(LABEL);
   });
 
