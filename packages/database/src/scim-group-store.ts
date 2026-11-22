@@ -1,7 +1,8 @@
 import type { OrganizationRole } from "@opensesame/os-domain";
 import { and, asc, eq, sql } from "drizzle-orm";
 import type { Database } from "./repos/postgres.js";
-import { scimGroupRoleMappings, scimGroups } from "./schema/scim-groups.js";
+import { scimGroups } from "./schema/scim-groups.js";
+import type { ScimAdminLimits, ScimListPage } from "./scim-admin-limits.js";
 import {
   SCIM_GROUP_ID_MAX,
   SCIM_GROUP_MEMBERS_MAX,
@@ -10,6 +11,10 @@ import {
   ScimGroupPayloadError,
   scimGroupLimits,
 } from "./scim-group-limits.js";
+import {
+  createMemoryScimMappingStore,
+  createPostgresScimMappingStore,
+} from "./scim-mapping-store.js";
 import {
   type ScimTokenRecord,
   type ScimTokenStore,
@@ -52,7 +57,16 @@ export interface ScimGroupMappingStore {
     role: OrganizationRole,
   ): Promise<ScimGroupMapping>;
   get(orgId: string, groupId: string): Promise<OrganizationRole | undefined>;
-  listByOrganization(orgId: string): Promise<ScimGroupMapping[]>;
+  count(orgId: string): Promise<number>;
+  listByOrganization(
+    orgId: string,
+    page?: ScimListPage,
+  ): Promise<ScimGroupMapping[]>;
+  /** Removing a neutral mapping cannot confer additional authority. */
+  removeIfNeutral(
+    orgId: string,
+    groupId: string,
+  ): Promise<"deleted" | "not_found" | "mapping_not_neutral">;
 }
 
 export interface ScimStores extends ScimUserTokenStores {
@@ -79,23 +93,33 @@ function normalizeGroup(group: ScimGroupRecord): ScimGroupRecord {
   };
 }
 
-function validateGroup(group: ScimGroupRecord, previousSize: number): void {
+/**
+ * Id ceilings bound new admissions only: a group or member id that predates
+ * them may stay (or be removed), so a legacy group can always be reduced.
+ */
+function validateGroup(
+  group: ScimGroupRecord,
+  previous: readonly string[] | undefined,
+): void {
+  const held = new Set(previous ?? []);
   if (
     !group.id ||
-    group.id.length > SCIM_GROUP_ID_MAX ||
-    group.memberIds.some((id) => !id || id.length > SCIM_GROUP_ID_MAX) ||
+    (previous === undefined && group.id.length > SCIM_GROUP_ID_MAX) ||
+    group.memberIds.some(
+      (id) => !id || (id.length > SCIM_GROUP_ID_MAX && !held.has(id)),
+    ) ||
     (group.memberIds.length > SCIM_GROUP_MEMBERS_MAX &&
-      group.memberIds.length >= previousSize)
+      group.memberIds.length >= (previous?.length ?? 0))
   )
     throw new ScimGroupPayloadError();
 }
 
 function createMemoryGroupStores(
   options?: Partial<ScimGroupLimits>,
+  adminLimits?: Partial<ScimAdminLimits>,
 ): Pick<ScimStores, "groups" | "mappings"> {
   const limits = scimGroupLimits(options);
   const groups = new Map<string, ScimGroupRecord>();
-  const mappings = new Map<string, ScimGroupMapping>();
 
   const ofOrg = (orgId: string) =>
     [...groups.values()].filter((group) => group.organizationId === orgId);
@@ -106,8 +130,7 @@ function createMemoryGroupStores(
         const row = normalizeGroup(group);
         validateGroup(
           row,
-          groups.get(groupKey(row.organizationId, row.id))?.memberIds.length ??
-            0,
+          groups.get(groupKey(row.organizationId, row.id))?.memberIds,
         );
         if (
           !groups.has(groupKey(row.organizationId, row.id)) &&
@@ -138,28 +161,7 @@ function createMemoryGroupStores(
       },
     },
 
-    mappings: {
-      async put(orgId, groupId, role) {
-        const row: ScimGroupMapping = {
-          organizationId: orgId,
-          groupId,
-          role,
-        };
-        mappings.set(groupKey(orgId, groupId), row);
-        return { ...row };
-      },
-
-      async get(orgId, groupId) {
-        return mappings.get(groupKey(orgId, groupId))?.role;
-      },
-
-      async listByOrganization(orgId) {
-        return [...mappings.values()]
-          .filter((row) => row.organizationId === orgId)
-          .sort((a, b) => (a.groupId < b.groupId ? -1 : 1))
-          .map((row) => ({ ...row }));
-      },
-    },
+    mappings: createMemoryScimMappingStore(adminLimits),
   };
 }
 
@@ -203,7 +205,7 @@ function createPostgresGroupTableStore(
               ),
             )
             .limit(1);
-          validateGroup(row, existing?.memberIds.length ?? 0);
+          validateGroup(row, existing?.memberIds);
           if (!existing) {
             const [usage] = await tx
               .select({
@@ -278,81 +280,25 @@ function createPostgresGroupTableStore(
   };
 }
 
-function createPostgresMappingStore(db: Database): ScimGroupMappingStore {
-  return {
-    async put(orgId, groupId, role) {
-      const now = new Date();
-      const [inserted] = await db
-        .insert(scimGroupRoleMappings)
-        .values({
-          organizationId: orgId,
-          groupId,
-          role,
-          createdAt: now,
-          updatedAt: now,
-        })
-        .onConflictDoUpdate({
-          target: [
-            scimGroupRoleMappings.organizationId,
-            scimGroupRoleMappings.groupId,
-          ],
-          set: { role, updatedAt: now },
-        })
-        .returning();
-      if (!inserted) throw new Error("insert scim mapping returned no row");
-      return {
-        organizationId: inserted.organizationId,
-        groupId: inserted.groupId,
-        role: inserted.role,
-      };
-    },
-
-    async get(orgId, groupId) {
-      const [row] = await db
-        .select()
-        .from(scimGroupRoleMappings)
-        .where(
-          and(
-            eq(scimGroupRoleMappings.organizationId, orgId),
-            eq(scimGroupRoleMappings.groupId, groupId),
-          ),
-        )
-        .limit(1);
-      return row?.role;
-    },
-
-    async listByOrganization(orgId) {
-      const rows = await db
-        .select()
-        .from(scimGroupRoleMappings)
-        .where(eq(scimGroupRoleMappings.organizationId, orgId))
-        .orderBy(asc(scimGroupRoleMappings.groupId));
-      return rows.map((row) => ({
-        organizationId: row.organizationId,
-        groupId: row.groupId,
-        role: row.role,
-      }));
-    },
-  };
-}
-
 function createPostgresGroupStores(
   db: Database,
   limits?: Partial<ScimGroupLimits>,
+  adminLimits?: Partial<ScimAdminLimits>,
 ): Pick<ScimStores, "groups" | "mappings"> {
   return {
     groups: createPostgresGroupTableStore(db, scimGroupLimits(limits)),
-    mappings: createPostgresMappingStore(db),
+    mappings: createPostgresScimMappingStore(db, adminLimits),
   };
 }
 
 export function createMemoryScimStores(
   limits?: Partial<ScimUserLimits>,
   groupLimits?: Partial<ScimGroupLimits>,
+  adminLimits?: Partial<ScimAdminLimits>,
 ): ScimStores {
   return attachGroupStores(
-    createMemoryScimUserTokenStores(limits),
-    createMemoryGroupStores(groupLimits),
+    createMemoryScimUserTokenStores(limits, adminLimits),
+    createMemoryGroupStores(groupLimits, adminLimits),
   );
 }
 
@@ -360,9 +306,10 @@ export function createPostgresScimStores(
   db: Database,
   limits?: Partial<ScimUserLimits>,
   groupLimits?: Partial<ScimGroupLimits>,
+  adminLimits?: Partial<ScimAdminLimits>,
 ): ScimStores {
   return attachGroupStores(
-    createPostgresScimUserTokenStores(db, limits),
-    createPostgresGroupStores(db, groupLimits),
+    createPostgresScimUserTokenStores(db, limits, adminLimits),
+    createPostgresGroupStores(db, groupLimits, adminLimits),
   );
 }

@@ -90,19 +90,22 @@ export async function consumeScimMutation(
   organizationId: string,
   limits: ScimMutationLimits = DEFAULT_LIMITS,
   cost = 1,
+  scope: "directory" | "admin" = "directory",
 ): Promise<boolean> {
   if (!Number.isSafeInteger(cost) || cost < 1)
     throw new Error("Invalid SCIM mutation cost");
   const now = ctx.clock().getTime();
+  const tenantKey = `${scope}:tenant:${organizationId}`;
+  const deploymentKey = `${scope}:deployment`;
   if (
-    cachedRefusal(ctx, `tenant:${organizationId}`, now) ||
-    cachedRefusal(ctx, "deployment", now)
+    cachedRefusal(ctx, tenantKey, now) ||
+    cachedRefusal(ctx, deploymentKey, now)
   )
     return false;
   return (
     (await consumeWindow(
       ctx,
-      `tenant:${organizationId}`,
+      tenantKey,
       limits.tenant,
       now,
       limits.windowMs,
@@ -110,7 +113,7 @@ export async function consumeScimMutation(
     )) &&
     (await consumeWindow(
       ctx,
-      "deployment",
+      deploymentKey,
       limits.deployment,
       now,
       limits.windowMs,
