@@ -224,4 +224,105 @@ mod probes {
             "a comment's => must not fake a match arm: {decoy}"
         );
     }
+
+    /// `let request = if flag { client.get(evil) } else { client.get(safe) };`
+    /// must not let the last textual builder win: disagreeing branch URLs
+    /// fail closed (Codex PRRT_kwDOTwzAKs65fDyj).
+    #[test]
+    fn codex_thread_conditional_builder_branches_fail_closed() {
+        let hits = [
+            (
+                r#"async fn f() { if safe.scheme() != "https" { return Err("x".into()); } let request = if flag { client.get(evil) } else { client.get(safe) }; request.send().await?; }"#,
+                (1, 1),
+            ),
+            (
+                r#"async fn f() { let request = if safe.scheme() == "https" { client.get(safe) } else { client.get(evil) }; request.send().await?; }"#,
+                (1, 1),
+            ),
+        ];
+        for (sample, expected) in hits {
+            assert_eq!(credentialed_send_https_gaps(sample), expected, "{sample}");
+        }
+        let same = r#"async fn f() { if safe.scheme() != "https" { return Err("x".into()); } let request = if flag { client.get(safe) } else { client.get(safe) }; request.send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(same), (1, 0), "{same}");
+    }
+
+    /// A multi-argument helper does not assign the last argument as the URL:
+    /// `build_request(evil, safe)` is unresolved and fails closed rather than
+    /// blessing the real destination (Codex PRRT_kwDOTwzAKs65i9Uu).
+    #[test]
+    fn codex_thread_multi_arg_helper_destination_unresolved() {
+        let unresolved = [
+            (
+                r#"async fn f() { if safe.scheme() != "https" { return Err("x".into()); } let request = build_request(evil, safe); request.send().await?; }"#,
+                (1, 1),
+            ),
+            (
+                r#"async fn f() { if safe.scheme() != "https" { return Err("x".into()); } let request = if cond { build_request(evil) } else { build_request(safe) }; request.send().await?; }"#,
+                (1, 1),
+            ),
+        ];
+        for (sample, expected) in unresolved {
+            assert_eq!(credentialed_send_https_gaps(sample), expected, "{sample}");
+        }
+        // A single-argument helper takes its only argument as the URL.
+        let single = [
+            (
+                r#"async fn f() { if safe.scheme() != "https" { return Err("x".into()); } let request = build_request(safe); request.send().await?; }"#,
+                (1, 0),
+            ),
+            (
+                r#"async fn f() { if safe.scheme() != "https" { return Err("x".into()); } let request = build_request(evil); request.send().await?; }"#,
+                (1, 1),
+            ),
+        ];
+        for (sample, expected) in single {
+            assert_eq!(credentialed_send_https_gaps(sample), expected, "{sample}");
+        }
+    }
+
+    /// A wrapper that receives the credential-bearing builder owns it:
+    /// `transmit(request)` is a dispatch bound to the builder's URL, even when
+    /// a guarded `.send()` remains elsewhere (Codex PRRT_kwDOTwzAKs65txaL).
+    #[test]
+    fn codex_thread_wrapper_owning_builder_is_a_dispatch() {
+        let unguarded = [
+            (
+                r#"async fn f() { let request = client.get(evil); transmit(request).await?; }"#,
+                (1, 1),
+            ),
+            (
+                r#"async fn f() { if safe.scheme() != "https" { return Err("x".into()); } let request = client.get(evil); transmit(request).await?; }"#,
+                (1, 1),
+            ),
+        ];
+        for (sample, expected) in unguarded {
+            assert_eq!(credentialed_send_https_gaps(sample), expected, "{sample}");
+        }
+        let guarded = [
+            (
+                r#"async fn f() { if evil.scheme() != "https" { return Err("x".into()); } let request = client.get(evil); transmit(request).await?; }"#,
+                (1, 0),
+            ),
+            (
+                r#"async fn f() { let request = client.get(evil); transmit(client.get(safe)).await?; if safe.scheme() != "https" { return Err("x".into()); } }"#,
+                (1, 1),
+            ),
+        ];
+        for (sample, expected) in guarded {
+            assert_eq!(credentialed_send_https_gaps(sample), expected, "{sample}");
+        }
+        // The wrapper send and the plain send both need their own guards.
+        let both = r#"async fn f() { if safe.scheme() != "https" { return Err("x".into()); } let request = client.get(evil); request.send().await?; transmit(request).await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(both), (2, 2), "{both}");
+        // Ordinary helpers that receive non-builder values are not dispatches.
+        let ordinary = [
+            r#"async fn f() { if parsed.scheme() != "https" { return Err("x".into()); } let tokens = open_tokens(&key); consume(&tokens); request.send().await?; }"#,
+            r#"async fn f() { if parsed.scheme() != "https" { return Err("x".into()); } let body = json!({"key": name}); log(body); request.send().await?; }"#,
+            r#"async fn f() { if parsed.scheme() != "https" { return Err("x".into()); } let url = format!("https://{host}/x"); describe(url); request.send().await?; }"#,
+        ];
+        for sample in ordinary {
+            assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+        }
+    }
 }

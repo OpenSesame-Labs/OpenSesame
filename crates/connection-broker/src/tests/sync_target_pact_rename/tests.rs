@@ -98,4 +98,113 @@ mod tests {
             );
         }
     }
+
+    /// Eight plain bindings long, the chain must still reach `response`.
+    /// Codex review: a fixed hop budget silently accepts aliases beyond it;
+    /// cycle detection follows until a root or a repeat.
+    #[test]
+    fn codex_thread_response_alias_chain_uses_cycle_detection() {
+        let hits = [
+            "let r1 = response; let r2 = r1; let r3 = r2; let r4 = r3; let r5 = r4; let r6 = r5; let r7 = r6; let r8 = r7; let leaked: reqwest::Body = r8.into();",
+            "let a1 = response; let a2 = a1; let a3 = a2; let a4 = a3; let a5 = a4; let a6 = a5; let a7 = a6; let a8 = a7; let a9 = a8; let a10 = a9; let a11 = a10; let a12 = a11; let leaked: reqwest::Body = a12.into();",
+        ];
+        for sample in hits {
+            assert!(
+                !response_body_reads(sample).is_empty(),
+                "long alias chain must reach the response root: {sample}"
+            );
+        }
+        // A binding ring never resolves to a receiver.
+        let ring = "let a = b; let b = a; let leaked: reqwest::Body = a.into();";
+        assert!(
+            response_body_reads(ring).is_empty(),
+            "alias ring is not a body read: {ring}"
+        );
+        let self_ring = "let a = a; let leaked: reqwest::Body = a.into();";
+        assert!(
+            response_body_reads(self_ring).is_empty(),
+            "self-rebinding is not a body read: {self_ring}"
+        );
+    }
+
+    /// `let reply = if selected { response } else { fallback };` — the
+    /// conditional initializer aliases the response through either branch.
+    #[test]
+    fn codex_thread_conditional_initializer_aliases_response() {
+        let hits = [
+            "let reply = if selected { response } else { fallback }; let body: reqwest::Body = reply.into();",
+            "let reply = if selected { fallback } else { response }; let body: reqwest::Body = reply.into();",
+            "let reply = match selected { true => response, _ => fallback }; let body: reqwest::Body = reply.into();",
+        ];
+        for sample in hits {
+            assert!(
+                !response_body_reads(sample).is_empty(),
+                "conditional initializer must keep the response: {sample}"
+            );
+        }
+        let misses = [
+            "let reply = if selected { status } else { fallback }; let body: reqwest::Body = reply.into();",
+            "let reply = match selected { true => status, _ => fallback }; let body: reqwest::Body = reply.into();",
+        ];
+        for sample in misses {
+            assert!(
+                response_body_reads(sample).is_empty(),
+                "conditional without the response is not a body read: {sample}"
+            );
+        }
+    }
+
+    /// `let reply = request.send().await?;` under an unrecognized name — the
+    /// response root derives from the credentialed send expression.
+    #[test]
+    fn codex_thread_send_result_binding_names_derive_from_send() {
+        let hits = [
+            "let reply = request.send().await?; let leaked: reqwest::Body = reply.into();",
+            "let wire = client.execute(request).await?; let leaked: reqwest::Body = wire.into();",
+            "let reply = request.send().await?; let body = reply.text().await?;",
+        ];
+        for sample in hits {
+            assert!(
+                !response_body_reads(sample).is_empty(),
+                "send result under any name stays discarded: {sample}"
+            );
+        }
+        let misses = ["let reply = request.send(); let leaked = other.into();"];
+        for sample in misses {
+            assert!(
+                response_body_reads(sample).is_empty(),
+                "unmoved send is not a body read: {sample}"
+            );
+        }
+    }
+
+    /// `try_into()` / `TryFrom::try_from` move the provider body through the
+    /// blanket conversion the same way `.into()` does.
+    #[test]
+    fn codex_thread_try_into_response_conversions() {
+        let hits = [
+            "let leaked: reqwest::Body = response.try_into().unwrap();",
+            "let leaked: reqwest::Body = response.try_into()?;",
+            "TryFrom::try_from(response)",
+            "TryInto::try_into(response).unwrap()",
+            "let reply = response; let leaked: reqwest::Body = reply.try_into().unwrap();",
+            "std::convert::TryFrom::try_from(response)",
+        ];
+        for sample in hits {
+            assert!(
+                !response_body_reads(sample).is_empty(),
+                "fallible conversion moves the body: {sample}"
+            );
+        }
+        let misses = [
+            "let leaked: reqwest::Body = status.try_into().unwrap();",
+            "TryFrom::try_from(status)",
+        ];
+        for sample in misses {
+            assert!(
+                response_body_reads(sample).is_empty(),
+                "unrelated fallible conversion is not a body read: {sample}"
+            );
+        }
+    }
 }

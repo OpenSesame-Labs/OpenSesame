@@ -67,3 +67,44 @@ fn chunk02_map_and_then_parse_do_not_cover_dest() {
         assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
     }
 }
+
+/// Mutating the parsed subject between `Url::parse` and the predicate checks
+/// a value the sent URL no longer has (Codex PRRT_kwDOTwzAKs65ukv0).
+#[test]
+fn codex_thread_mutated_parsed_subject_does_not_cover_dest() {
+    let voided = [
+        r#"async fn f() { let mut parsed = Url::parse(&url)?; parsed.set_scheme("https"); if parsed.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+        r#"async fn f() { let mut parsed = Url::parse(&url)?; parsed = Url::parse(&other)?; if parsed.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+    ];
+    for sample in voided {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+    }
+    let kept = [
+        r#"async fn f() { let mut parsed = Url::parse(&url)?; if parsed.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+        r#"async fn f() { let parsed = Url::parse(&url)?; parsed.host_str(); if parsed.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+    ];
+    for sample in kept {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+    }
+}
+
+/// A `return` token inside a macro invocation's token tree does not fail-close
+/// the branch — the macro may never emit it (Codex PRRT_kwDOTwzAKs65wAMY).
+#[test]
+fn codex_thread_macro_return_token_is_not_fail_closed() {
+    let open = [
+        r#"async fn f() { if url.scheme() != "https" { swallow!(return Err("x".into());); } client.get(url).send().await?; }"#,
+        r#"async fn f() { if url.scheme() != "https" { swallow![return Err("x".into())]; } client.get(url).send().await?; }"#,
+        r#"async fn f() { if url.scheme() != "https" { let _ = emit!(return Err("x".into())); } client.get(url).send().await?; }"#,
+    ];
+    for sample in open {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+    }
+    let kept = [
+        r#"async fn f() { if url.scheme() != "https" { return Err("x".into()); } client.get(url).send().await?; }"#,
+        r#"async fn f() { if url.scheme() != "https" { swallow!(1); return Err("x".into()); } client.get(url).send().await?; }"#,
+    ];
+    for sample in kept {
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+    }
+}

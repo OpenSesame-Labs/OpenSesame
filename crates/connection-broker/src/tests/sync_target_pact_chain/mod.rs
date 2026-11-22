@@ -376,7 +376,10 @@ mod probes {
             );
             assert!(reads(sample), "{sample}");
         }
-        for sample in ["rows.map(|b| b).fold(0, |acc, b| acc + b)", "rows.map(|b| b).nth(2)"] {
+        for sample in [
+            "rows.map(|b| b).fold(0, |acc, b| acc + b)",
+            "rows.map(|b| b).nth(2)",
+        ] {
             assert!(!super::response_chain_consumer(sample), "{sample}");
             assert!(!reads(sample), "{sample}");
         }

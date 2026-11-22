@@ -6,7 +6,10 @@
 
 /// Provider metadata that `reqwest::Response` reflects without `.text()` / `.bytes()`.
 /// `Debug` prints url, status, and headers. `error_for_status`'s `Display` includes
-/// the HTTP/1 reason phrase. `Body::from` as a function item moves the body.
+/// the HTTP/1 reason phrase. A `Body::from` alias only moves the body when a
+/// later invocation receives a response-derived argument — a bare
+/// `let make_body = reqwest::Body::from;` is outbound request construction,
+/// not a response read.
 pub(super) fn response_metadata_reads(scanned: &str) -> bool {
     body_from_function_item(scanned)
         || named_debug_response(scanned)
@@ -90,18 +93,7 @@ fn marker_hit(
 }
 
 fn body_from_function_item(scanned: &str) -> bool {
-    body_from_direct_call(scanned)
-        || body_from_item_sites(scanned)
-        || body_from_alias_calls(scanned)
-}
-
-/// `let f = Body::from;` and `pass(Body::from)` move the body. Same rule as
-/// `let f = Response::url;`: the function item is the read, not only a later call.
-fn body_from_item_sites(scanned: &str) -> bool {
-    each_marker(scanned, "::from", |index, _, after| {
-        super::ident_before(&scanned[..index]) == "Body"
-            && super::pattern::is_function_item_tail(after)
-    })
+    body_from_direct_call(scanned) || body_from_alias_calls(scanned)
 }
 
 fn body_from_direct_call(scanned: &str) -> bool {

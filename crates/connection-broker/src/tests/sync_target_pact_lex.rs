@@ -260,7 +260,6 @@ pub(super) fn gap_welds_tokens(prev: Option<char>, next: Option<char>) -> bool {
 #[cfg(test)]
 mod probes {
     use super::{skip_block_comment_flat, skip_block_comment_nested, skip_comment};
-    use crate::tests::sync_target_pact_let::typed_let_name_before_path;
 
     #[test]
     fn p5_block_comment_noise_uses_nested_skip() {
@@ -302,6 +301,43 @@ mod probes {
         assert!(
             crate::tests::sync_target_pact_let::binding_name_before("url += evil").is_none(),
             "`+=` must not parse as a `let name =` binding"
+        );
+    }
+
+    /// Rust block comments nest. `/* outer /* inner */ } response.text(); */`
+    /// must not close `mod unit_tests` at the commented brace (Codex
+    /// PRRT_kwDOTwzAKs65tGUh).
+    #[test]
+    fn codex_thread_nested_block_comment_brace_does_not_close_module() {
+        let src = "fn prod() {}\n#[cfg(test)]\nmod unit_tests {\n    /* outer /* inner */ } response.text(); */\n}\n";
+        let production = crate::tests::sync_target_pact_scan::sync_target_production_for_scan(src);
+        assert!(
+            !production.contains("response.text"),
+            "commented body read must stay inside the stripped module: {production}"
+        );
+        let live = "fn prod() { response.status(); }\n#[cfg(test)]\nmod unit_tests {\n    /* outer /* inner */ } */\n}\n";
+        let production = crate::tests::sync_target_pact_scan::sync_target_production_for_scan(live);
+        assert!(
+            production.contains("response.status"),
+            "production code survives the strip: {production}"
+        );
+    }
+
+    /// Quotes have no string meaning inside a block comment: `/* " */`
+    /// must not swallow the rest of the file (Codex PRRT_kwDOTwzAKs65tGUl).
+    #[test]
+    fn codex_thread_quote_inside_block_comment_keeps_body_reads() {
+        let sample = "/* \" */ response.text().await;";
+        let reads = crate::tests::sync_target_pact_scan::response_body_reads(sample);
+        assert!(
+            !reads.is_empty(),
+            "a quote inside a block comment must not hide response.text(): {reads:?}"
+        );
+        let commented = "/* \" ; */ let status = response.status();";
+        let reads = crate::tests::sync_target_pact_scan::response_body_reads(commented);
+        assert!(
+            reads.is_empty(),
+            "a commented region with a stray quote stays hidden: {reads:?}"
         );
     }
 }

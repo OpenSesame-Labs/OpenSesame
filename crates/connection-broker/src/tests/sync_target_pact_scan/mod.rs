@@ -72,6 +72,7 @@ pub(crate) fn response_body_reads(source: &str) -> Vec<&'static str> {
         || super::sync_target_pact_rename::ufcs_response_move(&scanned)
         || block_into::block_into_read(&scanned)
         || alt_debug::alt_delim_debug_read(&scanned)
+        || upgrade::upgrade_escapes_response(&scanned)
         || debug::response_metadata_reads(&scanned)
     {
         hits.push("::text;");
@@ -143,12 +144,14 @@ fn delegated_body_reader(scanned: &str) -> bool {
         || pattern::has_path_segment(scanned, "response_guard")
 }
 
+mod alias;
 mod alt_debug;
 mod block_into;
 mod debug;
 mod delegated;
 mod pattern;
 mod stream;
+mod upgrade;
 
 pub(super) fn is_ident_char(ch: char) -> bool {
     ch.is_ascii_alphanumeric() || ch == '_'
@@ -304,6 +307,41 @@ mod probes {
         ));
         assert!(!reads("request.json(&format!(\"{:?}\", status))"));
     }
+
+    /// Iterator operations on unrelated receivers are not response-body
+    /// reads: `entries.iter().for_each(...)` anywhere in the scanned file
+    /// leaves the discard contract untouched (Codex PRRT_kwDOTwzAKs65tGUe).
+    #[test]
+    fn codex_thread_iterator_operations_are_not_body_reads() {
+        let misses = [
+            "entries.iter().for_each(|entry| process(entry))",
+            "rows.for_each(|row| process(row))",
+            "entries.iter().try_fold(0, |a, _| Ok::<_, ()>(a))",
+            "StreamExt::for_each(rows, |_| async {})",
+            "TryStreamExt::try_collect(rows)",
+            "entries.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect()",
+            "rows.into_iter().map(SyncTargetView::from).collect()",
+        ];
+        for sample in misses {
+            assert!(
+                !reads(sample),
+                "unrelated iterator operation is not a body read: {sample}"
+            );
+        }
+        let hits = [
+            "response.for_each(|_| async {})",
+            "http_response.for_each(|_| async {})",
+            "body.try_collect()",
+            "TryStreamExt::try_collect(response)",
+            "response.try_next().await?",
+        ];
+        for sample in hits {
+            assert!(
+                reads(sample),
+                "response-rooted chain is a body read: {sample}"
+            );
+        }
+    }
 }
 
 pub(super) fn ident_before(prefix: &str) -> String {
@@ -315,4 +353,17 @@ pub(super) fn ident_before(prefix: &str) -> String {
         .chars()
         .rev()
         .collect()
+}
+#[cfg(test)]
+mod scratch_dbg2 {
+    #[test]
+    fn scratch_emit() {
+        for sample in [
+            "emit!(body = response)",
+            "audit!(body = response)",
+            "emit!(body = status)",
+        ] {
+            eprintln!("{sample} -> {:?}", super::response_body_reads(sample));
+        }
+    }
 }
