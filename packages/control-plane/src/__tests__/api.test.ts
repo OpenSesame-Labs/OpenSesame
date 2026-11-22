@@ -11,7 +11,10 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { resetDeviceApprovalBudgetForTest } from "../routes/device.js";
-import { hostRevocationResponseFor } from "./scim-test-helpers.js";
+import {
+  hostRevocationResponse,
+  hostRevocationResponseFor,
+} from "./scim-test-helpers.js";
 
 interface DeviceApprovalHeaders {
   origin?: string;
@@ -1264,7 +1267,9 @@ describe("control-plane API", () => {
         ),
       ).toHaveLength(2);
       expect(host).toHaveBeenCalledTimes(4);
-      expect(rolesSeenByHost).toEqual(["admin", undefined]);
+      // The durable flow revokes Host sessions before the membership row
+      // changes, so the Host still observes the previous role at each revoke.
+      expect(rolesSeenByHost).toEqual(["member", "admin"]);
       expect(requests.map(({ url }) => new URL(url).pathname)).toEqual([
         "/tenant/api/v1/device/approve",
         "/tenant/api/v1/sessions/revoke",
@@ -1358,12 +1363,9 @@ describe("control-plane API", () => {
         markFirstStarted();
         return firstResponse;
       })
-      .mockImplementation(async () => {
+      .mockImplementation(async (_input, init) => {
         markSecondStarted();
-        return new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { "content-type": "application/json" },
-        });
+        return hostRevocationResponse(init);
       });
     try {
       const failedDemotion = app.request(
@@ -1390,7 +1392,31 @@ describe("control-plane API", () => {
 
       releaseFirst(new Response("down", { status: 503 }));
       expect((await failedDemotion).status).toBe(502);
-      expect((await removal).status).toBe(204);
+      // The failed demotion leaves a pending withdrawal intent that fences a
+      // different mutation fail-closed until the same intent resumes, so the
+      // removal cannot bypass the in-flight withdrawal.
+      const fencedRemoval = await removal;
+      expect(fencedRemoval.status).toBe(409);
+      expect(overlapCast(await fencedRemoval.json())).toEqual(
+        expect.objectContaining({ error: "membership_change_in_progress" }),
+      );
+
+      // Resuming the same demotion completes once the Host attests it, and the
+      // removal then proceeds without resurrecting the removed owner.
+      const resumedDemotion = await app.request(
+        `/v1/organizations/${organization.id}/members/${target.principalId}`,
+        {
+          method: "PATCH",
+          headers: { ...owner.auth, "content-type": "application/json" },
+          body: JSON.stringify({ role: "admin" }),
+        },
+      );
+      expect(resumedDemotion.status).toBe(200);
+      const completedRemoval = await app.request(
+        `/v1/organizations/${organization.id}/members/${target.principalId}`,
+        { method: "DELETE", headers: owner.auth },
+      );
+      expect(completedRemoval.status).toBe(204);
       await secondStarted;
 
       const members = overlapCast(
@@ -1472,13 +1498,10 @@ describe("control-plane API", () => {
           markApprovalStarted();
           return approvalResponse;
         })
-        .mockImplementation(async (input) => {
+        .mockImplementation(async (input, init) => {
           hostUrls.push(String(input));
           markMutationReachedHost();
-          return new Response(JSON.stringify({ ok: true }), {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          });
+          return hostRevocationResponse(init);
         });
       try {
         const approval = app.request("/v1/device/approve", {
