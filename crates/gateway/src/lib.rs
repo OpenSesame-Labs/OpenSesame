@@ -165,6 +165,25 @@ mod pact_coverage {
     }
 
     #[test]
+    fn device_capacity_check_holds_the_write_transaction() {
+        // Pending device codes moved from an in-process map to the Host store.
+        // The capacity count and the insert must share one write transaction,
+        // or concurrent replicas could each pass the check and overfill it.
+        opensesame_host_core::pact::assert_source_order(
+            include_str!("native_device.rs"),
+            &[
+                "pub async fn create(",
+                "begin_with(\"BEGIN IMMEDIATE\")",
+                "SELECT COUNT(*) FROM host_device_codes",
+                "count >= MAX_PENDING_DEVICE_CODES",
+                "INSERT INTO host_device_codes",
+                "tx.commit()",
+                "pub enum Exchange",
+            ],
+        );
+    }
+
+    #[test]
     fn rotation_authorizes_then_loads_connection_then_enqueues() {
         opensesame_host_core::pact::assert_source_order(
             include_str!("routes/rotation.rs"),

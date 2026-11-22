@@ -5,7 +5,7 @@
   "lock_projection": {
     "root": "opensesame-gateway",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "98f06056caa9816465d7abf92a8e76ebf3603d93397eec1953bf3a77fcb06a7f"
+    "sha256": "7f6f04ae5359d6f1321df4d362654d23989a3b51d015afa72a9dfeedf03f622e"
   },
   "sources": [
     {
@@ -242,11 +242,11 @@
     },
     {
       "path": "crates/gateway/src/lib.rs",
-      "sha256": "0e5988eaf0273eda3d1f002a32a671a597e458746dc0ff9514a1e34acdb50dd4"
+      "sha256": "164630f8e2b45e7f7db88ffdf217f6195bd1593a29463143ddf69ea11c34b8be"
     },
     {
       "path": "crates/gateway/src/app_state.rs",
-      "sha256": "05cab6d942fa31d7a812bef83ef026d2abfd1beae05730352739e904348c5911"
+      "sha256": "e76b046b1d95f99a0f791b390f3412dba66a8aeb086d5ebf632de9523a9f7c60"
     },
     {
       "path": "crates/gateway/src/transport/mod.rs",
@@ -314,7 +314,7 @@
     },
     {
       "path": "crates/storage/src/lib.rs",
-      "sha256": "c4f53cb771ca9aba298fc7fc0f3aa074e73fa4a2f65624efa3030e605a6ad47c"
+      "sha256": "08dc4872ca5a500e09ad9d0f86a30793f3f1b10f662cff4ecd71ba530a15a3ba"
     },
     {
       "path": "crates/storage/src/host_kv.rs",
@@ -526,7 +526,7 @@
     },
     {
       "path": "crates/storage/Cargo.toml",
-      "sha256": "06d3cbf04f778cdafb83c3e9a32d563367c0670a62382fe52a2e530375e03621"
+      "sha256": "7982c5fd4c46e25b95a44c98ad1a925870196662729caadb14f0c8fd2a32bfeb"
     },
     {
       "path": "crates/task-access/Cargo.toml",

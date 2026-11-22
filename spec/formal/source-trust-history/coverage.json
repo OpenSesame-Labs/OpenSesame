@@ -5,7 +5,7 @@
   "sources": [
     {
       "path": "apps/cli/src/main.rs",
-      "sha256": "6d6383fe0ef5ff98621cac481a3f36a76702afe6bda7ac8046a48df1d63e08de"
+      "sha256": "7b01c70a2327bee70fc3eb99ecfe49539d1251293c4a51346b533c69b6b9dbfb"
     },
     {
       "path": "apps/cli/src/entry_dispatch.rs",
@@ -149,11 +149,11 @@
     },
     {
       "path": "crates/storage/src/lib.rs",
-      "sha256": "c4f53cb771ca9aba298fc7fc0f3aa074e73fa4a2f65624efa3030e605a6ad47c"
+      "sha256": "08dc4872ca5a500e09ad9d0f86a30793f3f1b10f662cff4ecd71ba530a15a3ba"
     },
     {
       "path": "crates/storage/src/migrations.rs",
-      "sha256": "5427e2a51adcce8b9a30aa755be6667931e522037bcc31f5c4dbb58289d9e17a"
+      "sha256": "e16c2f4e96eff0be28bf6e29b40dce192ed956feb2f21215a261a4da2e45e8fb"
     },
     {
       "path": "crates/storage/src/host_kv.rs",
@@ -181,15 +181,15 @@
     },
     {
       "path": "crates/gateway/src/lib.rs",
-      "sha256": "0e5988eaf0273eda3d1f002a32a671a597e458746dc0ff9514a1e34acdb50dd4"
+      "sha256": "164630f8e2b45e7f7db88ffdf217f6195bd1593a29463143ddf69ea11c34b8be"
     },
     {
       "path": "crates/gateway/src/app_state.rs",
-      "sha256": "05cab6d942fa31d7a812bef83ef026d2abfd1beae05730352739e904348c5911"
+      "sha256": "e76b046b1d95f99a0f791b390f3412dba66a8aeb086d5ebf632de9523a9f7c60"
     },
     {
       "path": "crates/gateway/src/config.rs",
-      "sha256": "7732beba4593fc00e2c7cc5fc38d87d594771c7a98f3de0ad2efa1860d887a47"
+      "sha256": "4753d3757f9733d36ad261a53788c7f1508528ae6545e467cd84787fdbff580d"
     },
     {
       "path": "crates/gateway/src/transport/mod.rs",
@@ -640,6 +640,18 @@
       "sha256": "2fde289c1feda48c8d7b985a3a53b9c1a0f198055843b77abad9a66117f6b1d1"
     },
     {
+      "path": "crates/storage/migrations/0060_host_membership_withdrawals.sql",
+      "sha256": "e36a8e14c6fcd48f0de5498d619b5ab80d3d1ab69aededf3fefcc5158145943f"
+    },
+    {
+      "path": "crates/storage/migrations/0061_host_native_authority.sql",
+      "sha256": "baa5bab0d39e1114c2e543c21938f4589c7e397f10dbb4bf385474664e54b408"
+    },
+    {
+      "path": "crates/storage/migrations/0062_pairing_membership_revision.sql",
+      "sha256": "8c1f25899f9af533f19e48288e031b0458ffa7f091e33f1643b425d2d209d068"
+    },
+    {
       "path": "apps/cli/Cargo.toml",
       "sha256": "07f31d3ed2e5e15f655981601cececde4704982463a169b61e2ffdc86c6b93e7"
     },
@@ -849,7 +861,7 @@
     },
     {
       "path": "crates/storage/Cargo.toml",
-      "sha256": "06d3cbf04f778cdafb83c3e9a32d563367c0670a62382fe52a2e530375e03621"
+      "sha256": "7982c5fd4c46e25b95a44c98ad1a925870196662729caadb14f0c8fd2a32bfeb"
     },
     {
       "path": "crates/tailnet-admin/Cargo.toml",
@@ -1189,7 +1201,7 @@
   "lock_projection": {
     "root": "opensesame-cli",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "5e5bc74adbb1f1aeb4889e55d828a07f165a7c13e4bbc30a58b9ae126dfac97f"
+    "sha256": "1d63e8f981f0947dd9158edae22318e028249a25086dbcf47774400380500a8d"
   },
   "workspace_projection": {
     "root": "opensesame-cli",

@@ -110,6 +110,9 @@ MIGRATIONS = [
     'crates/storage/migrations/0055_agent_hook_approvers.sql', 'crates/storage/migrations/0056_outbox_customer_binding.sql',
     'crates/storage/migrations/0057_est_passphrase_budget.sql', 'crates/storage/migrations/0058_bitwarden_attempt_budgets.sql',
     'crates/storage/migrations/0059_est_source_budgets.sql',
+    'crates/storage/migrations/0060_host_membership_withdrawals.sql',
+    'crates/storage/migrations/0061_host_native_authority.sql',
+    'crates/storage/migrations/0062_pairing_membership_revision.sql',
 ]
 PATHS = [
     'apps/cli/src/main.rs',
@@ -229,7 +232,15 @@ OPTIONAL_PATHS = ["apps/Cargo.toml", "crates/Cargo.toml", *BUILD_PATHS, ".cargo/
 # holds one guarded certificate-issuance transaction: no include_str!, no
 # macro, and no item named after migrations. `mod migrations` and its
 # MIGRATIONS table are unchanged, so the pin moves to the reviewed bytes.
-MIGRATION_ROOT_SHA256 = "c4f53cb771ca9aba298fc7fc0f3aa074e73fa4a2f65624efa3030e605a6ad47c"
+# 2026-11-22 review (session-revocation lineage, #2680): the crate root adds
+# one `pub mod host_membership;` declaration (no `#[path]`, resolves to
+# src/host_membership.rs; it holds Host withdrawal-fence queries, with no
+# include_str!, no macro and no item named after migrations). The migration
+# runner now checks and applies each version inside one BEGIN IMMEDIATE
+# transaction, so concurrent replicas cannot both apply a version. The
+# MIGRATIONS table still comes only from src/migrations.rs; three appended
+# entries (0060-0062) are recorded above, and none touches source-trust tables.
+MIGRATION_ROOT_SHA256 = "08dc4872ca5a500e09ad9d0f86a30793f3f1b10f662cff4ecd71ba530a15a3ba"
 CARGO_TARGETS = {
     'apps/cli/Cargo.toml': {'package': 'opensesame-cli',
         'bin': {'opensesame': 'src/main.rs'},

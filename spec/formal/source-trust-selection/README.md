@@ -204,3 +204,7 @@ change that introduces another source file must add it to the relevant
 implementation mapping before later changes to that file can select this
 proof. Until the shared wiring control is in place, reviewers must inspect
 that closure; refreshing a coverage hash alone does not establish it.
+
+## Review log
+
+2026-11-22 (#2680, session-revocation lineage): `crates/storage/Cargo.toml` adds the test-only `tempfile` dev-dependency. Its only effect on `Cargo.lock` is one dependency edge, which is why the lock projection was re-recorded; it was checked against main's lock. `crates/storage/src/lib.rs` declares `pub mod host_membership` (withdrawal-fence queries) and checks and applies each migration version inside one `BEGIN IMMEDIATE` transaction, so two Host replicas cannot both apply it. `crates/gateway/src/lib.rs` declares `native_authority` and `native_device`. Pending device codes moved from the in-process map to the Host store. The old `device_capacity_check_holds_the_map_lock` pact is replaced by `device_capacity_check_holds_the_write_transaction`: the capacity count and insert in `native_device::create` stay inside one `BEGIN IMMEDIATE` transaction. `device_tests.rs` `authorize_capacity_fence_holds_under_interleaving` still exercises the fence. `app_state.rs` removes the in-memory device-code, approval-failure and session-lifecycle maps (now durable Host tables), adds `client_app_url`, and binds the native authority configuration at startup. Source-trust selection and its admission paths are unchanged.
