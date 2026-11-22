@@ -69,10 +69,11 @@ describe("organization helpers", () => {
     );
   });
 
-  it("revokeOrganizationMembership drops the row and every session it authorized", async () => {
+  it("revokeOrganizationMembership drops the row without a principal-wide logout", async () => {
     // The shared deprovisioning helper: SCIM deactivation and an LDAP sync
-    // both land here, and a revocation that removed the membership but left
-    // live bearers behind would leave the user signed in regardless.
+    // both land here. Identity sessions are principal-wide, so the revocation
+    // removes only this tenant's authority; live membership checks and the
+    // Host revocation fence everything that membership authorized.
     const { app, ctx } = createControlPlane({ config: testConfig() });
     const member = await provisional(app);
     const membership = await ensurePersonalOrganization(
@@ -102,7 +103,7 @@ describe("organization helpers", () => {
       },
     });
     expect(result.membershipRemoved).toBe(true);
-    expect(result.sessionsRevoked).toBeGreaterThan(0);
+    expect(result.sessionsRevoked).toBe(0);
     expect(
       await ctx.stores.organizationWithdrawalAudits.get(
         "00000000-0000-4000-8000-000000000001",
@@ -124,7 +125,7 @@ describe("organization helpers", () => {
     const after = await app.request("/v1/principals/me", {
       headers: auth(member.accessToken),
     });
-    expect(after.status).toBe(401);
+    expect(after.status).toBe(200);
 
     // Directory sync may replay a departure; revocation is idempotent.
     const again = await revokeOrganizationMembership(ctx, {

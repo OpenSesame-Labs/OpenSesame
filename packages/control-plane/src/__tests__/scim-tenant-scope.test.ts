@@ -1,11 +1,12 @@
 import { isString, overlapCast } from "@opensesame/os-domain";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { emailIdentityIssuer } from "../services/better-auth-bridge.js";
 import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
 import {
   type App,
   auth,
+  installHostRevocationMock,
   json,
   mintScimToken,
   patchScim,
@@ -86,6 +87,14 @@ function stillSignedIn(app: App, token: string) {
 }
 
 describe("SCIM tenant scope", () => {
+  let host: ReturnType<typeof installHostRevocationMock>;
+  beforeEach(() => {
+    host = installHostRevocationMock();
+  });
+  afterEach(() => {
+    host.mockRestore();
+  });
+
   it.each([
     [DEPLOYMENT_ISSUER],
     [`${DEPLOYMENT_ISSUER}/`],
@@ -155,9 +164,10 @@ describe("SCIM tenant scope", () => {
       expect(deactivated.status).toBe(200);
     }
 
-    // The stranger is untouched; the member is gone, session and all.
+    // The stranger is untouched; the member's tenant authority is gone while
+    // the principal-wide Identity session remains valid for unrelated work.
     expect(await stillSignedIn(app, stranger.token)).toBe(200);
-    expect(await stillSignedIn(app, member.token)).toBe(401);
+    expect(await stillSignedIn(app, member.token)).toBe(200);
     expect(
       await ctx.stores.organizationMemberships.find(orgId, member.principalId),
     ).toBeUndefined();
