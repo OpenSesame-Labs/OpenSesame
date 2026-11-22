@@ -4,12 +4,13 @@
 //! ends. A `let` inside a block does not kill the outer alias after the block,
 //! and neither does a conditional reassignment: `dispatch = other_fn` inside an
 //! `if` / `match` / `loop` arm only hides calls in that arm, because
-//! `Path::send` is still the live value outside it. The establishing `let`
-//! does not shadow its own call, and a comment cannot fake a rebind —
-//! including the alias name inside a `let (` pattern. A field write
-//! (`self.dispatch = …`, `obj.dispatch = …`) is not a rebinding either: the
-//! byte before the ident is `.`, `:`, or another ident byte, so the alias
-//! stays live through it.
+//! `Path::send` is still the live value outside it — including a braceless
+//! `0 => dispatch = other_fn,` arm, whose rebind ends at the arm's `,` and
+//! never reaches a sibling arm's call. The establishing `let` does not shadow
+//! its own call, and a comment cannot fake a rebind — including the alias name
+//! inside a `let (` pattern. A field write (`self.dispatch = …`,
+//! `obj.dispatch = …`) is not a rebinding either: the byte before the ident is
+//! `.`, `:`, or another ident byte, so the alias stays live through it.
 
 use super::super::super::sync_target_pact_norm::{is_keyword_at, non_code_len, skip_until_semi};
 use super::{path_prefix_start, statement_tail, value_eq, DispatchAlias};
@@ -24,11 +25,20 @@ pub(super) fn alias_shadowed(source: &str, alias: &DispatchAlias, call: usize) -
         index = skip_until_semi(bytes, index);
     }
     let mut depth = 0i32;
-    // Depths of `let` shadows and reassignments still in scope. Both stick
-    // only inside the block that introduced them, and both target the alias
-    // itself, not a block-local shadow.
-    let mut let_depths: Vec<i32> = Vec::new();
-    let mut assigned_depths: Vec<i32> = Vec::new();
+    // Bracket nesting, so a `,` inside `(…)` / `[…]` at arm depth is not read
+    // as an arm separator.
+    let mut nesting = 0i32;
+    // Body depths of the open match arms. A rebind inside a braceless arm is
+    // tagged with its arm's depth and ends at that arm's `,` (or at the
+    // match's closing `}` for the last arm), because the arms are
+    // alternatives: outside its arm the rebind never ran.
+    let mut arm_depths: Vec<i32> = Vec::new();
+    // `(depth, arm)` of `let` shadows and reassignments still in scope. The
+    // block depth sticks only inside the block that introduced them; an arm
+    // tag additionally bounds a braceless-arm rebind to that arm. Both target
+    // the alias itself, not a block-local shadow.
+    let mut let_depths: Vec<(i32, Option<i32>)> = Vec::new();
+    let mut assigned_depths: Vec<(i32, Option<i32>)> = Vec::new();
     while index < call {
         if let Some(len) = non_code_len(bytes, index) {
             index += len;
@@ -37,19 +47,31 @@ pub(super) fn alias_shadowed(source: &str, alias: &DispatchAlias, call: usize) -
         match bytes[index] {
             b'{' => depth += 1,
             b'}' if depth > 0 => {
+                if let Some(arm) = arm_depths.pop_if(|arm| *arm == depth) {
+                    expire_arm(&mut let_depths, &mut assigned_depths, arm);
+                }
                 depth -= 1;
-                while let_depths.last().is_some_and(|live| *live > depth) {
+                while let_depths.last().is_some_and(|live| live.0 > depth) {
                     let_depths.pop();
                 }
-                while assigned_depths.last().is_some_and(|live| *live > depth) {
+                while assigned_depths.last().is_some_and(|live| live.0 > depth) {
                     assigned_depths.pop();
                 }
             }
+            b'(' | b'[' => nesting += 1,
+            b')' | b']' if nesting > 0 => nesting -= 1,
+            b',' if nesting == 0 => {
+                if let Some(arm) = arm_depths.pop_if(|arm| *arm == depth) {
+                    expire_arm(&mut let_depths, &mut assigned_depths, arm);
+                }
+            }
+            b'=' if bytes.get(index + 1) == Some(&b'>') => arm_depths.push(depth),
             _ if rebind_at(source, bytes, index, &alias.name) => {
+                let arm = arm_depths.last().copied();
                 if is_keyword_at(bytes, index, b"let") {
-                    let_depths.push(depth);
+                    let_depths.push((depth, arm));
                 } else if let_depths.is_empty() {
-                    assigned_depths.push(depth);
+                    assigned_depths.push((depth, arm));
                 }
             }
             _ => {}
@@ -57,6 +79,17 @@ pub(super) fn alias_shadowed(source: &str, alias: &DispatchAlias, call: usize) -
         index += 1;
     }
     !let_depths.is_empty() || !assigned_depths.is_empty()
+}
+
+/// Drop rebinds tagged to the match arm that just ended. Rebinds in a sibling
+/// arm never executed when that arm runs, so they cannot shadow its calls.
+fn expire_arm(
+    let_depths: &mut Vec<(i32, Option<i32>)>,
+    assigned_depths: &mut Vec<(i32, Option<i32>)>,
+    arm: i32,
+) {
+    let_depths.retain(|live| live.1 != Some(arm));
+    assigned_depths.retain(|live| live.1 != Some(arm));
 }
 
 /// `let name = …::send` introduces the alias. A `let` inside that initializer
@@ -282,6 +315,51 @@ mod probes {
             "{gaps}"
         );
         let bare = r#"async fn f() { let dispatch = reqwest::RequestBuilder::send; obj.dispatch = other_fn; dispatch(request).await?; }"#;
+        assert_eq!(
+            crate::tests::sync_target_pact_https::credentialed_send_https_gaps(bare),
+            (1, 1),
+            "{bare}"
+        );
+    }
+
+    /// GLM council chunk01b (PR #2733): a rebind in one match arm must not
+    /// shadow an alias call in a sibling arm. Arms are alternatives — when
+    /// the `_` arm runs, `Path::send` is still the live value — so the call
+    /// stays visible to the https-gap scan instead of being dropped
+    /// fail-open. A rebind still hides a call inside its own arm.
+    #[test]
+    fn glm_council_chunk01b_braceless_arm_rebind_does_not_shadow_sibling_arm_call() {
+        let live = [
+            "fn f() { let dispatch = Path::send; match x { 0 => dispatch = other_fn, _ => dispatch(request) } }",
+            "fn f() { let dispatch = Path::send; match x { 0 => dispatch = other_fn, _ => dispatch(request), } }",
+            "fn f() { let dispatch = Path::send; match x { 0 => dispatch = other_fn, _ => { dispatch(request) } } }",
+            "fn f() { let dispatch = Path::send; match x { 0 => { dispatch = other_fn }, _ => dispatch(request) } }",
+            "fn f() { let dispatch = Path::send; match x { 0 => match y { 1 => dispatch = other_fn, _ => () }, _ => dispatch(request) } }",
+            "fn f() { let dispatch = Path::send; match x { 0 => dispatch = other_fn, _ => dispatch = other_fn, } dispatch(request); }",
+        ];
+        for sample in live {
+            assert_eq!(
+                dispatch_alias_calls(sample).len(),
+                1,
+                "a sibling-arm rebind must not hide the call: {sample}"
+            );
+        }
+        let dead = [
+            "fn f() { let dispatch = Path::send; match x { _ => { dispatch = other_fn; dispatch(request); } } }",
+        ];
+        for sample in dead {
+            assert!(
+                dispatch_alias_calls(sample).is_empty(),
+                "a rebind still hides a call in its own arm: {sample}"
+            );
+        }
+        let gaps = r#"async fn f() { let dispatch = reqwest::RequestBuilder::send; if parsed.scheme() != "https" { return Err("x".into()); } match x { 0 => dispatch = other_fn, _ => dispatch(request).await? } }"#;
+        assert_eq!(
+            crate::tests::sync_target_pact_https::credentialed_send_https_gaps(gaps),
+            (1, 0),
+            "{gaps}"
+        );
+        let bare = r#"async fn f() { let dispatch = reqwest::RequestBuilder::send; match x { 0 => dispatch = other_fn, _ => dispatch(request).await? } }"#;
         assert_eq!(
             crate::tests::sync_target_pact_https::credentialed_send_https_gaps(bare),
             (1, 1),
