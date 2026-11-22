@@ -151,7 +151,8 @@ function emit(value: BoundaryValue): string {
     return JSON.stringify(value);
   }
   if (Array.isArray(value)) {
-    return `[${value.map((entry) => emit(entry)).join(",")}]`;
+    // `Array.from` visits every index, so holes emit `null` as in JSON.stringify.
+    return `[${Array.from(value, (entry) => emit(entry)).join(",")}]`;
   }
   if (isJsonObject(value)) {
     const candidate: Jsonable = overlapCast(value);

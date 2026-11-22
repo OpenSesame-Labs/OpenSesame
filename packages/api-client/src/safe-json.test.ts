@@ -34,6 +34,16 @@ describe("lossless JSON integers", () => {
     expect(stringifyLosslessJson(value)).toBe(JSON.stringify(value));
   });
 
+  it("writes sparse array holes as null, as JSON.stringify does", () => {
+    const mixed = [1];
+    mixed[2] = 3; // leaves index 1 a hole
+    const value = { items: new Array(2), one: new Array(1), mixed };
+    expect(stringifyLosslessJson(value)).toBe(JSON.stringify(value));
+    expect(stringifyLosslessJson(value)).toBe(
+      '{"items":[null,null],"one":[null],"mixed":[1,null,3]}',
+    );
+  });
+
   it("writes and reads marker-shaped strings exactly as plain JSON does", () => {
     const strings = [
       "__opensesame_lossless_int__",
