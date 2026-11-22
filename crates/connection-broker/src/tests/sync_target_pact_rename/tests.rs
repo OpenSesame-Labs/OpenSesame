@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod tests {
     use crate::tests::sync_target_pact_chain::{dispatch_alias_calls, response_chain_consumer};
+    use crate::tests::sync_target_pact_scan::response_body_reads;
 
     #[test]
     fn typed_dispatch_aliases_register() {
@@ -24,7 +25,6 @@ mod tests {
 
     #[test]
     fn p5_rename_forms_are_body_reads() {
-        use crate::tests::sync_target_pact_scan::response_body_reads;
         let hits = [
             "fn steal(mut reply: reqwest::Response) { reply.into() }",
             "fn steal(mut reply: &mut reqwest::Response) { reply.into() }",
@@ -70,6 +70,31 @@ mod tests {
             assert!(
                 response_body_reads(sample).is_empty(),
                 "unrelated rename is not a body read: {sample}"
+            );
+        }
+    }
+
+    #[test]
+    fn r4_sqlx_inside_a_string_does_not_hide_the_execute_send() {
+        let hits = [
+            "let reply = client.execute(request).expect(\"sqlx:: pool\"); reply.into()",
+            "let reply = client.execute(\"https://sqlx::invalid\"); reply.into()",
+            "let reply = xsqlx::Client::execute(request); reply.into()",
+        ];
+        for sample in hits {
+            assert!(
+                !response_body_reads(sample).is_empty(),
+                "sqlx:: in a string or a longer ident is not SQLx: {sample}"
+            );
+        }
+        let misses = [
+            "let reply = sqlx::query(\"select 1\").execute(&pool); reply.into()",
+            "let reply = sqlx::Pool::execute(&pool, query); reply.into()",
+        ];
+        for sample in misses {
+            assert!(
+                response_body_reads(sample).is_empty(),
+                "a real sqlx:: code path excludes the execute: {sample}"
             );
         }
     }

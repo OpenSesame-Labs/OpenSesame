@@ -6,6 +6,10 @@ use super::marker::is_ident_char;
 pub(super) fn receiver_before(source: &str, dot: usize) -> String {
     let mut prefix = source[..dot].trim_end();
     for _ in 0..8 {
+        if let Some(tail) = block_tail_receiver(prefix) {
+            prefix = tail;
+            continue;
+        }
         if !prefix.ends_with(')') {
             break;
         }
@@ -33,6 +37,18 @@ pub(super) fn receiver_before(source: &str, dot: usize) -> String {
         prefix = inner;
     }
     trailing_ident(prefix).unwrap_or_default()
+}
+
+/// `{response}.into()` — the block's tail expression is the receiver.
+/// Statements before the last depth-0 `;` are not the value, and a nested
+/// block peels again on the next pass.
+fn block_tail_receiver(prefix: &str) -> Option<&str> {
+    if !prefix.ends_with('}') {
+        return None;
+    }
+    let open = matching_brace_open(prefix, prefix.len() - 1)?;
+    let tail = stmt_tail(&prefix[open + 1..prefix.len() - 1]);
+    (!tail.is_empty()).then_some(tail)
 }
 
 fn method_receiver(prev: &str) -> Option<&str> {
@@ -221,6 +237,34 @@ pub(super) fn matching_open(source: &str, close: usize) -> Option<usize> {
     None
 }
 
+/// `{` that pairs with the `}` at `close`, not an inner block's open.
+fn matching_brace_open(source: &str, close: usize) -> Option<usize> {
+    let bytes = source.as_bytes();
+    if bytes.get(close) != Some(&b'}') {
+        return None;
+    }
+    let mut stack = Vec::new();
+    let mut index = 0usize;
+    while index <= close {
+        if let Some(len) = string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'{' => stack.push(index),
+            b'}' => {
+                let open = stack.pop()?;
+                if index == close {
+                    return Some(open);
+                }
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    None
+}
+
 #[cfg(test)]
 mod probes {
     use crate::tests::sync_target_pact_scan::response_body_reads;
@@ -280,6 +324,45 @@ mod probes {
             assert!(
                 !reads(sample),
                 "unrelated unsafe tail is not a body read: {sample}"
+            );
+        }
+    }
+
+    #[test]
+    fn council_r4_receiver_before_peels_block_tails() {
+        for (source, want) in [
+            ("{response}.into()", "response"),
+            ("{{ response }}.into()", "response"),
+            ("{ let tmp = { 1 }; response }.into()", "response"),
+            ("{ let s = \"}\"; response }.into()", "response"),
+            ("{response}.clone().into()", "response"),
+            ("{status}.into()", "status"),
+            ("{ let tmp = { response }; status }.into()", "status"),
+        ] {
+            let dot = source.find(".into").unwrap();
+            assert_eq!(super::receiver_before(source, dot), want, "{source}");
+        }
+    }
+
+    #[test]
+    fn council_r4_block_receiver_into_and_try_into_are_body_reads() {
+        let hits = [
+            "{response}.try_into()",
+            "{response}.clone().into()",
+            "{response}.clone().try_into()",
+            "let reply = response; {reply}.try_into()",
+        ];
+        for sample in hits {
+            assert!(
+                reads(sample),
+                "block receiver must move the response: {sample}"
+            );
+        }
+        let misses = ["{status}.try_into()", "{status}.clone().into()"];
+        for sample in misses {
+            assert!(
+                !reads(sample),
+                "unrelated block receiver is not a body read: {sample}"
             );
         }
     }
