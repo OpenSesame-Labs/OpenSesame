@@ -133,7 +133,18 @@ pub(crate) fn response_reader_aliases(source: &str) -> (Vec<String>, Vec<String>
 
 fn walk_use_tree(tree: &str, prefix: &str, calls: &mut Vec<String>, modules: &mut Vec<String>) {
     let tree = tree.trim();
-    if tree.is_empty() || tree == "*" {
+    if tree.is_empty() {
+        return;
+    }
+    if let Some(base) = tree.strip_suffix("::*") {
+        walk_use_tree("*", base, calls, modules);
+        return;
+    }
+    if tree == "*" {
+        if prefix.split("::").any(|seg| seg == "response_guard") {
+            calls.push("read_bounded_body".to_string());
+            calls.push("safe_oauth_error_detail".to_string());
+        }
         return;
     }
     if let Some((base, inner)) = split_use_group(tree) {
@@ -284,6 +295,8 @@ mod probes {
             "use crate::response_guard::safe_oauth_error_detail;\nsafe_oauth_error_detail(&err)",
             "use crate::response_guard::{safe_oauth_error_detail};\nsafe_oauth_error_detail(&err)",
             "use crate::response_guard::safe_oauth_error_detail as detail;\ndetail(&err)",
+            "use crate::response_guard::*;\nsafe_oauth_error_detail(&err)",
+            "use response_guard::{*};\nsafe_oauth_error_detail(&err)",
         ] {
             assert!(reads(sample), "{sample}");
         }
@@ -291,5 +304,6 @@ mod probes {
         assert!(!reads(
             "use foo::safe_oauth_error_detail; safe_oauth_error_detail(&err)"
         ));
+        assert!(!reads("use foo::*;\nsafe_oauth_error_detail(&err)"));
     }
 }
