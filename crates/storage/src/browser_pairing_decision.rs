@@ -13,8 +13,13 @@ pub async fn decide_browser_pairing_in_transaction(
 ) -> anyhow::Result<Option<String>> {
     let capabilities = sqlx::query_scalar(
         "UPDATE browser_pairings SET state=?,principal_id=?,organization_id=?,approved_at=?,
-        identity_required=EXISTS(SELECT 1 FROM host_membership_withdrawals w
-            WHERE w.principal_id=? AND w.organization_id=?)
+        membership_incarnation=(SELECT membership_incarnation FROM host_membership_current
+            WHERE principal_id=? AND organization_id=?),
+        authority_revision=(SELECT authority_revision FROM host_membership_current
+            WHERE principal_id=? AND organization_id=?),
+        identity_required=(EXISTS(SELECT 1 FROM host_membership_withdrawals w
+            WHERE w.principal_id=? AND w.organization_id=?) OR EXISTS(
+            SELECT 1 FROM host_membership_current c WHERE c.principal_id=? AND c.organization_id=?))
         WHERE user_code_digest=? AND state='pending' AND expires_at>?
         RETURNING capabilities_json",
     )
@@ -22,6 +27,12 @@ pub async fn decide_browser_pairing_in_transaction(
     .bind(principal)
     .bind(org)
     .bind(now)
+    .bind(principal)
+    .bind(org)
+    .bind(principal)
+    .bind(org)
+    .bind(principal)
+    .bind(org)
     .bind(principal)
     .bind(org)
     .bind(code_digest)
