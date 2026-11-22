@@ -69,7 +69,7 @@ export const TRUSTED_CONTACTS_GOALS: readonly GuideGoalDescriptor[] = [
     guide: [
       "guide/1",
       'goal "settings.trusted-contacts.owner"',
-      'say "Create a circle, invite trusted contacts and choose how many approvals are required."',
+      'say "Create a circle, invite trusted contacts, exchange packets directly and choose how many approvals are required."',
       'navigate "/settings/security"',
       'wait route "/settings/security" timeout=15000',
       'focus "settings.trusted-contacts-circles" "Open a circle to manage contacts, request approval or retire it." side=top',
