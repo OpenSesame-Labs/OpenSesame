@@ -46,6 +46,7 @@ pub struct ApprovedDevice {
     pub principal: String,
     pub organization_id: OrganizationId,
     pub organization_role: OrganizationRole,
+    pub membership_revision: Option<crate::session_claims::MembershipRevision>,
 }
 
 #[derive(Clone)]
@@ -79,7 +80,7 @@ pub struct AppState {
     /// Pending GitHub App Manifest handshakes (state → org + `return_to`).
     pub github_app_pending: Arc<Mutex<HashMap<String, GithubAppPending>>>,
     /// Serializes device-token minting with principal/org session revocation.
-    pub session_lifecycle: Arc<Mutex<()>>,
+    pub session_lifecycle: Arc<tokio::sync::Mutex<()>>,
     /// Timestamps of failed `user_code` approval guesses (global cooldown fence).
     pub device_approve_failures: Arc<Mutex<Vec<opensesame_time::DateTime<opensesame_time::Utc>>>>,
     pub claims: Arc<Mutex<HashMap<String, ClaimSession>>>,
@@ -231,7 +232,7 @@ async fn build_with_security(
         session_channels: Arc::new(Mutex::new(HashMap::new())),
         device_codes: Arc::new(Mutex::new(HashMap::new())),
         github_app_pending: Arc::new(Mutex::new(HashMap::new())),
-        session_lifecycle: Arc::new(Mutex::new(())),
+        session_lifecycle: Arc::new(tokio::sync::Mutex::new(())),
         device_approve_failures: Arc::new(Mutex::new(Vec::new())),
         claims: Arc::new(Mutex::new(HashMap::new())),
         public_enrollment: Arc::new(Mutex::new(

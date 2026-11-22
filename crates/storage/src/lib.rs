@@ -917,9 +917,9 @@ pub mod agent_hook_records;
 pub mod bitwarden;
 pub mod callback_replay;
 pub mod host_authorizations;
+pub mod host_membership;
 mod migrations;
 use migrations::MIGRATIONS;
-
 /// Embedded migration versions in the order they are applied.
 ///
 /// Exposed so contract tests can pin the append-only ordering without reaching
