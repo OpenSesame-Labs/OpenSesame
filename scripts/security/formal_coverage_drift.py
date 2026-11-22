@@ -2,17 +2,40 @@
 from __future__ import annotations
 
 from hashlib import sha256
+import os
 from pathlib import Path
 import re
 import subprocess
 
 
+def lineage_git_root(root: Path) -> Path:
+    """Resolve the checkout whose git metadata answers lineage checks.
+
+    Archived negative-control scratch trees carry no `.git`; the harness
+    exports OPENSESAME_FORMAL_GIT_ROOT so reviewed_revision lineage still
+    resolves against the owning repository. A root with its own `.git` always
+    wins, so the override can never redirect lineage for a real checkout.
+    """
+    if (root / ".git").exists():
+        return root
+    override = os.environ.get("OPENSESAME_FORMAL_GIT_ROOT")
+    if override is not None:
+        candidate = Path(override)
+        if not (candidate / ".git").exists():
+            raise SystemExit(
+                "formal coverage drift: OPENSESAME_FORMAL_GIT_ROOT does not name a git checkout"
+            )
+        return candidate
+    return root
+
+
 def assert_reviewed_revision_on_main(root: Path, revision: str, label: str) -> None:
     if not re.fullmatch(r"[0-9a-f]{40}", revision):
         raise SystemExit(f"{label}: invalid reviewed_revision")
+    git_root = lineage_git_root(root)
     try:
         subprocess.run(
-            ["git", "-C", str(root), "cat-file", "-e", f"{revision}^{{commit}}"],
+            ["git", "-C", str(git_root), "cat-file", "-e", f"{revision}^{{commit}}"],
             check=True,
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -20,13 +43,13 @@ def assert_reviewed_revision_on_main(root: Path, revision: str, label: str) -> N
     except subprocess.CalledProcessError as exc:
         raise SystemExit(f"{label}: unknown reviewed revision {revision}") from exc
     main = (
-        subprocess.check_output(["git", "-C", str(root), "rev-parse", "origin/main"])
+        subprocess.check_output(["git", "-C", str(git_root), "rev-parse", "origin/main"])
         .decode()
         .strip()
     )
     if (
         subprocess.run(
-            ["git", "-C", str(root), "merge-base", "--is-ancestor", revision, main],
+            ["git", "-C", str(git_root), "merge-base", "--is-ancestor", revision, main],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         ).returncode

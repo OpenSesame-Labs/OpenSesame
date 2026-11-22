@@ -321,7 +321,7 @@
     },
     {
       "path": "scripts/security/formal-cargo-freshness.py",
-      "sha256": "246565be88eb0c64a17a8c2551906c06698d07a0df76b69aea7f27e7aa63bf5c"
+      "sha256": "dddc45d402e6a9dc9c840041c8509f4788147da714d3d2132ddf2932af7d21e8"
     },
     {
       "path": "scripts/security/cargo-lock-projection.py",
@@ -330,6 +330,10 @@
     {
       "path": "scripts/security/cargo-workspace-projection.py",
       "sha256": "193a29a0477d486b4e21edb38ee656cec9450d272fde1850e9e14026a4b8d09a"
+    },
+    {
+      "path": "scripts/security/formal_coverage_drift.py",
+      "sha256": "c09d32016b00e4462653d562ab5c36daec17416141d533f774ef1ff73fea4ac6"
     }
   ],
   "lock_projection": {
