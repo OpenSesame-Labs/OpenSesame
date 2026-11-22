@@ -28,9 +28,10 @@ const SEAL_DECISION = `focus "unlock.seal-actions" "${FIRST_VAULT_SEAL_INSTRUCTI
  * person is about to open. The road is read where the guide is composed,
  * the way the gate goals read `vault.key-enrolled`: a guide is a fixed
  * program, so the fork is chosen before the first step is drawn, never
- * mid-walk.
+ * mid-walk. The passkey gate's creating walk reuses this road verbatim, so
+ * a passkey browser is never asked to wait for the PIN entry there either.
  */
-function sealRoadSteps(): readonly string[] {
+export function firstVaultSealRoadSteps(): readonly string[] {
   const passkey =
     isKnownGuidePredicate("vault.seal-passkey") &&
     readGuidePredicate("vault.seal-passkey");
@@ -58,7 +59,7 @@ export function firstVaultGateGuide(): string {
     'wait target "setup.default" event=activate timeout=60000',
     ...ROAD_TO_SEAL,
     SEAL_DECISION,
-    ...sealRoadSteps(),
+    ...firstVaultSealRoadSteps(),
     "end",
   ].join("\n");
 }
@@ -73,7 +74,7 @@ export function firstVaultSignInGuide(): string {
     'goal "gate.front-door"',
     ...ROAD_TO_SEAL,
     SEAL_DECISION,
-    ...sealRoadSteps(),
+    ...firstVaultSealRoadSteps(),
     "end",
   ].join("\n");
 }
