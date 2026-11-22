@@ -4,8 +4,8 @@ use crate::{
     middleware::auth::same_principal_subject,
     session_claims::HostSessionClaims,
 };
-use opensesame_time::Utc;
 use opensesame_claims::{hash_eq, hash_low_entropy, hash_secret};
+use opensesame_time::Utc;
 use sqlx::Row;
 
 const MAX_PENDING_DEVICE_CODES: i64 = 512;
@@ -136,4 +136,26 @@ pub async fn exchange(st: &AppState, digest: &str, client_id: &str) -> anyhow::R
         .await?;
     tx.commit().await?;
     Ok(Exchange::Granted { session_id, claims })
+}
+
+#[cfg(test)]
+mod tests {
+    /// Pending device codes moved from an in-process map to the Host store. The
+    /// capacity count and the insert must share one write transaction, or
+    /// concurrent replicas could each pass the check and overfill the store.
+    #[test]
+    fn device_capacity_check_holds_the_write_transaction() {
+        opensesame_host_core::pact::assert_source_order(
+            include_str!("native_device.rs"),
+            &[
+                "pub async fn create(",
+                "begin_with(\"BEGIN IMMEDIATE\")",
+                "SELECT COUNT(*) FROM host_device_codes",
+                "count >= MAX_PENDING_DEVICE_CODES",
+                "INSERT INTO host_device_codes",
+                "tx.commit()",
+                "pub enum Exchange",
+            ],
+        );
+    }
 }

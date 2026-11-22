@@ -181,7 +181,7 @@
     },
     {
       "path": "crates/gateway/src/lib.rs",
-      "sha256": "164630f8e2b45e7f7db88ffdf217f6195bd1593a29463143ddf69ea11c34b8be"
+      "sha256": "c579b81b75de6f9f7142247af07df116f9df6757044b9abf6e044dd97f878cd0"
     },
     {
       "path": "crates/gateway/src/app_state.rs",

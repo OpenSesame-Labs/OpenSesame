@@ -256,8 +256,8 @@
     },
     {
       "path": "crates/gateway/src/lib.rs",
-      "sha256": "164630f8e2b45e7f7db88ffdf217f6195bd1593a29463143ddf69ea11c34b8be",
-      "reviewed_blob": "6a9c19954395dd2093ee2025750fdc99b62ec576",
+      "sha256": "c579b81b75de6f9f7142247af07df116f9df6757044b9abf6e044dd97f878cd0",
+      "reviewed_blob": "d9fce70a5dca9dc150c30b16261757499d43c093",
       "base_blob": "5039a9251a27c9b9f56183bb9e67e61da7f50786"
     },
     {
