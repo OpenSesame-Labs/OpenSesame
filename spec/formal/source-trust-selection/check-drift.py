@@ -148,6 +148,7 @@ PATHS = [
     "scripts/security/cargo-workspace-multipackage.py",
     "scripts/security/formal-cargo-isolation.py",
     "scripts/security/formal-cargo-freshness.py",
+    "scripts/security/formal_cargo_packages.py",
 ]
 PATHS.extend(path for path in MANIFESTS if path not in PATHS)
 BUILD_PATHS = [str(Path(path).with_name("build.rs")) for path in MANIFESTS]
@@ -233,6 +234,7 @@ NATS_PATHS = [
     "scripts/security/cargo-workspace-multipackage.py",
     "scripts/security/formal-cargo-isolation.py",
     "scripts/security/formal-cargo-freshness.py",
+    "scripts/security/formal_cargo_packages.py",
     "spec/formal/source-trust-selection/test_drift.py",
 ]
 NATS_BUILD_PATHS = [str(Path(path).with_name("build.rs")) for path in NATS_MANIFESTS]

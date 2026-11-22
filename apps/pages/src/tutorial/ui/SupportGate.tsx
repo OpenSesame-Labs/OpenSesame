@@ -12,8 +12,22 @@
  * Nothing is written to storage; the transcript is memory, as everywhere.
  */
 
+import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import {
+  FIRST_VAULT_DOOR_STEPS,
+  FIRST_VAULT_GATE_WALK_STEPS,
+  FIRST_VAULT_SIGN_IN_PASSKEY_STEPS,
+  FIRST_VAULT_SIGN_IN_PIN_STEPS,
+} from "@opensesame/app-core/tutorial/registry/first-vault-guide.js";
+import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
 import { type ReactElement, useEffect, useState } from "react";
 import { type SupportHost, loadBrowserEngine } from "../engine.js";
+import {
+  clearFirstVaultSignInHandoff,
+  continueFirstVaultGuide,
+  preserveFirstVaultGate,
+  useFirstVaultGateHandoff,
+} from "../first-vault-handoff.js";
 import { useGateRoute } from "../gate-seat.js";
 import { createSupportController, supportSessionSeams } from "../session.js";
 import { SupportContext } from "../support-context.js";
@@ -26,6 +40,46 @@ export const supportGateSeams = {
 
 /** The route a gate reports until its screen has said which one it is. */
 const GATE_ROUTE = "/unlock";
+const FIRST_VAULT_SEAL_TARGETS = new Set([
+  "unlock.methods",
+  "unlock.submit",
+  "unlock.seal-actions",
+  "unlock.seal-pin-entry",
+  "unlock.seal-pin-confirm",
+  "unlock.seal-ack",
+  "unlock.seal",
+]);
+
+/** Keep the handoff armed only inside the live sealing sequence. */
+export function firstVaultSealingState(
+  armed: boolean,
+  guide: GuideRuntimeSnapshot | null,
+  unlocked: boolean,
+): boolean {
+  if (guide?.goal !== "gate.front-door") return false;
+  if (unlocked) return armed;
+  if (guide.status === "done") return false;
+  const target = guide.tour?.target;
+  if (target != null) return FIRST_VAULT_SEAL_TARGETS.has(target);
+  return armed && guide.status === "waiting";
+}
+
+/** Gate setup owns two steps before the replacement sign-in controller. */
+export function firstVaultDisplayedGateStep(
+  guide: GuideRuntimeSnapshot | null,
+): number {
+  const tour = guide?.tour;
+  if (!tour) return 0;
+  // The sign-in continuation is six steps on the PIN road and two where the
+  // passkey seals in one ceremony; both resume after the door's two.
+  return (
+    tour.step +
+    (tour.count === FIRST_VAULT_SIGN_IN_PIN_STEPS ||
+    tour.count === FIRST_VAULT_SIGN_IN_PASSKEY_STEPS
+      ? FIRST_VAULT_DOOR_STEPS
+      : 0)
+  );
+}
 
 export function SupportGate(): ReactElement {
   const route = useGateRoute();
@@ -41,7 +95,42 @@ export function SupportGate(): ReactElement {
     }),
   );
 
-  useEffect(() => () => controller.destroy(), [controller]);
+  useEffect(
+    () => () =>
+      preserveFirstVaultGate(
+        controller,
+        vaultStore.getSnapshot().status === "unlocked",
+      ),
+    [controller],
+  );
+  useFirstVaultGateHandoff(controller, route);
+
+  useEffect(() => {
+    let sealing = false;
+    let sealingStep = 0;
+    const check = () => {
+      const guide = controller.view().guide;
+      const unlocked = vaultStore.getSnapshot().status === "unlocked";
+      sealing = firstVaultSealingState(sealing, guide, unlocked);
+      if (sealing) sealingStep = firstVaultDisplayedGateStep(guide);
+      if (unlocked) {
+        // The vault opened: no sign-in continuation is owed any more, and
+        // the shell continuation below is the only handoff still armed.
+        clearFirstVaultSignInHandoff();
+        if (sealing && guide?.goal === "gate.front-door") {
+          sealing = false;
+          continueFirstVaultGuide(sealingStep || FIRST_VAULT_GATE_WALK_STEPS);
+        }
+      }
+    };
+    const stopGuide = controller.subscribe(check);
+    const stopVault = vaultStore.subscribe(check);
+    check();
+    return () => {
+      stopGuide();
+      stopVault();
+    };
+  }, [controller]);
 
   // Subscribed here rather than at construction, like the shell's provider, so
   // React discarding a controller in StrictMode leaves no handler behind.

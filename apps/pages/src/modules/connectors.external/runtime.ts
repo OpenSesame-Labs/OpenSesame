@@ -35,16 +35,16 @@ import {
   resetConnectRoadSeams,
 } from "@opensesame/app-core/lib/connect-roads.js";
 import { DIRECTORY_KEY } from "@opensesame/app-core/lib/connector-directory.js";
+import type { FeatureRequest } from "@opensesame/app-core/lib/feature-request.js";
 import {
   performSavedConnector,
   registerCategorySend,
 } from "@opensesame/app-core/lib/feature-request-send.js";
-import type { FeatureRequest } from "@opensesame/app-core/lib/feature-request.js";
 
 import { FIRST_RUN_KEY } from "@opensesame/app-core/lib/identity-graph.js";
+import { usesConnect } from "@opensesame/app-core/lib/vercel-connect.js";
 import { hasConnectRoute } from "@opensesame/app-core/lib/vercel-connect-catalog.js";
 import { disarmVercelConnectAuth } from "@opensesame/app-core/lib/vercel-connect-session.js";
-import { usesConnect } from "@opensesame/app-core/lib/vercel-connect.js";
 import {
   CONNECTIONS_ROUTES,
   CONNECTIONS_TARGETS,
@@ -86,10 +86,10 @@ export const HYDRATE_KEYS: readonly string[] = [DIRECTORY_KEY, FIRST_RUN_KEY];
 
 /**
  * Authored beside the registry (`connections-catalog.ts`, `-goals.ts`):
- * the Connections targets and route, plus the settings ceremonies that live
- * on connector pages (`settings.backup`, `settings.model-provider`).
- * `backup.git-remote` depends on this capability, so `settings.backup` is
- * declared whenever its category link can mount. `CONNECTIONS_HELP` has no contribution kind yet.
+ * the Connections targets and routes. The `settings.backup` goal lives in
+ * `-goals.ts` but focuses `integration.backups`, the target the Integrations
+ * settings surface declares — nothing here mounts a `settings.backup`
+ * element. `CONNECTIONS_HELP` has no contribution kind yet.
  */
 export const TUTORIAL = {
   targets: CONNECTIONS_TARGETS,

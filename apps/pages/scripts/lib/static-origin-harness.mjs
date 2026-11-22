@@ -141,12 +141,22 @@ function loopbackFile(dist, base, pathname) {
 }
 
 /**
- * Serve `dist/` on 127.0.0.1 at `base`. Callers navigate here and passthrough
- * this origin. Playwright `route.fulfill` of the production hostname is not a
- * static host: a service worker bypasses it and can reach the live site, and
- * a large dist blocks the route handler so the document navigation never ends.
+ * Serve `dist/` on a loopback host (127.0.0.1 unless `host` says otherwise)
+ * at `base`. Callers navigate here and passthrough this origin. Playwright
+ * `route.fulfill` of the production hostname is not a static host: a service
+ * worker bypasses it and can reach the live site, and a large dist blocks the
+ * route handler so the document navigation never ends.
+ *
+ * `host: "localhost"` serves the same bytes at a DNS hostname, which WebAuthn
+ * needs: browsers reject passkey ceremonies on a raw IP origin, so a walk that
+ * seals with a passkey must stand on `localhost`, never `127.0.0.1`.
  */
-export function serveLoopbackDist({ dist, base, headers = {} }) {
+export function serveLoopbackDist({
+  dist,
+  base,
+  headers = {},
+  host = "127.0.0.1",
+}) {
   const server = http.createServer((request, response) => {
     const url = new URL(request.url ?? "/", "http://127.0.0.1");
     const file = loopbackFile(dist, base, url.pathname);
@@ -167,10 +177,10 @@ export function serveLoopbackDist({ dist, base, headers = {} }) {
   });
   return new Promise((resolve, reject) => {
     server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
+    server.listen(0, host, () => {
       const address = server.address();
       const port = address !== null && "port" in address ? address.port : 0;
-      const origin = `http://127.0.0.1:${port}`;
+      const origin = `http://${host}:${port}`;
       resolve({
         origin,
         href: `${origin}${base}`,

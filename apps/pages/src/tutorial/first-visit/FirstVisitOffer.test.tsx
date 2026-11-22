@@ -21,6 +21,10 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  preserveFirstVaultGate,
+  useFirstVaultGateHandoff,
+} from "../first-vault-handoff.js";
 import type { SupportController, SupportView } from "../session.js";
 import { SupportContext } from "../support-context.js";
 import { stubSupportController } from "../support-controller.test-support.js";
@@ -44,7 +48,10 @@ const choose = (name: string) =>
   fireEvent.click(within(seat).getByRole("button", { name }));
 
 /** The runtime's snapshot while a tour for `goal` is on its first step. */
-function touring(goal: string): GuideRuntimeSnapshot {
+function touring(
+  goal: string,
+  target: string | null = null,
+): GuideRuntimeSnapshot {
   return {
     status: "running",
     goal,
@@ -58,7 +65,7 @@ function touring(goal: string): GuideRuntimeSnapshot {
       count: 1,
       kind: "narrate",
       message: "This is the first step.",
-      target: null,
+      target,
       side: null,
       action: false,
       degraded: false,
@@ -122,15 +129,17 @@ describe("the first-visit offer", () => {
     expect(offered()?.getAttribute("aria-label")).toBe(
       "Tour Settings: Danger walkthrough",
     );
-    expect(offered()?.textContent).toContain("It only points");
-    expect(within(seat).getByRole("button", { name: "Show me" })).toBeTruthy();
+    expect(offered()?.textContent).toContain("complete this task");
+    expect(
+      within(seat).getByRole("button", { name: "Start tutorial" }),
+    ).toBeTruthy();
   });
 
   it("starts the tour and remembers the answer", () => {
     const { support, started } = controller();
     mount(support);
     settle();
-    choose("Show me");
+    choose("Start tutorial");
     expect(started).toHaveLength(1);
     expect(started[0]?.origin).toBe("authored");
     expect(started[0]?.source).toContain('goal "settings.danger.review"');
@@ -156,7 +165,7 @@ describe("the first-visit offer", () => {
     const first = mount(security().support);
     settle();
     expect(offered()?.getAttribute("aria-label")).toBe(
-      "Review the security settings walkthrough",
+      "Security settings walkthrough",
     );
     choose("Not now");
     first.unmount();
@@ -294,6 +303,28 @@ describe("the first-visit offer", () => {
     expect(started).toHaveLength(1);
   });
 
+  it("waits for a continuing vault tutorial before offering sign-in help", async () => {
+    setGuidanceMode("auto");
+    const guide = touring("gate.front-door", "unlock.local-only");
+    const setup = stubSupportController("/setup/choose", { guide });
+    preserveFirstVaultGate(setup.support);
+    const signIn = stubSupportController("/unlock/signin");
+    function SignInGate() {
+      useFirstVaultGateHandoff(signIn.support, "/unlock/signin");
+      return (
+        <SupportContext.Provider value={signIn.support}>
+          <FirstVisitOffer gateScreen />
+        </SupportContext.Provider>
+      );
+    }
+    render(<SignInGate />);
+    await act(async () => {});
+    expect(signIn.started[0]?.source).toContain('goal "gate.front-door"');
+    settle();
+    expect(signIn.started).toHaveLength(1);
+    act(() => signIn.set({ guide }));
+  });
+
   it("records an automatic tour as answered once it is on screen", () => {
     setGuidanceMode("auto");
     const { support, started, set, stops } = controller();
@@ -360,7 +391,7 @@ describe("the first-visit offer", () => {
   });
 
   it("counts steps in plain words", () => {
-    expect(offerBody(1)).toContain("1 step,");
-    expect(offerBody(6)).toContain("6 steps,");
+    expect(offerBody(1)).toBe("Follow 1 step to complete this task.");
+    expect(offerBody(6)).toBe("Follow 6 steps to complete this task.");
   });
 });

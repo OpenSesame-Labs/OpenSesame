@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  RERUN_ALL_HINT,
   assertCompleteResults,
   assertSelectedResult,
   superseded,
@@ -23,7 +24,7 @@ describe("required integration results", () => {
       }),
     ).not.toThrow();
   });
-  it.each(["failure", "cancelled", "skipped", "", undefined])(
+  it.each(["failure", "cancelled", "skipped", "abandoned", "", undefined])(
     "rejects selected result %s",
     (result) => {
       expect(() => assertSelectedResult({ ...admitted, result })).toThrow();
@@ -42,6 +43,30 @@ describe("required integration results", () => {
       ).toThrow();
     },
   );
+  it.each(["1", "2", "3", undefined])(
+    "keeps an abandoned selected suite failing on attempt %s and names the job",
+    (attempt) => {
+      const run = () =>
+        assertSelectedResult({
+          ...admitted,
+          result: "abandoned",
+          suite: "rust-build",
+          attempt,
+        });
+      expect(run).toThrow(/selected suite rust-build: abandoned/);
+      expect(run).toThrow(/upstream job not run: rust-build \(abandoned\)/);
+      expect(run).toThrow(RERUN_ALL_HINT);
+      if (attempt && attempt !== "1") {
+        expect(run).toThrow(new RegExp(`run attempt ${attempt}`));
+      }
+    },
+  );
+  it("does not call an executed failure a partial re-run", () => {
+    const run = () =>
+      assertSelectedResult({ ...admitted, result: "failure", suite: "x" });
+    expect(run).toThrow("selected suite x: failure");
+    expect(run).not.toThrow(/Re-run all jobs/);
+  });
   it("accepts a cancelled preflight only when a newer push replaced the run", () => {
     const cancelled = {
       draft: "",
@@ -107,6 +132,20 @@ describe("complete qualification", () => {
         assertCompleteResults({ ...needs, native: { result } }),
       ).toThrow();
     }
+  });
+  it("names every upstream job a partial re-run left out", () => {
+    const needs = {
+      admission: { result: "success" },
+      browser: { result: "abandoned" },
+      native: { result: "failure" },
+      wasm: { result: "skipped" },
+    };
+    const run = () => assertCompleteResults(needs, "2");
+    expect(run).toThrow(
+      "browser: abandoned, native: failure, wasm: skipped in run attempt 2",
+    );
+    expect(run).toThrow(/upstream jobs not run: browser \(abandoned\), wasm/);
+    expect(run).toThrow(RERUN_ALL_HINT);
   });
   it.each([null, [], {}, { native: {} }])(
     "cannot produce green qualification with absent work",

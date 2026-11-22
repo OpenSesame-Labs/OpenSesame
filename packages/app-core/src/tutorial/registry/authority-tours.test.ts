@@ -36,8 +36,8 @@ const TOURS = {
     "connections.connected",
     "connections.revoke",
     "connections.back",
-    "connections.attention",
   ],
+  "connection.attention": ["connections.attention"],
   "identity.applications.manage": ["identity.service-accounts"],
   "identity.organizations.review": ["identity.organization"],
 } as const;
@@ -110,6 +110,17 @@ describe("the Access, Connections and Identity tours", () => {
       "connection.revoke",
     );
     expect(ids(() => true)).toContain("connection.revoke");
+  });
+
+  it("offers the attention tour only when its panel is present", () => {
+    const ids = (holds: (predicate: string) => boolean) =>
+      tutorialLibrary("/connections", { holds }).flatMap((group) =>
+        group.tutorials.map((entry) => entry.goal.id),
+      );
+    expect(ids((p) => p !== "connections.needs-attention")).not.toContain(
+      "connection.attention",
+    );
+    expect(ids(() => true)).toContain("connection.attention");
   });
 
   it("offer the hosted requests tour only where an Identity API address is set", () => {

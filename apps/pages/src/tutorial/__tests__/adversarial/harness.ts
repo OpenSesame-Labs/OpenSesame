@@ -60,8 +60,8 @@ import {
 } from "./chain.js";
 
 export {
-  GUIDE_HEADER,
   type DeferredSupportAgent,
+  GUIDE_HEADER,
   type MountedTargets,
   type RecordingRoutes,
   type SupportChain,
@@ -105,7 +105,6 @@ export function createDomEngine(
   const clock = createTestClock();
   const renderer = createScrollRenderer({
     resolveElement: resolveGuideTargetElement,
-    reducedMotion: () => true,
   });
   const runtime = createGuideRuntime({
     renderer,
