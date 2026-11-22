@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { MemoryScimUserStore } from "@opensesame/database";
 import {
   type ReferenceIdp,
   startReferenceIdp,
@@ -485,20 +486,26 @@ describe("SCIM Users surface", () => {
       "startIndex must be positive; count must be a non-negative integer.",
     );
     const createWithinLimit = vi
-      .spyOn(ctx.stores.scim.users, "createWithinLimit")
+      .spyOn(MemoryScimUserStore.prototype, "createWithinLimit")
       .mockResolvedValue(null);
-    const refused = await provisionUser(app, org.id, token, {
-      userName: "overflow@example.test",
-    });
-    expect(refused.status).toBe(409);
-    expect(refused.body.detail).toContain("capacity");
-    expect(createWithinLimit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        organizationId: org.id,
+    try {
+      const refused = await provisionUser(app, org.id, token, {
         userName: "overflow@example.test",
-      }),
-      10_000,
-    );
+      });
+      expect(refused.status).toBe(409);
+      expect(refused.body.detail).toContain("capacity");
+      expect(createWithinLimit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          organizationId: org.id,
+          userName: "overflow@example.test",
+        }),
+        10_000,
+      );
+    } finally {
+      // Prototype mock: the transaction boundary forks the store, so the spy
+      // must outlive the instance and be restored by hand.
+      createWithinLimit.mockRestore();
+    }
   });
 
   it("reads Entra's stringly-typed active flag", async () => {

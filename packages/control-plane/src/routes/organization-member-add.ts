@@ -3,7 +3,7 @@ import { AddOrganizationMemberRequestSchema } from "@opensesame/contracts";
 import { Hono } from "hono";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
-import { orgOwner } from "../proofs/org-owner.js";
+import { activeOrgOwner } from "../proofs/org-owner.js";
 import {
   type OrganizationWithdrawalAuditIntent,
   finishOrganizationWithdrawalAudit,
@@ -11,14 +11,14 @@ import {
 } from "../repos/organization-withdrawal-audit.js";
 import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import { writeOrganizationMembership } from "../services/org-admin.js";
-import { type OrgOwnerSource, asOrgOwner } from "./org-owner-gate.js";
+import { asActiveOrgOwner } from "./org-owner-gate.js";
 import {
   getMembership,
   serializeMembershipMutation,
 } from "./organization-membership.js";
 import { membershipResponse } from "./organization-membership-response.js";
 
-const MEMBER_ADMIN: OrgOwnerSource = { param: "id", liveness: "unchecked" };
+const MEMBER_ADMIN = { param: "id" };
 export const organizationMemberAddRoutes = new Hono<{ Variables: Variables }>();
 
 organizationMemberAddRoutes.post(
@@ -27,18 +27,13 @@ organizationMemberAddRoutes.post(
   async (c) => {
     const ctx = c.get("ctx");
     const organizationId = c.req.param("id");
-    return asOrgOwner(c, MEMBER_ADMIN, async ({ org, actor }) => {
+    return asActiveOrgOwner(c, MEMBER_ADMIN, async ({ org, actor }) => {
       const outcome = await withScimOrganizationBoundary(
         ctx,
         organizationId,
         (tx) =>
           serializeMembershipMutation(tx, organizationId, async () => {
-            const owner = await orgOwner(
-              tx.stores,
-              actor,
-              org,
-              MEMBER_ADMIN.liveness,
-            );
+            const owner = await activeOrgOwner(tx.stores, actor, org);
             if (!owner.ok)
               return { response: c.json({ error: owner.error }, owner.status) };
             const principalId = actor.value;

@@ -33,7 +33,7 @@ pub async fn guard(State(st): State<AppState>, request: Request, next: Next) -> 
             match crate::native_authority::session(st.db.pool(), &digest).await {
                 Ok(Some(claims)) if claims.credential_kind == CredentialKind::NativeSession => {
                     let mut sessions = st.sessions.lock().unwrap();
-                    sessions.retain(|_, value| value.expires_at > chrono::Utc::now());
+                    sessions.retain(|_, value| value.expires_at > opensesame_time::Utc::now());
                     sessions.insert(digest, claims);
                 }
                 Ok(_) => {
@@ -66,14 +66,14 @@ pub async fn guard(State(st): State<AppState>, request: Request, next: Next) -> 
             // while a browser or agent credential was being authenticated.
             CredentialKind::BrowserGrant => st
                 .db
-                .browser_grant(&digest, chrono::Utc::now().timestamp())
+                .browser_grant(&digest, opensesame_time::Utc::now().timestamp())
                 .await
                 .ok()
                 .flatten()
                 .is_some(),
             CredentialKind::AgentCapability => st
                 .db
-                .agent_grant(&digest, chrono::Utc::now().timestamp())
+                .agent_grant(&digest, opensesame_time::Utc::now().timestamp())
                 .await
                 .ok()
                 .flatten()

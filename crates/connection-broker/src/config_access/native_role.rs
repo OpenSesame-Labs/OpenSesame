@@ -1,4 +1,5 @@
 use opensesame_domain::{OrganizationId, OrganizationRole, PrincipalId};
+use opensesame_time::Utc;
 use sqlx::{Sqlite, SqlitePool, Transaction};
 
 /// Initialize a native ceiling and its audit event inside the caller's transaction.
@@ -44,7 +45,7 @@ pub async fn provision_native_role_in_transaction(
             "outbox_events.payload_json",
             &payload,
         ))
-        .bind(chrono::Utc::now().to_rfc3339())
+        .bind(Utc::now().to_rfc3339())
         .execute(&mut **tx)
         .await?;
     }

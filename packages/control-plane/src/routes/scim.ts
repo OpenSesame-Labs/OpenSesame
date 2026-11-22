@@ -12,7 +12,6 @@ import { Hono } from "hono";
 import type { AppContext } from "../context.js";
 import type { Variables } from "../middleware/context.js";
 import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
-import { serializeKeyed } from "../serialize.js";
 import { asActiveOrgOwner } from "./org-owner-gate.js";
 import {
   SCIM_BOOKKEEPING_ATTRIBUTES as BOOKKEEPING,
