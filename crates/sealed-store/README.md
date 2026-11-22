@@ -128,7 +128,9 @@ that reads or writes the store must be upgraded: older clients ignore attachment
 checkpoints and can read stale data or make changes newer clients reject.
 The local attachment revision JSON remains unauthenticated. Passphrase-free
 replication cannot authenticate the header or outside checkpoint and therefore
-cannot establish freshness.
+cannot establish freshness. It does refuse, before sending anything, a manifest
+whose advertised revision disagrees with an existing local counter; that is a
+fail-closed comparison, not a freshness proof.
 Names normalize path components and surrounding whitespace, but case aliases
 on case-insensitive filesystems remain a limitation. Atomic replacement and
 directory syncing provide only the durability of the underlying filesystem.

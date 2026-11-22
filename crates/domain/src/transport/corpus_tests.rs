@@ -16,24 +16,18 @@ fn corpus_dir() -> PathBuf {
         .join("../../packages/contracts/fixtures/transport-security")
 }
 
+/// `valid.json` and `invalid.json` each map a case name to one fixture.
 fn fixtures() -> Vec<(String, Value)> {
     let mut out = Vec::new();
     for sub in ["valid", "invalid"] {
-        let dir = corpus_dir().join(sub);
-        let mut paths: Vec<PathBuf> = fs::read_dir(&dir)
-            .unwrap_or_else(|e| panic!("{}: {e}", dir.display()))
-            .map(|e| e.unwrap().path())
-            .filter(|p| p.extension().is_some_and(|x| x == "json"))
-            .collect();
-        paths.sort();
-        for path in paths {
-            let raw = fs::read_to_string(&path).unwrap();
-            let doc: Value =
-                serde_json::from_str(&raw).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
-            out.push((
-                format!("{sub}/{}", path.file_name().unwrap().to_string_lossy()),
-                doc,
-            ));
+        let path = corpus_dir().join(format!("{sub}.json"));
+        let raw = fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let bundle: serde_json::Map<String, Value> =
+            serde_json::from_str(&raw).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+        let mut cases: Vec<(String, Value)> = bundle.into_iter().collect();
+        cases.sort_by(|a, b| a.0.cmp(&b.0));
+        for (name, doc) in cases {
+            out.push((format!("{sub}/{name}"), doc));
         }
     }
     out

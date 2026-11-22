@@ -69,10 +69,8 @@ async function identities(count) {
 const PLAIN = {
   "basic.yaml":
     'hello: world\ncount: 2\nratio: 1.5\nflag: true\nnothing: null\nempty: ""\nnote_unencrypted: visible\nlist:\n  - a\n  - 3\nnested:\n  k: v\n  deep:\n    - x: 1\n',
-  "comments.yaml": readFileSync(
-    join(fixtures, "tree", "comments.yaml"),
-    "utf8",
-  ),
+  "comments.yaml": JSON.parse(readFileSync(join(fixtures, "tree.json"), "utf8"))
+    .comments.yaml,
   "scalars.yaml":
     'when: 2001-12-14T21:59:43.10-05:00\nday: 2002-12-14\nspace: 2001-12-14 21:59:43.10\nhex: 0x1F\noctal: 017\nbin: 0b101\nunder: 1_000\nbig: 9223372036854775807\nsmall: -9223372036854775808\nnegzero: -0.0\ninf: .inf\nexp: 1e21\ntiny: 1e-7\nfloatint: 1.0\nyes_str: yes\nquoted_num: "42"\nquoted_date: "2002-12-14"\nmulti: |\n  first\n  second\nfolded: >-\n  one\n  two\nunicode: "h\u00e9llo \ud83c\udf0d \u00e9\u0301"\nkey with colon: v\n"a:b": colon-key\n',
   "numeric-keys.yaml":

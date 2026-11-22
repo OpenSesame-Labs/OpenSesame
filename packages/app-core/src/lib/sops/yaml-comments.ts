@@ -3,7 +3,7 @@
  * it, recovered from source offsets rather than the npm parser's own
  * attachment (which folds trailing comments of several nesting levels into
  * one node). Verified against the pinned loader with the checked-in
- * `fixtures/tree/*.tree.json` cases.
+ * `fixtures/tree.json` cases.
  *
  * Rules, as observed on the pinned loader:
  *  - a comment after a scalar on the same line is inline, placed before

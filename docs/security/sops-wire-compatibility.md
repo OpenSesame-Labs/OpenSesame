@@ -63,8 +63,8 @@ Plain YAML scalars resolve the way `go.yaml.in/yaml/v3` resolves them,
 which is not how JavaScript would: `017` is **15** (base 0), `0b101` is
 **5**, `1_000` is **1000**, and a `uint64` beyond range is refused rather
 than silently turned into a float. `yaml-resolve.ts` implements this and
-`fixtures/tree/` holds 74 documents dumped by upstream's own loader to keep
-it honest.
+`fixtures/tree.json` holds 37 YAML documents, each beside the tree
+upstream's own loader dumped for it, to keep it honest.
 
 **Negative zero** is the one place the round trip is not a fixed point, and
 it is upstream's: SOPS emits float `-0`, and its own loader reads that back

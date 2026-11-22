@@ -1,0 +1,3354 @@
+{
+  "binding-set-bool-as-string": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": "true",
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-denied-thumbprint-short": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": [
+            "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          ]
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-denied-thumbprint-uppercase": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": [
+            "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+          ]
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-duplicate-id": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        },
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-duplicate-operation": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide", "nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-empty-operations": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": [],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-id-too-long": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-id-unicode": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "brïdge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-id-with-space": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "nats bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-is-array": {
+    "kind": "service_binding_set",
+    "input": [
+      {
+        "id": "bridge",
+        "revision": 1,
+        "enabled": true,
+        "revoked": false,
+        "scope": "deployment",
+        "trust_profile": {
+          "name": "private-root"
+        },
+        "peer": {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        "service_principal": "svc:nats-bridge",
+        "purpose": "nats_auth_bridge",
+        "allowed_operations": ["nats.callout.decide"],
+        "allowed_audiences": ["host"],
+        "not_after": null,
+        "denied_thumbprints": []
+      }
+    ],
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-missing-denied-thumbprints": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-missing-revoked": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-not-after-date-only": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": "2026-12-01",
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-not-after-epoch-number": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": 1764547200,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-not-after-no-offset": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": "2026-12-01T00:00:00",
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-null-bindings": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": null
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-operations-not-array": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": "nats.callout.decide",
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-peer-common-name": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "common_name": "nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-peer-dns-too-long": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "dns_name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.example"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-peer-email": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "email": "ops@example.com"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-peer-ip": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "dns_name": "10.0.0.1"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-peer-spiffe-confusable": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://exаmple.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-peer-spiffe-trust-domain-only": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-peer-spiffe-uppercase-domain": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://Example.org/x"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-peer-trailing-dot": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "dns_name": "worker.example."
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-peer-uppercase-dns": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "dns_name": "Worker.Example"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-peer-uri-san-mailto": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "uri_san": "mailto:ops@example.com"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-peer-uri-san-spiffe": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "uri_san": "spiffe://example.org/x"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-peer-wildcard-dns": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "dns_name": "*.example"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-principal-empty": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-revision-as-string": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": "1",
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-revision-float": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1.5,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-revision-negative": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": -1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-revision-zero": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 0,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-scope-empty-org-id": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": {
+            "organization": {
+              "organization_id": ""
+            }
+          },
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-scope-organization-bare": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "organization",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-scope-unknown-variant": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": {
+            "tenant": {
+              "organization_id": "o"
+            }
+          },
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-top-level-unknown-field": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ],
+      "verified": true
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-trust-profile-bare-string": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": "private-root",
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-trust-profile-path": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root",
+            "path": "/etc/ca.pem"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-trust-profile-uppercase": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "Private-Root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-unknown-field": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "nats_auth_bridge",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": [],
+          "role": "admin"
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "binding-set-unknown-purpose": {
+    "kind": "service_binding_set",
+    "input": {
+      "revision": 1,
+      "bindings": [
+        {
+          "id": "bridge",
+          "revision": 1,
+          "enabled": true,
+          "revoked": false,
+          "scope": "deployment",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "peer": {
+            "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+          },
+          "service_principal": "svc:nats-bridge",
+          "purpose": "fleet_admin",
+          "allowed_operations": ["nats.callout.decide"],
+          "allowed_audiences": ["host"],
+          "not_after": null,
+          "denied_thumbprints": []
+        }
+      ]
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "capabilities-bool-as-number": {
+    "kind": "transport_capabilities",
+    "input": {
+      "native_pem": "supported",
+      "managed_certificate": "supported",
+      "spiffe_workload_api": {
+        "unsupported": {
+          "reason": "no workload api socket configured"
+        }
+      },
+      "browser_managed_external": {
+        "unsupported": {
+          "reason": "a native runtime has no browser certificate store to consume"
+        }
+      },
+      "browser_vault_key_injection": {
+        "unsupported": {
+          "reason": "a browser cannot attach a vault-held key to its TLS handshake; certificates a browser presents are provisioned outside the app"
+        }
+      },
+      "client_presents_certificate": 1,
+      "server_enforces_certificate": true
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "capabilities-bool-as-string": {
+    "kind": "transport_capabilities",
+    "input": {
+      "native_pem": "supported",
+      "managed_certificate": "supported",
+      "spiffe_workload_api": {
+        "unsupported": {
+          "reason": "no workload api socket configured"
+        }
+      },
+      "browser_managed_external": {
+        "unsupported": {
+          "reason": "a native runtime has no browser certificate store to consume"
+        }
+      },
+      "browser_vault_key_injection": {
+        "unsupported": {
+          "reason": "a browser cannot attach a vault-held key to its TLS handshake; certificates a browser presents are provisioned outside the app"
+        }
+      },
+      "client_presents_certificate": true,
+      "server_enforces_certificate": "false"
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "capabilities-empty-reason": {
+    "kind": "transport_capabilities",
+    "input": {
+      "native_pem": "supported",
+      "managed_certificate": "supported",
+      "spiffe_workload_api": {
+        "unsupported": {
+          "reason": ""
+        }
+      },
+      "browser_managed_external": {
+        "unsupported": {
+          "reason": "a native runtime has no browser certificate store to consume"
+        }
+      },
+      "browser_vault_key_injection": {
+        "unsupported": {
+          "reason": "a browser cannot attach a vault-held key to its TLS handshake; certificates a browser presents are provisioned outside the app"
+        }
+      },
+      "client_presents_certificate": true,
+      "server_enforces_certificate": true
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "capabilities-key-injection-external": {
+    "kind": "transport_capabilities",
+    "input": {
+      "native_pem": {
+        "unsupported": {
+          "reason": "a PEM identity needs a native runtime; the static app has none"
+        }
+      },
+      "managed_certificate": {
+        "unsupported": {
+          "reason": "a managed certificate needs a native runtime; the static app has none"
+        }
+      },
+      "spiffe_workload_api": {
+        "unsupported": {
+          "reason": "the SPIFFE Workload API needs a native runtime; the static app has none"
+        }
+      },
+      "browser_managed_external": {
+        "external_provisioning_required": {
+          "reason": "the browser or OS must hold the certificate; the app only selects a remote profile that expects one"
+        }
+      },
+      "browser_vault_key_injection": {
+        "external_provisioning_required": {
+          "reason": "x"
+        }
+      },
+      "client_presents_certificate": false,
+      "server_enforces_certificate": false
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "capabilities-key-injection-supported": {
+    "kind": "transport_capabilities",
+    "input": {
+      "native_pem": {
+        "unsupported": {
+          "reason": "a PEM identity needs a native runtime; the static app has none"
+        }
+      },
+      "managed_certificate": {
+        "unsupported": {
+          "reason": "a managed certificate needs a native runtime; the static app has none"
+        }
+      },
+      "spiffe_workload_api": {
+        "unsupported": {
+          "reason": "the SPIFFE Workload API needs a native runtime; the static app has none"
+        }
+      },
+      "browser_managed_external": {
+        "external_provisioning_required": {
+          "reason": "the browser or OS must hold the certificate; the app only selects a remote profile that expects one"
+        }
+      },
+      "browser_vault_key_injection": "supported",
+      "client_presents_certificate": false,
+      "server_enforces_certificate": false
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "capabilities-missing-field": {
+    "kind": "transport_capabilities",
+    "input": {
+      "native_pem": "supported",
+      "spiffe_workload_api": {
+        "unsupported": {
+          "reason": "no workload api socket configured"
+        }
+      },
+      "browser_managed_external": {
+        "unsupported": {
+          "reason": "a native runtime has no browser certificate store to consume"
+        }
+      },
+      "browser_vault_key_injection": {
+        "unsupported": {
+          "reason": "a browser cannot attach a vault-held key to its TLS handshake; certificates a browser presents are provisioned outside the app"
+        }
+      },
+      "client_presents_certificate": true,
+      "server_enforces_certificate": true
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "capabilities-outcome-pascal": {
+    "kind": "transport_capabilities",
+    "input": {
+      "native_pem": "Supported",
+      "managed_certificate": "supported",
+      "spiffe_workload_api": {
+        "unsupported": {
+          "reason": "no workload api socket configured"
+        }
+      },
+      "browser_managed_external": {
+        "unsupported": {
+          "reason": "a native runtime has no browser certificate store to consume"
+        }
+      },
+      "browser_vault_key_injection": {
+        "unsupported": {
+          "reason": "a browser cannot attach a vault-held key to its TLS handshake; certificates a browser presents are provisioned outside the app"
+        }
+      },
+      "client_presents_certificate": true,
+      "server_enforces_certificate": true
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "capabilities-unknown-field": {
+    "kind": "transport_capabilities",
+    "input": {
+      "native_pem": "supported",
+      "managed_certificate": "supported",
+      "spiffe_workload_api": {
+        "unsupported": {
+          "reason": "no workload api socket configured"
+        }
+      },
+      "browser_managed_external": {
+        "unsupported": {
+          "reason": "a native runtime has no browser certificate store to consume"
+        }
+      },
+      "browser_vault_key_injection": {
+        "unsupported": {
+          "reason": "a browser cannot attach a vault-held key to its TLS handshake; certificates a browser presents are provisioned outside the app"
+        }
+      },
+      "client_presents_certificate": true,
+      "server_enforces_certificate": true,
+      "hardware_bound": true
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "evidence-view-generation-string": {
+    "kind": "peer_evidence_view",
+    "input": {
+      "source": "direct_tls",
+      "identities": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "not_before": "2026-09-22T00:00:00.000Z",
+      "not_after": "2026-09-23T00:00:00.000Z",
+      "trust_profile": {
+        "name": "private-root"
+      },
+      "trust_generation": "3",
+      "credential_generation": 7,
+      "listener": "host-tls",
+      "policy": "mtls_required",
+      "tls_version": "tls13",
+      "authenticated_at": "2026-09-22T09:59:00.000Z",
+      "usable_until": "2026-09-22T10:29:00.000Z",
+      "ingress": null
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "evidence-view-source-header": {
+    "kind": "peer_evidence_view",
+    "input": {
+      "source": "header",
+      "identities": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "not_before": "2026-09-22T00:00:00.000Z",
+      "not_after": "2026-09-23T00:00:00.000Z",
+      "trust_profile": {
+        "name": "private-root"
+      },
+      "trust_generation": 3,
+      "credential_generation": 7,
+      "listener": "host-tls",
+      "policy": "mtls_required",
+      "tls_version": "tls13",
+      "authenticated_at": "2026-09-22T09:59:00.000Z",
+      "usable_until": "2026-09-22T10:29:00.000Z",
+      "ingress": null
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "evidence-view-subject-dn": {
+    "kind": "peer_evidence_view",
+    "input": {
+      "source": "direct_tls",
+      "identities": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "not_before": "2026-09-22T00:00:00.000Z",
+      "not_after": "2026-09-23T00:00:00.000Z",
+      "trust_profile": {
+        "name": "private-root"
+      },
+      "trust_generation": 3,
+      "credential_generation": 7,
+      "listener": "host-tls",
+      "policy": "mtls_required",
+      "tls_version": "tls13",
+      "authenticated_at": "2026-09-22T09:59:00.000Z",
+      "usable_until": "2026-09-22T10:29:00.000Z",
+      "ingress": null,
+      "subject": "CN=nats-bridge"
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "evidence-view-time-no-offset": {
+    "kind": "peer_evidence_view",
+    "input": {
+      "source": "direct_tls",
+      "identities": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "not_before": "2026-09-22T00:00:00.000Z",
+      "not_after": "2026-09-23T00:00:00.000Z",
+      "trust_profile": {
+        "name": "private-root"
+      },
+      "trust_generation": 3,
+      "credential_generation": 7,
+      "listener": "host-tls",
+      "policy": "mtls_required",
+      "tls_version": "tls13",
+      "authenticated_at": "2026-09-22T09:59:00",
+      "usable_until": "2026-09-22T10:29:00.000Z",
+      "ingress": null
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "evidence-view-verified-flag": {
+    "kind": "peer_evidence_view",
+    "input": {
+      "source": "direct_tls",
+      "identities": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "not_before": "2026-09-22T00:00:00.000Z",
+      "not_after": "2026-09-23T00:00:00.000Z",
+      "trust_profile": {
+        "name": "private-root"
+      },
+      "trust_generation": 3,
+      "credential_generation": 7,
+      "listener": "host-tls",
+      "policy": "mtls_required",
+      "tls_version": "tls13",
+      "authenticated_at": "2026-09-22T09:59:00.000Z",
+      "usable_until": "2026-09-22T10:29:00.000Z",
+      "ingress": null,
+      "verified": true
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "policy-auto": {
+    "kind": "transport_policy",
+    "input": "auto",
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "policy-boolean": {
+    "kind": "transport_policy",
+    "input": true,
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "policy-object": {
+    "kind": "transport_policy",
+    "input": {
+      "mtls_required": {}
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "policy-pascal-case": {
+    "kind": "transport_policy",
+    "input": "MtlsRequired",
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "resolve-ambiguous-thumb-and-name": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "by-thumb",
+            "revision": 1,
+            "enabled": true,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": []
+          },
+          {
+            "id": "bridge",
+            "revision": 1,
+            "enabled": true,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": []
+          }
+        ]
+      },
+      "scope": "deployment",
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "ambiguous_binding"
+    }
+  },
+  "resolve-ambiguous": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "bridge",
+            "revision": 1,
+            "enabled": true,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": []
+          },
+          {
+            "id": "bridge-2",
+            "revision": 1,
+            "enabled": true,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": []
+          }
+        ]
+      },
+      "scope": "deployment",
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "ambiguous_binding"
+    }
+  },
+  "resolve-case-differs": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "bridge",
+            "revision": 1,
+            "enabled": true,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": []
+          }
+        ]
+      },
+      "scope": "deployment",
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/NATS-bridge"
+        }
+      ],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "peer_not_bound"
+    }
+  },
+  "resolve-denied-thumbprint": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "bridge",
+            "revision": 1,
+            "enabled": true,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ]
+          }
+        ]
+      },
+      "scope": "deployment",
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "evidence_revoked"
+    }
+  },
+  "resolve-denied-wins-over-disabled": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "bridge",
+            "revision": 1,
+            "enabled": false,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": [
+              "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            ]
+          },
+          {
+            "id": "bridge-2",
+            "revision": 1,
+            "enabled": true,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": []
+          }
+        ]
+      },
+      "scope": "deployment",
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "evidence_revoked"
+    }
+  },
+  "resolve-deployment-binding-not-visible-to-org": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "bridge",
+            "revision": 1,
+            "enabled": true,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": []
+          }
+        ]
+      },
+      "scope": {
+        "organization": {
+          "organization_id": "org-a"
+        }
+      },
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "peer_not_bound"
+    }
+  },
+  "resolve-disabled": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "bridge",
+            "revision": 1,
+            "enabled": false,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": []
+          }
+        ]
+      },
+      "scope": "deployment",
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "binding_disabled"
+    }
+  },
+  "resolve-empty-set": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": []
+      },
+      "scope": "deployment",
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "peer_not_bound"
+    }
+  },
+  "resolve-expired-window": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "bridge",
+            "revision": 1,
+            "enabled": true,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": "2026-09-22T09:59:59Z",
+            "denied_thumbprints": []
+          }
+        ]
+      },
+      "scope": "deployment",
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "binding_disabled"
+    }
+  },
+  "resolve-invalid-set": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "bridge",
+            "revision": 0,
+            "enabled": true,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": []
+          }
+        ]
+      },
+      "scope": "deployment",
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "resolve-org-binding-not-visible-to-deployment": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "org-bridge",
+            "revision": 1,
+            "enabled": true,
+            "revoked": false,
+            "scope": {
+              "organization": {
+                "organization_id": "org-a"
+              }
+            },
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": []
+          }
+        ]
+      },
+      "scope": "deployment",
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "peer_not_bound"
+    }
+  },
+  "resolve-org-scope-other-tenant": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "org-bridge",
+            "revision": 1,
+            "enabled": true,
+            "revoked": false,
+            "scope": {
+              "organization": {
+                "organization_id": "org-a"
+              }
+            },
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": []
+          }
+        ]
+      },
+      "scope": {
+        "organization": {
+          "organization_id": "org-b"
+        }
+      },
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "peer_not_bound"
+    }
+  },
+  "resolve-presented-empty": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "bridge",
+            "revision": 1,
+            "enabled": true,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": []
+          }
+        ]
+      },
+      "scope": "deployment",
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "peer_not_bound"
+    }
+  },
+  "resolve-revoked": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "bridge",
+            "revision": 1,
+            "enabled": true,
+            "revoked": true,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": []
+          }
+        ]
+      },
+      "scope": "deployment",
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "binding_disabled"
+    }
+  },
+  "resolve-sibling-path": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "bridge",
+            "revision": 1,
+            "enabled": true,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": []
+          }
+        ]
+      },
+      "scope": "deployment",
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge-2"
+        }
+      ],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "peer_not_bound"
+    }
+  },
+  "resolve-window-boundary-equal": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "bridge",
+            "revision": 1,
+            "enabled": true,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": "2026-09-22T10:00:00Z",
+            "denied_thumbprints": []
+          }
+        ]
+      },
+      "scope": "deployment",
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "binding_disabled"
+    }
+  },
+  "resolve-wrong-profile": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "bridge",
+            "revision": 1,
+            "enabled": true,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": []
+          }
+        ]
+      },
+      "scope": "deployment",
+      "profile": {
+        "name": "web-pki"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "purpose": "nats_auth_bridge",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "peer_not_bound"
+    }
+  },
+  "resolve-wrong-purpose": {
+    "kind": "binding_resolution",
+    "input": {
+      "set": {
+        "revision": 1,
+        "bindings": [
+          {
+            "id": "bridge",
+            "revision": 1,
+            "enabled": true,
+            "revoked": false,
+            "scope": "deployment",
+            "trust_profile": {
+              "name": "private-root"
+            },
+            "peer": {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            "service_principal": "svc:nats-bridge",
+            "purpose": "nats_auth_bridge",
+            "allowed_operations": ["nats.callout.decide"],
+            "allowed_audiences": ["host"],
+            "not_after": null,
+            "denied_thumbprints": []
+          }
+        ]
+      },
+      "scope": "deployment",
+      "profile": {
+        "name": "private-root"
+      },
+      "presented": [
+        {
+          "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+        },
+        {
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        }
+      ],
+      "purpose": "worker_client",
+      "now": "2026-09-22T10:00:00Z"
+    },
+    "expect": {
+      "ok": false,
+      "error": "peer_not_bound"
+    }
+  },
+  "selector-bare-string": {
+    "kind": "peer_identity_selector",
+    "input": "gateway.example",
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "selector-dns-number": {
+    "kind": "peer_identity_selector",
+    "input": {
+      "dns_name": 1
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "selector-ipv6": {
+    "kind": "peer_identity_selector",
+    "input": {
+      "dns_name": "fe80::1"
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "selector-spiffe-dotdot": {
+    "kind": "peer_identity_selector",
+    "input": {
+      "spiffe_id": "spiffe://example.org/x/../y"
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "selector-spiffe-query": {
+    "kind": "peer_identity_selector",
+    "input": {
+      "spiffe_id": "spiffe://example.org/x?y=1"
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "selector-thumbprint-prefixed": {
+    "kind": "peer_identity_selector",
+    "input": {
+      "leaf_thumbprint_sha256": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "selector-two-keys": {
+    "kind": "peer_identity_selector",
+    "input": {
+      "dns_name": "a.example",
+      "uri_san": "urn:x"
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "status-collapsed-lifecycle": {
+    "kind": "transport_status_view",
+    "input": {
+      "target": "worker-tls",
+      "desired": "existing_local",
+      "credential": "unconfigured",
+      "runtime": "not_loaded",
+      "observed": null,
+      "enforcement": "unverified",
+      "capabilities": {
+        "native_pem": {
+          "unsupported": {
+            "reason": "a PEM identity needs a native runtime; the static app has none"
+          }
+        },
+        "managed_certificate": {
+          "unsupported": {
+            "reason": "a managed certificate needs a native runtime; the static app has none"
+          }
+        },
+        "spiffe_workload_api": {
+          "unsupported": {
+            "reason": "the SPIFFE Workload API needs a native runtime; the static app has none"
+          }
+        },
+        "browser_managed_external": {
+          "external_provisioning_required": {
+            "reason": "the browser or OS must hold the certificate; the app only selects a remote profile that expects one"
+          }
+        },
+        "browser_vault_key_injection": {
+          "unsupported": {
+            "reason": "a browser cannot attach a vault-held key to its TLS handshake; certificates a browser presents are provisioned outside the app"
+          }
+        },
+        "client_presents_certificate": false,
+        "server_enforces_certificate": false
+      },
+      "status": "healthy"
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "status-credential-configured-missing-custody": {
+    "kind": "transport_status_view",
+    "input": {
+      "target": "host-tls",
+      "desired": "mtls_required",
+      "credential": {
+        "configured": {
+          "generation": 3,
+          "not_after": "2026-12-01T00:00:00.000Z",
+          "kind": "pem_files"
+        }
+      },
+      "runtime": {
+        "loaded": {
+          "generation": 3,
+          "loaded_at": "2026-09-22T08:00:00.000Z"
+        }
+      },
+      "observed": {
+        "at": "2026-09-22T09:59:00.000Z",
+        "observer": "host-tls-listener",
+        "target": "host-tls",
+        "generation": 3,
+        "peer": {
+          "source": "direct_tls",
+          "identities": [
+            {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            {
+              "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ],
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "not_before": "2026-09-22T00:00:00.000Z",
+          "not_after": "2026-09-23T00:00:00.000Z",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "trust_generation": 3,
+          "credential_generation": 7,
+          "listener": "host-tls",
+          "policy": "mtls_required",
+          "tls_version": "tls13",
+          "authenticated_at": "2026-09-22T09:59:00.000Z",
+          "usable_until": "2026-09-22T10:29:00.000Z",
+          "ingress": null
+        }
+      },
+      "enforcement": {
+        "verified": {
+          "at": "2026-09-22T09:00:00.000Z",
+          "target": "host-tls",
+          "generation": 3,
+          "accepted_with_certificate": true,
+          "rejected_without_certificate": true,
+          "fresh_until": "2026-09-22T11:00:00.000Z"
+        }
+      },
+      "capabilities": {
+        "native_pem": "supported",
+        "managed_certificate": "supported",
+        "spiffe_workload_api": {
+          "unsupported": {
+            "reason": "no workload api socket configured"
+          }
+        },
+        "browser_managed_external": {
+          "unsupported": {
+            "reason": "a native runtime has no browser certificate store to consume"
+          }
+        },
+        "browser_vault_key_injection": {
+          "unsupported": {
+            "reason": "a browser cannot attach a vault-held key to its TLS handshake; certificates a browser presents are provisioned outside the app"
+          }
+        },
+        "client_presents_certificate": true,
+        "server_enforces_certificate": true
+      }
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "status-credential-healthy-variant": {
+    "kind": "transport_status_view",
+    "input": {
+      "target": "worker-tls",
+      "desired": "existing_local",
+      "credential": "healthy",
+      "runtime": "not_loaded",
+      "observed": null,
+      "enforcement": "unverified",
+      "capabilities": {
+        "native_pem": {
+          "unsupported": {
+            "reason": "a PEM identity needs a native runtime; the static app has none"
+          }
+        },
+        "managed_certificate": {
+          "unsupported": {
+            "reason": "a managed certificate needs a native runtime; the static app has none"
+          }
+        },
+        "spiffe_workload_api": {
+          "unsupported": {
+            "reason": "the SPIFFE Workload API needs a native runtime; the static app has none"
+          }
+        },
+        "browser_managed_external": {
+          "external_provisioning_required": {
+            "reason": "the browser or OS must hold the certificate; the app only selects a remote profile that expects one"
+          }
+        },
+        "browser_vault_key_injection": {
+          "unsupported": {
+            "reason": "a browser cannot attach a vault-held key to its TLS handshake; certificates a browser presents are provisioned outside the app"
+          }
+        },
+        "client_presents_certificate": false,
+        "server_enforces_certificate": false
+      }
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "status-enforcement-bool-string": {
+    "kind": "transport_status_view",
+    "input": {
+      "target": "host-tls",
+      "desired": "mtls_required",
+      "credential": {
+        "configured": {
+          "custody": "native_file_exportable",
+          "generation": 3,
+          "not_after": "2026-12-01T00:00:00.000Z",
+          "kind": "pem_files"
+        }
+      },
+      "runtime": {
+        "loaded": {
+          "generation": 3,
+          "loaded_at": "2026-09-22T08:00:00.000Z"
+        }
+      },
+      "observed": {
+        "at": "2026-09-22T09:59:00.000Z",
+        "observer": "host-tls-listener",
+        "target": "host-tls",
+        "generation": 3,
+        "peer": {
+          "source": "direct_tls",
+          "identities": [
+            {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            {
+              "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ],
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "not_before": "2026-09-22T00:00:00.000Z",
+          "not_after": "2026-09-23T00:00:00.000Z",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "trust_generation": 3,
+          "credential_generation": 7,
+          "listener": "host-tls",
+          "policy": "mtls_required",
+          "tls_version": "tls13",
+          "authenticated_at": "2026-09-22T09:59:00.000Z",
+          "usable_until": "2026-09-22T10:29:00.000Z",
+          "ingress": null
+        }
+      },
+      "enforcement": {
+        "verified": {
+          "at": "2026-09-22T09:00:00.000Z",
+          "target": "host-tls",
+          "generation": 3,
+          "accepted_with_certificate": true,
+          "rejected_without_certificate": "yes",
+          "fresh_until": "2026-09-22T11:00:00.000Z"
+        }
+      },
+      "capabilities": {
+        "native_pem": "supported",
+        "managed_certificate": "supported",
+        "spiffe_workload_api": {
+          "unsupported": {
+            "reason": "no workload api socket configured"
+          }
+        },
+        "browser_managed_external": {
+          "unsupported": {
+            "reason": "a native runtime has no browser certificate store to consume"
+          }
+        },
+        "browser_vault_key_injection": {
+          "unsupported": {
+            "reason": "a browser cannot attach a vault-held key to its TLS handshake; certificates a browser presents are provisioned outside the app"
+          }
+        },
+        "client_presents_certificate": true,
+        "server_enforces_certificate": true
+      }
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "status-enforcement-other-target": {
+    "kind": "transport_status_view",
+    "input": {
+      "target": "host-tls",
+      "desired": "mtls_required",
+      "credential": {
+        "configured": {
+          "custody": "native_file_exportable",
+          "generation": 3,
+          "not_after": "2026-12-01T00:00:00.000Z",
+          "kind": "pem_files"
+        }
+      },
+      "runtime": {
+        "loaded": {
+          "generation": 3,
+          "loaded_at": "2026-09-22T08:00:00.000Z"
+        }
+      },
+      "observed": {
+        "at": "2026-09-22T09:59:00.000Z",
+        "observer": "host-tls-listener",
+        "target": "host-tls",
+        "generation": 3,
+        "peer": {
+          "source": "direct_tls",
+          "identities": [
+            {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            {
+              "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ],
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "not_before": "2026-09-22T00:00:00.000Z",
+          "not_after": "2026-09-23T00:00:00.000Z",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "trust_generation": 3,
+          "credential_generation": 7,
+          "listener": "host-tls",
+          "policy": "mtls_required",
+          "tls_version": "tls13",
+          "authenticated_at": "2026-09-22T09:59:00.000Z",
+          "usable_until": "2026-09-22T10:29:00.000Z",
+          "ingress": null
+        }
+      },
+      "enforcement": {
+        "verified": {
+          "at": "2026-09-22T09:00:00.000Z",
+          "target": "worker-tls",
+          "generation": 3,
+          "accepted_with_certificate": true,
+          "rejected_without_certificate": true,
+          "fresh_until": "2026-09-22T11:00:00.000Z"
+        }
+      },
+      "capabilities": {
+        "native_pem": "supported",
+        "managed_certificate": "supported",
+        "spiffe_workload_api": {
+          "unsupported": {
+            "reason": "no workload api socket configured"
+          }
+        },
+        "browser_managed_external": {
+          "unsupported": {
+            "reason": "a native runtime has no browser certificate store to consume"
+          }
+        },
+        "browser_vault_key_injection": {
+          "unsupported": {
+            "reason": "a browser cannot attach a vault-held key to its TLS handshake; certificates a browser presents are provisioned outside the app"
+          }
+        },
+        "client_presents_certificate": true,
+        "server_enforces_certificate": true
+      }
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "status-observed-other-target": {
+    "kind": "transport_status_view",
+    "input": {
+      "target": "host-tls",
+      "desired": "mtls_required",
+      "credential": {
+        "configured": {
+          "custody": "native_file_exportable",
+          "generation": 3,
+          "not_after": "2026-12-01T00:00:00.000Z",
+          "kind": "pem_files"
+        }
+      },
+      "runtime": {
+        "loaded": {
+          "generation": 3,
+          "loaded_at": "2026-09-22T08:00:00.000Z"
+        }
+      },
+      "observed": {
+        "at": "2026-09-22T09:59:00.000Z",
+        "observer": "host-tls-listener",
+        "target": "worker-tls",
+        "generation": 3,
+        "peer": {
+          "source": "direct_tls",
+          "identities": [
+            {
+              "spiffe_id": "spiffe://example.org/ns/prod/sa/nats-bridge"
+            },
+            {
+              "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ],
+          "leaf_thumbprint_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "not_before": "2026-09-22T00:00:00.000Z",
+          "not_after": "2026-09-23T00:00:00.000Z",
+          "trust_profile": {
+            "name": "private-root"
+          },
+          "trust_generation": 3,
+          "credential_generation": 7,
+          "listener": "host-tls",
+          "policy": "mtls_required",
+          "tls_version": "tls13",
+          "authenticated_at": "2026-09-22T09:59:00.000Z",
+          "usable_until": "2026-09-22T10:29:00.000Z",
+          "ingress": null
+        }
+      },
+      "enforcement": {
+        "verified": {
+          "at": "2026-09-22T09:00:00.000Z",
+          "target": "host-tls",
+          "generation": 3,
+          "accepted_with_certificate": true,
+          "rejected_without_certificate": true,
+          "fresh_until": "2026-09-22T11:00:00.000Z"
+        }
+      },
+      "capabilities": {
+        "native_pem": "supported",
+        "managed_certificate": "supported",
+        "spiffe_workload_api": {
+          "unsupported": {
+            "reason": "no workload api socket configured"
+          }
+        },
+        "browser_managed_external": {
+          "unsupported": {
+            "reason": "a native runtime has no browser certificate store to consume"
+          }
+        },
+        "browser_vault_key_injection": {
+          "unsupported": {
+            "reason": "a browser cannot attach a vault-held key to its TLS handshake; certificates a browser presents are provisioned outside the app"
+          }
+        },
+        "client_presents_certificate": true,
+        "server_enforces_certificate": true
+      }
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "status-reload-code-free-text": {
+    "kind": "transport_status_view",
+    "input": {
+      "target": "worker-tls",
+      "desired": "existing_local",
+      "credential": {
+        "revoked": {
+          "generation": 2
+        }
+      },
+      "runtime": {
+        "reload_failed": {
+          "generation": 2,
+          "code": "network error"
+        }
+      },
+      "observed": null,
+      "enforcement": "unverified",
+      "capabilities": {
+        "native_pem": {
+          "unsupported": {
+            "reason": "a PEM identity needs a native runtime; the static app has none"
+          }
+        },
+        "managed_certificate": {
+          "unsupported": {
+            "reason": "a managed certificate needs a native runtime; the static app has none"
+          }
+        },
+        "spiffe_workload_api": {
+          "unsupported": {
+            "reason": "the SPIFFE Workload API needs a native runtime; the static app has none"
+          }
+        },
+        "browser_managed_external": {
+          "external_provisioning_required": {
+            "reason": "the browser or OS must hold the certificate; the app only selects a remote profile that expects one"
+          }
+        },
+        "browser_vault_key_injection": {
+          "unsupported": {
+            "reason": "a browser cannot attach a vault-held key to its TLS handshake; certificates a browser presents are provisioned outside the app"
+          }
+        },
+        "client_presents_certificate": false,
+        "server_enforces_certificate": false
+      }
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "status-target-with-space": {
+    "kind": "transport_status_view",
+    "input": {
+      "target": "host tls",
+      "desired": "existing_local",
+      "credential": "unconfigured",
+      "runtime": "not_loaded",
+      "observed": null,
+      "enforcement": "unverified",
+      "capabilities": {
+        "native_pem": {
+          "unsupported": {
+            "reason": "a PEM identity needs a native runtime; the static app has none"
+          }
+        },
+        "managed_certificate": {
+          "unsupported": {
+            "reason": "a managed certificate needs a native runtime; the static app has none"
+          }
+        },
+        "spiffe_workload_api": {
+          "unsupported": {
+            "reason": "the SPIFFE Workload API needs a native runtime; the static app has none"
+          }
+        },
+        "browser_managed_external": {
+          "external_provisioning_required": {
+            "reason": "the browser or OS must hold the certificate; the app only selects a remote profile that expects one"
+          }
+        },
+        "browser_vault_key_injection": {
+          "unsupported": {
+            "reason": "a browser cannot attach a vault-held key to its TLS handshake; certificates a browser presents are provisioned outside the app"
+          }
+        },
+        "client_presents_certificate": false,
+        "server_enforces_certificate": false
+      }
+    },
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "timestamp-empty": {
+    "kind": "timestamp",
+    "input": "",
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "timestamp-epoch-number": {
+    "kind": "timestamp",
+    "input": 1758535200,
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "timestamp-feb-30": {
+    "kind": "timestamp",
+    "input": "2026-02-30T00:00:00Z",
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "timestamp-hour-24": {
+    "kind": "timestamp",
+    "input": "2026-01-01T24:00:00Z",
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "timestamp-leap-second": {
+    "kind": "timestamp",
+    "input": "2026-09-22T23:59:60Z",
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "timestamp-lowercase": {
+    "kind": "timestamp",
+    "input": "2026-09-22t10:00:00z",
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "timestamp-microseconds": {
+    "kind": "timestamp",
+    "input": "2026-09-22T10:00:00.123456Z",
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "timestamp-month-13": {
+    "kind": "timestamp",
+    "input": "2026-13-01T00:00:00Z",
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "timestamp-no-offset": {
+    "kind": "timestamp",
+    "input": "2026-09-22T10:00:00",
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "timestamp-offset-no-colon": {
+    "kind": "timestamp",
+    "input": "2026-09-22T10:00:00+0530",
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  },
+  "timestamp-space-separator": {
+    "kind": "timestamp",
+    "input": "2026-09-22 10:00:00Z",
+    "expect": {
+      "ok": false,
+      "error": "malformed_configuration"
+    }
+  }
+}

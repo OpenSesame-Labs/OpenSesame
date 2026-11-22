@@ -1,5 +1,5 @@
 /** @vitest-environment node */
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { SopsError, type SopsErrorCode } from "./errors.js";
@@ -8,7 +8,15 @@ import { goFloatText } from "./scalars.js";
 import { emitYamlStream } from "./yaml-emit.js";
 import { parseYamlDocuments } from "./yaml-parse.js";
 
-const dir = join(__dirname, "fixtures", "tree");
+/**
+ * `fixtures/tree.json` maps a case name to its YAML source (`yaml`, kept
+ * verbatim) and what the pinned upstream loader dumped for it: `documents`,
+ * or `error` when upstream refuses the input.
+ */
+const TREE: Record<
+  string,
+  { yaml: string; documents?: Dump[]; error?: string }
+> = JSON.parse(readFileSync(join(__dirname, "fixtures", "tree.json"), "utf8"));
 
 /**
  * Inputs the pinned loader accepts but this engine refuses on purpose
@@ -84,18 +92,13 @@ function dump(node: SopsNode): Dump {
   }
 }
 
-describe("YAML parser against the pinned upstream loader (fixtures/tree)", () => {
-  const names = readdirSync(dir)
-    .filter((name) => name.endsWith(".yaml"))
-    .map((name) => name.slice(0, -".yaml".length));
+describe("YAML parser against the pinned upstream loader (fixtures/tree.json)", () => {
+  const names = Object.keys(TREE).sort();
   expect(names.length).toBeGreaterThan(20);
 
   for (const name of names) {
     it(`matches upstream for ${name}`, () => {
-      const text = readFileSync(join(dir, `${name}.yaml`), "utf8");
-      const expected: { documents?: Dump[]; error?: string } = JSON.parse(
-        readFileSync(join(dir, `${name}.tree.json`), "utf8"),
-      );
+      const { yaml: text, ...expected } = TREE[name] ?? { yaml: "" };
       const stricter = STRICTER[name];
       if (stricter) {
         expect(() => parseYamlDocuments(text)).toThrowError(SopsError);
@@ -119,7 +122,7 @@ describe("YAML parser against the pinned upstream loader (fixtures/tree)", () =>
   it("emits YAML that parses back to the same tree, for every accepted fixture", () => {
     for (const name of names) {
       if (STRICTER[name]) continue;
-      const text = readFileSync(join(dir, `${name}.yaml`), "utf8");
+      const text = TREE[name]?.yaml ?? "";
       let roots: SopsNode[];
       try {
         roots = parseYamlDocuments(text);

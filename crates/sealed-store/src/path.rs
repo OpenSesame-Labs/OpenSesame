@@ -4,7 +4,7 @@ use crate::StoreError;
 
 #[path = "path_atomic.rs"]
 mod atomic;
-pub(crate) use atomic::confined_atomic_write;
+pub(crate) use atomic::{confined_atomic_write, confined_read_bounded};
 
 #[cfg(unix)]
 mod confined {

@@ -1,0 +1,1482 @@
+{
+  "alias": {
+    "yaml": "base: &b\n  x: 1\nother: *b\nmerged:\n  <<: *b\n  y: 2\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "base",
+            "value": {
+              "map": [
+                {
+                  "key": "x",
+                  "value": {
+                    "int": "1"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": "other",
+            "value": {
+              "map": [
+                {
+                  "key": "x",
+                  "value": {
+                    "int": "1"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": "merged",
+            "value": {
+              "map": [
+                {
+                  "key": "<<",
+                  "value": {
+                    "map": [
+                      {
+                        "key": "x",
+                        "value": {
+                          "int": "1"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "key": "y",
+                  "value": {
+                    "int": "2"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "binary": {
+    "yaml": "bin: !!binary aGVsbG8=\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "bin",
+            "value": {
+              "str": "hello"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "block-scalars": {
+    "yaml": "a:\n  b: |-\n    x\n    # y\n  c: >\n    folded\n    text\n  d: \"multi\\nline\"\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "a",
+            "value": {
+              "map": [
+                {
+                  "key": "b",
+                  "value": {
+                    "str": "x\n# y"
+                  }
+                },
+                {
+                  "key": "c",
+                  "value": {
+                    "str": "folded text\n"
+                  }
+                },
+                {
+                  "key": "d",
+                  "value": {
+                    "str": "multi\nline"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "comment-only": {
+    "yaml": "# only comment\n",
+    "error": "EOF"
+  },
+  "comments": {
+    "yaml": "# head one\n# head two\na: 1 # inline a\n#  indented comment\nb:\n  # before c\n  c: two\n  d: [x, y] # inline d\ne:\n  # before first item\n  - one # inline one\n  - two\n\n  # after blank line\n  - three\nf: |\n  multi\n  line\ng: \"quoted # not a comment\"\n# foot comment\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "comment": " head one",
+            "inline": false
+          },
+          {
+            "comment": " head two",
+            "inline": false
+          },
+          {
+            "comment": " inline a",
+            "inline": true
+          },
+          {
+            "key": "a",
+            "value": {
+              "int": "1"
+            }
+          },
+          {
+            "comment": "  indented comment",
+            "inline": false
+          },
+          {
+            "key": "b",
+            "value": {
+              "map": [
+                {
+                  "comment": " before c",
+                  "inline": false
+                },
+                {
+                  "key": "c",
+                  "value": {
+                    "str": "two"
+                  }
+                },
+                {
+                  "key": "d",
+                  "value": {
+                    "seq": [
+                      {
+                        "comment": " inline d",
+                        "inline": false
+                      },
+                      {
+                        "str": "x"
+                      },
+                      {
+                        "str": "y"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": "e",
+            "value": {
+              "seq": [
+                {
+                  "comment": " before first item",
+                  "inline": false
+                },
+                {
+                  "comment": " inline one",
+                  "inline": true
+                },
+                {
+                  "str": "one"
+                },
+                {
+                  "str": "two"
+                },
+                {
+                  "comment": " after blank line",
+                  "inline": false
+                },
+                {
+                  "str": "three"
+                }
+              ]
+            }
+          },
+          {
+            "key": "f",
+            "value": {
+              "str": "multi\nline\n"
+            }
+          },
+          {
+            "key": "g",
+            "value": {
+              "str": "quoted # not a comment"
+            }
+          },
+          {
+            "comment": " foot comment",
+            "inline": false
+          }
+        ]
+      }
+    ]
+  },
+  "custom-tag": {
+    "yaml": "a: !custom x\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "a",
+            "value": {
+              "str": "x"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "duplicate": {
+    "yaml": "a: 1\na: 2\n",
+    "error": "yaml: unmarshal errors:\n  line 2: mapping key \"a\" already defined at line 1"
+  },
+  "empty": {
+    "yaml": "",
+    "documents": []
+  },
+  "layout-1": {
+    "yaml": "a:\n  b: 1\n  # trailing indented\nc: 2\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "a",
+            "value": {
+              "map": [
+                {
+                  "key": "b",
+                  "value": {
+                    "int": "1"
+                  }
+                },
+                {
+                  "comment": " trailing indented",
+                  "inline": false
+                }
+              ]
+            }
+          },
+          {
+            "key": "c",
+            "value": {
+              "int": "2"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "layout-10": {
+    "yaml": "a:\n  b:\n    c: 1\n    # deep foot\n  # mid foot\n# root foot\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "a",
+            "value": {
+              "map": [
+                {
+                  "key": "b",
+                  "value": {
+                    "map": [
+                      {
+                        "key": "c",
+                        "value": {
+                          "int": "1"
+                        }
+                      },
+                      {
+                        "comment": " deep foot",
+                        "inline": false
+                      }
+                    ]
+                  }
+                },
+                {
+                  "comment": " mid foot",
+                  "inline": false
+                }
+              ]
+            }
+          },
+          {
+            "comment": " root foot",
+            "inline": false
+          }
+        ]
+      }
+    ]
+  },
+  "layout-11": {
+    "yaml": "a: 1\n\nb: 2 # inline b\n\n# head c\nc: 3\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "a",
+            "value": {
+              "int": "1"
+            }
+          },
+          {
+            "comment": " inline b",
+            "inline": true
+          },
+          {
+            "key": "b",
+            "value": {
+              "int": "2"
+            }
+          },
+          {
+            "comment": " head c",
+            "inline": false
+          },
+          {
+            "key": "c",
+            "value": {
+              "int": "3"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "layout-12": {
+    "yaml": "list:\n  - one\n  # after one\n  - two\n  # after two (foot of list)\nnext: 1\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "list",
+            "value": {
+              "seq": [
+                {
+                  "str": "one"
+                },
+                {
+                  "comment": " after one",
+                  "inline": false
+                },
+                {
+                  "str": "two"
+                },
+                {
+                  "comment": " after two (foot of list)",
+                  "inline": false
+                }
+              ]
+            }
+          },
+          {
+            "key": "next",
+            "value": {
+              "int": "1"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "layout-13": {
+    "yaml": "k: | # hdr\n  blk\nl: >- # fold\n  txt\nm: \"q\" # after quoted\nn: !!str 42 # after tagged\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "comment": " hdr",
+            "inline": true
+          },
+          {
+            "key": "k",
+            "value": {
+              "str": "blk\n"
+            }
+          },
+          {
+            "comment": " fold",
+            "inline": true
+          },
+          {
+            "key": "l",
+            "value": {
+              "str": "txt"
+            }
+          },
+          {
+            "comment": " after quoted",
+            "inline": true
+          },
+          {
+            "key": "m",
+            "value": {
+              "str": "q"
+            }
+          },
+          {
+            "comment": " after tagged",
+            "inline": true
+          },
+          {
+            "key": "n",
+            "value": {
+              "str": "42"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "layout-14": {
+    "yaml": "e: [1, # fc\n 2]\nf: {a: 1, # fm\n b: 2}\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "e",
+            "value": {
+              "seq": [
+                {
+                  "comment": " fc",
+                  "inline": true
+                },
+                {
+                  "int": "1"
+                },
+                {
+                  "int": "2"
+                }
+              ]
+            }
+          },
+          {
+            "key": "f",
+            "value": {
+              "map": [
+                {
+                  "comment": " fm",
+                  "inline": true
+                },
+                {
+                  "key": "a",
+                  "value": {
+                    "int": "1"
+                  }
+                },
+                {
+                  "key": "b",
+                  "value": {
+                    "int": "2"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "layout-15": {
+    "yaml": "a:\n# col0 inside\n  b: 1\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "a",
+            "value": {
+              "map": [
+                {
+                  "comment": " col0 inside",
+                  "inline": false
+                },
+                {
+                  "key": "b",
+                  "value": {
+                    "int": "1"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "layout-16": {
+    "yaml": "--- # on marker\n# own\na: 1\n...\n--- # second\nb: 2\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "comment": " on marker",
+            "inline": false
+          },
+          {
+            "comment": " own",
+            "inline": false
+          },
+          {
+            "key": "a",
+            "value": {
+              "int": "1"
+            }
+          }
+        ]
+      },
+      {
+        "map": [
+          {
+            "comment": " second",
+            "inline": false
+          },
+          {
+            "key": "b",
+            "value": {
+              "int": "2"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "layout-17": {
+    "yaml": "list:\n  - # c then scalar\n    x\n  - y\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "list",
+            "value": {
+              "seq": [
+                {
+                  "comment": " c then scalar",
+                  "inline": false
+                },
+                {
+                  "str": "x"
+                },
+                {
+                  "str": "y"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "layout-18": {
+    "yaml": "#\n# \na: 1 #\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "comment": "",
+            "inline": false
+          },
+          {
+            "comment": " ",
+            "inline": false
+          },
+          {
+            "comment": "",
+            "inline": true
+          },
+          {
+            "key": "a",
+            "value": {
+              "int": "1"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "layout-2": {
+    "yaml": "a:\n  b: 1\n# column zero before c\nc: 2\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "a",
+            "value": {
+              "map": [
+                {
+                  "key": "b",
+                  "value": {
+                    "int": "1"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "comment": " column zero before c",
+            "inline": false
+          },
+          {
+            "key": "c",
+            "value": {
+              "int": "2"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "layout-3": {
+    "yaml": "a:\n  b: 1\n\n# blank then comment\nc: 2\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "a",
+            "value": {
+              "map": [
+                {
+                  "key": "b",
+                  "value": {
+                    "int": "1"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "comment": " blank then comment",
+            "inline": false
+          },
+          {
+            "key": "c",
+            "value": {
+              "int": "2"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "layout-4": {
+    "yaml": "a: 1\n# foot one\n# foot two\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "a",
+            "value": {
+              "int": "1"
+            }
+          },
+          {
+            "comment": " foot one",
+            "inline": false
+          },
+          {
+            "comment": " foot two",
+            "inline": false
+          }
+        ]
+      }
+    ]
+  },
+  "layout-5": {
+    "yaml": "a: # line on key with map value\n  b: 1\ns: # line on key with seq value\n  - x\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "comment": " line on key with map value",
+            "inline": false
+          },
+          {
+            "key": "a",
+            "value": {
+              "map": [
+                {
+                  "key": "b",
+                  "value": {
+                    "int": "1"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "comment": " line on key with seq value",
+            "inline": false
+          },
+          {
+            "key": "s",
+            "value": {
+              "seq": [
+                {
+                  "str": "x"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "layout-6": {
+    "yaml": "list:\n  # before first map item\n  - k: v # line on v\n    # inside first map after k\n  # between items\n  - k2: v2\n  - # comment after dash\n    k3: v3\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "list",
+            "value": {
+              "seq": [
+                {
+                  "comment": " before first map item",
+                  "inline": false
+                },
+                {
+                  "map": [
+                    {
+                      "comment": " line on v",
+                      "inline": true
+                    },
+                    {
+                      "key": "k",
+                      "value": {
+                        "str": "v"
+                      }
+                    },
+                    {
+                      "comment": " inside first map after k",
+                      "inline": false
+                    }
+                  ]
+                },
+                {
+                  "comment": " between items",
+                  "inline": false
+                },
+                {
+                  "map": [
+                    {
+                      "key": "k2",
+                      "value": {
+                        "str": "v2"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "map": [
+                    {
+                      "comment": " comment after dash",
+                      "inline": false
+                    },
+                    {
+                      "key": "k3",
+                      "value": {
+                        "str": "v3"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "layout-7": {
+    "yaml": "# one\n\n# two\na: 1\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "comment": " one",
+            "inline": false
+          },
+          {
+            "comment": " two",
+            "inline": false
+          },
+          {
+            "key": "a",
+            "value": {
+              "int": "1"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "layout-8": {
+    "yaml": "# only a comment\n",
+    "error": "EOF"
+  },
+  "layout-9": {
+    "yaml": "a: {x: 1} # after flow map\nb: [1, 2] # after flow seq\nc: |\n  block\n# after block scalar\nd: 4\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "a",
+            "value": {
+              "map": [
+                {
+                  "comment": " after flow map",
+                  "inline": false
+                },
+                {
+                  "key": "x",
+                  "value": {
+                    "int": "1"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "key": "b",
+            "value": {
+              "seq": [
+                {
+                  "comment": " after flow seq",
+                  "inline": false
+                },
+                {
+                  "int": "1"
+                },
+                {
+                  "int": "2"
+                }
+              ]
+            }
+          },
+          {
+            "key": "c",
+            "value": {
+              "str": "block\n"
+            }
+          },
+          {
+            "comment": " after block scalar",
+            "inline": false
+          },
+          {
+            "key": "d",
+            "value": {
+              "int": "4"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "malformed": {
+    "yaml": "a: 1\n  b: 2\n",
+    "error": "yaml: line 2: mapping values are not allowed in this context"
+  },
+  "merge-literal": {
+    "yaml": "k: &x 1\nm:\n  <<: {q: 1}\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "k",
+            "value": {
+              "int": "1"
+            }
+          },
+          {
+            "key": "m",
+            "value": {
+              "map": [
+                {
+                  "key": "<<",
+                  "value": {
+                    "map": [
+                      {
+                        "key": "q",
+                        "value": {
+                          "int": "1"
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "mixed": {
+    "yaml": "a: 1\nb:\n  - x\n  - [1, 2]\n  - {c: d}\n  - null\n  - \"\"\n  - {}\n  - []\nu: \"héllo 🌍\"\nu2: héllo\nkey with spaces: v\n\"quoted key\": v\n? complex\n: v\nyes: no\nnum_key_str: \"10\"\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "a",
+            "value": {
+              "int": "1"
+            }
+          },
+          {
+            "key": "b",
+            "value": {
+              "seq": [
+                {
+                  "str": "x"
+                },
+                {
+                  "seq": [
+                    {
+                      "int": "1"
+                    },
+                    {
+                      "int": "2"
+                    }
+                  ]
+                },
+                {
+                  "map": [
+                    {
+                      "key": "c",
+                      "value": {
+                        "str": "d"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "null": true
+                },
+                {
+                  "str": ""
+                },
+                {
+                  "map": []
+                },
+                {
+                  "seq": []
+                }
+              ]
+            }
+          },
+          {
+            "key": "u",
+            "value": {
+              "str": "héllo 🌍"
+            }
+          },
+          {
+            "key": "u2",
+            "value": {
+              "str": "héllo"
+            }
+          },
+          {
+            "key": "key with spaces",
+            "value": {
+              "str": "v"
+            }
+          },
+          {
+            "key": "quoted key",
+            "value": {
+              "str": "v"
+            }
+          },
+          {
+            "key": "complex",
+            "value": {
+              "str": "v"
+            }
+          },
+          {
+            "key": "yes",
+            "value": {
+              "str": "no"
+            }
+          },
+          {
+            "key": "num_key_str",
+            "value": {
+              "str": "10"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "multi": {
+    "yaml": "a: 1\n---\n# doc two\nb: 2\n---\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "a",
+            "value": {
+              "int": "1"
+            }
+          }
+        ]
+      },
+      {
+        "map": [
+          {
+            "comment": " doc two",
+            "inline": false
+          },
+          {
+            "key": "b",
+            "value": {
+              "int": "2"
+            }
+          }
+        ]
+      },
+      {
+        "map": []
+      }
+    ]
+  },
+  "nonstring-key": {
+    "yaml": "\"10\": a\n\"2\": b\n\"01\": c\n__proto__: d\n1: numeric key\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "10",
+            "value": {
+              "str": "a"
+            }
+          },
+          {
+            "key": "2",
+            "value": {
+              "str": "b"
+            }
+          },
+          {
+            "key": "01",
+            "value": {
+              "str": "c"
+            }
+          },
+          {
+            "key": "__proto__",
+            "value": {
+              "str": "d"
+            }
+          },
+          {
+            "key": 1,
+            "value": {
+              "str": "numeric key"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "numbers": {
+    "yaml": "big: 9223372036854775807\nsmall: -9223372036854775808\nz: -0\nh: -0x1F\nf: 1.0\ng: 1e21\nh2: 0.000001\nk: 1e-7\nl: 123456789.123456789\nm: 5.\nn: +7\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "big",
+            "value": {
+              "int": "9223372036854775807"
+            }
+          },
+          {
+            "key": "small",
+            "value": {
+              "int": "-9223372036854775808"
+            }
+          },
+          {
+            "key": "z",
+            "value": {
+              "int": "0"
+            }
+          },
+          {
+            "key": "h",
+            "value": {
+              "int": "-31"
+            }
+          },
+          {
+            "key": "f",
+            "value": {
+              "float": "1"
+            }
+          },
+          {
+            "key": "g",
+            "value": {
+              "float": "1000000000000000000000"
+            }
+          },
+          {
+            "key": "h2",
+            "value": {
+              "float": "0.000001"
+            }
+          },
+          {
+            "key": "k",
+            "value": {
+              "float": "0.0000001"
+            }
+          },
+          {
+            "key": "l",
+            "value": {
+              "float": "123456789.12345679"
+            }
+          },
+          {
+            "key": "m",
+            "value": {
+              "float": "5"
+            }
+          },
+          {
+            "key": "n",
+            "value": {
+              "int": "7"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "numeric-keys": {
+    "yaml": "\"10\": a\n\"2\": b\n\"01\": c\n__proto__: d\nconstructor: e\nprototype: f\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "10",
+            "value": {
+              "str": "a"
+            }
+          },
+          {
+            "key": "2",
+            "value": {
+              "str": "b"
+            }
+          },
+          {
+            "key": "01",
+            "value": {
+              "str": "c"
+            }
+          },
+          {
+            "key": "__proto__",
+            "value": {
+              "str": "d"
+            }
+          },
+          {
+            "key": "constructor",
+            "value": {
+              "str": "e"
+            }
+          },
+          {
+            "key": "prototype",
+            "value": {
+              "str": "f"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "scalars": {
+    "yaml": "t1: true\nt2: True\nt3: yes\nn1: null\nn2: ~\nn3:\nn4: \"\"\ni1: 42\ni2: -0\ni3: 0x1F\ni4: 0o17\ni5: 017\ni6: 0b101\ni7: 1_000\ni8: 9223372036854775807\ni10: -9223372036854775808\nf1: 1.0\nf2: 1e3\nf3: .5\nf4: 1.5e300\nf5: 0.1\nf6: -0.0\nf7: .inf\nf8: .nan\nf9: 12345678901234567890.5\nd1: 2001-12-14T21:59:43.10-05:00\nd2: 2001-12-14 21:59:43.10\nd3: 2002-12-14\nd4: \"2002-12-14\"\nd5: 2001-12-14t21:59:43.10-05:00\nd6: 2001-12-14T21:59:43Z\ns1: \"42\"\ns2: '1.0'\ns3: 007abc\ns4: 1e\nu1: \"héllo 🌍\"\nu2: héllo\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "t1",
+            "value": {
+              "bool": true
+            }
+          },
+          {
+            "key": "t2",
+            "value": {
+              "bool": true
+            }
+          },
+          {
+            "key": "t3",
+            "value": {
+              "str": "yes"
+            }
+          },
+          {
+            "key": "n1",
+            "value": {
+              "null": true
+            }
+          },
+          {
+            "key": "n2",
+            "value": {
+              "null": true
+            }
+          },
+          {
+            "key": "n3",
+            "value": {
+              "null": true
+            }
+          },
+          {
+            "key": "n4",
+            "value": {
+              "str": ""
+            }
+          },
+          {
+            "key": "i1",
+            "value": {
+              "int": "42"
+            }
+          },
+          {
+            "key": "i2",
+            "value": {
+              "int": "0"
+            }
+          },
+          {
+            "key": "i3",
+            "value": {
+              "int": "31"
+            }
+          },
+          {
+            "key": "i4",
+            "value": {
+              "int": "15"
+            }
+          },
+          {
+            "key": "i5",
+            "value": {
+              "int": "15"
+            }
+          },
+          {
+            "key": "i6",
+            "value": {
+              "int": "5"
+            }
+          },
+          {
+            "key": "i7",
+            "value": {
+              "int": "1000"
+            }
+          },
+          {
+            "key": "i8",
+            "value": {
+              "int": "9223372036854775807"
+            }
+          },
+          {
+            "key": "i10",
+            "value": {
+              "int": "-9223372036854775808"
+            }
+          },
+          {
+            "key": "f1",
+            "value": {
+              "float": "1"
+            }
+          },
+          {
+            "key": "f2",
+            "value": {
+              "float": "1000"
+            }
+          },
+          {
+            "key": "f3",
+            "value": {
+              "float": "0.5"
+            }
+          },
+          {
+            "key": "f4",
+            "value": {
+              "float": "1500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+            }
+          },
+          {
+            "key": "f5",
+            "value": {
+              "float": "0.1"
+            }
+          },
+          {
+            "key": "f6",
+            "value": {
+              "float": "-0"
+            }
+          },
+          {
+            "key": "f7",
+            "value": {
+              "float": "+Inf"
+            }
+          },
+          {
+            "key": "f8",
+            "value": {
+              "float": "NaN"
+            }
+          },
+          {
+            "key": "f9",
+            "value": {
+              "float": "12345678901234567000"
+            }
+          },
+          {
+            "key": "d1",
+            "value": {
+              "time": "2001-12-14T21:59:43.1-05:00"
+            }
+          },
+          {
+            "key": "d2",
+            "value": {
+              "time": "2001-12-14T21:59:43.1Z"
+            }
+          },
+          {
+            "key": "d3",
+            "value": {
+              "time": "2002-12-14T00:00:00Z"
+            }
+          },
+          {
+            "key": "d4",
+            "value": {
+              "str": "2002-12-14"
+            }
+          },
+          {
+            "key": "d5",
+            "value": {
+              "time": "2001-12-14T21:59:43.1-05:00"
+            }
+          },
+          {
+            "key": "d6",
+            "value": {
+              "time": "2001-12-14T21:59:43Z"
+            }
+          },
+          {
+            "key": "s1",
+            "value": {
+              "str": "42"
+            }
+          },
+          {
+            "key": "s2",
+            "value": {
+              "str": "1.0"
+            }
+          },
+          {
+            "key": "s3",
+            "value": {
+              "str": "007abc"
+            }
+          },
+          {
+            "key": "s4",
+            "value": {
+              "str": "1e"
+            }
+          },
+          {
+            "key": "u1",
+            "value": {
+              "str": "héllo 🌍"
+            }
+          },
+          {
+            "key": "u2",
+            "value": {
+              "str": "héllo"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "seqroot": {
+    "yaml": "- a\n",
+    "error": "yaml: unmarshal errors:\n  line 1: cannot unmarshal !!seq into map[string]interface {}"
+  },
+  "trailing-empty-doc": {
+    "yaml": "---\na: 1\n---\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "a",
+            "value": {
+              "int": "1"
+            }
+          }
+        ]
+      },
+      {
+        "map": []
+      }
+    ]
+  },
+  "uint64": {
+    "yaml": "i9: 9223372036854775808\n",
+    "documents": [
+      {
+        "map": [
+          {
+            "key": "i9",
+            "value": {
+              "uint64": "9223372036854775808"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

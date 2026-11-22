@@ -18,8 +18,8 @@ compiler and its YAML/JSON import and export.
   domain types), `zod` and `yaml`.
 - The transport-security schemas mirror `opensesame_domain::transport` and
   share one JSON corpus with the Rust plane:
-  [`fixtures/transport-security/`](fixtures/transport-security) (`valid/`,
-  `invalid/`), read by
+  [`fixtures/transport-security/`](fixtures/transport-security) (`valid.json`
+  and `invalid.json`, each mapping a case name to one fixture), read by
   [`crates/domain/src/transport/corpus_tests.rs`](../../crates/domain/src/transport/corpus_tests.rs).
   Every object is `.strict()`, timestamps are RFC 3339 with an offset, and
   nothing coerces.
@@ -30,7 +30,7 @@ compiler and its YAML/JSON import and export.
 | Entry | What it holds |
 |---|---|
 | `@opensesame/contracts` | Every schema module re-exported from `src/index.ts`: `principals`, `projects`, `agents`, `agent-auth`, `organizations`, `oauth-clients`, `claims`, `authorization-requests`, `interactions`, `transaction`, `audit`, `trust`, `notifications`, `webhooks`, `authentication-service`, `authority-grant`, `local-access-requests`, `federated-providers`, `connections`, `secret-configs`, `sync-targets`, `sync_blobs`, `taskbus` (plus `taskBusOpenApi`), `transport-security`, and the `duress` module below (also re-exported from the root) |
-| `@opensesame/contracts/duress` | The duress policy schema, `compileDuressPolicy`, `dryRunDuressPolicy`, `parseDuressWire`, `serializeDuressPolicy`, `importDuressPolicyPreview`, `diffDuressPolicies`, scenarios and attack trees; test data under `src/duress/testdata/` |
+| `@opensesame/contracts/duress` | The duress policy schema, `compileDuressPolicy`, `dryRunDuressPolicy`, `parseDuressWire`, `serializeDuressPolicy`, `importDuressPolicyPreview`, `diffDuressPolicies`, scenarios and attack trees; test data under `src/duress/testdata/` (`scenarios.json` and `scenarios.yaml` keyed by scenario id; `invalid.json`, generated from `INVALID_FIXTURES`, keyed by error code) |
 
 ## Develop
 
@@ -39,8 +39,9 @@ npm run test -w @opensesame/contracts
 npm run typecheck -w @opensesame/contracts
 ```
 
-A change to a transport-security schema needs the matching fixture in
-`fixtures/transport-security/` and the Rust corpus test to agree.
+A change to a transport-security schema needs the matching case in
+`fixtures/transport-security/valid.json` or `invalid.json` and the Rust corpus
+test to agree.
 
 ## Related
 
