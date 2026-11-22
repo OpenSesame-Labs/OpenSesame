@@ -261,6 +261,8 @@ mod dispatch_tests {
         );
         let db = "async fn f() { query.execute(&self.pool).await?; }";
         assert_eq!(credentialed_send_https_gaps(db), (0, 0));
+        let compacted_typed = "async fn f() { let dispatch:_=reqwest::RequestBuilder::send; dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(compacted_typed), (1, 1));
     }
 
     #[test]
