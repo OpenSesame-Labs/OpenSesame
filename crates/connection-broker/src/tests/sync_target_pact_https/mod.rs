@@ -31,9 +31,11 @@ pub(crate) fn credentialed_send_https_gaps(source: &str) -> (usize, usize) {
             continue;
         }
         if let Some(len) = dispatch_site(&source, &alias_calls, index) {
-            sends += 1;
-            if !scheme_guarded(&source, &spans, index) {
-                missing += 1;
+            if credentialed_dispatch_site(&source, index) {
+                sends += 1;
+                if !scheme_guarded(&source, &spans, index) {
+                    missing += 1;
+                }
             }
             index += len;
             continue;
@@ -41,6 +43,23 @@ pub(crate) fn credentialed_send_https_gaps(source: &str) -> (usize, usize) {
         index += 1;
     }
     (sends, missing)
+}
+
+fn credentialed_dispatch_site(source: &str, index: usize) -> bool {
+    let rest = &source[index..];
+    if !rest.starts_with(".execute") {
+        return true;
+    }
+    let name: String = source[..index]
+        .trim_end()
+        .chars()
+        .rev()
+        .take_while(|ch| is_ident_char(*ch))
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect();
+    matches!(name.as_str(), "client" | "request" | "req" | "builder" | "http")
 }
 
 fn dispatch_site(source: &str, alias_calls: &[(usize, usize)], index: usize) -> Option<usize> {
@@ -240,6 +259,10 @@ mod dispatch_tests {
             credentialed_send_https_gaps("async fn f() { let f = Client::execute; }"),
             (0, 0)
         );
+        let typed = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let dispatch: _ = reqwest::RequestBuilder::send; dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(typed), (1, 0));
+        let db = "async fn f() { query.execute(&self.pool).await?; }";
+        assert_eq!(credentialed_send_https_gaps(db), (0, 0));
     }
 
     #[test]
