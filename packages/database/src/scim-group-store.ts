@@ -93,13 +93,23 @@ function normalizeGroup(group: ScimGroupRecord): ScimGroupRecord {
   };
 }
 
-function validateGroup(group: ScimGroupRecord, previousSize: number): void {
+/**
+ * Id ceilings bound new admissions only: a group or member id that predates
+ * them may stay (or be removed), so a legacy group can always be reduced.
+ */
+function validateGroup(
+  group: ScimGroupRecord,
+  previous: readonly string[] | undefined,
+): void {
+  const held = new Set(previous ?? []);
   if (
     !group.id ||
-    group.id.length > SCIM_GROUP_ID_MAX ||
-    group.memberIds.some((id) => !id || id.length > SCIM_GROUP_ID_MAX) ||
+    (previous === undefined && group.id.length > SCIM_GROUP_ID_MAX) ||
+    group.memberIds.some(
+      (id) => !id || (id.length > SCIM_GROUP_ID_MAX && !held.has(id)),
+    ) ||
     (group.memberIds.length > SCIM_GROUP_MEMBERS_MAX &&
-      group.memberIds.length >= previousSize)
+      group.memberIds.length >= (previous?.length ?? 0))
   )
     throw new ScimGroupPayloadError();
 }
@@ -120,8 +130,7 @@ function createMemoryGroupStores(
         const row = normalizeGroup(group);
         validateGroup(
           row,
-          groups.get(groupKey(row.organizationId, row.id))?.memberIds.length ??
-            0,
+          groups.get(groupKey(row.organizationId, row.id))?.memberIds,
         );
         if (
           !groups.has(groupKey(row.organizationId, row.id)) &&
@@ -196,7 +205,7 @@ function createPostgresGroupTableStore(
               ),
             )
             .limit(1);
-          validateGroup(row, existing?.memberIds.length ?? 0);
+          validateGroup(row, existing?.memberIds);
           if (!existing) {
             const [usage] = await tx
               .select({

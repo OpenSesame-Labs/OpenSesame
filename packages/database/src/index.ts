@@ -151,6 +151,7 @@ export {
   ScimGroupCapacityError,
   type ScimGroupLimits,
   ScimGroupPayloadError,
+  scimMappingAdmissible,
 } from "./scim-group-limits.js";
 export {
   type ScimGroupMapping,

@@ -101,14 +101,17 @@ export async function patchScimGroup(
   const body = await readScimJsonBody(c);
   if (!body) return scimError(c, 400, "Body is not a SCIM PatchOp.");
   const groupId = decodeURIComponent(c.req.param("groupId") ?? "");
-  if (!groupId || groupId.length > SCIM_GROUP_ID_MAX)
-    return scimError(c, 400, "Invalid group id.", "invalidValue");
+  if (!groupId) return scimError(c, 400, "Invalid group id.", "invalidValue");
 
-  const operations = scimPatchOperations(body);
   const existing = await ctx.stores.scim.groups.getById(
     organization.id,
     groupId,
   );
+  // The id ceiling bounds new groups only. A group that predates it must stay
+  // reducible, or the privileges its mapping confers could not be withdrawn.
+  if (!existing && groupId.length > SCIM_GROUP_ID_MAX)
+    return scimError(c, 400, "Invalid group id.", "invalidValue");
+  const operations = scimPatchOperations(body);
   const folded = foldGroupPatch(body, operations, existing, groupId);
   if ("error" in folded) {
     return scimError(c, 400, folded.error.detail, folded.error.scimType);
@@ -200,7 +203,13 @@ function foldGroupPatch(
     if (!targetsMembers(operation)) continue;
     const resolved = resolveMemberIds(operation);
     if ("error" in resolved) return resolved;
-    if (resolved.ids.some((id) => id.length > SCIM_GROUP_ID_MAX))
+    // Over-long ids are admissible only as members the group already holds,
+    // so legacy members can be removed but no new one can be added.
+    if (
+      resolved.ids.some(
+        (id) => id.length > SCIM_GROUP_ID_MAX && !memberList.includes(id),
+      )
+    )
       return {
         error: { detail: "Invalid member id.", scimType: "invalidValue" },
       };

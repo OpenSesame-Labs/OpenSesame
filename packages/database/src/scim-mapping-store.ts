@@ -8,7 +8,7 @@ import {
   scimAdminLimits,
   scimAdminPage,
 } from "./scim-admin-limits.js";
-import { SCIM_GROUP_ID_MAX } from "./scim-group-limits.js";
+import { scimMappingAdmissible } from "./scim-group-limits.js";
 import type {
   ScimGroupMapping,
   ScimGroupMappingStore,
@@ -17,8 +17,13 @@ import type {
 function key(orgId: string, groupId: string): string {
   return `${orgId}\0${groupId}`;
 }
-function validateId(groupId: string): void {
-  if (!groupId || groupId.length > SCIM_GROUP_ID_MAX)
+/** New or raised over-long mappings are refused; reductions stay possible. */
+function validateId(
+  groupId: string,
+  role: OrganizationRole,
+  existing: OrganizationRole | undefined,
+): void {
+  if (!scimMappingAdmissible(groupId, role, existing))
     throw new Error("Invalid SCIM group id");
 }
 
@@ -31,8 +36,8 @@ export function createMemoryScimMappingStore(
     [...mappings.values()].filter((row) => row.organizationId === orgId);
   return {
     async put(orgId: string, groupId: string, role: OrganizationRole) {
-      validateId(groupId);
       const id = key(orgId, groupId);
+      validateId(groupId, role, mappings.get(id)?.role);
       if (
         !mappings.has(id) &&
         (ofOrg(orgId).length >= limits.mappingsPerOrganization ||
@@ -76,7 +81,7 @@ async function putPostgresMapping(
   groupId: string,
   role: OrganizationRole,
 ): Promise<ScimGroupMapping> {
-  validateId(groupId);
+  if (!groupId) throw new Error("Invalid SCIM group id");
   return db.transaction(
     async (tx) => {
       await tx.execute(
@@ -87,10 +92,11 @@ async function putPostgresMapping(
         eq(scimGroupRoleMappings.groupId, groupId),
       );
       const [existing] = await tx
-        .select({ id: scimGroupRoleMappings.groupId })
+        .select({ role: scimGroupRoleMappings.role })
         .from(scimGroupRoleMappings)
         .where(condition)
         .limit(1);
+      validateId(groupId, role, existing?.role);
       if (!existing) {
         const [usage] = await tx
           .select({

@@ -1,8 +1,8 @@
 import { appendAuditEvent } from "@opensesame/audit";
 import {
-  SCIM_GROUP_ID_MAX,
   SCIM_GROUP_MEMBERS_MAX,
   ScimAdminCapacityError,
+  scimMappingAdmissible,
 } from "@opensesame/database";
 import { isString, overlapCast } from "@opensesame/os-domain";
 import { Hono } from "hono";
@@ -65,11 +65,17 @@ scimMappingAdminRoutes.put(
         const role = isString(body.role) ? body.role : "";
         if (
           !groupId ||
-          groupId.length > SCIM_GROUP_ID_MAX ||
           (role !== "owner" && role !== "admin" && role !== "member")
         ) {
           return c.json({ error: "validation_error" }, 400);
         }
+        // An over-long legacy group id may only keep or lower its mapping.
+        const current = await ctx.stores.scim.mappings.get(
+          organization.id,
+          groupId,
+        );
+        if (!scimMappingAdmissible(groupId, role, current))
+          return c.json({ error: "validation_error" }, 400);
         const group = await ctx.stores.scim.groups.getById(
           organization.id,
           groupId,
@@ -127,8 +133,8 @@ scimMappingAdminRoutes.delete(
       OWNER,
       async ({ ctx, org, proof, actor, organization }) => {
         const groupId = decodeURIComponent(c.req.param("groupId") ?? "");
-        if (!groupId || groupId.length > SCIM_GROUP_ID_MAX)
-          return c.json({ error: "validation_error" }, 400);
+        // Deleting a neutral mapping is a reduction, so legacy ids qualify.
+        if (!groupId) return c.json({ error: "validation_error" }, 400);
         const result = await removeNeutralGroupRoleMapping(
           ctx,
           org,
