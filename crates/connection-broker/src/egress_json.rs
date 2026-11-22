@@ -277,9 +277,8 @@ impl ConnectionBroker {
             scrub_credential_reflection(bytes, &tokens.access_token);
         let text = String::from_utf8(safe_bytes.to_vec())
             .map_err(|_| "upstream response was not valid UTF-8".to_string())?;
-        // The same refusal guards error bodies and success bodies: a
-        // non-2xx response that echoes the credential is refused outright,
-        // not returned as a scrubbed diagnostic snippet.
+        // Error and success bodies share this refusal: a non-2xx response
+        // echoing the credential is refused, not returned as a snippet.
         if credential_reflected {
             return Err("upstream response contained the injected credential".into());
         }
