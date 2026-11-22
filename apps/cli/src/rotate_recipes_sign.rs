@@ -11,11 +11,11 @@ use std::io::Write as _;
 use std::path::Path;
 
 use anyhow::{bail, Context, Result};
-use chrono::{DateTime, Utc};
 use opensesame_rotation_web::recipe_doc::{
     key_id_of, signing_key_from_seed_hex, CanaryAttestation, RecipeDocument, SigningKey,
     MAX_RECIPE_BYTES,
 };
+use opensesame_time::{DateTime, Utc};
 use rand::Rng as _;
 use serde_json::{json, Value};
 use zeroize::Zeroizing;
@@ -117,7 +117,7 @@ pub(super) fn sign(key: &Path, recipe: &Path, options: SignOptions<'_>) -> Resul
     let signing = read_signing_key(key)?;
     let (_, mut document) = read_recipe(recipe)?;
     if let Some(days) = options.expires_in_days {
-        document.expires_at = (Utc::now() + chrono::Duration::days(days)).to_rfc3339();
+        document.expires_at = (Utc::now() + opensesame_time::Duration::days(days)).to_rfc3339();
     }
     if let Some(text) = options.canary_at {
         document.canary = Some(CanaryAttestation {

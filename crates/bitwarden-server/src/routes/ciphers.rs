@@ -4,8 +4,8 @@
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::Json;
-use chrono::{DateTime, Utc};
 use opensesame_storage::bitwarden::{BitwardenCipher, BitwardenMark, BitwardenUser};
+use opensesame_time::{DateTime, Utc};
 use serde_json::Value;
 
 use super::folders::list_json;

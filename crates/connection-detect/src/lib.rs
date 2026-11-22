@@ -528,7 +528,7 @@ mod tests {
         move |path: &PathBuf| {
             owned
                 .iter()
-                .find(|(p, _)| PathBuf::from(p) == *path)
+                .find(|(p, _)| std::path::Path::new(p) == path)
                 .map(|(_, c)| c.clone())
         }
     }

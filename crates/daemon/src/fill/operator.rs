@@ -53,7 +53,8 @@ pub(super) async fn requests(
         return response;
     }
     super::no_store(
-        Json(json!({ "requests": fill.approvals.list(chrono::Utc::now()) })).into_response(),
+        Json(json!({ "requests": fill.approvals.list(opensesame_time::Utc::now()) }))
+            .into_response(),
     )
 }
 
@@ -68,7 +69,7 @@ pub(super) async fn authorize(
     if let Err(response) = require_operator(&st, &headers, &uds) {
         return response;
     }
-    match fill.approvals.approve(&req.id, chrono::Utc::now()) {
+    match fill.approvals.approve(&req.id, opensesame_time::Utc::now()) {
         Some(request) => super::no_store(Json(json!({ "authorized": request })).into_response()),
         None => refuse(StatusCode::NOT_FOUND, "unknown_request"),
     }
@@ -95,7 +96,10 @@ pub(super) async fn approve(
     if let Err(response) = require_operator(&st, &headers, &uds) {
         return response;
     }
-    match fill.pairings.approve(&req.code, chrono::Utc::now()) {
+    match fill
+        .pairings
+        .approve(&req.code, opensesame_time::Utc::now())
+    {
         Ok(Some(origin)) => {
             fill.approvals.revoke_origin(&origin);
             tracing::info!(%origin, "fill: extension paired");
@@ -139,6 +143,6 @@ pub(super) async fn list(
     if let Err(response) = require_operator(&st, &headers, &uds) {
         return response;
     }
-    let (paired, pending) = fill.pairings.snapshot(chrono::Utc::now());
+    let (paired, pending) = fill.pairings.snapshot(opensesame_time::Utc::now());
     Json(json!({ "paired": paired, "pending": pending })).into_response()
 }

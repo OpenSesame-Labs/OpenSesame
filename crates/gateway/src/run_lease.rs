@@ -21,7 +21,6 @@
 //! An observation run exists to be watched, so every row is a watched run.
 //! Nothing here carries a surrogate: a notice names a run and a fence only.
 
-use chrono::Utc;
 use opensesame_agent_events::surrogate::{EVENT_SURROGATE_MISDIRECTED, SURROGATE_RUN_SUBJECT_KIND};
 use opensesame_agent_events::{is_agent_event_type, AgentEvent, AgentPhase};
 use opensesame_security_events::SecurityNotice;
@@ -30,6 +29,7 @@ use opensesame_session_observe::{
     RunCredentials, RunNotice,
 };
 use opensesame_storage::{ObservationControlUpdate, StoredObservationRun};
+use opensesame_time::Utc;
 
 use crate::app_state::AppState;
 

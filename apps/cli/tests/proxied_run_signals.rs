@@ -85,7 +85,7 @@ fn a_child_that_ignores_the_signal_is_killed_once_its_grace_is_up() {
 
     live.assert_over(&sandbox);
     assert!(
-        took >= GRACE - Duration::from_millis(500),
+        took >= GRACE.checked_sub(Duration::from_millis(500)).unwrap(),
         "the child was killed after {took:?}, not given its {GRACE:?}"
     );
     assert_eq!(status.code(), Some(143), "{status:?}");
@@ -180,7 +180,7 @@ fn a_signal_while_the_plugin_starts_leaves_no_child_and_no_plugin() {
 
     let mut running = sandbox.spawn_run(&RunOptions::new(None, Vec::new()));
     let started = beside(".started");
-    let deadline = Instant::now() + Duration::from_secs(60);
+    let deadline = Instant::now() + Duration::from_mins(1);
     while !started.exists() {
         assert!(Instant::now() < deadline, "the plugin never got the spec");
         std::thread::sleep(Duration::from_millis(25));

@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=24"
+    "node": ">=24.15.0 <25.0.0 || >=26.0.0"
   },
   "packageManager": "npm@11.19.1",
   "workspaces": [
@@ -32,13 +32,14 @@
     "lint:design": "node scripts/quality/design-lint.mjs",
     "docs:index": "node scripts/quality/docs-index.mjs",
     "verify:formal-inventory": "node scripts/formal/inventory.mjs",
+    "verify:formal-tlc-four": "node scripts/formal-tlc-four.mjs",
     "metrics:engineering": "node scripts/metrics/engineering-system-metrics.mjs",
     "lint:anti-slop": "node scripts/quality/anti-slop-gate.mjs",
     "lint:anti-slop:files": "oxlint --config oxlint.config.ts --disable-nested-config --report-unused-disable-directives-severity=error --deny-warnings --no-error-on-unmatched-pattern",
     "anti-slop:manifest": "node skills/install-anti-slop/scripts/manifest.mjs",
     "quality": "npm run audit:exposure && npm run quality:test && npm run quality:gate && npm run quality:log-hygiene && npm run quality:packages && npm run quality:app-core",
     "quality:log-hygiene": "node scripts/quality/log-hygiene-gate.mjs",
-    "quality:test": "vitest run scripts/lib --testTimeout=30000 && node --test scripts/security/*.test.mjs scripts/test/git-hooks.test.mjs scripts/test/grok-commit-guard.test.mjs scripts/quality/dependabot-config.test.mjs && npm run test:ci-promotion",
+    "quality:test": "vitest run scripts/lib --testTimeout=30000 && node --test scripts/security/*.test.mjs scripts/quality/cd-pwa-workspace-paths-gate.test.mjs scripts/test/git-hooks.test.mjs scripts/test/grok-commit-guard.test.mjs scripts/test/formal-vitest-report.test.mjs spec/formal/oauth/check-hosted-flow-report.test.mjs scripts/quality/dependabot-config.test.mjs && npm run test:ci-promotion",
     "quality:gate": "node scripts/quality/quality-gate.mjs",
     "quality:app-core": "node scripts/quality/app-core-boundary.mjs --check",
     "quality:packages": "node scripts/quality/package-metrics-gate.mjs",
@@ -50,6 +51,22 @@
     "test:integration": "turbo run test:integration --concurrency=4",
     "test:e2e": "turbo run test:e2e",
     "test:security": "npm run test:security -w @opensesame/testing",
+    "verify:auth-formal": "bash scripts/test/auth-formal.sh",
+    "verify:authority-formal": "bash spec/formal/authority/check.sh",
+    "verify:deps-2846-webauthn": "npm exec -w @opensesame/pages -- vitest run scripts/saml-peer-ownership.test.mjs scripts/webauthn-browser-entry.test.mjs && npm test -w @opensesame/auth-upstream",
+    "verify:deps-2847-asn1js": "npm exec -w @opensesame/pages -- vitest run scripts/saml-peer-ownership.test.mjs scripts/webauthn-browser-entry.test.mjs && npm test -w @opensesame/auth-upstream",
+    "verify:dpop-formal": "bash spec/formal/dpop/verify.sh",
+    "verify:oauth-formal": "bash spec/formal/oauth/verify.sh",
+    "verify:source-lifetime-formal": "bash spec/formal/source-lifetime/verify.sh",
+    "verify:source-history-formal": "bash spec/formal/source-trust-history/verify.sh",
+    "verify:source-trust-selection-formal": "bash spec/formal/source-trust-selection/verify.sh",
+    "verify:nats-trust-formal": "bash spec/formal/source-trust-selection/verify.sh --nats",
+    "verify:spiffe-peer-domain-formal": "bash spec/formal/spiffe-peer-domain/verify.sh",
+    "verify:spiffe-formal": "bash spec/formal/spiffe/verify.sh",
+    "verify:webauthn-formal": "bash spec/formal/webauthn/verify.sh",
+    "verify:simplewebauthn-v14": "npm run verify:simplewebauthn-v14 -w @opensesame/auth-upstream",
+    "verify:deps-2855-npm-batch": "npm ci && npm run audit:exposure && node --test scripts/security/patched-dependencies.test.mjs",
+    "verify:interaction-clock-formal": "bash spec/formal/interaction-clock/verify.sh",
     "test:redteam": "npm run redteam -w @opensesame/redteam",
     "test:visual": "npm run test:visual -w @opensesame/visual-contract",
     "test:anti-slop": "diff -ru --exclude=.turbo --exclude=MANIFEST.sha256 --exclude=node_modules --exclude=package.json --exclude=verify.mjs --exclude=vitest.config.ts skills/install-anti-slop/assets/anti-slop tools/oxlint/anti-slop && node skills/install-anti-slop/scripts/manifest.mjs --check && npm run typecheck:anti-slop && vitest run --root tools/oxlint/anti-slop",
@@ -135,56 +152,87 @@
     "verify:auth-source": "node spec/auth-verification/source/verify.mjs && node --test spec/auth-verification/source/verify.test.mjs spec/auth-verification/source/extended.test.mjs"
   },
   "devDependencies": {
-    "@levischuck/tiny-cbor": "file:patches/vendor/levischuck-tiny-cbor-0.2.11.tgz",
-    "@simple-git/argv-parser": "file:patches/vendor/simple-git-argv-parser-2.0.1.tgz",
-    "js-yaml": "file:patches/vendor/js-yaml-3.15.2.tgz",
-    "@biomejs/biome": "2.6.5",
-    "@env-spec/parser": "0.6.2",
+    "@biomejs/biome": "2.6.7",
+    "@env-spec/parser": "0.6.3",
     "@gdp-ts/core": "0.1.0",
-    "@hono/node-server": "2.1.6",
+    "@hono/node-server": "2.1.8",
+    "@levischuck/tiny-cbor": "file:patches/vendor/levischuck-tiny-cbor-0.2.11.tgz",
     "@modelcontextprotocol/sdk": "1.32.2",
-    "@oxlint/plugins": "1.91.0",
+    "@oxlint/plugins": "1.93.0",
     "@playwright/test": "1.65.0",
-    "@simplewebauthn/server": "13.3.2",
+    "@resvg/resvg-js": "2.6.2",
+    "@simple-git/argv-parser": "file:patches/vendor/simple-git-argv-parser-2.0.1.tgz",
+    "@simplewebauthn/server": "14.1.0",
     "@stryker-mutator/core": "10.1.1",
     "@stryker-mutator/vitest-runner": "10.1.1",
     "@types/node": "26.6.6",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@typescript/typescript6": "6.0.2",
-    "@vitejs/plugin-react": "6.2.1",
+    "@vitejs/plugin-react": "6.3.0",
     "@vitest/coverage-v8": "4.1.12",
-    "better-auth": "1.7.18",
+    "better-auth": "1.7.22",
+    "cve-lite-cli": "1.41.4",
     "drizzle-kit": "0.31.11",
     "drizzle-orm": "0.45.4",
     "handlebars": "4.7.10",
-    "hono": "4.13.16",
-    "jose": "6.2.15",
-    "oidc-provider": "9.13.3",
-    "oxlint": "1.91.0",
+    "hono": "4.13.18",
+    "jose": "6.2.17",
+    "js-yaml": "file:patches/vendor/js-yaml-3.15.2.tgz",
+    "oidc-provider": "9.14.0",
+    "oxlint": "1.93.0",
+    "picomatch-v2-patched": "file:patches/vendor/picomatch-2.3.2.tgz",
+    "picomatch-v4-patched": "file:patches/vendor/picomatch-4.0.7.tgz",
     "pino": "9.7.0",
-    "postgres": "4.1.0",
+    "promptfoo": "0.125.1",
+    "postgres": "4.1.1",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-router": "8.5.1",
-    "turbo": "2.11.10",
+    "turbo": "2.11.11",
+    "tar": "7.5.23",
     "typescript": "7.0.2",
-    "vite": "8.3.6",
+    "vite": "8.3.8",
     "vitest": "4.1.12",
     "wxt": "0.21.5",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "@balena/dockerignore": "1.0.2",
+    "playwright-core": "1.65.0",
+    "sharp": "0.35.5",
+    "yaml": "2.9.1",
+    "@rollup/plugin-node-resolve": "16.0.3",
+    "@scure/bip32": "2.4.0",
+    "deepmerge": "4.3.1",
+    "rollup": "4.68.2",
+    "tiny-cbor-v3-patched": "file:patches/vendor/levischuck-tiny-cbor-0.3.6.tgz",
+    "typed-rest-client": "file:patches/vendor/typed-rest-client-2.3.1.tgz",
+    "@esbuild-kit/core-utils": "file:patches/vendor/esbuild-kit-core-utils-3.3.2.tgz",
+    "nunjucks": "file:patches/vendor/nunjucks-3.2.4.tgz",
+    "nostr-tools": "2.26.0",
+    "@aws-sdk/xml-builder": "file:patches/vendor/aws-sdk-xml-builder-3.972.42.tgz",
+    "glob10-patched": "file:patches/vendor/glob-10.5.0.tgz",
+    "glob11-patched": "file:patches/vendor/glob-11.1.0.tgz",
+    "gcp-metadata": "9.2.3",
+    "minimatch9-patched": "file:patches/vendor/minimatch-9.0.9.tgz",
+    "minimatch11-patched": "file:patches/vendor/minimatch-11.0.9.tgz",
+    "docgen-plugin-patched": "file:patches/vendor/joshwooding-vite-plugin-react-docgen-typescript-0.7.0.tgz",
+    "react-docgen-patched": "file:patches/vendor/react-docgen-typescript-2.4.0.tgz",
+    "noble-post-quantum-patched": "file:patches/vendor/noble-post-quantum-0.5.4.tgz"
   },
   "overrides": {
     "vitest": "4.1.12",
-    "vite": "8.3.6",
+    "vite": "8.3.8",
+    "picomatch@^2": "$picomatch-v2-patched",
+    "picomatch@^4": "$picomatch-v4-patched",
     "shell-quote": "1.11.0",
     "adm-zip": "0.6.1",
     "tmp": "0.2.7",
-    "uuid": "14.0.1",
     "qs": "6.16.1",
     "playwright": "1.65.0",
-    "esbuild": ">=0.25.0",
     "fast-uri": "3.1.9",
+    "dts-bundle-generator": {
+      "typescript": "6.0.3"
+    },
     "fx-runner": {
       "shell-quote": "1.11.0"
     },
@@ -195,15 +243,14 @@
       "adm-zip": "0.6.1"
     },
     "promptfoo": {
-      "ai": "6.0.237",
+      "ai": "6.0.333",
       "@hono/node-server": "2.1.6",
       "@huggingface/transformers": "-",
-      "jks-js": "-"
+      "jks-js": "-",
+      "glob": "14.0.6",
+      "minimatch": "$minimatch11-patched"
     },
     "@node-saml/node-saml": {
-      "@xmldom/xmldom": "0.8.15"
-    },
-    "kdbxweb": {
       "@xmldom/xmldom": "0.8.15"
     },
     "xml-crypto": {
@@ -212,44 +259,42 @@
     "xml-encryption": {
       "@xmldom/xmldom": "0.8.15"
     },
-    "ws": "8.22.1",
     "sharp": "0.35.5",
-    "hono": "4.13.16",
+    "hono": "4.13.18",
+    "@noble/post-quantum": "$noble-post-quantum-patched",
     "follow-redirects": "1.16.2",
-    "glob@>=11.0.0 <14.0.0": "14.0.2",
-    "glob@^10.0.0": "14.0.2",
-    "glob": "14.0.2",
-    "minimatch": "11.0.1",
+    "glob@14.0.6": {
+      "minimatch": "$minimatch11-patched"
+    },
+    "glob@^10.0.0": "$glob10-patched",
     "archiver-utils": {
-      "glob": "14.0.2",
-      "minimatch": "11.0.1"
+      "glob": {
+        ".": "$glob10-patched",
+        "minimatch": "$minimatch9-patched"
+      }
     },
     "filelist": {
-      "minimatch": "11.0.1"
+      "minimatch": "5.1.9"
     },
     "readdir-glob": {
-      "minimatch": "11.0.1"
+      "minimatch": "5.1.9"
     },
-    "minimatch@^10.0.0": "11.0.1",
-    "minimatch@~10.2.4": "11.0.1",
-    "minimatch@^10.2.4": "11.0.1",
-    "minimatch@^9.0.4": "11.0.1",
-    "minimatch@^5.1.0": "11.0.1",
-    "minimatch@^5.0.1": "11.0.1",
+    "minimatch@^10.0.0": "$minimatch11-patched",
+    "minimatch@~10.2.4": "$minimatch11-patched",
+    "minimatch@^10.2.4": "$minimatch11-patched",
+    "minimatch@^9.0.4": "$minimatch9-patched",
+    "minimatch@^5.1.0": "5.1.9",
+    "minimatch@^5.0.1": "5.1.9",
     "chokidar@^3": "5.0.0",
     "yaml": "2.9.1",
-    "@noble/post-quantum": {
-      "@noble/curves": "2.4.0",
-      "@noble/hashes": "2.4.0"
-    },
-    "basic-ftp": "6.2.1",
+    "basic-ftp": "6.2.6",
     "flatted": "3.4.2",
     "js-yaml@^3": "$js-yaml",
-    "js-yaml@^5": "5.4.1",
+    "js-yaml@^5": "5.4.3",
     "@levischuck/tiny-cbor@^0.2": "$@levischuck/tiny-cbor",
     "log4js": "6.4.0",
     "@modelcontextprotocol/sdk": "1.32.2",
-    "simple-git": "4.0.1",
+    "simple-git": "4.0.2",
     "@simple-git/argv-parser": "$@simple-git/argv-parser",
     "source-map-js": "1.2.2",
     "js-yaml@3.15.2": {
@@ -260,23 +305,82 @@
       "node-forge": "-"
     },
     "@xmldom/xmldom@^0.9.10": "0.9.12",
-    "@noble/hashes@2.0.1": "2.4.0",
-    "deepmerge": "4.1.2",
-    "undici@5.29.0": "6.29.1",
+    "deepmerge": "4.3.1",
     "undici@^6": "6.29.1",
     "undici@^7": "7.30.1",
     "@azure/msal-node": "7.1.0",
     "zod": "4.6.7",
     "body-parser": "2.4.0",
     "ip-address": "10.7.4",
-    "dts-bundle-generator": {
-      "typescript": "6.0.3"
-    }
+    "@levischuck/tiny-cbor@^0.3": "$tiny-cbor-v3-patched",
+    "typed-rest-client": "$typed-rest-client",
+    "@esbuild-kit/core-utils": "$@esbuild-kit/core-utils",
+    "uuid@^11.1.0": "11.1.1",
+    "uuid@^13.0.0": "13.0.2",
+    "esbuild@^0.25.4": "0.25.12",
+    "nunjucks": "$nunjucks",
+    "@aws-sdk/xml-builder": "$@aws-sdk/xml-builder",
+    "brace-expansion@^2.0.1": "2.1.8",
+    "glob@^11.0.1": "$glob11-patched",
+    "glob@^13.0.1": "14.0.6",
+    "glob@^13.0.6": "14.0.6",
+    "minimatch@^10.1.1": "$minimatch11-patched",
+    "minimatch@^10.2.2": "$minimatch11-patched",
+    "workbox-build": {
+      "glob": {
+        ".": "$glob11-patched",
+        "minimatch": "$minimatch9-patched"
+      }
+    },
+    "@joshwooding/vite-plugin-react-docgen-typescript": {
+      ".": "$docgen-plugin-patched",
+      "glob": "14.0.6"
+    },
+    "react-docgen-typescript": "$react-docgen-patched",
+    "@modelcontextprotocol/server-filesystem": {
+      "glob": "14.0.6",
+      "minimatch": "$minimatch11-patched"
+    },
+    "@stryker-mutator/core": {
+      "minimatch": "$minimatch11-patched"
+    },
+    "@peculiar/asn1-schema": "3.0.0",
+    "@peculiar/asn1-x509": "3.0.0",
+    "@peculiar/asn1-ecc": "3.0.0",
+    "@peculiar/asn1-rsa": "3.0.0",
+    "@peculiar/asn1-cms": "3.0.0",
+    "@peculiar/asn1-csr": "3.0.0",
+    "@peculiar/asn1-pfx": "3.0.0",
+    "@peculiar/asn1-pkcs8": "3.0.0",
+    "@peculiar/asn1-pkcs9": "3.0.0",
+    "@peculiar/asn1-android": "3.0.0",
+    "@peculiar/asn1-x509-attr": "3.0.0",
+    "@peculiar/asn1-x509-post-quantum": "3.0.0",
+    "@peculiar/asn1-asym-key": "3.0.0",
+    "@peculiar/x509": "3.1.0",
+    "asn1js": "4.0.0",
+    "@peculiar/utils": "4.1.1"
   },
   "patchedDependencies": {
     "js-yaml@3.15.2": "patches/js-yaml@3.15.2.patch",
     "@simple-git/argv-parser@2.0.1": "patches/@simple-git__argv-parser@2.0.1.patch",
     "@devicefarmer/adbkit@3.3.8": "patches/@devicefarmer__adbkit@3.3.8.patch",
-    "@levischuck/tiny-cbor@0.2.11": "patches/@levischuck__tiny-cbor@0.2.11.patch"
+    "@levischuck/tiny-cbor@0.2.11": "patches/@levischuck__tiny-cbor@0.2.11.patch",
+    "picomatch@2.3.2": "patches/picomatch@2.3.2.patch",
+    "picomatch@4.0.7": "patches/picomatch@4.0.7.patch",
+    "@levischuck/tiny-cbor@0.3.6": "patches/@levischuck__tiny-cbor@0.3.6.patch",
+    "typed-rest-client@2.3.1": "patches/typed-rest-client@2.3.1.patch",
+    "@esbuild-kit/core-utils@3.3.2": "patches/@esbuild-kit__core-utils@3.3.2.patch",
+    "nunjucks@3.2.4": "patches/nunjucks@3.2.4.patch",
+    "kdbxweb@2.1.1": "patches/kdbxweb@2.1.1.patch",
+    "@aws-sdk/xml-builder@3.972.42": "patches/@aws-sdk__xml-builder@3.972.42.patch",
+    "glob@10.5.0": "patches/glob@10.5.0.patch",
+    "glob@11.1.0": "patches/glob@11.1.0.patch",
+    "minimatch@9.0.9": "patches/minimatch@9.0.9.patch",
+    "minimatch@11.0.9": "patches/minimatch@11.0.9.patch",
+    "@joshwooding/vite-plugin-react-docgen-typescript@0.7.0": "patches/@joshwooding__vite-plugin-react-docgen-typescript@0.7.0.patch",
+    "react-docgen-typescript@2.4.0": "patches/react-docgen-typescript@2.4.0.patch",
+    "node-turn@0.0.6": "patches/node-turn@0.0.6.patch",
+    "@noble/post-quantum@0.5.4": "patches/@noble__post-quantum@0.5.4.patch"
   }
 }

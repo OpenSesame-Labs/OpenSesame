@@ -425,6 +425,24 @@ describe.each(backends)("$name federation storage", ({ create }) => {
       ).rejects.toThrow(/already registered/);
     });
 
+    it("preserves duplicate-before-capacity semantics", async () => {
+      const first = byoUpstream();
+      const limit = (await backend.repos.byoUpstreams.count()) + 1;
+      await backend.repos.byoUpstreams.createWithinLimit(first, limit);
+      await expect(
+        backend.repos.byoUpstreams.createWithinLimit(
+          byoUpstream({ issuer: first.issuer }),
+          limit,
+        ),
+      ).rejects.toThrow(/already registered/);
+      expect(
+        await backend.repos.byoUpstreams.createWithinLimit(
+          byoUpstream(),
+          limit,
+        ),
+      ).toBeNull();
+    });
+
     it("round-trips credentials, lastUsedAt and state", async () => {
       const record = await backend.repos.byoUpstreams.create(
         byoUpstream({
@@ -589,6 +607,24 @@ describe.each(backends)("$name federation storage", ({ create }) => {
       expect(Object.hasOwn(read ?? {}, "displayName")).toBe(false);
     });
 
+    it("preserves SCIM duplicate-before-capacity semantics", async () => {
+      const organization = await seedOrganization();
+      const first = scimUser(organization.id);
+      await backend.scim.users.createWithinLimit(first, 1);
+      await expect(
+        backend.scim.users.createWithinLimit(
+          scimUser(organization.id, { userName: first.userName }),
+          1,
+        ),
+      ).rejects.toThrow(/already exists/);
+      expect(
+        await backend.scim.users.createWithinLimit(
+          scimUser(organization.id),
+          1,
+        ),
+      ).toBeNull();
+    });
+
     it("findBySubject prefers externalId over userName", async () => {
       const organization = await seedOrganization();
       const subject = `subject-${randomUUID().slice(0, 8)}`;
@@ -618,6 +654,24 @@ describe.each(backends)("$name federation storage", ({ create }) => {
       expect(
         await backend.scim.users.findBySubject(organization.id, "nobody"),
       ).toBeNull();
+    });
+
+    it("deactivation survives the round-trip", async () => {
+      const organization = await seedOrganization();
+      const user = await backend.scim.users.create(scimUser(organization.id));
+      const updated = await backend.scim.users.update({
+        ...user,
+        active: false,
+        updatedAt: new Date("2026-08-24T13:00:00.000Z"),
+      });
+      expect(updated.active).toBe(false);
+      expect(
+        (await backend.scim.users.findBySubject(organization.id, user.userName))
+          ?.active,
+      ).toBe(false);
+      expect(
+        await backend.scim.users.listByOrganization(organization.id),
+      ).toHaveLength(1);
     });
 
     it("verifies only live tokens of the owning organization", async () => {
@@ -930,3 +984,5 @@ describe.each(backends)("$name federation storage", ({ create }) => {
     });
   });
 });
+
+// Real-Postgres capacity races: `@postgres-race` in capacity-admission.test.ts (one shared 60s migration boot).

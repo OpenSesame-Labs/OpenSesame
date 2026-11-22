@@ -7,9 +7,9 @@
 
 use std::collections::BTreeSet;
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::transport::{ServiceBindingSet, TransportError, TrustProfileRef};
 use opensesame_security_events::{NoticeState, SecurityNotice, Severity};
+use opensesame_time::{DateTime, Utc};
 
 use crate::app_state::AppState;
 use crate::transport_lifecycle::trust::{
@@ -17,7 +17,7 @@ use crate::transport_lifecycle::trust::{
     MAX_TRUST_BYTES,
 };
 use crate::transport_lifecycle::trust_activate::{
-    activate, as_transport_error, prepare, TRUST_SERIAL,
+    activate, as_transport_error, prepare, prepare_adoption, TRUST_SERIAL,
 };
 
 /// Read the stored set. A stored document that no longer parses is an error,
@@ -107,11 +107,14 @@ pub async fn put_cas(
             current: now_stored.revision,
         });
     }
-    if let Err(error) = activate(state, prepared).await {
-        roll_back(state, &json, &current, proposed.revision).await;
-        return Err(error);
-    }
-    record_epoch(state, &proposed, now);
+    let generation = match activate(state, prepared).await {
+        Ok(generation) => generation,
+        Err(error) => {
+            roll_back(state, &json, &current, proposed.revision).await;
+            return Err(error);
+        }
+    };
+    record_epoch(state, &proposed, now, generation, BTreeSet::new());
     for (profile, binding) in forced {
         publish(
             state,
@@ -205,9 +208,17 @@ async fn roll_back(state: &AppState, written: &str, previous: &TrustProfileSet, 
     }
 }
 
-fn record_epoch(state: &AppState, activated: &TrustProfileSet, now: DateTime<Utc>) {
+fn record_epoch(
+    state: &AppState,
+    activated: &TrustProfileSet,
+    now: DateTime<Utc>,
+    generation: Option<u64>,
+    quarantined: BTreeSet<TrustProfileRef>,
+) {
     state.transport_lifecycle.with_trust_epoch(|epoch| {
         epoch.revision = activated.revision;
+        epoch.generation = generation;
+        epoch.quarantined = quarantined;
         epoch.next_overlap_expiry = activated.next_overlap_expiry(now);
         epoch.names = activated
             .profiles
@@ -277,21 +288,52 @@ async fn adopt(
     stored: &TrustProfileSet,
     now: DateTime<Utc>,
 ) -> Result<bool, TransportError> {
-    let (active, due) = state.transport_lifecycle.with_trust_epoch(|epoch| {
-        (
-            epoch.revision,
-            epoch.next_overlap_expiry.is_some_and(|at| now >= at),
-        )
-    });
-    if stored.revision < active || (stored.revision == active && !due) {
+    adopt_with_after_activation(state, stored, now, std::future::ready(())).await
+}
+
+pub(crate) async fn adopt_with_after_activation<F: std::future::Future<Output = ()>>(
+    state: &AppState,
+    stored: &TrustProfileSet,
+    now: DateTime<Utc>,
+    after_activation: F,
+) -> Result<bool, TransportError> {
+    let serving = state
+        .transport_lifecycle
+        .generations()
+        .and_then(|generations| generations.checked_current(None).ok())
+        .map(|generation| generation.number);
+    let (active, due, last_generation, has_stored_names) =
+        state.transport_lifecycle.with_trust_epoch(|epoch| {
+            (
+                epoch.revision,
+                epoch.next_overlap_expiry.is_some_and(|at| now >= at),
+                epoch.generation,
+                !epoch.names.is_empty(),
+            )
+        });
+    let empty_unchanged =
+        active == 0 && stored.revision == 0 && stored.profiles.is_empty() && !has_stored_names;
+    if empty_unchanged {
+        if let Some(generation) = serving {
+            record_epoch(state, stored, now, Some(generation), BTreeSet::new());
+        }
         return Ok(false);
     }
-    let prepared =
-        prepare(state, &known_names(state, stored), stored, now).map_err(as_transport_error)?;
-    activate(state, prepared)
+    if stored.revision < active || (stored.revision == active && !due && last_generation == serving)
+    {
+        return Ok(false);
+    }
+    let prepared = prepare_adoption(state, &known_names(state, stored), stored, now)
+        .map_err(as_transport_error)?;
+    let quarantined = prepared.quarantined.clone();
+    let generation = activate(state, prepared)
         .await
         .map_err(as_transport_error)?;
-    record_epoch(state, stored, now);
+    after_activation.await;
+    if !quarantined.is_empty() {
+        tracing::warn!(profiles = ?quarantined, "stored trust profiles quarantined by source history");
+    }
+    record_epoch(state, stored, now, generation, quarantined);
     Ok(true)
 }
 

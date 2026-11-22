@@ -102,7 +102,7 @@ async fn serve_mtls(ca: &DisposableCa) -> Upstream {
     };
     let generations = TransportGenerations::new(
         candidate
-            .into_generation(1, chrono::Utc::now())
+            .into_generation(1, opensesame_time::Utc::now())
             .expect("generation"),
     );
     let profile = move |generation: &Generation| {

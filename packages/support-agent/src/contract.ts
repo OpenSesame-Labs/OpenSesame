@@ -203,8 +203,9 @@ export const SUPPORT_LIMITS = {
   // development the next time it is outgrown.
   maxCapabilities: 64,
   maxGoals: 40,
-  // The complete authored realm now has 42 routes. Preserve every declared
-  // destination and gate with a bounded vocabulary; see ADR 0224.
+  // The fully activated tutorial registry has 42 public route descriptions.
+  // Keep every authored destination available, with six places to grow;
+  // egress still validates and bounds every id and title.
   maxRoutes: 48,
   maxHelpEntries: 6,
   maxHelpAnswerChars: 800,

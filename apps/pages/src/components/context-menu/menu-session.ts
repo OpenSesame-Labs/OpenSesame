@@ -1,4 +1,4 @@
-import { type RefObject, useEffect, useRef, useState } from "react";
+import { type RefObject, useLayoutEffect, useRef, useState } from "react";
 import { useMenuDismissal, useMenuLive } from "./menu-dismissal.js";
 import { type MenuGroup, type MenuItem, stepIndex } from "./menu-model.js";
 
@@ -128,7 +128,7 @@ export function useMenuSession(
     onLeft,
   });
   useMenuDismissal(own, live, ignoreOutside);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const row = inSub ? subButtons.current : buttons.current;
     row[active]?.focus({ preventScroll: true });
   }, [active, inSub]);

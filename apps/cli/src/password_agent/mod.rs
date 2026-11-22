@@ -218,9 +218,9 @@ pub(crate) async fn run(cmd: Command, desktop: bool, reveal: bool) -> anyhow::Re
             print(&json!({"items":discover::inventory(&details(&list(&scope)?,&scope)?)}))?;
         }
         Command::Audit { scope } => {
-            let now = chrono::Utc::now();
+            let now = opensesame_time::Utc::now();
             let cutoff = now
-                .checked_sub_months(chrono::Months::new(
+                .checked_sub_months(opensesame_time::Months::new(
                     u32::try_from(
                         core::policy::policy()
                             .old_login_years

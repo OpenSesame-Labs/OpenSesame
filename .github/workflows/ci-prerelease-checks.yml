@@ -71,7 +71,7 @@ jobs:
             .github/workflows
             scripts/release
             scripts/lib
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node@24
@@ -237,7 +237,7 @@ jobs:
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
           printf '%s\n' '.ci-control/' >> .git/info/exclude
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node java
@@ -449,7 +449,7 @@ jobs:
           BASE_SHA: ''
           HEAD_SHA: ''
         run: node .ci-control/scripts/lib/ci-affected-tests.mjs plan
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node
@@ -579,7 +579,7 @@ jobs:
           # candidate apps and budgets stay on this checkout.
           ln -s ../apps .ci-control/apps
           ln -s ../tools .ci-control/tools
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node
@@ -639,6 +639,17 @@ jobs:
           VITE_BASE: /OpenSesame/
           PAGES_VERIFY_OUT: ${{ runner.temp }}/self-hosted-connectors
         run: npm run verify:self-hosted-connectors -w @opensesame/pages
+      - name: MQTT broker debug logs contain no credentials or frames
+        if: matrix.shard == 'budgets'
+        env:
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+          PAGES_MQTT_TEST_DIST: apps/pages/dist
+        run: node --test apps/pages/scripts/verify-mqtt-packet-debug.mjs
+      - name: SAML worker custody and replay protection
+        if: matrix.shard == 'budgets'
+        env:
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+        run: node --test apps/pages/scripts/verify-saml-worker.mjs
       - name: Preserve self-hosted provider evidence
         if: always() && matrix.shard == 'budgets'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -826,7 +837,7 @@ jobs:
         run: node apps/pages/scripts/verify-experience-journeys.mjs
       # Rust from mise.toml, same install as the Rust tests job. Only this
       # shard builds the CLI the live relay walk spawns.
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         if: matrix.shard == 'journeys-1'
         with:
           cache: false
@@ -944,7 +955,7 @@ jobs:
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
           printf '%s\n' '.ci-control/' >> .git/info/exclude
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node
@@ -1001,7 +1012,7 @@ jobs:
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
           printf '%s\n' '.ci-control/' >> .git/info/exclude
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node
@@ -1064,7 +1075,7 @@ jobs:
           # This helper resolves the repository from its own path. The
           # candidate Pages package stays on this checkout.
           ln -s ../apps .ci-control/apps
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node
@@ -1125,7 +1136,7 @@ jobs:
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
           printf '%s\n' '.ci-control/' >> .git/info/exclude
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node
@@ -1193,7 +1204,7 @@ jobs:
           # This helper resolves the repository from its own path. The
           # candidate Pages package stays on this checkout.
           ln -s ../apps .ci-control/apps
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node
@@ -1273,7 +1284,7 @@ jobs:
           # This helper resolves the repository from its own path. The
           # candidate Pages package stays on this checkout.
           ln -s ../apps .ci-control/apps
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node
@@ -1356,13 +1367,13 @@ jobs:
           # This helper resolves the repository from its own path. The
           # candidate Pages package stays on this checkout.
           ln -s ../apps .ci-control/apps
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node
       # live-turn and ntfy are built from pinned source (go.sum). mise installs
       # the Go version live-turn's go.mod names (mise.toml tools.go).
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: go
@@ -1479,7 +1490,7 @@ jobs:
       - name: Install Linux keychain build and test dependencies
         if: runner.os == 'Linux' && steps.affected.outputs.scope != 'none'
         run: bash .ci-control/scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         if: steps.affected.outputs.scope != 'none'
         with:
           cache: false
@@ -1493,7 +1504,7 @@ jobs:
       # and fails on CI without it. Node comes from mise, and only when the
       # env-spec crate is tested. This job does not cache the npm store, so a
       # partial install cannot share a key with the TypeScript job's store.
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         if: steps.affected.outputs.scope == 'all' || contains(format(' {0} ', steps.affected.outputs.packages), ' opensesame-env-spec ')
         with:
           cache: false
@@ -1571,12 +1582,12 @@ jobs:
           ln -s ../crates .ci-control/crates
           ln -s ../apps .ci-control/apps
           ln -s ../tests .ci-control/tests
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: rust java cargo:cargo-ndk
       - name: Install Android Rust targets
-        run: rustup target add --toolchain 1.97.1 aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
+        run: rustup target add --toolchain 1.99.0 aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android
       - name: Install pinned Android build tools
         run: |
           set -euo pipefail
@@ -1649,12 +1660,12 @@ jobs:
           ln -s ../crates .ci-control/crates
           ln -s ../apps .ci-control/apps
           ln -s ../tests .ci-control/tests
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: rust
       - name: Install iOS Rust targets
-        run: rustup target add --toolchain 1.97.1 aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
+        run: rustup target add --toolchain 1.99.0 aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios
       - name: Test Swift envelopes and compile all iOS package targets
         run: bash .ci-control/scripts/test/mobile-apple.sh ios
       - name: Preserve iOS simulator XCTest results
@@ -1705,11 +1716,11 @@ jobs:
         run: |
           mv "$RUNNER_TEMP/ci-control" .ci-control
           printf '%s\n' '.ci-control/' >> .git/info/exclude
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: rust
@@ -1981,7 +1992,7 @@ jobs:
             scripts/release
             scripts/lib
             .github/workflows
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node
@@ -2083,7 +2094,7 @@ jobs:
         with:
           name: prerelease-verified-${{ github.run_id }}-${{ github.run_attempt }}
           path: ${{ runner.temp }}/candidate
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node
@@ -2148,7 +2159,7 @@ jobs:
             .github/workflows
             scripts/release
             scripts/lib
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node@24
@@ -2180,7 +2191,7 @@ jobs:
             .github/workflows
             scripts/release
             scripts/lib
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node@24

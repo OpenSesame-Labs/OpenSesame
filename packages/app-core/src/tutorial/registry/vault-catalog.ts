@@ -13,9 +13,52 @@ import type { GuideTargetDescriptor } from "./targets.js";
 
 export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
   {
+    id: "settings.account-pack",
+    description: "The switch that installs the Account item type.",
+    role: "action",
+    routes: ["/settings/item-types"],
+    capabilityId: null,
+  },
+  {
+    id: "settings.account-ready",
+    description: "The Account item type after it has finished installing.",
+    role: "status",
+    routes: ["/settings/item-types"],
+    capabilityId: null,
+  },
+  {
+    id: "editor.password-options",
+    description: "Opens the password generator options.",
+    role: "action",
+    routes: ["/vault"],
+    capabilityId: "vault.items.write_meta",
+  },
+  {
+    id: "editor.pepper",
+    description: "Chooses whether the password includes a personal pepper.",
+    role: "action",
+    routes: ["/vault"],
+    capabilityId: "vault.items.write_meta",
+  },
+  {
+    id: "editor.pepper-options",
+    description:
+      "Choose whether to include a personal pepper and where it goes.",
+    role: "surface",
+    routes: ["/vault"],
+    capabilityId: "vault.items.write_meta",
+  },
+  {
+    id: "editor.generate-password",
+    description: "Generates another password in the editor.",
+    role: "action",
+    routes: ["/vault"],
+    capabilityId: "vault.items.write_meta",
+  },
+  {
     id: "vault.list",
     description:
-      "The item list pane. Everything the vault holds is listed here, grouped by folder and narrowed by whichever filter is active.",
+      "View vault items grouped by folder and narrowed by the selected filter.",
     role: "surface",
     routes: ["/vault"],
     capabilityId: "vault.items.search",
@@ -23,7 +66,7 @@ export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "vault.create",
     description:
-      "Starts a new vault item of the kind the current filter names, defaulting to an account. Opens the editor; nothing is stored until it is saved.",
+      "Create an item of the selected filter’s type, or an account by default. Save it in the editor.",
     role: "action",
     routes: ["/vault"],
     capabilityId: "vault.items.write_meta",
@@ -31,23 +74,21 @@ export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "vault.import",
     description:
-      "Opens the file picker for an export from another password manager, a .env file or an OpenSesame encrypted backup. The chosen file is read on this device and previewed in a sheet beside the list; nothing is written until its one commit is pressed.",
+      "Choose a password-manager export, .env file or encrypted backup, then review it before importing.",
     role: "ceremony",
     routes: ["/vault"],
     capabilityId: "vault.import",
   },
   {
     id: "vault.filter",
-    description:
-      "The vault's filters: favorites, each item type this vault holds, your folders and the trash, with the count each would show. Narrowing the list never changes an item. Health is drawn with them and opens the password health report; it does not narrow the list. They are rows of the section tree, on a wide screen and on a phone's first screen; in a phone's list one key opens the same roads as a sheet.",
-    role: "filter",
+    description: "Open the filter menu on a narrow screen.",
+    role: "action",
     routes: ["/vault"],
     capabilityId: "vault.items.search",
   },
   {
     id: "vault.filter.favorites",
-    description:
-      "Narrows the item list to the items marked as favorites. A row of the filters, always drawn.",
+    description: "Show items marked as favorites.",
     role: "filter",
     routes: ["/vault"],
     capabilityId: "vault.items.search",
@@ -55,47 +96,42 @@ export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "vault.filter.logins",
     description:
-      "Narrows the item list to accounts. Present only while the vault holds at least one account.",
+      "Show accounts. This filter appears when the vault has an account.",
     role: "filter",
     routes: ["/vault"],
     capabilityId: "vault.items.search",
   },
   {
     id: "vault.health.summary",
-    description:
-      "The one-line verdict of the health report: how many passwords were reviewed, how many are clean, and how many are weak, reused or old.",
+    description: "Review counts of checked, weak, reused and aging passwords.",
     role: "status",
     routes: ["/vault/health"],
     capabilityId: null,
   },
   {
     id: "vault.health.findings",
-    description:
-      "The list of items the health report wants attention on, each with the reason and a way to open its editor.",
+    description: "Review password findings and open affected items.",
     role: "surface",
     routes: ["/vault/health"],
     capabilityId: null,
   },
   {
     id: "item.editor.name",
-    description:
-      "The name field at the head of the item editor: what the item is called in the list, between its folder and its type. A tour may point at it; it never types into it.",
+    description: "Name the vault item.",
     role: "surface",
-    routes: ["/vault/item"],
+    routes: ["/vault"],
     capabilityId: "vault.items.write_meta",
   },
   {
     id: "item.editor.save",
-    description:
-      "The editor's save key: seals the item into the vault with everything entered. Nothing is stored until this is pressed, by the person — a tour never presses it.",
+    description: "Save the item to the encrypted vault.",
     role: "action",
-    routes: ["/vault/item"],
+    routes: ["/vault"],
     capabilityId: "vault.items.write_meta",
   },
   {
     id: "item.favorite",
-    description:
-      "The star on an open item: marks it as a favorite, or takes the mark off. A favorite is listed under the Favorites filter and starred in the list.",
+    description: "Add or remove the item from Favorites.",
     role: "action",
     routes: ["/vault/item"],
     capabilityId: "vault.items.write_meta",
@@ -103,7 +139,7 @@ export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "item.edit",
     description:
-      "Opens the open item in the editor, with the fields it was made with. Nothing changes until the editor saves.",
+      "Open the item editor. Changes are saved when you select Save.",
     role: "action",
     routes: ["/vault/item"],
     capabilityId: "vault.items.write_meta",
@@ -111,7 +147,7 @@ export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "item.trash",
     description:
-      "Moves the open item to the trash. It stays sealed there and can be restored; only deleting it from the trash erases it.",
+      "Move the item to Trash, where it can be restored or permanently deleted.",
     role: "action",
     routes: ["/vault/item"],
     capabilityId: "vault.items.write_meta",
@@ -119,7 +155,7 @@ export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "item.copy-username",
     description:
-      "Copies the open account's username to the clipboard. Drawn only when the account has a username.",
+      "Copy the account username to the clipboard. Available when the account has a username.",
     role: "action",
     routes: ["/vault/item"],
     capabilityId: "vault.items.reveal",
@@ -127,23 +163,30 @@ export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "item.copy-password",
     description:
-      "Copies the open account's password to the clipboard without showing it. The clipboard is cleared again when the vault locks, and after the delay set in Settings if there is one. Drawn only when the login has a password.",
+      "Copy the password without revealing it. The app tries to clear the clipboard on lock and after the configured delay. Your browser may block clearing or retain clipboard history. Available when the account has a password.",
     role: "action",
     routes: ["/vault/item"],
     capabilityId: "vault.items.reveal",
   },
   {
-    id: "trash.restore",
+    id: "item.copy-generated",
     description:
-      "Restores the trash's selected item to the list, as it was. Drawn while the trash is showing.",
+      "Copy the generated password parts, including the part after a pepper when present.",
+    role: "action",
+    routes: ["/vault/item"],
+    capabilityId: "vault.items.reveal",
+    authoredOnly: true,
+  },
+  {
+    id: "trash.restore",
+    description: "Restore the selected item from Trash.",
     role: "action",
     routes: ["/vault/trash"],
     capabilityId: "vault.items.write_meta",
   },
   {
     id: "trash.purge",
-    description:
-      "Deletes the trash's selected item for good. The first press arms it and asks again; the second erases the sealed record, and nothing brings it back. Drawn while the trash is showing.",
+    description: "Permanently delete the selected item after confirmation.",
     role: "action",
     routes: ["/vault/trash"],
     capabilityId: "vault.items.write_meta",
@@ -151,7 +194,7 @@ export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "item.credentials.references",
     description:
-      "The item toolbar's key that writes the item's secret fields out by reference as an environment template. Drawn only where the item has a secret field to reference.",
+      "Download an environment template with references to the item’s secret fields.",
     role: "surface",
     routes: ["/vault/item"],
     capabilityId: "vault.items.reveal",
@@ -159,7 +202,7 @@ export const VAULT_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "item.credentials.compare",
     description:
-      "Compare a typed password with the saved one, on the update editor of a login's password row. The answer is a mark; neither value is shown.",
+      "Compare a typed password with the saved password without revealing either value.",
     role: "surface",
     routes: ["/vault/item"],
     capabilityId: "vault.workflow.compare_private",

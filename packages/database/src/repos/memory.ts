@@ -177,11 +177,28 @@ function compareVerifiedEmailOwners(
   if (a.row.id === b.row.id) return 0;
   return a.row.id < b.row.id ? -1 : 1;
 }
-
 function cloneByoUpstream(record: ByoUpstream): ByoUpstream {
   return { ...record };
 }
-
+function insertMemoryByoUpstream(
+  store: Map<string, ByoUpstream>,
+  record: ByoUpstream,
+  limit = Number.POSITIVE_INFINITY,
+): ByoUpstream | null {
+  const issuer = normalizeIssuer(record.issuer);
+  if (store.has(record.id)) {
+    throw new ConflictError(`byo upstream already exists: ${record.id}`);
+  }
+  if ([...store.values()].some((existing) => existing.issuer === issuer)) {
+    throw new ConflictError(
+      `byo upstream issuer already registered: ${issuer}`,
+    );
+  }
+  if (store.size >= limit) return null;
+  const row: ByoUpstream = { ...record, issuer };
+  store.set(row.id, cloneByoUpstream(row));
+  return cloneByoUpstream(row);
+}
 /**
  * structuredClone, not a spread: `metadata` is nested JSON and the Postgres
  * implementation round-trips it through jsonb. A shallow copy would let a
@@ -437,30 +454,16 @@ export class MemoryRepositories implements Repositories {
       return true;
     },
   };
-
   readonly byoUpstreams: ByoUpstreamRepository = {
-    create: async (record) => {
-      const issuer = normalizeIssuer(record.issuer);
-      if (this.#store.byoUpstreams.has(record.id)) {
-        throw new ConflictError(`byo upstream already exists: ${record.id}`);
-      }
-      for (const existing of this.#store.byoUpstreams.values()) {
-        if (existing.issuer === issuer) {
-          throw new ConflictError(
-            `byo upstream issuer already registered: ${issuer}`,
-          );
-        }
-      }
-      const row: ByoUpstream = { ...record, issuer };
-      this.#store.byoUpstreams.set(row.id, cloneByoUpstream(row));
-      return cloneByoUpstream(row);
-    },
-
+    create: async (record) =>
+      insertMemoryByoUpstream(this.#store.byoUpstreams, record) ??
+      Promise.reject(new Error("unbounded BYO admission refused")),
+    createWithinLimit: async (record, limit) =>
+      insertMemoryByoUpstream(this.#store.byoUpstreams, record, limit),
     getById: async (id) => {
       const row = this.#store.byoUpstreams.get(id);
       return row ? cloneByoUpstream(row) : null;
     },
-
     findByIssuer: async (issuer) => {
       const target = normalizeIssuer(issuer);
       for (const row of this.#store.byoUpstreams.values()) {
@@ -468,19 +471,17 @@ export class MemoryRepositories implements Repositories {
       }
       return null;
     },
-
     touchLastUsed: async (id, at) => {
       const row = this.#store.byoUpstreams.get(id);
       if (!row) return;
       this.#store.byoUpstreams.set(id, { ...row, lastUsedAt: at });
     },
-
+    count: async () => this.#store.byoUpstreams.size,
     list: async () => {
       return [...this.#store.byoUpstreams.values()]
         .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
         .map(cloneByoUpstream);
     },
-
     setState: async (id, state) => {
       const row = this.#store.byoUpstreams.get(id);
       if (!row) return null;
@@ -489,7 +490,6 @@ export class MemoryRepositories implements Repositories {
       return cloneByoUpstream(next);
     },
   };
-
   readonly betterAuthSubjects: BetterAuthSubjectRepository = {
     link: async (row, uow) => {
       if (this.#store.betterAuth.has(row.betterAuthUserId)) {

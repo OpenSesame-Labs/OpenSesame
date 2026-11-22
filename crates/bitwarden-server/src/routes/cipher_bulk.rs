@@ -5,8 +5,8 @@ use std::collections::HashSet;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::Json;
-use chrono::Utc;
 use opensesame_storage::bitwarden::BitwardenFolder;
+use opensesame_time::Utc;
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
@@ -80,7 +80,7 @@ async fn set_trashed(
     server: &BitwardenServer,
     user_id: &str,
     ids: &[String],
-    at: Option<chrono::DateTime<Utc>>,
+    at: Option<opensesame_time::DateTime<Utc>>,
 ) -> ApiResult<()> {
     let view = VaultView::load(server, user_id).await?;
     let (own, org, orgs) = split(&view, ids);

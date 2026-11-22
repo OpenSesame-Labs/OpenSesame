@@ -70,12 +70,10 @@ export type AgUiTransportOptions = {
 const MAX_PENDING_EVENTS = 512;
 
 async function loadAgUiClientDefault(): Promise<AgUiClient> {
-  const { transformHttpEventStream, runHttpRequest } = await import(
-    "@ag-ui/client"
-  );
+  const { parseSSEStream, runHttpRequest } = await import("@ag-ui/client");
   return {
     open: (request) => {
-      const events = transformHttpEventStream(runHttpRequest(request));
+      const events = parseSSEStream(runHttpRequest(request));
       return {
         subscribe: (observer) =>
           events.subscribe({

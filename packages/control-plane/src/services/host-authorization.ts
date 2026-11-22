@@ -100,16 +100,15 @@ export function hostSigningJwk(ctx: AppContext) {
   return key;
 }
 
-async function activeMembership(
+async function activeOrganizationMembership(
   ctx: AppContext,
   organizationId: string,
   principalId: string,
 ) {
-  const membership = await ctx.stores.organizationMemberships.find(
-    organizationId,
-    principalId,
-  );
-  const organization = await ctx.stores.organizations.get(organizationId);
+  const [organization, membership] = await Promise.all([
+    ctx.stores.organizations.get(organizationId),
+    ctx.stores.organizationMemberships.find(organizationId, principalId),
+  ]);
   return organization?.state === "active" ? membership : undefined;
 }
 
@@ -131,7 +130,7 @@ export async function beginHostAuthorization(
     challenge.expires_at * 1000 > now + 300_000
   )
     throw new Error("Host challenge refused");
-  const membership = await activeMembership(
+  const membership = await activeOrganizationMembership(
     ctx,
     challenge.organization_id,
     principalId,
@@ -234,7 +233,7 @@ export async function completeHostAuthorization(
   });
   if (!result.ok || result.principalId !== principalId)
     throw new Error("Host authorization refused");
-  const membership = await activeMembership(
+  const membership = await activeOrganizationMembership(
     ctx,
     pending.challenge.organization_id,
     principalId,

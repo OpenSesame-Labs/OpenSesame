@@ -132,12 +132,15 @@ export * from "./schema/index.js";
 export * from "./schema/scim-groups.js";
 export * from "./schema/wallet-interactions.js";
 export {
+  SCIM_ADMIN_PAGE_DEFAULT,
+  SCIM_ADMIN_PAGE_MAX,
   SCIM_MAPPINGS_PER_DEPLOYMENT,
   SCIM_MAPPINGS_PER_ORGANIZATION,
   SCIM_TOKENS_PER_DEPLOYMENT,
   SCIM_TOKENS_PER_ORGANIZATION,
   ScimAdminCapacityError,
   type ScimAdminLimits,
+  type ScimListPage,
 } from "./scim-admin-limits.js";
 export {
   SCIM_GROUPS_PER_DEPLOYMENT,
@@ -163,7 +166,6 @@ export {
   createPostgresScimStores,
 } from "./scim-group-store.js";
 export {
-  SCIM_PAGE_MAX,
   SCIM_USERS_PER_DEPLOYMENT,
   SCIM_USERS_PER_ORGANIZATION,
   SCIM_USER_RAW_MAX_BYTES,

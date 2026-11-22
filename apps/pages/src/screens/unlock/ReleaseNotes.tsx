@@ -36,18 +36,13 @@ const RELEASES: readonly ReleaseNote[] = [
       "Open on the front door: set up your own vault, or join somebody's live session",
       "Live sessions pair browsers directly, or through a tunnel address, TURN server or code carrier the owner names",
       "Connect services from Connections; GitHub can back up your vault",
+      "Link catalog connectors and review their grants and approval requests in Access",
+      "Choose capabilities during setup, then change them later in Settings",
+      "Finish browser sign-in from its popup or follow-up link on this device",
       "Generate passwords and authenticator codes inside the app",
     ],
-    inProgress: [
-      "More connectors from the catalog will finish linking the way GitHub does today",
-      "Sharing access and approvals with people and agents is still being finished",
-      "Clearing leftover setup screens and wording from older builds",
-    ],
-    knownIssues: [
-      "Some connectors look ready but stop before the link finishes",
-      "Sign-in may need the popup or follow-up link on this same device",
-      "Older server-address settings are ignored — use Connections instead",
-    ],
+    inProgress: [],
+    knownIssues: [],
   },
   {
     version: "0.0.1",
@@ -114,7 +109,12 @@ function ReleasePanel({
       >
         <span className="unlock__notes-summary-label">
           {release.version}
-          {newest ? <span className="unlock__notes-latest">Latest</span> : null}
+          {newest ? (
+            <>
+              {" "}
+              <span className="unlock__notes-latest">Latest</span>
+            </>
+          ) : null}
         </span>
         <IconChevronRight className="unlock__notes-caret" size={24} />
       </button>

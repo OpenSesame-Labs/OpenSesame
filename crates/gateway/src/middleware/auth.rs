@@ -64,7 +64,7 @@ pub fn require_session(
         )
             .into_response());
     };
-    if !meta.valid_for(&st.resource, chrono::Utc::now()) {
+    if !meta.valid_for(&st.resource, opensesame_time::Utc::now()) {
         sessions.remove(&session_digest);
         return Err((
             StatusCode::UNAUTHORIZED,

@@ -7,56 +7,13 @@ import {
   hostApiEndpoint,
   revokeOrganizationMembership,
 } from "../routes/organizations.js";
-
-type App = ReturnType<typeof createControlPlane>["app"];
-
-function testConfig() {
-  return {
-    port: 0,
-    publicUrl: "http://127.0.0.1:8788",
-    issuer: "http://127.0.0.1:8788",
-  } as const;
-}
-
-async function provisional(app: App) {
-  const res = await app.request("/v1/principals/provisional", {
-    method: "POST",
-  });
-  expect(res.status).toBe(201);
-  return overlapCast(await res.json());
-}
-
-async function verified(app: App, subject: string) {
-  const created = await provisional(app);
-  const linked = await app.request("/v1/principals/link-identities", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${created.accessToken}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      kind: "oidc",
-      issuer: "https://mock.example",
-      subject,
-      assurance: "verified",
-    }),
-  });
-  expect(linked.status).toBe(201);
-  return created;
-}
-
-function auth(token: string) {
-  return { authorization: `Bearer ${token}` };
-}
-
-async function createOrg(app: App, token: string, slug: string) {
-  const res = await app.request("/v1/organizations", {
-    method: "POST",
-    headers: { ...auth(token), "content-type": "application/json" },
-    body: JSON.stringify({ slug, displayName: `Org ${slug}` }),
-  });
-  return res;
-}
+import {
+  auth,
+  createOrg,
+  provisional,
+  baseTestConfig as testConfig,
+  verified,
+} from "./organization-tenant-fixture.js";
 
 function mockHostFetch(impl: () => Promise<Response>) {
   return vi.spyOn(globalThis, "fetch").mockImplementation(impl);
@@ -266,6 +223,50 @@ describe("organizations routes edge cases", () => {
     expect(asOwner.status).toBe(200);
     expect(overlapCast(await asOwner.json()).members).toHaveLength(2);
   });
+
+  it.each(["suspended", "deleted"] as const)(
+    "retires member-management authority when the organization is %s",
+    async (state) => {
+      const { app, ctx } = createControlPlane({ config: testConfig() });
+      const owner = await verified(app, `org-inactive-owner-${state}`);
+      const target = await provisional(app);
+      const org = overlapCast(
+        await (
+          await createOrg(app, owner.accessToken, `inactive-members-${state}`)
+        ).json(),
+      );
+      const stored = await ctx.stores.organizations.get(String(org.id));
+      if (!stored) throw new Error("organization missing");
+      await ctx.stores.organizations.set(stored.id, {
+        ...stored,
+        state,
+        updatedAt: new Date(),
+      });
+
+      expect(
+        (
+          await app.request(`/v1/organizations/${org.id}/members`, {
+            headers: auth(owner.accessToken),
+          })
+        ).status,
+      ).toBe(404);
+      expect(
+        (
+          await app.request(`/v1/organizations/${org.id}/members`, {
+            method: "POST",
+            headers: {
+              ...auth(owner.accessToken),
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              principalId: target.principalId,
+              role: "member",
+            }),
+          })
+        ).status,
+      ).toBe(404);
+    },
+  );
 
   it("fences member addition by role and principal state", async () => {
     const { app, ctx } = createControlPlane({ config: testConfig() });
@@ -649,7 +650,6 @@ describe("device approve edge cases", () => {
     expect(overlapCast(await notFound.json()).error).toBe(
       "host_approval_failed",
     );
-
     fetchSpy.mockResolvedValue(new Response("boom", { status: 500 }));
     const badGateway = await approve();
     expect(badGateway.status).toBe(502);

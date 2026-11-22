@@ -6,7 +6,6 @@
 //! pass's cap with lapsed grants, adds one live grant, and asks the scanner to
 //! warn about it, then to publish its `expired` once it lapses too.
 
-use chrono::{DateTime, Duration, Utc};
 use opensesame_domain::{
     GrantLink, GrantScope, NewSessionGrant, PrincipalId, SessionGrant, SessionGrantId, SessionId,
     SessionRole, SessionVisibility, VaultId,
@@ -14,6 +13,7 @@ use opensesame_domain::{
 use opensesame_lifecycle::{ExpiryStage, SubjectKind, Track};
 use opensesame_storage::authority::{AuthorityIssue, NewAccessDomain, PermissionEntry};
 use opensesame_storage::StoredSession;
+use opensesame_time::{DateTime, Duration, Utc};
 use serde_json::json;
 
 use super::authority_subjects::AUTHORITY_GRANT_SCAN_LIMIT;

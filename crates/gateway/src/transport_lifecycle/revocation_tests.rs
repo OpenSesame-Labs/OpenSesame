@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use chrono::{Duration, Utc};
+use opensesame_time::{Duration, Utc};
 use opensesame_transport_security::testkit::DisposableCa;
 
 use crate::transport_lifecycle::crl::{crl_freshness, CrlFreshness};

@@ -233,7 +233,7 @@ impl Bao {
             Command::new(&binary).args(["server", &format!("-config={}", config.display())]),
             &pki.dir().join("bao.log"),
         )?;
-        child.wait_for_port(port, Duration::from_secs(60))?;
+        child.wait_for_port(port, Duration::from_mins(1))?;
         let mut bao = Self {
             port,
             version,
@@ -253,7 +253,7 @@ impl Bao {
     }
 
     fn wait_for_api(&self) -> Result<()> {
-        let deadline = Instant::now() + Duration::from_secs(60);
+        let deadline = Instant::now() + Duration::from_mins(1);
         while Instant::now() < deadline {
             let reachable = self
                 .request(

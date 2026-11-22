@@ -6,7 +6,7 @@
 //! that does not name a provider does not mean "any".
 
 use super::PermissionEntry;
-use chrono::{DateTime, Utc as ChronoUtc};
+use opensesame_time::{DateTime, Utc as ChronoUtc};
 
 /// The product ceiling. A legacy record whose action and resource lists multiply
 /// out past this is not translated: nobody reviewed that many rights, and writing

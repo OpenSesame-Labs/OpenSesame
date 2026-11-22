@@ -2,7 +2,6 @@ import { appendAuditEvent } from "@opensesame/audit";
 import {
   SCIM_GROUP_ID_MAX,
   SCIM_GROUP_MEMBERS_MAX,
-  SCIM_PAGE_MAX,
   ScimAdminCapacityError,
 } from "@opensesame/database";
 import { isString, overlapCast } from "@opensesame/os-domain";
@@ -14,7 +13,7 @@ import {
   putGroupRoleMapping,
   removeNeutralGroupRoleMapping,
 } from "./scim-groups.js";
-import { scimPage } from "./scim-pagination.js";
+import { scimOwnerPage } from "./scim-protocol.js";
 import { consumeScimMutation } from "./scim-rate-limit.js";
 
 export const scimMappingAdminRoutes = new Hono<{ Variables: Variables }>();
@@ -30,24 +29,20 @@ scimMappingAdminRoutes.get(
   requirePrincipal(),
   async (c) =>
     asActiveOrgOwner(c, OWNER, async ({ ctx, organization }) => {
-      const page = scimPage(c);
+      const page = scimOwnerPage(c);
       if (!page) return c.json({ error: "validation_error" }, 400);
       const totalResults = await ctx.stores.scim.mappings.count(
         organization.id,
       );
-      if (
-        totalResults > SCIM_PAGE_MAX &&
-        c.req.query("startIndex") === undefined &&
-        c.req.query("count") === undefined
-      )
+      if (!page.paged && totalResults > page.limit)
         return c.json({ error: "pagination_required", totalResults }, 409);
       const mappings =
-        page.startIndex > totalResults
+        page.offset >= totalResults
           ? []
-          : await ctx.stores.scim.mappings.listByOrganization(
-              organization.id,
-              page,
-            );
+          : await ctx.stores.scim.mappings.listByOrganization(organization.id, {
+              offset: page.offset,
+              limit: page.limit,
+            });
       return c.json({
         mappings,
         totalResults,

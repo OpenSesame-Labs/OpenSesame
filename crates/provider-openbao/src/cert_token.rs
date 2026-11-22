@@ -15,7 +15,7 @@
 
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use secrecy::SecretString;
 use serde_json::Value;
 
@@ -23,7 +23,7 @@ use crate::AuthorityError;
 
 /// How much of a lease is spent before a cached token is treated as stale, so
 /// a request is never made with a token that expires mid-flight.
-pub(crate) const RENEW_BEFORE: Duration = Duration::from_secs(60);
+pub(crate) const RENEW_BEFORE: Duration = Duration::from_mins(1);
 
 /// What a certificate login produced. `Debug` never shows the token.
 pub struct CertToken {
@@ -62,7 +62,7 @@ impl CertToken {
         if self.lease_duration.is_zero() {
             return None;
         }
-        chrono::Duration::from_std(self.lease_duration)
+        opensesame_time::Duration::from_std(self.lease_duration)
             .ok()
             .map(|lease| self.issued_at + lease)
     }
@@ -74,8 +74,8 @@ impl CertToken {
         match self.expires_at() {
             None => true,
             Some(expiry) => {
-                let headroom = chrono::Duration::from_std(RENEW_BEFORE)
-                    .unwrap_or_else(|_| chrono::Duration::zero());
+                let headroom = opensesame_time::Duration::from_std(RENEW_BEFORE)
+                    .unwrap_or_else(|_| opensesame_time::Duration::zero());
                 now + headroom < expiry
             }
         }

@@ -1,7 +1,9 @@
 import { readFile, rm } from "node:fs/promises";
 import { join } from "node:path";
+import { isCliAppApprovalBlocked } from "@opensesame/app-core/lib/cli-app-integration/policy-runtime.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { processFixture } from "./fixtures/password-agent/process.js";
+
 const TOKEN = "ops_fake-token";
 let directory: string;
 let database: string;
@@ -154,6 +156,27 @@ describe("2password CLI process gauntlet", { timeout: 120_000 }, () => {
       "--json",
       "--api",
     ]);
+    if (isCliAppApprovalBlocked()) {
+      expect(ran.code).toBe(1);
+      expect(ran.stderr).toContain("temporarily unavailable");
+      expect(ran.stdout).not.toContain("private-canary");
+      const fileRun = await cli([
+        "env",
+        "run",
+        template,
+        "--",
+        process.execPath,
+        "-e",
+        "process.stdout.write(process.env.API)",
+      ]);
+      expect(fileRun.code).toBe(1);
+      expect(fileRun.stderr).toContain("temporarily unavailable");
+      expect(fileRun.stdout).not.toContain("private-canary");
+      expect((await calls()).filter((call) => call.args[0] === "run")).toEqual(
+        [],
+      );
+      return;
+    }
     expect(ran.code).toBe(7);
     expect(JSON.parse(ran.stdout)).toEqual({
       secret: "private-canary\n",

@@ -5,12 +5,12 @@
 //! stays inside the 400-line module budget (ADR 0093).
 #![allow(dead_code)]
 
-use chrono::{DateTime, Duration, Utc};
 use opensesame_domain::{
     ConnectionId, Grant, GrantConstraints, GrantId, OfflineUse, OrganizationId, PrincipalId,
 };
 use opensesame_lifecycle::{FenceVerdict, Freshness};
 use opensesame_storage::Db;
+use opensesame_time::{DateTime, Duration, Utc};
 
 pub async fn db() -> Db {
     Db::connect_sqlite("sqlite::memory:")

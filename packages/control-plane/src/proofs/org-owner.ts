@@ -30,9 +30,10 @@ export interface ActiveOrgOwner<A, O> extends Proof<"ActiveOrgOwner", [A, O]> {}
  *
  * `not_deleted` is what organizations, domains and LDAP have always accepted,
  * so a suspended organization's owner can still reach them to fix it.
- * `active` is required for membership and SCIM provisioning authority. The
- * choices remain distinct because administrative repair may need access to a
- * suspended organization without allowing its membership to be changed.
+ * `active` is the stricter reading SCIM provisioning has always used.
+ * Membership and provisioning administration require `active`. Recovery
+ * surfaces that can make a suspended organization usable again may use
+ * `not_deleted`; no owner proof may skip the organization-state check.
  */
 export type OrgLiveness = "not_deleted" | "active";
 

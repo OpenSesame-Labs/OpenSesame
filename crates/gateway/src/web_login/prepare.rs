@@ -15,10 +15,10 @@
 //! - **a hook policy the Host can read** — a stored document this build no
 //!   longer parses is refused, never replaced by the default (ADR 0159).
 
-use chrono::Utc;
 use opensesame_domain::OrganizationId;
 use opensesame_rotation_web::ChangePasswordRecipe;
 use opensesame_storage::Db;
+use opensesame_time::Utc;
 
 use super::recipe_trust::{verified_recipe, Attendance, Unrunnable};
 use crate::agent_hooks::{load_policy, LoadedHookPolicy};

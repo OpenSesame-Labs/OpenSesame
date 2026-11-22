@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { identityAccountFactorTransport } from "@opensesame/app-core/lib/account-factors.js";
+import { overlapCast } from "@opensesame/os-domain";
 import {
   cleanup,
   fireEvent,
@@ -7,12 +8,13 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import type { ComponentProps } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SecretBackendItemFields } from "../../sections/connections/secret-backends/SecretBackendItemFields.js";
 import { TailscaleDevicePanel } from "../../sections/connections/tailscale/TailscaleDevicePanel.js";
+import type { TailscaleEditor } from "../../sections/connections/tailscale/useTailscaleApp.js";
 import { AccountTotpCeremony } from "../../sections/settings/security/AccountTotpCeremony.js";
 import { DeadmanPanelView } from "../../sections/settings/security/DeadmanPanelView.js";
+import type { DeadmanPanelModel } from "../../sections/settings/security/deadman-panel-actions.js";
 import {
   AuthenticatorCeremony,
   RecoveryCeremony,
@@ -159,7 +161,7 @@ describe("sensitive copy controls", () => {
   });
 
   it("tracks a deadman release key", async () => {
-    const model = {
+    const model: DeadmanPanelModel = overlapCast({
       open: true,
       plan: {},
       releaseKey: "release-canary",
@@ -168,7 +170,7 @@ describe("sensitive copy controls", () => {
       error: "",
       said: "",
       setStored: vi.fn(),
-    } as unknown as ComponentProps<typeof DeadmanPanelView>["model"];
+    });
     render(
       <DeadmanPanelView
         model={model}
@@ -183,14 +185,14 @@ describe("sensitive copy controls", () => {
   });
 
   it("tracks a Tailscale device auth key", async () => {
-    const model = {
+    const model: TailscaleEditor = overlapCast({
       key: { key: "device-canary", singleUse: true },
       deviceKey: "",
       busy: false,
       ready: false,
       setDeviceKey: vi.fn(),
       cancel: vi.fn(),
-    } as unknown as ComponentProps<typeof TailscaleDevicePanel>["model"];
+    });
     render(<TailscaleDevicePanel model={model} />);
     fireEvent.click(
       screen.getByRole("button", { name: "Copy Tailscale device auth key" }),

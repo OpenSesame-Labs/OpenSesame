@@ -25,6 +25,32 @@ Keep an entry point thin: parse arguments, call into `lib/`, set the exit
 code. Logic that deserves a test goes in `lib/`, where `npm run quality:test`
 runs it.
 
+`npm run verify:auth-formal` checks the pinned Lean authentication model and
+compares its generated cases with the Identity API functions. The toolchain,
+coverage, assumptions, and limits are in [formal authentication and
+authorization verification](../docs/security/formal-auth-verification.md).
+
+Install the Git hooks with `npm run setup:hooks`. Before a push, the mandatory
+formal gate reads the actual ref updates and runs suites when registered
+implementation paths occur in the pushed changes. A suite can also register a
+reviewed Cargo.lock dependency projection; the suite runs when its resolved
+graph changes. This lockfile projection conservatively includes inactive
+optional, development, and target-specific dependencies. See the
+[projection contract](security/cargo-lock-projection.md). The mappings and commands are
+in [`proof-registry.json`](../spec/formal/proof-registry.json) and must match the
+declarative [`proof-requirements.json`](../spec/formal/proof-requirements.json).
+The gate inspects policy changes and their parent snapshots in the pushed
+history: a changed implementation cannot lose a mapping or an incoming proof
+and command by reverting policy metadata. Pre-policy registry history still
+participates in selection. Push changes to a suite's proof-file mappings or command
+separately from changes to its mapped implementation. Renames, deleted paths, and changes later reverted
+are included; deleting a remote ref alone does not run a suite. Metadata-only
+and proof-only changes also do not run suites. A proof-bearing push must use a clean worktree checked
+out at the target commit; push different target commits separately. The gate
+fails closed if history or proof files are unavailable. `OPENSESAME_PREPUSH=off`
+skips optional checks but does not skip this gate. Release qualification runs
+all registered suites, including their shared axiom-control test.
+
 ## quality/ — `npm run quality`, `npm run lint`
 
 | Script | Task | Checks |

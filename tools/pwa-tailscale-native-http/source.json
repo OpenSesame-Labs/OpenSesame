@@ -530,8 +530,8 @@
       "entryPoint": "zod/v4/mini"
     },
     "vite": {
-      "version": "8.3.6",
-      "packageSha256": "c190c4c3dadb457bedc5d756a2269cd648b134a293da9f4d873c01fc66f4186c"
+      "version": "8.3.8",
+      "packageSha256": "149cf436b89044371ae3cb35ac0e687ee75c6e8412962c7ce671f3d1a4a09d82"
     },
     "bridgeSha256": "7053394b70fa9298b4350a0c0fc4009ad1c5ba08d9cf3be75d9eee06ec722f47",
     "files": [
@@ -545,7 +545,7 @@
       },
       {
         "path": "native-assets.mjs",
-        "sha256": "631cd9f3e48b432af1d852efda732e832312222252874bf43c9b1389e7d59d1a"
+        "sha256": "352b1bcb3c00af796ecc350eaabf72662a8cd46864476a191f36ab3e211f9196"
       },
       {
         "path": "compose-native.test.mjs",
@@ -628,8 +628,16 @@
         "sha256": "9415abfd9bf9eaf96c07556b0b47ee745280bf4461e21bb72a3362ac7c05f8de"
       },
       {
+        "path": "archive-cache.mjs",
+        "sha256": "cc8f4da8d77fea0e5673957e8ec1e709b284a89b2d4a6b303a3f11cbbaeded61"
+      },
+      {
+        "path": "archive-cache.test.mjs",
+        "sha256": "e81d6739fce247659e1617785609feae109e1eba24f53ed04ca02bb8f5b2bb26"
+      },
+      {
         "path": "prepare-distribution.mjs",
-        "sha256": "d9184d2893beb280b5eb704b346ad91541676a1984ba1cd2208f91d18a474eef"
+        "sha256": "e260e1a709a9a46cb607e013816856b9765cf9952a4fb5539eec74e0e29c319f"
       },
       {
         "path": "native-command-io.mjs",

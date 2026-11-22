@@ -116,7 +116,7 @@ External/model-based security checkers supplement, never replace, `npm run audit
 
 ## 7. Skills
 
-Skills are canonical in `skills/*/SKILL.md`; this repo tracks no AI-harness dotfiles or dot folders (`.agents/`, `.claude/`, `.codex/`, `.cursor/`, `.grok/`, `.impeccable/`, `.stitch/`, `.mcp.json`) — discovery links, hooks, rules, MCP definitions and workflows live in the OpenSesame Labs dotfiles repo and are ignored here. Tiers are defined in `skills/profiles.json` (core first-party required, optional profiles may be absent). Third-party skills are gitignored install output installed/refreshed to latest (unpinned) by `scripts/dev/install-agent-skills.sh` (`npm run skills:install`, devcontainer post-start) per the `skills-lock.json` catalogue. The installer CLIs are pinned in `mise.toml` (`npm:skills`, `npm:impeccable`, `npm:typeui.sh`). Never stage installed trees. Sync with `scripts/dev/sync-agent-skills.mjs` (and its `--check`), never by multi-target copy. Routing index: [skills](docs/contributing/skills.md). Personal user-scope setup: [agent setup](docs/contributing/agent-setup.md).
+Skills are canonical in `skills/*/SKILL.md`; this repo tracks no AI-harness dotfiles or dot folders (`.agents/`, `.claude/`, `.codex/`, `.cursor/`, `.grok/`, `.impeccable/`, `.stitch/`, `.mcp.json`) — discovery links, hooks, rules, MCP definitions and workflows live in the OpenSesame Labs dotfiles repo and are ignored here. Tiers are defined in `skills/profiles.json` (core first-party required, optional profiles may be absent). Third-party skills are gitignored install output authenticated against reviewed hashes in `skills-lock.json`; devcontainer post-start verifies offline and quarantines mismatches. Only the explicit `npm run skills:install` maintenance command fetches updates and leaves catalogue changes for review. The installer CLI is pinned in `mise.toml` (`npm:skills`). Never stage installed trees. Sync with `scripts/dev/sync-agent-skills.mjs` (and its `--check`), never by multi-target copy. Routing index: [skills](docs/contributing/skills.md). Personal user-scope setup: [agent setup](docs/contributing/agent-setup.md).
 
 ## 8. Verification expectations
 
@@ -134,3 +134,17 @@ Full local gate: `npm run verify`. A user-visible change carries before/after ev
 ## 9. Starting, parallelizing, and shipping a task
 
 Generic sequence: fetch `origin/main` → isolated worktree → one coherent slice per commit/PR → stacked PRs for dependent slices → required checks green, review threads resolved, up to date with `main` → squash-merge. Commits are signed and verified under the repository's governance in `ops/github/`; use your own configured identity and signing key. Full procedure (worktrees, shared caches, stacked PRs, done criteria, task queue): [shipping](docs/contributing/shipping.md) and [agent routines](docs/contributing/agent-routines.md).
+<!-- instructify:formal-auth-verification:start -->
+<!-- instructify:meta {"created": false, "owner": "fd19639e4fbc17660cbc8e7c", "separator": "", "sha256": "0b5c06eeaa137704ca2b51936eeeacaf92a3e09b41db1e0ff9ea2c16ea0ecbab"} -->
+## Formal authentication and authorization evidence
+
+Scope: . (relative to the project root).
+
+### trace-auth-properties
+
+When: Changing authentication or authorization behavior or its security requirements.
+Do: Read docs/security/formal-auth-verification.md and spec/formal/proof-registry.json; record each affected requirement, implementation, formal status, and evidence, and run every suite mapped to the changed implementation.
+Verify: Record the actual proof, conformance, drift, and other applicable security-check results.
+Boundary: A proof of a model and finite conformance tests do not prove the whole implementation; leave uncovered properties explicitly unproved.
+Source: docs/security/formal-auth-verification.md; ADR 0178 and ADR 0036.
+<!-- instructify:formal-auth-verification:end -->

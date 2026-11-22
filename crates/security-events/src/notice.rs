@@ -12,8 +12,8 @@
 //! alerter, and every industry-standard sink — without any of them learning
 //! that the family exists.
 
-use chrono::{DateTime, Utc};
 use opensesame_redaction::{redact_json, redact_text};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 

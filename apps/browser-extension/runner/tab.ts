@@ -2,10 +2,11 @@
  * One tab, and what the runner does inside it.
  *
  * Every injection goes through `injectorFor`, which refuses to run anything in a
- * tab that is not on the run's origin; a click is never retried.
+ * tab that is not on the run's origin; a click is never retried; a still is
+ * taken only with the selectors covered and the covers taken down after.
  */
 import { originOf } from "./origin";
-import { pfSubmit } from "./page-fns";
+import { pfLayout, pfMask, pfSubmit, pfUnmask } from "./page-fns";
 import type { Capture } from "./ports";
 
 export interface Tab {
@@ -13,6 +14,11 @@ export interface Tab {
   /** Close whatever owns the tab: the tab itself, or its private window. */
   dispose: () => Promise<void>;
 }
+
+/** JPEG qualities tried, best first, until the still fits the Host's bound. */
+const QUALITIES = [60, 40, 25, 15];
+/** A JSON array of numbers costs about 3.6 bytes a byte; the Host stores 1 MiB. */
+const MAX_IMAGE_BYTES = 230_000;
 
 export function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -99,7 +105,6 @@ export async function press(
   tabId: number,
   injector: Injector,
   selector: string,
-  origin: string,
 ) {
   let navigated = false;
   const listener = (id: number, info: { status?: string; url?: string }) => {
@@ -109,12 +114,8 @@ export async function press(
   };
   browser.tabs.onUpdated.addListener(listener);
   try {
-    const verdict = await injector.inject(pfSubmit, [selector, origin], 0);
-    if (verdict === "off_origin") throw new Error("off_origin");
-    return verdict;
+    return await injector.inject(pfSubmit, [selector], 0);
   } catch (error) {
-    // A navigation observed before the click is not proof that it occurred.
-    if (String(error).includes("off_origin")) throw error;
     await delay(500);
     if (navigated) return "ok" as const;
     throw error;
@@ -123,15 +124,58 @@ export async function press(
   }
 }
 
-/**
- * Chromium's visible-tab capture cannot bind pixels to this tab or to the
- * document where masks were installed. Refuse rather than export pixels that
- * might belong to another tab or an unmasked navigation.
- */
+/** A still with the selectors covered, at the best quality the Host can store. */
 export async function stillOf(
-  _tabId: number,
-  _injector: Injector,
-  _maskSelectors: string[],
-): Promise<Capture | null | "unsupported"> {
-  return "unsupported";
+  tabId: number,
+  injector: Injector,
+  maskSelectors: string[],
+): Promise<Capture | null> {
+  const { inject } = injector;
+  const current = await browser.tabs.get(tabId);
+  const windowId = current.windowId;
+  let armed = false;
+  let switched = false;
+  const activated = (info: { tabId: number; windowId: number }) => {
+    if (armed && info.windowId === windowId && info.tabId !== tabId) {
+      switched = true;
+    }
+  };
+  const targetIsActive = async () => {
+    const active = await browser.tabs.query({ active: true, windowId });
+    return active.length === 1 && active[0]?.id === tabId;
+  };
+  browser.tabs.onActivated.addListener(activated);
+  try {
+    await browser.tabs.update(tabId, { active: true });
+    if (!(await targetIsActive())) return null;
+    armed = true;
+    const covered = await inject(pfMask, [maskSelectors], 0);
+    try {
+      const before = await inject(pfLayout, [], 0);
+      let image: Uint8Array | null = null;
+      for (const quality of QUALITIES) {
+        if (switched || !(await targetIsActive())) return null;
+        const url = await browser.tabs.captureVisibleTab(windowId, {
+          format: "jpeg",
+          quality,
+        });
+        if (switched || !(await targetIsActive())) return null;
+        const bytes = Uint8Array.from(atob(url.split(",")[1] ?? ""), (c) =>
+          c.charCodeAt(0),
+        );
+        if (bytes.length <= MAX_IMAGE_BYTES) {
+          image = bytes;
+          break;
+        }
+      }
+      if (image === null) return null;
+      const after = await inject(pfLayout, [], 0);
+      if (switched || !(await targetIsActive())) return null;
+      return { image, covered, before, after };
+    } finally {
+      await inject(pfUnmask, [], 0).catch(() => undefined);
+    }
+  } finally {
+    browser.tabs.onActivated.removeListener(activated);
+  }
 }

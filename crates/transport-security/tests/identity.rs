@@ -4,8 +4,8 @@
 
 use std::sync::{Arc, Mutex};
 
-use chrono::{Duration, Utc};
 use opensesame_domain::transport::{PeerIdentitySelector, TransportError};
+use opensesame_time::{Duration, Utc};
 use opensesame_transport_security::testkit::{DisposableCa, KeyAlgorithm, LeafSpec, SanEntry};
 use opensesame_transport_security::{SecretBytes, TlsIdentity};
 use secrecy::ExposeSecret;

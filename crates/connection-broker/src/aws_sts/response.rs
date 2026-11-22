@@ -9,7 +9,7 @@
 
 use std::fmt;
 
-use chrono::{DateTime, Duration, Utc};
+use opensesame_time::{DateTime, Duration, Utc};
 use quick_xml::events::Event;
 use quick_xml::Reader;
 use secrecy::SecretString;

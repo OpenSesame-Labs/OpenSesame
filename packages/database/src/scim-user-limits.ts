@@ -1,3 +1,9 @@
+import {
+  type JsonObject,
+  type JsonValue,
+  isJsonObject,
+} from "@opensesame/os-domain";
+
 /** Hard bounds on retained, tenant-provisioned users. Inactive users count:
  * deleting one is a deprovisioning signal, not permission to forget it. */
 export const SCIM_USERS_PER_ORGANIZATION = 10_000;
@@ -5,7 +11,6 @@ export const SCIM_USERS_PER_DEPLOYMENT = 100_000;
 export const SCIM_USER_RAW_MAX_BYTES = 32_768;
 export const SCIM_USER_RAW_MAX_DEPTH = 32;
 export const SCIM_USER_RAW_MAX_NODES = 4_096;
-export const SCIM_PAGE_MAX = 100;
 
 export interface ScimUserLimits {
   perOrganization: number;
@@ -26,6 +31,7 @@ export class ScimUserPayloadError extends Error {
   }
 }
 
+/** Bound directory-supplied attributes before anything durable keeps them. */
 export function validateScimRaw(raw: JsonObject): void {
   const pending: Array<{ value: JsonValue; depth: number }> = [
     { value: raw, depth: 0 },
@@ -55,17 +61,6 @@ export function validateScimRaw(raw: JsonObject): void {
     throw new ScimUserPayloadError();
 }
 
-export function validateScimPage(page: ScimUserPageRequest): void {
-  if (
-    !Number.isSafeInteger(page.startIndex) ||
-    page.startIndex < 1 ||
-    !Number.isSafeInteger(page.count) ||
-    page.count < 0 ||
-    page.count > SCIM_PAGE_MAX
-  )
-    throw new Error("Invalid SCIM page");
-}
-
 /** Factories can lower the hard ceiling, for smaller deployments and tests. */
 export function scimUserLimits(
   limits?: Partial<ScimUserLimits>,
@@ -84,10 +79,3 @@ export function scimUserLimits(
     throw new Error("Invalid SCIM user limits");
   return { perOrganization, perDeployment };
 }
-
-import {
-  type JsonObject,
-  type JsonValue,
-  isJsonObject,
-} from "@opensesame/os-domain";
-import type { ScimUserPageRequest } from "./scim-store.js";

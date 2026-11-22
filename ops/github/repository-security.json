@@ -31,7 +31,6 @@
         "actions/upload-artifact@*",
         "actions/upload-pages-artifact@*",
         "docker/build-push-action@*",
-        "docker/login-action@*",
         "docker/setup-buildx-action@*",
         "github/codeql-action/analyze@*",
         "github/codeql-action/init@*",

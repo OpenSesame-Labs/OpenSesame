@@ -7,11 +7,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { SignJWT, exportJWK, generateKeyPair } from "jose";
+import { findChromium } from "./duress/find-chromium.mjs";
 import { isLinkCall } from "./lib/ambient-link-calls.mjs";
+import { prepareAmbientInstallation } from "./lib/ambient-sso-setup.mjs";
 import { doorGuest } from "./lib/front-door.mjs";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const DIST = path.resolve(here, "..", "dist");
+const DIST = process.env.PAGES_VERIFY_DIST
+  ? path.resolve(process.env.PAGES_VERIFY_DIST)
+  : path.resolve(here, "..", "dist");
 const ORIGIN = process.env.PAGES_ORIGIN ?? "https://opensesame-labs.github.io";
 const BASE = process.env.VITE_BASE ?? "/OpenSesame/";
 const TENANT = "aaaabbbb-cccc-dddd-eeee-ffffffffffff";
@@ -50,30 +54,7 @@ if (bridge) {
   check(!/createRoot|react-dom/.test(html), "bridge HTML does not mount React");
 }
 
-function findChromium() {
-  if (
-    process.env.PLAYWRIGHT_CHROMIUM &&
-    fs.existsSync(process.env.PLAYWRIGHT_CHROMIUM)
-  ) {
-    return process.env.PLAYWRIGHT_CHROMIUM;
-  }
-  const cache = path.join(process.env.HOME ?? "", ".cache/ms-playwright");
-  if (!fs.existsSync(cache)) return null;
-  for (const name of fs.readdirSync(cache).sort().reverse()) {
-    if (!name.startsWith("chromium")) continue;
-    const root = path.join(cache, name);
-    for (const candidate of [
-      path.join(root, "chrome-linux-arm64/chrome"),
-      path.join(root, "chrome-linux/chrome"),
-      path.join(root, "chrome-linux64/chrome"),
-    ]) {
-      if (fs.existsSync(candidate)) return candidate;
-    }
-  }
-  return null;
-}
-
-const chromium = findChromium();
+const chromium = findChromium().path;
 if (!chromium) {
   log.push({
     kind: "SKIP",
@@ -275,7 +256,7 @@ async function fulfillToken(route, captured, privateKey) {
 }
 
 {
-  const { page, context, counts, captured } = await withPage(
+  const { page, context, counts } = await withPage(
     async ({ request, url, route, counts, captured }) => {
       if (
         url.origin === ORIGIN &&
@@ -339,6 +320,12 @@ async function fulfillToken(route, captured, privateKey) {
   );
 
   await page.goto(`${ORIGIN}${BASE}`, { waitUntil: "networkidle" });
+  await prepareAmbientInstallation(page);
+  check(
+    counts.authorize === 0,
+    "approval causes no automatic sign-in mid-session",
+  );
+  await page.reload({ waitUntil: "networkidle" });
   await page
     .getByText(/Signed in with your organization/i)
     .waitFor({ timeout: 20_000 })

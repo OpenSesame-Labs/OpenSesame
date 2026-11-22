@@ -9,8 +9,8 @@
 //! What is built here is the part that must exist before any transport does:
 //! the rules under which a relayed request may run at all. They are written as
 //! pure functions so they can be tested without a network, and so the answer to
-//! "may this execute?" cannot quietly diverge between the gateway and the
-//! holder — both call this.
+//! "may this execute?" can be shared by a future holder. Today the holder
+//! runtime does not exist; these checks alone cannot authorize an effect.
 //!
 //! Every rule fails closed. The tempting behaviors — queue a request until the
 //! holder returns, or run it against the digest the delegate supplied — are

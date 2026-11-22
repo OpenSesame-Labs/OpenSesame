@@ -182,7 +182,7 @@ async fn jobs_are_durable_and_value_blind_across_router_instances() {
 async fn connection_owned_by(st: &AppState, owner: &str) -> String {
     use opensesame_connection_broker::model::ConnectionStatus;
     use opensesame_connection_broker::store as broker_store;
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     let row = broker_store::ConnectionRow {
         id: opensesame_domain::ConnectionId::new().to_string(),
         organization_id: st.connection_organization.to_string(),

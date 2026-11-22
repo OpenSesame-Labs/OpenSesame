@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use chrono::{Duration, Utc};
+use opensesame_time::{Duration, Utc};
 
 use super::{
     AuthorityIssue, BudgetScope, DomainReparent, NewAccessDomain, PermissionEntry, Reservation,

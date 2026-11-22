@@ -2,7 +2,7 @@ import type { OrganizationRole } from "@opensesame/os-domain";
 import { and, asc, eq, sql } from "drizzle-orm";
 import type { Database } from "./repos/postgres.js";
 import { scimGroups } from "./schema/scim-groups.js";
-import type { ScimAdminLimits } from "./scim-admin-limits.js";
+import type { ScimAdminLimits, ScimListPage } from "./scim-admin-limits.js";
 import {
   SCIM_GROUP_ID_MAX,
   SCIM_GROUP_MEMBERS_MAX,
@@ -18,7 +18,6 @@ import {
 import {
   type ScimTokenRecord,
   type ScimTokenStore,
-  type ScimUserPageRequest,
   type ScimUserRecord,
   type ScimUserStore,
   type ScimStores as ScimUserTokenStores,
@@ -61,7 +60,7 @@ export interface ScimGroupMappingStore {
   count(orgId: string): Promise<number>;
   listByOrganization(
     orgId: string,
-    page?: ScimUserPageRequest,
+    page?: ScimListPage,
   ): Promise<ScimGroupMapping[]>;
   /** Removing a neutral mapping cannot confer additional authority. */
   removeIfNeutral(

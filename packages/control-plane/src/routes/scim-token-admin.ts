@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { appendAuditEvent } from "@opensesame/audit";
-import { SCIM_PAGE_MAX, ScimAdminCapacityError } from "@opensesame/database";
+import { ScimAdminCapacityError } from "@opensesame/database";
 import { Hono } from "hono";
 import type { AppContext } from "../context.js";
 import { requirePrincipal } from "../middleware/auth.js";
@@ -11,7 +11,7 @@ import {
   revokeScimToken,
 } from "../services/org-admin.js";
 import { asActiveOrgOwner } from "./org-owner-gate.js";
-import { scimPage } from "./scim-pagination.js";
+import { scimOwnerPage } from "./scim-protocol.js";
 import { consumeScimMutation } from "./scim-rate-limit.js";
 
 /** Provisioning-token prefix. Shown once, at mint; only the hash is stored. */
@@ -83,19 +83,18 @@ scimTokenAdminRoutes.get(
   requirePrincipal(),
   async (c) =>
     asActiveOrgOwner(c, OWNER, async ({ ctx, organization }) => {
-      const page = scimPage(c);
+      const page = scimOwnerPage(c);
       if (!page) return c.json({ error: "validation_error" }, 400);
       const totalResults = await ctx.stores.scim.tokens.count(organization.id);
-      if (
-        totalResults > SCIM_PAGE_MAX &&
-        c.req.query("startIndex") === undefined &&
-        c.req.query("count") === undefined
-      )
+      if (!page.paged && totalResults > page.limit)
         return c.json({ error: "pagination_required", totalResults }, 409);
       const tokens =
-        page.startIndex > totalResults
+        page.offset >= totalResults
           ? []
-          : await ctx.stores.scim.tokens.list(organization.id, page);
+          : await ctx.stores.scim.tokens.list(organization.id, {
+              offset: page.offset,
+              limit: page.limit,
+            });
       return c.json({
         tokens: tokens.map((record) => ({
           id: record.id,

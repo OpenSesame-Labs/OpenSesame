@@ -16,7 +16,7 @@ export const ACCESS_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "access.grants",
     description:
-      "The Grants branch: local application grants and optional delegations, their scope and expiry, with confirmed revocation.",
+      "Review application grants, delegations, scope and expiration. Revoke a grant after confirmation.",
     role: "navigation",
     routes: ["/access"],
     capabilityId: "delegations.list",
@@ -24,15 +24,14 @@ export const ACCESS_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "access.requests",
     description:
-      "The Requests branch: authorization asks waiting on a decision, alongside the offers this deployment has minted.",
+      "Review authorization requests awaiting a decision and offers created by this deployment.",
     role: "navigation",
     routes: ["/access"],
     capabilityId: "relay.inbox",
   },
   {
     id: "access.sessions",
-    description:
-      "The Sessions branch: agent task runs currently executing on this device, and the way to terminate one.",
+    description: "Review or end agent tasks running on this device.",
     role: "navigation",
     routes: ["/access"],
     capabilityId: "tasks.list",
@@ -40,15 +39,14 @@ export const ACCESS_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "access.connectors",
     description:
-      "The Connectors branch: who may use which connector. Each record is a connector someone holds a grant on; Add chooses one Connections configured or imported, then who, which policy, until when.",
+      "Review connector grants. Select Add to choose a configured connector, recipient, policy and expiration.",
     role: "navigation",
     routes: ["/access"],
     capabilityId: "connectors.bind",
   },
   {
     id: "access.resources",
-    description:
-      "The Resources branch: the connections and registered sites that a grant can be pointed at.",
+    description: "Review connections and registered sites available to grants.",
     role: "navigation",
     routes: ["/access"],
     capabilityId: "connections.list",
@@ -56,7 +54,7 @@ export const ACCESS_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "access.policies",
     description:
-      "The Policies branch: how broadly each authorization may be delegated and invoked.",
+      "Review policies that control how authorizations can be delegated and used.",
     role: "navigation",
     routes: ["/access"],
     capabilityId: "connections.update",
@@ -64,7 +62,7 @@ export const ACCESS_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "access.grant-access",
     description:
-      "The add key on Identity shares: opens a share — who it is for, what it opens, the policy and how long it lasts.",
+      "Select Add in Identity shares to choose a recipient, resource, policy and duration.",
     role: "ceremony",
     routes: ["/access"],
     capabilityId: "connectors.bind",
@@ -72,23 +70,21 @@ export const ACCESS_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "access.grant-ceremony",
     description:
-      "The share form itself: who it is for, what is shared, the policy and how long it lasts.",
+      "Choose the recipient, resource, policy and duration for a share.",
     role: "ceremony",
     routes: ["/access"],
     capabilityId: "connectors.bind",
   },
   {
     id: "access.relay",
-    description:
-      "Pending relay approval requests: a person decides whether a running agent may continue.",
+    description: "Review pending relay requests and approve or deny each one.",
     role: "ceremony",
     routes: ["/access"],
     capabilityId: "relay.decide",
   },
   {
     id: "nav.access",
-    description:
-      "Rail entry that opens Access, where delegations, share offers and running agent tasks are reviewed.",
+    description: "Open Access to review delegations, offers and agent tasks.",
     role: "navigation",
     routes: [],
     capabilityId: "app.navigate",
@@ -97,14 +93,14 @@ export const ACCESS_TARGETS: readonly GuideTargetDescriptor[] = [
 
 export const ACCESS_ROUTES: readonly GuideRouteDescriptor[] = [
   { id: "/access", title: "Access — delegations, offers and running tasks" },
-  { id: "/access/shares", title: "Access — identity shares and their add key" },
+  { id: "/access/shares", title: "Access — identity shares" },
   { id: "/access/requests", title: "Access — requests waiting on a decision" },
   {
     id: "/access/resources",
-    title: "Access — what a grant can be pointed at",
+    title: "Access — resources available to grants",
   },
   {
     id: "/access/policies",
-    title: "Access — how broadly an application may ask",
+    title: "Access — application policies",
   },
 ];

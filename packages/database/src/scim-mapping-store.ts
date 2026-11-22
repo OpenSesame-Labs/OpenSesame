@@ -6,22 +6,16 @@ import {
   ScimAdminCapacityError,
   type ScimAdminLimits,
   scimAdminLimits,
+  scimAdminPage,
 } from "./scim-admin-limits.js";
 import { SCIM_GROUP_ID_MAX } from "./scim-group-limits.js";
 import type {
   ScimGroupMapping,
   ScimGroupMappingStore,
 } from "./scim-group-store.js";
-import type { ScimUserPageRequest } from "./scim-store.js";
-import { SCIM_PAGE_MAX, validateScimPage } from "./scim-user-limits.js";
 
 function key(orgId: string, groupId: string): string {
   return `${orgId}\0${groupId}`;
-}
-function pageRequest(page?: ScimUserPageRequest): ScimUserPageRequest {
-  const selected = page ?? { startIndex: 1, count: SCIM_PAGE_MAX };
-  validateScimPage(selected);
-  return selected;
 }
 function validateId(groupId: string): void {
   if (!groupId || groupId.length > SCIM_GROUP_ID_MAX)
@@ -56,12 +50,12 @@ export function createMemoryScimMappingStore(
       return ofOrg(orgId).length;
     },
     async listByOrganization(orgId, input) {
-      const page = pageRequest(input);
+      const page = scimAdminPage(input);
       return ofOrg(orgId)
         .sort((a, b) =>
           a.groupId < b.groupId ? -1 : a.groupId > b.groupId ? 1 : 0,
         )
-        .slice(page.startIndex - 1, page.startIndex - 1 + page.count)
+        .slice(page.offset, page.offset + page.limit)
         .map((row) => ({ ...row }));
     },
     async removeIfNeutral(orgId, groupId) {
@@ -170,15 +164,15 @@ export function createPostgresScimMappingStore(
       return row?.total ?? 0;
     },
     async listByOrganization(orgId, input) {
-      const page = pageRequest(input);
-      if (page.count === 0 || page.startIndex > 2_147_483_647) return [];
+      const page = scimAdminPage(input);
+      if (page.limit === 0 || page.offset >= 2_147_483_647) return [];
       const rows = await db
         .select()
         .from(scimGroupRoleMappings)
         .where(eq(scimGroupRoleMappings.organizationId, orgId))
         .orderBy(asc(scimGroupRoleMappings.groupId))
-        .limit(page.count)
-        .offset(page.startIndex - 1);
+        .limit(page.limit)
+        .offset(page.offset);
       return rows.map((row) => ({
         organizationId: row.organizationId,
         groupId: row.groupId,

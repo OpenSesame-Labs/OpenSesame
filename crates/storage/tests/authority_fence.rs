@@ -9,10 +9,10 @@
 
 mod fence_support;
 
-use chrono::Utc;
 use opensesame_domain::OrganizationId;
 use opensesame_lifecycle::FenceVerdict;
 use opensesame_storage::authority_fence;
+use opensesame_time::Utc;
 
 use fence_support::{child_of, db, root_grant, seed_chain, seed_organization, status};
 

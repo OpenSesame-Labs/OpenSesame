@@ -1,7 +1,9 @@
 import { readFile, rm, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { isCliAppApprovalBlocked } from "@opensesame/app-core/lib/cli-app-integration/policy-runtime.js";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { processFixture } from "./fixtures/password-agent/process.js";
+
 type Fixture = Awaited<ReturnType<typeof processFixture>>;
 let fixture: Fixture;
 const TOKEN = "ops_fake-token";
@@ -238,7 +240,9 @@ it("env run and assignment injection reject startup hooks before provider access
       "process.exit(0)",
     ]);
     expect(run.code).toBe(1);
-    expect(run.stderr).toContain("startup");
+    expect(run.stderr).toContain(
+      isCliAppApprovalBlocked() ? "temporarily unavailable" : "startup",
+    );
     expect(await local.calls()).toEqual([]);
     await expect(readFile(marker)).rejects.toThrow();
     expect(run.stdout + run.stderr).not.toContain("ops_dummy-secret-token");
@@ -280,6 +284,14 @@ it("env run uses a private validated snapshot when the original template changes
       "-e",
       "require('node:fs').writeSync(1,JSON.stringify({api:process.env.API,token:process.env.OP_SERVICE_ACCOUNT_TOKEN??null}))",
     ]);
+    if (isCliAppApprovalBlocked()) {
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("temporarily unavailable");
+      expect(result.stdout).not.toContain("private-canary");
+      expect(await local.calls()).toEqual([]);
+      expect(await readFile(file, "utf8")).toBe("API=op://v/i/f\n");
+      return;
+    }
     expect(result.code, result.stderr).toBe(0);
     expect(JSON.parse(result.stdout)).toEqual({
       api: "private-canary\n",

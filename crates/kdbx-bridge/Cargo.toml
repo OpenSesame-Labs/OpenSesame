@@ -16,6 +16,7 @@ zeroize = { workspace = true }
 # `keepass` is also a dev-dependency so the conformance fixture can be built
 # against the library directly, independent of this crate's exporter.
 keepass = { version = "0.17.0", features = ["save_kdbx4"] }
+opensesame-sealed-store = { path = "../sealed-store", features = ["testkit"] }
 insta = { workspace = true, features = ["redactions"] }
 serde_json = { workspace = true }
 tempfile = { workspace = true }

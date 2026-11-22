@@ -57,8 +57,8 @@ pub(super) async fn drive_owner(st: &AppState, owner: &str, done: &AtomicBool) {
             if run.closed_at.is_some() {
                 continue;
             }
-            let now = chrono::Utc::now();
-            let expires = now + chrono::Duration::seconds(30);
+            let now = opensesame_time::Utc::now();
+            let expires = now + opensesame_time::Duration::seconds(30);
             let claimed = st
                 .db
                 .claim_runner_step(
@@ -250,7 +250,8 @@ async fn a_completed_attended_run_proves_the_recipe_for_the_scanner() {
 
     // A renewal of the same steps keeps what the run proved.
     let mut renewed = recipe_fixture::document(SITE, false);
-    renewed.expires_at = (chrono::Utc::now() + chrono::Duration::days(60)).to_rfc3339();
+    renewed.expires_at =
+        (opensesame_time::Utc::now() + opensesame_time::Duration::days(60)).to_rfc3339();
     renewed.sign(&recipe_fixture::signer()).unwrap();
     let reply = send(
         &app,

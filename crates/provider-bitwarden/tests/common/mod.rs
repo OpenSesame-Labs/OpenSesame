@@ -333,16 +333,16 @@ pub fn build_fixtures(shape: Shape) -> BTreeMap<&'static str, Value> {
     ])
 }
 
-pub fn fixture_dir(shape: Shape) -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures")
-        .join(shape.dir())
-}
-
 pub fn load_fixture(shape: Shape, name: &str) -> String {
-    let path = fixture_dir(shape).join(name);
-    std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("missing fixture {}: {e}", path.display()))
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join(format!("tests/fixtures/{}.json", shape.dir()));
+    let raw = std::fs::read_to_string(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    let bundle: BTreeMap<String, serde_json::Value> =
+        serde_json::from_str(&raw).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+    let value = bundle
+        .get(name)
+        .unwrap_or_else(|| panic!("missing fixture {name} in {}", path.display()));
+    serde_json::to_string(value).expect("serialize fixture response")
 }
 
 /// One recorded request: method, path, and whether a bearer token was sent.

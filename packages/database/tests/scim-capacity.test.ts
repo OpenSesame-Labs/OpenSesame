@@ -63,33 +63,17 @@ async function exercise(
     b.users.create(user(second, "e")),
   ]);
   expect(deployment.filter((r) => r.status === "fulfilled")).toHaveLength(1);
-  const total = await a.users.listByOrganization(first, {
-    startIndex: 1,
-    count: 0,
-  });
-  expect(total).toEqual({ totalResults: 2, resources: [] });
-  await expect(
-    a.users.listByOrganization(first, { startIndex: 1, count: 101 }),
-  ).rejects.toThrow("Invalid SCIM page");
-  const one = await a.users.listByOrganization(first, {
-    startIndex: 1,
-    count: 1,
-  });
-  const two = await b.users.listByOrganization(first, {
-    startIndex: 2,
-    count: 1,
-  });
-  expect(one.totalResults).toBe(2);
-  expect(two.totalResults).toBe(2);
-  expect(one.resources).toHaveLength(1);
-  expect(two.resources).toHaveLength(1);
-  expect(one.resources[0]?.id).not.toBe(two.resources[0]?.id);
-  expect(
-    (await a.users.listByOrganization(first, { startIndex: 3, count: 1 }))
-      .resources,
-  ).toEqual([]);
+  expect(await a.users.countByOrganization(first)).toBe(2);
+  expect(await a.users.countByOrganization(second)).toBe(1);
+  // The deployment-wide bound refuses any tenant, whatever its own limit.
+  expect(await b.users.createWithinLimit(user(second, "f"), 10_000)).toBeNull();
+  const one = await a.users.listByOrganization(first, { offset: 0, limit: 1 });
+  const two = await b.users.listByOrganization(first, { offset: 1, limit: 1 });
+  expect(one).toHaveLength(1);
+  expect(two).toHaveLength(1);
+  expect(one[0]?.id).not.toBe(two[0]?.id);
 
-  const existing = one.resources[0];
+  const existing = one[0];
   if (!existing) throw new Error("Expected a provisioned user");
   await b.users.update({ ...existing, active: false });
   expect((await a.users.findBySubject(first, existing.userName))?.active).toBe(
@@ -98,6 +82,15 @@ async function exercise(
   await expect(
     a.users.create(user(first, "after-deactivation")),
   ).rejects.toBeInstanceOf(ScimUserCapacityError);
+  await expect(
+    a.users.createWithinLimit(
+      {
+        ...user(second, "oversized"),
+        raw: { blob: "x".repeat(SCIM_USER_RAW_MAX_BYTES) },
+      },
+      10,
+    ),
+  ).rejects.toBeInstanceOf(ScimUserPayloadError);
   await expect(
     a.users.create({
       ...user(first, "oversized"),

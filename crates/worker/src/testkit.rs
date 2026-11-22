@@ -248,7 +248,9 @@ pub async fn start_mtls(ids: &[&str], bindings: ServiceBindingSet) -> anyhow::Re
     candidate.peer_trust.insert(trust_profile.clone(), trust);
     let profile = SecureProfile {
         listen: SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0),
-        generations: TransportGenerations::new(candidate.into_generation(1, chrono::Utc::now())?),
+        generations: TransportGenerations::new(
+            candidate.into_generation(1, opensesame_time::Utc::now())?,
+        ),
         trust_profile,
         bindings: Arc::new(bindings),
     };

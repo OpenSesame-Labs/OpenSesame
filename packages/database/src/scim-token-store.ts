@@ -6,22 +6,12 @@ import {
   ScimAdminCapacityError,
   type ScimAdminLimits,
   scimAdminLimits,
+  scimAdminPage,
 } from "./scim-admin-limits.js";
-import type {
-  ScimTokenRecord,
-  ScimTokenStore,
-  ScimUserPageRequest,
-} from "./scim-store.js";
-import { SCIM_PAGE_MAX, validateScimPage } from "./scim-user-limits.js";
+import type { ScimTokenRecord, ScimTokenStore } from "./scim-store.js";
 
 type StoredToken = ScimTokenRecord & { hash: string };
 const MAX_PRUNE = 1_000;
-
-function pageRequest(page?: ScimUserPageRequest): ScimUserPageRequest {
-  const selected = page ?? { startIndex: 1, count: SCIM_PAGE_MAX };
-  validateScimPage(selected);
-  return selected;
-}
 
 function orderTokens(a: ScimTokenRecord, b: ScimTokenRecord): number {
   return (
@@ -37,6 +27,7 @@ export function createMemoryScimTokenStore(
   const tokens = new Map<string, StoredToken>();
   return {
     async mint(orgId, hash) {
+      // Row id, not the token: the plaintext `sct_` value never lands here.
       const all = [...tokens.values()];
       const revoked = all
         .filter((row) => row.revokedAt !== undefined)
@@ -106,11 +97,11 @@ export function createMemoryScimTokenStore(
         .length;
     },
     async list(orgId, input) {
-      const page = pageRequest(input);
+      const page = scimAdminPage(input);
       return [...tokens.values()]
         .filter((row) => row.organizationId === orgId)
         .sort(orderTokens)
-        .slice(page.startIndex - 1, page.startIndex - 1 + page.count)
+        .slice(page.offset, page.offset + page.limit)
         .map(({ hash: _hash, ...record }) => ({ ...record }));
     },
   };
@@ -237,15 +228,15 @@ export function createPostgresScimTokenStore(
       return row?.total ?? 0;
     },
     async list(orgId, input) {
-      const page = pageRequest(input);
-      if (page.count === 0 || page.startIndex > 2_147_483_647) return [];
+      const page = scimAdminPage(input);
+      if (page.limit === 0 || page.offset >= 2_147_483_647) return [];
       const rows = await db
         .select()
         .from(scimTokens)
         .where(eq(scimTokens.organizationId, orgId))
         .orderBy(asc(scimTokens.createdAt), asc(scimTokens.id))
-        .limit(page.count)
-        .offset(page.startIndex - 1);
+        .limit(page.limit)
+        .offset(page.offset);
       return rows.map((row) => ({
         id: row.id,
         organizationId: row.organizationId,

@@ -6,7 +6,7 @@ use crate::{
     AuthorityContextId, CapabilitySet, CapabilityStateTransitionId, DomainError, OrganizationId,
     PrincipalId, ProjectId, TaskRunId, TaskTemplateId,
 };
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -230,7 +230,7 @@ mod tests {
             current_capabilities: CapabilitySet::new(vec![cap("read", "repo:a")]),
             state_version: 1,
             state_digest: String::new(),
-            maximum_expires_at: now + chrono::Duration::hours(1),
+            maximum_expires_at: now + opensesame_time::Duration::hours(1),
             created_at: now,
             updated_at: now,
         };
@@ -253,7 +253,7 @@ mod tests {
             current_capabilities: CapabilitySet::new(vec![cap("read", "repo:a")]),
             state_version: 1,
             state_digest: String::new(),
-            maximum_expires_at: now + chrono::Duration::hours(1),
+            maximum_expires_at: now + opensesame_time::Duration::hours(1),
             created_at: now,
             updated_at: now,
         };

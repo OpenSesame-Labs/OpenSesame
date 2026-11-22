@@ -9,7 +9,7 @@ description = "Pure domain resources, invariants, IDs, and errors for OpenSesame
 concurrency-test = ["dep:shuttle"]
 
 [dependencies]
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 sha2 = { workspace = true }

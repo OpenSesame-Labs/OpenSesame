@@ -1,4 +1,8 @@
-import { installDoublePorts } from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
+import {
+  double,
+  installDoublePorts,
+} from "@opensesame/app-core/lib/configuration/doubles/test-support.js";
+import { listNotices } from "@opensesame/app-core/lib/notices.js";
 import {
   cleanup,
   fireEvent,
@@ -10,6 +14,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { expectInTray, inTray } from "../components/tray.test-support.js";
 import { SetupScreen } from "./SetupScreen.js";
+import { MINIMAL_CONFIRM_ID } from "./setup/minimal-confirm.js";
 import {
   type ProviderFields,
   addProvider as addProviderWith,
@@ -69,6 +74,23 @@ describe("two optional ceremonies, never a fork (ADR 0090)", () => {
     expect(
       screen.getByRole("tab", { selected: true }).textContent?.trim(),
     ).toBe("capabilities");
+  });
+
+  it("commits one road when both minimal confirm choices run together", async () => {
+    const onDone = vi.fn();
+    const before = double.commits.length;
+    render(<SetupScreen onDone={onDone} />);
+    fireEvent.click(screen.getByRole("button", { name: /^Minimal$/ }));
+    const notice = listNotices().find(
+      (entry) => entry.id === MINIMAL_CONFIRM_ID,
+    );
+    expect(notice?.act?.run).toEqual(expect.any(Function));
+    expect(notice?.alt?.run).toEqual(expect.any(Function));
+    notice?.act?.run();
+    notice?.alt?.run();
+    await waitFor(() => expect(onDone).toHaveBeenCalledTimes(1));
+    expect(double.commits).toHaveLength(before + 1);
+    expect(double.commits.at(-1)?.draft?.selectedOptional).toEqual([]);
   });
 });
 
@@ -322,6 +344,9 @@ describe("where the keyboard lands", () => {
     const lead = screen.getByRole("button", { name: /^Default$/ });
     expect(document.activeElement).toBe(lead);
     expect(lead.className).toContain("road--lead");
+    const minimal = screen.getByRole("button", { name: /^Minimal$/ });
+    expect(minimal.className).toContain("road--advanced");
+    expect(document.activeElement).not.toBe(minimal);
     // Default is first in the document, so it is first for Tab and a reader.
     expect(
       screen

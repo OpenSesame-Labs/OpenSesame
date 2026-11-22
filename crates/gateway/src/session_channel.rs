@@ -28,10 +28,10 @@
 //! receive it. Fan-out that computed its audience once and reused it would be
 //! a revocation that takes effect at the next reconnect.
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::{
     JoinRequestId, PrincipalId, SessionGrantId, SessionMode, SessionRole, VaultId, VaultItemId,
 };
+use opensesame_time::{DateTime, Utc};
 use serde::Serialize;
 
 /// Serialize an id in its canonical, prefixed spelling.

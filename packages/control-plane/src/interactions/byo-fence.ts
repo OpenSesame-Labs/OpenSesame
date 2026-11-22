@@ -1,3 +1,4 @@
+import type { ByoUpstream } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
 import {
   type GuardedFetchInit,
@@ -38,6 +39,30 @@ export class ByoRegistrationError extends Error {
     super(message);
     this.code = code;
   }
+}
+
+const MAX_BYO_UPSTREAMS = 1_000;
+const CAPACITY_REACHED_MESSAGE =
+  "Provider registration is at capacity. Ask the operator to remove an unused provider.";
+
+export async function ensureByoCapacity(ctx: AppContext): Promise<void> {
+  if ((await ctx.repos.byoUpstreams.count()) >= MAX_BYO_UPSTREAMS) {
+    throw new ByoRegistrationError("rate_limited", CAPACITY_REACHED_MESSAGE);
+  }
+}
+
+export async function admitByoUpstream(
+  ctx: AppContext,
+  record: ByoUpstream,
+): Promise<ByoUpstream> {
+  const admitted = await ctx.repos.byoUpstreams.createWithinLimit(
+    record,
+    MAX_BYO_UPSTREAMS,
+  );
+  if (!admitted) {
+    throw new ByoRegistrationError("rate_limited", CAPACITY_REACHED_MESSAGE);
+  }
+  return admitted;
 }
 
 /**

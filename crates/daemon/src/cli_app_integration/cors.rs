@@ -33,8 +33,7 @@ pub(super) async fn cors(
     let admitted = st
         .cli_app_integration
         .lock()
-        .map(|host| host.pairings.admits_origin(&origin, now_unix()))
-        .unwrap_or(false)
+        .is_ok_and(|host| host.pairings.admits_origin(&origin, now_unix()))
         .then_some(origin);
     if request.method() == Method::OPTIONS
         && request

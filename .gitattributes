@@ -10,3 +10,9 @@ apps/android/ios/Sources/OpenSesameAuthenticatorCore/opensesame_authenticator_co
 *.json text eol=lf
 *.toml text eol=lf
 /.githooks/* text eol=lf
+
+# Preserve byte-exact reviewed upstream fixtures whose source text contains
+# significant trailing spaces; provenance verifiers attest these paths.
+patches/@aws-sdk__xml-builder@3.972.42.patch -whitespace
+patches/kdbxweb@2.1.1.patch -whitespace
+patches/vendor/sqlx-sqlite-0.9.0/src/connection/deserialize.rs -whitespace

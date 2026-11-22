@@ -65,7 +65,6 @@ pub(super) async fn build() -> anyhow::Result<AppState> {
         openbao: None,
         connection_ref: None,
         connection_broker,
-        relay_presence: Arc::new(Mutex::new(HashMap::new())),
         ephemeral_certificate_ca: Arc::new(Mutex::new(None)),
         connection_organization: organization,
         operator_token: secret(),

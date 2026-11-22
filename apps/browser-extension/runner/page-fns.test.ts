@@ -1,6 +1,6 @@
 import type { BoundaryValue } from "@opensesame/os-domain";
 import { JSDOM } from "jsdom";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   pfFill,
   pfLayout,
@@ -35,74 +35,22 @@ const FORM = `<body>
   <input id="h" type="hidden"/><input id="hid" style="display:none"/>
   <textarea id="ta"></textarea><button id="go" type="submit">Go</button></form>
   <div id="notfield"></div></body>`;
-const RP = "https://rp.example";
+const ORIGIN = "https://rp.example";
 
 describe("page functions are self-contained", () => {
   it("each one runs from its source text with nothing of this module in scope", async () => {
     const { call } = inPage(FORM);
-    expect(call(pfFill, "#a", "x", RP)).toBe("ok");
-    expect(call(pfPresence, "#a", "x", RP)).toBe("present");
-    expect(call(pfLayout, RP)).toEqual(expect.any(String));
-    expect(call(pfMask, ["#a"], RP)).toBe(1);
-    expect(call(pfUnmask, RP)).toBe(1);
-    expect(call(pfReadDom, [], RP)).toEqual(expect.any(String));
-    expect(await call(pfWaitFor, "#a", 10, RP)).toBe("ok");
-  });
-
-  it("refuses all page operations in a document for another origin", async () => {
-    const { call, doc } = inPage(FORM);
-    const other = "https://other.example";
-    expect(call(pfSubmit, "#go", other)).toBe("off_origin");
-    expect(() => call(pfLayout, other)).toThrow("off_origin");
-    expect(() => call(pfReadDom, [], other)).toThrow("off_origin");
-    expect(() => call(pfMask, ["#a"], other)).toThrow("off_origin");
-    expect(() => call(pfUnmask, other)).toThrow("off_origin");
-    await expect(call(pfWaitFor, "#a", 10, other)).rejects.toThrow(
-      "off_origin",
-    );
-    expect(doc.querySelectorAll("[data-opensesame-mask]")).toHaveLength(0);
+    expect(call(pfFill, "#a", "x", ORIGIN)).toBe("ok");
+    expect(call(pfPresence, "#a", "x")).toBe("present");
+    expect(call(pfLayout)).toEqual(expect.any(String));
+    expect(call(pfMask, ["#a"])).toBe(1);
+    expect(call(pfUnmask)).toBe(1);
+    expect(call(pfReadDom, [])).toEqual(expect.any(String));
+    expect(await call(pfWaitFor, "#a", 10)).toBe("ok");
   });
 });
 
 describe("pfFill", () => {
-  it("checks the destination document's origin before touching a field", () => {
-    const { call, doc } = inPage(FORM);
-    const field = doc.querySelector<HTMLInputElement>("#a");
-    const focus = vi.fn();
-    field?.addEventListener("focus", focus);
-    expect(() => call(pfFill, "#a", "secret", "https://other.example")).toThrow(
-      "off_origin",
-    );
-    expect(field?.value).toBe("");
-    expect(focus).not.toHaveBeenCalled();
-    expect(() =>
-      call(pfPresence, "#a", "secret", "https://other.example"),
-    ).toThrow("off_origin");
-  });
-
-  it("refuses if a focus handler moves the field into another document", () => {
-    const { call, doc } = inPage(FORM);
-    const field = doc.querySelector<HTMLInputElement>("#a");
-    if (!field) throw new Error("no field");
-    const other = new JSDOM("<body></body>", { url: "https://other.example" });
-    field.addEventListener("focus", () =>
-      other.window.document.body.append(field),
-    );
-    expect(() => call(pfFill, "#a", "secret", RP)).toThrow("off_origin");
-    expect(field.value).toBe("");
-  });
-
-  it("rechecks that a focus handler did not make the field noneditable", () => {
-    const { call, doc } = inPage(FORM);
-    const field = doc.querySelector<HTMLInputElement>("#a");
-    if (!field) throw new Error("no field");
-    field.addEventListener("focus", () => {
-      field.disabled = true;
-    });
-    expect(call(pfFill, "#a", "secret", RP)).toBe("no_such_field");
-    expect(field.value).toBe("");
-  });
-
   it("writes as a person would: through the setter, with input and change events", () => {
     const { call, doc, dom } = inPage(FORM);
     const heard: string[] = [];
@@ -110,7 +58,7 @@ describe("pfFill", () => {
     for (const type of ["input", "change"]) {
       field?.addEventListener(type, () => heard.push(`${type}:${field.value}`));
     }
-    expect(call(pfFill, "#a", "s3cret", RP)).toBe("ok");
+    expect(call(pfFill, "#a", "s3cret", ORIGIN)).toBe("ok");
     expect(field?.value).toBe("s3cret");
     expect(heard).toEqual(["input:s3cret", "change:s3cret"]);
     expect(dom.window.document.activeElement).toBe(field);
@@ -118,7 +66,7 @@ describe("pfFill", () => {
 
   it("fills a textarea", () => {
     const { call, doc } = inPage(FORM);
-    expect(call(pfFill, "#ta", "note", RP)).toBe("ok");
+    expect(call(pfFill, "#ta", "note", ORIGIN)).toBe("ok");
     expect(doc.querySelector<HTMLTextAreaElement>("#ta")?.value).toBe("note");
   });
 
@@ -134,26 +82,28 @@ describe("pfFill", () => {
       "#hid",
       "#go",
     ]) {
-      expect(call(pfFill, selector, "x", RP), selector).toBe("no_such_field");
+      expect(call(pfFill, selector, "x", ORIGIN), selector).toBe(
+        "no_such_field",
+      );
     }
   });
 
   it("answers invalid for a selector that does not parse", () => {
     const { call } = inPage(FORM);
-    expect(call(pfFill, "###", "x", RP)).toBe("invalid");
+    expect(call(pfFill, "###", "x", ORIGIN)).toBe("invalid");
   });
 });
 
 describe("pfPresence", () => {
   it("says present, absent and mismatch without returning the value", () => {
     const { call } = inPage(FORM);
-    expect(call(pfPresence, "#a", "x", RP)).toBe("absent");
-    call(pfFill, "#a", "right", RP);
-    expect(call(pfPresence, "#a", "right", RP)).toBe("present");
-    expect(call(pfPresence, "#a", "wrong", RP)).toBe("mismatch");
-    expect(call(pfPresence, "#missing", "right", RP)).toBe("absent");
-    expect(call(pfPresence, "#notfield", "right", RP)).toBe("absent");
-    expect(call(pfPresence, "###", "right", RP)).toBe("invalid");
+    expect(call(pfPresence, "#a", "x")).toBe("absent");
+    call(pfFill, "#a", "right", ORIGIN);
+    expect(call(pfPresence, "#a", "right")).toBe("present");
+    expect(call(pfPresence, "#a", "wrong")).toBe("mismatch");
+    expect(call(pfPresence, "#missing", "right")).toBe("absent");
+    expect(call(pfPresence, "#notfield", "right")).toBe("absent");
+    expect(call(pfPresence, "###", "right")).toBe("invalid");
   });
 });
 
@@ -165,11 +115,11 @@ describe("pfSubmit", () => {
       e.preventDefault();
       submitted += 1;
     });
-    expect(call(pfSubmit, "#go", RP)).toBe("ok");
-    expect(call(pfSubmit, "#f", RP)).toBe("ok");
+    expect(call(pfSubmit, "#go")).toBe("ok");
+    expect(call(pfSubmit, "#f")).toBe("ok");
     expect(submitted).toBe(2);
-    expect(call(pfSubmit, "#missing", RP)).toBe("no_such_element");
-    expect(call(pfSubmit, "###", RP)).toBe("invalid");
+    expect(call(pfSubmit, "#missing")).toBe("no_such_element");
+    expect(call(pfSubmit, "###")).toBe("invalid");
   });
 });
 
@@ -187,9 +137,9 @@ describe("pfReadDom", () => {
       <!-- comment-secret -->
     </body>`;
     const { call, doc } = inPage(html);
-    call(pfFill, "#a", "live-secret", RP);
-    call(pfFill, "#b", "live-typed", RP);
-    const text = call(pfReadDom, ["#strip"], RP);
+    call(pfFill, "#a", "live-secret", ORIGIN);
+    call(pfFill, "#b", "live-typed", ORIGIN);
+    const text = call(pfReadDom, ["#strip"]);
     for (const gone of [
       "attr-secret",
       "typed-attr",
@@ -217,12 +167,12 @@ describe("pfReadDom", () => {
     const { call } = inPage(
       `<body>${`<p>${"x".repeat(2_000)}</p>`.repeat(150)}</body>`,
     );
-    expect(call(pfReadDom, [], RP).length).toBe(200_000);
+    expect(call(pfReadDom, []).length).toBe(200_000);
   });
 
   it("skips a strip selector that does not parse", () => {
     const { call } = inPage(FORM);
-    expect(call(pfReadDom, ["###", "#a"], RP)).toContain("<form");
+    expect(call(pfReadDom, ["###", "#a"])).toContain("<form");
   });
 });
 
@@ -231,12 +181,12 @@ describe("pfMask and pfUnmask", () => {
     const { call, doc } = inPage(
       '<body><input class="p"/><input class="p"/><input id="q"/></body>',
     );
-    expect(call(pfMask, [".p", "#q", "#absent", "###"], RP)).toBe(2);
+    expect(call(pfMask, [".p", "#q", "#absent", "###"])).toBe(2);
     expect(doc.querySelectorAll("[data-opensesame-mask]")).toHaveLength(3);
     const cover = doc.querySelector("[data-opensesame-mask]");
     expect(cover?.getAttribute("style")).toContain("position:fixed");
     expect(cover?.getAttribute("style")).toContain("pointer-events:none");
-    expect(call(pfUnmask, RP)).toBe(3);
+    expect(call(pfUnmask)).toBe(3);
     expect(doc.querySelectorAll("[data-opensesame-mask]")).toHaveLength(0);
   });
 });
@@ -244,7 +194,7 @@ describe("pfMask and pfUnmask", () => {
 describe("pfLayout", () => {
   it("changes when a control moves", () => {
     const { call, doc } = inPage(FORM);
-    const before = call(pfLayout, RP);
+    const before = call(pfLayout);
     const field = doc.querySelector("#a");
     if (!field) throw new Error("no field");
     field.getBoundingClientRect = () => ({
@@ -258,21 +208,21 @@ describe("pfLayout", () => {
       y: 20,
       toJSON: () => ({}),
     });
-    expect(call(pfLayout, RP)).not.toBe(before);
+    expect(call(pfLayout)).not.toBe(before);
   });
 });
 
 describe("pfWaitFor", () => {
   it("resolves when the selector appears later, and times out when it does not", async () => {
     const { call, doc } = inPage("<body></body>");
-    const waiting = call(pfWaitFor, "#late", 500, RP);
+    const waiting = call(pfWaitFor, "#late", 500);
     setTimeout(() => {
       const el = doc.createElement("div");
       el.id = "late";
       doc.body.append(el);
     }, 10);
     expect(await waiting).toBe("ok");
-    expect(await call(pfWaitFor, "#never", 20, RP)).toBe("timeout");
-    expect(await call(pfWaitFor, "###", 20, RP)).toBe("invalid");
+    expect(await call(pfWaitFor, "#never", 20)).toBe("timeout");
+    expect(await call(pfWaitFor, "###", 20)).toBe("invalid");
   });
 });

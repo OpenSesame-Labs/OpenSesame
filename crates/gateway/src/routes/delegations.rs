@@ -60,6 +60,7 @@ fn broker_error(e: &BrokerError) -> Response {
         BrokerError::ConnectionNotFound => StatusCode::NOT_FOUND,
         BrokerError::StateExpired => StatusCode::GONE,
         BrokerError::InvalidState => StatusCode::CONFLICT,
+        BrokerError::DelegationUnavailable => StatusCode::SERVICE_UNAVAILABLE,
         _ => StatusCode::UNPROCESSABLE_ENTITY,
     };
     // Broker errors are typed and value-free; redact anyway before the wire,

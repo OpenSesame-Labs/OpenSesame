@@ -3,9 +3,9 @@
 //! that guard what it stores.
 mod common;
 
-use chrono::{Duration, Utc};
 use common::orgs::{account, add_member, member_id, Api, Org};
 use common::Harness;
+use opensesame_time::{Duration, Utc};
 use serde_json::{json, Value};
 
 fn note(org: Option<&Org>) -> Value {

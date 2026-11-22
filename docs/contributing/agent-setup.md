@@ -61,11 +61,12 @@ ln -s ~/.agents/skills/<name> ~/.claude/skills/<name>   # per skill
 ```
 
 Project skills work differently in-repo: first-party source is `skills/`
-(tracked, aliased from `.agents/skills/`); third-party skills install into
-`.agents/skills/` with `.claude/skills/` and `.grok/skills/` mirrors, all
-gitignored and refreshed to latest at container start by
-`scripts/dev/install-agent-skills.sh`. Harness-specific variants an
-installer writes (e.g. impeccable's Claude copy) are install output too;
+(tracked, aliased from `.agents/skills/`); reviewed third-party skills install
+into `.agents/skills/` with `.claude/skills/` and `.grok/skills/` mirrors, all
+gitignored. Container start verifies their exact `skills-lock.json` hashes
+offline and quarantines mismatches. Maintainers explicitly run
+`npm run skills:install` to fetch updates and review the resulting lock change.
+Harness-specific variants an installer writes are install output too;
 `node scripts/dev/sync-agent-skills.mjs` collapses duplicate mirrors to
 links and `--check` verifies them.
 
@@ -99,9 +100,8 @@ dotfiles, not in this repo.
 
 The `google-labs-code/stitch-skills` marketplace plugins
 (`stitch-design`, `stitch-build`, `stitch-utilities`) are **not**
-auto-enabled — the same skills install (latest,
-unpinned) into `.agents/skills/stitch-*` per the `skills-lock.json`
-catalogue at container start. To use the
+auto-enabled — reviewed copies install into `.agents/skills/stitch-*` per the
+`skills-lock.json` catalogue. To use the
 marketplace copies instead, enable them in your user Claude settings
 (`extraKnownMarketplaces` + `enabledPlugins` for
 `google-labs-code/stitch-skills`).
@@ -146,8 +146,8 @@ for device-login setups (see the Grok config in the dotfiles repo).
   (per-workspace) volume — executable caches (cargo target, npm)
   stay container-local so no cache crosses checkouts.
   `postStartCommand` runs `scripts/dev/install-agent-skills.sh` only
-  (latest third-party skills into gitignored roots; warns and continues
-  offline). No other `postAttach` work, no host paths, no dotfiles.
+  (offline hash verification of gitignored third-party roots; mismatches are
+  quarantined and reported). No other `postAttach` work, no host paths, no dotfiles.
   In-container planes use `127.0.0.1` defaults (`scripts/dev/local-env.sh`).
 - **Host-agent (opt-in, not tracked):** if you run host planes, add your
   own devcontainer override with
@@ -162,10 +162,11 @@ for device-login setups (see the Grok config in the dotfiles repo).
   dotfiles revision (`git -C "$(chezmoi source-path)" checkout <rev>`).
 - Personal skills: update in `~/.agents/skills` only; links follow.
   Rollback = restore that directory; no repo change needed.
-- Project skills: third-party content floats to latest at every
-  container start (`skills-lock.json` is the catalogue, not a pin).
-  Catalogue changes are reviewed commits; check
-  `.agents/.skills-currency.json` for what the last start installed.
+- Project skills: devcontainer start authenticates installed content against
+  the reviewed `skills-lock.json` hashes without network access. Run
+  `npm run skills:install` explicitly to refresh; review and commit the lock
+  change, or restore the prior lock and installed content to roll back. Check
+  `.agents/.skills-currency.json` for the last verification result.
 - Harness config changes: make them in the dotfiles repo, not here. Rollback
   is a revert there — this repo carries none of it.
 - Devcontainer: rebuild (`Dev Containers: Rebuild Container`) after image
@@ -180,7 +181,7 @@ for device-login setups (see the Grok config in the dotfiles repo).
 - [ ] `node scripts/dev/sync-agent-skills.mjs --check` exits 0; no broken
       symlinks under `.claude/skills`, `.grok/skills`, `.agents/skills`
       (when present locally)
-- [ ] Devcontainer: `postStart` runs only the skills install, no `postAttach`,
+- [ ] Devcontainer: `postStart` runs only offline skills verification, no `postAttach`,
       no `host.docker.internal`,
       no `${localEnv:HOME}` mount; `id` in lifecycle is `vscode`;
       `node -v`, `npm -v`, `cargo -V` succeed after create

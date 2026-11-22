@@ -1,12 +1,12 @@
 //! Reading one end-entity certificate after it has been verified.
 //!
-//! This is the only place `x509-parser` is used, and it is used for facts
+//! `x509-parser` is used here for facts
 //! only: validity, basic constraints, key usage, EKU, and the subject
 //! alternative names that become [`PeerIdentitySelector`]s. It never decides
 //! whether a certificate is *trusted* — that is `rustls-webpki`'s job.
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::transport::{PeerIdentitySelector, TransportError};
+use opensesame_time::{DateTime, Utc};
 use rustls_pki_types::CertificateDer;
 use sha2::{Digest, Sha256};
 use x509_parser::prelude::{FromDer, GeneralName, ParsedExtension, X509Certificate};

@@ -62,7 +62,7 @@ jobs:
             scripts/release
             scripts/lib
             .github/workflows
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node@24
@@ -134,20 +134,31 @@ jobs:
       actions: read
       attestations: read
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-        with:
-          ref: ${{ inputs.source_sha }}
-          persist-credentials: false
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - name: Check out trusted pipeline helpers
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           ref: ${{ github.workflow_sha }}
           persist-credentials: false
+          allow-unsafe-pr-checkout: false
           path: .ci-control
+          sparse-checkout-cone-mode: false
           sparse-checkout: |
+            scripts/ci/materialize-git-sha.sh
             scripts/release
             scripts/lib
             .github/workflows
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Park trusted helpers outside the candidate checkout
+        run: mv .ci-control "$RUNNER_TEMP/ci-control"
+      - name: Materialize the admitted candidate source
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_SHA: ${{ inputs.source_sha }}
+        run: bash "$RUNNER_TEMP/ci-control/scripts/ci/materialize-git-sha.sh" "$GITHUB_WORKSPACE"
+      - name: Restore trusted helpers beside the candidate tree
+        run: |
+          rm -rf .ci-control
+          mv "$RUNNER_TEMP/ci-control" .ci-control
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node
@@ -216,7 +227,7 @@ jobs:
             scripts/release
             scripts/lib
             .github/workflows
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node@24
@@ -245,7 +256,7 @@ jobs:
             scripts/release
             scripts/lib
             .github/workflows
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: false
           install_args: node@24

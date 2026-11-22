@@ -60,6 +60,31 @@ mounts at `/bitwarden` only when `OPENSESAME_BITWARDEN_COMPAT=on`
 | Operator | `/api/v1/operator/*` (incl. `operator/transport/*`), `/api/v1/admin` |
 | KV v2 facade | `/v1/sys`, `/v1/{mount}`, only with `OPENSESAME_KV_FACADE` set to `true` or `1` |
 
+Relay execution is temporarily unavailable: heartbeat, submission, executable
+pending inbox delivery, approval, and result reporting return
+`501 relay_execution_unavailable`. A holder runtime must independently
+re-authorize at the effect boundary, and result acceptance needs a durable
+transaction for the authority check and update. Existing requests may still be
+inspected by ID or denied. A relay-only delegation cannot instead use the broker
+invocation path, including a queued invocation or retry. Inspection exposes
+only the ID, state and normalized
+outcome; legacy summaries are withheld. This
+cannot recall previously disclosed requests or cancel an external action
+already in progress.
+
+Broker-mode delegation is also temporarily unavailable: new broker-mode
+offers and claims, and exercise of existing broker-mode delegations, return
+`503 delegation_unavailable` or `503 delegated_execution_unavailable`.
+An offer that omits `execution_mode` defaults to `broker` and is also refused.
+Relay-mode offers can still be claimed, but cannot be exercised while relay is
+disabled. Existing offers and delegations can be read and revoked, and
+attenuating a live delegation remains available. Owner invocations continue
+to use their existing path. A stored mode and its unkeyed manifest digest do
+not independently authenticate which mode the owner approved. Restoration
+requires an authenticated, versioned mode binding and migration of existing
+delegations, as well as an effect-boundary fence. All Hosts that share authority
+must run this restriction: an older Host can still execute delegated work.
+
 Source areas under `src/`: `routes/` (one module per group), `middleware/`
 (caller resolution, agent and browser grants), `transport/` and
 `transport_lifecycle/` (mTLS admission, bindings, certificate lifecycle),

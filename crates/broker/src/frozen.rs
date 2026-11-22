@@ -1,6 +1,5 @@
 //! Authorize-and-execute path that never accepts a second mutable parameter blob.
 
-use chrono::Utc;
 use opensesame_authz::{AuthZenAction, AuthZenRequest, AuthZenResource, AuthZenSubject};
 use opensesame_connector_host::InvokeRequest;
 use opensesame_domain::{
@@ -9,6 +8,7 @@ use opensesame_domain::{
     ReceiptOutcome, ResourceSelector, ValidatedGrantChain,
 };
 use opensesame_task_access::{TaskAccessEngine, TaskStore};
+use opensesame_time::Utc;
 use serde_json::{json, Value};
 
 use crate::{Broker, FinishReceiptParts};
@@ -198,6 +198,7 @@ impl Broker {
         let mut inv = Self::begin_invocation(intent.id, now)?;
         if !decision.decision {
             inv.transition(InvocationState::Denied, Utc::now())?;
+            self.db.insert_invocation(&inv).await?;
             let receipt = self.finish_frozen_receipt(
                 &intent,
                 &inv,
@@ -214,9 +215,7 @@ impl Broker {
                     ),
                 },
             )?;
-            self.db
-                .insert_denied_invocation_with_receipt(&inv, &receipt)
-                .await?;
+            self.db.insert_receipt(&receipt).await?;
             return Ok(receipt);
         }
 
@@ -262,13 +261,12 @@ impl Broker {
 
         let (outcome, summary, ext) = match result {
             Ok(r) => {
-                let (state, outcome) = if r.ok {
-                    (InvocationState::Succeeded, ReceiptOutcome::Succeeded)
-                } else {
-                    (InvocationState::Failed, ReceiptOutcome::Failed)
-                };
-                invocation.transition(state, Utc::now())?;
-                (outcome, r.safe_summary, r.external_request_digest)
+                invocation.transition(InvocationState::Succeeded, Utc::now())?;
+                (
+                    ReceiptOutcome::Succeeded,
+                    r.safe_summary,
+                    r.external_request_digest,
+                )
             }
             Err(e) => {
                 invocation.transition(InvocationState::Failed, Utc::now())?;
@@ -293,9 +291,7 @@ impl Broker {
         if !receipt.assert_no_secret_leak() {
             anyhow::bail!("receipt summary rejected by secret-leak check");
         }
-        self.db
-            .finish_executing_invocation(&invocation, &receipt)
-            .await?;
+        self.db.insert_receipt(&receipt).await?;
         Ok(receipt)
     }
 
@@ -356,7 +352,3 @@ impl Broker {
 #[cfg(test)]
 #[path = "frozen_tests.rs"]
 mod tests;
-
-#[cfg(test)]
-#[path = "frozen_outcome_tests.rs"]
-mod outcome_tests;

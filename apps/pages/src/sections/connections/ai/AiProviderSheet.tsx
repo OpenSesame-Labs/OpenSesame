@@ -8,7 +8,7 @@ import { isAiConnectionProvider } from "@opensesame/app-core/lib/ai-connections/
  */
 import { modelProtocolLabel } from "@opensesame/app-core/lib/ai-model-provider.js";
 import type { Flash } from "@opensesame/app-core/sections/connections/shared.js";
-import { useLayoutEffect, useRef } from "react";
+import { type RefCallback, type RefObject, useCallback, useRef } from "react";
 import { CeremonySheet } from "../../../components/CeremonySheet.js";
 import { CeremonyShell } from "../../../components/CeremonyShell.js";
 import { FieldShell } from "../../../components/FieldShell.js";
@@ -26,6 +26,20 @@ function testMark(test: KeyTest) {
   if (test.kind === "passed") return { tone: "ok" as const, label: test.label };
   if (test.kind === "failed") return { tone: "err" as const, label: test.text };
   return null;
+}
+
+function usePasswordInitialFocus(): readonly [
+  RefObject<HTMLElement | null>,
+  RefCallback<HTMLDivElement>,
+] {
+  const password = useRef<HTMLElement | null>(null);
+  const fields = useCallback<RefCallback<HTMLDivElement>>((node) => {
+    password.current =
+      node && !window.matchMedia?.("(pointer: coarse)").matches
+        ? node.querySelector<HTMLElement>('input[type="password"]')
+        : null;
+  }, []);
+  return [password, fields] as const;
 }
 
 function TestRow({
@@ -61,16 +75,9 @@ function LegacyAiProviderSheet({
 }) {
   const { provider, method } = target;
   const form = useAiProviderForm({ target, onConnected, onFlash });
-  const fieldsRef = useRef<HTMLDivElement>(null);
-  const keyRef = useRef<HTMLElement | null>(null);
+  const [keyRef, fieldsRef] = usePasswordInitialFocus();
   // The key is what the person came to paste, so it takes the focus — except
   // on a touch screen, where a keyboard that rises unasked covers the sheet.
-  useLayoutEffect(() => {
-    if (window.matchMedia?.("(pointer: coarse)").matches) return;
-    keyRef.current =
-      fieldsRef.current?.querySelector<HTMLElement>("input[type=password]") ??
-      null;
-  }, []);
   const host = verifyHost(
     provider.id,
     nativeFieldValues(method.fields, form.values, false),
@@ -146,14 +153,7 @@ export function AiProviderSheet(
 function SharedAiProviderSheet(
   props: Parameters<typeof LegacyAiProviderSheet>[0],
 ) {
-  const fields = useRef<HTMLDivElement>(null);
-  const key = useRef<HTMLElement | null>(null);
-  useLayoutEffect(() => {
-    if (!window.matchMedia?.("(pointer: coarse)").matches)
-      key.current =
-        fields.current?.querySelector<HTMLElement>('input[type="password"]') ??
-        null;
-  }, []);
+  const [key, fields] = usePasswordInitialFocus();
   return (
     <CeremonySheet
       title="Connect a model provider"

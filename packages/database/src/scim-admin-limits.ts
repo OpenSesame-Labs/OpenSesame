@@ -43,3 +43,26 @@ export function scimAdminLimits(
   }
   return limits;
 }
+
+/** Zero-based paging, as `ScimUserStore.listByOrganization` takes it. */
+export interface ScimListPage {
+  offset: number;
+  limit: number;
+}
+
+export const SCIM_ADMIN_PAGE_DEFAULT = 100;
+export const SCIM_ADMIN_PAGE_MAX = 200;
+
+/** Owner listings are always bounded; omitting a page reads the first one. */
+export function scimAdminPage(page?: ScimListPage): ScimListPage {
+  const selected = page ?? { offset: 0, limit: SCIM_ADMIN_PAGE_DEFAULT };
+  if (
+    !Number.isSafeInteger(selected.offset) ||
+    selected.offset < 0 ||
+    !Number.isSafeInteger(selected.limit) ||
+    selected.limit < 0 ||
+    selected.limit > SCIM_ADMIN_PAGE_MAX
+  )
+    throw new Error("Invalid SCIM page");
+  return selected;
+}

@@ -16,8 +16,8 @@
 
 use std::time::Duration;
 
-use chrono::Utc;
 use opensesame_connection_broker::rotation::web_login::WebLoginSettlement;
+use opensesame_time::Utc;
 
 use super::prepare::Plan;
 use super::settle::unclosed;

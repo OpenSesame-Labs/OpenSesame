@@ -8,8 +8,13 @@ import { planNpmCdRelease } from "./plan-npm-cd-release.mjs";
 
 function parseArgs(argv) {
   let sha = "";
+  let localProof = false;
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
+    if (arg === "--local-proof") {
+      localProof = true;
+      continue;
+    }
     if (arg === "--sha") {
       const value = argv[index + 1];
       if (!value || value.startsWith("--")) {
@@ -19,7 +24,7 @@ function parseArgs(argv) {
       index += 1;
     }
   }
-  return { sha };
+  return { sha, localProof };
 }
 
 function main() {
@@ -30,7 +35,10 @@ function main() {
     sha,
     tagPrefix: "web-pwa-v",
     releaseName: "web-pwa",
-    preid: process.env.NPM_PRERELEASE_ID ?? CD_PREVIEW_DIST_TAG,
+    preid: parsed.localProof
+      ? CD_PREVIEW_DIST_TAG
+      : (process.env.NPM_PRERELEASE_ID ?? CD_PREVIEW_DIST_TAG),
+    npmVersions: parsed.localProof ? [] : undefined,
   });
   process.stdout.write(`${formatPlan(plan)}\n`);
 }

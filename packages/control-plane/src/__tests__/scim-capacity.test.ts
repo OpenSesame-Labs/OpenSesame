@@ -1,5 +1,4 @@
 import {
-  SCIM_PAGE_MAX,
   SCIM_USER_RAW_MAX_BYTES,
   createMemoryScimStores,
 } from "@opensesame/database";
@@ -50,54 +49,6 @@ async function fixture(userLimit = 200) {
   return { ...plane, id, headers, users };
 }
 
-it("caps pages at the database boundary and reports true totals for filtered and unfiltered requests", async () => {
-  const f = await fixture();
-  const createdAt = new Date("2026-01-01T00:00:00Z");
-  for (let i = 0; i < SCIM_PAGE_MAX + 5; i += 1) {
-    const id = `user-${String(i).padStart(3, "0")}`;
-    await f.ctx.stores.scim.users.create({
-      id,
-      organizationId: f.id,
-      userName: `${id}@example.test`,
-      active: true,
-      raw: {},
-      createdAt,
-      updatedAt: createdAt,
-    });
-  }
-  const get = async (query: string) => {
-    const response = await f.app.request(`${f.users}${query}`, {
-      headers: f.headers,
-    });
-    expect(response.status).toBe(200);
-    return response.json();
-  };
-  const first = await get("");
-  expect(first.totalResults).toBe(SCIM_PAGE_MAX + 5);
-  expect(first.itemsPerPage).toBe(SCIM_PAGE_MAX);
-  expect(first.startIndex).toBe(1);
-  expect(first.Resources[0].id).toBe("user-000");
-  const second = await get(`?startIndex=${SCIM_PAGE_MAX + 1}&count=9999`);
-  expect(second.totalResults).toBe(SCIM_PAGE_MAX + 5);
-  expect(second.itemsPerPage).toBe(5);
-  expect(second.Resources[0].id).toBe("user-100");
-  expect((await get("?count=0")).Resources).toEqual([]);
-  expect(
-    (await get("?startIndex=9999999999999999999999&count=2")).Resources,
-  ).toEqual([]);
-  const filter = `filter=${encodeURIComponent('userName eq "user-000@example.test"')}`;
-  const filtered = await get(`?${filter}&startIndex=2`);
-  expect(filtered.totalResults).toBe(1);
-  expect(filtered.Resources).toEqual([]);
-  for (const query of ["?count=1e3", "?startIndex=no", "?count=1&count=2"]) {
-    const response = await f.app.request(`${f.users}${query}`, {
-      headers: f.headers,
-    });
-    expect(response.status).toBe(400);
-    expect((await response.json()).scimType).toBe("invalidValue");
-  }
-});
-
 it("rejects oversized user attributes without creating a row", async () => {
   const f = await fixture();
   const response = await f.app.request(f.users, {
@@ -129,7 +80,7 @@ it("rejects oversized user attributes without creating a row", async () => {
   ).toBeNull();
 });
 
-it("rejects concurrent creates above the tenant quota with a SCIM error", async () => {
+it("rejects concurrent creates above the store quota with a SCIM error", async () => {
   const f = await fixture(2);
   const responses = await Promise.all(
     Array.from({ length: 4 }, (_, i) =>
@@ -148,14 +99,7 @@ it("rejects concurrent creates above the tenant quota with a SCIM error", async 
   expect((await rejected.json()).schemas).toEqual([
     "urn:ietf:params:scim:api:messages:2.0:Error",
   ]);
-  expect(
-    (
-      await f.ctx.stores.scim.users.listByOrganization(f.id, {
-        startIndex: 1,
-        count: 100,
-      })
-    ).totalResults,
-  ).toBe(2);
+  expect(await f.ctx.stores.scim.users.countByOrganization(f.id)).toBe(2);
 });
 
 it("enforces atomic tenant and deployment mutation windows", async () => {

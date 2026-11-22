@@ -17,12 +17,15 @@
 // The drive is the real daemon behind the verifier's *.ts.net TLS proxy;
 // nothing on the page is staged.
 import { spawn } from "node:child_process";
-import { createHash } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
+import {
+  SHOP_PASSWORD,
+  SHOP_PWNED_RANGE_PREFIX,
+} from "./capture-sync-evidence-shop-fixture.mjs";
 import { doorGuest } from "./lib/front-door.mjs";
 import { phoneContext } from "./lib/mobile-contract.mjs";
 import { sealWithPin } from "./lib/pages-journey.mjs";
@@ -32,19 +35,12 @@ import { tailscaleServeDrive } from "./lib/tailscale-serve-drive.mjs";
 const origin = "https://opensesame-labs.github.io";
 const base = "/OpenSesame/";
 const repo = fileURLToPath(new URL("../../..", import.meta.url));
+
 const [mode, side, rawArg, outArg] = process.argv.slice(2);
-const SHOP_PASSWORD = "a long unique passphrase for the shop";
 const WIDTHS = {
   desktop: { viewport: { width: 1280, height: 900 } },
   phone: phoneContext({ width: 390, height: 844 }),
 };
-
-// The Pwned Passwords range API is keyed by SHA-1 prefix (k-anonymity):
-// this hashes a throwaway evidence password only to name its fixture URL,
-// never to store or verify a credential.
-function sha1(text) {
-  return createHash("sha1").update(text).digest("hex").toUpperCase();
-}
 
 /** The two services the check reaches, answered as they answer. */
 function fixtures(dir) {
@@ -60,8 +56,7 @@ function fixtures(dir) {
   );
   return {
     "https://api.pwnedpasswords.com/range/5BAA6": pwned,
-    [`https://api.pwnedpasswords.com/range/${sha1(SHOP_PASSWORD).slice(0, 5)}`]:
-      shop,
+    [`https://api.pwnedpasswords.com/range/${SHOP_PWNED_RANGE_PREFIX}`]: shop,
     "https://api.2fa.directory/v3/totp.json": list,
   };
 }

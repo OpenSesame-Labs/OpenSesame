@@ -27,6 +27,7 @@ import {
   settleHostSubject,
 } from "./host-settlement.js";
 import { assertDetailsMatchRequest } from "./interaction-approver-guard.js";
+import { liveNow } from "./interaction-clock.js";
 
 export { resolveEntitledSubject };
 
@@ -117,7 +118,6 @@ export function actorTypeFromProof(
 export async function consumeAndSettle(
   ctx: AppContext,
   row: Interaction,
-  now: Date,
   uow: UnitOfWork,
 ): Promise<ConsumeSettlement> {
   const proof = row.approvalProof;
@@ -130,23 +130,30 @@ export async function consumeAndSettle(
       "legacy proof cannot execute this kind",
     );
   }
-  const spent = interactionMachine.consume(row, now);
+  const consumedAt = liveNow(ctx, row);
+  const spent = interactionMachine.consume(row, consumedAt);
   const updated = await ctx.repos.interactions.updateWithVersion(
     row.id,
     row.version,
-    { status: spent.status, consumedAt: now },
+    { status: spent.status, consumedAt },
     uow,
   );
+
+  // Every await is a new admission boundary. A refusal throws inside the
+  // transaction so all database and outbox writes staged so far roll back.
+  const reservationAt = liveNow(ctx, updated);
   const reservation = await ctx.repos.executionReservations.acquire(
     {
       id: `xrsv_${randomBytes(12).toString("base64url")}`,
       interactionId: updated.id,
       requestDigest: updated.requestDigest ?? `none:${updated.id}`,
       holderRef: "consume",
-      leaseExpiresAt: new Date(now.getTime() + RESERVATION_LEASE_MS),
+      leaseExpiresAt: new Date(reservationAt.getTime() + RESERVATION_LEASE_MS),
     },
     uow,
   );
+
+  liveNow(ctx, updated);
   const settlement = await settleInteractionSubject(ctx, updated, uow);
   if (!settlement.ok) {
     throw new DomainError(
@@ -154,16 +161,27 @@ export async function consumeAndSettle(
       `subject binding refused at dispatch: ${settlement.reason}`,
     );
   }
-  const identityFacts = await applyIdentitySubject(ctx, updated, now, uow);
+
+  const identityAt = liveNow(ctx, updated);
+  const identityFacts = await applyIdentitySubject(
+    ctx,
+    updated,
+    identityAt,
+    uow,
+  );
+  const committedAt = liveNow(ctx, updated);
   await ctx.repos.executionReservations.commit(
     reservation.id,
     reservation.fencingToken,
-    now,
+    committedAt,
     uow,
   );
+
   // After the fence: a losing consume must not throw on the ceremony row and
-  // leave a higher held token that then fences the winner (T-07).
-  applyHostCeremonySubject(ctx, updated, now);
+  // leave a higher held token that then fences the winner (T-07). Resample
+  // after the awaited fence commit before applying the synchronous Host view.
+  const effectAt = liveNow(ctx, updated);
+  applyHostCeremonySubject(ctx, updated, effectAt);
   const hostEffect = settleHostSubject(
     ctx.stores.hostSettlement,
     ctx.stores.ceremonySubjects,

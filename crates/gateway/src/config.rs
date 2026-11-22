@@ -341,6 +341,16 @@ mod security_tests {
     }
 
     #[test]
+    fn non_postgres_task_db_is_not_distributed() {
+        use opensesame_task_access::{task_authority_backend_from_url, TaskAuthorityBackend};
+
+        assert_eq!(
+            task_authority_backend_from_url("sqlite::memory:"),
+            TaskAuthorityBackend::SqliteLocal
+        );
+    }
+
+    #[test]
     fn invalid_configuration_errors_never_echo_secret_material() {
         let planted = "private-secret-sentinel";
         let error = required_secret("TEST_SECRET", Some(planted)).unwrap_err();

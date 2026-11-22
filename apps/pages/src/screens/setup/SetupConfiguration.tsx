@@ -34,6 +34,8 @@ const CHOICES: ReadonlyArray<{
   Icon: typeof IconCheck;
   /** The one a person with no reason to choose otherwise should take. */
   recommended?: true;
+  /** Marked for people who already know which types they want off. */
+  advanced?: true;
 }> = [
   {
     id: "default",
@@ -45,8 +47,9 @@ const CHOICES: ReadonlyArray<{
   {
     id: "minimal",
     name: "Minimal",
-    kind: "Plain secrets and files only. No password, card or note types until you turn them on.",
+    kind: "Advanced. Plain secrets and files only. No password, card or note types until you turn them on.",
     Icon: IconDownload,
+    advanced: true,
   },
   {
     id: "full",
@@ -62,6 +65,12 @@ const CHOICES: ReadonlyArray<{
   },
 ];
 
+function roadClass(choice: (typeof CHOICES)[number]): string {
+  if (choice.recommended) return "road road--lead";
+  if (choice.advanced) return "road road--advanced";
+  return "road";
+}
+
 export function SetupConfiguration({
   busy,
   pending,
@@ -72,7 +81,7 @@ export function SetupConfiguration({
   onChoose: (id: ConfigurationChoice) => void;
 }) {
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
-  const targetRef = useGuideTarget<HTMLFieldSetElement>("setup.configurations");
+  const defaultRef = useGuideTarget<HTMLButtonElement>("setup.default");
   const move = (event: KeyboardEvent, at: number) => {
     const step =
       event.key === "ArrowRight" ? 1 : event.key === "ArrowLeft" ? -1 : 0;
@@ -95,19 +104,16 @@ export function SetupConfiguration({
         Choose what this vault holds. Any choice can be changed later in
         Settings, under Features.
       </p>
-      <fieldset
-        ref={targetRef}
-        className="capset__roads"
-        aria-label="Setup configuration"
-      >
+      <fieldset className="capset__roads" aria-label="Setup configuration">
         {CHOICES.map((choice, at) => (
           <button
             key={choice.id}
             ref={(node) => {
               refs.current[at] = node;
+              if (choice.id === "default") defaultRef(node);
             }}
             type="button"
-            className={choice.recommended ? "road road--lead" : "road"}
+            className={roadClass(choice)}
             aria-label={choice.name}
             aria-describedby={`setup-config-${choice.id}`}
             aria-busy={pending === choice.id}
@@ -128,7 +134,7 @@ export function SetupConfiguration({
       <div
         className="first-visit-host"
         data-first-visit-offer
-        data-first-visit-return="setup.configurations"
+        data-first-visit-return="setup.default"
       />
     </>
   );

@@ -47,7 +47,7 @@ impl Client {
                 jti: uuid::Uuid::new_v4().to_string(),
                 htm: method.into(),
                 htu: format!("{}{path}", self.resource),
-                iat: chrono::Utc::now().timestamp(),
+                iat: opensesame_time::Utc::now().timestamp(),
                 ath: Some(opensesame_proof::access_token_hash(&self.token)),
             },
         )
@@ -194,7 +194,7 @@ struct PairedFixture {
 async fn paired_fixture(state: &crate::app_state::AppState) -> PairedFixture {
     let (jwk, key) = proof_key();
     let jkt = opensesame_proof::jwk_thumbprint(&jwk).unwrap();
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     let raw = format!(
         "{}{}",
         uuid::Uuid::new_v4().simple(),

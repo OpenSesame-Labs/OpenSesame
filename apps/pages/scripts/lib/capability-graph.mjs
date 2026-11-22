@@ -18,7 +18,7 @@
 import {
   isJsonObject,
   isString,
-} from "../../../../packages/os-domain/src/json.ts";
+} from "../../../../scripts/lib/json-boundary.mjs";
 
 export {
   BUILD_MODES,

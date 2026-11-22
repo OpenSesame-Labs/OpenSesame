@@ -3,7 +3,6 @@
 use super::*;
 use crate::app_state::test_demo_state;
 use crate::routes::intents::ResolvedInvocation;
-use chrono::{Duration, Utc};
 use opensesame_domain::{
     ConnectionAuthorityBinding, ConnectionId, ConnectionRef, EgressBinding, Grant,
     GrantConstraints, GrantId, InvokeLevel, OfflineUse, OrganizationId, PrincipalId, ProjectId,
@@ -12,6 +11,7 @@ use opensesame_provider_openfga::{grant_to_openfga_tuples, testkit::FakeRemotePd
 use opensesame_storage::authority::{
     AuthorityIssue, NewAccessDomain, PermissionEntry, ProjectionMark,
 };
+use opensesame_time::{Duration, Utc};
 
 async fn assert_refusal(response: Response, status: StatusCode, code: &str) {
     assert_eq!(response.status(), status);

@@ -14,8 +14,8 @@
 //!    crash in the next step never loses the root the swapped files need.
 //! 3. **Swap** each staged file into place, keeping the previous ciphertext in
 //!    `.opensesame-rotation/old/`. An error rolls every swap back.
-//! 4. **Commit** — rename the new key file over `.opensesame-key` (atomic),
-//!    then drop the staging directory and the old chunk objects.
+//! 4. **Commit** — rebind attachment commitments, publish the witness, then
+//!    rename the new key file over `.opensesame-key`. Rebind failure rolls back.
 //!
 //! A crash between 2 and 4 leaves both key files and both ciphertext sets on
 //! disk; nothing is deleted before the commit rename. The staging directory is
@@ -33,12 +33,12 @@
 
 use std::collections::BTreeSet;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use base64::{engine::general_purpose::STANDARD, Engine};
 use opensesame_human_vault::root_protection::{
     encode_key_file, prepare_root_rotation, sync_dir, write_synced, KeyFileContents,
-    ProtectionError, ReissuedRecovery, RotationEdit, KEY_FILE_NAME,
+    ProtectionError, RotationEdit, KEY_FILE_NAME,
 };
 use opensesame_human_vault::{
     derive_attachment_key, open_chunk, seal_chunk, ChunkAd, ItemDataKey, ENVELOPE_VERSION,
@@ -47,12 +47,10 @@ use zeroize::Zeroize;
 
 use crate::age_fmt::encrypt_age;
 use crate::attachment::{attach_relative, hex_to_bytes, object_relative, ChunkRef};
-use crate::envelope::{
-    envelope_revision, open_osseal, seal_osseal, seal_osseal_in, COLLECTION_ATTACHMENTS,
-};
-use crate::git::auto_commit;
+use crate::envelope::{seal_osseal, seal_osseal_in, COLLECTION_ATTACHMENTS};
+use crate::git::auto_commit_for_rotation;
 use crate::path::{confined_read, confined_remove, confined_write};
-use crate::rotation_walk::inventory;
+use crate::rotation_walk::{create_private_dir, inventory, swap_staged};
 use crate::store_lock::StoreLock;
 use crate::{StoreError, StoreRoot};
 
@@ -61,20 +59,15 @@ pub const ROTATION_STAGING_DIR: &str = ".opensesame-rotation";
 
 const COMMIT_ROTATE: &str = "seal: rotate vault root key";
 
-/// What a completed rotation did.
-pub struct RotationOutcome {
-    /// `.osseal` entries re-encrypted under the new root.
-    pub entries: usize,
-    /// Attachments (manifest and every chunk) re-encrypted under the new root.
-    pub attachments: usize,
-    /// `.gpg` / `.age` entries, which are not sealed under the root and were
-    /// left exactly as they were.
-    pub foreign_entries: usize,
-    /// The manifest's root epoch after rotation.
-    pub root_epoch: u64,
-    /// Recovery keys minted in place of the old ones; show each once.
-    pub reissued_recovery: Vec<ReissuedRecovery>,
-}
+#[path = "rotation_observer.rs"]
+mod observer;
+#[path = "rotation_outcome.rs"]
+mod outcome;
+#[path = "rotation_plan.rs"]
+mod plan;
+pub use observer::rotate_store_root_with_commit;
+pub use outcome::RotationOutcome;
+use plan::Plan;
 
 /// Rotate the store's root key, re-encrypting all content sealed under it.
 ///
@@ -86,7 +79,10 @@ pub struct RotationOutcome {
 ///
 /// Returns unlock and protector errors before anything is written, and any
 /// read, decrypt or write failure while staging — in every such case the store
-/// and its key file are left as they were.
+/// and its key file are left as they were. A Git failure after the root has
+/// committed is returned in [`RotationOutcome::git_error`]. When recovery keys
+/// are reissued, Git is deferred and the caller must commit and back up the
+/// encrypted store after receiving those one-time secrets.
 pub fn rotate_store_root(
     root: &Path,
     password: &[u8],
@@ -103,6 +99,16 @@ pub(crate) fn rotate_store_root_observed(
     password: &[u8],
     edit: RotationEdit<'_>,
     staged: &mut dyn FnMut(&Path),
+) -> Result<RotationOutcome, StoreError> {
+    rotate_store_root_with_callbacks(root, password, edit, staged, &mut |_| Ok(()))
+}
+
+pub(crate) fn rotate_store_root_with_callbacks(
+    root: &Path,
+    password: &[u8],
+    edit: RotationEdit<'_>,
+    staged: &mut dyn FnMut(&Path),
+    committed: &mut dyn FnMut(&RotationOutcome) -> std::io::Result<()>,
 ) -> Result<RotationOutcome, StoreError> {
     if !root.join(KEY_FILE_NAME).exists() {
         return Err(StoreError::NotInitialized(root.to_path_buf()));
@@ -127,10 +133,12 @@ pub(crate) fn rotate_store_root_observed(
     let new_key = ItemDataKey(prepared.new_vrk.0);
     let key_json = encode_key_file(&KeyFileContents::Manifest(prepared.manifest.clone()))?;
     let sealed = inventory(root)?;
+    let witness = store.prepare_witness_rekey(&old_key)?;
 
     create_private_dir(&staging)?;
     let mut plan = Plan {
         foreign_entries: sealed.foreign,
+        witness: Some(witness),
         ..Plan::default()
     };
     let mut stranded = false;
@@ -138,7 +146,16 @@ pub(crate) fn rotate_store_root_observed(
     let result = stage_entries(&store, &staging, &sealed.entries, keys, &mut plan)
         .and_then(|()| stage_attachments(&store, &staging, &sealed.attachments, keys, &mut plan))
         .map(|()| staged(root))
-        .and_then(|()| commit(root, &staging, &plan, key_json.as_bytes(), &mut stranded));
+        .and_then(|()| {
+            commit(
+                &store,
+                &staging,
+                &mut plan,
+                keys,
+                key_json.as_bytes(),
+                &mut stranded,
+            )
+        });
     if let Err(error) = result {
         // A rollback that could not finish keeps the staging directory and the
         // resealed chunks: they are the only copy of what did not make it back.
@@ -151,6 +168,28 @@ pub(crate) fn rotate_store_root_observed(
         return Err(error);
     }
 
+    let git_deferred = !prepared.reissued_recovery.is_empty();
+    let mut outcome = RotationOutcome {
+        entries: plan.entries,
+        attachments: plan.attachments,
+        foreign_entries: plan.foreign_entries,
+        root_epoch: prepared.manifest.root_epoch,
+        reissued_recovery: prepared.reissued_recovery,
+        git_error: None,
+        git_deferred,
+        git_notice: None,
+        delivery_error: None,
+    };
+    // Deliver any one-time keys immediately after commit while the exclusive
+    // lock and staging guard still exclude ordinary store operations.
+    outcome.delivery_error = committed(&outcome).err();
+
+    // Attachment commitments were refreshed inside `commit()` before the key
+    // file swap. Restore the redundant slot after delivery.
+    if let Some(witness) = plan.witness.as_ref() {
+        let _ = store.finish_rekeyed_witness(witness, &new_key);
+    }
+
     // Committed: the new key file is live. What remains is cleanup: every pool
     // object no new manifest references is old-root ciphertext (or an orphan
     // no manifest ever will), and the lock rules out an attach in flight.
@@ -160,36 +199,13 @@ pub(crate) fn rotate_store_root_observed(
             let _ = confined_remove(root, &rel);
         }
     }
-    auto_commit(root, COMMIT_ROTATE)?;
-    Ok(RotationOutcome {
-        entries: plan.entries,
-        attachments: plan.attachments,
-        foreign_entries: plan.foreign_entries,
-        root_epoch: prepared.manifest.root_epoch,
-        reissued_recovery: prepared.reissued_recovery,
-    })
-}
-
-#[derive(Default)]
-struct Plan {
-    /// Store-relative paths whose new ciphertext is staged as `new/<index>`.
-    swaps: Vec<PathBuf>,
-    /// Chunk objects this rotation wrote (removed again on failure).
-    new_objects: Vec<PathBuf>,
-    /// Chunk digests the new manifests reference.
-    kept_objects: BTreeSet<String>,
-    entries: usize,
-    attachments: usize,
-    foreign_entries: usize,
-}
-
-impl Plan {
-    fn stage(&mut self, staging: &Path, rel: PathBuf, bytes: &[u8]) -> Result<(), StoreError> {
-        let slot = Path::new("new").join(self.swaps.len().to_string());
-        confined_write(staging, &slot, bytes)?;
-        self.swaps.push(rel);
-        Ok(())
+    if !git_deferred {
+        match auto_commit_for_rotation(root, COMMIT_ROTATE) {
+            Ok(notice) => outcome.git_notice = notice,
+            Err(error) => outcome.git_error = Some(error),
+        }
     }
+    Ok(outcome)
 }
 
 type Keys<'a> = (&'a ItemDataKey, &'a ItemDataKey);
@@ -201,12 +217,16 @@ fn stage_entries(
     (old_key, new_key): Keys<'_>,
     plan: &mut Plan,
 ) -> Result<(), StoreError> {
-    let revisions = store.revisions()?;
     for name in names {
         let rel = StoreRoot::entry_relative(name, "osseal")?;
         let blob = confined_read(&store.path, &rel)?;
-        let expected = crate::store::revision_for(&revisions, name)?;
-        let mut opened = open_osseal(&blob, old_key, name, expected)?;
+        let witness = store.entry_witness(name, old_key)?;
+        if witness.deleted {
+            return Err(StoreError::NotFound(name.clone()));
+        }
+        let mut opened =
+            crate::envelope::open_osseal_for_path(&blob, old_key, name, Some(witness.revision))?;
+        StoreRoot::verify_entry_plaintext_opened(&witness, &opened.plaintext)?;
         let sealed = seal_osseal(&opened.plaintext, new_key, name, opened.revision);
         opened.plaintext.zeroize();
         plan.stage(staging, rel, &sealed?)?;
@@ -222,14 +242,11 @@ fn stage_attachments(
     (old_key, new_key): Keys<'_>,
     plan: &mut Plan,
 ) -> Result<(), StoreError> {
-    let revisions = store.attachment_revisions()?;
+    store.verify_attachment_inventory(old_key, names)?;
     for name in names {
-        let mut manifest = store.open_manifest(name, old_key)?;
+        let (mut manifest, bound_name) = store.open_manifest(name, old_key)?;
         let rel = attach_relative(name)?;
-        let revision = match crate::store::revision_for(&revisions, name)? {
-            Some(revision) => revision,
-            None => envelope_revision(&confined_read(&store.path, &rel)?)?,
-        };
+        let revision = store.attachment_witness(name, old_key)?.revision;
         let mut id = [0u8; 16];
         hex_to_bytes(&manifest.attachment_id, &mut id)?;
         let old_ak = derive_attachment_key(old_key, &id);
@@ -242,16 +259,17 @@ fn stage_attachments(
                     "attachment {name}: chunk {index} does not match its content address"
                 )));
             }
-            let ad = ChunkAd {
+            let mut ad = ChunkAd {
                 envelope_version: ENVELOPE_VERSION,
                 attachment_id: manifest.attachment_id.clone(),
-                item_id: name.clone(),
+                item_id: bound_name.clone(),
                 chunk_index: u32::try_from(index)
                     .map_err(|_| StoreError::Crypto("chunk index out of range".into()))?,
                 chunk_count: manifest.chunk_count,
             };
             let mut plaintext =
                 open_chunk(&old_ak, &frame, &ad).map_err(|e| StoreError::Crypto(e.to_string()))?;
+            ad.item_id = name.clone();
             let resealed = seal_chunk(&new_ak, &plaintext, &ad);
             plaintext.zeroize();
             let resealed = resealed.map_err(|e| StoreError::Crypto(e.to_string()))?;
@@ -278,12 +296,14 @@ fn stage_attachments(
 }
 
 fn commit(
-    root: &Path,
+    store: &StoreRoot,
     staging: &Path,
-    plan: &Plan,
+    plan: &mut Plan,
+    (old_key, new_key): Keys<'_>,
     key_json: &[u8],
     stranded: &mut bool,
 ) -> Result<(), StoreError> {
+    let root = &store.path;
     let key_next = staging.join("key.next");
     write_synced(&key_next, key_json)?;
     let map: Vec<String> = plan
@@ -295,15 +315,43 @@ fn commit(
     write_synced(&staging.join("plan.json"), &map)?;
     create_private_dir(&staging.join("old"))?;
 
-    let result = swap_all(root, staging, plan).and_then(|()| {
-        verify_nothing_left_behind(root, plan)?;
-        fs::rename(&key_next, root.join(KEY_FILE_NAME))?;
-        sync_dir(root);
+    let mut witness_rekey_started = false;
+    let result = swap_staged(root, staging, &plan.swaps).and_then(|()| {
+        plan::verify_nothing_left_behind(root, plan)?;
+        let witness = plan
+            .witness
+            .as_mut()
+            .ok_or_else(|| StoreError::Crypto("rotation witness plan missing".into()))?;
+        // The old marker still authenticates this snapshot. Publishing the
+        // rebound witness must not replace it.
+        let retired = witness.clone();
+        store.rebind_rotated_attachments(witness, new_key)?;
+        witness_rekey_started = true;
+        let published = store
+            .write_rekeyed_witness(witness, new_key)
+            .and_then(|()| store.mark_rotation_pending(&retired, old_key))
+            .and_then(|()| {
+                fs::rename(&key_next, root.join(KEY_FILE_NAME))?;
+                sync_dir(root);
+                Ok(())
+            });
+        if let Err(error) = published {
+            *witness = retired;
+            return Err(error);
+        }
         Ok(())
     });
     let Err(error) = result else {
         return Ok(());
     };
+    if witness_rekey_started
+        && plan
+            .witness
+            .as_ref()
+            .is_none_or(|witness| store.write_rekeyed_witness(witness, old_key).is_err())
+    {
+        *stranded = true;
+    }
     // Undo every swap, last first; the old key file is still in place, so
     // putting the old ciphertext back returns the store to its previous state.
     for (index, rel) in plan.swaps.iter().enumerate().rev() {
@@ -314,76 +362,18 @@ fn commit(
     }
     if *stranded {
         return Err(StoreError::Other(format!(
-            "rotation failed ({error}) and could not be fully rolled back; the previous \
-             ciphertext is kept in {} (plan.json maps old/<n> to its path) and \
-             .opensesame-key is unchanged",
+            "rotation failed ({error}) and requires manual recovery; check {} \
+             (plan.json maps old/<n> to its path); .opensesame-key is unchanged. \
+             Independently verify the restored key and checkout before re-anchoring",
             staging.display()
         )));
     }
     Err(error)
 }
 
-/// Fail closed if any root-sealed file in the tree was not re-encrypted: the
-/// key swap would strand it under the old root.
-fn verify_nothing_left_behind(root: &Path, plan: &Plan) -> Result<(), StoreError> {
-    let swapped: BTreeSet<&PathBuf> = plan.swaps.iter().collect();
-    let missed = inventory(root)?
-        .relative_paths()
-        .into_iter()
-        .filter(|rel| !swapped.contains(rel))
-        .count();
-    if missed > 0 {
-        return Err(StoreError::Crypto(format!(
-            "{missed} sealed file(s) appeared that were not re-encrypted; the rotation was \
-             rolled back so none of them is left under the old root"
-        )));
-    }
-    Ok(())
-}
-
-fn swap_all(root: &Path, staging: &Path, plan: &Plan) -> Result<(), StoreError> {
-    let mut parents = BTreeSet::new();
-    for (index, rel) in plan.swaps.iter().enumerate() {
-        refuse_symlinked_parents(root, rel)?;
-        let target = root.join(rel);
-        let slot = index.to_string();
-        fs::rename(&target, staging.join("old").join(&slot))?;
-        fs::rename(staging.join("new").join(&slot), &target)?;
-        if let Some(parent) = target.parent() {
-            parents.insert(parent.to_path_buf());
-        }
-    }
-    for parent in parents {
-        sync_dir(&parent);
-    }
-    Ok(())
-}
-
-/// `rename` follows directory symlinks in the parent path; the confined reads
-/// that staged these files refused them, so refuse them here too.
-fn refuse_symlinked_parents(root: &Path, rel: &Path) -> Result<(), StoreError> {
-    let mut current = root.to_path_buf();
-    for component in rel.parent().into_iter().flat_map(Path::components) {
-        current.push(component);
-        if fs::symlink_metadata(&current)?.file_type().is_symlink() {
-            return Err(StoreError::InvalidPath(
-                "symlink inside the store during rotation".into(),
-            ));
-        }
-    }
-    Ok(())
-}
-
-fn create_private_dir(path: &Path) -> Result<(), StoreError> {
-    let builder = fs::DirBuilder::new();
-    #[cfg(unix)]
-    let mut builder = builder;
-    #[cfg(unix)]
-    std::os::unix::fs::DirBuilderExt::mode(&mut builder, 0o700);
-    builder.create(path)?;
-    Ok(())
-}
-
+#[cfg(test)]
+#[path = "rotation_post_commit_tests.rs"]
+mod post_commit_tests;
 #[cfg(test)]
 #[path = "rotation_tests.rs"]
 mod tests;

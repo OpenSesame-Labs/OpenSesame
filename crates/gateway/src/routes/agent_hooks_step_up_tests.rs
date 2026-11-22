@@ -210,13 +210,13 @@ async fn an_agent_capability_or_browser_grant_cannot_reach_the_put_even_stepped_
     assert_eq!(direct.status(), StatusCode::FORBIDDEN);
     // And the step-up guard itself calls it delegated, never merely stale.
     assert_eq!(
-        fresh_step_up(&agent, chrono::Utc::now()),
+        fresh_step_up(&agent, opensesame_time::Utc::now()),
         Err(StepUpRefusal::Delegated)
     );
     let mut browser = agent;
     browser.credential_kind = CredentialKind::BrowserGrant;
     assert_eq!(
-        fresh_step_up(&browser, chrono::Utc::now()),
+        fresh_step_up(&browser, opensesame_time::Utc::now()),
         Err(StepUpRefusal::Delegated)
     );
     assert_unchanged(&st).await;
@@ -252,7 +252,7 @@ fn the_evidence_check_is_exact_at_its_edges() {
         claims
     };
     // `now` is read after the claims are made, as a handler's is.
-    let check = |claims: &HostSessionClaims| fresh_step_up(claims, chrono::Utc::now());
+    let check = |claims: &HostSessionClaims| fresh_step_up(claims, opensesame_time::Utc::now());
     assert_eq!(check(&at_age(0)), Ok(()));
     assert_eq!(check(&at_age(STEP_UP_MAX_AGE_SECS - 1)), Ok(()));
     assert_eq!(

@@ -9,12 +9,12 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use chrono::Utc;
 use opensesame_agent_hooks::secrets;
 use opensesame_connection_broker::{RotationPolicy, RotationTarget, UpsertRotationPolicy};
 use opensesame_lifecycle::{ExpiryStage, ExpirySubject, LifecycleEvent, SubjectKind};
 use opensesame_storage::agent_hook_policy::{AgentHookPolicyAudit, AgentHookPolicyWrite};
 use opensesame_storage::web_login_runs::StoredAgentHookRecord;
+use opensesame_time::Utc;
 use serde_json::json;
 use sqlx::Row;
 
@@ -100,7 +100,7 @@ pub(super) fn launcher(f: &Fixture) -> WebLoginLauncher {
     WebLoginLauncher::new(f.state.clone(), None).with_timing(RunTiming {
         step_deadline: std::time::Duration::from_secs(20),
         poll: std::time::Duration::from_millis(5),
-        run_deadline: std::time::Duration::from_secs(60),
+        run_deadline: std::time::Duration::from_mins(1),
     })
 }
 

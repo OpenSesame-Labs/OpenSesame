@@ -32,7 +32,7 @@ use crate::{
     roster_digest, AdmissionMode, Cohort, CohortId, CohortResolution, CohortSnapshotId,
     DomainError, Eligibility, PrincipalId, Roster,
 };
-use chrono::{DateTime, Duration, Utc};
+use opensesame_time::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 /// How old a live resolution may be and still admit anybody.

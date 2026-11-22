@@ -9,7 +9,7 @@ mod tests {
         CohortSnapshot, CohortSnapshotId, DomainError, NewCohortActivation, PrincipalId,
         MAX_ACTIVATION_LIFETIME, MIN_ACTIVATION_LIFETIME,
     };
-    use chrono::Duration;
+    use opensesame_time::Duration;
     use serde_json::Value;
 
     /// Field names that would mean a cohort had started holding a credential.

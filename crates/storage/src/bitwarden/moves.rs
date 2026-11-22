@@ -90,7 +90,7 @@ async fn write_sign_in(
         .bind(user_id)
         .execute(&mut *tx)
         .await?;
-    let now = bitwarden_timestamp(chrono::Utc::now());
+    let now = bitwarden_timestamp(opensesame_time::Utc::now());
     for factor in &sign_in.two_factors {
         sqlx::query(
             "INSERT INTO bitwarden_two_factor (user_id, provider, enabled, data, \

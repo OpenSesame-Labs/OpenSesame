@@ -1,0 +1,13 @@
+diff --git a/package.json b/package.json
+index f5cc800..a461f48 100644
+--- a/package.json
++++ b/package.json
+@@ -45,7 +45,7 @@
+   "dependencies": {
+     "des.js": "^1.1.0",
+     "js-md4": "^0.3.2",
+-    "qs": "6.15.1",
++    "qs": "^6.16.1",
+     "tunnel": "0.0.6",
+     "underscore": "^1.13.8"
+   },

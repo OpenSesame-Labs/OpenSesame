@@ -27,7 +27,7 @@ fn der_cert() -> Vec<u8> {
 #[test]
 fn one_certificate_round_trips() {
     let cert = der_cert();
-    let envelope = certs_only(&[cert.clone()]).expect("encode");
+    let envelope = certs_only(std::slice::from_ref(&cert)).expect("encode");
     let parsed = parse_certs_only(&envelope).expect("decode");
     assert_eq!(parsed, vec![cert]);
 }

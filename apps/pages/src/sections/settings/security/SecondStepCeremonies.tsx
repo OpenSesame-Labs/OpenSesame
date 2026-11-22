@@ -76,9 +76,9 @@ function FreshCodes({
   top: string;
   onDone: () => void;
 }) {
+  const copySecret = useCopySecret();
   const ledger = { codes, used: codes.map(() => false) };
   const [copied, setCopied] = useState(false);
-  const copySecret = useCopySecret();
   return (
     <CeremonyShell
       ok
@@ -234,9 +234,9 @@ type TotpStage = "key" | "scan" | "confirm" | "done";
 
 export function Rail({ steps, now }: { steps: string[]; now: number }) {
   return (
-    <section className="steps" aria-label="Enrollment steps">
+    <ol className="steps" aria-label="Enrollment steps">
       {steps.map((label, i) => (
-        <div
+        <li
           key={label}
           className={
             i < now
@@ -250,9 +250,9 @@ export function Rail({ steps, now }: { steps: string[]; now: number }) {
           <span className="steps__label">
             {i + 1} · {label}
           </span>
-        </div>
+        </li>
       ))}
-    </section>
+    </ol>
   );
 }
 
@@ -272,8 +272,8 @@ export function AuthenticatorCeremony({
   onDone: () => void;
 }) {
   const store = useVaultStore();
-  const { header } = useVault();
   const copySecret = useCopySecret();
+  const { header } = useVault();
   // The rail is the whole ceremony, said before any step is taken — so a
   // vault that had no key when the sheet opened keeps its Key segment (done)
   // once the key exists, rather than renumbering the steps mid-way.

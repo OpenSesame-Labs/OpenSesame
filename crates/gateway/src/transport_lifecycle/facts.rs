@@ -12,8 +12,8 @@
 //! JSON history (the newest [`MAX_HISTORY`] entries). Nothing here can carry
 //! key material: every field is an id, a number, a code or a time.
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::transport::{timestamp, RuntimeStatus};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::app_state::AppState;

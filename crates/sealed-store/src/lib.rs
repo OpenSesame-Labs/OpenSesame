@@ -6,7 +6,6 @@
 
 mod age_fmt;
 mod attachment;
-mod attachment_snapshot;
 mod entry;
 mod envelope;
 mod generate;
@@ -27,6 +26,7 @@ mod piv_age;
 mod produce;
 mod recipients;
 mod retired_native;
+mod rollback_witness;
 mod root;
 mod root_protection;
 mod rotation;
@@ -43,7 +43,6 @@ pub use attachment::{
     ATTACHMENT_REVISION_FILE, ATTACH_EXT, CHUNK_EXT, CHUNK_PLAINTEXT_BYTES, GC_GRACE_SECONDS,
     MAX_ATTACHMENT_BYTES,
 };
-pub use attachment_snapshot::verify_replication_chunk;
 pub use entry::Entry;
 pub use envelope::{open_osseal, seal_osseal, OpenedOsseal, OSSEAL_MAGIC};
 pub use generate::{
@@ -51,7 +50,7 @@ pub use generate::{
 };
 pub use git::{
     auto_commit, auto_push_enabled, ensure_git_repo, git_passthrough, push_backup, remote_url,
-    set_auto_push, set_remote, GIT_TOKEN_ENV,
+    set_auto_push, set_remote, RotationGitNotice, GIT_TOKEN_ENV,
 };
 pub use gpg::{decrypt_gpg_file, encrypt_gpg_file, read_gpg_id};
 // —— entry history / restore (pass history, pass restore) ————————————————
@@ -80,7 +79,9 @@ pub use root_protection::{
     protect_remove_store, protect_rewrap_store_password, protect_test_store_password,
     protect_test_store_recovery,
 };
-pub use rotation::{rotate_store_root, RotationOutcome, ROTATION_STAGING_DIR};
+pub use rotation::{
+    rotate_store_root, rotate_store_root_with_commit, RotationOutcome, ROTATION_STAGING_DIR,
+};
 pub use sops_interop::{resolve_sops_bin, sops_decrypt, sops_encrypt, SopsError, SopsFormat};
 pub use store::{init_store, init_store_key, list_names, unlock_store_key, FormatHint};
 pub use tomb_registry::{

@@ -186,8 +186,8 @@ missing bearer and a wrong bearer all answer the same 401 — anything else make
 org-existence oracle.
 
 **Provisioning capacity and paging.** A deployment admits at most 10,000 SCIM
-user records per organization and 100,000 in total. Inactive records count:
-they remain the standing denial used by later sign-ins. A create that reaches a
+user records per organization and 100,000 in total, both enforced atomically
+by the store across replicas. Inactive records count: they remain the standing denial used by later sign-ins. A create that reaches a
 limit returns a SCIM `409`, while updates and deactivation remain possible at
 capacity. New directory-supplied attributes are limited to 32 KiB per user;
 the server refuses larger records, structures deeper than 32 levels, or more
@@ -199,12 +199,11 @@ a time, clears a batch after successful revocation, and retains unprocessed
 legacy retry targets across failures. Existing records are not truncated to
 satisfy a new limit.
 
-`GET /Users` uses database-backed `startIndex` and `count` pagination. Indices
-are one-based, `count=0` returns only the total, and a page contains at most
-100 users. `totalResults` is the full matching count, including when the page is
-empty or a `userName` filter is used. Clients must follow pages to read a large
-directory. Group PATCH admits at most 2,000 groups per organization and 20,000
-per deployment, 1,000 members per group, and 100 member changes per request;
+`GET /Users` pages in the database by one-based `startIndex` and `count`
+(100 users by default, at most 200 per page), and `totalResults` is the
+tenant's full count. Clients must follow pages to read a large directory.
+
+Group PATCH admits at most 2,000 groups per organization and 20,000 per deployment, 1,000 members per group, and 100 member changes per request;
 updates to existing groups remain possible at capacity. Existing over-limit
 groups can be reduced without discarding their members.
 
@@ -228,10 +227,11 @@ Existing mappings can be updated at capacity. To retire one, set it to the
 neutral `member` role and then `DELETE /scim/mappings/:groupId`; deleting a
 non-neutral mapping is refused so the removal cannot grant authority.
 
-Token and mapping lists accept one-based `startIndex` and `count` with a
-maximum page of 100 and return the total alongside the existing array. For an
-older organization with more than 100 records, an unpaginated request returns
-`pagination_required` rather than silently hiding active tokens or mappings.
+Token and mapping lists accept the same one-based `startIndex` and `count` as
+`GET /Users` (100 by default, at most 200) and return the total alongside the
+existing array. For an older organization with more than 100 records, a request
+without paging parameters returns `pagination_required` rather than silently
+hiding active tokens or mappings.
 Explicit pages remain available, and owners can revoke any listed token or
 purge its already-revoked record even while the organization exceeds a quota.
 Owner mint and mapping changes have a separate mutation budget; token revocation,

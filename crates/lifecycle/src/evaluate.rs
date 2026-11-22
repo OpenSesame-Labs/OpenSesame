@@ -5,7 +5,7 @@
 //! watermarks, and the subjects; everything about *whether* a hook fires is
 //! decided here, where it can be tested exhaustively.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::event::LifecycleEvent;
@@ -170,7 +170,7 @@ mod tests {
         let mut seen = Vec::new();
         let start = at(from);
         for hour in 0..hours {
-            for event in evaluate(s, marks, start + chrono::Duration::hours(hour)) {
+            for event in evaluate(s, marks, start + opensesame_time::Duration::hours(hour)) {
                 seen.push(event.event_type.clone());
                 let mark = Watermark::after(s, event.stage);
                 match mark.track {

@@ -6,10 +6,10 @@
 //! here rather than at the bottom of `delegation.rs` so that file stays under
 //! the module-size budget (ADR 0093); nothing about them changed in the move.
 
-use chrono::{DateTime, Duration, Utc};
 use opensesame_domain::{
     grant_budgets::inherit_budgets, Grant, GrantConstraints, GrantId, OfflineUse, PrincipalId,
 };
+use opensesame_time::{DateTime, Duration, Utc};
 
 use super::{now_rfc3339, ItemTemplate};
 use crate::error::{BrokerError, Result};

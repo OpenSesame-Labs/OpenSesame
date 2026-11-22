@@ -5,6 +5,7 @@ import type {
 } from "@opensesame/app-core/lib/vault/unlock-methods.js";
 import { IconKey } from "../../../components/IconKey.js";
 import { IconEdit, IconPlus, IconTrash } from "../../../components/Icons.js";
+import { useOptionalGuideTarget } from "../../../tutorial/registry/react.jsx";
 import { MethodRow } from "./MethodRow.js";
 import type { MethodKind, SheetRequest } from "./MethodSheet.js";
 
@@ -114,6 +115,12 @@ function CodeRow({
   busy: boolean;
   open: Open;
 }) {
+  // Only the email row is the tutorial's target; the SMS row shares this
+  // component, so it binds nothing rather than claiming an id it never
+  // attaches (the registry would hold a target with no element).
+  const emailRef = useOptionalGuideTarget<HTMLButtonElement>(
+    channel === "email" ? "settings.second-step.email" : undefined,
+  );
   return (
     <MethodRow
       kind={channel}
@@ -129,6 +136,7 @@ function CodeRow({
       }
       action={
         <IconKey
+          keyRef={emailRef}
           label={on ? "Remove" : hasService ? "Add" : "Set sign-in service"}
           small
           disabled={busy}

@@ -39,6 +39,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  clearNotices();
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
@@ -171,6 +172,9 @@ describe("useCopySecret", () => {
     });
     expect(clipboard.readText).not.toHaveBeenCalled();
     expect(clipboard.writeText).not.toHaveBeenCalled();
+    expect(
+      listNotices().some((notice) => notice.id === "clipboard-clear-failed"),
+    ).toBe(true);
   });
 
   it("does not clear an unknown clipboard after a timed read failure, but still attempts it on lock", async () => {
@@ -344,5 +348,8 @@ describe("clearCopiedSecret", () => {
       await Promise.resolve();
       await Promise.resolve();
     });
+    expect(
+      listNotices().some((notice) => notice.id === "clipboard-clear-failed"),
+    ).toBe(true);
   });
 });

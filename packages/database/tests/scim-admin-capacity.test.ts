@@ -54,9 +54,7 @@ async function exercise(
     true,
   );
   expect(await a.tokens.verify(first, "hash-rotated")).toBe(true);
-  expect(await a.tokens.list(first, { startIndex: 2, count: 1 })).toHaveLength(
-    1,
-  );
+  expect(await a.tokens.list(first, { offset: 1, limit: 1 })).toHaveLength(1);
   const moreTokens = await Promise.allSettled([
     a.tokens.mint(second, "hash-other-a"),
     b.tokens.mint(second, "hash-other-b"),
@@ -88,7 +86,7 @@ async function exercise(
   );
   expect(await b.mappings.count(first)).toBe(2);
   expect(
-    await b.mappings.listByOrganization(first, { startIndex: 2, count: 1 }),
+    await b.mappings.listByOrganization(first, { offset: 1, limit: 1 }),
   ).toHaveLength(1);
   expect(await a.mappings.removeIfNeutral(first, "missing")).toBe("not_found");
 }
@@ -163,7 +161,7 @@ it("atomically bounds tokens and mappings across Postgres store instances", asyn
   expect(await legacyStores.tokens.count(legacy)).toBe(105);
   expect(await legacyStores.tokens.list(legacy)).toHaveLength(100);
   expect(
-    await legacyStores.tokens.list(legacy, { startIndex: 101, count: 100 }),
+    await legacyStores.tokens.list(legacy, { offset: 100, limit: 100 }),
   ).toHaveLength(5);
   expect(
     await legacyStores.tokens.purgeRevoked(legacy, "legacy-token-104"),
@@ -174,8 +172,8 @@ it("atomically bounds tokens and mappings across Postgres store instances", asyn
   );
   expect(
     await legacyStores.mappings.listByOrganization(legacy, {
-      startIndex: 101,
-      count: 100,
+      offset: 100,
+      limit: 100,
     }),
   ).toHaveLength(5);
   expect(

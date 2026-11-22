@@ -46,6 +46,7 @@ const slots: Partial<AppSlots> = {
     useSyncExternalStore(vaultStore.subscribe, vaultStore.getSnapshot),
   useTheme: () => {},
   useSessionGuards: () => {},
+  useShellReady: () => true,
   useRouteContributions: () => [],
   useShellWrappers: () => [],
   useUnlockEffects: () => [],

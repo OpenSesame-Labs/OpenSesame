@@ -8,7 +8,7 @@
 //! of the batch goes on. The sealed value is left exactly as it was, so
 //! restoring the key and clearing the failure recovers it.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::{Sqlite, Transaction};
 
 use super::UNREADABLE;

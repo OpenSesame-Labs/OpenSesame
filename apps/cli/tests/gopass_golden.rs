@@ -95,7 +95,12 @@ fn query_host_never_offers_a_bare_label_to_a_lookalike() {
 
 /// Seal URL-less entries into the fixture store: only their path names them.
 fn add_url_less(fixture: &Fixture, names: &[&str]) {
-    let store = StoreAccess::open(fixture.store_path(), Some(FIXTURE_PASSPHRASE)).expect("open");
+    let store = StoreAccess::open_with_test_witness_root(
+        fixture.store_path(),
+        fixture.witness.path(),
+        Some(FIXTURE_PASSPHRASE),
+    )
+    .expect("open");
     for name in names {
         let entry = Entry {
             secret: "tenant-secret".into(),

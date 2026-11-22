@@ -85,7 +85,7 @@ it("requires explicit pages for legacy over-cap listings instead of hiding recor
     startIndex: 101,
     tokens: [],
   });
-  expect((await f.request("/tokens?count=1&count=2", "GET")).status).toBe(400);
+  expect((await f.request("/tokens?count=-1", "GET")).status).toBe(400);
   vi.spyOn(f.ctx.stores.scim.mappings, "count").mockResolvedValue(101);
   expect((await f.request("/mappings", "GET")).status).toBe(409);
   const mappings = await f.request("/mappings?startIndex=101&count=1", "GET");

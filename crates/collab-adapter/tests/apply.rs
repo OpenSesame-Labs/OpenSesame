@@ -116,7 +116,7 @@ async fn wire_bodies_match_the_protocol() {
 /// authority; reads carry the token and no reason.
 ///
 /// The audit reason is the link from a guild's own audit log back to an
-/// OpenSesame authority — the server's operator can answer "why does this person
+/// `OpenSesame` authority — the server's operator can answer "why does this person
 /// have this role" without asking us.
 #[tokio::test]
 async fn every_request_is_a_bot_and_every_mutation_is_explained() {

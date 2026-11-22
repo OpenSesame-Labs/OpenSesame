@@ -53,7 +53,7 @@ fn the_working_directory_through_a_link_is_the_same_directory() {
     std::os::unix::fs::symlink(&cwd, &link).unwrap();
     // `PATH` names the link; then the working directory is named through it.
     for (entry, here) in [(&link, &cwd), (&cwd, &link)] {
-        let err = refusal(&fixture, here, &[entry.clone()]);
+        let err = refusal(&fixture, here, std::slice::from_ref(entry));
         assert!(err.contains("the current directory"), "{err}");
     }
     assert!(!fixture.planted_ran());
@@ -65,7 +65,12 @@ fn another_directory_the_caller_owns_is_still_searched() {
     let cwd = fixture.scratch("checkout");
     let tools = fixture.scratch("tools");
     fixture.stub_recorder(&tools.join("op"));
-    let found = resolve_in("op", None, &from(&fixture, &cwd, &[tools.clone()])).unwrap();
+    let found = resolve_in(
+        "op",
+        None,
+        &from(&fixture, &cwd, std::slice::from_ref(&tools)),
+    )
+    .unwrap();
     assert_eq!(found.program, tools.join("op"));
     assert_eq!(found.trusted, vec![tools]);
 }
@@ -75,7 +80,7 @@ fn a_working_directory_that_cannot_be_read_leaves_every_entry_untrusted() {
     let fixture = Fixture::new("op");
     let gone = fixture.scratch("gone");
     std::fs::remove_dir(&gone).unwrap();
-    let err = refusal(&fixture, &gone, &[fixture.trusted.clone()]);
+    let err = refusal(&fixture, &gone, std::slice::from_ref(&fixture.trusted));
     let said = format!(
         "\"{}\" the current directory cannot be read to tell them apart",
         fixture.trusted.display()

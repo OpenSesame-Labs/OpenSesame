@@ -2,7 +2,7 @@
  * Proof workflows check out a shallow blobless sparse tree.
  * Full history is fetch-depth 0 plus a `# checkout-history:` comment.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { repoRootFromHere } from "./ci-changed-areas.mjs";
@@ -79,6 +79,22 @@ function sparsePaths(block) {
   return paths;
 }
 
+/**
+ * A checkout step the shared plan can manage: the patch renderer writes
+ * `filter: blob:none`, `sparse-checkout-cone-mode: false`, and a literal
+ * `sparse-checkout:` list, and never a `ref:` input. Workflows that
+ * sparse-check out with an explicit `ref:` (codeql.yml) cannot be
+ * represented by the plan format, so they are not plan workflows.
+ */
+function isPlanManagedCheckout(block) {
+  return (
+    /sparse-checkout:/.test(block) &&
+    /filter: blob:none/.test(block) &&
+    /sparse-checkout-cone-mode:\s*false/.test(block) &&
+    !/^\s+ref:/m.test(block)
+  );
+}
+
 describe("sparse shallow checkout (proof workflows)", () => {
   const root = repoRootFromHere();
 
@@ -132,6 +148,23 @@ describe("sparse shallow checkout (proof workflows)", () => {
       }
     }
     expect(violations).toEqual([]);
+  });
+
+  it("plans every workflow with a plan-managed sparse checkout", () => {
+    const workflowsDir = join(root, ".github/workflows");
+    const missing = [];
+    for (const name of readdirSync(workflowsDir).sort()) {
+      if (!name.endsWith(".yml")) continue;
+      const rel = `.github/workflows/${name}`;
+      const content = readFileSync(join(workflowsDir, name), "utf8");
+      const planManaged = checkoutBlocks(content).some((entry) =>
+        isPlanManagedCheckout(entry.block),
+      );
+      if (planManaged && !PROOF_CHECKOUT_PLAN[rel]) {
+        missing.push(rel);
+      }
+    }
+    expect(missing).toEqual([]);
   });
 
   it("runs this contract from the workflow inventory gate", () => {

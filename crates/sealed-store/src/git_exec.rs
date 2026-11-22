@@ -15,12 +15,69 @@
 
 use std::process::Command;
 
+#[cfg(test)]
+use std::path::PathBuf;
+
 use opensesame_trusted_exec::{command_in, pass_in, Lookup, Pass, CA_BUNDLE, PROXY};
 
 use crate::StoreError;
 
 /// The variable that names the exact `git` to run.
 pub(crate) const GIT_OVERRIDE: &str = "OPENSESAME_GIT";
+
+#[cfg(all(test, unix))]
+struct TestGit {
+    _fixture: opensesame_trusted_exec::testkit::ExecutableFixture,
+    path: PathBuf,
+}
+
+#[cfg(all(test, unix))]
+fn exact_test_git() -> &'static TestGit {
+    use std::sync::OnceLock;
+
+    static GIT: OnceLock<TestGit> = OnceLock::new();
+    GIT.get_or_init(|| {
+        let path = std::env::var_os("PATH").expect("test runner PATH");
+        let source = std::env::split_paths(&path)
+            .map(|directory| directory.join("git"))
+            .find(|candidate| candidate.is_file())
+            .expect("git executable on the test runner PATH");
+        let fixture = opensesame_trusted_exec::testkit::ExecutableFixture::new();
+        let path = fixture.copy(source, "git");
+        TestGit {
+            _fixture: fixture,
+            path,
+        }
+    })
+}
+
+#[cfg(test)]
+pub(crate) fn git_program_for_tests() -> PathBuf {
+    #[cfg(unix)]
+    {
+        exact_test_git().path.clone()
+    }
+    #[cfg(not(unix))]
+    {
+        PathBuf::from("git")
+    }
+}
+
+#[cfg(not(all(test, unix)))]
+pub(crate) fn captured_lookup() -> Lookup {
+    Lookup::capture()
+}
+
+#[cfg(all(test, unix))]
+pub(crate) fn captured_lookup() -> Lookup {
+    let mut lookup = Lookup::capture();
+    lookup.vars.retain(|(name, _)| name != GIT_OVERRIDE);
+    lookup.vars.push((
+        GIT_OVERRIDE.into(),
+        exact_test_git().path.as_os_str().to_owned(),
+    ));
+    lookup
+}
 
 /// What `git` is given of the parent's environment besides `PATH` and the
 /// common set, each for one reason.
@@ -40,7 +97,7 @@ const GIT_ENV: [Pass; 6] = [
 
 /// `git` for this process.
 pub(crate) fn git() -> Result<Command, StoreError> {
-    git_in(&Lookup::capture())
+    git_in(&captured_lookup())
 }
 
 /// `git` for `lookup`: found by the trusted rule, handed [`GIT_ENV`], the

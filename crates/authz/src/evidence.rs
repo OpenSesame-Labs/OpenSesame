@@ -25,8 +25,8 @@
 
 use crate::condition::AssuranceLevel;
 use crate::error::PolicyFault;
-use chrono::{DateTime, Utc};
 use opensesame_domain::Grant;
+use opensesame_time::{DateTime, Utc};
 use serde::Serialize;
 use std::collections::BTreeSet;
 
