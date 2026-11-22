@@ -1,4 +1,7 @@
-import { setStatusNotice } from "@opensesame/app-core/lib/notices.js";
+import {
+  dismissNotice,
+  setStatusNotice,
+} from "@opensesame/app-core/lib/notices.js";
 import type { PasskeyAttachment } from "@opensesame/app-core/lib/vault/protection/adapters/webauthn-prf-ceremony.js";
 import type { UnlockTabId } from "@opensesame/app-core/lib/vault/protection/unlock-protector-methods.js";
 import { cancelPasskeyDuressCode } from "@opensesame/app-core/screens/unlock/unlock-passkey-duress.js";
@@ -39,12 +42,14 @@ export function usePasskeyCeremony(
       passkeyAbort.current?.abort();
       passkeyAbort.current = null;
       cancelPasskeyDuressCode();
+      dismissNotice("unlock:authenticator");
     },
     [],
   );
   const pickAttachment = useCallback(
     (kind: PasskeyAttachment) => {
       cancelPasskeyCeremony();
+      dismissNotice("unlock:authenticator");
       setAttachment(kind);
       setError(null);
     },

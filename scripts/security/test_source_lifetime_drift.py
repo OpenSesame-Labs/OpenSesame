@@ -22,7 +22,7 @@ SCRIPT = ROOT / "spec/formal/source-lifetime/check-drift.py"
 def load_checker():
     spec = importlib.util.spec_from_file_location("source_lifetime_drift", SCRIPT)
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    exec(compile(SCRIPT.read_bytes(), str(SCRIPT), "exec", dont_inherit=True), module.__dict__)
     return module
 
 
@@ -99,6 +99,12 @@ class DriftTest(unittest.TestCase):
         with self.assertRaisesRegex(SystemExit, "is not in this repository"):
             self.check()
 
+    def test_modified_tls_version_helper_is_rejected(self):
+        path = self.root / "crates/transport-security/src/client.rs"
+        path.write_text(path.read_text() + "\n// version helper drift\n")
+        with self.assertRaisesRegex(SystemExit, "review source drift"):
+            self.check()
+
     def test_same_bytes_symlinked_source_is_rejected(self):
         path = self.root / "crates/transport-security/src/guard.rs"
         twin = self.root / "same-guard.rs"
@@ -130,7 +136,7 @@ class SpiffePrecheckTest(unittest.TestCase):
         script = ROOT / "spec/formal/spiffe/check-drift.py"
         spec = importlib.util.spec_from_file_location("spiffe_drift_precheck", script)
         self.checker = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(self.checker)
+        exec(compile(script.read_bytes(), str(script), "exec", dont_inherit=True), self.checker.__dict__)
         self.checker.ROOT = self.root
         data = json.loads((ROOT / "spec/formal/spiffe/coverage.json").read_text())
         paths = {

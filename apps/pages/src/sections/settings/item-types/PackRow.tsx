@@ -10,7 +10,9 @@
  */
 
 import type { PackRow } from "@opensesame/app-core/sections/settings/item-type-packs-model.js";
+import { useCallback } from "react";
 import { StatusMark } from "../../../components/StatusMark.js";
+import { useOptionalGuideTarget } from "../../../tutorial/registry/react.jsx";
 
 function End({ row }: { row: PackRow }) {
   // On because another type needs it: no count to show, only the reason.
@@ -68,10 +70,32 @@ export function PackRowView({
   onToggle: (row: PackRow) => void;
 }) {
   const described = `pack-${row.id}-sentence`;
+  const install = useOptionalGuideTarget<HTMLElement>(
+    row.id === "account" && row.phase !== "on"
+      ? "settings.account-pack"
+      : undefined,
+  );
+  const ready = useOptionalGuideTarget<HTMLElement>(
+    row.id === "account" && row.phase === "on"
+      ? "settings.account-ready"
+      : undefined,
+  );
+  // Stable across renders: a fresh closure per render would make React run
+  // the null→element cycle on every update, unmounting and remounting both
+  // targets each time the row re-renders. The hook's own refs are stable
+  // until their id changes, so this callback changes identity exactly when
+  // the registrations themselves must.
+  const bind = useCallback(
+    (element: HTMLElement | null) => {
+      install(element);
+      ready(element);
+    },
+    [install, ready],
+  );
   if (row.control !== "switch") {
     return (
       <li className="pack pack--fixed" data-phase={row.phase}>
-        <div className="pack__hit">
+        <div ref={bind} className="pack__hit">
           <Face row={row} />
         </div>
       </li>
@@ -80,6 +104,7 @@ export function PackRowView({
   return (
     <li className="pack" data-phase={row.phase}>
       <button
+        ref={bind}
         type="button"
         role="switch"
         className="pack__hit"

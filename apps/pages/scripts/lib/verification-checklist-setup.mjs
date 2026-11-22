@@ -67,7 +67,7 @@ export async function captureChoices(page, shot, record) {
   mark(record, "U1-setup-keyboard", focused === "Minimal", focused);
 }
 
-async function finishCustom(page, shot, record) {
+export async function finishCustom(page, shot, record) {
   await page
     .getByRole("tab", { name: "capabilities" })
     .waitFor({ timeout: 20_000 });
@@ -95,11 +95,16 @@ async function finishCustom(page, shot, record) {
     if (personalSeen) await personal.click();
     await shot("setup-custom");
   }
-  const left = await visibleClick(page, "button", "Skip all", 8_000);
-  if (!left) await visibleClick(page, "button", "Close", 8_000);
+  const skipAll = page.getByRole("button", { name: "Skip all", exact: true });
+  const close = page.getByRole("button", { name: "Close", exact: true });
+  if (await skipAll.isVisible().catch(() => false)) {
+    await skipAll.click();
+  } else if (await close.isVisible().catch(() => false)) {
+    await close.click();
+  }
 }
 
-async function confirmMinimal(page, shot, record) {
+export async function confirmMinimal(page, shot, record) {
   const confirm = page.getByRole("button", { name: "Use Minimal anyway" });
   await confirm.first().waitFor({ state: "visible", timeout: 8_000 });
   const warning = await shot("setup-minimal-warning");
@@ -110,6 +115,23 @@ async function confirmMinimal(page, shot, record) {
     "confirm after the warning",
   );
   await confirm.first().click();
+}
+
+/**
+ * Clicks a setup road with a real pointer click; used by capture on main and
+ * after walks. The coach dim passes pointer events through, so Playwright
+ * actionability holds — and the walk fails if anything actually covers the
+ * control.
+ */
+export async function pickSetupChoice(page, choice, { shot, record } = {}) {
+  const choiceButton = page.getByRole("button", { name: choice, exact: true });
+  await choiceButton.waitFor({ state: "visible", timeout: 15_000 });
+  await choiceButton.click();
+  const shotFn = shot ?? (async () => "");
+  const rec = record ?? { checks: [] };
+  if (choice === "Minimal") await confirmMinimal(page, shotFn, rec);
+  if (choice === "Custom") await finishCustom(page, shotFn, rec);
+  await waitPastSetup(page);
 }
 
 export async function applySetupChoice(page, shot, record, choice) {

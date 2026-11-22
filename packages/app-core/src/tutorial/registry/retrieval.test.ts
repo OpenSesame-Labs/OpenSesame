@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { rankHelpTopics, searchHelpTopics } from "./goals-search.js";
 import { HELP_TOPICS } from "./goals.js";
+import { rankHelpTopics, searchHelpTopics } from "./goals-search.js";
 import { registerTutorialRealm } from "./optional-tutorials.test-support.js";
 
 // The identity topics are the identity capability's; retrieval can only find

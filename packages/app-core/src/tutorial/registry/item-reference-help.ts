@@ -5,7 +5,7 @@ export const ITEM_REFERENCE_HELP: readonly HelpTopic[] = [
     id: "help.vault.item-references",
     title: "How do I make an environment template from an item?",
     answer:
-      "Open the item. The keys on its toolbar download a reference-only environment template (one os:// reference per secret field, no values), or a plaintext .env after a second press. To read one value, use the field's own reveal and copy. To compare or replace a saved password, use the update key on its row. Password health lists items worth filing or renaming.",
+      "Open the item and select Download reference template to download references to its secret fields. To export a plaintext .env, select Download plaintext .env and confirm. Use the field controls to reveal, copy or update an individual value.",
     routes: ["/vault"],
     goal: null,
     keywords: [

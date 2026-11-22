@@ -214,13 +214,13 @@ def main():
         if ([entry.get("path") for entry in optional] != OPTIONAL_PATHS or
                 any(optional_hash(entry["path"]) != entry["sha256"] for entry in optional)):
             raise ValueError("review optional source/build-script drift")
-        helper = ROOT / "scripts/security/cargo-lock-projection.py"
+        helper = regular_path("scripts/security/cargo-lock-projection.py")
         spec = importlib.util.spec_from_file_location("cargo_lock_projection", helper)
         if spec is None or spec.loader is None:
             raise ValueError("lock projection helper unavailable")
         projection = importlib.util.module_from_spec(spec)
         sys.modules[spec.name] = projection
-        spec.loader.exec_module(projection)
+        exec(compile(helper.read_bytes(), str(helper), "exec", dont_inherit=True), projection.__dict__)
         recorded = coverage["lock_projection"]
         if (recorded.get("root") != "opensesame-spiffe-source" or
                 recorded.get("algorithm") != "cargo-lock-projection-v1-sha256"):

@@ -268,6 +268,58 @@ test("signer and TLS race fingerprints reject source drift", () => {
   }
 });
 
+test("review text cannot admit its regression evidence predates the pinned fingerprints", () => {
+  for (const admission of [
+    "On the reviewed predecessor, the selector vectors passed.",
+    "The suite passed before the final lint changes.",
+    "The lint-corrected source still needs the full suite rerun.",
+    "The history suite needs a rerun after the refresh.",
+    "Its regressions need the suite to be rerun.",
+  ]) {
+    const value = matrix();
+    const listeners = row(value, "host-listeners");
+    listeners.review = `${listeners.review} ${admission}`;
+    forbidden(value, /EM-STALE-EVIDENCE: host-listeners/u);
+  }
+});
+
+test("honest review limits without stale regression evidence stay allowed", () => {
+  const value = matrix();
+  const listeners = row(value, "host-listeners");
+  listeners.review = `${listeners.review} Windows-only startup refusal cases have not been run on Windows.`;
+  assert.ok(
+    !issues(value).some((issue) => issue.includes("EM-STALE-EVIDENCE")),
+    issues(value).join("\n"),
+  );
+});
+
+test("negated no-rerun review text stays allowed while admissions stay forbidden", () => {
+  for (const honest of [
+    "This surface does not need a rerun after the refresh.",
+    "The refreshed fingerprints don't need a rerun; the suite was executed on the pinned bytes.",
+    "The recorded evidence is not before the final lint changes.",
+    "The selector vectors passed not on the reviewed predecessor but on the pinned bytes.",
+    "The lint-corrected source does not still need the full suite rerun.",
+  ]) {
+    const value = matrix();
+    const listeners = row(value, "host-listeners");
+    listeners.review = `${listeners.review} ${honest}`;
+    assert.ok(
+      !issues(value).some((issue) => issue.includes("EM-STALE-EVIDENCE")),
+      issues(value).join("\n"),
+    );
+  }
+  for (const admission of [
+    "The suite still needs a rerun after the refresh.",
+    "Its regressions still need the suite to be rerun.",
+  ]) {
+    const value = matrix();
+    const listeners = row(value, "host-listeners");
+    listeners.review = `${listeners.review} ${admission}`;
+    forbidden(value, /EM-STALE-EVIDENCE: host-listeners/u);
+  }
+});
+
 for (const control of ["originating-client-proof", "exact-bootstrap-trust"]) {
   test(`EST certificate proof cannot omit ${control}`, () => {
     const value = matrix();

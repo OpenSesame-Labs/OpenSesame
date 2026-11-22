@@ -16,6 +16,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import { useVault } from "../lib/vault/hooks.js";
+import { useFirstVaultHandoff } from "./first-vault-handoff.js";
 import type { SupportController, SupportView } from "./session.js";
 import {
   createSupportController,
@@ -74,6 +75,7 @@ export function SupportProvider({
   );
 
   useSupportRouteSync(controller, override);
+  useFirstVaultHandoff(controller);
 
   const { status: vaultStatus } = useVault();
   useEffect(() => {

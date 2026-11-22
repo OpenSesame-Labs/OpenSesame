@@ -63,7 +63,7 @@ export function FirstVisitInlineOffer({
           <strong>Walkthrough: {offer.title}.</strong> {body}
         </p>
         <FormCommit
-          label="Show me"
+          label="Start tutorial"
           icon={<IconPlay size={18} />}
           onClick={() => finish(offer.start)}
         >

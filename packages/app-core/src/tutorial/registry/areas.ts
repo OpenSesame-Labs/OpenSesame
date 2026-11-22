@@ -11,6 +11,7 @@
  */
 
 import type { GuideGoalId } from "@opensesame/guide-lang";
+import { FIRST_VAULT_SHELL_GUIDE } from "./first-vault-guide.js";
 import { type GuideGoalDescriptor, mergedGuideGoals } from "./goals.js";
 import {
   GUIDE_OVERLAY_ROUTES,
@@ -27,9 +28,10 @@ export type TutorialArea = {
 export const TUTORIAL_AREAS: readonly TutorialArea[] = [
   {
     id: "gates",
-    title: "Getting in",
+    title: "Setup and sign-in",
     goals: [
       "gate.front-door",
+      "gate.guest",
       "gate.join",
       "gate.sign-in",
       "gate.unlock",
@@ -51,7 +53,7 @@ export const TUTORIAL_AREAS: readonly TutorialArea[] = [
   },
   {
     id: "around",
-    title: "Finding your way around",
+    title: "Navigation",
     goals: [
       "shell.sections",
       "shell.sections.phone",
@@ -66,7 +68,7 @@ export const TUTORIAL_AREAS: readonly TutorialArea[] = [
   },
   {
     id: "settings",
-    title: "Settings, one category at a time",
+    title: "Settings",
     goals: [
       "settings.general.review",
       "settings.auto-lock.set",
@@ -92,6 +94,7 @@ export const TUTORIAL_AREAS: readonly TutorialArea[] = [
       "vault.item.edit",
       "vault.item.copy",
       "vault.item.trash",
+      "vault.item.restore",
       "vault.item.share",
       "settings.live.host",
       "vault.health.review",
@@ -110,7 +113,7 @@ export const TUTORIAL_AREAS: readonly TutorialArea[] = [
   },
   {
     id: "keyboard",
-    title: "The keyboard",
+    title: "Keyboard shortcuts",
     goals: ["vault.keys.move", "vault.keys.bar", "vault.keys.macros"],
   },
   {
@@ -147,6 +150,7 @@ export const TUTORIAL_AREAS: readonly TutorialArea[] = [
       "connection.repair",
       "connection.review",
       "connection.revoke",
+      "connection.attention",
       "browser.pair",
       "browser.authenticate",
       "feature.connections",
@@ -204,7 +208,7 @@ export const TUTORIAL_AREAS: readonly TutorialArea[] = [
   },
   {
     id: "extras",
-    title: "Agents, models and extras",
+    title: "Additional features",
     goals: [
       "settings.model-provider",
       "integration.ai",
@@ -247,6 +251,16 @@ export function tutorialStepCount(guide: string): number {
       .at(-1) ?? "",
   );
   return Math.max(0, presenting - (closes ? 1 : 0));
+}
+
+/** The first-vault walkthrough continues after its initial setup guide. */
+export function tutorialSteps(goal: GuideGoalDescriptor): number {
+  return (
+    tutorialStepCount(goal.guide) +
+    (goal.id === "gate.front-door"
+      ? tutorialStepCount(FIRST_VAULT_SHELL_GUIDE)
+      : 0)
+  );
 }
 
 export type Tutorial = {
@@ -360,7 +374,7 @@ export function tutorialLibrary(
       const goal = live.get(id);
       if (!goal) continue;
       placed.add(id);
-      tutorials.push({ goal, steps: tutorialStepCount(goal.guide) });
+      tutorials.push({ goal, steps: tutorialSteps(goal) });
     }
     if (tutorials.length > 0) {
       groups.push({ id: area.id, title: area.title, tutorials });
@@ -373,7 +387,7 @@ export function tutorialLibrary(
       title: "More",
       tutorials: rest.map((goal) => ({
         goal,
-        steps: tutorialStepCount(goal.guide),
+        steps: tutorialSteps(goal),
       })),
     });
   }
