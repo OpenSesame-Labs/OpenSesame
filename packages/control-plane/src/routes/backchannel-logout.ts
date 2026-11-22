@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-import { appendAuditEvent } from "@opensesame/audit";
 import {
   type JsonObject,
   isJsonObject,
@@ -16,7 +14,6 @@ import {
   jwtVerify,
 } from "jose";
 import type { AppContext } from "../context.js";
-import { revokeSessionsForIdentity } from "../interactions/federated.js";
 import { normalizeIssuer } from "../interactions/registry.js";
 import {
   type TrustResolution,
@@ -27,7 +24,14 @@ import {
   assertPublicUpstreamUrl,
   guardedLibraryFetch,
 } from "../services/guarded-fetch.js";
+import {
+  LOGOUT_TOKEN_MAX_AGE_SECONDS,
+  type VerifiedLogoutToken,
+  completeVerifiedLogout,
+} from "./backchannel-logout-journal.js";
 import { orgAssertionSeams, originAudiences } from "./org-assertion.js";
+
+export { LOGOUT_TOKEN_MAX_AGE_SECONDS } from "./backchannel-logout-journal.js";
 
 /**
  * OIDC Back-Channel Logout 1.0 (C17, D13, ADR 0056).
@@ -64,9 +68,6 @@ const ALLOWED_ALG_SET = new Set<string>(ALLOWED_ALGS);
 
 /** Nobody's logout token is longer than this. */
 const MAX_LOGOUT_TOKEN_LENGTH = 8192;
-
-/** OIDC BCL 1.0 §2.6: `iat` must be recent. */
-export const LOGOUT_TOKEN_MAX_AGE_SECONDS = 120;
 
 const BUDGET_WINDOW_MS = 60_000;
 /** Per-issuer budget: an IdP signing out a fleet still fits comfortably. */
@@ -200,8 +201,6 @@ async function keysFor(
   return keys;
 }
 
-type VerifiedLogoutToken = { subject?: string; sessionId?: string };
-
 /**
  * Audience values this deployment will accept for a logout token.
  *
@@ -241,20 +240,6 @@ async function expectedAudiences(
     if (organization?.ssoClientId) accepted.add(organization.ssoClientId);
   }
   return [...accepted].filter((audience) => audience.length > 0);
-}
-
-async function claimLogout(ctx: AppContext, token: string): Promise<boolean> {
-  const callbackDigest = createHash("sha256").update(token).digest("hex");
-  const seenAt = ctx.clock();
-  return ctx.repos.callbackReplays.claim({
-    id: `oidc-logout:${callbackDigest}`,
-    providerId: "oidc-logout",
-    callbackDigest,
-    seenAt,
-    expiresAt: new Date(
-      seenAt.getTime() + (LOGOUT_TOKEN_MAX_AGE_SECONDS + 10) * 1000,
-    ),
-  });
 }
 
 /**
@@ -335,37 +320,12 @@ export function createBackchannelLogoutRoutes(): Hono<{
       return invalid();
     }
     if (!claims) return invalid();
-    if (!(await claimLogout(ctx, token))) return c.body(null, 200);
-
-    // A `sid`-only token names an upstream session, and this service keeps no
-    // record of upstream session ids — there is nothing it could revoke. It is
-    // accepted (the spec allows either claim) and has no effect, which is also
-    // what the uniform 200 already says to every caller.
-    const correlationId = c.get("correlationId");
-    let sessionsRevoked = 0;
-    if (claims.subject) {
-      sessionsRevoked = await revokeSessionsForIdentity(
-        ctx,
-        issuer,
-        claims.subject,
-        resolution.source === "org" ? resolution.organizationId : undefined,
-      );
-    }
-
-    // Audited internally, not answered: the trail records how much this logout
-    // actually ended, while the response says only that it was accepted.
-    await appendAuditEvent(ctx.repos.auditEvents, {
-      eventType: "principal.upstream_logout",
-      outcome: "succeeded",
-      correlationId,
-      actorType: "system",
-      actorId: "upstream",
-      metadata: {
-        action: "principal.upstream_logout",
-        issuer,
-        via: "backchannel_logout",
-        count: sessionsRevoked,
-      },
+    await completeVerifiedLogout(ctx, {
+      issuer,
+      resolution,
+      claims,
+      token,
+      correlationId: c.get("correlationId"),
     });
 
     // 200, empty, always — matched or not (T29).

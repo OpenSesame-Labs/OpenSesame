@@ -711,7 +711,10 @@ export function createInteractionRoutes(): Hono<
         ...(role !== undefined ? { role } : undefined),
       });
       if (!joined.ok) {
-        return c.text(joined.message, 403);
+        return c.text(
+          joined.message,
+          joined.error === "membership_withdrawing" ? 503 : 403,
+        );
       }
     }
 

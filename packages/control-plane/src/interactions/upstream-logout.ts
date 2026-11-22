@@ -1,6 +1,16 @@
-import { appendAuditEvent } from "@opensesame/audit";
+import {
+  AUDIT_CHAIN_GENESIS,
+  appendAuditEvent,
+  auditEventDigest,
+} from "@opensesame/audit";
+import type { AuditEvent } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
-import { revokeSessionTokens } from "../repos/session-storage.js";
+import { deleteSecurityMap, updateSecurityMap } from "../repos/durable-map.js";
+import {
+  beginProvisionalRevocationBatch,
+  finishProvisionalRevocation,
+} from "../repos/provisional-revocation.js";
+import type { UpstreamLogoutOperation } from "../state.js";
 
 const REVOCABLE_IDENTITY_KINDS = [
   "oidc",
@@ -20,12 +30,12 @@ const REVOCABLE_IDENTITY_KINDS = [
  * assertion, and resolving it to principals here keeps the tuple lookup — the
  * one binding that matters — in one place.
  */
-export async function revokeSessionsForIdentity(
+export async function sessionIdsForIdentity(
   ctx: AppContext,
   issuer: string,
   subject: string,
   tenant?: string,
-): Promise<number> {
+): Promise<string[]> {
   const principalIds = new Set<string>();
   for (const kind of REVOCABLE_IDENTITY_KINDS) {
     for (const namespace of tenant ? [undefined, tenant] : [undefined]) {
@@ -38,34 +48,166 @@ export async function revokeSessionsForIdentity(
       if (identity) principalIds.add(identity.principalId);
     }
   }
-  if (principalIds.size === 0) return 0;
+  if (principalIds.size === 0) return [];
 
-  const now = ctx.clock();
-  let revoked = 0;
-  const sessions = await ctx.stores.provisionalSessions.entries();
-  for (const [, session] of sessions) {
-    const sessionId = session.id;
-    if (!principalIds.has(session.principalId)) continue;
-    if (session.revokedAt) continue;
-    await ctx.stores.provisionalSessions.set(sessionId, {
-      ...session,
-      revokedAt: now,
-    });
-    await revokeSessionTokens(ctx.stores, sessionId);
-    revoked += 1;
-    await appendAuditEvent(ctx.repos.auditEvents, {
-      eventType: "principal.provisional_revoked",
-      outcome: "succeeded",
-      principalId: session.principalId,
+  const sessions = [...(await ctx.stores.provisionalSessions.entries())];
+  return sessions
+    .map(([, session]) => session)
+    .filter(
+      (session) =>
+        principalIds.has(session.principalId) &&
+        !session.revokedAt &&
+        session.expiresAt > ctx.clock(),
+    )
+    .map((session) => session.id);
+}
+
+export async function revokeProvisionalSessionIds(
+  ctx: AppContext,
+  sessionIds: readonly string[],
+  issuer: string,
+): Promise<number> {
+  const transitioned = await beginProvisionalRevocationBatch(
+    ctx,
+    sessionIds.map((sessionId) => ({
       sessionId,
-      correlationId: `upstream-logout-${sessionId}`,
+      audit: {
+        correlationId: `upstream-logout-${sessionId}`,
+        actorType: "system" as const,
+        metadata: {
+          action: "principal.provisional_revoke",
+          issuer,
+          via: "upstream_logout",
+        },
+      },
+    })),
+  );
+  for (const sessionId of sessionIds)
+    await finishProvisionalRevocation(ctx, sessionId);
+  const revoked = [...transitioned.values()].filter(Boolean).length;
+  return revoked;
+}
+
+export async function revokeSessionsForIdentity(
+  ctx: AppContext,
+  issuer: string,
+  subject: string,
+  tenant?: string,
+): Promise<number> {
+  return revokeProvisionalSessionIds(
+    ctx,
+    await sessionIdsForIdentity(ctx, issuer, subject, tenant),
+    issuer,
+  );
+}
+
+async function linkedAudit(
+  ctx: AppContext,
+  event: AuditEvent,
+): Promise<boolean> {
+  if (
+    !event.previousDigest ||
+    !event.digest ||
+    event.digest !== auditEventDigest(event, event.previousDigest)
+  )
+    return false;
+  let previous = event.previousDigest;
+  const visited = new Set<string>([event.digest]);
+  while (previous !== AUDIT_CHAIN_GENESIS) {
+    if (visited.has(previous)) return false;
+    visited.add(previous);
+    const predecessor = await ctx.repos.auditEvents.getByDigest(previous);
+    if (
+      !predecessor?.previousDigest ||
+      predecessor.digest !==
+        auditEventDigest(predecessor, predecessor.previousDigest)
+    )
+      return false;
+    previous = predecessor.previousDigest;
+  }
+  return true;
+}
+
+async function appendUpstreamLogoutAudit(
+  ctx: AppContext,
+  operation: UpstreamLogoutOperation,
+): Promise<void> {
+  const digest = operation.operationKey.slice("oidc-logout:".length);
+  const id = `upstream-logout:${digest}`;
+  const matches = async (event: AuditEvent | null) =>
+    Boolean(
+      event &&
+        event.id === id &&
+        event.eventType === "principal.upstream_logout" &&
+        event.outcome === "succeeded" &&
+        event.correlationId === operation.correlationId &&
+        event.actorType === "system" &&
+        event.actorId === "upstream" &&
+        event.metadata.action === "principal.upstream_logout" &&
+        event.metadata.issuer === operation.issuer &&
+        event.metadata.via === "backchannel_logout" &&
+        event.metadata.count === operation.sessionsRevoked &&
+        (await linkedAudit(ctx, event)),
+    );
+  const existing = await ctx.repos.auditEvents.getById(id);
+  if (existing) {
+    if (!(await matches(existing)))
+      throw new Error("Conflicting upstream logout audit event");
+    return;
+  }
+  try {
+    await appendAuditEvent(ctx.repos.auditEvents, {
+      id,
+      eventType: "principal.upstream_logout",
+      outcome: "succeeded",
+      correlationId: operation.correlationId,
       actorType: "system",
+      actorId: "upstream",
       metadata: {
-        action: "principal.provisional_revoke",
-        issuer,
-        via: "upstream_logout",
+        action: "principal.upstream_logout",
+        issuer: operation.issuer,
+        via: "backchannel_logout",
+        count: operation.sessionsRevoked,
       },
     });
+  } catch (error) {
+    if (!(await matches(await ctx.repos.auditEvents.getById(id)))) throw error;
   }
-  return revoked;
+}
+
+export async function completeUpstreamLogoutOperation(
+  ctx: AppContext,
+  operation: UpstreamLogoutOperation,
+): Promise<void> {
+  await revokeProvisionalSessionIds(
+    ctx,
+    operation.sessionIds,
+    operation.issuer,
+  );
+  await appendUpstreamLogoutAudit(ctx, operation);
+  await updateSecurityMap(
+    ctx.stores.upstreamLogoutOperations,
+    operation.operationKey,
+    (current) => (current ? { ...current, completed: true } : current),
+  );
+}
+
+/** Resume verified logout work independently of replaying the original JWT. */
+export async function resumePendingUpstreamLogouts(
+  ctx: AppContext,
+): Promise<void> {
+  for (const [
+    ,
+    operation,
+  ] of await ctx.stores.upstreamLogoutOperations.entries()) {
+    if (operation.completed) {
+      if (operation.retainUntil <= ctx.clock().getTime())
+        await deleteSecurityMap(
+          ctx.stores.upstreamLogoutOperations,
+          operation.operationKey,
+        );
+      continue;
+    }
+    await completeUpstreamLogoutOperation(ctx, operation);
+  }
 }

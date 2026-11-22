@@ -19,6 +19,7 @@ import type {
 import type { Variables } from "../middleware/context.js";
 import {
   BetterAuthBridgeError,
+  betterAuthBridgeStatus,
   type BridgedSession,
   MAGIC_LINK_INTERACTION_KEY,
   normalizeEmail,
@@ -63,9 +64,6 @@ function emailBinding(email: string, secret: string): string {
     .update(normalizeEmail(email))
     .digest("base64url");
 }
-
-/** Bridge failures that mean "the deployment is busy", not "no". */
-const MINT_REFUSALS = new Set(["rate_limited", "provisional_capacity"]);
 
 /**
  * Deliberately permissive: this is a length-and-shape sanity check, not an
@@ -338,9 +336,7 @@ export function createEmailInteractionRoutes(
       );
     } catch (error) {
       if (error instanceof BetterAuthBridgeError) {
-        // Both provisional-mint refusals are "come back later" (429); a
-        // collision or an inactive principal is a refusal of this sign-in (403).
-        return c.text(error.message, MINT_REFUSALS.has(error.code) ? 429 : 403);
+        return c.text(error.message, betterAuthBridgeStatus(error.code));
       }
       throw error;
     }
