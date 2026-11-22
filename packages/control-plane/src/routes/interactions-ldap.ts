@@ -381,9 +381,7 @@ export function createLdapInteractionRoutes(
       roleSource: "ldap",
       ...(role !== undefined ? { role } : undefined),
     });
-    if (!joined.ok) {
-      return c.text(joined.message, 403);
-    }
+    if (!joined.ok) return c.text(joined.message, 403);
 
     const returnTo = await finishLoginInteraction(
       provider,

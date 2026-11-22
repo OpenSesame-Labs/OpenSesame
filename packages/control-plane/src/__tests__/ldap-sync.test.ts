@@ -17,9 +17,8 @@ import { hopUrl } from "./upstream-hop.js";
  * Directory sync — the pull twin of SCIM push (D17), against a real directory.
  *
  * The whole point of a sync is what it does to people who are no longer there,
- * so the leaver case is the one that matters: tenant authority disappears,
- * while the principal-wide Identity session remains valid for unrelated
- * tenants and personal work.
+ * so the leaver case is the one that matters: tenant authority disappears
+ * while the principal-wide Identity session stays valid for everything else.
  */
 
 type Started = Awaited<ReturnType<typeof startServer>>;
@@ -160,9 +159,7 @@ describe("LDAP directory sync", () => {
     await directory.close();
   });
 
-  afterEach(() => {
-    resetLdapAttemptBudget();
-  });
+  afterEach(() => resetLdapAttemptBudget());
 
   async function req(jar: Jar, path: string, init: RequestInit = {}) {
     const res = await fetch(path.startsWith("http") ? path : `${base}${path}`, {
@@ -286,8 +283,7 @@ describe("LDAP directory sync", () => {
     expect(
       await ctx.stores.organizationMemberships.find(ORG_ID, dan.principalId),
     ).toBeUndefined();
-    // Identity sessions are principal-wide; the removed tenant's live
-    // membership checks and Host revocation remove only its authority.
+    // Sessions are principal-wide; only the tenant's authority is withdrawn.
     const after = await fetch(`${base}/v1/principals/me`, {
       headers: { authorization: `Bearer ${dan.accessToken}` },
     });

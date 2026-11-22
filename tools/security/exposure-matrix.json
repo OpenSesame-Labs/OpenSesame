@@ -19,7 +19,8 @@
         "packages/control-plane/src/services/host-authorization.ts"
       ],
       "regressions": [
-        "packages/control-plane/src/__tests__/host-authorization.test.ts"
+        "packages/control-plane/src/__tests__/host-authorization.test.ts",
+        "packages/control-plane/src/__tests__/host-authorization-membership.test.ts"
       ],
       "review": "Identity captures the live membership incarnation and authority revision before issuing the WebAuthn transaction challenge, requires the same active revision after verification, and signs both into the purpose-bound Host assertion. A stale ceremony, or a membership fenced for withdrawal, is spent and refused. The signed pair needs a revision-aware Host; the in-repository gateway evidence parser denies unknown claims and refuses this evidence until that Host ships. This row does not claim that TypeScript refines a mechanized model or that Identity alone enforces Host storage atomicity."
     },
@@ -1303,15 +1304,25 @@
     }
   ],
   "sources": {
+    "packages/control-plane/src/__tests__/host-authorization-membership.test.ts": [
+      "34334d34",
+      "fca082b8",
+      "fb338300",
+      "92f85794",
+      "b0a6a86f",
+      "3bc38a69",
+      "3c6aadce",
+      "c0f72cf4"
+    ],
     "packages/control-plane/src/__tests__/host-authorization.test.ts": [
-      "a5860717",
-      "5ab69796",
-      "fdfd58ea",
-      "b0a5b219",
-      "74eb6ec8",
-      "838a0b10",
-      "006c31c3",
-      "dd264cc9"
+      "b0fc7e18",
+      "94e6848c",
+      "5f28c05d",
+      "cffdf812",
+      "f61079bb",
+      "d9887055",
+      "f6140d00",
+      "e1f0b47e"
     ],
     "packages/control-plane/src/services/host-authorization.ts": [
       "81ada80b",

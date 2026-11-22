@@ -1,90 +1,12 @@
-import { type JsonObject, overlapCast } from "@opensesame/os-domain";
-import { describe, expect, it, vi } from "vitest";
-import { createControlPlane } from "../create-app.js";
-
-type App = ReturnType<typeof createControlPlane>["app"];
-
-function plane(clock?: () => Date): App {
-  return createControlPlane({
-    config: {
-      port: 0,
-      publicUrl: "http://127.0.0.1:8788",
-      issuer: "http://127.0.0.1:8788",
-    },
-    ...(clock ? { clock } : undefined),
-  }).app;
-}
-
-/**
- * The approver's inbox handle.
- *
- * Only its owner can obtain it, which is the point: a raw principal id is not
- * an address, so a caller who merely knows who someone is cannot reach them.
- */
-async function inboxRefOf(
-  app: App,
-  who: { accessToken: string },
-): Promise<string> {
-  const res = await app.request("/v1/authorization-requests/inbox-ref", {
-    headers: { authorization: `Bearer ${who.accessToken}` },
-  });
-  expect(res.status).toBe(200);
-  return overlapCast(await res.json()).approverRef;
-}
-
-async function principal(app: App) {
-  const res = await app.request("/v1/principals/provisional", {
-    method: "POST",
-  });
-  expect(res.status).toBe(201);
-  return overlapCast(await res.json());
-}
-
-let seq = 0;
-async function ask(
-  app: App,
-  requesterToken: string,
-  approverRef: string,
-  overrides: JsonObject = {},
-) {
-  const res = await app.request("/v1/authorization-requests", {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${requesterToken}`,
-      "content-type": "application/json",
-      "idempotency-key": `ask-${++seq}`,
-    },
-    body: JSON.stringify({
-      approverRef,
-      bindingMessage: "Read acme/catalog issues",
-      authorizationDetails: [
-        {
-          type: "connection_delegation",
-          actions: ["repository.read"],
-          locations: ["repo:acme/catalog"],
-        },
-      ],
-      ...overrides,
-    }),
-  });
-  return res;
-}
-
-const decide = (
-  app: App,
-  token: string,
-  id: string,
-  action: "approve" | "deny",
-  digest: string,
-) =>
-  app.request(`/v1/authorization-requests/${id}/${action}`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${token}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({ requestDigest: digest }),
-  });
+import { overlapCast } from "@opensesame/os-domain";
+import { describe, expect, it } from "vitest";
+import {
+  ask,
+  decide,
+  inboxRefOf,
+  plane,
+  principal,
+} from "./authorization-requests-fixture.js";
 
 describe("authorization request inbox", () => {
   it("contract: a request is created, listed by its approver, and approved", async () => {
@@ -348,81 +270,6 @@ describe("authorization request inbox", () => {
     );
     const { requests } = overlapCast(await pending.json());
     expect(requests.map((r) => r.authReqId)).not.toContain(authReqId);
-  });
-
-  it("chaos: two approvers racing get a conflict, never a 500", async () => {
-    // Both handlers read the row before either writes, so the second write
-    // loses the version check. That is a conflict the caller can act on — a
-    // 500 would read as "the decision may or may not have landed".
-    const { app, ctx } = createControlPlane({
-      config: {
-        port: 0,
-        publicUrl: "http://127.0.0.1:8788",
-        issuer: "http://127.0.0.1:8788",
-      },
-    });
-    const approver = await principal(app);
-    const requester = await principal(app);
-    const created = await ask(
-      app,
-      requester.accessToken,
-      await inboxRefOf(app, approver),
-    );
-    const { authReqId, requestDigest } = overlapCast(await created.json());
-
-    // Hold the first settler at the compare-and-set until the second approver
-    // has read the pending row, so the race exercises the version check rather
-    // than whichever microtask order the session boundary happens to pick.
-    const requests = ctx.repos.authorizationRequests;
-    const original = requests.updateWithVersion.bind(requests);
-    let markWriteStarted = () => {};
-    let releaseWrite = (_value: unknown) => {};
-    const writeStarted = new Promise<void>((resolve) => {
-      markWriteStarted = resolve;
-    });
-    const writeRelease = new Promise<unknown>((resolve) => {
-      releaseWrite = resolve;
-    });
-    let writes = 0;
-    const spy = vi.spyOn(requests, "updateWithVersion").mockImplementation(((
-      id: string,
-      expectedVersion: number,
-      patch: Parameters<typeof original>[2],
-    ) => {
-      writes += 1;
-      if (writes === 1) {
-        markWriteStarted();
-        return writeRelease.then(() => original(id, expectedVersion, patch));
-      }
-      return original(id, expectedVersion, patch);
-    }) as typeof requests.updateWithVersion);
-    try {
-      const firstRequest = decide(
-        app,
-        approver.accessToken,
-        authReqId,
-        "approve",
-        requestDigest,
-      );
-      const secondRequest = decide(
-        app,
-        approver.accessToken,
-        authReqId,
-        "approve",
-        requestDigest,
-      );
-      await writeStarted;
-      await Promise.race([firstRequest, secondRequest]);
-      releaseWrite(undefined);
-      const [first, second] = await Promise.all([firstRequest, secondRequest]);
-      const statuses = [first.status, second.status].sort();
-      expect(statuses[0]).toBe(200);
-      // 409 is the repository's version conflict reaching the caller as a
-      // conflict; before this it escaped the handler and became a 500.
-      expect(statuses[1]).toBe(409);
-    } finally {
-      spy.mockRestore();
-    }
   });
 
   it("adversarial: the requester reference is opaque, never the caller's principal id", async () => {
