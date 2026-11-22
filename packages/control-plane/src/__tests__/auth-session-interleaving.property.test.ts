@@ -76,6 +76,10 @@ async function resolveWithSchedule(schedule: Schedule) {
           };
         },
       },
+      // No organization withdrawal is pending in these schedules.
+      organizationMemberships: {
+        hasPendingWithdrawalForPrincipal: async () => false,
+      },
     },
     repos: {
       principals: {

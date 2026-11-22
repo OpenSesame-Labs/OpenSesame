@@ -11,6 +11,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { resetDeviceApprovalBudgetForTest } from "../routes/device.js";
+import { resumePendingOrganizationWithdrawals } from "../services/organization-withdrawal.js";
 
 interface DeviceApprovalHeaders {
   origin?: string;
@@ -1309,7 +1310,7 @@ describe("control-plane API", () => {
   });
 
   it("serializes membership rollback so it cannot resurrect a removed owner", async () => {
-    const { app } = createControlPlane({
+    const { app, ctx } = createControlPlane({
       config: {
         port: 0,
         publicUrl: "http://127.0.0.1:8788",
@@ -1385,10 +1386,16 @@ describe("control-plane API", () => {
         ]),
       ).toBe("blocked-at-fence");
 
+      // The pending demotion fences removal until Host confirms that intent.
+      expect((await removal).status).toBe(409);
       releaseFirst(new Response("down", { status: 503 }));
       expect((await failedDemotion).status).toBe(502);
-      expect((await removal).status).toBe(204);
-      await secondStarted;
+      expect(await resumePendingOrganizationWithdrawals(ctx)).toBe(false);
+      const retried = await app.request(
+        `/v1/organizations/${organization.id}/members/${target.principalId}`,
+        { method: "DELETE", headers: owner.auth },
+      );
+      expect(retried.status).toBe(204);
 
       const members = overlapCast(
         await (
@@ -1462,15 +1469,18 @@ describe("control-plane API", () => {
         markMutationReachedHost = resolve;
       });
       const hostUrls: string[] = [];
+      const hostBodies: Array<Record<string, unknown>> = [];
       const host = vi
         .spyOn(globalThis, "fetch")
-        .mockImplementationOnce(async (input) => {
+        .mockImplementationOnce(async (input, init) => {
           hostUrls.push(String(input));
+          hostBodies.push(overlapCast(JSON.parse(String(init?.body))));
           markApprovalStarted();
           return approvalResponse;
         })
-        .mockImplementation(async (input) => {
+        .mockImplementation(async (input, init) => {
           hostUrls.push(String(input));
+          hostBodies.push(overlapCast(JSON.parse(String(init?.body))));
           markMutationReachedHost();
           return new Response(JSON.stringify({ ok: true }), {
             status: 200,
@@ -1498,24 +1508,16 @@ describe("control-plane API", () => {
               : undefined),
           },
         );
-        expect(
-          await Promise.race([
-            mutationReachedHost.then(() => "reached-host"),
-            new Promise<string>((resolve) =>
-              setImmediate(() => resolve("blocked-at-fence")),
-            ),
-          ]),
-        ).toBe("blocked-at-fence");
-
-        releaseApproval(
-          new Response(JSON.stringify({ status: "approved" }), {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          }),
-        );
-        expect((await approval).status).toBe(200);
-        expect((await mutation).status).toBe(method === "PATCH" ? 200 : 204);
+        // Host fences the paused approval: the withdrawal names its revision.
         await mutationReachedHost;
+        expect((await mutation).status).toBe(method === "PATCH" ? 200 : 204);
+        const [approved, revoked] = hostBodies.map((body) => ({
+          incarnation: body.membership_incarnation,
+          revision: body.authority_revision,
+        }));
+        expect(revoked).toEqual({ ...approved, revision: expect.any(String) });
+        releaseApproval(new Response("stale revision", { status: 409 }));
+        expect((await approval).status).toBe(502);
         expect(hostUrls.map((url) => new URL(url).pathname)).toEqual([
           "/api/v1/device/approve",
           "/api/v1/sessions/revoke",
