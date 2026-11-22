@@ -76,8 +76,9 @@ async fn owner_provider_mapping_uses_the_bound_connection_and_rejects_substituti
         id: connection.to_string(),
         organization_id: boot.org.to_string(),
         project_id: Some(boot.project.to_string()),
-        provider_id: "github".into(),
-        integration_id: "deployment:github".into(),
+        // Plain-http loopback credentialed egress is mock-only (#2740).
+        provider_id: "mock".into(),
+        integration_id: "deployment:mock".into(),
         logical_name: "owner-wasm".into(),
         display_name: "owner-wasm".into(),
         status: ConnectionStatus::Active,
@@ -173,18 +174,12 @@ async fn owner_provider_mapping_uses_the_bound_connection_and_rejects_substituti
             signature: "test".into(),
         },
     };
-    let binding = InvocationBinding::from_intent(
-        InvocationId::new(),
-        &intent,
-        &grant,
-        &owner,
-        "github",
-        None,
-    )
-    .unwrap();
-    let bridge = bridge_for_test(Arc::clone(&broker), "github");
+    let binding =
+        InvocationBinding::from_intent(InvocationId::new(), &intent, &grant, &owner, "mock", None)
+            .unwrap();
+    let bridge = bridge_for_test(Arc::clone(&broker), "mock");
     let response = bridge
-        .authorized_request(&binding, "github", request(&url))
+        .authorized_request(&binding, "mock", request(&url))
         .unwrap();
     assert_eq!(response.status, 200);
     assert_eq!(
@@ -213,7 +208,7 @@ async fn owner_provider_mapping_uses_the_bound_connection_and_rejects_substituti
             .unwrap();
         assert_eq!(
             bridge
-                .authorized_request(&binding, "github", request(&url))
+                .authorized_request(&binding, "mock", request(&url))
                 .unwrap_err(),
             "owner egress unavailable"
         );
@@ -222,7 +217,7 @@ async fn owner_provider_mapping_uses_the_bound_connection_and_rejects_substituti
             _ => "UPDATE connections SET owner_subject = ? WHERE id = ?",
         };
         let original = if column == "provider_id" {
-            "github"
+            "mock"
         } else {
             &owner
         };
@@ -252,13 +247,13 @@ async fn owner_provider_mapping_uses_the_bound_connection_and_rejects_substituti
         &altered_intent,
         &altered_grant,
         &owner,
-        "github",
+        "mock",
         None,
     )
     .unwrap();
     assert_eq!(
         bridge
-            .authorized_request(&substituted, "github", request(&url))
+            .authorized_request(&substituted, "mock", request(&url))
             .unwrap_err(),
         "owner egress unavailable"
     );
@@ -271,7 +266,7 @@ async fn owner_provider_mapping_uses_the_bound_connection_and_rejects_substituti
         .unwrap();
     assert_eq!(
         bridge
-            .authorized_request(&binding, "github", request(&url))
+            .authorized_request(&binding, "mock", request(&url))
             .unwrap_err(),
         "owner egress unavailable"
     );

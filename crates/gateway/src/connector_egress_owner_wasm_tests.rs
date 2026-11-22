@@ -69,8 +69,9 @@ async fn owner_wasm_egress_preserves_upstream_status_and_headers() {
         id: connection.to_string(),
         organization_id: boot.org.to_string(),
         project_id: Some(boot.project.to_string()),
-        provider_id: "github".into(),
-        integration_id: "deployment:github".into(),
+        // Plain-http loopback credentialed egress is mock-only (#2740).
+        provider_id: "mock".into(),
+        integration_id: "deployment:mock".into(),
         logical_name: "owner-wasm-created".into(),
         display_name: "owner-wasm-created".into(),
         status: ConnectionStatus::Active,
@@ -165,20 +166,14 @@ async fn owner_wasm_egress_preserves_upstream_status_and_headers() {
             signature: "test".into(),
         },
     };
-    let binding = InvocationBinding::from_intent(
-        InvocationId::new(),
-        &intent,
-        &grant,
-        &owner,
-        "github",
-        None,
-    )
-    .unwrap();
-    let bridge = bridge_for_test(Arc::clone(&broker), "github");
+    let binding =
+        InvocationBinding::from_intent(InvocationId::new(), &intent, &grant, &owner, "mock", None)
+            .unwrap();
+    let bridge = bridge_for_test(Arc::clone(&broker), "mock");
     let response = bridge
         .authorized_request(
             &binding,
-            "github",
+            "mock",
             EgressRequest {
                 method: "GET".into(),
                 url: url.clone(),
