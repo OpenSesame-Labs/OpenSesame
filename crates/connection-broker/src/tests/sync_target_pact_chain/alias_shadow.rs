@@ -6,7 +6,10 @@
 //! `if` / `match` / `loop` arm only hides calls in that arm, because
 //! `Path::send` is still the live value outside it. The establishing `let`
 //! does not shadow its own call, and a comment cannot fake a rebind —
-//! including the alias name inside a `let (` pattern.
+//! including the alias name inside a `let (` pattern. A field write
+//! (`self.dispatch = …`, `obj.dispatch = …`) is not a rebinding either: the
+//! byte before the ident is `.`, `:`, or another ident byte, so the alias
+//! stays live through it.
 
 use super::super::super::sync_target_pact_norm::{is_keyword_at, non_code_len, skip_until_semi};
 use super::{path_prefix_start, statement_tail, value_eq, DispatchAlias};
@@ -67,7 +70,17 @@ fn establishing_let(source: &str, head: usize) -> bool {
     is_keyword_at(tail.as_bytes(), 0, b"let")
 }
 
+/// A rebinding of `name` at `index`: `let name = …` or `name = …`. The byte
+/// before it must be a boundary: `self.dispatch = …` / `obj.dispatch = …`
+/// write a field and `Path::dispatch` names a path, so neither shadows the
+/// alias binding. `alias_call_len` guards calls the same way.
 fn rebind_at(source: &str, bytes: &[u8], index: usize, name: &str) -> bool {
+    if index > 0 {
+        let prev = bytes[index - 1];
+        if super::super::is_ident_byte(prev) || prev == b'.' || prev == b':' {
+            return false;
+        }
+    }
     if is_keyword_at(bytes, index, b"let") {
         return let_rebinds_name(source, bytes, index, name);
     }
@@ -243,6 +256,36 @@ mod probes {
             dispatch_alias_calls(nested).len(),
             1,
             "the innermost fn owns the alias: {nested}"
+        );
+    }
+
+    /// GLM council chunk01 (PR #2733): a field write `self.dispatch = …` /
+    /// `obj.dispatch = …` is not a rebinding of the alias — the byte before
+    /// the ident is `.` — so a live `dispatch(request)` must stay visible to
+    /// the https-gap scan instead of being hidden by a phantom shadow.
+    #[test]
+    fn glm_council_chunk01_field_write_is_not_a_rebind() {
+        for sample in [
+            "fn f() { let dispatch = Path::send; self.dispatch = other_fn; dispatch(request); }",
+            "fn f() { let dispatch = Path::send; obj.dispatch = other_fn; dispatch(request); }",
+        ] {
+            assert_eq!(
+                dispatch_alias_calls(sample).len(),
+                1,
+                "a field write must not shadow the alias call: {sample}"
+            );
+        }
+        let gaps = r#"async fn f() { let dispatch = reqwest::RequestBuilder::send; if parsed.scheme() != "https" { return Err("x".into()); } self.dispatch = other_fn; dispatch(request).await?; }"#;
+        assert_eq!(
+            crate::tests::sync_target_pact_https::credentialed_send_https_gaps(gaps),
+            (1, 0),
+            "{gaps}"
+        );
+        let bare = r#"async fn f() { let dispatch = reqwest::RequestBuilder::send; obj.dispatch = other_fn; dispatch(request).await?; }"#;
+        assert_eq!(
+            crate::tests::sync_target_pact_https::credentialed_send_https_gaps(bare),
+            (1, 1),
+            "{bare}"
         );
     }
 
