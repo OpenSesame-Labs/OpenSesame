@@ -12,12 +12,13 @@ use std::sync::Arc;
 use opensesame_domain::transport::{
     PeerIdentitySelector, TlsVersion, TransportError, TrustProfileKind,
 };
-use rustls::client::WebPkiServerVerifier;
+use rustls::client::danger::ServerCertVerifier;
+use rustls::client::{Resumption, WebPkiServerVerifier};
 use rustls::pki_types::ServerName;
 use rustls::sign::SingleCertAndKey;
 use rustls::ClientConfig;
 
-use crate::bounded::BoundedServerVerifier;
+use crate::bounded::{BoundedServerVerifier, SingleHandshakeServerVerifier};
 use crate::error::malformed;
 use crate::identity::TlsIdentity;
 use crate::provider;
@@ -80,7 +81,7 @@ fn check_policy(profile: &ClientProfile) -> Result<(), TransportError> {
         if !identity.usage().permits_client_auth() {
             return Err(malformed("client identity leaf does not permit clientAuth"));
         }
-        if !identity.is_valid_at(chrono::Utc::now()) {
+        if !identity.is_valid_at(opensesame_time::Utc::now()) {
             return Err(TransportError::EvidenceExpired);
         }
     }
@@ -94,13 +95,42 @@ fn check_policy(profile: &ClientProfile) -> Result<(), TransportError> {
 /// `MalformedConfiguration` for a policy/bundle mismatch, an identity that
 /// cannot authenticate a client, or a verifier that cannot be built;
 /// `EvidenceExpired` for an expired client identity.
+///
+/// This standalone builder does not bind a [`TransportGenerations`](crate::TransportGenerations)
+/// manager. Source-owned outbound credentials need a generation-bound client
+/// integration before they can use the listener's signing-time fence.
 pub fn client_config(profile: &ClientProfile) -> Result<ClientConfig, TransportError> {
+    build_client_config(profile, false)
+}
+
+/// Build a TLS configuration that permits only one server-certificate
+/// verification attempt across all its clones. Session resumption and early
+/// data are disabled so a later handshake cannot bypass that verifier.
+///
+/// Even a rejected first certificate consumes the allowance. A caller must
+/// build a new configuration to retry, and is responsible for the freshness
+/// and provenance of its profile. Existing connections are not terminated.
+/// Callers must not replace the verifier or re-enable resumption or early data.
+///
+/// # Errors
+///
+/// As [`client_config`].
+pub fn client_config_single_handshake(
+    profile: &ClientProfile,
+) -> Result<ClientConfig, TransportError> {
+    build_client_config(profile, true)
+}
+
+fn build_client_config(
+    profile: &ClientProfile,
+    single_handshake: bool,
+) -> Result<ClientConfig, TransportError> {
     check_policy(profile)?;
     let provider = provider();
     let builder = ClientConfig::builder_with_provider(Arc::clone(&provider))
         .with_protocol_versions(versions(profile.min_version))
         .map_err(|e| malformed(format!("protocol versions: {e}")))?;
-    let builder = match &profile.server_name {
+    let verifier: Arc<dyn ServerCertVerifier> = match &profile.server_name {
         ServerNamePolicy::Dns(_) => {
             let verifier = WebPkiServerVerifier::builder_with_provider(
                 profile.server_trust.roots(),
@@ -109,25 +139,33 @@ pub fn client_config(profile: &ClientProfile) -> Result<ClientConfig, TransportE
             .with_crls(profile.server_trust.crls_owned())
             .build()
             .map_err(|e| malformed(format!("server verifier: {e}")))?;
-            builder
-                .dangerous()
-                .with_custom_certificate_verifier(BoundedServerVerifier::new(verifier))
+            BoundedServerVerifier::new(verifier)
         }
         ServerNamePolicy::SpiffeId(id) => {
             let verifier = SpiffeServerVerifier::new(profile.server_trust.clone(), id, &provider)?;
             // `dangerous()` is rustls's name for "custom verifier"; the
             // verifier installed here performs full chain, time, revocation
             // and handshake-signature verification (see `verify_spiffe`).
-            builder
-                .dangerous()
-                .with_custom_certificate_verifier(Arc::new(verifier))
+            Arc::new(verifier)
         }
     };
-    let config = match &profile.identity {
+    let verifier: Arc<dyn ServerCertVerifier> = if single_handshake {
+        SingleHandshakeServerVerifier::new(verifier)
+    } else {
+        verifier
+    };
+    let builder = builder
+        .dangerous()
+        .with_custom_certificate_verifier(verifier);
+    let mut config = match &profile.identity {
         Some(identity) => builder
             .with_client_cert_resolver(Arc::new(SingleCertAndKey::from(identity.certified_key()))),
         None => builder.with_no_client_auth(),
     };
+    if single_handshake {
+        config.resumption = Resumption::disabled();
+        config.enable_early_data = false;
+    }
     Ok(config)
 }
 

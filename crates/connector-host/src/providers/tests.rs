@@ -261,7 +261,13 @@ fn attachments_are_invisible_to_the_agent_facing_provider() {
     use opensesame_sealed_store::{AttachMeta, Entry, ItemDataKey};
 
     let dir = tempfile::tempdir().expect("tempdir");
-    let store = opensesame_sealed_store::init_store(dir.path(), &[]).expect("init");
+    let store_path = dir.path().join("store");
+    opensesame_sealed_store::init_store(&store_path, &[]).expect("init");
+    let store = opensesame_sealed_store::StoreRoot::open_with_test_witness_root(
+        &store_path,
+        dir.path().join("witness"),
+    )
+    .expect("open fixture store");
     let key = ItemDataKey([5u8; 32]);
 
     store
@@ -285,7 +291,7 @@ fn attachments_are_invisible_to_the_agent_facing_provider() {
 
     // List: the entry is visible, the attachment is not — and neither is
     // the object pool that holds its ciphertext.
-    let listed = execute_sealed_store(HumanProviderOperation::List, dir.path(), "").expect("list");
+    let listed = execute_sealed_store(HumanProviderOperation::List, &store_path, "").expect("list");
     assert!(
         listed.contains("Dev/token"),
         "entries stay listable: {listed}"
@@ -305,7 +311,7 @@ fn attachments_are_invisible_to_the_agent_facing_provider() {
     // password set here, so this stops at the unlock — assert on the
     // outcome, not the reason, since either refusal is acceptable.
     assert!(
-        execute_sealed_store(HumanProviderOperation::Read, dir.path(), "Taxes/passport").is_err(),
+        execute_sealed_store(HumanProviderOperation::Read, &store_path, "Taxes/passport").is_err(),
         "an attachment must not be readable through the agent surface"
     );
 

@@ -77,7 +77,7 @@ impl Db {
         }
         sealed::quarantine::quarantine_outbox(&mut transaction, &unreadable, now).await?;
         if !events.is_empty() {
-            let lease = (now + chrono::Duration::seconds(lease_seconds)).to_rfc3339();
+            let lease = (now + opensesame_time::Duration::seconds(lease_seconds)).to_rfc3339();
             for event in &events {
                 sqlx::query("UPDATE outbox_events SET available_at = ? WHERE id = ?")
                     .bind(&lease)
@@ -123,7 +123,8 @@ impl Db {
         error: &str,
         backoff_seconds: i64,
     ) -> anyhow::Result<()> {
-        let available = (Utc::now() + chrono::Duration::seconds(backoff_seconds)).to_rfc3339();
+        let available =
+            (Utc::now() + opensesame_time::Duration::seconds(backoff_seconds)).to_rfc3339();
         let mut transaction = self.pool.begin().await?;
         for id in ids {
             sqlx::query(

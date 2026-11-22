@@ -52,7 +52,7 @@ pub fn split_secret<R: Rng + ?Sized>(
             "0 < threshold <= share count <= 16 is required",
         ));
     }
-    if secret.len() < 16 || secret.len() % 2 != 0 {
+    if secret.len() < 16 || !secret.len().is_multiple_of(2) {
         return Err(Slip39Error::Parameters(
             "the secret must be at least 128 bits and a whole number of 16-bit words",
         ));

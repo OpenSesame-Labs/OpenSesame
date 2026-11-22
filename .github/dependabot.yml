@@ -70,6 +70,9 @@ updates:
           - ">= 3.0.0"
       - dependency-name: vitest
         update-types: ["version-update:semver-major"]
+      # @vitest/coverage-v8 major must track the vitest major (vitest majors are already ignored).
+      - dependency-name: "@vitest/coverage-v8"
+        update-types: ["version-update:semver-major"]
       - dependency-name: testcontainers
         update-types: ["version-update:semver-major"]
       - dependency-name: typescript

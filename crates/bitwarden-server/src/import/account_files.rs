@@ -9,9 +9,9 @@
 use std::io::Write as _;
 use std::path::Path;
 
-use chrono::{DateTime, Utc};
 use opensesame_provider_bitwarden::Client;
 use opensesame_storage::bitwarden::{BitwardenAttachment, BitwardenSend, BitwardenUser};
+use opensesame_time::{DateTime, Utc};
 use serde_json::{json, Value};
 
 use super::account::AttachmentLimits;

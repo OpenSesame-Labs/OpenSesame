@@ -4,7 +4,7 @@ use crate::{
     canonicalize_json, digest_sha256, DomainError, ProtocolProfileId, TaskRunId,
     VerificationEvidenceId,
 };
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

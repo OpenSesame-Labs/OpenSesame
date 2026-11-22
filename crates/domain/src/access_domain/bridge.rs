@@ -140,7 +140,7 @@ mod tests {
     use super::*;
     use crate::access_domain::temporal::DomainLifetime;
     use crate::{AuthorityHandle, OrganizationId};
-    use chrono::{DateTime, Utc};
+    use opensesame_time::{DateTime, Utc};
 
     fn wire_of<T: Serialize>(value: &T) -> String {
         serde_json::to_value(value)

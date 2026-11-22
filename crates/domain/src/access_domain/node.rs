@@ -14,7 +14,7 @@ use super::control::InheritanceMode;
 use super::realm::Realm;
 use super::temporal::DomainLifetime;
 use crate::{AccessDomainId, DomainError};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// The longest a domain slug may be. Matches the DNS label limit, because a
@@ -371,7 +371,7 @@ mod tests {
             .is_err());
         assert!(domain
             .with_lifetime(DomainLifetime::Temporary {
-                expires_at: now() + chrono::Duration::hours(1),
+                expires_at: now() + opensesame_time::Duration::hours(1),
             })
             .is_ok());
     }

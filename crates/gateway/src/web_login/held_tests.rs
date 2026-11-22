@@ -3,11 +3,11 @@
 //! and spend the rung for a rotation that never happened — and it gives the
 //! policy lease back so the policy is retried instead of lapsing.
 
-use chrono::Utc;
 use opensesame_connection_broker::rotation::web_login::{
     request_claimed_web_login_rotation, WebLoginClaim,
 };
 use opensesame_lifecycle::{EVENT_RENEWAL_DUE, EVENT_RENEWAL_FAILED, EVENT_RENEWAL_SUCCEEDED};
+use opensesame_time::Utc;
 
 use super::test_support::*;
 use crate::lifecycle::dispatch;
@@ -28,7 +28,7 @@ async fn a_rung_for_a_target_another_replica_holds_publishes_no_outcome() {
     // database and its registry is not this process's.
     let elsewhere = WebLoginClaim {
         run_id: "run_elsewhere",
-        lease: chrono::Duration::minutes(17),
+        lease: opensesame_time::Duration::minutes(17),
     };
     request_claimed_web_login_rotation(
         world.state.connection_broker.as_ref(),

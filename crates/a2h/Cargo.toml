@@ -9,7 +9,7 @@ description = "A2H (Agent-to-Human) v1.0 envelope, intent mapping, and response 
 opensesame-agent-events = { path = "../agent-events" }
 opensesame-session-observe = { path = "../session-observe" }
 base64 = { workspace = true }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 hmac = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -1,9 +1,9 @@
 //! A full pass of lapsed mints whose expiry was already published must not
 //! crowd a live mint out of collection (ADR 0217, ADR 0074).
 
-use chrono::{DateTime, Duration, Utc};
 use opensesame_connection_broker::aws_sts::register::{record_mint, MintDeadline};
 use opensesame_lifecycle::{ExpiryStage, SubjectKind, Track};
+use opensesame_time::{DateTime, Duration, Utc};
 
 use super::MINT_SCAN_LIMIT;
 use crate::app_state::{test_demo_state, AppState};

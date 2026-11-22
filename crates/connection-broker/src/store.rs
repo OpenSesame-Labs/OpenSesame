@@ -7,8 +7,8 @@
 mod backup;
 use backup::append_backup_outbox;
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::EgressBinding;
+use opensesame_time::{DateTime, Utc};
 use sha2::{Digest, Sha256};
 use sqlx::{Row, SqlitePool};
 
@@ -1766,7 +1766,7 @@ pub async fn claim_config_sync_batch(
 ) -> Result<Vec<ConfigSyncEventRow>> {
     ensure_secret_configs_schema(pool).await?;
     let now = Utc::now();
-    let lease_until = (now + chrono::Duration::seconds(lease_seconds)).to_rfc3339();
+    let lease_until = (now + opensesame_time::Duration::seconds(lease_seconds)).to_rfc3339();
     let mut tx = pool.begin().await?;
     let rows = sqlx::query(
         "SELECT id, event_type, organization_id, project_id, config_id, attempts, created_at \
@@ -1832,7 +1832,7 @@ pub async fn park_config_sync(
     reason: &str,
     backoff_seconds: i64,
 ) -> Result<()> {
-    let available = (Utc::now() + chrono::Duration::seconds(backoff_seconds)).to_rfc3339();
+    let available = (Utc::now() + opensesame_time::Duration::seconds(backoff_seconds)).to_rfc3339();
     for id in ids {
         sqlx::query(
             "UPDATE config_sync_outbox SET available_at = ?, last_error = ? \
@@ -2415,7 +2415,7 @@ pub async fn claim_rotation_policy(
     ensure_rotation_schema(pool).await?;
     let now = Utc::now();
     let now_text = now.to_rfc3339();
-    let lease_until = (now + chrono::Duration::seconds(lease_seconds)).to_rfc3339();
+    let lease_until = (now + opensesame_time::Duration::seconds(lease_seconds)).to_rfc3339();
     // One conditional UPDATE is the whole claim: SQLite serializes writers, so
     // the loser's UPDATE matches zero rows rather than overwriting the lease.
     let claimed = sqlx::query(
@@ -2450,7 +2450,7 @@ pub async fn release_rotation_policy_success(
     interval_seconds: i64,
 ) -> Result<()> {
     ensure_rotation_schema(pool).await?;
-    let next = rotated_at + chrono::Duration::seconds(interval_seconds.max(1));
+    let next = rotated_at + opensesame_time::Duration::seconds(interval_seconds.max(1));
     sqlx::query(
         "UPDATE rotation_policies SET lease_until = NULL, attempts = 0, needs_attention = 0, \
          last_error = NULL, last_rotated_at = ?, next_attempt_at = ?, updated_at = ? \

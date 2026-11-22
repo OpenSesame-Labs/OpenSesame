@@ -1,0 +1,26 @@
+diff --git a/dist/commonjs/index.js b/dist/commonjs/index.js
+index 2d2a2f8..5ea9df7 100644
+--- a/dist/commonjs/index.js
++++ b/dist/commonjs/index.js
+@@ -258,7 +258,7 @@ const braceExpand = (pattern, options = {}) => {
+     if (options.windowsPathsNoEscape || options[AWE_KEY] === false) {
+         p = p.replace(/\[([{}])\]/g, '[\\$1]');
+     }
+-    return (0, brace_expansion_1.expand)(p, { max: options.braceExpandMax });
++    return (0, brace_expansion_1.expand)(p, { max: typeof options.braceExpandMax === 'number' && !Number.isNaN(options.braceExpandMax) ? options.braceExpandMax : 100_000 });
+ };
+ exports.braceExpand = braceExpand;
+ exports.minimatch.braceExpand = exports.braceExpand;
+diff --git a/dist/esm/index.js b/dist/esm/index.js
+index f8d6270..b491cf9 100644
+--- a/dist/esm/index.js
++++ b/dist/esm/index.js
+@@ -252,7 +252,7 @@ export const braceExpand = (pattern, options = {}) => {
+     if (options.windowsPathsNoEscape || options[AWE_KEY] === false) {
+         p = p.replace(/\[([{}])\]/g, '[\\$1]');
+     }
+-    return expand(p, { max: options.braceExpandMax });
++    return expand(p, { max: typeof options.braceExpandMax === 'number' && !Number.isNaN(options.braceExpandMax) ? options.braceExpandMax : 100_000 });
+ };
+ minimatch.braceExpand = braceExpand;
+ // A numeric range with at least this many values is matched as one

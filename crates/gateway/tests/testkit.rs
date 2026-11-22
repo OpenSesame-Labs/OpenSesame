@@ -205,7 +205,7 @@ async fn typescript_api_client_exercises_the_real_host() {
         .env("OPENSESAME_TEST_HOST_URL", server.base_url())
         .env("OPENSESAME_TEST_HOST_OPERATOR", fixture.operator_token())
         .kill_on_drop(true);
-    let result = tokio::time::timeout(std::time::Duration::from_secs(60), command.output())
+    let result = tokio::time::timeout(std::time::Duration::from_mins(1), command.output())
         .await
         .expect("the API client test timed out")
         .expect("Node failed to start");

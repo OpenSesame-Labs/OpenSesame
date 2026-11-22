@@ -197,6 +197,129 @@ test("a core certificate proof cannot borrow another row's test-support binding"
   forbidden(value, /EM-(?:SCHEMA|COVERAGE|BINDING|CONTRACT)/u);
 });
 
+for (const [role, paths] of [
+  [
+    "implementation",
+    [
+      "crates/transport-security/src/lib.rs",
+      "crates/transport-security/src/client.rs",
+      "crates/transport-security/src/guard.rs",
+      "crates/transport-security/src/identity.rs",
+      "crates/transport-security/src/listener.rs",
+      "crates/transport-security/src/server.rs",
+      "crates/transport-security/src/server_conn.rs",
+      "crates/transport-security/src/signing_fence.rs",
+      "crates/transport-security/src/testkit/mod.rs",
+      "crates/transport-security/src/testkit/ca.rs",
+      "crates/transport-security/src/testkit/leaf.rs",
+    ],
+  ],
+  [
+    "regressions",
+    [
+      "crates/transport-security/src/signing_fence_tests.rs",
+      "crates/transport-security/tests/common/mod.rs",
+      "crates/transport-security/tests/signing_fence_races.rs",
+      "crates/transport-security/tests/source_lifetime.rs",
+      "crates/transport-security/tests/source_lifetime_edges.rs",
+      "crates/transport-security/tests/source_lifetime_tls12.rs",
+    ],
+  ],
+]) {
+  test(`host signing protection cannot remove its ${role} bindings`, () => {
+    for (const path of paths) {
+      const value = matrix();
+      const host = row(value, "host-listeners");
+      host[role] = host[role].filter((item) => item !== path);
+      if (
+        !value.surfaces.some((surface) =>
+          [...surface.implementation, ...surface.regressions].includes(path),
+        )
+      ) {
+        delete value.sources[path];
+      }
+      const expected = `EM-BINDING: host-listeners is missing its ${role} binding ${path}`;
+      assert.ok(issues(value).includes(expected), expected);
+    }
+  });
+}
+
+test("signer and TLS race fingerprints reject source drift", () => {
+  for (const changed of [
+    "crates/transport-security/src/signing_fence.rs",
+    "crates/transport-security/tests/signing_fence_races.rs",
+    "crates/transport-security/tests/source_lifetime_tls12.rs",
+  ]) {
+    const altered = {
+      ...snapshot,
+      read: (path) =>
+        path === changed
+          ? Buffer.from("unreviewed change")
+          : snapshot.read(path),
+    };
+    assert.ok(
+      coverageViolations(matrix(), altered).some((issue) =>
+        issue.startsWith(
+          `EM-DRIFT: reviewed implementation changed: ${changed};`,
+        ),
+      ),
+      `source drift not rejected for ${changed}`,
+    );
+  }
+});
+
+test("review text cannot admit its regression evidence predates the pinned fingerprints", () => {
+  for (const admission of [
+    "On the reviewed predecessor, the selector vectors passed.",
+    "The suite passed before the final lint changes.",
+    "The lint-corrected source still needs the full suite rerun.",
+    "The history suite needs a rerun after the refresh.",
+    "Its regressions need the suite to be rerun.",
+  ]) {
+    const value = matrix();
+    const listeners = row(value, "host-listeners");
+    listeners.review = `${listeners.review} ${admission}`;
+    forbidden(value, /EM-STALE-EVIDENCE: host-listeners/u);
+  }
+});
+
+test("honest review limits without stale regression evidence stay allowed", () => {
+  const value = matrix();
+  const listeners = row(value, "host-listeners");
+  listeners.review = `${listeners.review} Windows-only startup refusal cases have not been run on Windows.`;
+  assert.ok(
+    !issues(value).some((issue) => issue.includes("EM-STALE-EVIDENCE")),
+    issues(value).join("\n"),
+  );
+});
+
+test("negated no-rerun review text stays allowed while admissions stay forbidden", () => {
+  for (const honest of [
+    "This surface does not need a rerun after the refresh.",
+    "The refreshed fingerprints don't need a rerun; the suite was executed on the pinned bytes.",
+    "The recorded evidence is not before the final lint changes.",
+    "The selector vectors passed not on the reviewed predecessor but on the pinned bytes.",
+    "The lint-corrected source does not still need the full suite rerun.",
+  ]) {
+    const value = matrix();
+    const listeners = row(value, "host-listeners");
+    listeners.review = `${listeners.review} ${honest}`;
+    assert.ok(
+      !issues(value).some((issue) => issue.includes("EM-STALE-EVIDENCE")),
+      issues(value).join("\n"),
+    );
+  }
+  for (const admission of [
+    "The suite still needs a rerun after the refresh.",
+    "Its regressions still need the suite to be rerun.",
+  ]) {
+    const value = matrix();
+    const listeners = row(value, "host-listeners");
+    listeners.review = `${listeners.review} ${admission}`;
+    forbidden(value, /EM-STALE-EVIDENCE: host-listeners/u);
+  }
+});
+
 for (const control of ["originating-client-proof", "exact-bootstrap-trust"]) {
   test(`EST certificate proof cannot omit ${control}`, () => {
     const value = matrix();

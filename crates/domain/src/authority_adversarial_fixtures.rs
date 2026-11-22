@@ -5,7 +5,7 @@
 //! should not have to scroll past a hundred lines of struct literal to reach
 //! the first one.
 
-use chrono::{Duration, Utc};
+use opensesame_time::{Duration, Utc};
 
 use crate::{
     DomainError, Grant, GrantConstraints, GrantId, Intent, IntentId, OfflineUse, OrganizationId,

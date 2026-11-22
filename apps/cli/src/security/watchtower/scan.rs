@@ -49,15 +49,11 @@ pub(crate) fn home_default() -> PathBuf {
 }
 
 pub(crate) fn is_file(path: &Path) -> bool {
-    fs::symlink_metadata(path)
-        .map(|m| m.file_type().is_file() && !m.file_type().is_symlink())
-        .unwrap_or(false)
+    fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_file() && !m.file_type().is_symlink())
 }
 
 pub(crate) fn is_dir(path: &Path) -> bool {
-    fs::symlink_metadata(path)
-        .map(|m| m.file_type().is_dir() && !m.file_type().is_symlink())
-        .unwrap_or(false)
+    fs::symlink_metadata(path).is_ok_and(|m| m.file_type().is_dir() && !m.file_type().is_symlink())
 }
 
 pub(crate) fn small_file(path: &Path) -> Option<String> {

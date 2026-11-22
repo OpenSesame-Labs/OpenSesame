@@ -5,12 +5,10 @@
  * copied by object, never re-derived from the bytes being replayed — so the
  * `/token` replay cannot lose or change its peer (AT-IDENTITY-SPLIT).
  */
-import type http from "node:http";
-import { Readable } from "node:stream";
-import { overlapCast } from "@opensesame/os-domain";
+import { IncomingMessage } from "node:http";
 import { adoptRequestEvidence } from "./request-evidence.js";
 
-export async function readBody(req: http.IncomingMessage): Promise<Buffer> {
+export async function readBody(req: IncomingMessage): Promise<Buffer> {
   const chunks: Buffer[] = [];
   for await (const chunk of req) {
     if (!(chunk instanceof Uint8Array)) {
@@ -26,12 +24,15 @@ export async function readBody(req: http.IncomingMessage): Promise<Buffer> {
  * request stream handed to oidc-provider is replayed from the buffer.
  */
 export function replayRequest(
-  req: http.IncomingMessage,
+  req: IncomingMessage,
   body: Buffer,
-): http.IncomingMessage {
-  // SAFETY: oidc-provider only reads this as a stream plus IncomingMessage
-  // header/method fields, which we copy onto the replayed Readable below.
-  const forwarded: http.IncomingMessage = overlapCast(Readable.from([body]));
+): IncomingMessage {
+  // A real IncomingMessage, not a cast Readable: evidence lookup reads the
+  // map only after `instanceof IncomingMessage`. The body is already buffered,
+  // so `_read` must not resume the live socket (that pulls the next bytes off
+  // the connection). `complete` tells a later destroy this message finished.
+  const forwarded = new IncomingMessage(req.socket);
+  forwarded._read = () => {};
   forwarded.headers = req.headers;
   forwarded.rawHeaders = req.rawHeaders;
   forwarded.method = req.method;
@@ -39,7 +40,9 @@ export function replayRequest(
   forwarded.httpVersion = req.httpVersion;
   forwarded.httpVersionMajor = req.httpVersionMajor;
   forwarded.httpVersionMinor = req.httpVersionMinor;
-  forwarded.socket = req.socket;
+  forwarded.complete = true;
+  forwarded.push(body);
+  forwarded.push(null);
   adoptRequestEvidence(forwarded, req);
   return forwarded;
 }

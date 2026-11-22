@@ -4,7 +4,7 @@
 //! decided by the server from memberships and collection access; these
 //! queries do what they are told for ids already checked.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::Row as _;
 
 use super::accounts::bitwarden_timestamp;

@@ -26,10 +26,12 @@ const MAX_ARGON2_ITERATIONS = 10;
 const MAX_ARGON2_PARALLELISM = 4;
 const MAX_ARGON2_WORK_KIB = MAX_ARGON2_MEMORY_KIB * 3;
 
-type Argon2Options = Parameters<typeof import("hash-wasm").argon2d>[0] & {
+export type Argon2Options = Parameters<
+  typeof import("hash-wasm").argon2d
+>[0] & {
   outputType: "binary";
 };
-type Argon2 = (options: Argon2Options) => Promise<Uint8Array>;
+export type Argon2 = (options: Argon2Options) => Promise<Uint8Array>;
 
 /** The positional signature `CryptoEngine.setArgon2Impl` calls. */
 export type Argon2Impl = (

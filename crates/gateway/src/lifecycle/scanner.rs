@@ -8,10 +8,10 @@
 use std::collections::BTreeMap;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::OrganizationId;
 use opensesame_lifecycle::{evaluate, ExpiryStage, ExpirySubject, Track, Watermark, Watermarks};
 use opensesame_storage::StoredLifecycleWatermark;
+use opensesame_time::{DateTime, Utc};
 
 use crate::app_state::AppState;
 use crate::lifecycle::{dispatch, subjects};

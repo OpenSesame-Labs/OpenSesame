@@ -3,7 +3,7 @@ import type { Notice } from "@opensesame/app-core/lib/notices.js";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { StatusNoticeCard } from "./NotificationsBar.js";
+import { StatusNoticeCard } from "./StatusNoticeCard.js";
 
 afterEach(() => cleanup());
 
@@ -69,6 +69,187 @@ describe("a tray card whose act works in place (ADR 0221)", () => {
     expect(document.activeElement).toBe(document.body);
   });
 
+  it("draws one worded act as a labeled choice key", () => {
+    const resume = vi.fn();
+    const onOpen = vi.fn();
+    render(
+      card(
+        {
+          id: "tutorial.queue.vault.lock",
+          kind: "status",
+          tone: "info",
+          title: "Lock the vault",
+          body: "Queued.",
+          act: {
+            label: "Resume walkthrough",
+            worded: true,
+            opens: true,
+            run: resume,
+          },
+          createdAt: "2026-11-19T00:00:00Z",
+        },
+        onOpen,
+      ),
+    );
+    const key = screen.getByRole("button", { name: "Resume walkthrough" });
+    expect(key.className).toContain("choice");
+    expect(key.className).not.toContain("icon-btn");
+    expect(key.textContent).toBe("Resume walkthrough");
+    key.focus();
+    fireEvent.click(key);
+    expect(resume).toHaveBeenCalledTimes(1);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it("draws a worded pair as choice keys", () => {
+    const pause = vi.fn();
+    const only = vi.fn();
+    render(
+      card({
+        id: "tutorial.pause.session",
+        kind: "status",
+        tone: "warn",
+        title: "Tutorials",
+        body: "Pause the others for this session?",
+        act: {
+          label: "Pause all for this session",
+          worded: true,
+          run: pause,
+        },
+        alt: { label: "Only this one", worded: true, run: only },
+        createdAt: "2026-11-18T00:00:00Z",
+      }),
+    );
+    const pauseKey = screen.getByRole("button", {
+      name: "Pause all for this session",
+    });
+    expect(pauseKey.className).toContain("choice");
+    fireEvent.click(pauseKey);
+    fireEvent.click(screen.getByRole("button", { name: "Only this one" }));
+    expect(pause).toHaveBeenCalledTimes(1);
+    expect(only).toHaveBeenCalledTimes(1);
+  });
+
+  it("lands focus on the tray Close key after a keyboard worded choice", async () => {
+    const pause = vi.fn();
+    const onOpen = vi.fn();
+    render(
+      <MemoryRouter>
+        <div role="dialog" aria-label="Notifications">
+          <button type="button" aria-label="Close">
+            Close
+          </button>
+          <StatusNoticeCard
+            notice={{
+              id: "tutorial.pause.session",
+              kind: "status",
+              tone: "warn",
+              title: "Tutorials",
+              body: "Pause the others for this session?",
+              act: {
+                label: "Pause all for this session",
+                worded: true,
+                run: pause,
+              },
+              alt: { label: "Only this one", worded: true, run: () => {} },
+              createdAt: "2026-11-18T00:00:00Z",
+            }}
+            onOpen={onOpen}
+            wordedTray
+          />
+        </div>
+      </MemoryRouter>,
+    );
+    const pauseKey = screen.getByRole("button", {
+      name: "Pause all for this session",
+    });
+    pauseKey.focus();
+    fireEvent.click(pauseKey);
+    await new Promise<void>((resolve) => queueMicrotask(resolve));
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Close" }),
+    );
+    expect(onOpen).not.toHaveBeenCalled();
+  });
+
+  it("hands focus back to the page card after a keyboard worded choice", () => {
+    const pause = vi.fn();
+    const only = vi.fn();
+    const onOpen = vi.fn();
+    const notice: Notice = {
+      id: "tutorial.pause.session",
+      kind: "status",
+      tone: "warn",
+      title: "Tutorials",
+      body: "Pause the others for this session?",
+      act: {
+        label: "Pause all for this session",
+        worded: true,
+        run: pause,
+      },
+      alt: { label: "Only this one", worded: true, run: only },
+      createdAt: "2026-11-18T00:00:00Z",
+    };
+    const view = render(
+      <MemoryRouter>
+        <StatusNoticeCard notice={notice} onOpen={onOpen} />
+      </MemoryRouter>,
+    );
+    const pauseKey = screen.getByRole("button", {
+      name: "Pause all for this session",
+    });
+    pauseKey.focus();
+    fireEvent.click(pauseKey);
+    // Hand-back is armed: focus stays with the card instead of the page.
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(pause).toHaveBeenCalledTimes(1);
+    view.rerender(
+      <MemoryRouter>
+        <StatusNoticeCard
+          notice={{ ...notice, act: undefined, alt: undefined }}
+          onOpen={onOpen}
+        />
+      </MemoryRouter>,
+    );
+    expect(document.activeElement).toBe(
+      screen.getByRole("button", { name: "Dismiss" }),
+    );
+  });
+
+  it("moves focus onto the page for a pointer worded choice on a page card", () => {
+    const pause = vi.fn();
+    const only = vi.fn();
+    const onOpen = vi.fn();
+    render(
+      <MemoryRouter>
+        <StatusNoticeCard
+          notice={{
+            id: "tutorial.pause.session",
+            kind: "status",
+            tone: "warn",
+            title: "Tutorials",
+            body: "Pause the others for this session?",
+            act: {
+              label: "Pause all for this session",
+              worded: true,
+              run: pause,
+            },
+            alt: { label: "Only this one", worded: true, run: only },
+            createdAt: "2026-11-18T00:00:00Z",
+          }}
+          onOpen={onOpen}
+        />
+      </MemoryRouter>,
+    );
+    const pauseKey = screen.getByRole("button", {
+      name: "Pause all for this session",
+    });
+    // No focus first: a pointer press has no card to hand back to.
+    fireEvent.click(pauseKey);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(pause).toHaveBeenCalledTimes(1);
+  });
+
   it("leaves focus to the page for an act that opens it", () => {
     const onOpen = vi.fn();
     const opens: Notice = {
@@ -81,6 +262,75 @@ describe("a tray card whose act works in place (ADR 0221)", () => {
     fireEvent.click(key);
     expect(onOpen).toHaveBeenCalledTimes(1);
     view.rerender(card(answered));
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it("does not hand focus back after a keyboard worded choice that opens", () => {
+    const onOpen = vi.fn();
+    const open = vi.fn();
+    const notice: Notice = {
+      id: "tutorial.queue.vault.lock",
+      kind: "status",
+      tone: "info",
+      title: "Lock the vault",
+      body: "Queued.",
+      act: {
+        label: "Open settings",
+        worded: true,
+        opens: true,
+        run: open,
+      },
+      alt: { label: "Stay here", worded: true, run: () => {} },
+      createdAt: "2026-11-19T00:00:00Z",
+    };
+    const view = render(card(notice, onOpen));
+    const key = screen.getByRole("button", { name: "Open settings" });
+    key.focus();
+    fireEvent.click(key);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(open).toHaveBeenCalledTimes(1);
+    view.rerender(card({ ...notice, act: undefined, alt: undefined }, onOpen));
+    expect(document.activeElement).toBe(document.body);
+  });
+
+  it("does not hand focus back after a keyboard worded tray choice", () => {
+    const onOpen = vi.fn();
+    const pause = vi.fn();
+    const notice: Notice = {
+      id: "tutorial.pause.session.no-close",
+      kind: "status",
+      tone: "warn",
+      title: "Tutorials",
+      body: "Pause the others for this session?",
+      act: {
+        label: "Pause all for this session",
+        worded: true,
+        run: pause,
+      },
+      alt: { label: "Only this one", worded: true, run: () => {} },
+      createdAt: "2026-11-18T00:00:00Z",
+    };
+    const view = render(
+      <MemoryRouter>
+        <StatusNoticeCard notice={notice} onOpen={onOpen} wordedTray />
+      </MemoryRouter>,
+    );
+    const pauseKey = screen.getByRole("button", {
+      name: "Pause all for this session",
+    });
+    pauseKey.focus();
+    fireEvent.click(pauseKey);
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(pause).toHaveBeenCalledTimes(1);
+    view.rerender(
+      <MemoryRouter>
+        <StatusNoticeCard
+          notice={{ ...notice, act: undefined, alt: undefined }}
+          onOpen={onOpen}
+          wordedTray
+        />
+      </MemoryRouter>,
+    );
     expect(document.activeElement).toBe(document.body);
   });
 });

@@ -49,7 +49,7 @@ fn a_login_response_is_read_strictly() {
     let token = parse_login(&login_body(3600, &["connector-read"])).unwrap();
     assert!(token.has_policy("connector-read"));
     assert!(!token.has_policy("root"));
-    assert_eq!(token.lease_duration, Duration::from_secs(3600));
+    assert_eq!(token.lease_duration, Duration::from_hours(1));
     assert!(token.renewable);
     // Debug is a lifecycle summary, never the token.
     assert!(!format!("{token:?}").contains("NEVER-LOGGED"));
@@ -83,19 +83,19 @@ fn a_lease_bounds_the_cached_token() {
     let issued = token.issued_at;
     assert_eq!(
         token.expires_at(),
-        Some(issued + chrono::Duration::hours(1))
+        Some(issued + opensesame_time::Duration::hours(1))
     );
     assert!(token.is_usable_at(issued));
     // The headroom means a token is stale before it actually expires, so a
     // request is never made with one that dies mid-flight.
-    assert!(!token.is_usable_at(issued + chrono::Duration::seconds(3559)));
-    assert!(!token.is_usable_at(issued + chrono::Duration::hours(2)));
+    assert!(!token.is_usable_at(issued + opensesame_time::Duration::seconds(3559)));
+    assert!(!token.is_usable_at(issued + opensesame_time::Duration::hours(2)));
 
     // A token with no lease (root/periodic) is not treated as expired, but it
     // is still scoped to this identity and still explicitly revocable.
     token.lease_duration = Duration::from_secs(0);
     assert_eq!(token.expires_at(), None);
-    assert!(token.is_usable_at(issued + chrono::Duration::days(365)));
+    assert!(token.is_usable_at(issued + opensesame_time::Duration::days(365)));
 }
 
 #[test]

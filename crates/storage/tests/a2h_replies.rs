@@ -46,7 +46,7 @@ async fn cancel(db: &Db) -> anyhow::Result<ReplyOutcome> {
         ReplyDecision::Cancel {
             run_id: "run",
             owner: "principal:owner",
-            valid_until: chrono::DateTime::parse_from_rfc3339("2026-09-09T00:00:00+00:00")
+            valid_until: opensesame_time::DateTime::parse_from_rfc3339("2026-09-09T00:00:00+00:00")
                 .unwrap()
                 .timestamp(),
         },

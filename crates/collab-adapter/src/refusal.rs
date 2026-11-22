@@ -7,7 +7,7 @@
 //! [`Refusal::RoleAboveBot`]; the rest exist so those four are never reached by
 //! accident through a vaguer failure.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use thiserror::Error;
 
 use crate::model::{ChannelId, GuildId, RoleId, UserId};

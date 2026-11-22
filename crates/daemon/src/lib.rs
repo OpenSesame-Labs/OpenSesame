@@ -11,7 +11,7 @@ use axum::{
     response::{IntoResponse, Response},
     Extension, Json,
 };
-use chrono::{Duration, Utc};
+use opensesame_time::{Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::{
@@ -126,7 +126,7 @@ struct SessionCapability {
     id: String,
     session_id: String,
     audience: String,
-    expires_at: chrono::DateTime<Utc>,
+    expires_at: opensesame_time::DateTime<Utc>,
     scopes: Vec<String>,
 }
 

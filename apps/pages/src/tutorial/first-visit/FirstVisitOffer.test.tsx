@@ -6,6 +6,12 @@ import {
   loadGuidance,
   setGuidanceMode,
 } from "@opensesame/app-core/lib/guidance.js";
+import { clearNotices } from "@opensesame/app-core/lib/notices.js";
+import {
+  dequeueTutorial,
+  listQueuedTutorials,
+  setSessionTutorialsPaused,
+} from "@opensesame/app-core/lib/tutorial-queue.js";
 import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
 import {
   act,
@@ -98,8 +104,11 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   seat.remove();
+  for (const item of listQueuedTutorials()) dequeueTutorial(item.goalId);
   Object.assign(guidanceSeams, originalGuidance);
   Object.assign(firstVisitSeams, originalSeams);
+  setSessionTutorialsPaused(false);
+  clearNotices();
   vi.useRealTimers();
 });
 
@@ -309,6 +318,7 @@ describe("the first-visit offer", () => {
     act(() => set({ route: "/nowhere" }));
     act(() => set({ guide: touring("settings.danger.review") }));
     expect(stops.count).toBe(1);
+    expect(stops.reason).toBe("superseded");
     // It was never seen, so it is still owed to its own screen.
     expect(loadGuidance().tours).toEqual([]);
   });

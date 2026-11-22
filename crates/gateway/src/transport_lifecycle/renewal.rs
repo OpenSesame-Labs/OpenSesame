@@ -27,11 +27,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::OrganizationId;
 use opensesame_lifecycle::LifecycleEvent;
 use opensesame_security_events::{NoticeState, SecurityNotice, Severity};
 use opensesame_storage::StoredManagedCertificate;
+use opensesame_time::{DateTime, Utc};
 
 use crate::app_state::AppState;
 use crate::lifecycle::responders::Outcome;
@@ -163,7 +163,7 @@ impl Scheduler {
             entry.parked = true;
         } else {
             entry.next_attempt_at =
-                now + chrono::Duration::seconds(backoff_seconds(entry.attempts, jitter));
+                now + opensesame_time::Duration::seconds(backoff_seconds(entry.attempts, jitter));
         }
         Some(entry.clone())
     }

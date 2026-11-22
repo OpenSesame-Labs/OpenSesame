@@ -1,12 +1,12 @@
 use crate::credential::{ProtectedResultBuffer, TaskCredentialRecord};
 use crate::TaskAccessError;
-use chrono::{DateTime, Utc};
 use opensesame_domain::{
     AcknowledgementSet, AuthorityContext, Capability, CapabilitySet, CapabilityStateTransition,
     CapabilityStateTransitionId, CapabilityTransitionStatus, CeilingCompilation, CeilingInput,
     DomainError, EnforcementAcknowledgement, MediationPointId, TaskRun, TaskRunId, TaskRunStatus,
     TaskTemplateId,
 };
+use opensesame_time::{DateTime, Utc};
 use std::collections::HashMap;
 
 pub trait TaskStore: Send + Sync {

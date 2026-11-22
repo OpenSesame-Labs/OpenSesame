@@ -3,7 +3,6 @@
 //! `SessionGrant::permits` is the question `shared_session_fence::authorizing_grant`
 //! asks. Expiry is that fence, not a claim that delivered wrapping keys vanish.
 
-use chrono::{Duration, Utc};
 use opensesame_domain::{
     GrantLink, GrantScope, NewSessionGrant, PrincipalId, SessionGrant, SessionGrantId, SessionId,
     SessionRole, VaultId, VaultItemId,
@@ -11,6 +10,7 @@ use opensesame_domain::{
 use opensesame_human_vault::{
     decrypt_item, encrypt_item, AssociatedData, ItemDataKey, ENVELOPE_VERSION,
 };
+use opensesame_time::{Duration, Utc};
 
 #[test]
 fn expiry_denies_fetch_copied_key_still_decrypts() {

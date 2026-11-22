@@ -14,10 +14,10 @@ use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use chrono::{Duration, Utc};
 use opensesame_storage::bitwarden::{
     emergency_status as status, BitwardenCredentials, BitwardenEmergencyAccess, BitwardenUser,
 };
+use opensesame_time::{Duration, Utc};
 use serde_json::{json, Value};
 
 use super::credentials::{self, text, Names};

@@ -15,16 +15,18 @@ pub enum Window {
 
 impl Window {
     pub(super) fn absolute(self) -> (String, String) {
-        let now = chrono::Utc::now();
-        let fmt = |t: chrono::DateTime<chrono::Utc>| t.format("%Y%m%d%H%M%SZ").to_string();
+        let now = opensesame_time::Utc::now();
+        let fmt = |t: opensesame_time::DateTime<opensesame_time::Utc>| {
+            t.format("%Y%m%d%H%M%SZ").to_string()
+        };
         match self {
             Self::Expired => (
-                fmt(now - chrono::Duration::hours(6)),
-                fmt(now - chrono::Duration::hours(1)),
+                fmt(now - opensesame_time::Duration::hours(6)),
+                fmt(now - opensesame_time::Duration::hours(1)),
             ),
             _ => (
-                fmt(now + chrono::Duration::hours(1)),
-                fmt(now + chrono::Duration::hours(6)),
+                fmt(now + opensesame_time::Duration::hours(1)),
+                fmt(now + opensesame_time::Duration::hours(6)),
             ),
         }
     }

@@ -23,7 +23,7 @@ fn valid_signature_accepts() {
         "POST",
         "https://host.example/api/v1/tasks",
         body,
-        chrono::Utc::now().timestamp(),
+        opensesame_time::Utc::now().timestamp(),
     );
     assert!(validator.validate(&signed).is_ok());
 }
@@ -38,7 +38,7 @@ fn mutated_body_rejects() {
         "POST",
         "https://host.example/api/v1/tasks",
         body,
-        chrono::Utc::now().timestamp(),
+        opensesame_time::Utc::now().timestamp(),
     );
     signed.content_digest = content_digest_sha256(b"mutated");
     assert!(validator.validate(&signed).is_err());
@@ -54,7 +54,7 @@ fn replay_signature_with_different_content_rejects() {
         "POST",
         "https://host.example/api/v1/tasks",
         body,
-        chrono::Utc::now().timestamp(),
+        opensesame_time::Utc::now().timestamp(),
     );
     let replay = HttpSignedRequest {
         content_digest: content_digest_sha256(b"different body"),
@@ -97,7 +97,7 @@ fn sign_covering(
 #[test]
 fn a_signature_that_covers_too_little_is_refused() {
     let (signing_key, validator) = fixture();
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
 
     // Each of these verifies arithmetically; none of them binds enough. Without
     // a required set, dropping content-digest leaves the body free to change
@@ -135,7 +135,7 @@ fn a_future_dated_signature_is_refused() {
         "POST",
         "https://host.example/api/v1/tasks",
         b"{}",
-        chrono::Utc::now().timestamp() + 3_600,
+        opensesame_time::Utc::now().timestamp() + 3_600,
     );
     let err = validator.validate(&signed).unwrap_err();
     assert!(

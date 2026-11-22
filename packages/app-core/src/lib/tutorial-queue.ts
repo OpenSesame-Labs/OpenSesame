@@ -1,0 +1,304 @@
+/**
+ * Queued walkthroughs and the session pause beside them (ADR 0221).
+ *
+ * The device KV keeps registry goal ids only — the same shape as
+ * `guidance.v1`, and the same line: no question, no route, no transcript.
+ * Whether every other tour stays quiet is this tab's alone, in
+ * sessionStorage, so a reload lets tours speak again and the queue is
+ * still there.
+ */
+
+import {
+  type BoundaryValue,
+  isJsonObject,
+  isString,
+} from "@opensesame/os-domain";
+import { maybeSessionStore } from "../ports.js";
+import type { GuideGoalDescriptor } from "../tutorial/registry/goal-types.js";
+import { guideGoal } from "../tutorial/registry/goals.js";
+import { subscribeContributions } from "./contributions.js";
+import { kvGet, kvSet, kvSetDurable } from "./kv.js";
+import { hideToast } from "./notice-toast.js";
+import { dismissNotice } from "./notices.js";
+
+export const TUTORIAL_QUEUE_KEY = "tutorial-queue.v1";
+
+/** Owned by the `opensesame.` session prefix. Cleared when the tab reloads. */
+export const SESSION_TUTORIALS_PAUSED_KEY = "opensesame.tutorials.paused";
+
+export const TUTORIAL_PAUSE_NOTICE = "tutorial.pause.session";
+
+const ID = /^[a-z0-9][a-z0-9._-]{0,79}$/;
+export const TUTORIAL_QUEUE_LIMIT = 80;
+const LIMIT = TUTORIAL_QUEUE_LIMIT;
+const TITLE_LIMIT = 400;
+
+export type QueuedTutorial = Readonly<{ goalId: string }>;
+
+/** Accepted at the boundary and not stored. A huge title is refused. */
+export type TutorialQueueMeta = Readonly<{ title: string }>;
+
+export type TutorialResumeStart = (
+  goalId: string,
+  guide: string,
+  homeRoute: string,
+) => boolean;
+
+type PauseListener = () => void;
+
+const pauseListeners = new Set<PauseListener>();
+let cache: { raw: string | null; goals: readonly string[] } | null = null;
+
+// Optional tutorial goals register after first read; invalidate so parse reruns.
+subscribeContributions(() => {
+  cache = null;
+});
+
+function sessionGetDefault(): string | null {
+  try {
+    return maybeSessionStore()?.getItem(SESSION_TUTORIALS_PAUSED_KEY) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function sessionSetDefault(value: string | null): void {
+  try {
+    const store = maybeSessionStore();
+    if (!store) return;
+    if (value === null) store.removeItem(SESSION_TUTORIALS_PAUSED_KEY);
+    else store.setItem(SESSION_TUTORIALS_PAUSED_KEY, value);
+  } catch {
+    // Private mode keeps no pause. Tours speak, which is the safe direction.
+  }
+}
+
+function resumeUnwired(): boolean {
+  return false;
+}
+
+function writeQueue(value: string): void {
+  kvSet(TUTORIAL_QUEUE_KEY, value);
+  void kvSetDurable(TUTORIAL_QUEUE_KEY, value).catch(() => {
+    /* memory stays until the tab goes */
+  });
+}
+
+export const tutorialQueueSeams = {
+  read: (): string | null => kvGet(TUTORIAL_QUEUE_KEY),
+  write: writeQueue,
+  sessionGet: sessionGetDefault,
+  sessionSet: sessionSetDefault,
+};
+
+type TutorialResumeSeams = { start: TutorialResumeStart };
+
+export const tutorialResumeSeams: TutorialResumeSeams = {
+  start: resumeUnwired,
+};
+
+const resumeBindings: TutorialResumeStart[] = [];
+
+function syncResumeBinding(): void {
+  const active = resumeBindings[resumeBindings.length - 1] ?? resumeUnwired;
+  tutorialResumeSeams.start = active;
+}
+
+/** Install the support controller's resume. The returned function detaches it. */
+export function bindTutorialResume(start: TutorialResumeStart): () => void {
+  resumeBindings.push(start);
+  syncResumeBinding();
+  return () => {
+    const index = resumeBindings.lastIndexOf(start);
+    if (index === -1) return;
+    resumeBindings.splice(index, 1);
+    syncResumeBinding();
+  };
+}
+
+function readStoredIds(value: BoundaryValue | undefined): string[] {
+  if (!Array.isArray(value)) return [];
+  const ids: string[] = [];
+  for (const entry of value) {
+    if (!isString(entry) || !ID.test(entry) || ids.includes(entry)) continue;
+    ids.push(entry);
+  }
+  return ids.slice(-LIMIT);
+}
+
+function parseStoredGoalIds(raw: string | null): readonly string[] {
+  if (!raw) return [];
+  try {
+    const parsed: BoundaryValue = JSON.parse(raw);
+    if (!isJsonObject(parsed)) return [];
+    return readStoredIds(parsed.goals);
+  } catch {
+    return [];
+  }
+}
+
+function loadStoredGoalIds(): readonly string[] {
+  let raw: string | null = null;
+  try {
+    raw = tutorialQueueSeams.read();
+  } catch {
+    raw = null;
+  }
+  if (cache !== null && cache.raw === raw) return cache.goals;
+  const goals = parseStoredGoalIds(raw);
+  cache = { raw, goals };
+  return goals;
+}
+
+/** Goals the live registry still exposes — presentation and resume only. */
+function loadGoals(): readonly string[] {
+  return loadStoredGoalIds().filter((goalId) => guideGoal(goalId) !== null);
+}
+
+export function dropQueueNotice(goalId: string): void {
+  const id = tutorialQueueNoticeId(goalId);
+  dismissNotice(id);
+  hideToast(id);
+}
+
+function store(goals: readonly string[]): void {
+  const previous = loadStoredGoalIds();
+  const raw = JSON.stringify({ goals });
+  cache = { raw, goals };
+  try {
+    tutorialQueueSeams.write(raw);
+  } catch {
+    // A browser that cannot keep the queue offers the tour from the library.
+  }
+  for (const goalId of previous) {
+    if (!goals.includes(goalId)) dropQueueNotice(goalId);
+  }
+}
+
+/**
+ * Where a resumed tour should be standing. Feature and integration tours
+ * belong to their settings pages; every other tour uses its first route.
+ */
+export function tutorialHomeRoute(goal: GuideGoalDescriptor): string {
+  if (goal.id.startsWith("feature.")) return "/settings/features";
+  if (goal.id.startsWith("integration.")) return "/settings/integrations";
+  return goal.routes[0] ?? "";
+}
+
+export function tutorialQueueNoticeId(goalId: string): string {
+  return `tutorial.queue.${goalId}`;
+}
+
+/**
+ * Remember a registry goal. Already queued is success; a full queue refuses
+ * rather than evicting the oldest. Titles are not kept.
+ */
+export function queueTutorial(
+  goalId: string,
+  meta: TutorialQueueMeta,
+): boolean {
+  if (meta.title.length > TITLE_LIMIT) return false;
+  if (!ID.test(goalId) || guideGoal(goalId) === null) return false;
+  const current = loadStoredGoalIds();
+  if (current.includes(goalId)) return true;
+  if (current.length >= LIMIT) return false;
+  store([...current, goalId]);
+  return true;
+}
+
+export function dequeueTutorial(goalId: string): void {
+  if (!ID.test(goalId)) return;
+  const current = loadStoredGoalIds();
+  if (!current.includes(goalId)) return;
+  store(current.filter((id) => id !== goalId));
+}
+
+export function listQueuedTutorials(): readonly QueuedTutorial[] {
+  return loadGoals().map((goalId) => ({ goalId }));
+}
+
+/** Durable ids in storage, including optional goals not currently registered. */
+export function storedQueuedGoalIds(): readonly string[] {
+  return loadStoredGoalIds();
+}
+
+/**
+ * Replace or extend the queue; keeps stored ids when contributions are
+ * unloaded. At the limit, ids not already stored are refused rather than
+ * evicting the oldest.
+ */
+export function setQueuedTutorials(goalIds: readonly string[]): void {
+  const prior = loadStoredGoalIds();
+  const merged = new Set(prior);
+  for (const goalId of goalIds) {
+    if (!ID.test(goalId)) continue;
+    if (guideGoal(goalId) === null && !prior.includes(goalId)) continue;
+    if (merged.size >= LIMIT && !merged.has(goalId)) continue;
+    merged.add(goalId);
+  }
+  store([...merged]);
+}
+
+export function sessionTutorialsPaused(): boolean {
+  return tutorialQueueSeams.sessionGet() === "1";
+}
+
+export function setSessionTutorialsPaused(paused: boolean): void {
+  if (sessionTutorialsPaused() === paused) return;
+  tutorialQueueSeams.sessionSet(paused ? "1" : null);
+  for (const listener of [...pauseListeners]) listener();
+}
+
+/**
+ * A new document ends the pause. Navigation inside the tab does not load
+ * this again, so the flag survives there and a reload lets tours speak.
+ */
+export function forgetSessionTutorialPause(): void {
+  const wasPaused = tutorialQueueSeams.sessionGet() === "1";
+  tutorialQueueSeams.sessionSet(null);
+  if (wasPaused) {
+    for (const listener of [...pauseListeners]) listener();
+  }
+}
+
+export function subscribeSessionTutorialsPaused(
+  listener: PauseListener,
+): () => void {
+  pauseListeners.add(listener);
+  return () => {
+    pauseListeners.delete(listener);
+  };
+}
+
+/** Auto and offer stay quiet while guidance is off or this session is paused. */
+export function tutorialsMaySpeak(mode: string, paused: boolean): boolean {
+  return mode !== "off" && !paused;
+}
+
+/**
+ * The notification's resume: drop the queue row and hand the tour to whoever
+ * bound `tutorialResumeSeams`. Allowed while paused and while guidance is off.
+ */
+export function resumeTutorialFromNotice(goalId: string): boolean {
+  const goal = guideGoal(goalId);
+  if (goal === null || !loadGoals().includes(goalId)) return false;
+  const accepted = tutorialResumeSeams.start(
+    goal.id,
+    goal.guide,
+    tutorialHomeRoute(goal),
+  );
+  if (!accepted) return false;
+  dequeueTutorial(goalId);
+  dropQueueNotice(goalId);
+  return true;
+}
+
+/**
+ * Completed elsewhere — drop the queue row when the tour is finished.
+ * The contribution may already be unloaded, so this follows the stored id,
+ * not the live registry.
+ */
+export function completeQueuedTutorial(goalId: string): void {
+  dequeueTutorial(goalId);
+  dropQueueNotice(goalId);
+}

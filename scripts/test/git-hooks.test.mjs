@@ -22,8 +22,10 @@ function fixture(t) {
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const bin = join(dir, "bin");
   const log = join(dir, "commands.log");
+  const inputLog = join(dir, "input.log");
   mkdirSync(bin);
   writeFileSync(log, "");
+  writeFileSync(inputLog, "");
   for (const hook of ["pre-commit", "pre-push"]) {
     const target = join(dir, ".githooks", hook);
     mkdirSync(dirname(target), { recursive: true });
@@ -39,6 +41,10 @@ function fixture(t) {
       tool,
       `test -z "\${NODE_OPTIONS:-}" || exit 98
 printf '%s\\n' "${tool} $*" >> "$HOOK_LOG"
+case "${tool} $*" in
+  "node scripts/security/exposure-matrix-gate.mjs --push-refs"|"node scripts/security/formal-proof-push-gate.mjs"*)
+    cat >> "$HOOK_INPUT_LOG"; printf '%s\\n' END >> "$HOOK_INPUT_LOG" ;;
+esac
 test "\${HOOK_FAIL:-}" != "${tool} $*" || exit 17`,
     );
   }
@@ -59,22 +65,28 @@ esac`,
   writeFileSync(scanner, "exit 0\n");
   return {
     dir,
-    run(hook = "pre-push", env = {}) {
+    run(hook = "pre-push", env = {}, input = "") {
       const inherited = { ...process.env };
       inherited.OPENSESAME_PREPUSH = undefined;
       inherited.LINT_SINCE = undefined;
       const result = spawnSync("sh", [join(dir, ".githooks", hook)], {
         cwd: dir,
         encoding: "utf8",
+        input,
         env: {
           ...inherited,
           PATH: `${bin}:${process.env.PATH}`,
           HOOK_LOG: log,
+          HOOK_INPUT_LOG: inputLog,
           NODE_OPTIONS: "--invalid-inherited-option",
           ...env,
         },
       });
-      return { ...result, commands: readFileSync(log, "utf8") };
+      return {
+        ...result,
+        commands: readFileSync(log, "utf8"),
+        inputs: readFileSync(inputLog, "utf8"),
+      };
     },
   };
 }
@@ -84,6 +96,7 @@ test("ordinary pushes run static checks and typechecking without test suites", (
   assert.equal(result.status, 0, result.stderr);
   for (const command of [
     "node scripts/security/exposure-matrix-gate.mjs --push-refs",
+    "node scripts/security/formal-proof-push-gate.mjs",
     "node scripts/quality/evidence-gate.mjs",
     "node scripts/quality/repository-size-gate.mjs",
     "node scripts/dev/sync-agent-skills.mjs --check",
@@ -152,16 +165,36 @@ test("full verification stays an explicit local opt-in", (t) => {
   assert.doesNotMatch(result.commands, /npm run typecheck/);
 });
 
-test("off skips optional checks but still enforces exposure policy; unknown modes fail", (t) => {
-  const disabled = fixture(t).run("pre-push", { OPENSESAME_PREPUSH: "off" });
+test("off skips optional checks but still enforces exposure and formal policy; unknown modes fail", (t) => {
+  const refs = `refs/heads/main ${"a".repeat(40)} refs/heads/main ${"b".repeat(40)}\n`;
+  const disabled = fixture(t).run(
+    "pre-push",
+    { OPENSESAME_PREPUSH: "off" },
+    refs,
+  );
   assert.equal(disabled.status, 0, disabled.stderr);
   assert.equal(
     disabled.commands,
-    "node scripts/security/exposure-matrix-gate.mjs --push-refs\n",
+    "node scripts/security/exposure-matrix-gate.mjs --push-refs\nnode scripts/security/formal-proof-push-gate.mjs\n",
   );
+  assert.equal(disabled.inputs, `${refs}END\n${refs}END\n`);
   const invalid = fixture(t).run("pre-push", { OPENSESAME_PREPUSH: "typo" });
   assert.equal(invalid.status, 1);
   assert.equal(invalid.commands, "");
+});
+
+test("formal proof failure stops every push mode before optional checks", (t) => {
+  for (const mode of ["off", "fast", "full"]) {
+    const result = fixture(t).run("pre-push", {
+      OPENSESAME_PREPUSH: mode,
+      HOOK_FAIL: "node scripts/security/formal-proof-push-gate.mjs",
+    });
+    assert.equal(result.status, 17);
+    assert.equal(
+      result.commands,
+      "node scripts/security/exposure-matrix-gate.mjs --push-refs\nnode scripts/security/formal-proof-push-gate.mjs\n",
+    );
+  }
 });
 
 test("exposure failure stops every push mode before optional checks", (t) => {

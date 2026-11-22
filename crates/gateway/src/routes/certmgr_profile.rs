@@ -299,7 +299,7 @@ pub async fn create(
         Err(error) => return internal(error, "serialize profile defaults"),
     };
 
-    let now = chrono::Utc::now().to_rfc3339();
+    let now = opensesame_time::Utc::now().to_rfc3339();
     let row = StoredCertificateProfile {
         id: format!("certificate-profile:{}", uuid::Uuid::now_v7()),
         organization_id: organization.clone(),
@@ -603,7 +603,7 @@ mod tests {
     /// opaque bytes; no route in this module ever reads them.
     async fn seed_authority(state: &AppState, organization: &str, tag: &str) -> String {
         let id = format!("certificate-authority:{tag}");
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = opensesame_time::Utc::now().to_rfc3339();
         state
             .db
             .insert_certificate_authority(&StoredCertificateAuthority {
@@ -834,7 +834,7 @@ mod tests {
         .await;
         let profile_id = created["id"].as_str().unwrap().to_string();
 
-        let now = chrono::Utc::now().to_rfc3339();
+        let now = opensesame_time::Utc::now().to_rfc3339();
         state
             .db
             .insert_pki_application(&opensesame_storage::StoredPkiApplication {

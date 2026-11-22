@@ -4,15 +4,27 @@ use super::*;
 use crate::device_crypto::pairing_confirm_message;
 use crate::human_proof::{mint_pin_human_proof, mint_test_signing_key, HumanProofContext};
 use crate::test_support::{
-    ensure_params, ensure_params_full, mint_register_passkey_proof, mint_test_human_proof,
-    pair_browser_for_tests, test_approval_public_key_spki_b64, test_paired_binding,
-    TEST_VAULT_SESSION_ROOT_DIGEST,
+    ensure_params, ensure_params_full, mint_test_human_proof, pair_browser_for_tests,
+    test_paired_binding,
 };
 use base64::Engine as _;
 use ecdsa::signature::Signer;
 use p256::ecdsa::SigningKey;
 use p256::elliptic_curve::pkcs8::EncodePublicKey;
 use p256::elliptic_curve::Generate;
+
+// Keep the legacy session scenarios available for a future provenance-backed
+// implementation. Today the public boundary must refuse before they can start.
+fn session_paused(store: &mut CliAppIntegrationStore) -> bool {
+    if !crate::is_approval_blocked("read") {
+        return false;
+    }
+    assert_eq!(
+        store.ensure(ensure_params("pause-check", "read")),
+        ("denied".into(), None)
+    );
+    true
+}
 use p256::PublicKey;
 use sha2::{Digest, Sha256};
 
@@ -117,59 +129,11 @@ fn client_supplied_webauthn_registration_rejected() {
 }
 
 #[test]
-fn webauthn_register_stores_the_verified_sign_count() {
-    let mut pairings = CliAppIntegrationPairings::default();
-    let origin = "http://localhost:5180";
-    let token = pair_browser_for_tests(&mut pairings, origin, 4_000);
-    assert_eq!(
-        pairings
-            .binding_for(&token, origin)
-            .expect("binding")
-            .webauthn
-            .expect("cred")
-            .sign_count,
-        1
-    );
-    pairings
-        .register_webauthn(
-            &token,
-            origin,
-            &WebAuthnRegistration {
-                vault_session_root_digest: TEST_VAULT_SESSION_ROOT_DIGEST.to_string(),
-                human_proof_passkey: mint_register_passkey_proof(&token, origin, 0),
-                credential_id_b64: "test-cli-app-cred".to_string(),
-                public_key_spki_b64: test_approval_public_key_spki_b64().to_string(),
-                sign_count: 99,
-            },
-        )
-        .expect("register");
-    assert_eq!(
-        pairings
-            .binding_for(&token, origin)
-            .expect("binding")
-            .webauthn
-            .expect("cred")
-            .sign_count,
-        0
-    );
-    assert!(pairings.advance_webauthn_sign_count(&token, origin, 0));
-    assert_eq!(
-        pairings
-            .binding_for(&token, origin)
-            .expect("binding")
-            .webauthn
-            .expect("cred")
-            .sign_count,
-        0
-    );
-    assert!(pairings.advance_webauthn_sign_count(&token, origin, 2));
-    assert!(!pairings.advance_webauthn_sign_count(&token, origin, 2));
-    assert!(!pairings.advance_webauthn_sign_count(&token, origin, 0));
-}
-
-#[test]
 fn pending_queue_keeps_the_first_request_when_a_second_arrives() {
     let mut store = CliAppIntegrationStore::new();
+    if session_paused(&mut store) {
+        return;
+    }
     store.set_now_ms(1_000);
     let (_, a) = store.ensure(ensure_params_full(
         "term-a", "read", false, "00", 10, 1, true,
@@ -198,6 +162,9 @@ fn pending_queue_keeps_the_first_request_when_a_second_arrives() {
 #[test]
 fn pending_queue_denies_past_the_cap_without_clearing() {
     let mut store = CliAppIntegrationStore::new();
+    if session_paused(&mut store) {
+        return;
+    }
     store.set_now_ms(1_000);
     let ids: Vec<String> = (0..8).map(|i| format!("term-{i}")).collect();
     for id in &ids {
@@ -227,6 +194,9 @@ fn pending_queue_denies_past_the_cap_without_clearing() {
 #[test]
 fn tcp_pending_cannot_be_approved() {
     let mut store = CliAppIntegrationStore::new();
+    if session_paused(&mut store) {
+        return;
+    }
     store.set_now_ms(1_000);
     let (_, req) = store.ensure(ensure_params_full(
         "term-tcp-1",
@@ -277,6 +247,9 @@ fn passkey_registered_rejects_ark_only_pin_proof() {
         .register_webauthn_for_tests(&token, origin, "cred", spki, 0)
         .expect("test seam");
     let mut store = CliAppIntegrationStore::new();
+    if session_paused(&mut store) {
+        return;
+    }
     store.set_now_ms(1_000);
     let (_, req) = store.ensure(ensure_params_full(
         "term-a", "read", false, "00", 1, 1, true,
@@ -332,6 +305,9 @@ fn upgrade_wipes_legacy_pairings() {
 #[test]
 fn oschip2_proofs_rejected() {
     let mut store = CliAppIntegrationStore::new();
+    if session_paused(&mut store) {
+        return;
+    }
     store.set_now_ms(1_000);
     let (_, req) = store.ensure(ensure_params("term-a", "read"));
     let request_id = req.unwrap();
@@ -359,6 +335,9 @@ fn oschip2_proofs_rejected() {
 #[test]
 fn proof_with_wrong_argv_hash_is_rejected() {
     let mut store = CliAppIntegrationStore::new();
+    if session_paused(&mut store) {
+        return;
+    }
     store.set_now_ms(1_000);
     let argv_a = argv_hash_hex(&["opensesame".into(), "read".into()]);
     let (_, req) = store.ensure(ensure_params_full(

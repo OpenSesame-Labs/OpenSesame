@@ -130,11 +130,9 @@ already inherits from `vault_collection`.
 Refusal is enforced above the model, in the domain and in host-core, because
 subtraction is not what an additive relation graph is for.
 
-Additivity is currently an **assertion in prose**. It becomes a claim when
-`GA-F-03` builds a harness that replays baseline checks against the delta.
-Nobody should describe the delta as additive before that harness runs.
-Rationale and the full argument:
-[`compatibility-map.md`](../implementation/general-authority/compatibility-map.md).
+Additivity is enforced by the retained completion matrix, contract registry,
+and cross-plane scenario gates. Nobody should describe the delta as additive
+without those current checks.
 
 ### 5. Expiry publishes on the lifecycle feed
 
@@ -204,5 +202,5 @@ budget outright (ADR 0093).
 - [general authority (architecture stub)](../architecture/general-authority.md)
 - [ownership matrix](../implementation/general-authority/ownership.md)
 - [contract registry](../implementation/general-authority/contract-registry.json)
-- [repository baseline](../implementation/general-authority/repository-baseline.md)
 - [compatibility map](../implementation/general-authority/compatibility-map.md)
+- [completion matrix](../implementation/general-authority/completion-matrix.json)

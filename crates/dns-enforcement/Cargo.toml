@@ -10,7 +10,7 @@ name = "opensesame_dns_enforcement"
 path = "src/lib.rs"
 
 [dependencies]
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

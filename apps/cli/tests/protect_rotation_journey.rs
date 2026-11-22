@@ -14,6 +14,15 @@ mod terminal_person;
 
 const PASSPHRASE: &str = "correct horse battery staple";
 
+fn git_bin() -> PathBuf {
+    let path = std::env::var_os("PATH").expect("test PATH");
+    std::env::split_paths(&path)
+        .map(|directory| directory.join("git"))
+        .find(|candidate| candidate.is_file())
+        .and_then(|candidate| candidate.canonicalize().ok())
+        .expect("absolute git executable")
+}
+
 fn run_with(store: &Path, password: &str, args: &[&str], stdin: &str) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_opensesame"));
     command
@@ -21,6 +30,14 @@ fn run_with(store: &Path, password: &str, args: &[&str], stdin: &str) -> Output 
         .arg("--path")
         .arg(store)
         .env("OPENSESAME_STORE_PASSWORD", password)
+        .env(
+            "OPENSESAME_TEST_ROLLBACK_WITNESS_DIR",
+            store
+                .parent()
+                .expect("fixture store parent")
+                .join("witness"),
+        )
+        .env("OPENSESAME_GIT", git_bin())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped());
@@ -96,6 +113,14 @@ fn person_command(store: &Path, password: &str, args: &[&str]) -> Command {
         .arg("--path")
         .arg(store)
         .env("OPENSESAME_STORE_PASSWORD", password)
+        .env(
+            "OPENSESAME_TEST_ROLLBACK_WITNESS_DIR",
+            store
+                .parent()
+                .expect("fixture store parent")
+                .join("witness"),
+        )
+        .env("OPENSESAME_GIT", git_bin())
         .env("GIT_AUTHOR_NAME", "Test")
         .env("GIT_AUTHOR_EMAIL", "test@example.com")
         .env("GIT_COMMITTER_NAME", "Test")
@@ -107,15 +132,28 @@ fn person_command(store: &Path, password: &str, args: &[&str]) -> Command {
 /// Portable stored-data checks; these do not certify Windows terminal reveal.
 fn stored_entry(store: &Path, password: &str) -> Result<String, StoreError> {
     let key = unlock_store_key(store, password.as_bytes())?;
-    StoreRoot::open(store)?
-        .show("Dev/token", &key)
-        .map(|entry| entry.render())
+    StoreRoot::open_with_test_witness_root(
+        store,
+        store
+            .parent()
+            .expect("fixture store parent")
+            .join("witness"),
+    )?
+    .show("Dev/token", &key)
+    .map(|entry| entry.render())
 }
 
 fn stored_document(store: &Path, password: &str) -> Result<Vec<u8>, StoreError> {
     let key = unlock_store_key(store, password.as_bytes())?;
     let mut bytes = Vec::new();
-    StoreRoot::open(store)?.attach_get("Taxes/w2", &mut bytes, &key)?;
+    StoreRoot::open_with_test_witness_root(
+        store,
+        store
+            .parent()
+            .expect("fixture store parent")
+            .join("witness"),
+    )?
+    .attach_get("Taxes/w2", &mut bytes, &key)?;
     Ok(bytes)
 }
 

@@ -12,7 +12,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
-use chrono::Utc;
+use opensesame_time::Utc;
 use serde_json::{json, Value};
 
 use super::test_support::*;

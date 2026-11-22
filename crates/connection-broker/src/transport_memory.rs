@@ -123,7 +123,7 @@ impl ClientIdentityResolver for MemoryTransportResolver {
         if !entry.purposes.contains(&scope.purpose) {
             return Err(TransportError::PeerDisallowed);
         }
-        if !entry.identity.is_valid_at(chrono::Utc::now()) {
+        if !entry.identity.is_valid_at(opensesame_time::Utc::now()) {
             return Err(TransportError::EvidenceExpired);
         }
         Ok(Arc::clone(&entry.identity))

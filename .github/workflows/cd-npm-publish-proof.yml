@@ -20,6 +20,10 @@ on:
       - "scripts/release/cd-production-npm-version.mjs"
       - "scripts/release/cd-production-npm-version.test.mjs"
       - "scripts/release/npm-cd-publish-dry-run-proof.mjs"
+      - "scripts/release/npm-local-package-smoke.mjs"
+      - "scripts/release/npm-local-package-smoke.test.mjs"
+      - "scripts/release/plan-local-proof.test.mjs"
+      - "scripts/release/npm-cd-workflows.test.mjs"
       - "scripts/release/npm-prerelease-version.mjs"
       - "scripts/release/npm-publish-names.mjs"
       - "scripts/release/pages-pwa-serve.mjs"
@@ -70,7 +74,7 @@ jobs:
           CACHE_PRIMARY_KEY: ${{ steps.mise-cache.outputs.cache-primary-key }}
           MAIN_SEED_PREFIX: mise-v2-${{ runner.os }}-seed-main-node-24-,mise-v1-linux-
         run: node scripts/lib/ci-cache-seed.mjs
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: true
           cache_save: false
@@ -135,7 +139,7 @@ jobs:
           CACHE_PRIMARY_KEY: ${{ steps.npm-cache.outputs.cache-primary-key }}
           MAIN_SEED_PREFIX: npm-download-v2-${{ runner.os }}-seed-main-
         run: node scripts/lib/ci-cache-seed.mjs
-      - run: node --test scripts/release/npm-cd-workflows.test.mjs scripts/release/cd-production-npm-version.test.mjs
+      - run: node --test scripts/release/npm-cd-workflows.test.mjs scripts/release/cd-production-npm-version.test.mjs scripts/release/npm-local-package-smoke.test.mjs scripts/release/plan-local-proof.test.mjs
       - name: npm publish dry-run (alpha and production next)
         env:
           NPM_CD_DRY_RUN_LOG: ${{ runner.temp }}/npm-cd-dry-run-proof.log

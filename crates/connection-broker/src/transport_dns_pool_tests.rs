@@ -185,7 +185,7 @@ async fn mtls_pool_moves_to_the_new_dns_answer_and_reuses_identical_answers() {
         identity_required: true,
         ..GenerationCandidate::default()
     }
-    .into_generation(1, chrono::Utc::now())
+    .into_generation(1, opensesame_time::Utc::now())
     .unwrap();
     let generations = TransportGenerations::new(generation);
     let (a, a_server) = mtls_listener(

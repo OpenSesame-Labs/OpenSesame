@@ -1,9 +1,7 @@
 import assert from "node:assert/strict";
-import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import * as nodeTest from "node:test";
-import { imageLeaf, probePlan } from "../ci/oci-image-smoke.mjs";
 import { repoRootFromHere } from "./ci-changed-areas.mjs";
 
 const { describe, it } =
@@ -16,54 +14,48 @@ const workflow = readFileSync(
 );
 const ci = readFileSync(join(root, ".github/workflows/ci.yml"), "utf8");
 
-/** Triggers, the 10 minute cap, concurrency, permissions and the publish switch. */
+/** Proof triggers, budget and absence of registry authority. */
 function assertTriggersAndPublishGuards() {
   assert.match(workflow, /branches: \[main\]/);
-  assert.match(workflow, /tags: \["v\*"\]/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /schedule:\n/);
+  assert.match(workflow, /cron: "17 11 \*\/3 \* \*"/);
+  assert.match(workflow, /\n {2}schedule:\n {4}- cron: "17 11 \*\/3 \* \*"/);
+  assert.match(
+    workflow,
+    /schedule runs on default branch only, proof-only \(publication-disabled\), no registry push/,
+  );
+  assert.doesNotMatch(workflow, /tags: \["v\*"\]/);
   assert.doesNotMatch(workflow, /pull_request/);
   assert.doesNotMatch(workflow, /continue-on-error/);
   const timeouts = [...workflow.matchAll(/timeout-minutes:\s*(\d+)/g)].map(
     (match) => match[1],
   );
   assert.deepEqual([...new Set(timeouts)], ["10"]);
-  assert.doesNotMatch(workflow, /timeout-minutes:\s*(?:45|120)/);
   assert.match(workflow, /ops\/containers\/\*\*/);
   assert.match(workflow, /ops\/compose\/Dockerfile/);
-  assert.match(workflow, /\.github\/workflows\/cd-ghcr-publish\.yml/);
-  assert.match(
-    workflow,
-    /github\.event_name == 'workflow_dispatch' && github\.ref != 'refs\/heads\/main' && format\('cd-ghcr-publish-dispatch-\{0\}', github\.ref\) \|\| format\('cd-ghcr-publish-prod-\{0\}', github\.ref\)/,
-  );
+  assert.match(workflow, /group: ghcr-image-proof-\$\{\{ github\.ref \}\}/);
   assert.match(workflow, /cancel-in-progress: true/);
-  assert.doesNotMatch(workflow, /cancel-in-progress: false/);
-  assert.doesNotMatch(workflow, /group: cd-ghcr-publish\s*$/m);
   assert.match(workflow, /contents: read/);
-  assert.match(workflow, /packages: write/);
-  assert.match(workflow, /id-token: write/);
-  assert.match(workflow, /attestations: write/);
-  assert.match(workflow, /PUBLISH_GHCR:/);
-  assert.match(workflow, /push: \$\{\{ env\.PUBLISH_GHCR == 'true' \}\}/);
-  assert.match(workflow, /load: \$\{\{ env\.PUBLISH_GHCR != 'true' \}\}/);
-  assert.match(workflow, /oci-image-smoke\.mjs/);
-  assert.match(
+  assert.doesNotMatch(workflow, /packages:\s*write/);
+  assert.doesNotMatch(workflow, /id-token:\s*write/);
+  assert.doesNotMatch(
     workflow,
-    /if: needs\.images\.result == 'success' && needs\['opensesame-amd64'\]\.result == 'success' && \(github\.ref == 'refs\/heads\/main' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\)\)/,
+    /docker\/login-action|docker push|imagetools create/,
   );
-  assert.match(workflow, /provenance: \$\{\{ env\.PUBLISH_GHCR == 'true' \}\}/);
-  assert.match(workflow, /password: \$\{\{ secrets\.GITHUB_TOKEN \}\}/);
-  assert.match(workflow, /GHCR_PUBLISH_TOKEN/);
-  assert.match(workflow, /container-release/);
-  assert.match(workflow, /ghcr\.io\/opensesame-labs/);
-  assert.match(workflow, /:next/);
-  assert.match(workflow, /:sha-/);
-  assert.match(workflow, /:latest/);
+  assert.match(workflow, /push: false/);
+  assert.match(workflow, /load: true/);
+  assert.match(workflow, /oci-image-smoke\.mjs/);
+  assert.match(workflow, /GHCR publication disabled/);
 }
 
 /** The image matrix: per-image caches, amd64-only native images, and their ids. */
 function assertImageMatrix() {
-  for (const name of ["opensesame", "cli", "web-pwa", "control-plane"]) {
+  for (const name of ["cli", "control-plane"]) {
     assert.match(workflow, new RegExp(`name: ${name}`));
   }
+  assert.match(workflow, /opensesame-amd64:/);
+  assert.match(workflow, /web-pwa-amd64:/);
   assert.match(workflow, /cache-from: type=gha,scope=\$\{\{ matrix\.id \}\}/);
   assert.match(
     workflow,
@@ -80,10 +72,6 @@ function assertImageMatrix() {
   );
   assert.doesNotMatch(images, /id: opensesame-amd64\b/);
   assert.doesNotMatch(images, /ops\/compose\/Dockerfile/);
-  assert.match(
-    workflow,
-    /name: opensesame\n {12}file: ops\/compose\/Dockerfile\n {12}platforms: amd64\n/,
-  );
   assert.match(workflow, /web-pwa-tailscale-wasm:/);
   assert.match(workflow, /loadTailscaleAssets/);
   assert.match(workflow, /target: runtime-from-prebuilt\n/);
@@ -101,10 +89,6 @@ function assertImageMatrix() {
     workflow,
     /web-pwa-amd64:[\s\S]*?target: runtime\n[\s\S]*?platforms: linux\/amd64/,
   );
-  assert.match(
-    workflow,
-    /name: web-pwa\n {12}file: ops\/containers\/web-pwa\/Dockerfile\n {12}platforms: amd64\n/,
-  );
 }
 
 /** web-pwa builds its runtime target on amd64 from the tailscale artifact. */
@@ -119,7 +103,7 @@ function assertWebPwaAmd64Build() {
   );
   const webPwaAmd64 = workflow.slice(
     workflow.indexOf("  web-pwa-amd64:"),
-    workflow.indexOf("  manifests:"),
+    workflow.indexOf("  publication-disabled:"),
   );
   assert.match(webPwaAmd64, /needs: web-pwa-tailscale-wasm/);
   assert.match(webPwaAmd64, /web-pwa-tailscale-distributions/);
@@ -140,22 +124,6 @@ function assertWebPwaAmd64Build() {
     /ARG PREBUILT_IMAGE\nFROM --platform=linux\/amd64 \$\{PREBUILT_IMAGE\}/,
   );
   assert.match(webPwaDockerfile, /--target runtime -t web-pwa:local \./);
-}
-
-/** The manifest job waits for every image job and only runs on main or a tag. */
-function assertManifestJob() {
-  assert.match(workflow, /docker buildx imagetools create/);
-  assert.match(workflow, /name: Manifest \$\{\{ matrix\.name \}\}/);
-  assert.match(
-    workflow,
-    /needs: \[images, opensesame-amd64, web-pwa-tailscale-wasm, web-pwa-amd64\]/,
-  );
-  assert.doesNotMatch(workflow, /needs\['web-pwa-arm64'\]/);
-  assert.match(
-    workflow,
-    /if: needs\.images\.result == 'success' && needs\['opensesame-amd64'\]\.result == 'success' && \(github\.ref == 'refs\/heads\/main' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\)\) && needs\['web-pwa-amd64'\]\.result == 'success'/,
-  );
-  assert.match(workflow, /if: needs\.images\.result == 'success'/);
 }
 
 /** The runner job that compiles the opensesame binary with pinned tools and caches. */
@@ -182,32 +150,51 @@ function assertRunnerRustBuild(rust) {
   assert.doesNotMatch(rust, /actions\/cache\/save@/);
   assert.doesNotMatch(rust, /install_args:/);
   assert.doesNotMatch(rust, /\n\s+cache: false\n/);
-  assert.match(
-    rust,
-    /Swatinem\/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2/,
+  assert.equal(
+    rust.match(
+      /Swatinem\/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2/g,
+    )?.length,
+    1,
   );
   assert.match(rust, /prefix-key: v0-rust\n/);
-  assert.match(rust, /shared-key: ghcr-opensesame-amd64\n/);
+  assert.match(rust, /shared-key: ghcr-opensesame-amd64-musl\n/);
+  assert.match(rust, /cache-all-crates: true\n/);
   assert.match(rust, /cache-on-failure: true\n/);
   assert.match(
     rust,
-    /save-if: \$\{\{ github\.event_name == 'workflow_dispatch' \|\| github\.ref == 'refs\/heads\/main' \}\}\n/,
+    /save-if: \$\{\{ github\.ref == 'refs\/heads\/main' && \(github\.event_name == 'push' \|\| github\.event_name == 'workflow_dispatch' \|\| github\.event_name == 'schedule'\) \}\}\n/,
   );
   assert.match(
     rust,
     /workspaces: \. -> \.\.\/\.\.\/\.\.\/\.cache\/packages\/cargo-target\n/,
   );
-  assert.match(rust, /name: Install mold and clang\n/);
-  assert.match(rust, /command -v mold/);
-  assert.match(rust, /command -v clang/);
+  assert.doesNotMatch(workflow, /rust-cache-trunk/);
+  assert.doesNotMatch(workflow, /ghcr-opensesame-amd64-proof/);
+  assert.match(rust, /id: rust-cache-ghcr\n/);
+  assert.match(rust, /name: Log Rust cache hit\n/);
+  assert.doesNotMatch(rust, /name: Log trunk/);
+  assert.match(rust, /CACHE_NAME: rust-ghcr\n/);
   assert.match(
     rust,
-    /\[\[ -e "\$link_root\/bin\/ld\.mold" \|\| -e "\$link_root\/bin\/mold" \]\][\s\S]*?LD_LIBRARY_PATH=\$\{joined\}/,
+    /CACHE_HIT: \$\{\{ steps\.rust-cache-ghcr\.outputs\.cache-hit \}\}\n/,
   );
-  assert.doesNotMatch(rust, /\bsudo\b/);
+  assert.match(rust, /CACHE_PRIMARY_KEY: v0-rust-ghcr-opensesame-amd64-musl\n/);
+  assert.match(rust, /MAIN_SEED_PREFIX: v0-rust-ghcr-opensesame-amd64-musl-\n/);
+  assert.equal(
+    rust.match(/node scripts\/lib\/ci-cache-seed\.mjs\n/g)?.length,
+    1,
+  );
   assert.match(
     rust,
-    /CARGO_INCREMENTAL: "0"\n {10}CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"\n {10}CARGO_PROFILE_RELEASE_DEBUG: "0"\n {10}CARGO_PROFILE_RELEASE_STRIP: symbols\n {10}RUSTFLAGS: "-C link-arg=-fuse-ld=mold"\n/,
+    /bash scripts\/ci\/prepare-musl\.sh "\$RUNNER_TEMP\/opensesame-musl"/,
+  );
+  assert.match(rust, /source "\$RUNNER_TEMP\/opensesame-musl\/env\.sh"/);
+  assert.match(rust, /rustup target add x86_64-unknown-linux-musl\n/);
+  assert.doesNotMatch(rust, /\bsudo\b/);
+  assert.doesNotMatch(rust, /fuse-ld=mold/);
+  assert.match(
+    rust,
+    /CARGO_INCREMENTAL: "0"\n {10}CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"\n {10}CARGO_PROFILE_RELEASE_DEBUG: "0"\n {10}CARGO_PROFILE_RELEASE_STRIP: symbols\n/,
   );
   assert.equal(
     join(
@@ -218,15 +205,25 @@ function assertRunnerRustBuild(rust) {
   );
   assert.match(
     rust,
-    /cargo build --release --locked -p opensesame-cli --bin opensesame\n/,
+    /cargo build --release --locked -p opensesame-cli --bin opensesame --target x86_64-unknown-linux-musl\n/,
+  );
+  assert.ok(
+    rust.indexOf('source "$RUNNER_TEMP/opensesame-musl/env.sh"') <
+      rust.indexOf(
+        "cargo build --release --locked -p opensesame-cli --bin opensesame --target x86_64-unknown-linux-musl",
+      ),
   );
   assert.doesNotMatch(rust, /cargo build --release -p opensesame-cli\n/);
   assert.match(rust, /name: opensesame-amd64-binary\n/);
   assert.match(
     rust,
-    /path: \$\{\{ env\.CARGO_TARGET_DIR \}\}\/release\/opensesame\n/,
+    /path: \$\{\{ env\.CARGO_TARGET_DIR \}\}\/x86_64-unknown-linux-musl\/release\/opensesame\n/,
   );
   assert.doesNotMatch(rust, /path: target\/release\/opensesame\n/);
+  assert.doesNotMatch(
+    rust,
+    /path: \$\{\{ env\.CARGO_TARGET_DIR \}\}\/release\/opensesame\n/,
+  );
 }
 
 /** The image job that packages the prebuilt binary without compiling it again. */
@@ -242,8 +239,8 @@ function assertPrebuiltImageJob(image) {
   assert.match(image, /cache-from: type=gha,scope=opensesame-amd64\n/);
   assert.match(image, /cache-to: type=gha,mode=max,scope=opensesame-amd64\n/);
   assert.doesNotMatch(image, /scope=\$\{\{ matrix\.id \}\}/);
-  assert.match(image, /push: \$\{\{ env\.PUBLISH_GHCR == 'true' \}\}/);
-  assert.match(image, /load: \$\{\{ env\.PUBLISH_GHCR != 'true' \}\}/);
+  assert.match(image, /push: false/);
+  assert.match(image, /load: true/);
   assert.match(
     image,
     /node scripts\/ci\/oci-image-smoke\.mjs opensesame:local/,
@@ -251,26 +248,33 @@ function assertPrebuiltImageJob(image) {
   assert.doesNotMatch(image, /linux\/arm64/);
 }
 
-/** cargo-chef layering, the pinned Debian runtime and the BuildKit target cache. */
+/** cargo-chef layering, the pinned Alpine runtime and the BuildKit target cache. */
 function assertCargoChefDockerfile(dockerfile) {
   assert.match(dockerfile, /cargo-chef/);
   assert.match(dockerfile, /cargo chef prepare/);
   assert.match(dockerfile, /cargo chef cook/);
   assert.match(
     dockerfile,
-    /FROM debian:trixie-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4 AS debian-runtime\n/,
+    /FROM alpine:3\.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS alpine-runtime\n/,
   );
-  assert.match(dockerfile, /FROM debian-runtime AS runtime\n/);
-  assert.match(dockerfile, /FROM debian-runtime AS runtime-from-prebuilt\n/);
+  assert.doesNotMatch(dockerfile, /apk add[^\n]*dbus-libs/);
+  assert.match(dockerfile, /FROM alpine-runtime AS runtime\n/);
+  assert.match(dockerfile, /FROM alpine-runtime AS runtime-from-prebuilt\n/);
   assert.doesNotMatch(dockerfile, /debian:bookworm-slim/);
   assert.equal(
     dockerfile.match(/--mount=type=cache,target=\/src\/target,sharing=locked/g)
       ?.length,
     2,
   );
+  assert.equal(
+    dockerfile.match(/--target x86_64-unknown-linux-musl/g)?.length,
+    2,
+  );
+  assert.doesNotMatch(dockerfile, /gcompat/);
+  assert.doesNotMatch(dockerfile, /fuse-ld=mold/);
   assert.match(
     dockerfile,
-    /install -m 0755 target\/release\/opensesame \/usr\/local\/bin\/opensesame/,
+    /install -m 0755 target\/x86_64-unknown-linux-musl\/release\/opensesame \/usr\/local\/bin\/opensesame/,
   );
   assert.match(dockerfile, /COPY --from=builder \/usr\/local\/bin\/opensesame/);
   assert.doesNotMatch(
@@ -279,34 +283,23 @@ function assertCargoChefDockerfile(dockerfile) {
   );
 }
 
-describe("GHCR publish workflow", () => {
-  it("publishes from main and version tags and does not run on pull request", () => {
+describe("GHCR image proof workflow", () => {
+  it("builds proofs on main and manual dispatch without publishing", () => {
     assertTriggersAndPublishGuards();
     assertImageMatrix();
     assertWebPwaAmd64Build();
-    assertManifestJob();
   });
 
-  it("does not push to ghcr.io from non-main refs", () => {
-    assert.match(
-      workflow,
-      /github\.ref == 'refs\/heads\/main' \|\| startsWith\(github\.ref, 'refs\/tags\/v'\)/,
-    );
-    assert.match(
-      workflow,
-      /if: steps\.dockerfile\.outputs\.present == 'true' && env\.PUBLISH_GHCR != 'true'/,
-    );
-    assert.match(
-      workflow,
-      /if: steps\.dockerfile\.outputs\.present == 'true' && env\.PUBLISH_GHCR == 'true'/,
-    );
+  it("never pushes images on any ref", () => {
+    assert.doesNotMatch(workflow, /PUBLISH_GHCR|GHCR_PUBLISH_TOKEN/);
     assert.doesNotMatch(workflow, /\n\s*push: true\n/);
+    assert.match(workflow, /if: steps\.dockerfile\.outputs\.present == 'true'/);
   });
 
   it("keeps web-pwa on amd64 and the tailscale artifact without an arm64 proof", () => {
     const amd64 = workflow.slice(
       workflow.indexOf("  web-pwa-amd64:"),
-      workflow.indexOf("  manifests:"),
+      workflow.indexOf("  publication-disabled:"),
     );
     assert.ok(amd64.includes("needs: web-pwa-tailscale-wasm"));
     assert.match(amd64, /name: web-pwa-tailscale-distributions/);
@@ -321,7 +314,7 @@ describe("GHCR publish workflow", () => {
     assert.doesNotMatch(workflow, /docker load -i web-pwa/);
   });
 
-  it("builds the opensesame binary on the runner and publishes runtime-from-prebuilt", () => {
+  it("builds the opensesame binary on the runner and tests runtime-from-prebuilt", () => {
     const rust = workflow.slice(
       workflow.indexOf("\n  opensesame-amd64-rust:\n"),
       workflow.indexOf("\n  images:\n"),
@@ -352,30 +345,5 @@ describe("GHCR publish workflow", () => {
     assert.match(retired, /workflow_dispatch:/);
     assert.doesNotMatch(retired, /packages:\s*write/);
     assert.doesNotMatch(retired, /docker\/build-push-action/);
-  });
-});
-
-describe("oci image smoke", () => {
-  it("classifies version and http probes", () => {
-    assert.equal(imageLeaf("ghcr.io/opensesame-labs/cli:next"), "cli");
-    assert.deepEqual(probePlan("ghcr.io/opensesame-labs/opensesame:sha-abc"), {
-      kind: "version",
-    });
-    assert.equal(probePlan("web-pwa:local").port, 5180);
-    assert.equal(probePlan("control-plane:local").optional, true);
-    assert.equal(probePlan("control-plane:local").path, "/v1/health/live");
-  });
-
-  it("skips when docker is missing or no image was named", () => {
-    const ran = spawnSync(
-      process.execPath,
-      [join(root, "scripts/ci/oci-image-smoke.mjs")],
-      { encoding: "utf8" },
-    );
-    assert.equal(ran.status, 0, ran.stderr);
-    assert.match(
-      ran.stdout,
-      /oci-image-smoke: (docker unavailable, skip|no image arguments, skip)/,
-    );
   });
 });

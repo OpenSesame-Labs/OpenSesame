@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use chrono::{Duration, Utc};
     use opensesame_domain::*;
+    use opensesame_time::{Duration, Utc};
     use serde_json::json;
 
     fn engine() -> PolicyEngine {

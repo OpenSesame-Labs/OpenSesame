@@ -21,7 +21,7 @@ async fn approve(capabilities: &str) -> bool {
     let router = crate::routes::router(st.clone());
     let user_code = "BCDF-GHJK";
     let id = uuid::Uuid::new_v4().to_string();
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     st.db
         .create_browser_pairing(&NewBrowserPairing {
             id: &id,

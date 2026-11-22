@@ -1,6 +1,8 @@
 use super::*;
 use crate::synthetic::{api_token, client_id, client_secret};
 
+type InvalidConnectionCase = (&'static str, Credential, fn() -> SecretString, &'static str);
+
 fn oauth() -> Credential {
     Credential {
         kind: CredentialKind::Oauth,
@@ -40,7 +42,7 @@ fn connect_refuses_what_tailscale_never_issues() {
         kind: CredentialKind::ApiKey,
         client_id: String::new(),
     };
-    let cases: [(&str, Credential, fn() -> SecretString, &str); 5] = [
+    let cases: [InvalidConnectionCase; 5] = [
         ("../etc", oauth(), client_secret, "invalid_tailnet"),
         ("-", api.clone(), client_secret, "invalid_credential"),
         ("-", oauth(), api_token, "invalid_credential"),

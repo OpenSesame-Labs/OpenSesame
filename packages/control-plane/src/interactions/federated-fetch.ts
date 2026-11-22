@@ -3,6 +3,44 @@ import type * as client from "openid-client";
 import type { ControlPlaneConfig } from "../config.js";
 import { guardedLibraryFetch } from "../services/guarded-fetch.js";
 
+/** Small process-local TTL/LRU used for credential-bound discovery results. */
+export class TtlLru<T> {
+  readonly #entries = new Map<string, { value: T; expiresAt: number }>();
+
+  constructor(
+    private readonly maxEntries: number,
+    private readonly ttlMs: number,
+  ) {}
+
+  clear(): void {
+    this.#entries.clear();
+  }
+
+  delete(key: string): void {
+    this.#entries.delete(key);
+  }
+
+  get(key: string, now: number): T | undefined {
+    for (const [cachedKey, entry] of this.#entries) {
+      if (entry.expiresAt <= now) this.#entries.delete(cachedKey);
+    }
+    const entry = this.#entries.get(key);
+    if (!entry) return undefined;
+    this.#entries.delete(key);
+    this.#entries.set(key, entry);
+    return entry.value;
+  }
+
+  set(key: string, value: T, now: number): void {
+    this.#entries.set(key, { value, expiresAt: now + this.ttlMs });
+    while (this.#entries.size > this.maxEntries) {
+      const oldest = this.#entries.keys().next().value;
+      if (oldest === undefined) break;
+      this.#entries.delete(oldest);
+    }
+  }
+}
+
 /** Our own public origin — what an origin-profile client id encodes. */
 export function siteOrigin(config: ControlPlaneConfig): string {
   return new URL(config.publicUrl).origin;

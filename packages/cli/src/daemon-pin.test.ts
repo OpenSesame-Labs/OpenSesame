@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
 import { cliAppIntegrationPolicy } from "@opensesame/app-core/lib/cli-app-integration/index.js";
+import { isCliAppApprovalBlocked } from "@opensesame/app-core/lib/cli-app-integration/policy-runtime.js";
 import { overlapCast } from "@opensesame/os-domain";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -125,7 +126,9 @@ describe("createCliAppIntegrationPort with fake daemon", () => {
         verb: "reveal",
         terminalSessionId: "term-test",
       });
-      expect(decision).toBe("unavailable");
+      expect(decision).toBe(
+        isCliAppApprovalBlocked() ? "blockedApproval" : "unavailable",
+      );
     } finally {
       await stub.close();
       if (priorDaemon === undefined) {
@@ -136,7 +139,7 @@ describe("createCliAppIntegrationPort with fake daemon", () => {
     }
   });
 
-  it("polls ensure on the journey fake daemon after pin verification", async () => {
+  it("respects the approval policy with the pinned journey daemon", async () => {
     const priorPin = process.env[CLI_APP_INTEGRATION_DAEMON_PIN_PUBLIC_KEY_ENV];
     const fake = await startCliAppIntegrationFakeDaemon();
     process.env.OPENSESAME_DAEMON_API = fake.baseUrl;
@@ -150,7 +153,9 @@ describe("createCliAppIntegrationPort with fake daemon", () => {
         verb: "reveal",
         terminalSessionId: "term-test",
       });
-      expect(decision).toBe("approve");
+      expect(decision).toBe(
+        isCliAppApprovalBlocked() ? "blockedApproval" : "approve",
+      );
     } finally {
       await fake.close();
       if (priorDaemon === undefined) {

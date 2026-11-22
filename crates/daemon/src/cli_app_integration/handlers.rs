@@ -105,6 +105,8 @@ pub(crate) async fn ensure(State(st): State<App>, request: Request<Body>) -> Res
         "status": status,
         "requestId": request_id,
         "daemonIntegrationId": daemon_integration_id(),
+        "reason": opensesame_cli_app_integration::is_approval_blocked(&req.verb)
+            .then_some("authenticator_provenance_unavailable"),
     }))
     .into_response()
 }

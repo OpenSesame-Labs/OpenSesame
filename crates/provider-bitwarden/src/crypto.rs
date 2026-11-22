@@ -270,7 +270,7 @@ impl SymmetricKey {
         if value.iv.len() != AES_BLOCK {
             return Err(Error::MalformedEncString("IV must be 16 bytes"));
         }
-        if value.data.is_empty() || value.data.len() % AES_BLOCK != 0 {
+        if value.data.is_empty() || !value.data.len().is_multiple_of(AES_BLOCK) {
             return Err(Error::MalformedEncString(
                 "ciphertext must be a non-zero multiple of the AES block size",
             ));
@@ -409,10 +409,10 @@ impl FromStr for EncString {
         }
         match (enc_type, mac) {
             (EncType::AesCbc256B64, Some(_)) => {
-                return Err(Error::MalformedEncString("type 0 takes exactly 2 parts"))
+                return Err(Error::MalformedEncString("type 0 takes exactly 2 parts"));
             }
             (EncType::AesCbc256HmacSha256B64, None) => {
-                return Err(Error::MalformedEncString("type 2 takes exactly 3 parts"))
+                return Err(Error::MalformedEncString("type 2 takes exactly 3 parts"));
             }
             _ => {}
         }

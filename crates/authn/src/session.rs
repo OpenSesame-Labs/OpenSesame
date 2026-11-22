@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
 use opensesame_domain::OrganizationRole;
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

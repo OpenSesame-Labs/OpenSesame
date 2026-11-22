@@ -5,7 +5,7 @@
 //! written into an event. A refusal is recorded as an `error` event carrying
 //! only its stable code; a mint's receipt is `aws_receipt.rs`'s.
 
-use chrono::{SecondsFormat, Utc};
+use opensesame_time::{SecondsFormat, Utc};
 use secrecy::ExposeSecret;
 
 use crate::aws_sts::binding::AwsStsBinding;

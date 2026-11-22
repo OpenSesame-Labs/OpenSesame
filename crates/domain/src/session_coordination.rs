@@ -33,7 +33,7 @@
 //! narrow and may never widen or outlive.
 
 use crate::{DomainError, PrincipalId, SessionGrantId, SessionId};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// How somebody is present in a session.

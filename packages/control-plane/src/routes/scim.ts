@@ -5,9 +5,7 @@ import {
   type BoundaryValue,
   type JsonObject,
   type Organization,
-  isBoolean,
   isJsonObject,
-  isString,
 } from "@opensesame/os-domain";
 import type { Context } from "hono";
 import { Hono } from "hono";
@@ -30,10 +28,13 @@ import {
   type ScimPatchOperation,
   boundedScimString,
   readScimJsonBody,
+  scimActive,
   scimAuditActor,
   scimBody,
   scimError,
+  scimPage,
   scimPatchOperations,
+  scimUserNameFilter,
   scimUserUpdateAudit,
 } from "./scim-protocol.js";
 import {
@@ -86,6 +87,7 @@ const NEVER_STORED = new Set(["password", "schemas", "meta", "id"]);
 
 const MAX_USER_NAME_LENGTH = 320;
 const MAX_DISPLAY_LENGTH = 512;
+const MAX_SCIM_USERS_PER_ORG = 10_000;
 
 /** Attributes as the directory sent them, minus what we must never keep. */
 function sanitizeRaw(body: JsonObject): JsonObject {
@@ -176,20 +178,6 @@ async function authenticate(
   return { ctx, organization };
 }
 
-/**
- * SCIM `active` arrives as a boolean from Okta and as the string `"False"`
- * from Entra. Both mean the same thing, and reading only one of them is the
- * classic way a deprovisioning push silently does nothing.
- */
-function asActive(value: BoundaryValue): boolean | undefined {
-  if (isBoolean(value)) return value;
-  if (!isString(value)) return undefined;
-  const normalized = value.trim().toLowerCase();
-  if (normalized === "true") return true;
-  if (normalized === "false") return false;
-  return undefined;
-}
-
 type UserPatch = {
   active?: boolean;
   userName?: string;
@@ -203,7 +191,7 @@ function foldUserPatch(operations: ScimPatchOperation[]): UserPatch {
   const assign = (path: string, value: BoundaryValue) => {
     const attribute = path.split(".").pop()?.toLowerCase() ?? "";
     if (attribute === "active") {
-      const active = asActive(value);
+      const active = scimActive(value);
       if (active !== undefined) patch.active = active;
       return;
     }
@@ -245,14 +233,6 @@ function foldUserPatch(operations: ScimPatchOperation[]): UserPatch {
   return patch;
 }
 
-/** `filter=userName eq "someone@acme.example"` — the one filter SCIM clients need. */
-function userNameFilter(filter: string): string | undefined {
-  const match = filter
-    .trim()
-    .match(/^userName\s+eq\s+(?:"([^"]*)"|'([^']*)')$/i);
-  return match?.[1] ?? match?.[2];
-}
-
 export function createScimRoutes(): Hono<{ Variables: Variables }> {
   const routes = new Hono<{ Variables: Variables }>();
   routes.route("/", scimTokenAdminRoutes);
@@ -268,31 +248,25 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
     if (!userName) {
       return scimError(c, 400, "userName is required.", "invalidValue");
     }
-    if (await ctx.stores.scim.users.findByUserName(organization.id, userName)) {
-      return scimError(
-        c,
-        409,
-        "A user with that userName already exists.",
-        "uniqueness",
-      );
-    }
-
     const now = ctx.clock();
     const externalId = boundedScimString(body.externalId, MAX_USER_NAME_LENGTH);
     const displayName = boundedScimString(body.displayName, MAX_DISPLAY_LENGTH);
-    let created: ScimUserRecord;
+    let created: ScimUserRecord | null;
     try {
-      created = await ctx.stores.scim.users.create({
-        id: randomUUID(),
-        organizationId: organization.id,
-        userName,
-        active: asActive(body.active) ?? true,
-        raw: sanitizeRaw(body),
-        createdAt: now,
-        updatedAt: now,
-        ...(externalId !== undefined ? { externalId } : undefined),
-        ...(displayName !== undefined ? { displayName } : undefined),
-      });
+      created = await ctx.stores.scim.users.createWithinLimit(
+        {
+          id: randomUUID(),
+          organizationId: organization.id,
+          userName,
+          active: scimActive(body.active) ?? true,
+          raw: sanitizeRaw(body),
+          createdAt: now,
+          updatedAt: now,
+          ...(externalId !== undefined ? { externalId } : undefined),
+          ...(displayName !== undefined ? { displayName } : undefined),
+        },
+        MAX_SCIM_USERS_PER_ORG,
+      );
     } catch (error) {
       if (error instanceof ConflictError) {
         return scimError(
@@ -303,6 +277,9 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
         );
       }
       throw error;
+    }
+    if (!created) {
+      return scimError(c, 409, "Organization SCIM user capacity reached.");
     }
     await appendAuditEvent(ctx.repos.auditEvents, {
       eventType: "organization.scim_user_provisioned",
@@ -329,12 +306,28 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
 
     const filter = c.req.query("filter");
     let resources: ScimUserRecord[];
+    let totalResults: number;
+    let startIndex = 1;
     if (filter === undefined || filter.trim() === "") {
-      resources = await ctx.stores.scim.users.listByOrganization(
+      const page = scimPage(c.req.query("startIndex"), c.req.query("count"));
+      if (page === undefined) {
+        return scimError(
+          c,
+          400,
+          "startIndex must be positive; count must be a non-negative integer.",
+          "invalidValue",
+        );
+      }
+      startIndex = page.startIndex;
+      totalResults = await ctx.stores.scim.users.countByOrganization(
         organization.id,
       );
+      resources = await ctx.stores.scim.users.listByOrganization(
+        organization.id,
+        { offset: page.offset, limit: page.limit },
+      );
     } else {
-      const userName = userNameFilter(filter);
+      const userName = scimUserNameFilter(filter);
       if (userName === undefined) {
         return scimError(
           c,
@@ -348,12 +341,13 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
         userName,
       );
       resources = found ? [found] : [];
+      totalResults = resources.length;
     }
 
     return scimBody(c, 200, {
       schemas: [LIST_SCHEMA],
-      totalResults: resources.length,
-      startIndex: 1,
+      totalResults,
+      startIndex,
       itemsPerPage: resources.length,
       Resources: resources.map((user) => userResource(ctx, user)),
     });

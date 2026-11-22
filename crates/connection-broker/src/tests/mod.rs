@@ -1,6 +1,6 @@
-use chrono::Duration;
 use opensesame_storage::Db;
 use opensesame_task_bus::TaskBus as _;
+use opensesame_time::Duration;
 use sqlx::Row;
 
 use axum::{
@@ -25,6 +25,7 @@ mod aws_sts_receipts;
 mod catalog_egress;
 mod connection_lifecycle;
 mod credential_minting;
+mod delegation_mode_tests;
 mod detected_import;
 mod github_app_minting;
 mod legacy_connections;
@@ -36,6 +37,17 @@ mod web_rotation;
 mod web_rotation_custom;
 
 const KEY: [u8; 32] = [42u8; 32];
+
+fn open_stored_pkce(row: &sqlx::sqlite::SqliteRow, connection_id: &str, org_id: &str) -> String {
+    let sealed = crypto::SealedBlob {
+        ciphertext: row.get("code_verifier"),
+        nonce: row.get("verifier_nonce"),
+        aad_digest: row.get("verifier_aad_digest"),
+    };
+    assert_eq!(sealed.nonce.len(), 24);
+    assert!(!sealed.ciphertext.is_empty());
+    String::from_utf8(crypto::open(&KEY, connection_id, org_id, &sealed).unwrap()).unwrap()
+}
 
 fn key_config() -> BrokerConfig {
     let mut config = BrokerConfig::in_memory(Some(KEY), "http://127.0.0.1:8787");

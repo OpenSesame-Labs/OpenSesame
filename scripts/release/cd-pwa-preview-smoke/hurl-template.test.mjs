@@ -76,6 +76,26 @@ test("run.mjs writes Hurl properties file not JSON", () => {
   assert.doesNotMatch(runSrc, /JSON\.stringify\(variables\)/u);
 });
 
+test("run.mjs marks phase failures so the run phase cannot overwrite them", () => {
+  const runSrc = readFileSync(join(here, "run.mjs"), "utf8");
+  assert.match(runSrc, /recordPhaseFailure\("hurl", error\)/u);
+  assert.match(runSrc, /recordPhaseFailure\("shell-poll", error\)/u);
+  assert.match(runSrc, /recordPhaseFailure\("capture", error\)/u);
+  assert.match(runSrc, /phaseWritten !== true/u);
+  assert.match(runSrc, /error\.phaseWritten = true/u);
+  // The per-phase writes mark the error only after the write lands, and an
+  // evidence failure must not replace the original error.
+  assert.match(runSrc, /await writeSmokePhaseFailure/u);
+  assert.match(runSrc, /catch \(evidenceError\)/u);
+  assert.match(runSrc, /throw error/u);
+});
+
+test("run.mjs passes a millisecond hurl max-time from the retry budget", () => {
+  const runSrc = readFileSync(join(here, "run.mjs"), "utf8");
+  assert.match(runSrc, /hurlMaxTimeArg\(cdn\.maxTimeMs\)/u);
+  assert.doesNotMatch(runSrc, /cdn\.maxTimeSec/u);
+});
+
 test("JSON variables file is rejected by Hurl (regression for cd-pwa smoke)", () => {
   const root = mkdtempSync(join(tmpdir(), "pwa-hurl-json-vars-"));
   const jsonPath = join(root, "vars.json");
@@ -168,6 +188,8 @@ test("pages.hurl runs with properties variables against loopback dist", async ()
           "0",
           "--connect-timeout",
           "5",
+          "--max-time",
+          "15000ms",
           join(here, "pages.hurl"),
         ],
         { encoding: "utf8" },

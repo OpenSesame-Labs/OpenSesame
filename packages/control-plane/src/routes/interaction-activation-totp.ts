@@ -16,6 +16,7 @@ import type { AppContext } from "../context.js";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
 import { incrementSecurityCounter } from "../repos/durable-map.js";
+import { activationDeadlineRefusal } from "./interaction-activation-deadline.js";
 import { spendTotpCode } from "./mfa-totp.js";
 import { authenticatedPrincipalId } from "./organizations.js";
 
@@ -91,7 +92,6 @@ type PendingTotpLookup = {
   principalId: string;
   interactionId: string;
   activationId: string;
-  now: Date;
 };
 
 async function pendingTotpActivation(
@@ -108,13 +108,91 @@ async function pendingTotpActivation(
   ) {
     return c.json({ error: "activation_not_found" }, 404);
   }
-  if (activation.expiresAt.getTime() <= input.now.getTime()) {
-    return c.json({ error: "activation_expired" }, 410);
-  }
-  if (activation.state !== "pending" || activation.method !== "totp") {
-    return c.json({ error: "activation_not_pending" }, 409);
-  }
   return activation;
+}
+
+type VerifyTotpInput = {
+  ctx: AppContext;
+  row: Interaction;
+  activation: ApprovalActivation;
+  principalId: string;
+  secret: string;
+  code: string;
+  nowMs: number;
+};
+
+async function verifyPendingTotp(
+  c: Context<{ Variables: Variables }>,
+  input: VerifyTotpInput,
+): Promise<Response> {
+  const { ctx, row, activation, principalId, secret, code, nowMs } = input;
+  const fenceKey = `activation:${principalId}:${activation.id}`;
+  const prior = (totpAttempts.get(fenceKey) ?? []).length;
+  if (prior >= MAX_INTERACTION_TOTP_FAILURES) {
+    return c.json({ error: "too_many_attempts" }, 429);
+  }
+  const priorTimes = totpAttempts.get(fenceKey) ?? [];
+  priorTimes.push(nowMs);
+  totpAttempts.set(fenceKey, priorTimes);
+  const accountFenceKey = `totp:${principalId}`;
+  if (
+    (await incrementSecurityCounter(ctx.stores.mfaFailures, accountFenceKey)) >
+    MAX_INTERACTION_TOTP_FAILURES
+  ) {
+    return c.json({ error: "too_many_attempts" }, 429);
+  }
+  const budgetDeadline = activationDeadlineRefusal(
+    c,
+    row,
+    activation,
+    ctx.clock(),
+  );
+  if (budgetDeadline) return budgetDeadline;
+  // The step ledger `/v1/mfa/totp/verify` and factor removal share: a code
+  // accepted anywhere is accepted once.
+  const spent = await spendTotpCode(
+    ctx.stores.totpSteps,
+    principalId,
+    secret,
+    code,
+  );
+  if (spent !== "accepted") {
+    await appendAuditEvent(ctx.repos.auditEvents, {
+      eventType: "authority.activation.denied",
+      principalId,
+      actorType: "human",
+      outcome: "denied",
+      correlationId: c.get("correlationId"),
+      metadata: {
+        authReqId: row.id,
+        activationId: activation.id,
+        reason: "totp_failed",
+      },
+    });
+    return c.json({ error: "activation_verification_failed" }, 401);
+  }
+  await ctx.stores.mfaFailures.delete(accountFenceKey);
+  totpAttempts.delete(fenceKey);
+  const activatedAt = ctx.clock();
+  const completionDeadline = activationDeadlineRefusal(
+    c,
+    row,
+    activation,
+    activatedAt,
+  );
+  if (completionDeadline) return completionDeadline;
+  const updated: ApprovalActivation =
+    await ctx.repos.approvalActivations.updateWithVersion(
+      activation.id,
+      activation.version,
+      { state: "activated", activatedAt, method: "totp" },
+    );
+  return c.json({
+    activationId: updated.id,
+    state: updated.state,
+    activatedAt:
+      updated.activatedAt?.toISOString() ?? activatedAt.toISOString(),
+  });
 }
 
 async function completeTotp(
@@ -147,65 +225,40 @@ async function completeTotp(
     principalId,
     interactionId: row.id,
     activationId,
-    now,
   });
   if (isHttpResponse(activation)) return activation;
+  const lookupDeadline = activationDeadlineRefusal(
+    c,
+    row,
+    activation,
+    ctx.clock(),
+  );
+  if (lookupDeadline) return lookupDeadline;
+  if (activation.state !== "pending" || activation.method !== "totp") {
+    return c.json({ error: "activation_not_pending" }, 409);
+  }
   const secret = await ctx.stores.totpSecrets.get(principalId);
   if (!secret) return c.json({ error: "not_enrolled" }, 404);
-  const nowMs = now.getTime();
+  const attemptAt = ctx.clock();
+  const attemptDeadline = activationDeadlineRefusal(
+    c,
+    row,
+    activation,
+    attemptAt,
+  );
+  if (attemptDeadline) return attemptDeadline;
+  const nowMs = attemptAt.getTime();
   if (!consumeTotpAttempt(principalId, nowMs)) {
     return c.json({ error: "too_many_attempts" }, 429);
   }
-  const fenceKey = `activation:${principalId}:${activation.id}`;
-  const prior = (totpAttempts.get(fenceKey) ?? []).length;
-  if (prior >= MAX_INTERACTION_TOTP_FAILURES) {
-    return c.json({ error: "too_many_attempts" }, 429);
-  }
-  const priorTimes = totpAttempts.get(fenceKey) ?? [];
-  priorTimes.push(nowMs);
-  totpAttempts.set(fenceKey, priorTimes);
-  const accountFenceKey = `totp:${principalId}`;
-  if (
-    (await incrementSecurityCounter(ctx.stores.mfaFailures, accountFenceKey)) >
-    MAX_INTERACTION_TOTP_FAILURES
-  ) {
-    return c.json({ error: "too_many_attempts" }, 429);
-  }
-  // The step ledger `/v1/mfa/totp/verify` and factor removal share: a code
-  // accepted anywhere is accepted once.
-  const spent = await spendTotpCode(
-    ctx.stores.totpSteps,
+  return verifyPendingTotp(c, {
+    ctx,
+    row,
+    activation,
     principalId,
     secret,
     code,
-  );
-  if (spent !== "accepted") {
-    await appendAuditEvent(ctx.repos.auditEvents, {
-      eventType: "authority.activation.denied",
-      principalId,
-      actorType: "human",
-      outcome: "denied",
-      correlationId: c.get("correlationId"),
-      metadata: {
-        authReqId: row.id,
-        activationId: activation.id,
-        reason: "totp_failed",
-      },
-    });
-    return c.json({ error: "activation_verification_failed" }, 401);
-  }
-  await ctx.stores.mfaFailures.delete(accountFenceKey);
-  totpAttempts.delete(fenceKey);
-  const updated: ApprovalActivation =
-    await ctx.repos.approvalActivations.updateWithVersion(
-      activation.id,
-      activation.version,
-      { state: "activated", activatedAt: now, method: "totp" },
-    );
-  return c.json({
-    activationId: updated.id,
-    state: updated.state,
-    activatedAt: updated.activatedAt?.toISOString() ?? now.toISOString(),
+    nowMs,
   });
 }
 

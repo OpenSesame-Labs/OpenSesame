@@ -1,9 +1,7 @@
 //! Worker transport and authorization tests.
 //!
-//! The mTLS cases run against a real [`SecureListener`] with a disposable CA
-//! from `opensesame_transport_security::testkit`: nothing is mocked at the
-//! transport boundary, so "no certificate is refused" is a handshake fact and
-//! not an assertion about a source string.
+//! The mTLS cases use a real [`SecureListener`] and disposable CA, so "no
+//! certificate is refused" is a handshake fact, not a source-string assertion.
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -19,9 +17,9 @@ use opensesame_transport_security::{
     reqwest_builder, ClientProfile, ServerNamePolicy, TrustBundle,
 };
 
-use crate::configured_providers;
 use crate::routes::{self, require_worker_token, WorkerAuth, WorkerState};
 use crate::transport::{self, WorkerTransport, DEFAULT_TRUST_PROFILE};
+use crate::{configured_providers, existing_local_listen};
 
 const SERVER_DNS: &str = "worker.test";
 const CLIENT_DNS: &str = "host.test";
@@ -84,6 +82,17 @@ fn transport_profile_is_an_explicit_word() {
     // Not a silent default: an unknown word refuses rather than downgrading.
     assert!(pick(Some("auto")).is_err());
     assert!(pick(Some("mtls")).is_err());
+}
+
+#[test]
+fn existing_local_accepts_only_loopback_ip_listeners() {
+    assert!(existing_local_listen("127.0.0.1:8790").is_ok());
+    assert!(existing_local_listen("[::1]:8790").is_ok());
+    for refused in ["0.0.0.0:8790", "[::]:8790", "192.0.2.10:8790"] {
+        let error = existing_local_listen(refused).expect_err("non-loopback refused");
+        assert!(error.to_string().contains("use mtls_required"));
+    }
+    assert!(existing_local_listen("localhost:8790").is_err());
 }
 
 /// SVC-WORKER: the networked profile reads no token. Both variables are

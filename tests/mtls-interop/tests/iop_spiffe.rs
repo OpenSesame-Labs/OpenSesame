@@ -57,7 +57,7 @@ fn real_spire_stops_delivering_a_federated_bundle_once_it_is_deleted() -> Result
     // The agent must start handing this workload the federated bundle.
     let with_bundle = spire.wait_for_fetch(
         "the federated bundle to appear at the Workload API",
-        Duration::from_secs(120),
+        Duration::from_mins(2),
         |text| text.contains(WORKLOAD) && text.contains(spire::PARTNER_DOMAIN),
     )?;
     assert!(
@@ -70,7 +70,7 @@ fn real_spire_stops_delivering_a_federated_bundle_once_it_is_deleted() -> Result
     spire.delete_bundle(spire::PARTNER_DOMAIN)?;
     let without_bundle = spire.wait_for_fetch(
         "the federated bundle to disappear from the Workload API",
-        Duration::from_secs(120),
+        Duration::from_mins(2),
         |text| text.contains(WORKLOAD) && !text.contains(spire::PARTNER_DOMAIN),
     )?;
     assert!(
@@ -109,7 +109,7 @@ fn real_spire_stops_issuing_an_identity_once_its_entry_is_deleted() -> Result<()
 
     let both = spire.wait_for_fetch(
         "both identities to be issued",
-        Duration::from_secs(120),
+        Duration::from_mins(2),
         |text| text.contains(WORKLOAD) && text.contains(DECOY),
     )?;
     assert!(both.contains(WORKLOAD) && both.contains(DECOY));
@@ -117,7 +117,7 @@ fn real_spire_stops_issuing_an_identity_once_its_entry_is_deleted() -> Result<()
     spire.delete_entry(&target)?;
     let remaining = spire.wait_for_fetch(
         "the deleted identity to stop being issued",
-        Duration::from_secs(120),
+        Duration::from_mins(2),
         |text| !text.contains(WORKLOAD),
     )?;
     assert!(

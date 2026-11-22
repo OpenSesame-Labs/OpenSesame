@@ -117,6 +117,15 @@ async function ownerEnters(page, { origin, base, tabTo, width }) {
   );
   await page.keyboard.press("Enter");
   await expect(page.locator("form.editor")).toHaveCount(0);
+  // The editor also disappears while the detail route's lazy chunk is
+  // loading. Wait for the destination and its focus before sending a key.
+  const title = page.getByRole("heading", { name: "GitHub", exact: true });
+  await expect(title).toBeVisible();
+  const landing =
+    width < 600
+      ? page.locator(".vault__detail")
+      : page.getByRole("tree", { name: "Vault items", exact: true });
+  await expect(landing).toBeFocused();
   // Escape returns to the listing; a phone also leaves the item's own route.
   // Await that navigation before sending the Settings section chord.
   await page.keyboard.press("Escape");

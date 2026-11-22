@@ -4,12 +4,12 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::{Duration, Utc};
 use opensesame_claims::{generate_claim_token, hash_eq, hash_secret};
 use opensesame_domain::{
     ActorId, ActorInstanceId, ClaimSession, ClaimSessionId, ClaimState, OrganizationId,
     PrincipalId, ProjectId,
 };
+use opensesame_time::{Duration, Utc};
 use serde::Deserialize;
 use serde_json::json;
 

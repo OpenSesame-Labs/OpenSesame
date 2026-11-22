@@ -18,8 +18,8 @@ provider ids.
   [`tests/fuzz/cargo`](../../tests/fuzz/cargo). New
   dependents should prefer the [`opensesame-core`](../core) facade, which
   re-exports this crate whole.
-- **Builds on:** no workspace crates — `chrono`, `serde`, `serde_json`,
-  `sha2`, `blake3`, `thiserror`, `uuid`, `url`.
+- **Builds on:** [`opensesame-time`](../time), `serde`, `serde_json`, `sha2`,
+  `blake3`, `thiserror`, `uuid`, `url`.
 - Authority narrows. A delegated grant must attenuate its parent on every
   dimension (`grant_attenuation`), and a raw `parent_grant_id` is data, not
   proof — only an in-process `ValidatedGrantChain` establishes lineage.

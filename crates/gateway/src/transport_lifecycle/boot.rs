@@ -23,7 +23,7 @@
 //! of the store, so replicas sharing one store converge on a revocation or a
 //! trust change the way they already converge on the binding set.
 
-use chrono::Utc;
+use opensesame_time::Utc;
 
 use crate::app_state::AppState;
 use crate::transport_lifecycle::{crl, revocation_store, trust, HOST_LISTENER_TARGET};
@@ -119,10 +119,40 @@ async fn refresh_revoked(state: &AppState) {
 
 /// Process-lifetime loop over [`refresh_once`], on the bindings cadence.
 pub async fn run_refresh(state: AppState) {
-    let mut ticks = tokio::time::interval(crate::transport::bindings::REFRESH_INTERVAL);
+    let changes = state
+        .transport_lifecycle
+        .generations()
+        .map(|generations| generations.subscribe());
+    let ticks = tokio::time::interval(crate::transport::bindings::REFRESH_INTERVAL);
+    run_refresh_with_changes(state, changes, ticks).await;
+}
+
+pub(crate) async fn run_refresh_with_changes(
+    state: AppState,
+    mut changes: Option<tokio::sync::watch::Receiver<u64>>,
+    mut ticks: tokio::time::Interval,
+) {
     ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
     loop {
-        ticks.tick().await;
-        refresh_once(&state).await;
+        tokio::select! {
+            _ = ticks.tick() => {
+                if changes.is_none() {
+                    changes = state.transport_lifecycle.generations().map(|g| g.subscribe());
+                }
+                refresh_once(&state).await;
+            }
+            () = generation_changed(&mut changes) => refresh_trust(&state).await,
+        }
+    }
+}
+
+async fn generation_changed(changes: &mut Option<tokio::sync::watch::Receiver<u64>>) {
+    match changes {
+        Some(receiver) => {
+            if receiver.changed().await.is_err() {
+                *changes = None;
+            }
+        }
+        None => std::future::pending().await,
     }
 }

@@ -5,8 +5,8 @@
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
-use chrono::{DateTime, Duration, Utc};
 use opensesame_storage::bitwarden::BitwardenSend;
+use opensesame_time::{DateTime, Duration, Utc};
 use serde_json::{json, Map, Value};
 
 use super::account::date;

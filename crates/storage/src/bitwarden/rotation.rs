@@ -7,7 +7,7 @@
 //! lands in one transaction or not at all, and every row it names must be
 //! the account's, so a half-rotated vault can never exist.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::Row as _;
 
 use super::accounts::bitwarden_timestamp;
@@ -231,7 +231,7 @@ mod debug_redaction {
             sends: vec![("s".into(), "sendkey".into(), "d".into())],
             emergency_keys: vec![],
             recovery_keys: vec![],
-            at: chrono::Utc::now(),
+            at: opensesame_time::Utc::now(),
         };
         let shown = format!("{rotation:?}");
         for leaked in ["leaky", "userkey", "privatekey", "sendkey"] {

@@ -17,7 +17,7 @@ export interface StepPages {
   fill(
     selector: string,
     value: string,
-  ): Promise<"ok" | "no_such_field" | "invalid">;
+  ): Promise<"ok" | "no_such_field" | "invalid" | "off_origin">;
   presence(
     selector: string,
     expected: string,

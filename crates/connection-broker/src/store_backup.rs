@@ -1,6 +1,6 @@
 //! Organization-bound transactional backup outbox writes.
 use crate::error::Result;
-use chrono::Utc;
+use opensesame_time::Utc;
 
 /// Broadcast a secret-change event in the same transaction as the mutation it
 /// describes (transactional outbox, ADR 0039). The backup actor drains these;

@@ -3,7 +3,7 @@ use crate::{
     ActorId, ConnectionId, DetachedProof, GrantConstraints, GrantId, IntentId, OfflineUse,
     OrganizationId, PrincipalId,
 };
-use chrono::Duration;
+use opensesame_time::Duration;
 use serde::Deserialize;
 
 #[derive(Deserialize)]

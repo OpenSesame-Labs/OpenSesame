@@ -136,7 +136,7 @@ pub fn grant() -> SurrogateGrant {
         site: SurrogateSite::Authorization,
         methods: vec!["GET".into(), "POST".into()],
         path_prefixes: vec!["/".into()],
-        ttl: Duration::from_secs(600),
+        ttl: Duration::from_mins(10),
     }
 }
 

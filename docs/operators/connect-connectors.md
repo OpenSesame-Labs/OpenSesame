@@ -95,7 +95,8 @@ by default. Linear must confirm an enabled subscription before setup completes.
 
 Use **Copy webhook signing secret** in the verified summary to configure your
 receiver. The secret never appears in the page or public connection data; the
-existing clipboard clearing preference applies. Your receiver should verify
+existing clipboard clearing preference applies on a best-effort basis; browser
+permissions and clipboard history can prevent cleanup. Your receiver should verify
 Linear's `Linear-Signature` header using this secret before processing events,
 as described in [Linear's webhook documentation](https://linear.app/developers/webhooks).
 The browser registers the webhook; your supplied receiver processes deliveries.

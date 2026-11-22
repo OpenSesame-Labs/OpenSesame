@@ -4,13 +4,13 @@
 
 mod common;
 
-use chrono::{Duration, Utc};
 use common::{engine, grant, request};
 use opensesame_authz::{
     AssuranceLevel, EvidenceLedger, EvidencePolicy, PolicyQuery, Requirement, RequirementKind,
     Requirements, Verdict,
 };
 use opensesame_domain::{AvailabilityClass, Grant};
+use opensesame_time::{Duration, Utc};
 
 fn decide(
     engine: &opensesame_authz::PolicyEngine,

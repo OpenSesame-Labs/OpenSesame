@@ -68,6 +68,33 @@ describe("cache hit log lines", () => {
     );
   });
 
+  it("labels a configured primary as a prefix when Swatinem digests are omitted", () => {
+    assert.equal(
+      cacheHitLine("rust-ghcr", {
+        cacheHit: "false",
+        matchedKey: "",
+        primaryKey: "v0-rust-ghcr-opensesame-amd64",
+        primaryIsPrefix: true,
+        mainSeedPrefixes: ["v0-rust-ghcr-opensesame-amd64-"],
+        probeHasPayload: false,
+      }),
+      "rust-ghcr cache: miss primary prefix v0-rust-ghcr-opensesame-amd64",
+    );
+  });
+
+  it("reports the full primary key when the action provides it on a hit", () => {
+    assert.equal(
+      cacheHitLine("rust-ghcr", {
+        cacheHit: "true",
+        matchedKey: "v0-rust-rust-build-X64-Linux-x64-abc-deadbeef",
+        primaryKey: "v0-rust-ghcr-opensesame-amd64",
+        primaryIsPrefix: true,
+        mainSeedPrefixes: [],
+      }),
+      "rust-ghcr cache: primary key hit v0-rust-rust-build-X64-Linux-x64-abc-deadbeef",
+    );
+  });
+
   it("reports a rust restore-key fallback when the registry probe has files", () => {
     assert.equal(
       cacheHitLine("rust", {

@@ -32,6 +32,7 @@ re-export the libraries below them behind a stable surface
 | [`client-core`](client-core) | Client SDK: local E2EE and sync cursors; native and Wasm builds. |
 | [`domain`](domain) | Canonical domain model: resources, invariants, IDs, errors, transport contracts. |
 | [`connector-sdk`](connector-sdk) | Helpers for WIT connector guests — ConnectionRef-oriented, no `secrets.get`. |
+| [`time`](time) | Maintained UTC and fixed-offset boundary that preserves native wire and persistence formats. |
 
 ## Authorization
 

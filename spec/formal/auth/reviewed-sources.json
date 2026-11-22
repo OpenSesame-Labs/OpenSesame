@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "path": "packages/control-plane/src/middleware/auth.ts",
+      "base_blob": "b722af75833c7ea1d9b96e61f5da10aa6bac66f9",
+      "reviewed_blob": "b0faf205e3e807a673ae56ce96f68a1900692707",
+      "sha256": "9965ac9d8fe4cc34f320eef98605ca53bbf554539f072467f172d04ac94c22f6"
+    },
+    {
+      "path": "packages/control-plane/src/proofs/verified-principal.ts",
+      "base_blob": "1a256360c75dc13152e907df20f5334fdb77bbc2",
+      "reviewed_blob": "1a256360c75dc13152e907df20f5334fdb77bbc2",
+      "sha256": "42cb9cf6a5c5cba8edc0e15fa7ca8397c1861fea68b4aa70b5ac28416aee173b"
+    },
+    {
+      "path": "packages/control-plane/src/proofs/project-role.ts",
+      "base_blob": "f0a6fc26310c21e6a3df7804fe90f518646ffa5e",
+      "reviewed_blob": "f0a6fc26310c21e6a3df7804fe90f518646ffa5e",
+      "sha256": "2ad436387d39570055000c24ba51285a04265f046e78ad1ced4d165387c61322"
+    },
+    {
+      "path": "packages/control-plane/src/services/project-access.ts",
+      "base_blob": "362de8deac5bda7ffb3cf775c7df3502de38e191",
+      "reviewed_blob": "362de8deac5bda7ffb3cf775c7df3502de38e191",
+      "sha256": "2713b01870a6a548f35e1cf5ae8e7115f810fb9ab9ad28b5901596a0adbe7075"
+    },
+    {
+      "path": "packages/os-domain/src/types.ts",
+      "base_blob": "64a59799d61bf1048a51f330531d4f2d33367950",
+      "reviewed_blob": "64a59799d61bf1048a51f330531d4f2d33367950",
+      "sha256": "7dab9fac6425638e62b09fbbc656f2a25e4590d8c7b5ec01bdac717f61c01ec8"
+    }
+  ]
+}

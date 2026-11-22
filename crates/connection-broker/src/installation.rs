@@ -7,8 +7,11 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Duration, Utc};
+use opensesame_invoke_through::scrub_credential_reflection;
+use opensesame_time::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
+
+use crate::response_guard::read_bounded_body;
 
 pub const DEFAULT_GITHUB_API_BASE: &str = "https://api.github.com";
 const API_VERSION: &str = "2022-11-28";
@@ -16,6 +19,7 @@ const USER_AGENT: &str = "opensesame-gateway";
 /// Refresh this long before GitHub's stated expiry so an in-flight batch
 /// never runs off the end of its token.
 const EXPIRY_MARGIN_SECONDS: i64 = 300;
+const MAX_GITHUB_RESPONSE_BYTES: usize = 1024 * 1024;
 
 #[derive(Clone)]
 pub struct GithubAppSigningMaterial {
@@ -90,6 +94,23 @@ pub enum MintError {
     Transient(anyhow::Error),
 }
 
+async fn credentialed_json<T: serde::de::DeserializeOwned>(
+    response: &mut reqwest::Response,
+    credential: &str,
+) -> Result<T, MintError> {
+    let body = read_bounded_body(response, MAX_GITHUB_RESPONSE_BYTES)
+        .await
+        .map_err(|error| MintError::Transient(anyhow::anyhow!(error.to_string())))?;
+    let (body, reflected) = scrub_credential_reflection(body, credential);
+    if reflected {
+        return Err(MintError::Transient(anyhow::anyhow!(
+            "GitHub response reflected the submitted credential"
+        )));
+    }
+    serde_json::from_slice(&body)
+        .map_err(|_| MintError::Transient(anyhow::anyhow!("invalid GitHub response")))
+}
+
 /// # Errors
 ///
 /// Returns `Suspended` for a revoked installation and `Transient` for signing,
@@ -102,7 +123,7 @@ pub async fn mint_installation_token(
 ) -> Result<InstallationToken, MintError> {
     let jwt = mint_app_jwt(material).map_err(MintError::Transient)?;
     let base = api_base.trim_end_matches('/');
-    let response = http
+    let mut response = http
         .post(format!(
             "{base}/app/installations/{installation_id}/access_tokens"
         ))
@@ -112,12 +133,11 @@ pub async fn mint_installation_token(
         .header("user-agent", USER_AGENT)
         .send()
         .await
-        .map_err(|e| MintError::Transient(e.into()))?;
+        .map_err(|_| {
+            MintError::Transient(anyhow::anyhow!("GitHub installation token request failed"))
+        })?;
     match response.status().as_u16() {
-        201 => response
-            .json::<InstallationToken>()
-            .await
-            .map_err(|e| MintError::Transient(e.into())),
+        201 => credentialed_json::<InstallationToken>(&mut response, &jwt).await,
         // The app was uninstalled, the installation revoked, or the key
         // rotated: retrying without human intervention cannot succeed.
         401 | 403 | 404 => Err(MintError::Suspended(format!(
@@ -182,7 +202,7 @@ pub async fn list_app_installations(
 ) -> Result<Vec<GithubInstallationSummary>, MintError> {
     let jwt = mint_app_jwt(material).map_err(MintError::Transient)?;
     let base = api_base.trim_end_matches('/');
-    let response = http
+    let mut response = http
         .get(format!("{base}/app/installations"))
         .bearer_auth(&jwt)
         .header("accept", "application/vnd.github+json")
@@ -191,13 +211,13 @@ pub async fn list_app_installations(
         .query(&[("per_page", "100")])
         .send()
         .await
-        .map_err(|e| MintError::Transient(e.into()))?;
+        .map_err(|_| {
+            MintError::Transient(anyhow::anyhow!("GitHub installation list request failed"))
+        })?;
     match response.status().as_u16() {
         200 => {
-            let rows: Vec<GithubInstallationApiRow> = response
-                .json()
-                .await
-                .map_err(|e| MintError::Transient(e.into()))?;
+            let rows: Vec<GithubInstallationApiRow> =
+                credentialed_json(&mut response, &jwt).await?;
             let mut summaries = Vec::with_capacity(rows.len());
             for row in rows {
                 let repositories = installation_repo_names(http, base, &jwt, row.id).await;
@@ -249,7 +269,7 @@ async fn installation_repo_names(
     jwt: &str,
     installation_id: u64,
 ) -> Vec<String> {
-    let Ok(response) = http
+    let Ok(mut response) = http
         .get(format!(
             "{base}/app/installations/{installation_id}/repositories"
         ))
@@ -266,7 +286,7 @@ async fn installation_repo_names(
     if response.status().as_u16() != 200 {
         return Vec::new();
     }
-    let Ok(body) = response.json::<InstallationReposBody>().await else {
+    let Ok(body) = credentialed_json::<InstallationReposBody>(&mut response, jwt).await else {
         return Vec::new();
     };
     body.repositories

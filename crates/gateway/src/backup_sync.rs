@@ -125,8 +125,8 @@ impl SnapshotPlan {
             let expires = row
                 .expires_at
                 .map(|value| {
-                    chrono::DateTime::parse_from_rfc3339(&value)
-                        .map(|time| time.with_timezone(&chrono::Utc))
+                    opensesame_time::DateTime::parse_from_rfc3339(&value)
+                        .map(|time| time.with_timezone(&opensesame_time::Utc))
                 })
                 .transpose()?;
             self.pending.push_back(SnapshotFile {

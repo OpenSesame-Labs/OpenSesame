@@ -71,7 +71,7 @@ async fn call(
 async fn register_app(state: &AppState) -> String {
     sqlx::query("INSERT OR IGNORE INTO organizations (id, name, created_at) VALUES (?, 'Org', ?)")
         .bind(state.connection_organization.to_string())
-        .bind(chrono::Utc::now().to_rfc3339())
+        .bind(opensesame_time::Utc::now().to_rfc3339())
         .execute(state.db.pool())
         .await
         .unwrap();

@@ -49,6 +49,36 @@ fn attached(state: &AppState, client_ca: &DisposableCa) -> Arc<TransportGenerati
 }
 
 #[tokio::test]
+async fn a_trust_write_refuses_when_the_source_fence_has_elapsed() {
+    use opensesame_time::{Duration, Utc};
+    let state = support::state().await;
+    let generations = attached(&state, &DisposableCa::new("clients"));
+    let owner = generations.source_owner();
+    let reserved = generations.claim_source(&owner).unwrap();
+    let epoch = generations
+        .activate_from_source(
+            &owner,
+            reserved,
+            GenerationCandidate {
+                identity: generations.current().identity.clone(),
+                peer_trust: generations.current().peer_trust.clone(),
+                own_trust: None,
+                identity_required: true,
+            },
+        )
+        .unwrap();
+    generations
+        .tighten_source_deadline(&owner, epoch, Utc::now() - Duration::seconds(1))
+        .unwrap();
+    assert!(generations.current().withdrawn.is_none());
+    let error = trust::put_cas(&state, one_profile(0), "operator", false)
+        .await
+        .expect_err("trust write after source expiry");
+    assert!(matches!(error, TrustError::Invalid(_)));
+    assert_eq!(error.code(), "evidence_expired");
+}
+
+#[tokio::test]
 async fn a_trust_write_does_not_resurrect_a_withdrawn_generation() {
     let state = support::state().await;
     let generations = attached(&state, &DisposableCa::new("clients"));
@@ -211,7 +241,7 @@ async fn a_replica_adopts_a_removal_on_refresh_and_its_stale_write_is_refused() 
         .expect("A adds");
     assert!(serves(&a_generations, "peers"));
     assert!(!serves(&b_generations, "peers"), "B has not refreshed yet");
-    assert!(trust::refresh(&b, chrono::Utc::now())
+    assert!(trust::refresh(&b, opensesame_time::Utc::now())
         .await
         .expect("B refresh"));
     assert!(serves(&b_generations, "peers"), "B adopts A's addition");
@@ -225,7 +255,7 @@ async fn a_replica_adopts_a_removal_on_refresh_and_its_stale_write_is_refused() 
         .expect("A removes");
     assert!(!serves(&a_generations, "peers"));
     assert!(serves(&b_generations, "peers"), "B still on revision 1");
-    assert!(trust::refresh(&b, chrono::Utc::now())
+    assert!(trust::refresh(&b, opensesame_time::Utc::now())
         .await
         .expect("B refresh"));
     assert!(
@@ -233,7 +263,9 @@ async fn a_replica_adopts_a_removal_on_refresh_and_its_stale_write_is_refused() 
         "B stops trusting the removed anchor without a restart",
     );
     assert!(
-        !trust::refresh(&b, chrono::Utc::now()).await.expect("again"),
+        !trust::refresh(&b, opensesame_time::Utc::now())
+            .await
+            .expect("again"),
         "nothing newer: a refresh is a no-op",
     );
 
@@ -305,3 +337,8 @@ async fn a_store_failure_leaves_the_running_generation_unchanged() {
     assert_eq!(generations.current().number, before, "nothing activated");
     assert!(!serves(&generations, "peers"));
 }
+
+#[path = "trust_history_tests.rs"]
+mod history_tests;
+#[path = "trust_source_tests.rs"]
+mod source_tests;

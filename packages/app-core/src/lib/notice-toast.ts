@@ -45,6 +45,8 @@ export type ToastMessage = Readonly<{
    * of a tray notice does not.
    */
   choice?: ToastChoice;
+  /** A second worded key, when the notice offers a pair. */
+  alt?: ToastChoice;
   /**
    * Stays until it is answered. An offer nobody has read is not an offer, so
    * it does not leave on a clock; it leaves when its key or its dismiss is
@@ -59,13 +61,13 @@ export type ToastMessage = Readonly<{
 export type ToastChoice = Readonly<{ label: string; run: () => void }>;
 
 export function toastOf(notice: Notice): ToastMessage {
-  const echo: ToastMessage = {
-    id: notice.id,
-    tone: notice.tone ?? "info",
-    title: notice.title,
-    body: notice.body,
-    open: notice.open,
-  };
+  const id = notice.id;
+  const tone = notice.tone ?? "info";
+  const { title, body, open } = notice;
+  const echo: ToastMessage =
+    open === undefined
+      ? { id, tone, title, body }
+      : { id, tone, title, body, open };
   const { act } = notice;
   if (act?.worded !== true) return echo;
   // A recommendation's act is the answer to its card, so the echo carries it
@@ -80,8 +82,15 @@ export function toastOf(notice: Notice): ToastMessage {
     sticky: true,
     choice: { label: act.label, run: act.run },
   };
+  const paired: ToastMessage =
+    notice.alt?.worded === true
+      ? {
+          ...recommendation,
+          alt: { label: notice.alt.label, run: notice.alt.run },
+        }
+      : recommendation;
   const compactTitle = act.compactTitle?.trim();
-  return compactTitle ? { ...recommendation, compactTitle } : recommendation;
+  return compactTitle ? { ...paired, compactTitle } : paired;
 }
 
 type ToastListener = (toast: ToastMessage) => void;

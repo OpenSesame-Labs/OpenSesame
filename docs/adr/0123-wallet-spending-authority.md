@@ -13,8 +13,7 @@ ADR 0120 ([generalized hierarchical authority](0120-generalized-hierarchical-aut
 ADR 0121 ([durable authority invalidation fencing](0121-durable-authority-invalidation-fencing.md)),
 [wallet spending (product overview)](../operators/wallet-spending.md),
 [wallet threat model](../security/wallet-threat-model.md),
-[protocol compatibility](../reference/wallet-protocol-compatibility.md),
-[swarm coordination](../archive/wallet-swarm-coordination.md)
+[protocol compatibility](../reference/wallet-protocol-compatibility.md)
 
 **Implementation is in progress on a dirty tree at baseline `4358f7fe`.**
 This ADR records binding product decisions for the Wallet spending programme.
@@ -188,7 +187,6 @@ boundary, not claimed as governed.
 - [wallet spending overview](../operators/wallet-spending.md)
 - [wallet threat model](../security/wallet-threat-model.md)
 - [wallet protocol compatibility](../reference/wallet-protocol-compatibility.md)
-- [wallet swarm coordination](../archive/wallet-swarm-coordination.md)
 - [wallet interaction layer](../architecture/wallet-interaction-layer.md)
 
 Current run output is temporary. Persist only approved current-state artifacts

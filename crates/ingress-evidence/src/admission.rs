@@ -8,8 +8,8 @@
 
 use std::sync::{Arc, RwLock};
 
-use chrono::Utc;
 use opensesame_domain::transport::{BindingPurpose, BindingScope, ServiceBindingSet, VerifiedPeer};
+use opensesame_time::Utc;
 
 /// Decides whether a directly verified peer on the trusted-ingress listener
 /// is one of the ingresses allowed to forward originating-client evidence.
@@ -39,10 +39,9 @@ impl IngressAdmission for BindingSetAdmission {
             return false;
         };
         bindings
-            .resolve_scoped(
+            .resolve_verified_scoped(
                 &BindingScope::Deployment,
-                peer.trust_profile(),
-                peer.identities(),
+                peer,
                 BindingPurpose::TrustedIngress,
                 Utc::now(),
             )

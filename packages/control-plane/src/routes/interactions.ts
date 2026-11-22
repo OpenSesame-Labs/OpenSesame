@@ -10,13 +10,13 @@ import { createInteractionCsrf } from "../interactions/csrf.js";
 import {
   FederatedAuthError,
   type FederatedIdentity,
-  type PendingFederatedAuth,
   beginFederatedAuth,
-  completeFederatedAuth,
   decodePending,
   encodePending,
   pendingCookieName,
 } from "../interactions/federated.js";
+import { completeFederatedLeg } from "../interactions/federated-leg.js";
+import { callbackTrustMatchesPending } from "../interactions/federated-trust-binding.js";
 import {
   ProvisionalMintRefusedError,
   buildConsentPageModel,
@@ -27,11 +27,11 @@ import {
   mintProvisionalForInteraction,
   preferredProviderForDetails,
 } from "../interactions/handlers.js";
-import { beginOAuth2Auth, completeOAuth2Auth } from "../interactions/oauth2.js";
+import { normalizeIssuer } from "../interactions/issuer-normalization.js";
+import { beginOAuth2Auth } from "../interactions/oauth2.js";
 import { organizationHintForDetails } from "../interactions/organization-hint.js";
 import {
   type ProviderDescriptor,
-  normalizeIssuer,
   providerById,
   providerByIssuer,
 } from "../interactions/registry.js";
@@ -149,41 +149,6 @@ function requestedProvider(
 }
 
 /**
- * Complete whichever leg started this (C3/C4).
- *
- * `kind` rides in the pending cookie and an absent one means `"oidc"` — the
- * shape of every cookie written before this release. An `"oauth2"` pending
- * must never be finished by the OIDC leg: that leg's whole guarantee is a
- * JWKS-verified id_token, and a provider that issues none would otherwise be
- * admitted on whatever its token endpoint happened to return.
- */
-async function completeFederatedLeg(
-  ctx: AppContext,
-  pending: PendingFederatedAuth,
-  currentUrl: URL,
-): Promise<FederatedIdentity> {
-  if ((pending.kind ?? "oidc") !== "oauth2") {
-    return completeFederatedAuth(ctx, pending, currentUrl);
-  }
-  const descriptor = pending.providerId
-    ? providerById(ctx.config, pending.providerId)
-    : undefined;
-  if (
-    !descriptor ||
-    descriptor.kind !== "oauth2" ||
-    normalizeIssuer(descriptor.issuer) !== normalizeIssuer(pending.issuer)
-  ) {
-    // The cookie named a provider this deployment no longer offers, or one
-    // whose issuer it does not match. Either way, nothing vouches for it.
-    throw new FederatedAuthError(
-      "untrusted_issuer",
-      "That sign-in provider is not trusted by this server",
-    );
-  }
-  return completeOAuth2Auth(ctx, descriptor, pending, currentUrl);
-}
-
-/**
  * The oidc-provider interaction slot (ADR 0050 F6). `/auth` 303-redirects
  * here when login or consent is needed; `devInteractions` stays off. The
  * routes sit behind the same HTML security-header posture as the claim
@@ -287,7 +252,10 @@ export function createInteractionRoutes(): Hono<
             setCookie(
               c,
               pendingCookieName(details.uid),
-              encodePending(pending, ctx.config.claimPepper),
+              encodePending(pending, ctx.config.claimPepper, {
+                sealVerifierOnWire:
+                  ctx.config.federatedPendingSealVerifierOnWire,
+              }),
               {
                 httpOnly: true,
                 sameSite: "Lax",
@@ -449,7 +417,9 @@ export function createInteractionRoutes(): Hono<
       setCookie(
         c,
         pendingCookieName(uid),
-        encodePending(pending, ctx.config.claimPepper),
+        encodePending(pending, ctx.config.claimPepper, {
+          sealVerifierOnWire: ctx.config.federatedPendingSealVerifierOnWire,
+        }),
         {
           httpOnly: true,
           sameSite: "Lax",
@@ -554,6 +524,13 @@ export function createInteractionRoutes(): Hono<
       );
     }
 
+    // The issuer may have changed owners since this leg began. Refuse before
+    // exchanging its code with credentials belonging to a different owner.
+    const initialTrust = await resolveTrustedIssuer(ctx, pending.issuer);
+    if (!initialTrust || !callbackTrustMatchesPending(initialTrust, pending)) {
+      return c.text("That sign-in provider is not trusted by this server", 403);
+    }
+
     let identity: FederatedIdentity;
     try {
       identity = await completeFederatedLeg(ctx, pending, new URL(c.req.url));
@@ -567,12 +544,15 @@ export function createInteractionRoutes(): Hono<
       throw error;
     }
 
-    // Resolved again rather than carried from the leg: the same read decides
-    // both what may be federated to and what its email claim is worth, and a
-    // value threaded through the pending cookie would be one a forged cookie
-    // could choose.
+    // Resolved again rather than carried from the leg: the same current read
+    // decides both what may be federated to and what its email claim is worth.
+    // The pending source is MAC-bound and must match this resolution below.
     const trust = await resolveTrustedIssuer(ctx, identity.issuer);
-    if (!trust) {
+    if (
+      !trust ||
+      !callbackTrustMatchesPending(trust, pending) ||
+      normalizeIssuer(pending.issuer) !== normalizeIssuer(identity.issuer)
+    ) {
       return c.text("That sign-in provider is not trusted by this server", 403);
     }
 
@@ -689,27 +669,49 @@ export function createInteractionRoutes(): Hono<
     // itself already happened, and refusing here is what keeps a
     // deprovisioned employee out of the tenant.
     if (pending.orgId) {
-      const organization = await ctx.stores.organizations.get(pending.orgId);
-      if (organization) {
-        // A directory that pushed this subject into an owners group said so
-        // before the sign-in happened, and that is the tenant's answer about
-        // its own people — so it decides the role rather than `member` (C15).
-        const role = await provisionedRoleForSubject(
-          ctx,
-          organization.id,
-          identity.subject,
+      if (
+        trust.source !== "org" ||
+        trust.organizationId !== pending.orgId ||
+        normalizeIssuer(trust.issuer) !== normalizeIssuer(identity.issuer)
+      ) {
+        return c.text(
+          "That sign-in provider is not trusted by this server",
+          403,
         );
-        const joined = await jitJoinOrganization(ctx, {
-          organization,
-          principalId: accountId,
-          subject: identity.subject,
-          method: "sso",
-          correlationId,
-          ...(role !== undefined ? { role } : undefined),
-        });
-        if (!joined.ok) {
-          return c.text(joined.message, 403);
-        }
+      }
+      const organization = await ctx.stores.organizations.get(pending.orgId);
+      const configuredIssuer =
+        trust.method === "sso"
+          ? organization?.ssoIssuer
+          : organization?.samlIssuer;
+      if (
+        !organization ||
+        normalizeIssuer(configuredIssuer ?? "") !==
+          normalizeIssuer(trust.issuer)
+      ) {
+        return c.text(
+          "That sign-in provider is not trusted by this server",
+          403,
+        );
+      }
+      // A directory that pushed this subject into an owners group said so
+      // before the sign-in happened, and that is the tenant's answer about
+      // its own people — so it decides the role rather than `member` (C15).
+      const role = await provisionedRoleForSubject(
+        ctx,
+        organization.id,
+        identity.subject,
+      );
+      const joined = await jitJoinOrganization(ctx, {
+        organization,
+        principalId: accountId,
+        subject: identity.subject,
+        method: "sso",
+        correlationId,
+        ...(role !== undefined ? { role } : undefined),
+      });
+      if (!joined.ok) {
+        return c.text(joined.message, 403);
       }
     }
 

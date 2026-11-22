@@ -100,10 +100,12 @@ An organization not admitted by its source can fall through to an active
 visitor record; a later revocation does not retroactively erase a decision.
 
 The federation pending-cookie proof checks reviewed token snapshots of the
-schema, verifier binding, modern and legacy signatures, encoding, verification
-and decoding. The Lean abstraction establishes that a legacy signature is
-admitted only without organization and visitor provenance, while a valid
-modern signature admits the exact encoded payload. The real implementation
+schema, verifier binding, modern and legacy signatures, canonical base64url
+encoding, verification and decoding. The Lean abstraction establishes that a
+legacy signature is admitted only for legacy static provenance: a signed,
+nonempty provider identifier and no field outside the former signed field set.
+A valid modern signature admits the exact canonical encoded payload. The real
+implementation
 uses a version-specific derived HMAC key so a modern signature cannot be
 reinterpreted as a legacy signature. HMAC, scrypt, JSON and base64url are
 trusted primitives; this does not prove cookie delivery, expiry, replay

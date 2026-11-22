@@ -56,7 +56,7 @@ async fn seed_connection(
     materialization: &str,
 ) -> String {
     let id = format!("conn_{}", uuid::Uuid::new_v4().simple());
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     store::insert_connection(
         state.db.pool(),
         &ConnectionRow {
@@ -629,7 +629,7 @@ async fn the_metadata_envelope_matches_a_real_vault_kv_v2_response() {
     assert_shape_matches(fixture_version, actual_version, "data.versions.1");
 }
 
-/// The self-conformance loop: OpenSesame's own Vault client
+/// The self-conformance loop: `OpenSesame`'s own Vault client
 /// (`crates/provider-openbao`, the client half of this protocol) reads a
 /// secret through the facade over loopback. If the envelope drifts, this test
 /// fails where a hand-written assertion would not.

@@ -202,7 +202,8 @@ mod tests {
             json!("not an object"),
         ] {
             assert!(
-                PermissionManifest::from_authorization_details(&[detail.clone()]).is_err(),
+                PermissionManifest::from_authorization_details(std::slice::from_ref(&detail))
+                    .is_err(),
                 "{detail} must not parse"
             );
         }
