@@ -6,6 +6,7 @@ import {
 } from "@opensesame/audit";
 import { scrubText } from "@opensesame/log-scrub";
 import type { AuditEvent } from "@opensesame/os-domain";
+import { z } from "zod";
 import type { AppContext } from "../context.js";
 
 /** Written atomically with membership removal and the session transitions. */
@@ -18,21 +19,17 @@ export type OrganizationRevocationAuditIntent = {
   count: number;
 };
 
+const auditIntentSchema = z.object({
+  id: z.string().min(1),
+  principalId: z.string().min(1),
+  organizationId: z.string().min(1),
+  correlationId: z.string().min(1),
+  reason: z.string(),
+  count: z.number().int().nonnegative().safe(),
+});
+
 function validate(intent: OrganizationRevocationAuditIntent): void {
-  if (
-    !intent ||
-    typeof intent.id !== "string" ||
-    !intent.id ||
-    typeof intent.principalId !== "string" ||
-    !intent.principalId ||
-    typeof intent.organizationId !== "string" ||
-    !intent.organizationId ||
-    typeof intent.correlationId !== "string" ||
-    !intent.correlationId ||
-    typeof intent.reason !== "string" ||
-    !Number.isSafeInteger(intent.count) ||
-    intent.count < 0
-  )
+  if (!auditIntentSchema.safeParse(intent).success)
     throw new Error("Invalid organization revocation audit intent");
 }
 

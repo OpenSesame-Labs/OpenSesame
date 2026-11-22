@@ -142,10 +142,11 @@ principalRoutes.post(
 
         const provisionalSession: ProvisionalSession = {
           ...session,
-          ...(restoreProofHash ? { restoreProofHash } : {}),
           createdAt: now,
           expiresAt: new Date(now.getTime() + ctx.config.provisionalTtlMs),
         };
+        if (restoreProofHash)
+          provisionalSession.restoreProofHash = restoreProofHash;
 
         const principal: Principal = {
           id: mapping.principalId,

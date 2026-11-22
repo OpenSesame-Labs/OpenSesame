@@ -1,5 +1,10 @@
 /** Rate limits for anonymous and interactive provisional session creation. */
 import { createHash } from "node:crypto";
+import {
+  type BoundaryValue,
+  isJsonObject,
+  isString,
+} from "@opensesame/os-domain";
 import type { Context } from "hono";
 import { peerAddress } from "../lib/peer-address.js";
 import { cookieAuthAllowed } from "../middleware/auth.js";
@@ -96,10 +101,10 @@ export function parseProvisionalMintBody(
 ): { ok: true; restoreProofHash?: string } | { ok: false } {
   if (!raw) return { ok: true };
   try {
-    const body: unknown = JSON.parse(raw);
-    if (!body || typeof body !== "object") return { ok: false };
+    const body: BoundaryValue = JSON.parse(raw);
+    if (!isJsonObject(body)) return { ok: false };
     if (!("restoreProofHash" in body)) return { ok: true };
-    return typeof body.restoreProofHash === "string" &&
+    return isString(body.restoreProofHash) &&
       /^[0-9a-f]{64}$/u.test(body.restoreProofHash)
       ? { ok: true, restoreProofHash: body.restoreProofHash }
       : { ok: false };

@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
+import { z } from "zod";
 import {
   cookieAuthAllowed,
   resolveProvisionalSession,
@@ -9,6 +10,7 @@ import { revokeProvisionalSession } from "../repos/provisional-revocation.js";
 
 /** Explicitly end the observed ambient cookie without clearing a newer cookie. */
 export const principalCookieExitRoutes = new Hono<{ Variables: Variables }>();
+const exitSchema = z.object({ sessionId: z.string().min(1).max(200) });
 
 principalCookieExitRoutes.get("/cookie-status", async (c) => {
   const ctx = c.get("ctx");
@@ -25,16 +27,14 @@ principalCookieExitRoutes.post("/cookie-sign-out", async (c) => {
   const ctx = c.get("ctx");
   if (!cookieAuthAllowed(ctx, c.req.method, c.req.header("origin")))
     return c.json({ error: "forbidden" }, 403);
-  let expected: unknown;
+  let expected: string;
   try {
-    const body: unknown = await c.req.json();
-    if (body && typeof body === "object" && "sessionId" in body)
-      expected = body.sessionId;
+    const parsed = exitSchema.safeParse(await c.req.json());
+    if (!parsed.success) return c.json({ error: "invalid_request" }, 400);
+    expected = parsed.data.sessionId;
   } catch {
     return c.json({ error: "invalid_request" }, 400);
   }
-  if (typeof expected !== "string" || !expected || expected.length > 200)
-    return c.json({ error: "invalid_request" }, 400);
   const cookie = getCookie(c, ctx.config.provisionalCookieName);
   const resolved = cookie
     ? await resolveProvisionalSession(ctx, cookie)
