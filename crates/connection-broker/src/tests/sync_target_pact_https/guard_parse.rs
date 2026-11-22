@@ -5,7 +5,7 @@
 //! `Url::parse(evil).unwrap_or(Url::parse(url).unwrap())` can still be `evil`,
 //! and a parse that `.map(…)` / `.and_then(…)` replaces is not the parse at
 //! all: `Url::parse(&url).map(|_| decoy)` checks `decoy`, not `url`.
-use super::super::super::sync_target_pact_norm::{is_keyword_at, string_len};
+use super::super::super::sync_target_pact_norm::{is_keyword_at, non_code_len, string_len};
 use super::super::{after_paren, is_ident_byte};
 use super::{args_of, first_arg, plain_ident, strip_ref};
 
@@ -14,7 +14,9 @@ pub(super) fn last_rhs<'a>(source: &'a str, name: &str) -> Option<(&'a str, usiz
     let mut index = 0usize;
     let mut found = None;
     while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
+        // Comments are not code: a commented-out rebinding is not the "last"
+        // RHS, so it cannot lend its provenance to the guard subject.
+        if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }

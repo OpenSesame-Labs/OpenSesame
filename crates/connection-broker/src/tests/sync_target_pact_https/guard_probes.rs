@@ -88,6 +88,71 @@ fn codex_thread_mutated_parsed_subject_does_not_cover_dest() {
     }
 }
 
+/// Comment bytes are not code: a commented-out fake guard must not count as
+/// a fail-close HTTPS guard (GLM council chunk03 P1). The entry point strips
+/// comments first, and the scanner itself must stay correct when the prefix
+/// still carries comment bytes. Conditions are spelled compacted, the way
+/// `compact_source` delivers them in production.
+#[test]
+fn glm_chunk03_commented_fake_guard_is_not_a_guard() {
+    let line = r#"{// if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#;
+    assert!(!super::guarded(line, Some("url")), "{line}");
+    let block = r#"{/* if url.scheme()!="https" { return Err("x".into()); } */ client.get(url)."#;
+    assert!(!super::guarded(block, Some("url")), "{block}");
+    // End-to-end control: the entry point strips the comment, gap stays open.
+    let sample = "async fn f() {\n// if url.scheme() != \"https\" { return Err(\"x\".into()); }\nclient.get(url).send().await?; }";
+    assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+}
+
+/// A `return` inside `/* … */` or `//` must not satisfy `depth0_return`, so a
+/// real scheme guard whose block only *seems* to return stays open (GLM
+/// council chunk03 P1).
+#[test]
+fn glm_chunk03_commented_return_does_not_fail_close() {
+    assert!(!super::depth0_return(r#"/* return Err("x"); */"#));
+    assert!(!super::depth0_return(
+        "// return Err(\"x\");\nside_effect();"
+    ));
+    assert!(super::depth0_return(" return Err(\"x\"); "));
+    let block = r#"{if url.scheme()!="https" {/* return Err("x".into()); */} client.get(url)."#;
+    assert!(!super::guarded(block, Some("url")), "{block}");
+    let line = "{if url.scheme()!=\"https\" {\n// return Err(\"x\".into());\n} client.get(url).";
+    assert!(!super::guarded(line, Some("url")), "{line}");
+}
+
+/// A comment `}` must not corrupt `guarded()`'s brace depth: a commented
+/// closing brace before a real dominating `if` must not demote it below
+/// depth 1 (GLM council chunk03 P1).
+#[test]
+fn glm_chunk03_comment_brace_does_not_corrupt_depth() {
+    let prefix = "{// }\nif url.scheme()!=\"https\" { return Err(\"x\".into()); } client.get(url).";
+    assert!(super::guarded(prefix, Some("url")), "{prefix}");
+    // End-to-end control: the real guard still counts once comments are gone.
+    let sample = "async fn f() {\n// }\nif url.scheme() != \"https\" { return Err(\"x\".into()); }\nclient.get(url).send().await?; }";
+    assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
+}
+
+/// `last_rhs` must skip comments: a commented-out later rebinding is not the
+/// "last" RHS, so `// parsed = Url::parse(&url)` cannot lend `&url`
+/// provenance to a subject parsed from `evil` (GLM council chunk03 P2).
+#[test]
+fn glm_chunk03_commented_rebind_is_not_last_rhs() {
+    let source = "let parsed = Url::parse(evil); // parsed = Url::parse(&url);";
+    let (rhs, _) = super::guard_parse::last_rhs(source, "parsed").expect("real binding remains");
+    assert_eq!(rhs.trim(), "Url::parse(evil)", "{source}");
+    let no_real = "// let parsed = Url::parse(&url);\nother();";
+    assert!(
+        super::guard_parse::last_rhs(no_real, "parsed").is_none(),
+        "{no_real}"
+    );
+    // Through `guarded`: the subject parsed `evil`, so it covers no dest.
+    let prefix = "{let parsed = Url::parse(evil); // parsed = Url::parse(&url);\nif parsed.scheme()!=\"https\" { return Err(\"x\".into()); } client.get(&url).";
+    assert!(!super::guarded(prefix, Some("url")), "{prefix}");
+    // End-to-end control: the entry point strips the comment, gap stays open.
+    let sample = "async fn f() { let parsed = Url::parse(evil);\n// parsed = Url::parse(&url);\nif parsed.scheme() != \"https\" { return Err(\"x\".into()); } client.get(&url).send().await?; }";
+    assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+}
+
 /// A `return` token inside a macro invocation's token tree does not fail-close
 /// the branch — the macro may never emit it (Codex PRRT_kwDOTwzAKs65wAMY).
 #[test]

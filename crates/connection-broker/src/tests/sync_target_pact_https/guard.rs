@@ -1,5 +1,5 @@
 //! Scheme predicate, closure-local `return`, and URL binding for the HTTPS guard.
-use super::super::sync_target_pact_norm::{is_keyword_at, match_brace, string_len};
+use super::super::sync_target_pact_norm::{is_keyword_at, match_brace, non_code_len};
 use super::{after_paren, ident_at, strip_turbofish};
 
 #[path = "guard_parse.rs"]
@@ -15,7 +15,9 @@ pub(super) fn guarded(prefix: &str, dest: Option<&str>) -> bool {
     let mut index = 0usize;
     let mut depth = 0i32;
     while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
+        // Comments are not code: a commented-out `if` guard or a commented
+        // `}` must not advance the brace depth this dominance count rides on.
+        if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }
@@ -178,7 +180,8 @@ fn scheme_at(expr: &str) -> Option<usize> {
     let bytes = expr.as_bytes();
     let mut index = 0usize;
     while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
+        // A `scheme` inside a comment is not a predicate.
+        if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }
@@ -214,7 +217,8 @@ fn split_top<'a>(expr: &'a str, op: &str) -> Option<(&'a str, &'a str)> {
     let mut index = 0usize;
     let mut depth = 0i32;
     while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
+        // An operator inside a comment does not split the expression.
+        if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }
@@ -235,7 +239,8 @@ fn condition_brace(bytes: &[u8], from: usize) -> Option<usize> {
     let mut paren = 0i32;
     let mut index = from;
     while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
+        // A commented `(` / `)` / `;` must not steer the condition boundary.
+        if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }
@@ -258,7 +263,9 @@ fn depth0_return(body: &str) -> bool {
     // argument the macro may never emit, so it cannot fail-close the branch.
     let (mut depth, mut index, mut stmt) = (0i32, 0usize, 0usize);
     while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
+        // A `return` inside a comment is not a fail-close of the branch, and
+        // a commented `;` does not start a new statement.
+        if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }
