@@ -157,31 +157,33 @@ async function prepareJoin(
       : provisioned?.active
         ? roleOf(provisioned)
         : undefined;
-  return serializeMembershipMutation(tx, orgId, async () => {
-    const current = await tx.stores.organizationMemberships.findVersioned(
-      orgId,
-      input.principalId,
-    );
-    if (current) {
-      if (
-        current.withdrawalId ||
-        (role !== undefined && role !== current.membership.role)
-      ) {
-        if (role === undefined) return busy();
-        return prepareJoinRole(tx, input, current.incarnation, role);
-      }
-      return { ok: true, membership: current.membership, created: false };
+  // The caller's organization boundary already serializes this decision with
+  // every other membership write, across replicas. Taking the in-process
+  // mutation turn here as well would invert the order owner writes use
+  // (mutation turn, then boundary) and deadlock against them.
+  const current = await tx.stores.organizationMemberships.findVersioned(
+    orgId,
+    input.principalId,
+  );
+  if (current) {
+    if (
+      current.withdrawalId ||
+      (role !== undefined && role !== current.membership.role)
+    ) {
+      if (role === undefined) return busy();
+      return prepareJoinRole(tx, input, current.incarnation, role);
     }
-    const now = tx.clock();
-    const membership = await tx.stores.organizationMemberships.upsert({
-      organizationId: orgId,
-      principalId: input.principalId,
-      role: role ?? "member",
-      createdAt: now,
-      updatedAt: now,
-    });
-    return { ok: true, membership, created: true };
+    return { ok: true, membership: current.membership, created: false };
+  }
+  const now = tx.clock();
+  const membership = await tx.stores.organizationMemberships.upsert({
+    organizationId: orgId,
+    principalId: input.principalId,
+    role: role ?? "member",
+    createdAt: now,
+    updatedAt: now,
   });
+  return { ok: true, membership, created: true };
 }
 
 async function prepareJoinRole(
