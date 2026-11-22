@@ -266,6 +266,18 @@ fn p5_dispatch_rebind_without_let_shadows_alias() {
 }
 
 #[test]
+fn p5_nested_block_comment_hides_dispatch_rebind() {
+    let sample = r#"async fn f() {
+    let dispatch = reqwest::RequestBuilder::send;
+    /* /* */
+    let dispatch = innocent;
+    */
+    dispatch(request).await?;
+}"#;
+    assert_gaps(sample, (1, 1));
+}
+
+#[test]
 fn p5_closure_whitespace_before_pipe_is_not_https_guard() {
     let sample = r#"async fn f() { if evil.scheme() != "https" { let _ = || return Err("x".into()); } client.get(evil).send().await?; }"#;
     assert_gaps(sample, (1, 1));
