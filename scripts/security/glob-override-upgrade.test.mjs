@@ -9,9 +9,47 @@ const lock = JSON.parse(readFileSync(join(root, "package-lock.json"), "utf8"));
 const manifest = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
 const packageAt = (path) => lock.packages[path];
 
-test("glob 13 ranges resolve to published glob 14 and leave four patched tuples", () => {
-  assert.equal(manifest.overrides["glob@^13.0.1"], "14.0.6");
-  assert.equal(manifest.overrides["glob@^13.0.6"], "14.0.6");
+function lockEntries(name) {
+  const marker = "node_modules/";
+  return Object.entries(lock.packages).filter(([path, entry]) => {
+    const at = path.lastIndexOf(marker);
+    const entryName = isString(entry?.name)
+      ? entry.name
+      : at === -1
+        ? undefined
+        : path.slice(at + marker.length);
+    return entryName === name;
+  });
+}
+
+function version(value) {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(value));
+  assert.ok(match, `unexpected version ${value}`);
+  return match.slice(1).map(Number);
+}
+
+function compare(left, right) {
+  for (let index = 0; index < 3; index++)
+    if (left[index] !== right[index]) return left[index] - right[index];
+  return 0;
+}
+
+function within(value, lowest, highest) {
+  const parsed = version(value);
+  return (
+    compare(parsed, version(lowest)) >= 0 &&
+    compare(parsed, version(highest)) <= 0
+  );
+}
+
+test("every glob range resolves to the published glob 14 release", () => {
+  for (const range of [
+    "glob@^10.0.0",
+    "glob@^11.0.1",
+    "glob@^13.0.1",
+    "glob@^13.0.6",
+  ])
+    assert.equal(manifest.overrides[range], "14.0.6", range);
   assert.equal(manifest.overrides.promptfoo.glob, "14.0.6");
   assert.equal(
     manifest.overrides["@joshwooding/vite-plugin-react-docgen-typescript"].glob,
@@ -31,52 +69,47 @@ test("glob 13 ranges resolve to published glob 14 and leave four patched tuples"
     published.integrity,
     "sha512-OwXjVP2svY5EyLY75Vek96C8qK43gqrt4xsZ+qSILdnaEiJPXkd62mcfUSNx/TQErQRdu5uM5kF67sfONragKw==",
   );
-  assert.equal(
-    packageAt("node_modules/glob/node_modules/minimatch").version,
-    "11.0.9",
-  );
-  for (const path of [
-    "node_modules/promptfoo/node_modules/glob",
-    "node_modules/@joshwooding/vite-plugin-react-docgen-typescript/node_modules/glob",
-    "node_modules/@modelcontextprotocol/server-filesystem/node_modules/glob",
-  ])
-    assert.equal(packageAt(path), undefined, path);
-  const patched = [
-    [
-      "node_modules/glob10-patched",
-      "10.5.0",
-      "file:patches/vendor/glob-10.5.0.tgz",
-    ],
-    [
-      "node_modules/glob11-patched",
-      "11.1.0",
-      "file:patches/vendor/glob-11.1.0.tgz",
-    ],
-    [
-      "node_modules/minimatch9-patched",
-      "9.0.9",
-      "file:patches/vendor/minimatch-9.0.9.tgz",
-    ],
-    [
-      "node_modules/minimatch11-patched",
+  for (const owner of [
+    "archiver-utils",
+    "workbox-build",
+    "promptfoo",
+    "@joshwooding/vite-plugin-react-docgen-typescript",
+    "@modelcontextprotocol/server-filesystem",
+  ]) {
+    assert.equal(
+      packageAt(`node_modules/${owner}/node_modules/glob`),
+      undefined,
+      owner,
+    );
+    assert.equal(
+      packageAt(`node_modules/${owner}/node_modules/minimatch`)?.version ??
+        "11.0.9",
       "11.0.9",
-      "file:patches/vendor/minimatch-11.0.9.tgz",
-    ],
-  ];
-  for (const [path, version, resolved] of patched) {
-    const entry = packageAt(path);
-    assert.equal(entry.version, version, path);
-    assert.equal(entry.resolved, resolved, path);
+      owner,
+    );
   }
-  for (const [path, entry] of Object.entries(lock.packages)) {
-    const marker = "node_modules/";
-    const at = path.lastIndexOf(marker);
-    const name = isString(entry?.name)
-      ? entry.name
-      : at === -1
-        ? undefined
-        : path.slice(at + marker.length);
-    if (name === "glob")
-      assert.equal(String(entry.version).startsWith("13."), false, path);
+});
+
+test("no glob or minimatch copy is inside the GHSA-3g3m or GHSA-g3hv ranges", () => {
+  const globs = lockEntries("glob");
+  const minimatches = lockEntries("minimatch");
+  assert.ok(globs.length > 0 && minimatches.length > 0);
+  for (const [path, entry] of globs)
+    assert.equal(within(entry.version, "9.0.0", "14.0.1"), false, path);
+  for (const [path, entry] of minimatches)
+    assert.equal(within(entry.version, "7.0.0", "11.0.0"), false, path);
+});
+
+test("the glob and minimatch backport aliases are gone", () => {
+  for (const alias of ["glob10-patched", "glob11-patched", "minimatch9-patched"]) {
+    assert.equal(manifest.devDependencies[alias], undefined, alias);
+    assert.equal(packageAt(`node_modules/${alias}`), undefined, alias);
   }
+  for (const key of ["archiver-utils", "workbox-build", "minimatch@^9.0.4"])
+    assert.equal(manifest.overrides[key], undefined, key);
+  for (const tuple of ["glob@10.5.0", "glob@11.1.0", "minimatch@9.0.9"])
+    assert.equal(manifest.patchedDependencies[tuple], undefined, tuple);
+  const alias = packageAt("node_modules/minimatch11-patched");
+  assert.equal(alias.version, "11.0.9");
+  assert.equal(alias.resolved, "file:patches/vendor/minimatch-11.0.9.tgz");
 });
