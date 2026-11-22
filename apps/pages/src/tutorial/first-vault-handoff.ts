@@ -104,7 +104,11 @@ export function useFirstVaultGateHandoff(
           .startGuide(firstVaultSignInGuide(), "authored")
           .finally(() => {
             if (active) pendingSignIn = false;
-          });
+          })
+          // The controller surfaces a failed guide through its own snapshot;
+          // this effect only owes the flag, so a rejecting start must not
+          // escape as an unhandled rejection.
+          .catch(() => {});
       }
     });
     return () => {
@@ -127,12 +131,16 @@ export function useFirstVaultHandoff(controller: SupportController): void {
         const gateSteps = takeFirstVaultSteps();
         if (gateSteps !== null) {
           gateStepsByController.set(controller, gateSteps);
-          void controller.startGuide(
-            isCreatableItemKind("account")
-              ? FIRST_VAULT_SHELL_GUIDE
-              : FIRST_VAULT_PACK_GUIDE,
-            "authored",
-          );
+          void controller
+            .startGuide(
+              isCreatableItemKind("account")
+                ? FIRST_VAULT_SHELL_GUIDE
+                : FIRST_VAULT_PACK_GUIDE,
+              "authored",
+            )
+            // As above: a rejecting start is the controller's to surface, not
+            // this effect's to crash on.
+            .catch(() => {});
         }
       });
     };
