@@ -314,6 +314,12 @@ export async function prepareDeprovision(
         (value): value is string => isString(value) && value.length > 0,
       )
     : [];
+  // A principal this directory already withdrew (prior journal) stays in scope
+  // for a retry even though the membership row is gone, so the retry can still
+  // advance the publication fence instead of mistaking a replay for a stranger.
+  const withdrawn = new Set(
+    deprovisionJournal(user)?.targets.map((target) => target.principalId) ?? [],
+  );
   for (const principalId of new Set([...resolved, ...legacyPrincipals])) {
     const membership = await ctx.stores.organizationMemberships.findVersioned(
       organization.id,
@@ -329,6 +335,12 @@ export async function prepareDeprovision(
             authorityRevision: randomUUID(),
             withdrawalId: randomUUID(),
           },
+        });
+      else if (withdrawn.has(principalId))
+        targets.push({
+          principalId,
+          incarnation: randomUUID(),
+          completed: false,
         });
       continue;
     }

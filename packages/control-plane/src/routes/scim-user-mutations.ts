@@ -87,7 +87,10 @@ async function prepareUserPatch(
     if (clash && clash.id !== user.id) return { error: "conflict" as const };
   }
   let next = nextUser(user, patch, tx.clock());
-  if (user.active && !next.active)
+  // An explicit re-deactivation of an already-inactive row rebuilds the
+  // journal: a retry whose membership rows are already gone must still
+  // advance the publication fence instead of silently no-op'ing.
+  if (patch.active === false && !next.active)
     next = await prepareDeprovision(tx, organization, next, correlationId);
   const replaced = await tx.stores.scim.users.replaceIfRevision(
     organization.id,
