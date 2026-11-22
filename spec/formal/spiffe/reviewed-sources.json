@@ -147,9 +147,9 @@
     },
     {
       "path": "crates/spiffe-source/tests/trust_reduction_policy.rs",
-      "sha256": "d59b90bae9c90f6c2fde728d0adfb8c276309fc95d6a16345fba1c098bf9fb6a",
+      "sha256": "89595827fe83961ae2a74ab469c68998bb382c923e6f4de7e9b56a66c1c782e3",
       "base_blob": null,
-      "reviewed_blob": "ce4c0cf85cc97146a853849943621ab4a89e67af"
+      "reviewed_blob": "76137866884f4957169c2a6c5f123b2cdbc8eae9"
     },
     {
       "path": "crates/spiffe-source/tests/withdrawal_policy.rs",
