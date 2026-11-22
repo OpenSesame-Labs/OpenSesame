@@ -482,11 +482,8 @@ describe("directory sign-in from the hosted login page", () => {
     resetLdapAttemptBudget();
     vi.restoreAllMocks();
   });
-
-  beforeEach(() => {
-    // restoreAllMocks above also drops this spy between tests.
-    installHostRevocationMock();
-  });
+  // restoreAllMocks above also drops this spy between tests.
+  beforeEach(() => void installHostRevocationMock());
 
   async function req(jar: Jar, path: string, init: RequestInit = {}) {
     const res = await fetch(path.startsWith("http") ? path : `${base}${path}`, {
@@ -625,18 +622,11 @@ describe("directory sign-in from the hosted login page", () => {
     // group, which maps to `member`, and must reconcile it downward. A second
     // owner keeps the demotion clear of the last-owner fence.
     if (!membership) throw new Error("no bob membership");
-    await started.ctx.stores.organizationMemberships.upsert({
-      ...membership,
-      role: "owner",
-      updatedAt: started.ctx.clock(),
-    });
-    await started.ctx.stores.organizationMemberships.upsert({
-      organizationId: ORG_ID,
-      principalId: "prn_directory_fallback_owner",
-      role: "owner",
-      createdAt: started.ctx.clock(),
-      updatedAt: started.ctx.clock(),
-    });
+    const memberships = started.ctx.stores.organizationMemberships;
+    const updatedAt = started.ctx.clock();
+    await memberships.upsert({ ...membership, role: "owner", updatedAt });
+    const principalId = "prn_directory_fallback_owner";
+    await memberships.upsert({ ...membership, principalId, role: "owner" });
 
     const second = await loginInteraction();
     const secondResponse = await req(
