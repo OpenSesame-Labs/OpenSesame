@@ -27,7 +27,47 @@ pub(super) fn pattern_matches(
     if pattern == ".json(" {
         return dot_method_json_reads(scanned);
     }
-    scanned.contains(pattern)
+    bounded_contains(scanned, pattern)
+}
+
+/// `contains`, but an identifier character at either end of `pattern` needs a
+/// boundary. `res.into` does not match `res.into_inner` or `other_res.into`,
+/// and `response.text()` does not match `http_response.text()`.
+fn bounded_contains(haystack: &str, pattern: &str) -> bool {
+    if pattern.is_empty() {
+        return false;
+    }
+    let mut offset = 0usize;
+    while let Some(rel) = haystack[offset..].find(pattern) {
+        let index = offset + rel;
+        if bounded_at(haystack, index, pattern) {
+            return true;
+        }
+        offset = index + 1;
+    }
+    false
+}
+
+fn bounded_at(haystack: &str, index: usize, pattern: &str) -> bool {
+    let before_ok = !starts_with_ident(pattern)
+        || index == 0
+        || !super::is_ident_char(char_before(&haystack[..index]));
+    let end = index + pattern.len();
+    let after_ok = !ends_with_ident(pattern)
+        || end >= haystack.len()
+        || !super::is_ident_char(char_at(haystack, end));
+    before_ok && after_ok
+}
+
+fn starts_with_ident(pattern: &str) -> bool {
+    pattern.chars().next().is_some_and(super::is_ident_char)
+}
+
+fn ends_with_ident(pattern: &str) -> bool {
+    pattern
+        .chars()
+        .next_back()
+        .is_some_and(super::is_ident_char)
 }
 
 /// `.json(` on a real receiver. `Type::json(` is UFCS, not a dot call.
@@ -221,7 +261,17 @@ pub(super) fn is_function_item_tail(after: &str) -> bool {
     if after.starts_with('(') {
         return false;
     }
-    is_function_item_terminator(after.chars().next()) || after.starts_with("as")
+    is_function_item_terminator(after.chars().next()) || is_as_cast(after)
+}
+
+/// `as Type`. `as_ref`, `async`, and `assert` are identifiers, not the cast keyword.
+fn is_as_cast(after: &str) -> bool {
+    let Some(rest) = after.strip_prefix("as") else {
+        return false;
+    };
+    rest.chars()
+        .next()
+        .is_none_or(|ch| !super::is_ident_char(ch))
 }
 
 /// `.name` function items (`response.text`, `request.json`). Calls stay out.
@@ -355,6 +405,60 @@ fn split_use_as(item: &str) -> (&str, &str) {
     let path = item.trim();
     let alias = path.rsplit("::").next().unwrap_or(path).trim();
     (path, alias)
+}
+
+#[cfg(test)]
+mod probes {
+    use super::super::response_body_reads;
+
+    fn reads(sample: &str) -> bool {
+        !response_body_reads(sample).is_empty()
+    }
+
+    #[test]
+    fn council_p1_pattern_ident_boundaries_and_as_keyword() {
+        assert!(!super::pattern_matches(
+            "http_response.text()",
+            "response.text()",
+            &[]
+        ));
+        assert!(!super::pattern_matches("res.into_inner()", "res.into", &[]));
+        assert!(!super::pattern_matches("other_res.into()", "res.into", &[]));
+        assert!(super::pattern_matches(
+            "response.text()",
+            "response.text()",
+            &[]
+        ));
+        assert!(super::pattern_matches("res.into()", "res.into", &[]));
+        assert!(super::pattern_matches(
+            "http_response.text()",
+            ".text(",
+            &[]
+        ));
+        let misses = [
+            "res.into_inner()",
+            "other_res.into()",
+            "let f = response.text as_ref;",
+            "let f = Response::text as_ref;",
+            "let f = Response::bytes async { 1 };",
+            "let f = Response::copy_to assert(1);",
+            "let f = response.headers as_ref();",
+        ];
+        for sample in misses {
+            assert!(!reads(sample), "not a body read: {sample}");
+        }
+        let hits = [
+            "res.into()",
+            "response.into()",
+            "response.text()",
+            "http_response.text()",
+            "let _f = Response::text as fn(&Response) -> _;",
+            "let f = response.headers as fn();",
+        ];
+        for sample in hits {
+            assert!(reads(sample), "body read: {sample}");
+        }
+    }
 }
 
 fn ident_at(source: &str) -> &str {
