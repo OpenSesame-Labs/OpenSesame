@@ -50,6 +50,19 @@ export class MemoryUnitOfWork implements UnitOfWork {
   private readonly identityReleases = new Set<string>();
   private readonly principalClaims = new Set<string>();
   private readonly principalReleases = new Set<string>();
+  private readonly auditClaims = new Set<string>();
+  private readonly auditPredecessorClaims = new Set<string>();
+
+  /** Reserve the same unique audit keys that Postgres checks at commit. */
+  claimAudit(event: AuditEvent): void {
+    const predecessor = event.digest && event.previousDigest;
+    if (this.auditClaims.has(event.id)) throw auditIdConflict();
+    if (predecessor && this.auditPredecessorClaims.has(predecessor))
+      throw auditPredecessorConflict();
+    this.auditClaims.add(event.id);
+    if (predecessor) this.auditPredecessorClaims.add(predecessor);
+    this.commitChecks.push(() => checkAuditInsert(this.store, event));
+  }
 
   reserveWebhookEndpoint(
     principalId: string,
@@ -189,6 +202,33 @@ export class MemoryStore {
   approvalReceipts = new Map<string, ApprovalReceipt>();
   callbackReplays = new Map<string, CallbackReplayRecord>();
   pushSubscriptions = new Map<string, PushSubscription>();
+}
+
+function auditIdConflict(): Error {
+  return Object.assign(new Error("audit event already exists"), {
+    code: "23505",
+    constraint: "audit_events_pkey",
+  });
+}
+
+function auditPredecessorConflict(): Error {
+  return Object.assign(new Error("audit predecessor already used"), {
+    code: "23505",
+    constraint: "audit_events_previous_digest_uidx",
+  });
+}
+
+export function checkAuditInsert(store: MemoryStore, event: AuditEvent): void {
+  if (store.audit.has(event.id)) throw auditIdConflict();
+  if (
+    event.digest &&
+    event.previousDigest &&
+    [...store.audit.values()].some(
+      (existing) =>
+        existing.digest && existing.previousDigest === event.previousDigest,
+    )
+  )
+    throw auditPredecessorConflict();
 }
 
 export function applyNowOrDefer(
