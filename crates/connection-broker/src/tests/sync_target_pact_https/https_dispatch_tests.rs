@@ -177,8 +177,15 @@ mod dispatch_tests {
         }
         let kept = "async fn f() { if parsed.scheme() != \"https\" { let reject = || return; return Err(\"x\".into()); } request.send().await?; }";
         assert_eq!(credentialed_send_https_gaps(kept), (1, 0));
+        // A `return` on the RHS of `||` / `&&` short-circuits: when `flag`
+        // skips it the branch ends without returning, so the send can still
+        // run over plain HTTP (Kimi council chunk04 P2).
         let logical = "async fn f() { if parsed.scheme() != \"https\" { let x = flag || return Err(\"x\".into()); } request.send().await?; }";
-        assert_eq!(credentialed_send_https_gaps(logical), (1, 0));
+        assert_eq!(credentialed_send_https_gaps(logical), (1, 1));
+        let both = "async fn f() { if parsed.scheme() != \"https\" { let x = flag && return Err(\"x\".into()); } request.send().await?; }";
+        assert_eq!(credentialed_send_https_gaps(both), (1, 1));
+        let after_logical = "async fn f() { if parsed.scheme() != \"https\" { let x = flag || other; return Err(\"x\".into()); } request.send().await?; }";
+        assert_eq!(credentialed_send_https_gaps(after_logical), (1, 0));
     }
 
     #[test]

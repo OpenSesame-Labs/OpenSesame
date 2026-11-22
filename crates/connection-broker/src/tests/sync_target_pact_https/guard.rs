@@ -273,11 +273,41 @@ fn depth0_return(body: &str) -> bool {
             b'{' | b'(' | b'[' => depth += 1,
             b'}' | b')' | b']' => depth -= 1,
             b';' if depth == 0 => stmt = index + 1,
-            _ if depth == 0 && is_keyword_at(bytes, index, b"return") => {
-                if !super::closure::closure_owns(&body[stmt..index]) {
-                    return true;
-                }
+            // A `return` a closure owns, or one on the RHS of `||` / `&&`
+            // (`flag || return Err(…)`), runs only on one short-circuit path,
+            // so the branch can end without returning and the send still
+            // runs (Kimi council chunk04 P2).
+            _ if depth == 0
+                && is_keyword_at(bytes, index, b"return")
+                && !super::closure::closure_owns(&body[stmt..index])
+                && !short_circuit_return(&body[stmt..index]) =>
+            {
+                return true;
             }
+            _ => {}
+        }
+        index += 1;
+    }
+    false
+}
+
+/// A `return` on the RHS of a `||` / `&&` at the statement's top level is not
+/// dominating: when the left operand short-circuits, control falls through to
+/// whatever follows the `if`. Operators inside brackets or comments/strings
+/// never steer the statement.
+fn short_circuit_return(before: &str) -> bool {
+    let bytes = before.as_bytes();
+    let (mut depth, mut index) = (0i32, 0usize);
+    while index < bytes.len() {
+        if let Some(len) = non_code_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'{' | b'(' | b'[' => depth += 1,
+            b'}' | b')' | b']' => depth -= 1,
+            b'|' if depth == 0 && bytes.get(index + 1) == Some(&b'|') => return true,
+            b'&' if depth == 0 && bytes.get(index + 1) == Some(&b'&') => return true,
             _ => {}
         }
         index += 1;

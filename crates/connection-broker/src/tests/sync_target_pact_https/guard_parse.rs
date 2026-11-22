@@ -11,7 +11,27 @@ use super::{args_of, first_arg, plain_ident, strip_ref};
 
 pub(super) fn last_rhs<'a>(source: &'a str, name: &str) -> Option<(&'a str, usize)> {
     let bytes = source.as_bytes();
+    // The guard reads the binding visible at its own depth. A binding made
+    // deeper than that sits in a block which has already closed, so it is
+    // scoped away: the textual-last `let parsed = Url::parse(&url)` inside a
+    // finished `if` block must not lend `url` provenance to the outer
+    // `parsed` (Kimi council chunk03 P1).
+    let mut visible = 0i32;
+    let mut scan = 0usize;
+    while scan < bytes.len() {
+        if let Some(len) = non_code_len(bytes, scan) {
+            scan += len;
+            continue;
+        }
+        match bytes[scan] {
+            b'{' => visible += 1,
+            b'}' => visible -= 1,
+            _ => {}
+        }
+        scan += 1;
+    }
     let mut index = 0usize;
+    let mut depth = 0i32;
     let mut found = None;
     while index < bytes.len() {
         // Comments are not code: a commented-out rebinding is not the "last"
@@ -20,7 +40,12 @@ pub(super) fn last_rhs<'a>(source: &'a str, name: &str) -> Option<(&'a str, usiz
             index += len;
             continue;
         }
-        if is_keyword_at(bytes, index, name.as_bytes()) {
+        match bytes[index] {
+            b'{' => depth += 1,
+            b'}' => depth -= 1,
+            _ => {}
+        }
+        if depth <= visible && is_keyword_at(bytes, index, name.as_bytes()) {
             // `let parsed: Url = Url::parse(&url)` — `=` is not the next byte.
             if let Some(eq) = super::super::bind::eq_after_name(bytes, index + name.len()) {
                 let end = super::super::bind::stmt_end(bytes, eq + 1);

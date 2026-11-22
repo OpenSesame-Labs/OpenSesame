@@ -173,3 +173,22 @@ fn codex_thread_macro_return_token_is_not_fail_closed() {
         assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
     }
 }
+
+/// `last_rhs` is scope-aware: a `let` inside a block that has closed before
+/// the guard is scoped away, so it cannot lend its RHS provenance to the
+/// outer binding (Kimi council chunk03 P1). The textual-last inner
+/// `let parsed = Url::parse(&url)` must not cover a send of `url` when the
+/// guard's `parsed` is the outer parse of `evil`.
+#[test]
+fn kimi_council_chunk03_inner_scope_rebind_is_not_last_rhs() {
+    let prefix = "{let parsed = Url::parse(&evil); if c { let parsed = Url::parse(&url); } if parsed.scheme()!=\"https\" { return Err(\"x\".into()); } client.get(&url).";
+    let (rhs, _) = super::guard_parse::last_rhs(prefix, "parsed").expect("outer binding remains");
+    assert_eq!(rhs.trim(), "Url::parse(&evil)", "{prefix}");
+    assert!(!super::guarded(prefix, Some("url")), "{prefix}");
+    // End-to-end red: the outer parse is evil, so the guard covers no dest.
+    let sample = "async fn f() { let parsed = Url::parse(&evil); if c { let parsed = Url::parse(&url); } if parsed.scheme() != \"https\" { return Err(\"x\".into()); } client.get(&url).send().await?; }";
+    assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
+    // Green: the outer parse of `url` still covers the send.
+    let kept = "async fn f() { let parsed = Url::parse(&url); if c { other(); } if parsed.scheme() != \"https\" { return Err(\"x\".into()); } client.get(&url).send().await?; }";
+    assert_eq!(credentialed_send_https_gaps(kept), (1, 0), "{kept}");
+}

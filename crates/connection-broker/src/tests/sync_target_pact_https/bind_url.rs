@@ -180,7 +180,19 @@ fn is_free_call(expr: &str, paren: usize) -> bool {
     while start > 0 && super::super::is_ident_byte(bytes[start - 1]) {
         start -= 1;
     }
-    start == 0 || bytes[start - 1] != b'.'
+    // UFCS (`Type::from(row)`) is a method shape, not a free call, and a
+    // parenthesized keyword (`if (url)`) is a condition, not a callee. Either
+    // would mark an unrelated ident as the binding's URL, so a coincidental
+    // scheme guard on that name could cover an unrelated send (Kimi council
+    // chunk03 P2).
+    let prev = start.checked_sub(1).and_then(|at| bytes.get(at));
+    if prev.is_some_and(|byte| matches!(byte, b'.' | b':')) {
+        return false;
+    }
+    !matches!(
+        &expr[start..paren],
+        "if" | "while" | "match" | "for" | "loop" | "return" | "break" | "continue"
+    )
 }
 
 pub(crate) fn skip_ascription(bytes: &[u8], start: usize) -> usize {
@@ -272,4 +284,29 @@ pub(super) fn plain_receiver(expr: &str) -> Option<&str> {
     }
     let expr = expr.strip_prefix("&mut ").unwrap_or(expr);
     plain_ident(expr.strip_prefix('&').unwrap_or(expr).trim())
+}
+
+#[cfg(test)]
+mod probes {
+    use super::builder_url;
+
+    /// UFCS one-arg calls and parenthesized keyword conditions do not choose
+    /// the binding's URL (Kimi council chunk03 P2). `Type::from(row)` or
+    /// `if (url)` marking their argument would bind a wrong URL name, so a
+    /// coincidental scheme guard on that name could cover an unrelated send.
+    #[test]
+    fn kimi_council_chunk03_ufcs_and_keyword_paren_calls_do_not_mark_url() {
+        for expr in [
+            "SyncTargetView::from(row)",
+            "Wrapper::new(row)",
+            "if (url) { a } else { b }",
+            "while (url) { a }",
+            "match (url) { _ => a }",
+        ] {
+            assert_eq!(builder_url(expr), None, "{expr}");
+        }
+        // Controls: a free one-arg call and a builder method still mark.
+        assert_eq!(builder_url("build_request(other)"), Some("other"));
+        assert_eq!(builder_url("client.get(url)"), Some("url"));
+    }
 }

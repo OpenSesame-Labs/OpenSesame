@@ -354,16 +354,3 @@ pub(super) fn ident_before(prefix: &str) -> String {
         .rev()
         .collect()
 }
-#[cfg(test)]
-mod scratch_dbg2 {
-    #[test]
-    fn scratch_emit() {
-        for sample in [
-            "emit!(body = response)",
-            "audit!(body = response)",
-            "emit!(body = status)",
-        ] {
-            eprintln!("{sample} -> {:?}", super::response_body_reads(sample));
-        }
-    }
-}

@@ -83,6 +83,20 @@ fn p5_council_logic_op_closure_is_not_an_https_guard() {
     }
 }
 
+/// A binding value built by a UFCS one-arg call or a parenthesized keyword
+/// condition carries no URL (Kimi council chunk03 P2). Before the fix,
+/// `Wrapper::from(row)` marked `row` as the request's URL and a scheme guard
+/// on `row` covered the send; the dispatch is really unbound and stays open.
+#[test]
+fn p5_council_ufcs_binding_carries_no_url() {
+    let ufcs = r#"async fn f() { let request = Wrapper::from(row); if row.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#;
+    assert_gaps(ufcs, (1, 1));
+    let paren_keyword = r#"async fn f() { let request = if (row) { build_a() } else { build_b() }; if row.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#;
+    assert_gaps(paren_keyword, (1, 1));
+    let free_call = r#"async fn f() { let request = build_request(row); if row.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#;
+    assert_gaps(free_call, (1, 0));
+}
+
 #[test]
 fn p5_council_sqlx_let_is_scoped_to_a_real_callee() {
     let gaps = [
