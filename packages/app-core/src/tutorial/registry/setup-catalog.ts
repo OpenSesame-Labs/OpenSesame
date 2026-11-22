@@ -96,7 +96,7 @@ export const SETUP_TARGETS: readonly GuideTargetDescriptor[] = [
   {
     id: "unlock.guest",
     description:
-      "Select Skip on the welcome screen or Skip to the guest vault on the unlock screen. A new guest vault is temporary and separate from other vaults. Its items are lost when it locks unless you first protect the vault with a key.",
+      "Select Skip on the welcome screen or Skip to the guest vault on the unlock screen. A guest vault is sealed on this device, apart from every other vault, which it never reads. A new guest vault holds no key, so locking erases its items; protect it with a PIN or authenticator code and the vault survives lock, reopening with that key.",
     role: "action",
     routes: ["/unlock"],
     capabilityId: null,
