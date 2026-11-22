@@ -348,7 +348,7 @@ async fn a_claim_that_ran_out_cannot_settle_before_anyone_reclaims_it() {
     claimed_step(&f).await;
     // The lease ended a minute ago; nobody has taken the step since.
     sqlx::query("UPDATE runner_steps SET claim_expires_at = ? WHERE run_id = ?")
-        .bind((chrono::Utc::now() - chrono::Duration::seconds(60)).to_rfc3339())
+        .bind((opensesame_time::Utc::now() - opensesame_time::Duration::seconds(60)).to_rfc3339())
         .bind(RUN)
         .execute(f.state.db.pool())
         .await

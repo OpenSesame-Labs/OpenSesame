@@ -59,7 +59,7 @@ function prepareStubInstall(work) {
     [
       "#!/usr/bin/env bash",
       'if [[ "$1" == env ]]; then',
-      "  printf '%s\\n' 'CARGO_TARGET_DIR=/cache/cargo-target' 'RUSTUP_TOOLCHAIN=1.97.1' 'PATH=/stub/shims:/usr/bin'",
+      "  printf '%s\\n' 'CARGO_TARGET_DIR=/cache/cargo-target' 'RUSTUP_TOOLCHAIN=1.99.0' 'PATH=/stub/shims:/usr/bin'",
       "fi",
       "exit 0",
       "",
@@ -107,10 +107,14 @@ describe("locked mise bootstrap", () => {
     const pins = read(pinsRel);
     // .cursor/Dockerfile left this repo with the AI-harness dotfiles (#2538).
     const devcontainer = read(".devcontainer/Dockerfile");
-    for (const name of [
+    assert.equal(
+      dockerfileArg(devcontainer, "MISE_VERSION"),
+      pin(pins, "MISE_VERSION"),
       "MISE_VERSION",
-      "MISE_SHA256_LINUX_X64",
-      "MISE_SHA256_LINUX_ARM64",
+    );
+    for (const name of [
+      "MISE_SHA256_LINUX_X64_MUSL",
+      "MISE_SHA256_LINUX_ARM64_MUSL",
     ]) {
       const value = pin(pins, name);
       assert.equal(dockerfileArg(devcontainer, name), value, name);
@@ -118,10 +122,14 @@ describe("locked mise bootstrap", () => {
     assert.match(pin(pins, "MISE_VERSION"), /^\d+\.\d+\.\d+$/u);
     assert.match(pin(pins, "MISE_SHA256_LINUX_X64"), /^[a-f0-9]{64}$/u);
     assert.match(pin(pins, "MISE_SHA256_LINUX_ARM64"), /^[a-f0-9]{64}$/u);
+    assert.match(pin(pins, "MISE_SHA256_LINUX_X64_MUSL"), /^[a-f0-9]{64}$/u);
+    assert.match(pin(pins, "MISE_SHA256_LINUX_ARM64_MUSL"), /^[a-f0-9]{64}$/u);
     assert.notEqual(
-      pin(pins, "MISE_SHA256_LINUX_X64"),
-      pin(pins, "MISE_SHA256_LINUX_ARM64"),
+      pin(pins, "MISE_SHA256_LINUX_X64_MUSL"),
+      pin(pins, "MISE_SHA256_LINUX_ARM64_MUSL"),
     );
+    assert.match(devcontainer, /linux-x64-musl/);
+    assert.match(devcontainer, /linux-arm64-musl/);
   });
 
   it("exports the mise.toml environment to later steps, without PATH", () => {
@@ -148,7 +156,7 @@ describe("locked mise bootstrap", () => {
       assert.equal(run.status, 0, run.stderr);
       const exported = readFileSync(githubEnv, "utf8").trim().split("\n");
       assert.ok(exported.includes("CARGO_TARGET_DIR=/cache/cargo-target"));
-      assert.ok(exported.includes("RUSTUP_TOOLCHAIN=1.97.1"));
+      assert.ok(exported.includes("RUSTUP_TOOLCHAIN=1.99.0"));
       assert.ok(exported.includes("MISE_YES=1"));
       assert.equal(
         exported.some((line) => line.startsWith("PATH=")),

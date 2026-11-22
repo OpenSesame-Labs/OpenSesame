@@ -260,7 +260,7 @@ async fn an_admission_must_say_which_seat_it_gives() {
             "grant": {
                 "scope": {"kind": "collection", "vault_id": VaultId::new().to_string()},
                 "role": "read",
-                "expires_at": (chrono::Utc::now() + chrono::Duration::hours(2)).to_rfc3339(),
+                "expires_at": (opensesame_time::Utc::now() + opensesame_time::Duration::hours(2)).to_rfc3339(),
             },
         }),
     )

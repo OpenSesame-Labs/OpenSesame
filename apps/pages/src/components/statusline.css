@@ -46,7 +46,9 @@
   background: transparent;
   color: var(--ink-2);
   font: inherit;
-  transition: background 140ms var(--ease), color 140ms var(--ease);
+  transition:
+    background 140ms var(--ease),
+    color 140ms var(--ease);
 }
 
 /* A touchscreen wider than a phone still draws this strip. The shared floor
@@ -179,6 +181,18 @@
 /* A phone, or a finger: the keys typed and the recording mark, no list. */
 @media (pointer: coarse), (max-width: 900px) {
   .pending-keys__which {
+    display: none;
+  }
+}
+
+/* Keep a focused editor scrollable when a software keyboard leaves only a
+   short layout viewport. The shell chrome returns when the field is blurred. */
+@media (max-width: 900px) and (max-height: 220px) {
+  .app:where(:has(.editor :is(input, textarea):focus))
+    > :is(.app-header, .statusline),
+  .app:where(:has(.editor :is(input, textarea):focus))
+    > .main
+    > :is(.crumbs, .first-visit-seat, .recommendation-seat) {
     display: none;
   }
 }

@@ -4,6 +4,8 @@ use std::collections::BTreeSet;
 use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 
+use opensesame_trusted_exec::testkit::Fixture;
+
 /// The first `node` a trusted entry holds, and the ones passed over.
 struct NodeSearch {
     node: Option<PathBuf>,
@@ -18,10 +20,25 @@ fn find_node(trusted: &[PathBuf], on: &Host) -> NodeSearch {
     }
 }
 
-pub(super) fn dir(mode: u32) -> tempfile::TempDir {
-    let dir = tempfile::tempdir().unwrap();
-    std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(mode)).unwrap();
-    dir
+pub(super) struct TestDir {
+    _fixture: Fixture,
+    path: PathBuf,
+}
+
+impl TestDir {
+    pub(super) fn path(&self) -> &Path {
+        &self.path
+    }
+}
+
+pub(super) fn dir(mode: u32) -> TestDir {
+    let fixture = Fixture::new("unused");
+    let path = fixture.scratch("case");
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(mode)).unwrap();
+    TestDir {
+        _fixture: fixture,
+        path,
+    }
 }
 
 pub(super) fn plant(dir: &Path, mode: u32) -> PathBuf {
@@ -48,7 +65,10 @@ pub(super) fn host(path: &OsStr, platform: Platform, cwd: Option<&Path>) -> Host
         vars,
         cwd: cwd.map(Path::to_path_buf),
         platform,
-        caller: Caller::current(),
+        // These are pure in-process trust-decision tests. The testkit caller
+        // models the executable-adjacent fixture's immutable namespace root;
+        // production `Host::capture` remains fail-closed.
+        caller: Fixture::new("unused").lookup(&[]).caller,
     }
 }
 
@@ -64,10 +84,8 @@ fn owner_of(path: &Path) -> Owner {
 /// which is not 0, is already one the caller no longer lists.
 pub(super) fn into_a_strangers_group(path: &Path) -> (Caller, u32) {
     use std::os::unix::fs::MetadataExt;
-    let caller = Caller {
-        euid: Caller::current().euid,
-        groups: vec![],
-    };
+    let mut caller = Fixture::new("unused").lookup(&[]).caller;
+    caller.groups.clear();
     let mut gid = std::fs::metadata(path).unwrap().gid();
     if gid == 0 {
         gid = 31337;
@@ -160,20 +178,14 @@ fn the_real_stat_reaches_the_decision_for_owner_and_group() {
     // Someone else is asking: a directory this user owns is not theirs.
     if owner.uid != 0 {
         let mut other = host(&path, Platform::Unix, None);
-        other.caller = Caller {
-            euid: owner.uid + 1,
-            groups: vec![owner.gid],
-        };
+        other.caller = Caller::new(owner.uid + 1, vec![owner.gid]);
         let found = search(&path, &other);
         assert_eq!(found.skipped[0].1, Skip::OwnedBy(owner.uid));
     }
     // A caller outside the directory's group, with the group able to write it.
     if owner.gid != 0 {
         let mut outsider = host(&path, Platform::Unix, None);
-        outsider.caller = Caller {
-            euid: owner.uid,
-            groups: vec![owner.gid + 1],
-        };
+        outsider.caller = Caller::new(owner.uid, vec![owner.gid + 1]);
         let found = search(&path, &outsider);
         assert_eq!(found.skipped[0].1, Skip::GroupWritable(owner.gid));
     }
@@ -225,10 +237,7 @@ fn a_node_anyone_can_write_is_passed_over_and_recorded() {
     let owner = owner_of(&group.path().join("node"));
     if owner.uid != 0 {
         let mut other = host(OsStr::new(""), Platform::Unix, None);
-        other.caller = Caller {
-            euid: owner.uid + 1,
-            groups: vec![],
-        };
+        other.caller = Caller::new(owner.uid + 1, vec![]);
         let found = find_node(&[group.path().to_path_buf()], &other);
         assert_eq!(found.node, None);
         assert_eq!(found.rejected[0].1, Skip::OwnedBy(owner.uid));

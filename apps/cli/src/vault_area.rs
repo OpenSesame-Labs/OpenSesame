@@ -62,40 +62,34 @@ pub(crate) enum VaultArea {
 
 pub(crate) async fn run(server: &str, output: &str, cmd: VaultArea) -> anyhow::Result<()> {
     match cmd {
-        VaultArea::NodeData { state } => node_data_worker::run(&state)?,
+        VaultArea::NodeData { state } => Ok(node_data_worker::run(&state)?),
         VaultArea::Verify { file } => {
-            crate::vault_file::run(output, &crate::vault_file::VaultCmd::Verify { file })?;
+            crate::vault_file::run(output, &crate::vault_file::VaultCmd::Verify { file })
         }
         VaultArea::Ls { file } => {
-            crate::vault_file::run(output, &crate::vault_file::VaultCmd::Ls { file })?;
+            crate::vault_file::run(output, &crate::vault_file::VaultCmd::Ls { file })
         }
-        VaultArea::Inspect { input } => crate::vault_migration::inspect(&input)?,
+        VaultArea::Inspect { input } => crate::vault_migration::inspect(&input),
         VaultArea::Migrate {
             input,
             output,
             memory_kib,
             passes,
-        } => crate::vault_migration::migrate(&input, &output, memory_kib, passes)?,
-        VaultArea::Pass { cmd } => {
-            command_future(move || run_pass(server, cmd.into_inner())).await?;
-        }
-        VaultArea::Secret { cmd } => {
-            command_future(move || super::secret_cmd(server, cmd)).await?;
-        }
+        } => crate::vault_migration::migrate(&input, &output, memory_kib, passes),
+        VaultArea::Pass { cmd } => command_future(move || run_pass(server, cmd.into_inner())).await,
+        VaultArea::Secret { cmd } => command_future(move || super::secret_cmd(server, cmd)).await,
         VaultArea::Sync { cmd } => {
-            command_future(move || crate::sync_commands::sync_cmd(server, cmd)).await?;
+            command_future(move || crate::sync_commands::sync_cmd(server, cmd)).await
         }
-        VaultArea::Crypto { cmd } => {
-            command_future(move || super::crypto_cmd(server, cmd)).await?;
-        }
-        VaultArea::Circle { cmd } => circle::run(output, cmd)?,
+        VaultArea::Crypto { cmd } => command_future(move || super::crypto_cmd(server, cmd)).await,
+        VaultArea::Circle { cmd } => circle::run(output, cmd),
     }
-    Ok(())
 }
 
 async fn run_pass(server: &str, cmd: super::PassCmd) -> anyhow::Result<()> {
     match cmd {
         cmd @ (PassCmd::Init { .. }
+        | PassCmd::MigrateRollbackAnchor { .. }
         | PassCmd::Insert { .. }
         | PassCmd::Generate { .. }
         | PassCmd::Show { .. }
@@ -133,6 +127,15 @@ fn pass_entries(cmd: super::PassCmd) -> anyhow::Result<()> {
             git,
             remote,
         } => store::cmd_init(path.as_deref(), &recipients, git, remote.as_deref())?,
+        PassCmd::MigrateRollbackAnchor {
+            accept_current_state,
+            path,
+            tomb,
+        } => store::cmd_migrate_rollback_anchor(
+            accept_current_state,
+            path.as_deref(),
+            tomb.as_deref(),
+        )?,
         PassCmd::Insert {
             name,
             echo,

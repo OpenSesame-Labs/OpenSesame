@@ -21,10 +21,10 @@
 //! received a submit is not known after a crash, and a replay could change a
 //! third party's password twice.
 
-use chrono::{DateTime, Duration, Utc};
 use opensesame_domain::OrganizationId;
 use opensesame_rotation::RotationState;
 use opensesame_task_bus::TaskBus;
+use opensesame_time::{DateTime, Duration, Utc};
 use sqlx::SqlitePool;
 
 use super::super::{

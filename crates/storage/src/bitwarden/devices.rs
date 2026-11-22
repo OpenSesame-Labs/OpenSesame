@@ -2,7 +2,7 @@
 //! token is stored only as its SHA-256 digest, together with the security
 //! stamp it was issued under and the moment it lapses.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 
 use super::accounts::{bitwarden_timestamp, parse_bitwarden_timestamp};
 use crate::{Db, Row};

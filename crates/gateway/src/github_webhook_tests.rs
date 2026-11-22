@@ -40,7 +40,7 @@ async fn state_with_webhook_secret(secret: &str) -> AppState {
 
     sqlx::query("INSERT OR IGNORE INTO organizations (id, name, created_at) VALUES (?, 'Org', ?)")
         .bind(state.connection_organization.to_string())
-        .bind(chrono::Utc::now().to_rfc3339())
+        .bind(opensesame_time::Utc::now().to_rfc3339())
         .execute(state.db.pool())
         .await
         .unwrap();
@@ -188,7 +188,7 @@ async fn state_without_webhook_secret() -> AppState {
         Arc::new(ConnectionBroker::new(state.db.pool().clone(), config).unwrap());
     sqlx::query("INSERT OR IGNORE INTO organizations (id, name, created_at) VALUES (?, 'Org', ?)")
         .bind(state.connection_organization.to_string())
-        .bind(chrono::Utc::now().to_rfc3339())
+        .bind(opensesame_time::Utc::now().to_rfc3339())
         .execute(state.db.pool())
         .await
         .unwrap();

@@ -7,7 +7,7 @@ use crate::{
     canonicalize_json, digest_sha256, ActorId, ActorInstanceId, ClientId, ConnectionId,
     DomainError, Intent, IntentId, OperatorId, OrganizationId, PrincipalId, ProjectId, TaskRunId,
 };
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -251,7 +251,7 @@ mod tests {
             nonce: "n".into(),
             idempotency_key: "ik".into(),
             issued_at: now,
-            expires_at: now + chrono::Duration::hours(1),
+            expires_at: now + opensesame_time::Duration::hours(1),
             parent_invocation_id: None,
             delegation_chain: vec![],
             proof: DetachedProof {

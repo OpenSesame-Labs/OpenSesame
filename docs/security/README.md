@@ -28,6 +28,7 @@ same method onto one subsystem each. To report a vulnerability, see
 | [Duress limitations](duress/limitations.md) | Normative limits for duress product copy and security claims. |
 | [Audit log](audits/README.md) | Every dated audit: what was reviewed, what was found, how each finding was fixed and proved. |
 | [Tooling evaluation](tooling-evaluation.md) | The scanners and harnesses behind `npm run audit:*`, why each was chosen, and the running log of fixes they drove. |
+| [Formal authentication and authorization verification](formal-auth-verification.md) | Property-to-code-to-proof mapping, model assumptions, executable correspondence checks and coverage gaps. |
 | [NIST SSDF conformance](ssdf-conformance.md) | Each SSDF practice with its status and evidence: enforced, declared, deviation or gap ([ADR 0222](../adr/0222-github-well-architected-and-ssdf.md)). |
 | [GitHub Actions security](actions-security.md) | The rules every workflow follows and the test that enforces them. |
 | [Dependency supply chain](dependency-supply-chain.md) | Install scripts off, update cooldown and review, signature verification, and the exception procedure. |

@@ -14,8 +14,10 @@ import type { AppContext } from "../context.js";
 import {
   ByoRegistrationError,
   type ByoRegistrationErrorCode,
+  admitByoUpstream,
   assertSafeUpstreamUrl,
   checkedByoIssuer,
+  ensureByoCapacity,
   upstreamFetch,
 } from "./byo-fence.js";
 import { normalizeIssuer } from "./registry.js";
@@ -93,11 +95,8 @@ const REGISTRATION_UNSUPPORTED_MESSAGE =
   "That issuer does not register clients automatically. Enter a client ID you created there.";
 const RATE_LIMITED_MESSAGE =
   "Too many provider registrations from here. Try again in a few minutes.";
-
-/** Client identifiers and secrets an IdP hands a human to paste back. */
 const MAX_CLIENT_FIELD_LENGTH = 512;
 const DISCOVERY_TIMEOUT_MS = 5_000;
-
 const BUDGET_WINDOW_MS = 10 * 60_000;
 const BUDGET_PER_FINGERPRINT = 5;
 /** Bounded so a fingerprint flood cannot grow the map without limit. */
@@ -105,7 +104,6 @@ const BUDGET_TOTAL = 200;
 const BUDGET_MAX_KEYS = 2048;
 const BUDGET_GLOBAL_KEY = "__total__";
 const BUDGET_CLIENT_PREFIX = "client:";
-
 /**
  * The discovery budget, module-local by contract (D5).
  *
@@ -318,7 +316,7 @@ async function persist(
 
   let created: ByoUpstream;
   try {
-    created = await ctx.repos.byoUpstreams.create(record);
+    created = await admitByoUpstream(ctx, record);
   } catch (cause) {
     // Two tabs, one issuer: the unique index is the arbiter, and the loser of
     // that race gets the row the winner wrote rather than an error page.
@@ -395,6 +393,8 @@ async function register(
     }
     return existing;
   }
+
+  await ensureByoCapacity(ctx);
 
   // Discovery runs even when the visitor brought their own client id: it is
   // what proves the URL is an OIDC issuer at all, and a record whose issuer

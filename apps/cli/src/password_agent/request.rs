@@ -109,9 +109,9 @@ fn inspect_before(
     )
 }
 fn instant(value: i64) -> anyhow::Result<String> {
-    Ok(chrono::DateTime::from_timestamp_millis(value)
+    Ok(opensesame_time::DateTime::from_timestamp_millis(value)
         .ok_or_else(|| anyhow::anyhow!("Invalid lease timestamp"))?
-        .to_rfc3339_opts(chrono::SecondsFormat::Millis, true))
+        .to_rfc3339_opts(opensesame_time::SecondsFormat::Millis, true))
 }
 fn receipt(value: &lease::Lease) -> anyhow::Result<serde_json::Value> {
     let mut receipt = value.receipt();

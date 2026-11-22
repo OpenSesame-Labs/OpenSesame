@@ -36,10 +36,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use chrono::{DateTime, Duration, Utc};
 use opensesame_domain::transport::{
     validate_thumbprint, ServiceBindingSet, TransportError, MAX_LIST_ENTRIES,
 };
+use opensesame_time::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 use crate::app_state::AppState;

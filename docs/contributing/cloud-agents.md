@@ -16,26 +16,29 @@ is gitignored.
 - **Never commit API keys** or other secrets; inject them through the
   harness's secret store.
 
-A hosted environment can set up this repository with `mise install --locked`,
-`mise run deps` (fingerprinted `npm ci` via
-`scripts/dev/install-dependencies.sh`), and `cargo fetch`. Prefer the shared
-cargo target dir documented in [shipping](shipping.md) when compiling Rust.
-Personal dotfiles are optional: `bash scripts/dev/dotfiles-bootstrap.sh`
-clones `DOTFILES_REPO` over anonymous HTTPS, defaulting to
-`https://github.com/Tyler-R-Kendrick/dotfiles.git`, without a GitHub token or
-credential helper. It executes the unpinned upstream installer, so run it
-explicitly only after choosing to trust that source.
+A hosted environment bootstraps this repository with `mise install --locked`
+and `mise run deps`; it does not execute personal repositories during a
+devcontainer lifecycle hook. A contributor may explicitly run
+`scripts/dev/dotfiles-bootstrap.sh` for personal mise and Grok setup. That
+manual command clones with anonymous HTTPS from `DOTFILES_REPO`, default
+`https://github.com/Tyler-R-Kendrick/dotfiles.git`; the script pins a reviewed
+commit and the exact `install.sh` SHA-256; a custom repository must also set
+`DOTFILES_REF` and `DOTFILES_INSTALL_SHA256`; no GitHub token and no credential
+helper; a failed or mismatched checkout stops the manual bootstrap. Dependency
+setup remains fingerprinted `npm ci` via
+`scripts/dev/install-dependencies.sh`, followed by `cargo fetch`. Prefer the
+shared cargo target dir documented in
+[shipping](shipping.md) when compiling Rust.
 
 ## Devcontainer
 
 `.devcontainer/devcontainer.json` builds on the pinned Rust devcontainer
 image. The image installs a checksum-pinned mise release. It does not use
-a Node feature. `updateContentCommand` and `postCreateCommand` install the
-locked toolchain from `mise.toml` and `mise.lock` (`mise install --locked`),
-then run `mise run deps` (`npm ci`). `postCreateCommand` also runs
-`scripts/dev/setup-hooks.sh`. The lifecycle does not install personal
-dotfiles or third-party skills. After reviewing and choosing to trust the
-upstream source, a developer may explicitly run
-`bash scripts/dev/dotfiles-bootstrap.sh`, which executes unpinned content.
-`npm run skills:review` prints guidance for manually obtaining and reviewing
-an immutable skill revision; it performs no installation or updates.
+a Node feature. `updateContentCommand` and
+`postCreateCommand` install the locked toolchain from `mise.toml` and
+`mise.lock` (`mise install --locked`), then run `mise run deps` (`npm ci`).
+Personal dotfiles remain an explicit contributor action.
+`postCreateCommand` also runs `scripts/dev/setup-hooks.sh`.
+There is no `postStartCommand`: agent skills are verified
+(`npm run skills:verify`) or refreshed (`npm run skills:install`) only on
+request, and the locked toolchain pins no skill installer CLI.

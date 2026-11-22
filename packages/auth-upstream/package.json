@@ -23,13 +23,14 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "verify:simplewebauthn-v14": "vitest run src/__tests__/webauthn.test.ts src/__tests__/simplewebauthn-v14-surface.test.ts"
   },
   "dependencies": {
     "@opensesame/os-domain": "*",
-    "@simplewebauthn/server": "13.3.2",
-    "asn1js": "3.1.0",
-    "better-auth": "1.7.18"
+    "@simplewebauthn/server": "14.1.0",
+    "asn1js": "4.0.0",
+    "better-auth": "1.7.22"
   },
   "devDependencies": {
     "@opensesame/testing": "*",

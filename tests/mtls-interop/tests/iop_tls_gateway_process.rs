@@ -58,7 +58,7 @@ fn the_host_process_authenticates_on_the_secure_listener_and_still_serves_the_pl
         bindings: &bindings,
         log_dir: pki.dir(),
     })?;
-    host.wait_ready(Duration::from_secs(120))?;
+    host.wait_ready(Duration::from_mins(2))?;
 
     // The plain listener is a supported profile, not a fallback: it answers
     // without any TLS at all.
@@ -176,7 +176,7 @@ fn a_broken_mtls_required_host_refuses_to_serve_at_all() -> Result<()> {
         log_dir: pki.dir(),
     })?;
     let log = host
-        .refused_to_start(Duration::from_secs(120))
+        .refused_to_start(Duration::from_mins(2))
         .expect("a mismatched key must stop the Host, not be tolerated");
     assert!(
         log.to_lowercase().contains("key")

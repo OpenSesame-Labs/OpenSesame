@@ -36,7 +36,7 @@ use crate::{
     AdmissionBasis, AdmissionRecord, Cohort, CohortActivationId, CohortId, DomainError,
     Eligibility, PrincipalId,
 };
-use chrono::{DateTime, Duration, Utc};
+use opensesame_time::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 /// The longest an activation may stand.

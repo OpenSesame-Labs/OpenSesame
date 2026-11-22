@@ -11,7 +11,8 @@ export function bundleChunk(id) {
   if (
     path.includes("/node_modules/react-dom/") ||
     path.includes("/node_modules/react/") ||
-    path.includes("/node_modules/scheduler/")
+    path.includes("/node_modules/scheduler/") ||
+    path.includes("/node_modules/preact/")
   ) {
     return "react-dom";
   }

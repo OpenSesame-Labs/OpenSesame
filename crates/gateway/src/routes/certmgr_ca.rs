@@ -42,7 +42,6 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::{DateTime, Duration, SecondsFormat, Utc};
 use opensesame_connection_broker::crypto::{open_scoped, seal_scoped, SealedBlob};
 use opensesame_pki_core::{
     bundle, ca,
@@ -52,6 +51,7 @@ use opensesame_pki_core::{
 use opensesame_storage::{
     SealedCertificateMaterial, StoredCaSigningConfig, StoredCertificateAuthority,
 };
+use opensesame_time::{DateTime, Duration, SecondsFormat, Utc};
 use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use time::OffsetDateTime;

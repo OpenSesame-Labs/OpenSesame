@@ -1,3 +1,15 @@
+import { readFileSync } from "node:fs";
+
+/** Keep Vite's warning aligned with the hardened entry-asset budget. */
+export const entryChunkWarningKb = Math.ceil(
+  JSON.parse(
+    readFileSync(
+      new URL("../../../tools/quality/bundle-budgets.json", import.meta.url),
+      "utf8",
+    ),
+  ).profiles.builds["minimal-local-hardened"].budgets.largestAsset * 1.024,
+);
+
 /**
  * Keep the client renderer out of the entry chunk. A hardened profile's
  * largest asset is `main`, and react-dom is what puts it over the 693 KiB
@@ -15,7 +27,8 @@ export function bundleChunk(id) {
   if (
     path.includes("/node_modules/react-dom/") ||
     path.includes("/node_modules/react/") ||
-    path.includes("/node_modules/scheduler/")
+    path.includes("/node_modules/scheduler/") ||
+    path.includes("/node_modules/preact/")
   ) {
     return "react-dom";
   }
@@ -54,9 +67,9 @@ export function bundleChunk(id) {
   ) {
     return "peer-trust";
   }
-  // The SAML certificate adapter imports reflect-metadata before x509. The lite
-  // polyfill is under codeSplitting.minSize, so Rollup folds it into a
-  // parent and the shared x509 chunk runs tsyringe's check first. That throw
+  // The SAML certificate adapter imports reflect-metadata before x509 and
+  // tsyringe. The lite polyfill is under codeSplitting.minSize, so Rollup
+  // can fold it into a parent and run tsyringe's check first. That throw
   // is a vite:preloadError, and the full profile reloads forever. One manual
   // chunk keeps the polyfill ahead of the check. Profiles that never load
   // x509 do not emit it.

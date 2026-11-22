@@ -5,7 +5,7 @@ use axum::http::HeaderMap;
 use axum::Json;
 use base64::engine::general_purpose::{URL_SAFE, URL_SAFE_NO_PAD};
 use base64::Engine as _;
-use chrono::Utc;
+use opensesame_time::Utc;
 use serde::Deserialize;
 use serde_json::{json, Value};
 

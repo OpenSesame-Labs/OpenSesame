@@ -1,31 +1,16 @@
 import type { OrganizationRole } from "@opensesame/os-domain";
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { Database } from "./repos/postgres.js";
-import { scimGroups } from "./schema/scim-groups.js";
-import type { ScimAdminLimits } from "./scim-admin-limits.js";
-import {
-  SCIM_GROUP_ID_MAX,
-  SCIM_GROUP_MEMBERS_MAX,
-  ScimGroupCapacityError,
-  type ScimGroupLimits,
-  ScimGroupPayloadError,
-  scimGroupLimits,
-} from "./scim-group-limits.js";
-import {
-  createMemoryScimMappingStore,
-  createPostgresScimMappingStore,
-} from "./scim-mapping-store.js";
+import { scimGroupRoleMappings, scimGroups } from "./schema/scim-groups.js";
 import {
   type ScimTokenRecord,
   type ScimTokenStore,
-  type ScimUserPageRequest,
   type ScimUserRecord,
   type ScimUserStore,
   type ScimStores as ScimUserTokenStores,
   createMemoryScimStores as createMemoryScimUserTokenStores,
   createPostgresScimStores as createPostgresScimUserTokenStores,
 } from "./scim-store.js";
-import type { ScimUserLimits } from "./scim-user-limits.js";
 
 export type { ScimTokenRecord, ScimTokenStore, ScimUserRecord, ScimUserStore };
 
@@ -58,16 +43,7 @@ export interface ScimGroupMappingStore {
     role: OrganizationRole,
   ): Promise<ScimGroupMapping>;
   get(orgId: string, groupId: string): Promise<OrganizationRole | undefined>;
-  count(orgId: string): Promise<number>;
-  listByOrganization(
-    orgId: string,
-    page?: ScimUserPageRequest,
-  ): Promise<ScimGroupMapping[]>;
-  /** Removing a neutral mapping cannot confer additional authority. */
-  removeIfNeutral(
-    orgId: string,
-    groupId: string,
-  ): Promise<"deleted" | "not_found" | "mapping_not_neutral">;
+  listByOrganization(orgId: string): Promise<ScimGroupMapping[]>;
 }
 
 export interface ScimStores extends ScimUserTokenStores {
@@ -94,23 +70,9 @@ function normalizeGroup(group: ScimGroupRecord): ScimGroupRecord {
   };
 }
 
-function validateGroup(group: ScimGroupRecord, previousSize: number): void {
-  if (
-    !group.id ||
-    group.id.length > SCIM_GROUP_ID_MAX ||
-    group.memberIds.some((id) => !id || id.length > SCIM_GROUP_ID_MAX) ||
-    (group.memberIds.length > SCIM_GROUP_MEMBERS_MAX &&
-      group.memberIds.length >= previousSize)
-  )
-    throw new ScimGroupPayloadError();
-}
-
-function createMemoryGroupStores(
-  options?: Partial<ScimGroupLimits>,
-  adminLimits?: Partial<ScimAdminLimits>,
-): Pick<ScimStores, "groups" | "mappings"> {
-  const limits = scimGroupLimits(options);
+function createMemoryGroupStores(): Pick<ScimStores, "groups" | "mappings"> {
   const groups = new Map<string, ScimGroupRecord>();
+  const mappings = new Map<string, ScimGroupMapping>();
 
   const ofOrg = (orgId: string) =>
     [...groups.values()].filter((group) => group.organizationId === orgId);
@@ -119,17 +81,6 @@ function createMemoryGroupStores(
     groups: {
       async upsert(group) {
         const row = normalizeGroup(group);
-        validateGroup(
-          row,
-          groups.get(groupKey(row.organizationId, row.id))?.memberIds.length ??
-            0,
-        );
-        if (
-          !groups.has(groupKey(row.organizationId, row.id)) &&
-          (ofOrg(row.organizationId).length >= limits.perOrganization ||
-            groups.size >= limits.perDeployment)
-        )
-          throw new ScimGroupCapacityError();
         groups.set(groupKey(row.organizationId, row.id), row);
         return cloneGroup(row);
       },
@@ -153,7 +104,28 @@ function createMemoryGroupStores(
       },
     },
 
-    mappings: createMemoryScimMappingStore(adminLimits),
+    mappings: {
+      async put(orgId, groupId, role) {
+        const row: ScimGroupMapping = {
+          organizationId: orgId,
+          groupId,
+          role,
+        };
+        mappings.set(groupKey(orgId, groupId), row);
+        return { ...row };
+      },
+
+      async get(orgId, groupId) {
+        return mappings.get(groupKey(orgId, groupId))?.role;
+      },
+
+      async listByOrganization(orgId) {
+        return [...mappings.values()]
+          .filter((row) => row.organizationId === orgId)
+          .sort((a, b) => (a.groupId < b.groupId ? -1 : 1))
+          .map((row) => ({ ...row }));
+      },
+    },
   };
 }
 
@@ -175,67 +147,31 @@ function mapGroup(row: typeof scimGroups.$inferSelect): ScimGroupRecord {
   });
 }
 
-function createPostgresGroupTableStore(
-  db: Database,
-  limits = scimGroupLimits(),
-): ScimGroupStore {
+function createPostgresGroupTableStore(db: Database): ScimGroupStore {
   return {
     async upsert(group) {
       const row = normalizeGroup(group);
-      return db.transaction(
-        async (tx) => {
-          await tx.execute(
-            sql`SELECT pg_advisory_xact_lock(hashtext('OpenSesame:ScimGroups'), 0)`,
-          );
-          const [existing] = await tx
-            .select({ id: scimGroups.id, memberIds: scimGroups.memberIds })
-            .from(scimGroups)
-            .where(
-              and(
-                eq(scimGroups.organizationId, row.organizationId),
-                eq(scimGroups.id, row.id),
-              ),
-            )
-            .limit(1);
-          validateGroup(row, existing?.memberIds.length ?? 0);
-          if (!existing) {
-            const [usage] = await tx
-              .select({
-                deployment: sql<number>`count(*)::integer`,
-                organization: sql<number>`count(*) filter (where ${scimGroups.organizationId} = ${row.organizationId})::integer`,
-              })
-              .from(scimGroups);
-            if (
-              !usage ||
-              usage.organization >= limits.perOrganization ||
-              usage.deployment >= limits.perDeployment
-            )
-              throw new ScimGroupCapacityError();
-          }
-          const [inserted] = await tx
-            .insert(scimGroups)
-            .values({
-              id: row.id,
-              organizationId: row.organizationId,
-              displayName: row.displayName,
-              memberIds: row.memberIds,
-              createdAt: row.createdAt,
-              updatedAt: row.updatedAt,
-            })
-            .onConflictDoUpdate({
-              target: [scimGroups.organizationId, scimGroups.id],
-              set: {
-                displayName: row.displayName,
-                memberIds: row.memberIds,
-                updatedAt: row.updatedAt,
-              },
-            })
-            .returning();
-          if (!inserted) throw new Error("insert scim group returned no row");
-          return mapGroup(inserted);
-        },
-        { isolationLevel: "read committed" },
-      );
+      const [inserted] = await db
+        .insert(scimGroups)
+        .values({
+          id: row.id,
+          organizationId: row.organizationId,
+          displayName: row.displayName,
+          memberIds: row.memberIds,
+          createdAt: row.createdAt,
+          updatedAt: row.updatedAt,
+        })
+        .onConflictDoUpdate({
+          target: [scimGroups.organizationId, scimGroups.id],
+          set: {
+            displayName: row.displayName,
+            memberIds: row.memberIds,
+            updatedAt: row.updatedAt,
+          },
+        })
+        .returning();
+      if (!inserted) throw new Error("insert scim group returned no row");
+      return mapGroup(inserted);
     },
 
     async getById(orgId, id) {
@@ -257,51 +193,90 @@ function createPostgresGroupTableStore(
     },
 
     async listByMember(orgId, memberId) {
-      const rows = await db
+      const rows =
+        await createPostgresGroupTableStore(db).listByOrganization(orgId);
+      return rows.filter((group) => group.memberIds.includes(memberId));
+    },
+  };
+}
+
+function createPostgresMappingStore(db: Database): ScimGroupMappingStore {
+  return {
+    async put(orgId, groupId, role) {
+      const now = new Date();
+      const [inserted] = await db
+        .insert(scimGroupRoleMappings)
+        .values({
+          organizationId: orgId,
+          groupId,
+          role,
+          createdAt: now,
+          updatedAt: now,
+        })
+        .onConflictDoUpdate({
+          target: [
+            scimGroupRoleMappings.organizationId,
+            scimGroupRoleMappings.groupId,
+          ],
+          set: { role, updatedAt: now },
+        })
+        .returning();
+      if (!inserted) throw new Error("insert scim mapping returned no row");
+      return {
+        organizationId: inserted.organizationId,
+        groupId: inserted.groupId,
+        role: inserted.role,
+      };
+    },
+
+    async get(orgId, groupId) {
+      const [row] = await db
         .select()
-        .from(scimGroups)
+        .from(scimGroupRoleMappings)
         .where(
           and(
-            eq(scimGroups.organizationId, orgId),
-            sql`${scimGroups.memberIds} ? ${memberId}`,
+            eq(scimGroupRoleMappings.organizationId, orgId),
+            eq(scimGroupRoleMappings.groupId, groupId),
           ),
         )
-        .orderBy(asc(scimGroups.createdAt), asc(scimGroups.id));
-      return rows.map(mapGroup);
+        .limit(1);
+      return row?.role;
+    },
+
+    async listByOrganization(orgId) {
+      const rows = await db
+        .select()
+        .from(scimGroupRoleMappings)
+        .where(eq(scimGroupRoleMappings.organizationId, orgId))
+        .orderBy(asc(scimGroupRoleMappings.groupId));
+      return rows.map((row) => ({
+        organizationId: row.organizationId,
+        groupId: row.groupId,
+        role: row.role,
+      }));
     },
   };
 }
 
 function createPostgresGroupStores(
   db: Database,
-  limits?: Partial<ScimGroupLimits>,
-  adminLimits?: Partial<ScimAdminLimits>,
 ): Pick<ScimStores, "groups" | "mappings"> {
   return {
-    groups: createPostgresGroupTableStore(db, scimGroupLimits(limits)),
-    mappings: createPostgresScimMappingStore(db, adminLimits),
+    groups: createPostgresGroupTableStore(db),
+    mappings: createPostgresMappingStore(db),
   };
 }
 
-export function createMemoryScimStores(
-  limits?: Partial<ScimUserLimits>,
-  groupLimits?: Partial<ScimGroupLimits>,
-  adminLimits?: Partial<ScimAdminLimits>,
-): ScimStores {
+export function createMemoryScimStores(): ScimStores {
   return attachGroupStores(
-    createMemoryScimUserTokenStores(limits, adminLimits),
-    createMemoryGroupStores(groupLimits, adminLimits),
+    createMemoryScimUserTokenStores(),
+    createMemoryGroupStores(),
   );
 }
 
-export function createPostgresScimStores(
-  db: Database,
-  limits?: Partial<ScimUserLimits>,
-  groupLimits?: Partial<ScimGroupLimits>,
-  adminLimits?: Partial<ScimAdminLimits>,
-): ScimStores {
+export function createPostgresScimStores(db: Database): ScimStores {
   return attachGroupStores(
-    createPostgresScimUserTokenStores(db, limits, adminLimits),
-    createPostgresGroupStores(db, groupLimits, adminLimits),
+    createPostgresScimUserTokenStores(db),
+    createPostgresGroupStores(db),
   );
 }

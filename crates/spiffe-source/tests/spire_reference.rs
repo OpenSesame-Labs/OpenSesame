@@ -46,7 +46,7 @@ async fn real_spire_issues_the_configured_svid_and_withdraws_it_when_the_entry_i
         .unwrap()
         .with_max_stale(Duration::from_secs(30));
     let sink = RecordingSink::shared();
-    let handle = SpiffeSource::start(cfg, sink.clone());
+    let handle = SpiffeSource::start(cfg, sink.clone()).unwrap();
     let status = handle
         .wait_for(Duration::from_secs(90), |s| {
             s.phase == SourcePhase::Streaming && s.generation.is_some()
@@ -71,7 +71,7 @@ async fn real_spire_issues_the_configured_svid_and_withdraws_it_when_the_entry_i
         "exact configured identity, not the first returned"
     );
     assert_eq!(activated[0].1, vec![spire::TRUST_DOMAIN.to_owned()]);
-    assert!(status.not_after.unwrap() > chrono::Utc::now());
+    assert!(status.not_after.unwrap() > opensesame_time::Utc::now());
     eprintln!(
         "real SPIRE: activated generation {:?} for {GW}, not_after {:?}",
         status.generation, status.not_after

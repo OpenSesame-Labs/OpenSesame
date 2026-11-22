@@ -11,10 +11,10 @@
 
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::OrganizationId;
 use opensesame_rotation::RotationState;
 use opensesame_task_bus::{BusEvent, TaskBus};
+use opensesame_time::{DateTime, Duration as TimeDuration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 use uuid::Uuid;
@@ -289,7 +289,7 @@ pub fn policy_due_at(
     let interval = policy.interval_duration();
     match last_run {
         None => true,
-        Some(last) => now >= last + chrono::Duration::from_std(interval).unwrap_or_default(),
+        Some(last) => now >= last + TimeDuration::from_std(interval).unwrap_or_default(),
     }
 }
 
@@ -1366,9 +1366,9 @@ mod tests {
     #[test]
     fn interval_parsing() {
         assert_eq!(parse_interval("30s"), Some(Duration::from_secs(30)));
-        assert_eq!(parse_interval("2h"), Some(Duration::from_secs(7200)));
+        assert_eq!(parse_interval("2h"), Some(Duration::from_hours(2)));
         assert_eq!(parse_interval("90"), Some(Duration::from_secs(90)));
-        assert_eq!(parse_interval("1d"), Some(Duration::from_secs(86_400)));
+        assert_eq!(parse_interval("1d"), Some(Duration::from_hours(24)));
         assert_eq!(parse_interval("soon"), None);
         assert_eq!(parse_interval(""), None);
     }
@@ -1383,13 +1383,13 @@ mod tests {
         // Last run long enough ago: due.
         assert!(policy_due_at(
             &policy(60, true),
-            Some(now - chrono::Duration::seconds(61)),
+            Some(now - TimeDuration::seconds(61)),
             now
         ));
         // Last run too recent: not due.
         assert!(!policy_due_at(
             &policy(60, true),
-            Some(now - chrono::Duration::seconds(30)),
+            Some(now - TimeDuration::seconds(30)),
             now
         ));
     }

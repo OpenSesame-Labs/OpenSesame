@@ -27,11 +27,11 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use chrono::Utc;
 use opensesame_session_observe::{
     authorize_attach, AttachRefusal, Attachment, StepUp, ViewerRelation,
 };
 use opensesame_storage::StoredObservationRun;
+use opensesame_time::Utc;
 use serde_json::json;
 
 use crate::app_state::AppState;
@@ -132,7 +132,7 @@ fn step_up(st: &AppState, headers: &HeaderMap) -> StepUp {
     if claims.assurance == crate::session_claims::Assurance::PhishingResistant
         && claims.amr == ["webauthn"]
         && claims.auth_time <= Utc::now()
-        && claims.auth_time >= Utc::now() - chrono::Duration::seconds(300)
+        && claims.auth_time >= Utc::now() - opensesame_time::Duration::seconds(300)
     {
         StepUp::Fresh
     } else {

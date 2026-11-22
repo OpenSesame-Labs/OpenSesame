@@ -57,7 +57,6 @@ function pagesForTab(tab: Tab, origin: string): StepPages {
   const injector = injectorFor(tabId, origin);
   const { inject, onOrigin } = injector;
   return {
-    captureSupported: false,
     async navigate(url) {
       const done = await loaded(tabId, LOAD_MS, async () => {
         await browser.tabs.update(tabId, { url });
@@ -66,14 +65,14 @@ function pagesForTab(tab: Tab, origin: string): StepPages {
       return done ? "ok" : "timeout";
     },
     async waitFor(selector, timeoutMs = 15_000): Promise<Landed> {
-      return inject(pfWaitFor, [selector, timeoutMs, origin], 2);
+      return inject(pfWaitFor, [selector, timeoutMs], 2);
     },
     fill: (selector, value) => inject(pfFill, [selector, value, origin], 2),
     presence: (selector, expected) =>
-      inject(pfPresence, [selector, expected, origin], 2),
-    submit: (selector) => press(tabId, injector, selector, origin),
-    readDom: (strip) => inject(pfReadDom, [strip, origin], 1),
-    layout: () => inject(pfLayout, [origin], 1),
+      inject(pfPresence, [selector, expected], 2),
+    submit: (selector) => press(tabId, injector, selector),
+    readDom: (strip) => inject(pfReadDom, [strip], 1),
+    layout: () => inject(pfLayout, [], 1),
     capture: (maskSelectors) => stillOf(tabId, injector, maskSelectors),
     async fresh() {
       if (!(await browser.extension.isAllowedIncognitoAccess())) return null;

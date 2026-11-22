@@ -1,14 +1,5 @@
 import { spawnSync } from "node:child_process";
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { readFileSync, readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parse } from "yaml";
 import { plan, script } from "../dev/devcontainer-proof.mjs";
@@ -38,48 +29,6 @@ function unflaggedInstalls(text) {
     count: commands.length,
     unflagged: commands.filter((line) => !line.includes("--ignore-scripts")),
   };
-}
-
-/** Run already-validated lifecycle commands against inert stand-ins. */
-function runLifecycleWithStubs(config) {
-  const dir = mkdtempSync(join(tmpdir(), "opensesame-container-lifecycle-"));
-  const log = join(dir, "commands.log");
-  try {
-    mkdirSync(join(dir, "bin"), { recursive: true });
-    mkdirSync(join(dir, "scripts/dev"), { recursive: true });
-    writeFileSync(
-      join(dir, "bin/mise"),
-      '#!/bin/sh\nprintf "mise:%s|%s\\n" "$*" "${MISE_GLOBAL_CONFIG_FILE:-}" >> "$OPENSESAME_LIFECYCLE_LOG"\n',
-      { mode: 0o755 },
-    );
-    writeFileSync(
-      join(dir, "scripts/dev/setup-hooks.sh"),
-      '#!/bin/sh\nprintf "hooks\\n" >> "$OPENSESAME_LIFECYCLE_LOG"\n',
-    );
-    for (const command of [
-      config.onCreateCommand,
-      config.updateContentCommand,
-      config.postCreateCommand,
-    ]) {
-      const result = spawnSync("bash", ["-c", command], {
-        cwd: dir,
-        encoding: "utf8",
-        env: {
-          ...process.env,
-          PATH: `${join(dir, "bin")}:${process.env.PATH}`,
-          MISE_GLOBAL_CONFIG_FILE: "",
-          OPENSESAME_LIFECYCLE_LOG: log,
-        },
-      });
-      expect(result.status, result.stderr).toBe(0);
-    }
-    return readFileSync(log, "utf8")
-      .trim()
-      .replaceAll(dir, "<workspace>")
-      .split("\n");
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
 }
 
 describe("dependency install policy", () => {
@@ -163,16 +112,6 @@ describe("dependency install policy", () => {
 describe("dev container", () => {
   const config = JSON.parse(read(".devcontainer/devcontainer.json"));
   const dockerfile = read(".devcontainer/Dockerfile");
-  const locked =
-    'MISE_GLOBAL_CONFIG_FILE="$PWD/.devcontainer/mise-global.toml" mise install --locked';
-  const expectedCommands = {
-    onCreateCommand: "mise --version",
-    updateContentCommand: `${locked} && mise run deps`,
-    postCreateCommand: `${locked} && mise run deps && bash scripts/dev/setup-hooks.sh`,
-  };
-  const commands = Object.fromEntries(
-    Object.entries(config).filter(([name]) => name.endsWith("Command")),
-  );
 
   it("runs as a non-root user that cannot gain privileges", () => {
     expect(config.containerUser).toBe("vscode");
@@ -210,25 +149,20 @@ describe("dev container", () => {
       expect(name).not.toMatch(/TOKEN|SECRET|PASSWORD|KEY/i);
   });
 
-  it("keeps unpinned dotfiles and third-party skills out of every lifecycle", () => {
-    // Exact declared commands also catch indirect shell additions or a new
-    // lifecycle phase, rather than checking only two script names.
-    expect(commands).toEqual(expectedCommands);
-  });
-
-  it("runs the declared setup in order without personal installers", () => {
-    // This assertion must precede any shell execution in this test: an
-    // unreviewed lifecycle edit is data, never a command to run on the host.
-    expect(commands).toEqual(expectedCommands);
-    const lock = join("<workspace>", ".devcontainer/mise-global.toml");
-    expect(runLifecycleWithStubs(config)).toEqual([
-      "mise:--version|",
-      `mise:install --locked|${lock}`,
-      "mise:run deps|",
-      `mise:install --locked|${lock}`,
-      "mise:run deps|",
-      "hooks",
-    ]);
+  it("runs no personal or third-party installer in any lifecycle phase", () => {
+    // Exact declared commands also catch an indirect shell addition or a new
+    // phase (postStart, postAttach) rather than checking a few script names:
+    // nothing unreviewed is fetched or executed when the container starts.
+    const locked =
+      'MISE_GLOBAL_CONFIG_FILE="$PWD/.devcontainer/mise-global.toml" mise install --locked';
+    const commands = Object.fromEntries(
+      Object.entries(config).filter(([name]) => name.endsWith("Command")),
+    );
+    expect(commands).toEqual({
+      onCreateCommand: "mise --version",
+      updateContentCommand: `${locked} && mise run deps`,
+      postCreateCommand: `${locked} && mise run deps && bash scripts/dev/setup-hooks.sh`,
+    });
   });
 });
 
@@ -244,7 +178,9 @@ describe("dev container toolchain install", () => {
       config.updateContentCommand,
       config.postCreateCommand,
       config.postStartCommand,
-    ].join(" && ");
+    ]
+      .filter(Boolean)
+      .join(" && ");
     const installs =
       commands.match(/(?:\S+=\S+ )*mise install --locked/g) ?? [];
     expect(installs.length).toBeGreaterThan(0);

@@ -7,7 +7,7 @@ description = "Bounded, brokered sandbox for general-authority guest execution"
 
 [dependencies]
 opensesame-domain = { path = "../domain" }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 thiserror = { workspace = true }
 wasmtime = { workspace = true, optional = true }
 

@@ -1,5 +1,5 @@
 import { writeFileSync } from "node:fs";
-import type { IncomingMessage } from "node:http";
+import { IncomingMessage } from "node:http";
 import net from "node:net";
 import { join } from "node:path";
 import tls from "node:tls";
@@ -63,7 +63,10 @@ describe("identity trust rotation", () => {
       if (!original) throw new Error("request was not dispatched");
       const request: IncomingMessage = original;
       const saved = requestEvidenceOf(request);
-      const replay = {} as IncomingMessage;
+      // Evidence lookup accepts an opaque carrier only when it is an IncomingMessage.
+      const carrier = new net.Socket();
+      carrier.unref();
+      const replay = new IncomingMessage(carrier);
       adoptRequestEvidence(replay, request);
       const oauth = identityMtlsTransport({
         listener: config,
@@ -206,6 +209,7 @@ describe("identity trust rotation", () => {
           denied_thumbprints: [],
         },
         ...["edge.example", "user.example"].map((dns) => {
+          // SAFETY: mappingBindings returns the checked host-mapping fixture, and the first binding is the entry this test copies.
           const set = mappingBindings(dns) as { bindings: object[] };
           return { ...set.bindings[0], id: `mapping-${dns.split(".")[0]}` };
         }),
@@ -347,12 +351,16 @@ describe("identity trust rotation", () => {
       expect(first.kind).toBe("http");
       if (first.kind !== "http") throw new Error("handshake failed");
       expect(first.session).toBeDefined();
-      const second = await rawHandshake({
+      const handshake = {
         port,
         ca: pki.caCertPem,
         identity: client,
-        ...(first.session ? { session: first.session } : {}),
-      });
+      };
+      const second = await rawHandshake(
+        first.session === undefined
+          ? handshake
+          : { ...handshake, session: first.session },
+      );
       expect(second.kind).toBe("http");
       if (second.kind === "http") expect(second.reused).toBe(false);
     } finally {

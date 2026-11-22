@@ -8,7 +8,7 @@
 #[cfg(test)]
 mod tests {
     use crate::*;
-    use chrono::{DateTime, Duration, Utc};
+    use opensesame_time::{DateTime, Duration, Utc};
     use std::collections::BTreeSet;
 
     fn rows(vault_id: VaultId, items: &[VaultItemId]) -> GrantScope {

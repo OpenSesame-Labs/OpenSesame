@@ -55,13 +55,7 @@ it.each(["input", "textarea"])(
       "input:public-framework-fixture",
       "change:public-framework-fixture",
     ]);
-    expect(
-      pfPresence(
-        "#tracked",
-        "public-framework-fixture",
-        window.location.origin,
-      ),
-    ).toBe("present");
+    expect(pfPresence("#tracked", "public-framework-fixture")).toBe("present");
     expect(document.activeElement).toBe(field);
   },
 );
@@ -71,11 +65,7 @@ it.each(["match", "timeout"])(
   async (kind) => {
     // The spy delegates to the actual browser-DOM implementation.
     const disconnect = vi.spyOn(MutationObserver.prototype, "disconnect");
-    const pending = pfWaitFor(
-      "#eventual",
-      kind === "match" ? 100 : 1,
-      window.location.origin,
-    );
+    const pending = pfWaitFor("#eventual", kind === "match" ? 100 : 1);
     if (kind === "match") {
       const match = document.createElement("div");
       match.id = "eventual";

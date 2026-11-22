@@ -9,7 +9,6 @@ Release and merge-gate tooling run from a terminal or CI.
 | `land-signed-stack.mjs` | Replays a local branch stack as GitHub-verified commits |
 | `candidate.mjs`, `lib/candidate-*.mjs` | Select and admit immutable candidates; verify source, provenance, qualification receipts and existing publication |
 | `artifact-transfer.mjs`, `archive-safe.py` | Verify immutable artifact identity and downloaded bytes before safe extraction |
-| `fetch-pinned-npm.sh`, `prepare-npm-cli.mjs` | Fetch npm without publication credentials, verify its committed SHA-512 and safely extract the CLI for direct, script-free publishing |
 | `build-manifest.py`, `collect-build.mjs`, `provenance.mjs` | Assemble the complete candidate and bind its payloads to the selected source and original build |
 | `sbom.mjs` | CycloneDX inventory of every package the selected snapshot's `package-lock.json` and `Cargo.lock` pin, read by exact commit and signed against the candidate's artifact digests ([release kit](../../docs/operators/release-kit.md#dependency-inventory)) |
 | `deep-tools.sh`, `deep-check.sh` | Pinned weekly mutation/security tooling and required suites; missing or incomplete evidence fails |
@@ -67,11 +66,12 @@ GitHub calls have not been exercised yet.
 
 ## Deferred registry publication
 
-The npm and container workflow entry points are retired, manual-only failures.
-The weekly candidate currently publishes Pages and Linux kits; it does not invoke
-`publish-packages.mjs` or publish an OCI image. The shell-free npm helper remains
-available for a future integration, with its exact workspace-name validation and
-separate security tests intact. Reenabling either registry requires an explicit
+The legacy generic npm and container workflow entry points are retired,
+manual-only failures. npm CD workflows now prove packages locally without
+publishing. The weekly candidate publishes Pages and Linux kits; it does not
+invoke `publish-packages.mjs` or publish an OCI image. The shell-free npm helper
+remains available for future work, but is not a qualified publisher. Reenabling
+registry publication requires an explicit
 immutable artifact inventory, qualification, provenance and promotion contract.
 Calling the preserved helper directly is not a qualified release path.
 

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import { readString } from "../lib/json-boundary.mjs";
@@ -13,13 +13,13 @@ import {
 import { workflowsWithMiseCacheDisabled } from "./ci-mise-cache-policy.mjs";
 
 const miseLine =
-  /uses:\s+jdx\/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5\.2\.6\s*$/u;
+  /uses:\s+jdx\/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5\.2\.7\s*$/u;
 const allowedArgs = new Set([
   "node",
   "node@24",
   "hurl@8.1.0",
   "rust",
-  "rust@1.97.1",
+  "rust@1.99.0",
   "rust[components=miri]@nightly-2026-08-01",
   "go",
   "java",
@@ -178,10 +178,16 @@ function assertInstallArgs(step, blocks, label) {
   return tokens;
 }
 
-/** A working_directory is `src` or the runner temp, each with its own tools. */
+/** A working_directory is `src`, the runner temp, or trusted `base`. */
 function assertWorkingDirectory(step, tokens, label) {
   if (step.with.working_directory === undefined) return;
   const directory = step.with.working_directory;
+  // Visual evidence installs Node 24 inside the trusted base checkout.
+  if (directory === "base") {
+    assert.equal(tokens.length, 1, label);
+    assert.equal(tokens[0], "node@24", label);
+    return;
+  }
   assert.equal(tokens.includes("node@24"), false, label);
   if (directory === "src") {
     assert.equal(
@@ -305,4 +311,19 @@ test("GHCR CD installs tools with the locked mise bootstrap, not mise-action", (
   assert.match(text, /bash scripts\/lib\/install-mise-locked\.sh rust\n/u);
   assert.doesNotMatch(text, /actions\/cache\/save@/u);
   assert.doesNotMatch(text, /uses:\s+actions\/cache@/u);
+});
+
+test("workflows() includes every workflow yml in sorted order", () => {
+  const listed = workflows().map((workflow) => workflow.name);
+  const onDisk = readdirSync(workflowDir)
+    .filter((name) => name.endsWith(".yml"))
+    .sort();
+  assert.deepEqual(listed, onDisk);
+});
+
+test("workflow files do not contain the retired mise-action v5.2.6 SHA", () => {
+  const retiredSha = "f5be966e4a917d54244728e6a5fdcd1d93a35e6c";
+  for (const { name, text } of workflows()) {
+    assert.equal(text.includes(retiredSha), false, name);
+  }
 });

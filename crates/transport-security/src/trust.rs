@@ -9,8 +9,8 @@
 use std::fmt;
 use std::sync::Arc;
 
-use chrono::Utc;
 use opensesame_domain::transport::{TransportError, TrustProfileKind, TrustProfileRef};
+use opensesame_time::Utc;
 use rustls::RootCertStore;
 use rustls_pki_types::pem::PemObject;
 use rustls_pki_types::{CertificateDer, CertificateRevocationListDer};
@@ -23,6 +23,7 @@ use crate::leaf::ParsedLeaf;
 pub struct TrustBundle {
     profile: TrustProfileRef,
     kind: TrustProfileKind,
+    spiffe_trust_domain: Option<String>,
     anchors: Vec<CertificateDer<'static>>,
     anchor_thumbprints: Vec<String>,
     roots: Arc<RootCertStore>,
@@ -91,12 +92,52 @@ impl TrustBundle {
         Ok(Self {
             profile,
             kind,
+            spiffe_trust_domain: None,
             anchors,
             anchor_thumbprints,
             roots: Arc::new(roots),
             crls: Vec::new(),
             generation: 0,
         })
+    }
+
+    /// Check that a trust-domain value is a canonical SPIFFE domain name.
+    ///
+    /// # Errors
+    ///
+    /// The supplied value is invalid, a URI, or not in canonical form.
+    pub fn validate_spiffe_trust_domain(name: &str) -> Result<(), TransportError> {
+        let domain =
+            spiffe::TrustDomain::new(name).map_err(|_| malformed("invalid SPIFFE trust domain"))?;
+        if domain.as_str() != name {
+            return Err(malformed("SPIFFE trust domain must use its canonical name"));
+        }
+        Ok(())
+    }
+
+    /// Set the canonical SPIFFE trust domain independently of the profile label.
+    ///
+    /// SPIFFE bundles must carry this explicit metadata before they can be
+    /// used to verify a peer; no domain is inferred from the profile name.
+    ///
+    /// # Errors
+    ///
+    /// The bundle kind is not SPIFFE or the domain is not a canonical name.
+    pub fn with_spiffe_trust_domain(mut self, name: &str) -> Result<Self, TransportError> {
+        if self.kind != TrustProfileKind::SpiffeTrustDomain {
+            return Err(malformed(
+                "only a spiffe_trust_domain bundle names a SPIFFE domain",
+            ));
+        }
+        Self::validate_spiffe_trust_domain(name)?;
+        self.spiffe_trust_domain = Some(name.to_owned());
+        Ok(self)
+    }
+
+    /// The explicit SPIFFE trust domain, when this bundle carries one.
+    #[must_use]
+    pub fn spiffe_trust_domain(&self) -> Option<&str> {
+        self.spiffe_trust_domain.as_deref()
     }
 
     /// Attach every `X509 CRL` block in `crl_pem`. Each CRL must parse for
@@ -209,6 +250,7 @@ impl fmt::Debug for TrustBundle {
         f.debug_struct("TrustBundle")
             .field("profile", &self.profile)
             .field("kind", &self.kind)
+            .field("spiffe_trust_domain", &self.spiffe_trust_domain)
             .field("anchors", &self.anchor_thumbprints)
             .field("crls", &self.crls.len())
             .field("generation", &self.generation)

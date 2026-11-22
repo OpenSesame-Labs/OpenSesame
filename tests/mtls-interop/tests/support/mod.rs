@@ -78,7 +78,7 @@ async fn probe(
             TransportError::PeerNotBound.code().to_string(),
         );
     };
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     let caller = match ServiceCaller::admit(
         (*peer).clone(),
         &BindingScope::Deployment,
@@ -150,7 +150,7 @@ impl Listener {
             number: 1,
             identity: Some(Arc::clone(&identity)),
             peer_trust,
-            activated_at: chrono::Utc::now(),
+            activated_at: opensesame_time::Utc::now(),
             withdrawn: None,
         });
         let listener = SecureListener::bind(

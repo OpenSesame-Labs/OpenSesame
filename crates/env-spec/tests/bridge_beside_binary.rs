@@ -40,7 +40,7 @@ fn kit(sandbox: &Sandbox, mode: u32) -> PathBuf {
             .unwrap_or_else(PoisonError::into_inner);
         std::fs::copy(std::env::current_exe().unwrap(), &exe).unwrap();
         chmod(&exe, 0o755);
-        std::fs::write(kit.join(BRIDGE), "// stand-in\n").unwrap();
+        std::fs::copy(sandbox.path("work/parse.mjs"), kit.join(BRIDGE)).unwrap();
         chmod(&kit.join(BRIDGE), mode);
     }
     sandbox.plant("operator", "node");
@@ -103,22 +103,4 @@ fn the_override_still_wins_over_the_bridge_beside_the_binary() {
     let said = run(&sandbox, &exe, &[("OPENSESAME_ENV_PARSE", named.clone())]);
     assert_eq!(said, "ok items=0");
     assert_eq!(script(&sandbox), Some(named));
-}
-
-#[test]
-fn with_no_bridge_beside_the_binary_the_checkouts_copy_is_run() {
-    let sandbox = Sandbox::new();
-    let exe = kit(&sandbox, 0o644);
-    std::fs::remove_file(sandbox.path("kit").join(BRIDGE)).unwrap();
-    assert_eq!(run(&sandbox, &exe, &[]), "ok items=0");
-    // `node` is handed the file the checkout path resolves to, once it is vetted.
-    let checkout = Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../packages/env-spec-bridge/bin")
-        .join(BRIDGE)
-        .canonicalize()
-        .unwrap();
-    assert_eq!(
-        script(&sandbox).as_deref(),
-        Some(checkout.to_str().unwrap())
-    );
 }

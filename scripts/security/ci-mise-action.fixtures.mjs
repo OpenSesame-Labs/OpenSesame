@@ -14,7 +14,7 @@ export const workflowDir = join(root, ".github/workflows");
 export const { parse } = createRequire(import.meta.url)("yaml");
 
 export const miseUses =
-  "jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c";
+  "jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b";
 
 export function workflows() {
   return readdirSync(workflowDir)

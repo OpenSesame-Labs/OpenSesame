@@ -795,3 +795,11 @@ cb861dbd330b51486bdf11ff68e695ce264e90ae:tools/security/exposure-matrix.json:gen
 cb861dbd330b51486bdf11ff68e695ce264e90ae:tools/security/exposure-matrix.json:generic-api-key:1515
 f49b18fc318859b947479eed975c07913c6cab33:tools/security/exposure-matrix.json:generic-api-key:1484
 f49b18fc318859b947479eed975c07913c6cab33:tools/security/exposure-matrix.json:generic-api-key:1515
+# Fixture: Bitwarden-encrypted login password (cipher envelope) in the deterministic cloud API mock at 6c0fbf0f. Not an issued credential.
+6c0fbf0f37cb1785d8f1d5c4dd9ba5183a53ebcc:crates/provider-bitwarden/tests/fixtures/cloud.json:generic-api-key:121
+# Fixture: Bitwarden-encrypted login password (cipher envelope) in the deterministic vaultwarden API mock at 6c0fbf0f. Not an issued credential.
+6c0fbf0f37cb1785d8f1d5c4dd9ba5183a53ebcc:crates/provider-bitwarden/tests/fixtures/vaultwarden.json:generic-api-key:122
+# Fixture: same cloud.json login-password cipher envelope, introduced by the deterministic Bitwarden fixture consolidation (f11c169d). Not an issued credential.
+f11c169d77f5b3681e64188a6fdaa834246cd50b:crates/provider-bitwarden/tests/fixtures/cloud.json:generic-api-key:121
+# Fixture: same vaultwarden.json login-password cipher envelope, introduced by the deterministic Bitwarden fixture consolidation (f11c169d). Not an issued credential.
+f11c169d77f5b3681e64188a6fdaa834246cd50b:crates/provider-bitwarden/tests/fixtures/vaultwarden.json:generic-api-key:122

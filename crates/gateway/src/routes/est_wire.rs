@@ -18,22 +18,30 @@
 //! Certificate authentication requires direct end-client mTLS. Trusted-ingress
 //! peers prove the proxy's key; originating assertions are not an EST proof.
 
-use axum::http::{Extensions, HeaderMap, StatusCode};
+use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
 use base64::Engine as _;
 use opensesame_connection_broker::crypto::{open_scoped, SealedBlob};
-use opensesame_domain::transport::{EvidenceSource, TransportPolicy, VerifiedPeer};
 use opensesame_storage::{StoredCertificateProfile, StoredEstConfig};
-use opensesame_transport_security::PeerExtension;
 use serde_json::json;
-use std::collections::BTreeSet;
 
 use super::est_server::{internal, refuse, sealing_key, KEY_ID, MIN_PASSPHRASE_BYTES};
 use crate::app_state::AppState;
 
 /// The sealing scope CA keys live under (mirrors `certmgr_ca`).
 const CA_SCOPE: &str = "certificate_authority";
+
+#[path = "est_auth.rs"]
+mod auth;
+pub(super) use auth::{authenticate, mint_fence};
+
+#[path = "est_freshness.rs"]
+mod freshness;
+
+#[cfg(test)]
+#[path = "est_test_pause.rs"]
+pub(super) mod test_pause;
 
 #[path = "est_passphrase_budget.rs"]
 mod passphrase_budget;
@@ -65,117 +73,6 @@ pub(super) async fn load_profile(
         .map_err(|error| internal(error, "read est config"))?
         .ok_or_else(unavailable)?;
     Ok((profile, config))
-}
-
-/// Authenticates one enrollment attempt (see the module docs for the rules).
-pub(super) async fn authenticate(
-    st: &AppState,
-    headers: &HeaderMap,
-    extensions: &Extensions,
-    config: &StoredEstConfig,
-    profile: &StoredCertificateProfile,
-    reenroll: bool,
-) -> Result<(), Response> {
-    // Apply the same end-client requirement before BOTH inventory replacement
-    // and bootstrap authentication. A proxy can itself be in the inventory;
-    // neither that row nor its TLS key proves possession by a downstream client.
-    let verified = extensions
-        .get::<PeerExtension>()
-        .map(|PeerExtension(verified)| verified.as_ref())
-        .filter(|verified| {
-            verified.source() == EvidenceSource::DirectTls
-                && verified.policy() == TransportPolicy::MtlsRequired
-                && verified.is_usable_at(chrono::Utc::now())
-                && st.transport.as_ref().is_none_or(|runtime| {
-                    let generation = runtime.generations.current();
-                    generation.withdrawn.is_none()
-                        && verified
-                            .require_generations(generation.number, generation.number)
-                            .is_ok()
-                })
-        });
-    let replacing = reenroll
-        && match verified {
-            Some(verified) => replaces_certificate(st, &profile.organization_id, verified).await?,
-            None => false,
-        };
-    let bootstrap = match verified {
-        Some(verified) => bootstrap_ok(st, verified, config)?,
-        None => false,
-    };
-    if config.require_bootstrap && !(replacing || bootstrap) {
-        return Err(www_authenticate(
-            "a client certificate is required at this profile",
-        ));
-    }
-    // Certificate authentication is independent of the password budget: a
-    // password guesser must not lock valid certificate holders out of renewal.
-    if replacing || bootstrap {
-        return Ok(());
-    }
-    let password = basic_password(headers)
-        .ok_or_else(|| www_authenticate("valid EST credentials are required"))?;
-    if config.sealed_passphrase.is_some() {
-        passphrase_budget::reserve(st, config, extensions).await?;
-    }
-    if passphrase_matches(st, &password, config)? {
-        return Ok(());
-    }
-    Err(www_authenticate("valid EST credentials are required"))
-}
-
-/// True when the presented certificate is an active certificate of this
-/// organization — "the certificate being replaced".
-async fn replaces_certificate(
-    st: &AppState,
-    organization: &str,
-    verified: &VerifiedPeer,
-) -> Result<bool, Response> {
-    let row = st
-        .db
-        .get_certificate_by_fingerprint(organization, verified.leaf_thumbprint_sha256())
-        .await
-        .map_err(|error| internal(error, "look up presented certificate"))?;
-    Ok(row.is_some_and(|row| row.status == "active"))
-}
-
-/// True when the peer is a verified direct-TLS client certificate whose chain
-/// was validated against exactly the configured bootstrap chain: the
-/// handshake validated the chain (rustls), and this pins *which* anchors it
-/// was validated against. With no chain configured, any client certificate
-/// the EST listener's trust accepted counts — the listener's `client_trust`
-/// is then the operator's bootstrap chain.
-fn bootstrap_ok(
-    st: &AppState,
-    verified: &VerifiedPeer,
-    config: &StoredEstConfig,
-) -> Result<bool, Response> {
-    let Some(chain_pem) = config.bootstrap_chain_pem.as_deref() else {
-        return Ok(true);
-    };
-    let wanted = opensesame_pki_core::bundle::certificates_der(chain_pem)
-        .map_err(|error| internal(error, "decode bootstrap chain"))?;
-    let Some(runtime) = &st.transport else {
-        return Ok(false);
-    };
-    let generation = runtime.generations.current();
-    // Bind the anchor snapshot to the evidence even if rotation raced the
-    // shared admission check above.
-    if generation.withdrawn.is_some() || verified.trust_generation() != generation.number {
-        return Ok(false);
-    }
-    let Ok(bundle) = generation.trust(verified.trust_profile()) else {
-        return Ok(false);
-    };
-    let anchors: BTreeSet<&[u8]> = bundle
-        .anchors()
-        .iter()
-        .map(std::convert::AsRef::as_ref)
-        .collect();
-    // VerifiedPeer retains the trust profile, not the accepted certificate path.
-    // A subset test would attribute a peer chained to any extra listener CA to
-    // this profile's bootstrap CA. Require the complete anchor set to match.
-    Ok(wanted.iter().map(Vec::as_slice).collect::<BTreeSet<_>>() == anchors)
 }
 
 /// HTTP Basic password check against the sealed passphrase, constant time.

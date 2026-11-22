@@ -5,6 +5,7 @@
  */
 
 import type { ConnectorId } from "./connectors.js";
+import { hideToast } from "./notice-toast.js";
 
 export type NoticeTone = "info" | "warn" | "err";
 
@@ -42,6 +43,12 @@ export type Notice = {
    * a reload keeps the words and the route, and this act is gone.
    */
   act?: NoticeAct | undefined;
+  /**
+   * A second worded key, paired with `act`. Both are drawn as choice keys
+   * when each says `worded`. A single worded act is one choice key. An act
+   * that is not worded stays an icon key.
+   */
+  alt?: NoticeAct | undefined;
   /** An in-app route the notice points at, opened from the tray. */
   open?: NoticeOpen;
   createdAt: string;
@@ -63,9 +70,9 @@ export type NoticeAct = {
   icon?: "power" | "export" | "settings";
   opens?: boolean;
   /**
-   * The toast that echoes this notice draws the act as a worded key — the
-   * object of a choice, as a recommendation's is (ADR 0221). The tray still
-   * draws its icon key.
+   * Drawn as a worded choice key on the toast and in the tray — the object
+   * of a choice, as a recommendation's is (ADR 0221). An act that is not
+   * worded stays an icon key in the tray.
    */
   worded?: boolean;
   /** A shorter preview of this act's recommendation, never the tray title. */
@@ -82,6 +89,7 @@ export type StatusNoticeInput = {
   retry?: (() => void) | undefined;
   retryLabel?: string;
   act?: NoticeAct;
+  alt?: NoticeAct;
   open?: NoticeOpen;
 };
 
@@ -128,18 +136,56 @@ function pushNoticeDefault(
   return notice;
 }
 
-/** The same words, to the letter: only a retry or act closure may differ. */
-function sameWords(existing: Notice, input: StatusNoticeInput): boolean {
+function sameStatusCopy(existing: Notice, input: StatusNoticeInput): boolean {
   return (
     existing.tone === input.tone &&
     existing.title === input.title &&
     existing.body === input.body &&
     existing.ceremony === input.ceremony &&
     existing.ceremonyLabel === input.ceremonyLabel &&
-    existing.retryLabel === input.retryLabel &&
+    existing.retryLabel === input.retryLabel
+  );
+}
+
+function sameNoticeActs(existing: Notice, input: StatusNoticeInput): boolean {
+  return (
+    existing.act?.label === input.act?.label &&
+    existing.alt?.label === input.alt?.label
+  );
+}
+
+function sameNoticeOpen(existing: Notice, input: StatusNoticeInput): boolean {
+  return (
     existing.open?.to === input.open?.to &&
     existing.open?.label === input.open?.label
   );
+}
+
+/** The same words, to the letter: only a retry or act closure may differ. */
+function sameWords(existing: Notice, input: StatusNoticeInput): boolean {
+  return (
+    sameStatusCopy(existing, input) &&
+    sameNoticeActs(existing, input) &&
+    sameNoticeOpen(existing, input)
+  );
+}
+
+function hideDismissedTutorialToast(id: string): void {
+  if (
+    id === "tutorial.pause.session" ||
+    id === "setup.minimal.confirm" ||
+    id.startsWith("tutorial.queue.")
+  ) {
+    hideToast(id);
+  }
+}
+
+function dequeueTutorialNotice(id: string): void {
+  if (!id.startsWith("tutorial.queue.")) return;
+  const goalId = id.slice("tutorial.queue.".length);
+  void import("./tutorial-queue.js").then(({ dequeueTutorial }) => {
+    dequeueTutorial(goalId);
+  });
 }
 
 function setStatusNoticeDefault(input: StatusNoticeInput): Notice {
@@ -150,6 +196,7 @@ function setStatusNoticeDefault(input: StatusNoticeInput): Notice {
     // loop the effect that mirrors a page condition into this store.
     existing.retry = input.retry;
     existing.act = input.act;
+    existing.alt = input.alt;
     return existing;
   }
   const notice: Notice = {
@@ -160,7 +207,7 @@ function setStatusNoticeDefault(input: StatusNoticeInput): Notice {
   notices = [...notices.filter((item) => item.id !== input.id), notice];
   // Standing page conditions update the badge. They are not arrivals: opening
   // the bell sheet here covers the page the person is already using.
-  emit();
+  emit(undefined);
   return notice;
 }
 
@@ -271,8 +318,16 @@ export function restorePersistedTrayNotices(restored: Notice[]): void {
   noticeSeams.restorePersistedTrayNotices(restored);
 }
 
+/** Remove a tray row without tutorial-queue dequeue side effects. */
+export function removeStatusNotice(id: string): void {
+  noticeSeams.dismissNotice(id);
+  hideDismissedTutorialToast(id);
+}
+
 export function dismissNotice(id: string): void {
   noticeSeams.dismissNotice(id);
+  hideDismissedTutorialToast(id);
+  dequeueTutorialNotice(id);
 }
 
 export function clearNotices(): void {

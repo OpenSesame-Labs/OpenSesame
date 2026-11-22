@@ -14,6 +14,21 @@ fn runner_with(env: &[(&str, &str)]) -> ScrubbedCommandRunner {
     ScrubbedCommandRunner::new(snapshot)
 }
 
+#[cfg(unix)]
+fn exact_runner(
+    source: &str,
+    binary: &str,
+    env: &[(&str, &str)],
+) -> (
+    opensesame_trusted_exec::testkit::ExecutableFixture,
+    ScrubbedCommandRunner,
+) {
+    let fixture = opensesame_trusted_exec::testkit::ExecutableFixture::new();
+    let executable = fixture.copy(source, binary);
+    let runner = runner_with(env).with_exact_program(binary, executable);
+    (fixture, runner)
+}
+
 #[test]
 fn contract_child_env_is_a_whitelist_projection() {
     let mut snapshot = BTreeMap::new();
@@ -32,47 +47,51 @@ fn contract_child_env_is_a_whitelist_projection() {
 }
 
 #[test]
+#[cfg(unix)]
 fn adversarial_child_never_sees_the_daemons_own_environment() {
     // Even a variable set on the daemon process itself must not reach the
     // child: the runner starts from env_clear, not from inheritance.
     let planted = "OPENSESAME_PLANTED_CHILD_MUST_NOT_SEE";
     std::env::set_var(planted, "PLANTED-SECRET");
-    let runner = runner_with(&[("HOME", "/tmp")]);
-    let status = runner
-        .run_status(
-            &[
-                "sh",
-                "-c",
-                "[ -z \"$OPENSESAME_PLANTED_CHILD_MUST_NOT_SEE\" ]",
-            ],
-            2_000,
-        )
-        .expect("ran");
-    assert!(status.success, "child observed the daemon's environment");
+    let (_fixture, runner) = exact_runner("/usr/bin/env", "fixture-env", &[("HOME", "/tmp")]);
+    let output = runner
+        .run_capture(&["fixture-env"], 2_000)
+        .expect("captured child environment");
+    assert!(
+        !secrecy::ExposeSecret::expose_secret(&output).contains(planted),
+        "child observed the daemon's environment"
+    );
     std::env::remove_var(planted);
 }
 
 #[test]
-fn child_gets_the_whitelisted_minimum() {
-    let runner = runner_with(&[("HOME", "/home/tester"), ("PATH", "/usr/bin:/bin")]);
-    let status = runner
-        .run_status(
-            &[
-                "sh",
-                "-c",
-                "[ \"$HOME\" = /home/tester ] && [ -n \"$PATH\" ]",
-            ],
-            2_000,
-        )
-        .expect("ran");
-    assert!(status.success);
+#[cfg(unix)]
+fn an_exact_program_gets_common_values_without_an_untrusted_path() {
+    let (_fixture, runner) = exact_runner(
+        "/usr/bin/env",
+        "fixture-env",
+        &[("HOME", "/home/tester"), ("PATH", "/usr/bin:/bin")],
+    );
+    let output = runner
+        .run_capture(&["fixture-env"], 2_000)
+        .expect("captured child environment");
+    let output = secrecy::ExposeSecret::expose_secret(&output);
+    assert!(output.lines().any(|line| line == "HOME=/home/tester"));
+    assert!(
+        !output.lines().any(|line| line.starts_with("PATH=")),
+        "an untrusted PATH reached the explicit executable: {output}"
+    );
 }
 
 #[test]
+#[cfg(unix)]
 fn contract_a_hung_child_is_killed_at_the_timeout() {
-    let runner = runner_with(&[]);
+    // Killing the shell leaves its child holding the inherited pipes. The
+    // runner must still stop waiting for the drain threads after its bounded
+    // join, rather than hanging until the grandchild exits.
+    let (_fixture, runner) = exact_runner("/bin/sh", "fixture-shell", &[]);
     let started = Instant::now();
-    let result = runner.run_status(&["sh", "-c", "sleep 30"], 150);
+    let result = runner.run_status(&["fixture-shell", "-c", "/bin/sleep 30"], 150);
     let elapsed = started.elapsed();
     assert!(result.is_err(), "timeout must surface as an error");
     assert!(
@@ -82,32 +101,37 @@ fn contract_a_hung_child_is_killed_at_the_timeout() {
 }
 
 #[test]
+#[cfg(unix)]
 fn contract_stdout_is_reduced_to_a_non_empty_bit() {
     // `gh auth token` prints a token; the runner must prove it saw output
     // without any API that could hand the bytes back.
-    let runner = runner_with(&[]);
+    let directory = tempfile::tempdir().expect("tempdir");
+    let planted = directory.path().join("PLANTED-TOKEN-VALUE");
+    std::fs::write(&planted, b"").expect("fixture file");
+    let (_fixture, runner) = exact_runner("/bin/ls", "fixture-list", &[]);
     let status = runner
-        .run_status(&["sh", "-c", "echo PLANTED-TOKEN-VALUE; exit 3"], 2_000)
+        .run_status(
+            &[
+                "fixture-list",
+                planted.to_str().expect("utf-8 fixture path"),
+                "/definitely/not/present",
+            ],
+            2_000,
+        )
         .expect("ran");
     assert!(!status.success);
     assert!(status.stdout_non_empty);
 }
 
 #[test]
+#[cfg(unix)]
 fn a_chatty_child_cannot_deadlock_the_pipe() {
     // Far more than the 4 KiB observation cap and more than a pipe buffer:
     // only draining keeps this from blocking forever.
-    let runner = runner_with(&[]);
+    let (_fixture, runner) = exact_runner("/usr/bin/seq", "fixture-seq", &[]);
     let started = Instant::now();
     let status = runner
-        .run_status(
-            &[
-                "sh",
-                "-c",
-                "i=0; while [ $i -lt 5000 ]; do echo PLANTED-LINE; i=$((i+1)); done; exit 0",
-            ],
-            10_000,
-        )
+        .run_status(&["fixture-seq", "1", "50000"], 10_000)
         .expect("ran");
     assert!(status.success);
     assert!(status.stdout_non_empty);
@@ -124,78 +148,87 @@ fn a_missing_binary_is_an_error_not_a_panic() {
 // ——— run_capture: the invoke-through acquisition path ————————————
 
 #[test]
+#[cfg(unix)]
 fn capture_returns_stdout_trimmed() {
     use secrecy::ExposeSecret;
-    let runner = runner_with(&[]);
+    let (_fixture, runner) = exact_runner("/bin/echo", "fixture-echo", &[]);
     let token = runner
-        .run_capture(&["sh", "-c", "printf 'gho_abc123\\n'"], 2_000)
+        .run_capture(&["fixture-echo", "gho_abc123"], 2_000)
         .expect("captured");
     assert_eq!(token.expose_secret(), "gho_abc123");
 }
 
 #[test]
+#[cfg(unix)]
 fn capture_error_never_carries_the_secret() {
     // A failing child that printed a credential-shaped string: the error
     // must name the failure class (exit status), not the output.
-    let runner = runner_with(&[]);
+    let directory = tempfile::tempdir().expect("tempdir");
+    let planted = directory.path().join("PLANTED-TOKEN-IN-OUTPUT");
+    std::fs::write(&planted, b"").expect("fixture file");
+    let (_fixture, runner) = exact_runner("/bin/ls", "fixture-list", &[]);
     let error = runner
-        .run_capture(&["sh", "-c", "echo PLANTED-TOKEN-IN-OUTPUT; exit 3"], 2_000)
+        .run_capture(
+            &[
+                "fixture-list",
+                planted.to_str().expect("utf-8 fixture path"),
+                "/definitely/not/present",
+            ],
+            2_000,
+        )
         .expect_err("non-zero exit");
     let rendered = format!("{error} / {error:?}");
     assert!(!rendered.contains("PLANTED-TOKEN-IN-OUTPUT"), "{rendered}");
 }
 
 #[test]
+#[cfg(unix)]
 fn capture_fails_closed_on_empty_output() {
-    let runner = runner_with(&[]);
+    // Keep the process alive briefly so the drain thread is scheduled even
+    // when the whole daemon test binary is saturating the host.
+    let (_fixture, runner) = exact_runner("/bin/sleep", "fixture-empty", &[]);
     let error = runner
-        .run_capture(&["sh", "-c", "true"], 2_000)
+        .run_capture(&["fixture-empty", "0.1"], 2_000)
         .expect_err("no credential printed");
-    assert!(format!("{error}").contains("no credential"));
+    assert!(
+        format!("{error}").contains("no credential"),
+        "unexpected refusal: {error}"
+    );
 }
 
 #[test]
+#[cfg(unix)]
 fn capture_is_capped() {
-    let runner = runner_with(&[]);
+    let (_fixture, runner) = exact_runner("/usr/bin/seq", "fixture-seq", &[]);
     let error = runner
-        .run_capture(
-            &[
-                "sh",
-                "-c",
-                "i=0; while [ $i -lt 5000 ]; do echo PLANTED-LINE; i=$((i+1)); done",
-            ],
-            10_000,
-        )
+        .run_capture(&["fixture-seq", "1", "50000"], 10_000)
         .expect_err("oversized capture");
-    assert!(format!("{error}").contains("cap"));
+    assert!(
+        format!("{error}").contains("cap"),
+        "unexpected refusal: {error}"
+    );
 }
 
 #[test]
+#[cfg(unix)]
 fn capture_honors_the_timeout() {
-    let runner = runner_with(&[]);
-    let result = runner.run_capture(&["sh", "-c", "sleep 30"], 150);
+    let (_fixture, runner) = exact_runner("/bin/sleep", "fixture-sleep", &[]);
+    let result = runner.run_capture(&["fixture-sleep", "30"], 150);
     assert!(result.is_err());
 }
 
 #[test]
+#[cfg(unix)]
 fn capture_child_env_is_still_scrubbed() {
-    let runner = runner_with(&[("HOME", "/tmp")]);
+    let (_fixture, runner) = exact_runner("/usr/bin/env", "fixture-env", &[("HOME", "/tmp")]);
     // The daemon's own variables must not reach the capturing child
     // either; print the planted variable — empty proves the scrub.
     let planted = "OPENSESAME_PLANTED_CAPTURE_MUST_NOT_SEE";
     std::env::set_var(planted, "PLANTED-SECRET");
-    let result = runner.run_capture(
-        &[
-            "sh",
-            "-c",
-            "printf '%s' \"$OPENSESAME_PLANTED_CAPTURE_MUST_NOT_SEE\"",
-        ],
-        2_000,
-    );
+    let result = runner.run_capture(&["fixture-env"], 2_000);
     std::env::remove_var(planted);
-    // Empty stdout fails closed with "no credential" — the scrub held.
-    let error = result.expect_err("scrubbed env prints nothing");
-    assert!(format!("{error}").contains("no credential"));
+    let output = result.expect("captured child environment");
+    assert!(!secrecy::ExposeSecret::expose_secret(&output).contains(planted));
 }
 
 // ——— Windows spells PATH `Path` ———————————————————————————————————————
@@ -235,7 +268,7 @@ fn a_unix_snapshot_keeps_only_the_variable_named_path() {
 #[cfg(unix)]
 mod trusted {
     use super::*;
-    use opensesame_trusted_exec::testkit::Fixture;
+    use opensesame_trusted_exec::testkit::{ExecutableFixture, Fixture, HOSTILE, SECRET};
     use secrecy::ExposeSecret;
 
     /// The fixture's hostile parent environment as the snapshot discovery
@@ -251,16 +284,18 @@ mod trusted {
     }
 
     #[test]
-    fn a_planted_cli_ahead_of_the_trusted_one_is_never_run_or_asked_for_a_token() {
+    fn an_operator_named_cli_wins_over_a_planted_path_entry() {
         let fixture = Fixture::new("gh");
-        fixture.stub_recorder_saying(&fixture.trusted.join("gh"), "gho_dummy_0123456789");
-        let runner = runner_over(&fixture, &[]);
+        let exact = ExecutableFixture::new();
+        let chosen = exact.copy("/bin/echo", "gh");
+        let chosen = chosen.to_string_lossy();
+        let runner = runner_over(&fixture, &[("OPENSESAME_GH", chosen.as_ref())]);
         let status = runner.run_status(&["gh", "auth", "token"], 2_000);
         let token = runner.run_capture(&["gh", "auth", "token"], 2_000);
-        let _ = fixture.assert_clean();
+        assert!(!fixture.planted_ran(), "the planted gh ran");
         let status = status.unwrap();
         assert!(status.success && status.stdout_non_empty);
-        assert_eq!(token.unwrap().expose_secret(), "gho_dummy_0123456789");
+        assert_eq!(token.unwrap().expose_secret(), "auth token");
     }
 
     #[test]
@@ -275,32 +310,42 @@ mod trusted {
             ("kubectl", "KUBECONFIG", ["GH_CONFIG_DIR", "AWS_PROFILE"]),
             ("aws", "AWS_PROFILE", ["GH_CONFIG_DIR", "KUBECONFIG"]),
         ] {
-            let fixture = Fixture::new(cli);
-            let runner = runner_over(&fixture, &configured);
-            assert!(runner.run_status(&[cli, "probe"], 2_000).unwrap().success);
-            let env = fixture.assert_clean();
-            assert!(env.contains_key(own), "{cli} lacks {own}: {env:?}");
+            let fixture = ExecutableFixture::new();
+            let executable = fixture.copy("/usr/bin/printenv", cli);
+            let mut parent = configured.to_vec();
+            parent.extend(HOSTILE);
+            let runner = runner_with(&parent).with_exact_program(cli, executable);
+            let own_value = runner.run_capture(&[cli, own], 2_000).unwrap();
+            let expected = configured
+                .iter()
+                .find(|(name, _)| *name == own)
+                .expect("configured variable")
+                .1;
+            assert_eq!(own_value.expose_secret(), expected);
+            let env = runner.run_capture(&[cli], 2_000).unwrap();
+            let env = env.expose_secret();
+            assert!(!env.contains(SECRET), "hostile value reached {cli}: {env}");
             for other in others {
-                assert!(!env.contains_key(other), "{other} reached {cli}");
+                assert!(
+                    !env.lines()
+                        .any(|line| line.starts_with(&format!("{other}="))),
+                    "{other} reached {cli}: {env}"
+                );
+            }
+            for (hostile, _) in HOSTILE {
+                assert!(!env.contains(hostile), "{hostile} reached {cli}: {env}");
             }
         }
     }
 
     #[test]
     fn opensesame_gh_names_the_exact_cli_and_is_not_handed_on() {
-        let fixture = Fixture::new("gh");
-        let chosen = fixture.scratch("chosen").join("gh");
-        fixture.stub_recorder(&chosen);
-        let value = chosen.display().to_string();
-        let runner = runner_over(&fixture, &[("OPENSESAME_GH", &value)]);
-        assert!(
-            runner
-                .run_status(&["gh", "auth", "token"], 2_000)
-                .unwrap()
-                .success
-        );
-        let env = fixture.assert_clean();
-        assert!(!env.contains_key("OPENSESAME_GH"));
+        let fixture = ExecutableFixture::new();
+        let chosen = fixture.copy("/usr/bin/printenv", "gh");
+        let value = chosen.to_string_lossy();
+        let runner = runner_with(&[("HOME", "/home/dummy"), ("OPENSESAME_GH", value.as_ref())]);
+        let env = runner.run_capture(&["gh"], 2_000).unwrap();
+        assert!(!env.expose_secret().contains("OPENSESAME_GH="));
     }
 
     #[test]

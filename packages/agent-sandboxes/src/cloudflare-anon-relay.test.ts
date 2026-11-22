@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { deployAnonymousCloudflareRelay } from "./cloudflare-anon-relay.js";
 import type { CloudflareTemporaryAccount } from "./cloudflare-provisioning.js";
@@ -11,6 +11,8 @@ const ACCOUNT: CloudflareTemporaryAccount = {
   accountExpiresAt: "2999-01-01T00:00:00Z",
   claimExpiresAt: "2999-01-01T00:00:00Z",
 };
+
+afterEach(() => vi.unstubAllGlobals());
 
 function fakeCloudflareApi() {
   const calls: string[] = [];
@@ -130,6 +132,8 @@ describe("anonymous Cloudflare relay deployment", () => {
   it("provider deploys once per allocation and tears it down on close", async () => {
     let deployedCount = 0;
     let closed = false;
+    const relayFetch = vi.fn(async () => new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", relayFetch);
     const provider = new WasmRelayProvider({
       anonymousCloudflare: true,
       deployRelay: async () => {
@@ -150,5 +154,12 @@ describe("anonymous Cloudflare relay deployment", () => {
     expect(deployedCount).toBe(1);
     await sandbox.close();
     expect(closed).toBe(true);
+    expect(relayFetch).toHaveBeenCalledWith(
+      "https://relay.example.test/close",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ sessionId: sandbox.session }),
+      }),
+    );
   });
 });

@@ -4,9 +4,9 @@
 //! `scan_organization`, and asserts the expired watermark was claimed. This is
 //! the running-gateway half of INV-GA-05 (unit half is GA-V-33).
 
-use chrono::{Duration, Utc};
 use opensesame_lifecycle::{ExpiryStage, SubjectKind, EVENT_EXPIRY_EXPIRED};
 use opensesame_storage::authority::{AuthorityIssue, NewAccessDomain, PermissionEntry};
+use opensesame_time::{Duration, Utc};
 use serde_json::json;
 
 use crate::app_state::test_demo_state;

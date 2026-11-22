@@ -133,9 +133,24 @@ impl From<&std::fs::Metadata> for Owner {
 pub struct Caller {
     pub euid: u32,
     pub groups: Vec<u32>,
+    // Test fixtures can run in a user namespace whose immutable filesystem
+    // root is reported as an unmapped uid. Only this crate's testkit can add
+    // that exact owner; callers captured by production always leave it empty.
+    fixture_owners: Vec<u32>,
 }
 
 impl Caller {
+    /// A caller identity supplied by a platform adapter or a deterministic
+    /// trust test. Runtime code should prefer [`Caller::current`].
+    #[must_use]
+    pub fn new(euid: u32, groups: Vec<u32>) -> Self {
+        Self {
+            euid,
+            groups,
+            fixture_owners: Vec::new(),
+        }
+    }
+
     /// The effective user of this process and every group it is in.
     #[cfg(unix)]
     #[must_use]
@@ -155,10 +170,7 @@ impl Caller {
                 .unwrap_or(0);
                 groups.extend(listed.into_iter().take(got));
             }
-            Self {
-                euid: libc::geteuid(),
-                groups,
-            }
+            Self::new(libc::geteuid(), groups)
         }
     }
 
@@ -175,7 +187,17 @@ impl Caller {
     }
 
     fn trusts_owner(&self, uid: u32) -> bool {
-        uid == 0 || uid == self.euid
+        uid == 0 || uid == self.euid || self.fixture_owners.contains(&uid)
+    }
+
+    /// Trust an immutable sandbox ancestor for filesystem-backed test
+    /// fixtures. This is unavailable outside this crate and is never called by
+    /// [`Caller::current`].
+    #[cfg(all(unix, any(test, feature = "testkit")))]
+    pub(crate) fn trust_fixture_owner(&mut self, uid: u32) {
+        if uid != 0 && uid != self.euid && !self.fixture_owners.contains(&uid) {
+            self.fixture_owners.push(uid);
+        }
     }
 }
 

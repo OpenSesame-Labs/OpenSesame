@@ -1,8 +1,8 @@
 //! A vaultwarden server's emergency contacts (ADR 0148 §2, §6), each with
 //! the grantor's user key as it was wrapped for the contact.
 
-use chrono::Utc;
 use opensesame_storage::bitwarden::BitwardenEmergencyAccess;
+use opensesame_time::Utc;
 
 use super::rows::{int, text, timestamp};
 use super::Reader;

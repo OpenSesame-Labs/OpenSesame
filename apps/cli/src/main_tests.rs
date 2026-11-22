@@ -67,10 +67,11 @@ fn a_server_cannot_choose_an_unbounded_device_code_lifetime() {
     ] {
         assert_eq!(given.clamp(1, MAX_DEVICE_CODE_TTL_SECS), expected);
     }
-    // The clamp is what keeps this out of chrono, which panics rather than errors.
+    // The clamp is what keeps this out of opensesame_time, which panics rather than errors.
     let hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(|_| {}));
-    let refused = std::panic::catch_unwind(|| chrono::Duration::seconds(i64::MAX)).is_err();
+    let refused =
+        std::panic::catch_unwind(|| opensesame_time::Duration::seconds(i64::MAX)).is_err();
     std::panic::set_hook(hook);
     assert!(refused);
 }

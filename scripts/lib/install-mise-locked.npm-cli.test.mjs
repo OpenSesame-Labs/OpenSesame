@@ -70,6 +70,14 @@ describe("locked mise bootstrap: npm CLI CD", () => {
     for (const id of ids) {
       const job = jobs[id];
       const steps = Array.isArray(job?.steps) ? job.steps : [];
+      if (id === "production") {
+        // This job is only a fixed notice: it does not install or run Node.
+        assert.deepEqual(job.permissions, {});
+        assert.equal(steps.length, 1);
+        assert.match(runOf(steps[0]), /npm publication is disabled/);
+        assert.doesNotMatch(runOf(steps[0]), /secrets\.|inputs\.|npm publish/);
+        continue;
+      }
       let checkoutAt = -1;
       let restoreAt = -1;
       let bootAt = -1;

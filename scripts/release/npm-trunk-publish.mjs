@@ -1,46 +1,12 @@
 /**
  * npm trunk publish with idempotent success when the exact version already exists.
- * Used by .github/actions/publish-npm-package so Preview reruns do not fail on E403.
+ * Legacy helper; the current action refuses publication. This helper is not a
+ * qualified publisher and must not be used to resume npm publication.
  */
 import { spawnSync } from "node:child_process";
-import { lstatSync, readFileSync } from "node:fs";
-import { isAbsolute, relative, resolve, sep } from "node:path";
+import { readFileSync } from "node:fs";
+import { isAbsolute, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-
-function npmCli() {
-  const cli = process.env.OPENSESAME_NPM_CLI;
-  const temp = process.env.RUNNER_TEMP;
-  if (!cli || !temp || !isAbsolute(cli) || !isAbsolute(temp)) {
-    throw new Error("verified npm CLI path is required");
-  }
-  const parts = relative(temp, cli).split(sep);
-  if (
-    parts.length !== 5 ||
-    !/^opensesame-npm-[A-Za-z0-9]{8}$/u.test(parts[0]) ||
-    parts.slice(1).join("/") !== "extracted/package/bin/npm-cli.js"
-  ) {
-    throw new Error("verified npm CLI path is required");
-  }
-  try {
-    if (!lstatSync(cli).isFile()) throw new Error();
-  } catch {
-    throw new Error("verified npm CLI path is required");
-  }
-  return cli;
-}
-
-function npmEnvironment() {
-  const env = {
-    ...process.env,
-    NPM_CONFIG_IGNORE_SCRIPTS: "true",
-    npm_config_ignore_scripts: "true",
-  };
-  delete env.NODE_OPTIONS;
-  delete env.NODE_PATH;
-  delete env.NPM_TOKEN;
-  delete env.NPM_TOKEN_INPUT;
-  return env;
-}
 
 /**
  * @param {string} stderr
@@ -69,6 +35,14 @@ export function classifyNpmPublishResult(result, version) {
   return "failed";
 }
 
+function pinnedNpmCli() {
+  const cli = process.env.OPENSESAME_PINNED_NPM_CLI;
+  if (!cli || !isAbsolute(cli)) {
+    throw new Error("OPENSESAME_PINNED_NPM_CLI must name the verified npm CLI");
+  }
+  return cli;
+}
+
 /**
  * @param {string} packageName
  * @param {string} version
@@ -77,15 +51,14 @@ export function npmViewVersion(packageName, version) {
   const result = spawnSync(
     process.execPath,
     [
-      npmCli(),
+      pinnedNpmCli(),
       "view",
       `${packageName}@${version}`,
       "version",
-      "--ignore-scripts",
       "--registry",
       "https://registry.npmjs.org",
     ],
-    { encoding: "utf8", env: npmEnvironment() },
+    { encoding: "utf8" },
   );
   if (result.status !== 0) return undefined;
   const line = (result.stdout ?? "").trim();
@@ -108,16 +81,15 @@ function runNpmPublish(cwd, distTag) {
   const result = spawnSync(
     process.execPath,
     [
-      npmCli(),
+      pinnedNpmCli(),
       "publish",
-      "--ignore-scripts",
       "--access",
       "public",
       "--tag",
       distTag,
       "--provenance",
     ],
-    { cwd, encoding: "utf8", env: npmEnvironment() },
+    { cwd, encoding: "utf8", env: process.env },
   );
   // Captured to be classified, then shown: the provenance statement and the
   // transparency-log entry npm prints are the record of what was published.

@@ -225,11 +225,13 @@ export async function reparseStage(
 export async function unlockStage(
   stage: ImportStage,
   password: string,
+  signal?: AbortSignal,
 ): Promise<StageOutcome> {
-  if (stage.step !== "locked" || password === "") return { stage, error: null };
+  if (stage.step !== "locked" || password === "" || signal?.aborted)
+    return { stage, error: null };
   try {
     const parsed = await importModelSeams.parseImportAsync(
-      { ...stage.file, password },
+      { ...stage.file, password, ...(signal ? { signal } : undefined) },
       stage.source,
     );
     return { stage: stageFor(stage.fileName, stage.file, parsed), error: null };

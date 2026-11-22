@@ -75,7 +75,11 @@ CodeRabbit does not auto-review while the repository has fewer than 10 stars.
    (`$OPENSESAME_AUDIT_DIR/corpus/<target>/`) into
    `tests/fuzz/cargo/corpus/<target>/` and include them in that PR. The gates
    never write to the tracked corpus. Do not commit megabytes of unreviewed
-   corpus.
+   corpus. For `capability_algebra`, choose a new filename that does not collide
+   with the bundled seeds. The gates combine tracked loose seeds with the
+   bundle and fail on a conflicting name; ClusterFuzzLite combines the bundle
+   with loose files when producing its ZIP. See `tests/fuzz/README.md` for
+   deterministic bundle regeneration after review.
 5. If everything is CLEAN, do not open an empty PR.
 
 ## TypeScript

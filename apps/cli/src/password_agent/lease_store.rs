@@ -87,7 +87,7 @@ impl Store {
             .ok_or_else(|| anyhow::anyhow!("Lease not found"))?;
         let lease: Lease = serde_json::from_str(row.try_get::<&str, _>("state")?)
             .map_err(|_| anyhow::anyhow!("Invalid lease state"))?;
-        lease.validate(chrono::Utc::now().timestamp_millis())?;
+        lease.validate(opensesame_time::Utc::now().timestamp_millis())?;
         Ok(lease)
     }
     pub(super) async fn status(&mut self, id: &str) -> anyhow::Result<Lease> {
@@ -103,7 +103,7 @@ impl Store {
             &self.principal,
             binding,
             None,
-            chrono::Utc::now().timestamp_millis(),
+            opensesame_time::Utc::now().timestamp_millis(),
         )
     }
     pub(super) async fn grant(
@@ -118,7 +118,7 @@ impl Store {
             "Invalid lease grant"
         );
         binding.validate_private_url()?;
-        let now = chrono::Utc::now().timestamp_millis();
+        let now = opensesame_time::Utc::now().timestamp_millis();
         let lease = Lease {
             id: uuid::Uuid::new_v4().to_string(),
             principal: self.principal.clone(),
@@ -158,7 +158,7 @@ impl Store {
                 &self.principal,
                 binding,
                 Some(resource),
-                chrono::Utc::now().timestamp_millis(),
+                opensesame_time::Utc::now().timestamp_millis(),
             )?;
             lease.uses_remaining -= 1;
             sqlx::query("UPDATE leases SET state=? WHERE id=?")

@@ -17,8 +17,8 @@
 use std::net::SocketAddr;
 use std::time::Duration;
 
-use chrono::{Duration as ChronoDuration, Utc};
 use opensesame_domain::transport::{EnforcementStatus, TransportError};
+use opensesame_time::{Duration as ChronoDuration, Utc};
 use opensesame_transport_security::env::{self as tls_env, Lookup, ServerExpectation};
 use opensesame_transport_security::{
     reqwest_builder, ClientProfile, ServerNamePolicy, TrustBundle,

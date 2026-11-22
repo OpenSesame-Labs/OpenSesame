@@ -9,8 +9,8 @@
 use std::time::Duration;
 
 use bytes::Bytes;
-use chrono::{DateTime, Utc};
 use opensesame_invoke_through::{InvokeError, InvokeRequest, Invoker};
+use opensesame_time::{DateTime, Utc};
 
 use super::endpoint::{StsEndpoint, STS_PROVIDER};
 use super::request::AssumeRoleRequest;

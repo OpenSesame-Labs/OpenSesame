@@ -14,7 +14,6 @@ use axum::{
     Json,
 };
 use base64::{engine::general_purpose::URL_SAFE, engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-use chrono::{Duration, Utc};
 use opensesame_connection_broker::{
     crypto::{open_scoped, seal_scoped, SealedBlob},
     ConnectionStatus, ConnectionView,
@@ -23,6 +22,7 @@ use opensesame_storage::{
     SealedCertificateDelivery, SealedCertificateMaterial, StoredCertificateAuthority,
     StoredCertificateIssuanceRequest, StoredIssuedCertificate,
 };
+use opensesame_time::{DateTime, Duration, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
@@ -1145,11 +1145,11 @@ fn external_delivery(issued: IssuedCertificate) -> Result<dev_pki::IssuedCert, R
     let (_, certificate) = parse_x509_certificate(&pem.contents)
         .map_err(|error| internal(error, "parse issued certificate"))?;
     let not_before =
-        chrono::DateTime::<Utc>::from_timestamp(certificate.validity().not_before.timestamp(), 0)
+        DateTime::<Utc>::from_timestamp(certificate.validity().not_before.timestamp(), 0)
             .ok_or_else(|| internal("invalid not-before timestamp", "parse issued certificate"))?
             .to_rfc3339();
     let not_after =
-        chrono::DateTime::<Utc>::from_timestamp(certificate.validity().not_after.timestamp(), 0)
+        DateTime::<Utc>::from_timestamp(certificate.validity().not_after.timestamp(), 0)
             .ok_or_else(|| internal("invalid not-after timestamp", "parse issued certificate"))?
             .to_rfc3339();
     Ok(dev_pki::IssuedCert {
@@ -1252,9 +1252,9 @@ async fn issue_acme(
 }
 
 fn cloudflare_origin_validity(ttl: StdDuration) -> CloudflareOriginValidity {
-    if ttl <= StdDuration::from_secs(7 * 24 * 60 * 60) {
+    if ttl <= StdDuration::from_hours(7 * 24) {
         CloudflareOriginValidity::Days7
-    } else if ttl <= StdDuration::from_secs(30 * 24 * 60 * 60) {
+    } else if ttl <= StdDuration::from_hours(30 * 24) {
         CloudflareOriginValidity::Days30
     } else {
         CloudflareOriginValidity::Days90

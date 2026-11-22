@@ -13,9 +13,6 @@ use crate::sealed;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
-#[path = "invocations_finish.rs"]
-mod finish;
-
 /// Versioned digest of an invocation's authorization and operation context.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

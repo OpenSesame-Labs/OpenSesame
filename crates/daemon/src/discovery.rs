@@ -51,11 +51,15 @@ pub struct DiscoveryReport {
 /// A failing probe degrades to no offers from that probe — a locked keychain
 /// or a hung CLI must not take down the rest of the walk.
 pub fn offers(ctx: &ProbeContext) -> Vec<OfferItem> {
+    offers_with_cli(ctx, &CliCapabilityProbe)
+}
+
+fn offers_with_cli(ctx: &ProbeContext, cli_probe: &dyn CapabilityProbe) -> Vec<OfferItem> {
     let probes: [&dyn CapabilityProbe; 4] = [
         &EnvDotfileProbe,
         &McpConfigProbe,
         &KeychainOfferProbe,
-        &CliCapabilityProbe,
+        cli_probe,
     ];
     let mut items = Vec::new();
     for probe in probes {
@@ -81,6 +85,23 @@ pub fn report_with(
     }
 }
 
+#[cfg(test)]
+fn report_with_cli(
+    ctx: &ProbeContext,
+    cli_probe: &dyn CapabilityProbe,
+    host_label: impl Into<String>,
+    probed_at_unix: u64,
+) -> DiscoveryReport {
+    DiscoveryReport {
+        report: build_report(
+            host_label.into(),
+            probed_at_unix,
+            offers_with_cli(ctx, cli_probe),
+        ),
+        note: NOTE,
+    }
+}
+
 /// A display label for this host. The hostname only — never a machine-id,
 /// which is a stable cross-context identifier and stays out of reports.
 fn host_label() -> String {
@@ -99,8 +120,7 @@ fn host_label() -> String {
 fn now_unix() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0)
+        .map_or(0, |d| d.as_secs())
 }
 
 /// Build the probe context for this daemon process — and nowhere else: a
@@ -234,6 +254,29 @@ mod tests {
 
     #[test]
     fn property_offers_merge_per_provider_source_with_best_confidence() {
+        struct FixedCliProbe;
+        impl CapabilityProbe for FixedCliProbe {
+            fn id(&self) -> &'static str {
+                "fixed-cli"
+            }
+
+            fn probe(
+                &self,
+                _ctx: &ProbeContext,
+            ) -> Result<Vec<OfferItem>, opensesame_connection_detect::ProbeError> {
+                Ok(vec![OfferItem {
+                    provider_id: "github".to_string(),
+                    source: ProbeSource::CliTool {
+                        binary: "gh".to_string(),
+                        version: None,
+                    },
+                    capabilities: vec![CapabilityClass::InvokeThrough, CapabilityClass::Mintable],
+                    confidence: Confidence::High,
+                    registry_hint: None,
+                }])
+            }
+        }
+
         let fixture = Fixture::new();
         fixture.write_home_file(
             ".mcp.json",
@@ -242,30 +285,9 @@ mod tests {
         let keychain =
             MockKeychain::new().with_label(KeychainStore::SecretService, "gh:github.com");
         let commands = MockCommandRunner::new().with_status(&["gh", "auth", "token"], LIVE);
-        // A fake gh on PATH so the CLI probe fires.
-        fixture.write_home_file("bin/gh", "#!/bin/sh\n");
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            fs::set_permissions(
-                fixture.home.path().join("bin/gh"),
-                fs::Permissions::from_mode(0o755),
-            )
-            .expect("chmod");
-        }
-        let path = fixture
-            .home
-            .path()
-            .join("bin")
-            .to_string_lossy()
-            .into_owned();
-        let ctx = fixture.ctx(
-            &[("GITHUB_TOKEN", "ghp_x"), ("PATH", &path)],
-            keychain,
-            commands,
-        );
+        let ctx = fixture.ctx(&[("GITHUB_TOKEN", "ghp_x")], keychain, commands);
 
-        let report = report_with(&ctx, "test-host", 1_700_000_000);
+        let report = report_with_cli(&ctx, &FixedCliProbe, "test-host", 1_700_000_000);
         let github: Vec<_> = report
             .report
             .items

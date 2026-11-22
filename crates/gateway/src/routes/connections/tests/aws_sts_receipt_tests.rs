@@ -52,7 +52,7 @@ async fn a_mint_leaves_a_receipt_a_log_line_and_a_lifecycle_deadline() {
     );
 
     // The deadline is on the lifecycle feed, and lapses into `expired`.
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     let subjects =
         crate::lifecycle::subjects::collect(&state, &state.connection_organization, now).await;
     let subject = subjects
@@ -61,7 +61,7 @@ async fn a_mint_leaves_a_receipt_a_log_line_and_a_lifecycle_deadline() {
         .expect("the mint is a lifecycle subject");
     assert_eq!(subject.kind, SubjectKind::ConnectionCredential);
     assert!(!subject.auto_respond);
-    let after = subject.expires_at + chrono::Duration::seconds(1);
+    let after = subject.expires_at + opensesame_time::Duration::seconds(1);
     let fired = evaluate(subject, Watermarks::default(), after);
     assert!(
         fired

@@ -5,7 +5,7 @@
 //! about two certificates and holds whether or not either key is in custody.
 
 use anyhow::Context;
-use chrono::Utc;
+use opensesame_time::Utc;
 
 use crate::{now_rfc3339, stored_managed_certificate, Db, StoredManagedCertificate};
 

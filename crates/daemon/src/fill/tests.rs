@@ -46,7 +46,7 @@ pub(super) fn paired_app(source: MemorySource) -> Router {
 /// The same, behind a given plugin switch.
 pub(super) fn paired_app_behind(source: MemorySource, gate: Arc<dyn gate::PluginGate>) -> Router {
     let state = Arc::new(FillState::new(Box::new(source), None, gate));
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     let PairOutcome::Pending { code, .. } = state.pairings.request(EXT, TOKEN, now) else {
         panic!("pairing request");
     };

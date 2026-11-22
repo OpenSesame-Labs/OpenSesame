@@ -21,8 +21,8 @@
 use super::{bump_generation_tx, generation_tx, operational_generation_tx, DOMAIN, GRANT, REALM};
 use crate::authority_fence::record_lineage;
 use crate::{append_outbox_tx, Db, Row, Utc};
-use chrono::{DateTime, Utc as ChronoUtc};
 use opensesame_lifecycle::{FenceVerdict, Freshness};
+use opensesame_time::{DateTime, Utc as ChronoUtc};
 
 mod rows;
 use rows::{insert_entries, insert_sidecar};

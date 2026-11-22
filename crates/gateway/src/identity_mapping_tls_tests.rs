@@ -76,8 +76,11 @@ async fn identity_stub() -> Stub {
     candidate
         .peer_trust
         .insert(profile.clone(), bundle(&ca.ca_pem(), "client_ca"));
-    let generations =
-        TransportGenerations::new(candidate.into_generation(1, chrono::Utc::now()).unwrap());
+    let generations = TransportGenerations::new(
+        candidate
+            .into_generation(1, opensesame_time::Utc::now())
+            .unwrap(),
+    );
     let listener = SecureListener::bind(
         "127.0.0.1:0".parse().unwrap(),
         Arc::clone(&generations),

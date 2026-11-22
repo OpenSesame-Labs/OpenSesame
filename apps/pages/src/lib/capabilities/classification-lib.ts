@@ -200,6 +200,10 @@ export const LIB_RULES = [
     "principal generation shared by native and ambient sign-in",
   ),
   shared(
+    `${L}capability-gate.ts`,
+    "approval and lifecycle hook shared by capability-owned panels",
+  ),
+  shared(
     `${L}native-base64.ts`,
     "pure byte codecs shared by saved backups and native provider protocols",
   ),

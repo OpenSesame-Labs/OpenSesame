@@ -12,11 +12,11 @@ use rustls::pki_types::pem::PemObject;
 use secrecy::ExposeSecret;
 
 use axum::http::StatusCode;
-use chrono::{Duration, Utc};
 use opensesame_domain::transport::{
     operations, BindingPurpose, BindingScope, PeerIdentitySelector, ServiceBinding,
     ServiceBindingSet, TrustProfileRef,
 };
+use opensesame_time::{Duration, Utc};
 use opensesame_transport_security::testkit::{DisposableCa, IssuedLeaf, LeafSpec, SanEntry};
 use opensesame_transport_security::{
     reqwest_builder, ClientProfile, ServerNamePolicy, TrustBundle,

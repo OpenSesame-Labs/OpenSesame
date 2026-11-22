@@ -9,11 +9,11 @@
 mod authority_support;
 
 use authority_support::{entry, issue, seed_grant, seed_realm};
-use chrono::{Duration, Utc};
 use opensesame_storage::authority::{
     AuthorityIssue, DomainReparent, NewAccessDomain, PermissionEntry,
 };
 use opensesame_storage::Db;
+use opensesame_time::{Duration, Utc};
 
 #[tokio::test]
 async fn a_domain_cannot_take_a_parent_from_another_realm() {

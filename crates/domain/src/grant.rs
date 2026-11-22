@@ -2,7 +2,7 @@ use crate::{
     ActorId, ActorInstanceId, ClientId, ConnectionId, DomainError, EnvironmentId, GrantId,
     OrganizationId, PrincipalId, ProjectId,
 };
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -243,7 +243,7 @@ mod tests;
 #[cfg(kani)]
 mod kani_proofs {
     use super::*;
-    use chrono::TimeZone;
+    use opensesame_time::TimeZone;
 
     fn dt(secs: i64) -> DateTime<Utc> {
         Utc.timestamp_opt(secs.clamp(0, 2_000_000_000), 0)

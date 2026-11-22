@@ -1,6 +1,8 @@
+import { registerContributionForTest } from "@opensesame/app-core/lib/contributions.js";
 import { currentHost } from "@opensesame/app-core/lib/live/session.js";
 import * as guideCatalog from "@opensesame/app-core/tutorial/registry/catalog.js";
 import { LIVE_TARGETS } from "@opensesame/app-core/tutorial/registry/live-catalog.js";
+import { isMountedGuideTarget } from "@opensesame/app-core/tutorial/registry/targets.js";
 /** @vitest-environment jsdom */
 import { act, render, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router";
@@ -19,6 +21,26 @@ import {
 } from "./live-focus-test-support.js";
 
 installLiveFocusTests();
+
+it("binds the shell control only while its live capability declares the target", () => {
+  render(
+    <MemoryRouter>
+      <VaultShareProvider value={{ Button: LiveShareButton, open: () => {} }}>
+        <LiveShareButton />
+      </VaultShareProvider>
+    </MemoryRouter>,
+  );
+  expect(isMountedGuideTarget("shell.share")).toBe(false);
+  const descriptor = LIVE_TARGETS[0];
+  if (!descriptor) throw new Error("missing share target");
+  let revoke = () => {};
+  act(() => {
+    revoke = registerContributionForTest("tutorial-target", descriptor);
+  });
+  expect(isMountedGuideTarget("shell.share")).toBe(true);
+  act(() => revoke());
+  expect(isMountedGuideTarget("shell.share")).toBe(false);
+});
 
 function scene(vault: string) {
   return (

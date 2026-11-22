@@ -106,7 +106,7 @@ impl Db {
             tx.commit().await?;
             return Ok(outcome);
         }
-        let now_unix = chrono::DateTime::parse_from_rfc3339(now)?.timestamp();
+        let now_unix = opensesame_time::DateTime::parse_from_rfc3339(now)?.timestamp();
         let expired = matches!(decision, ReplyDecision::Cancel { valid_until, .. } if valid_until <= now_unix);
         let applied = match decision {
             ReplyDecision::Acknowledge => true,

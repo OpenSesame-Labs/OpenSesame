@@ -139,7 +139,7 @@ describe("where a tutorial can start", () => {
     })
       .flatMap((group) => group.tutorials)
       .map((entry) => entry.goal.id);
-    expect(here).toEqual(["gate.front-door", "gate.join"]);
+    expect(here).toEqual(["gate.front-door", "gate.guest", "gate.join"]);
   });
 
   it("starts a goal from the screens it names and from anywhere it navigates", () => {

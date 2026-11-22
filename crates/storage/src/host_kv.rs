@@ -8,6 +8,26 @@
 use super::{Db, Row, Utc};
 
 impl Db {
+    /// Open a `SQLite` pool from already checked options and optionally apply
+    /// the normal embedded migrations. Callers own any external file lease.
+    ///
+    /// # Errors
+    /// Opening the database or an explicitly requested migration fails.
+    pub async fn connect_sqlite_options(
+        options: sqlx::sqlite::SqliteConnectOptions,
+        migrate: bool,
+    ) -> anyhow::Result<Self> {
+        let pool = sqlx::sqlite::SqlitePoolOptions::new()
+            .max_connections(5)
+            .connect_with(options)
+            .await?;
+        let db = Self { pool };
+        if migrate {
+            db.migrate().await?;
+        }
+        Ok(db)
+    }
+
     /// Read a host-operator key/value entry.
     ///
     /// # Errors

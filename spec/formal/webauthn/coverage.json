@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "reviewed_revision": "66d79b7cfa4d8304499541ff3794033ea72c5bc6",
+  "sources": [
+    {
+      "path": "packages/os-domain/src/machines/interaction.ts",
+      "sha256": "869845f4bd3c3f6cce804063de93013ef26c9b78387eaf8667ef7fbf4e8e5baf"
+    },
+    {
+      "path": "packages/os-domain/src/interaction.ts",
+      "sha256": "e69b5d4156240243c07d5a315f03e51961ded2a0f8c8459986486068aba0c771"
+    },
+    {
+      "path": "packages/os-domain/src/proofs/approval-seal.ts",
+      "sha256": "7e7da2fc895a314f2bea26164fffb8299e004626156a71bca151aa9bf65b6ae8"
+    },
+    {
+      "path": "packages/os-domain/src/errors.ts",
+      "sha256": "b53d0cec6685c2460faf554aabbcbbc420732982f9e3ff13c63201b578f63854"
+    }
+  ],
+  "reviewed_source_state": "The recorded base revision precedes the interaction-machine fixes; source hashes identify the separately reviewed bytes."
+}

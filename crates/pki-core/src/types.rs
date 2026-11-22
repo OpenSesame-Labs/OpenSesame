@@ -189,8 +189,10 @@ text_enum! {
     ///
     /// The three-state semantics are the load-bearing part and are implemented
     /// once, in [`crate::policy::evaluate`].
+    #[derive(Default)]
     RuleMode {
         /// The field is unconstrained.
+        #[default]
         Unset => "unset",
         /// The field must be present, and must match `values` when those are
         /// non-empty.
@@ -205,8 +207,10 @@ text_enum! {
 
 text_enum! {
     /// How a [`Constraint`] restricts a set or scalar of enum values.
+    #[derive(Default)]
     ConstraintMode {
         /// Unconstrained.
+        #[default]
         Unset => "unset",
         /// Restricted to `allowed`; an empty `allowed` denies everything.
         Allow => "allow",
@@ -218,10 +222,12 @@ text_enum! {
 
 text_enum! {
     /// How a policy treats the `basicConstraints` CA bit.
+    #[derive(Default)]
     CaRule {
         /// The candidate must not be a CA.
         Forbid => "forbid",
         /// The candidate may be a CA.
+        #[default]
         Allow => "allow",
         /// The candidate must be a CA.
         Require => "require",
@@ -417,24 +423,6 @@ impl FieldRule {
 
 /// A [`FieldRule`] applied to one class of subject alternative name.
 pub type SanRule = FieldRule;
-
-impl Default for RuleMode {
-    fn default() -> Self {
-        Self::Unset
-    }
-}
-
-impl Default for ConstraintMode {
-    fn default() -> Self {
-        Self::Unset
-    }
-}
-
-impl Default for CaRule {
-    fn default() -> Self {
-        Self::Allow
-    }
-}
 
 /// An ordered-sequence rule over the `domainComponent` attributes of a
 /// subject.

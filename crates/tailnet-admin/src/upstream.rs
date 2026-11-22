@@ -45,7 +45,7 @@ const RESPONSE_BODY_CAP: usize = 32 * 1024 * 1024;
 
 const MINT_TIMEOUT: Duration = Duration::from_secs(15);
 const MINT_BODY_CAP: u64 = 64 * 1024;
-const EARLY_EXPIRY: Duration = Duration::from_secs(60);
+const EARLY_EXPIRY: Duration = Duration::from_mins(1);
 
 struct Cached {
     scope: [u8; 32],

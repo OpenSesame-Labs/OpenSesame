@@ -76,9 +76,8 @@ async fn operator_can_select_org_but_session_cannot_spoof_it() {
 #[test]
 fn connection_json_bodies_are_bounded_before_parsing() {
     let body = "x".repeat(32 * 1024 + 1);
-    let error = match super::parse_body::<super::CreateIntegrationBody>(&body) {
-        Ok(_) => panic!("oversized body accepted"),
-        Err(error) => error,
+    let Err(error) = super::parse_body::<super::CreateIntegrationBody>(&body) else {
+        panic!("oversized body accepted");
     };
     assert_eq!(error.status(), StatusCode::PAYLOAD_TOO_LARGE);
 }
@@ -958,7 +957,7 @@ async fn an_expired_state_is_refused_at_the_callback() {
             connection_id,
             redirect_uri: "http://127.0.0.1:8787/api/v1/oauth/callback/mock".into(),
             scopes: vec!["read".into()],
-            expires_at: chrono::Utc::now() - chrono::Duration::seconds(1),
+            expires_at: opensesame_time::Utc::now() - opensesame_time::Duration::seconds(1),
             credential_version: None,
         },
     )
@@ -1503,7 +1502,7 @@ async fn github_api_server() -> String {
             StatusCode::CREATED,
             AxumJson(json!({
                 "token": DERIVED_TOKEN,
-                "expires_at": (chrono::Utc::now() + chrono::Duration::hours(1)).to_rfc3339(),
+                "expires_at": (opensesame_time::Utc::now() + opensesame_time::Duration::hours(1)).to_rfc3339(),
             })),
         )
             .into_response()

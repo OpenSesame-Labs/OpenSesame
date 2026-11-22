@@ -22,7 +22,7 @@ mod state;
 
 use std::sync::Arc;
 
-use chrono::Utc;
+use opensesame_time::Utc;
 use wasmtime::{Config, Engine, ExternType, Linker, Module, Store, Trap};
 
 use crate::boundary::{audit_import, Broker, ImportKind, RunContext};

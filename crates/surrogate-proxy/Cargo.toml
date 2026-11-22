@@ -44,7 +44,7 @@ upstream-override = []
 # * `rand` through `SysRng` is the daemon's own OS entropy source already.
 #
 # The plugin half adds the settings reader (its install gate), the notice
-# conversion, and serde/chrono for the control protocol — all already in the
+# conversion, and the maintained serde/time boundary for the control protocol — all already in the
 # workspace. None of it reaches `opensesame` or the daemon, which never link
 # this crate.
 #
@@ -65,7 +65,7 @@ opensesame-trusted-exec = { path = "../trusted-exec" }
 opensesame-rotation-web = { path = "../rotation-web", features = ["login-surrogate"] }
 base64 = { workspace = true }
 bytes = { workspace = true }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 http = { workspace = true }

@@ -15,17 +15,8 @@ import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import type { VaultItem } from "@opensesame/vault-core";
 import { useEffect, useState } from "react";
 import type { NavigateFunction } from "react-router";
-import { useComposition } from "./bindings/capabilities.js";
 
-export function useCapabilityGate(id: string) {
-  const snapshot = useComposition();
-  const state = snapshot.plan?.capabilities[id] ?? null;
-  return {
-    approved: state?.approved === true,
-    lifecycle: snapshot.lifecycle[id] ?? null,
-    state,
-  };
-}
+export { useCapabilityGate } from "./lib/capability-gate.js";
 
 /**
  * Unlock effects an approved module registered run once per unlock, under

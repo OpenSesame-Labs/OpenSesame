@@ -34,7 +34,7 @@ rustls-pki-types = { version = "1.15.1", features = ["std"] }
 rustls-webpki = { version = "0.103.13", default-features = false, features = ["aws-lc-rs", "std"] }
 axum = { workspace = true }
 base64 = { workspace = true }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 http = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }

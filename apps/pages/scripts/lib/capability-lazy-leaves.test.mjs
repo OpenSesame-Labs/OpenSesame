@@ -8,14 +8,16 @@ import {
   secretBackendSdkChunk,
 } from "./capability-lazy-leaves.mjs";
 
+function expectLeaf(file, entry, chunk) {
+  assert.equal(lazyLeafChunk(file, entry), chunk);
+  assert.equal(lazyLeafChunk(file.replaceAll("/", "\\"), entry), chunk);
+}
 test("keeps the NATS signer with its carrier instead of connector metadata", () => {
-  const file =
-    "/repo/node_modules/tweetnacl/nacl-fast.js";
+  const file = "/repo/node_modules/tweetnacl/nacl-fast.js";
   const owner = classifyModule(file, PACKAGE_RULES, { repoRoot: "/repo" });
   assert.equal(owner.classification, "optional");
   assert.equal(owner.capability, "sharing.live");
-  assert.equal(lazyLeafChunk(file, owner), "live-nats");
-  assert.equal(lazyLeafChunk(file.replaceAll("/", "\\"), owner), "live-nats");
+  expectLeaf(file, owner, "live-nats");
   assert.equal(
     lazyLeafChunk(file, { classification: "shared", capability: null }),
     undefined,
@@ -32,7 +34,6 @@ test("keeps the NATS signer with its carrier instead of connector metadata", () 
     undefined,
   );
 });
-
 test("pins the optional Tailnet pairing leaf without changing ownership of other modules", () => {
   const file =
     "/workspace/packages/app-core/src/lib/tailnet-sync/plugin-pairing.ts";
@@ -40,11 +41,7 @@ test("pins the optional Tailnet pairing leaf without changing ownership of other
     classification: "optional",
     capability: "networking.tailnet",
   };
-  assert.equal(lazyLeafChunk(file, entry), "tailnet-plugin-pairing");
-  assert.equal(
-    lazyLeafChunk(file.replaceAll("/", "\\"), entry),
-    "tailnet-plugin-pairing",
-  );
+  expectLeaf(file, entry, "tailnet-plugin-pairing");
   assert.equal(
     lazyLeafChunk(file, { classification: "shared", capability: null }),
     undefined,
@@ -64,7 +61,6 @@ test("pins the optional Tailnet pairing leaf without changing ownership of other
     undefined,
   );
 });
-
 test("pins the relay client to its capability's chunk and nothing else under vault-relay", () => {
   const entry = { classification: "optional", capability: "sharing.relay" };
   assert.equal(
@@ -92,7 +88,6 @@ test("pins the relay client to its capability's chunk and nothing else under vau
     undefined,
   );
 });
-
 test("pins the claim different-link control on identity.ceremonies", () => {
   const file =
     "/workspace/apps/pages/src/modules/identity.ceremonies/ClaimDifferentLink.tsx";
@@ -102,7 +97,6 @@ test("pins the claim different-link control on identity.ceremonies", () => {
   };
   assert.equal(lazyLeafChunk(file, entry), "cap-identity.claim-different-link");
 });
-
 test("pins CLI app-integration crypto leaves on identity.local-iam", () => {
   const entry = {
     classification: "optional",
@@ -123,20 +117,53 @@ test("pins CLI app-integration crypto leaves on identity.local-iam", () => {
     "cli-app-integration-crypto",
   );
 });
-
-test("pins optional vault.security-checks app-core leaf when Rollup classifies it shared", () => {
-  const file = "/workspace/packages/app-core/src/lib/vault/security-checks.ts";
+test("keeps local IAM rail and authorize screens outside the runtime initializer", () => {
   const entry = {
-    classification: "shared",
-    capability: null,
+    classification: "optional",
+    capability: "identity.local-iam",
   };
-  assert.equal(lazyLeafChunk(file, entry), "cap-vault.security-checks");
-  assert.equal(
-    lazyLeafChunk(file.replaceAll("/", "\\"), entry),
-    "cap-vault.security-checks",
-  );
+  for (const [file, chunk] of [
+    [
+      "/workspace/apps/pages/src/modules/identity.local-iam/IdentityRailTree.tsx",
+      "identity-local-iam-rail",
+    ],
+    [
+      "/workspace/apps/pages/src/modules/identity.local-iam/lazy-routes.tsx",
+      "identity-local-iam-authorize-route",
+    ],
+    [
+      "/workspace/apps/pages/src/modules/identity.local-iam/AuthorizeConsentScreen.tsx",
+      "identity-local-iam-authorize-consent",
+    ],
+  ]) {
+    assert.equal(lazyLeafChunk(file, entry), chunk);
+  }
 });
-
+test("keeps the activation-awaited security checks panel outside its runtime chunk", () => {
+  const cases = [
+    [
+      "/workspace/packages/app-core/src/lib/vault/security-checks.ts",
+      { classification: "shared", capability: null },
+    ],
+    [
+      "/workspace/apps/pages/src/modules/vault.security-checks/SecurityChecksPanel.tsx",
+      {
+        classification: "optional",
+        capability: "vault.security-checks",
+      },
+    ],
+    [
+      "/workspace/apps/pages/src/modules/vault.security-checks/SecurityChecksPanelBody.tsx",
+      {
+        classification: "optional",
+        capability: "vault.security-checks",
+      },
+    ],
+  ];
+  for (const [file, entry] of cases) {
+    expectLeaf(file, entry, "vault-security-checks-panel");
+  }
+});
 test("keeps password-reset mailbox leaves within their matching optional capability", () => {
   const entry = { classification: "optional", capability: "ai.password-reset" };
   for (const name of [
@@ -149,11 +176,7 @@ test("keeps password-reset mailbox leaves within their matching optional capabil
     "mailbox-store",
   ]) {
     const path = `/workspace/packages/app-core/src/lib/password-reset/${name}.ts`;
-    assert.equal(lazyLeafChunk(path, entry), "cap-ai.password-reset");
-    assert.equal(
-      lazyLeafChunk(path.replaceAll("/", "\\"), entry),
-      "cap-ai.password-reset",
-    );
+    expectLeaf(path, entry, "cap-ai.password-reset");
     assert.equal(
       lazyLeafChunk(path, { classification: "shared", capability: null }),
       undefined,
@@ -167,7 +190,6 @@ test("keeps password-reset mailbox leaves within their matching optional capabil
     );
   }
 });
-
 test("keeps backup SDKs and authority UI in separate lazy capability chunks", () => {
   const paths = [
     [
@@ -183,7 +205,12 @@ test("keeps backup SDKs and authority UI in separate lazy capability chunks", ()
     [
       "/src/sections/access/HostedRequestsPanel.tsx",
       "access.authority",
-      "cap-access.authority",
+      "access-hosted-requests",
+    ],
+    [
+      "/src/modules/access.authority/AccessRailTree.tsx",
+      "access.authority",
+      "access-authority-rail",
     ],
   ];
   for (const [path, capability, chunk] of paths) {
@@ -207,13 +234,12 @@ test("keeps backup SDKs and authority UI in separate lazy capability chunks", ()
     );
   }
 });
-
 const nativeOwner = {
   classification: "optional",
   capability: "connectors.external",
 };
 const backendPath = "/workspace/packages/app-core/src/lib/secret-backends/";
-
+const nativeSdkChunk = "secret-backend-onepassword-sdk";
 test.each([
   "onepassword-sdk.ts",
   "onepassword-sdk-loader.ts",
@@ -230,17 +256,10 @@ test.each([
     `${file}?worker_file&type=module`,
     `${file}#source`,
   ]) {
-    assert.equal(
-      secretBackendSdkChunk(id, nativeOwner),
-      "secret-backend-onepassword-sdk",
-    );
-    assert.equal(
-      lazyLeafChunk(id, nativeOwner),
-      "secret-backend-onepassword-sdk",
-    );
+    assert.equal(secretBackendSdkChunk(id, nativeOwner), nativeSdkChunk);
+    assert.equal(lazyLeafChunk(id, nativeOwner), nativeSdkChunk);
   }
 });
-
 test("native SDK isolation requires its optional connector owner", () => {
   const file = `${backendPath}onepassword-sdk.ts`;
   for (const entry of [
@@ -256,7 +275,6 @@ test("native SDK isolation requires its optional connector owner", () => {
     );
   }
 });
-
 test("Connect, common configuration and other SDKs keep the ordinary backend leaf", () => {
   for (const name of [
     "onepassword.ts",
@@ -278,18 +296,13 @@ test("Connect, common configuration and other SDKs keep the ordinary backend lea
   assert.equal(secretBackendSdkChunk(save, nativeOwner), undefined);
   assert.equal(lazyLeafChunk(save, nativeOwner), "vendor-1password-save");
 });
-
 test("the browser credential adapter stays with its actual backend owner", () => {
   const file =
     "/workspace/packages/app-core/src/browser/secret-backend-credentials.ts";
   const entry = classifyModule(file, LIB_RULES, { repoRoot: "/workspace" });
   assert.equal(entry.classification, "optional");
   assert.equal(entry.capability, "connectors.external");
-  assert.equal(lazyLeafChunk(file, entry), "secret-backends");
-  assert.equal(
-    lazyLeafChunk(file.replaceAll("/", "\\"), entry),
-    "secret-backends",
-  );
+  expectLeaf(file, entry, "secret-backends");
   assert.equal(
     lazyLeafChunk(file, { classification: "shared", capability: null }),
     undefined,
@@ -311,7 +324,6 @@ test("the browser credential adapter stays with its actual backend owner", () =>
     undefined,
   );
 });
-
 test("virtual IDs, unrelated packages and query lookalikes cannot claim the native leaf", () => {
   for (const id of [
     `\0${backendPath}onepassword-sdk.ts`,
@@ -329,15 +341,13 @@ test("virtual IDs, unrelated packages and query lookalikes cannot claim the nati
     );
   }
 });
-
 // Actual owner, not a test-only reclassification of the pure organization model.
 test("keeps the directory sign-in model off the bootstrap without promoting its owner", () => {
   const file = "/workspace/packages/app-core/src/lib/org-signin.ts";
   const entry = classifyModule(file, LIB_RULES, { repoRoot: "/workspace" });
   assert.equal(entry.classification, "optional");
   assert.equal(entry.capability, "enterprise.directory-provisioning");
-  for (const id of [file, file.replaceAll("/", "\\")])
-    assert.equal(lazyLeafChunk(id, entry), "directory-signin-model");
+  expectLeaf(file, entry, "directory-signin-model");
   for (const owner of [
     { classification: "shared", capability: null },
     { classification: "core", capability: null },
@@ -354,19 +364,13 @@ test("keeps the directory sign-in model off the bootstrap without promoting its 
       undefined,
     );
 });
-
 test("keeps the real NKeys signer with NATS without claiming virtual wrappers or connector credentials", () => {
   const root = "/workspace";
   const source = `${root}/node_modules/tweetnacl/nacl-fast.js`;
   const entry = classifyModule(source, PACKAGE_RULES, { repoRoot: root });
   assert.equal(entry.classification, "optional");
   assert.equal(entry.capability, "sharing.live");
-  for (const id of [
-    source,
-    source.replaceAll("/", "\\"),
-    `${root}/node_modules/tweetnacl/nacl-fast.js`,
-  ])
-    assert.equal(lazyLeafChunk(id, entry), "live-nats");
+  expectLeaf(source, entry, "live-nats");
   const wrapper = `\0${source}?commonjs-module`;
   const wrapperEntry = classifyModule(wrapper, PACKAGE_RULES, {
     repoRoot: root,

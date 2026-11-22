@@ -36,6 +36,7 @@ function stringsIn(value: BoundaryValue, out: string[] = []): string[] {
 export function cannotBeHidden(item: VaultItem): boolean {
   return (
     item.kind === "drop" ||
+    (item.kind === "typed" && item.typeId === "file") ||
     stringsIn(overlapCast(item)).some((text) => fileSummary(text) !== null)
   );
 }

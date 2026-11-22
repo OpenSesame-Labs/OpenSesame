@@ -149,7 +149,7 @@ async fn refused(state: &AppState, error: TransportError) -> Pass {
         HOST_LISTENER_TARGET,
         crate::transport_lifecycle::facts::Fact::ReloadFailed {
             code: error.code().to_owned(),
-            at: chrono::Utc::now(),
+            at: opensesame_time::Utc::now(),
         },
     )
     .await;

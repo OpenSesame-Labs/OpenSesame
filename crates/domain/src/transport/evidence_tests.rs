@@ -177,9 +177,17 @@ fn asserted() -> AttestedPeer {
     client
 }
 
+fn seal_assertion(mut assertion: AttestedPeer) -> Result<VerifiedPeer, TransportError> {
+    let ingress = assertion
+        .ingress
+        .take()
+        .ok_or(TransportError::ForwardedEvidenceUnverified)?;
+    assertion.into_verified_with_ingress(ingress.into_verified()?)
+}
+
 #[test]
 fn forwarded_evidence_needs_an_authenticated_ingress() {
-    let peer = asserted().into_verified().unwrap();
+    let peer = seal_assertion(asserted()).unwrap();
     assert_eq!(peer.source(), EvidenceSource::TrustedIngressAssertion);
     let ingress = peer.ingress().unwrap();
     assert_eq!(ingress.leaf_thumbprint_sha256(), HEX_B);
@@ -202,8 +210,7 @@ fn forwarded_evidence_needs_an_authenticated_ingress() {
     let mut ingress_on_wrong_listener = asserted();
     ingress_on_wrong_listener.ingress.as_mut().unwrap().policy = TransportPolicy::MtlsRequired;
     assert_eq!(
-        ingress_on_wrong_listener
-            .into_verified()
+        seal_assertion(ingress_on_wrong_listener)
             .unwrap_err()
             .code(),
         "forwarded_evidence_unverified"
@@ -212,7 +219,7 @@ fn forwarded_evidence_needs_an_authenticated_ingress() {
     let mut ingress_bad = asserted();
     ingress_bad.ingress.as_mut().unwrap().leaf_thumbprint_sha256 = "nope".into();
     assert_eq!(
-        ingress_bad.into_verified().unwrap_err().code(),
+        seal_assertion(ingress_bad).unwrap_err().code(),
         "malformed_configuration"
     );
 }
@@ -314,7 +321,7 @@ fn admission_of_forwarded_evidence_binds_the_ingress_and_keeps_the_client_reques
     );
     ingress_binding.allowed_operations = vec![operations::INGRESS_FORWARD.into()];
     set.bindings.push(ingress_binding);
-    let peer = asserted().into_verified().unwrap();
+    let peer = seal_assertion(asserted()).unwrap();
     let caller = ServiceCaller::admit(
         peer,
         &BindingScope::Deployment,
@@ -333,7 +340,7 @@ fn admission_of_forwarded_evidence_binds_the_ingress_and_keeps_the_client_reques
         .identities()
         .contains(&PeerIdentitySelector::DnsName("client.example".into())));
     // The originating client's own name never resolves a binding by itself.
-    let peer = asserted().into_verified().unwrap();
+    let peer = seal_assertion(asserted()).unwrap();
     let mut client_bound = bindings();
     client_bound.bindings.push(binding(
         "client",

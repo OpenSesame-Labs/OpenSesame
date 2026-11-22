@@ -74,6 +74,10 @@ channels do not have separate Git branches. The operating contract is
   Main's diff starts at a verified successful ancestor, covering failed,
   cancelled and coalesced pushes. Active main builds finish; superseded PR builds
   cancel. Missing or unexpectedly skipped selected work fails the reporter.
+  A partial re-run of reporter jobs leaves the upstream build `abandoned`. The
+  reporter names the job that did not run and fails on every attempt, so use
+  **Re-run all jobs** or push a new commit instead
+  ([recovery](../operators/ci-promotion.md#recovery)).
 - `.githooks/pre-commit` checks staged source. The default push hook runs static
   lint, quality, typechecking and relevant rustfmt/Clippy without test aliases.
   `OPENSESAME_PREPUSH=full` is an explicit local `npm run verify` opt-in.

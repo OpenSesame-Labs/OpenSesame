@@ -195,6 +195,27 @@ fn malformed_envelopes_fail_closed() {
 }
 
 #[test]
+fn every_truncated_envelope_is_refused_in_both_formats() {
+    for (prefix, sealed) in [
+        (PREFIX, sealer().seal("t.c", "value")),
+        (LEGACY_PREFIX, legacy_value("t.c", "value")),
+    ] {
+        let packed = URL_SAFE_NO_PAD
+            .decode(sealed.strip_prefix(prefix).unwrap())
+            .unwrap();
+        for length in 0..packed.len() {
+            let truncated = format!("{prefix}{}", URL_SAFE_NO_PAD.encode(&packed[..length]));
+            let result = if prefix == PREFIX {
+                sealer().open("t.c", &truncated)
+            } else {
+                sealer().open_legacy_for_migration("t.c", &truncated)
+            };
+            assert!(result.is_err(), "{prefix} accepted {length} bytes");
+        }
+    }
+}
+
+#[test]
 fn unknown_envelope_versions_are_not_plaintext() {
     for stored in ["osev3.AA", "osev99.unknown", "osev2", "osev"] {
         assert!(is_sealed(stored));

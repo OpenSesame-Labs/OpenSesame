@@ -191,7 +191,7 @@
       "title": "Tuple backfill and rollback plan",
       "invariants": ["INV-GA-03", "INV-GA-07"],
       "status": "verified",
-      "evidence": "docs/.../openfga-tuple-backfill.md + packages/policy authority-tuple-backfill.ts"
+      "evidence": "packages/policy/src/authority-tuple-backfill.ts + packages/policy/src/__tests__/authority-tuple-backfill.test.ts"
     },
     {
       "id": "GA-H-01",

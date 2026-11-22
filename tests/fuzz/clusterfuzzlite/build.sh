@@ -43,7 +43,11 @@ for bin in tests/fuzz/cargo/target/*/release/*; do
   if [[ -x "$bin" && -f "$bin" ]]; then
     cp -f "$bin" "$OUT/$name"
     corpus="tests/fuzz/cargo/corpus/$name"
-    if [[ -d "$corpus" ]]; then
+    if [[ "$name" == capability_algebra ]]; then
+      python3 scripts/fuzz/capability-corpus.py zip \
+        tests/fuzz/cargo/corpus-bundles/capability_algebra.json "$corpus" \
+        "$OUT/${name}_seed_corpus.zip"
+    elif [[ -d "$corpus" ]]; then
       (cd "$corpus" && zip -qr "$OUT/${name}_seed_corpus.zip" .)
     fi
   fi

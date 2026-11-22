@@ -56,7 +56,7 @@ pub async fn validate(
         .and_then(|value| value.to_str().ok())
         .filter(|value| value.len() <= 8192)
         .ok_or_else(|| refusal("invalid_dpop_proof"))?;
-    let now = chrono::Utc::now().timestamp();
+    let now = opensesame_time::Utc::now().timestamp();
     let uri = format!("{}{}", st.resource.trim_end_matches('/'), path);
     let ath = token.map(opensesame_proof::access_token_hash);
     let (claims, jwk, jkt) =

@@ -9,8 +9,8 @@
 //! how many times a password appears in it — is a property of the corpus, not
 //! of the secret, and is what makes a finding actionable.
 
-use chrono::{DateTime, Utc};
 use opensesame_security_events::{NoticeState, SecurityNotice, Severity};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Map, Value};
 

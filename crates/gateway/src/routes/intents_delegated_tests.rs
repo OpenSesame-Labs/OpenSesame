@@ -49,11 +49,54 @@ async fn delegate_to_guest(
     org: OrganizationId,
     connection_id: &str,
 ) -> Vec<opensesame_connection_broker::delegation::DelegationView> {
-    budget_retry_tests::delegate_to_guest_with_budget(state, org, connection_id, None).await
+    let minted = state
+        .connection_broker
+        .mint_delegation_offer(
+            &org,
+            OWNER,
+            MintOfferRequest {
+                items: vec![OfferItemSpec {
+                    connection_id: connection_id.into(),
+                    actions: Some(vec!["repository.read".into()]),
+                    resources: None,
+                    expires_in_seconds: None,
+                    budgets: None,
+                    execution_mode: opensesame_relay::ExecutionMode::Relay,
+                    required: true,
+                    dependencies: vec![],
+                }],
+                ttl_seconds: None,
+            },
+            &state.claim_pepper,
+        )
+        .await
+        .expect("mint");
+    let manifest = state
+        .connection_broker
+        .present_delegation_offer(&minted.claim_token)
+        .await
+        .expect("present");
+    let delegations = state
+        .connection_broker
+        .claim_delegation_offer(
+            ClaimOfferRequest {
+                claim_token: minted.claim_token.clone(),
+                user_code: minted.user_code.clone(),
+                accepted_item_ids: vec![manifest.items[0].id.clone()],
+            },
+            GUEST,
+            &state.claim_pepper,
+        )
+        .await
+        .expect("claim");
+    // Model a broker-mode row created before the temporary restriction.
+    sqlx::query("UPDATE connection_delegations SET execution_mode = 'broker' WHERE id = ?")
+        .bind(&delegations[0].id)
+        .execute(state.connection_broker.pool())
+        .await
+        .unwrap();
+    delegations
 }
-
-#[path = "intents_budget_retry_tests.rs"]
-mod budget_retry_tests;
 
 fn invoke_body(connection_ref: &str, operation: &str) -> InvokeBody {
     InvokeBody {
@@ -71,32 +114,25 @@ fn invoke_body(connection_ref: &str, operation: &str) -> InvokeBody {
 }
 
 #[tokio::test]
-async fn contract_a_delegate_exercises_through_its_child_grant() {
+async fn existing_broker_delegation_is_temporarily_refused_before_execution() {
     let state = crate::app_state::test_demo_state().await;
     let org = state.bootstrap.lock().unwrap().as_ref().unwrap().org;
-    let connection_id = delegable_github_row(&state, org).await;
-    delegate_to_guest(&state, org, &connection_id).await;
-
+    let connection = delegable_github_row(&state, org).await;
+    delegate_to_guest(&state, org, &connection).await;
     let headers =
         crate::app_state::test_session_headers(&state, GUEST, org, OrganizationRole::Member);
     let response = create(
-        State(state.clone()),
+        State(state),
         headers,
-        Json(invoke_body(&connection_id, "repository.read")),
+        Json(invoke_body(&connection, "repository.read")),
     )
     .await;
-    assert_eq!(response.status(), StatusCode::OK);
-    let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let bytes = axum::body::to_bytes(response.into_body(), 4096)
         .await
-        .expect("body");
-    let receipt: Value = serde_json::from_slice(&bytes).expect("receipt json");
-    // The receipt names the lineage: parent (owner ceiling) then child.
-    assert_eq!(
-        receipt["delegation_chain"].as_array().map(Vec::len),
-        Some(2)
-    );
-    assert_eq!(receipt["credential_bytes_returned"], json!(false));
-    assert_eq!(receipt["outcome"], json!("succeeded"));
+        .unwrap();
+    let body: Value = serde_json::from_slice(&bytes).unwrap();
+    assert_eq!(body["error"], "delegated_execution_unavailable");
 }
 
 #[tokio::test]
@@ -152,7 +188,7 @@ async fn adversarial_the_same_ref_is_nothing_to_anyone_else() {
 }
 
 #[tokio::test]
-async fn adversarial_an_action_outside_the_child_grant_is_refused() {
+async fn delegated_actions_are_refused_before_execution() {
     let state = crate::app_state::test_demo_state().await;
     let org = state.bootstrap.lock().unwrap().as_ref().unwrap().org;
     let connection_id = delegable_github_row(&state, org).await;
@@ -168,7 +204,7 @@ async fn adversarial_an_action_outside_the_child_grant_is_refused() {
         Json(invoke_body(&connection_id, "pull_request.create")),
     )
     .await;
-    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
 }
 
 #[tokio::test]
@@ -195,92 +231,7 @@ async fn contract_revocation_ends_delegated_exercise() {
 }
 
 #[tokio::test]
-async fn at_revoke_queue_queued_invoke_is_denied_after_revoke() {
-    let state = crate::app_state::test_demo_state().await;
-    let org = state.bootstrap.lock().unwrap().as_ref().unwrap().org;
-    let connection_id = delegable_github_row(&state, org).await;
-    let delegations = delegate_to_guest(&state, org, &connection_id).await;
-    let headers =
-        crate::app_state::test_session_headers(&state, GUEST, org, OrganizationRole::Member);
-
-    super::intents_queue::hold_next_invoke();
-    let queued = create(
-        State(state.clone()),
-        headers,
-        Json(invoke_body(&connection_id, "repository.read")),
-    )
-    .await;
-    assert_eq!(
-        queued.status(),
-        StatusCode::ACCEPTED,
-        "a permitted invoke must be held before the broker side effect"
-    );
-    assert_eq!(
-        super::intents_queue::fixture_work(),
-        0,
-        "queueing must not produce fixture work"
-    );
-
-    state
-        .connection_broker
-        .revoke_delegation(&org, OWNER, &delegations[0].id)
-        .await
-        .expect("revoke");
-
-    let drained = super::intents_queue::drain(&state).await;
-    assert_eq!(
-        drained.status(),
-        StatusCode::NOT_FOUND,
-        "drain after revoke must not accept the held operation"
-    );
-    assert_eq!(
-        super::intents_queue::fixture_work(),
-        0,
-        "a revoked queued invoke must produce zero fixture side effects"
-    );
-}
-
-#[tokio::test]
-async fn family_expiry_stops_queued_fixture_work() {
-    let state = crate::app_state::test_demo_state().await;
-    let org = state.bootstrap.lock().unwrap().as_ref().unwrap().org;
-    let connection_id = delegable_github_row(&state, org).await;
-    delegate_to_guest(&state, org, &connection_id).await;
-    let headers =
-        crate::app_state::test_session_headers(&state, GUEST, org, OrganizationRole::Member);
-
-    super::intents_queue::hold_next_invoke();
-    let queued = create(
-        State(state.clone()),
-        headers,
-        Json(invoke_body(&connection_id, "repository.read")),
-    )
-    .await;
-    assert_eq!(queued.status(), StatusCode::ACCEPTED);
-    assert_eq!(super::intents_queue::fixture_work(), 0);
-
-    let past = (Utc::now() - chrono::Duration::hours(1)).to_rfc3339();
-    sqlx::query(
-        "UPDATE connection_delegations SET expires_at = ? WHERE claimant_subject = ? AND connection_id = ?",
-    )
-    .bind(&past)
-    .bind(GUEST)
-    .bind(&connection_id)
-    .execute(state.connection_broker.pool())
-    .await
-    .expect("expire the queued family's delegation");
-
-    let drained = super::intents_queue::drain(&state).await;
-    assert_eq!(
-        drained.status(),
-        StatusCode::NOT_FOUND,
-        "FIX-FAMILY expiry must stop owned fixture work at the side-effect fence"
-    );
-    assert_eq!(super::intents_queue::fixture_work(), 0);
-}
-
-#[tokio::test]
-async fn property_budgets_deny_when_spent() {
+async fn blocked_delegated_calls_do_not_spend_the_budget() {
     let state = crate::app_state::test_demo_state().await;
     let org = state.bootstrap.lock().unwrap().as_ref().unwrap().org;
     let connection_id = delegable_github_row(&state, org).await;
@@ -304,7 +255,7 @@ async fn property_budgets_deny_when_spent() {
                         .into_iter()
                         .collect(),
                     ),
-                    execution_mode: opensesame_relay::ExecutionMode::Broker,
+                    execution_mode: opensesame_relay::ExecutionMode::Relay,
                     required: true,
                     dependencies: vec![],
                 }],
@@ -319,7 +270,7 @@ async fn property_budgets_deny_when_spent() {
         .present_delegation_offer(&minted.claim_token)
         .await
         .expect("present");
-    state
+    let claimed = state
         .connection_broker
         .claim_delegation_offer(
             ClaimOfferRequest {
@@ -332,6 +283,11 @@ async fn property_budgets_deny_when_spent() {
         )
         .await
         .expect("claim");
+    sqlx::query("UPDATE connection_delegations SET execution_mode = 'broker' WHERE id = ?")
+        .bind(&claimed[0].id)
+        .execute(state.connection_broker.pool())
+        .await
+        .unwrap();
 
     let headers =
         crate::app_state::test_session_headers(&state, GUEST, org, OrganizationRole::Member);
@@ -341,12 +297,28 @@ async fn property_budgets_deny_when_spent() {
         Json(invoke_body(&connection_id, "repository.read")),
     )
     .await;
-    assert_eq!(first.status(), StatusCode::OK);
+    assert_eq!(first.status(), StatusCode::SERVICE_UNAVAILABLE);
     let second = create(
         State(state.clone()),
         headers,
         Json(invoke_body(&connection_id, "repository.read")),
     )
     .await;
-    assert_eq!(second.status(), StatusCode::FORBIDDEN);
+    assert_eq!(second.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let remaining: String =
+        sqlx::query_scalar("SELECT budget_remaining FROM connection_delegations WHERE id = ?")
+            .bind(&claimed[0].id)
+            .fetch_one(state.connection_broker.pool())
+            .await
+            .unwrap();
+    assert_eq!(
+        serde_json::from_str::<Value>(&remaining).unwrap()["invocations"],
+        1
+    );
 }
+
+#[path = "intents_legacy_queue_tests.rs"]
+mod legacy_queue_tests;
+
+#[path = "intents_relay_mode_tests.rs"]
+mod relay_mode_tests;

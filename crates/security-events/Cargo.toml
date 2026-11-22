@@ -6,7 +6,7 @@ license.workspace = true
 description = "Normalized security-event envelope and industry-standard notification/alert renderings"
 
 [dependencies]
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 opensesame-redaction = { path = "../redaction" }
 serde = { workspace = true }
 serde_json = { workspace = true }

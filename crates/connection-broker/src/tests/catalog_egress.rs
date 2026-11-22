@@ -2,6 +2,30 @@
 
 use super::*;
 
+fn percent_encode_all(value: &str) -> String {
+    use std::fmt::Write as _;
+
+    let mut encoded = String::with_capacity(value.len() * 3);
+    for byte in value.bytes() {
+        write!(&mut encoded, "%{byte:02X}").expect("write to String");
+    }
+    encoded
+}
+
+#[test]
+fn credentialed_sync_responses_remain_body_blind() {
+    let source = include_str!("../sync_target.rs");
+    let production = source.split("#[cfg(test)]").next().unwrap();
+    for body_read in [
+        "response.text()",
+        "response.bytes()",
+        "response.json",
+        "response.chunk",
+    ] {
+        assert!(!production.contains(body_read), "body read: {body_read}");
+    }
+}
+
 #[test]
 fn every_network_catalog_connector_has_a_generic_execution_contract() {
     for provider in catalog::all().expect("catalog") {
@@ -53,6 +77,37 @@ async fn catalog_connection_executes_real_credentialed_egress() {
         }))
     }
 
+    async fn base64_leak(headers: axum::http::HeaderMap) -> Json<serde_json::Value> {
+        use base64::Engine as _;
+
+        let token = headers
+            .get("authorization")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.strip_prefix("Bearer "))
+            .unwrap_or_default();
+        Json(serde_json::json!({
+            "echo": base64::engine::general_purpose::STANDARD.encode(token)
+        }))
+    }
+
+    async fn percent_leak_error(
+        headers: axum::http::HeaderMap,
+    ) -> impl axum::response::IntoResponse {
+        let token = headers
+            .get("authorization")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.strip_prefix("Bearer "))
+            .unwrap_or_default();
+        (
+            axum::http::StatusCode::BAD_REQUEST,
+            format!("provider detail: {}", percent_encode_all(token)),
+        )
+    }
+
+    async fn oversized_response() -> String {
+        "A".repeat(1024 * 1024 + 1)
+    }
+
     // Port 0, not a fixed one: the mock provider used to bind 9090, which is
     // also `mock-upstream-idp`'s port, so this test failed against a running
     // dev stack and against any second `cargo test` on the same machine.
@@ -67,7 +122,13 @@ async fn catalog_connection_executes_real_credentialed_egress() {
             Router::new()
                 .route("/token", post(token))
                 .route("/fixture", axum::routing::get(fixture))
-                .route("/leak", axum::routing::get(leak)),
+                .route("/leak", axum::routing::get(leak))
+                .route("/base64-leak", axum::routing::get(base64_leak))
+                .route(
+                    "/percent-leak-error",
+                    axum::routing::get(percent_leak_error),
+                )
+                .route("/oversized", axum::routing::get(oversized_response)),
         )
         .await;
     });
@@ -122,6 +183,53 @@ async fn catalog_connection_executes_real_credentialed_egress() {
         .await
         .expect_err("credential-echoing upstream must fail closed");
     assert!(!leak.to_string().contains("network-token"));
+
+    let base64_leak = broker
+        .invoke_network_json(
+            &organization,
+            &connection.connection_id,
+            "fixture.read",
+            "GET",
+            &format!("http://{provider}/base64-leak"),
+            None,
+        )
+        .await
+        .expect_err("base64 credential reflection must fail closed");
+    assert_eq!(
+        base64_leak.to_string(),
+        "token exchange failed: upstream response contained the injected credential"
+    );
+
+    let percent_leak = broker
+        .invoke_network_json(
+            &organization,
+            &connection.connection_id,
+            "fixture.read",
+            "GET",
+            &format!("http://{provider}/percent-leak-error"),
+            None,
+        )
+        .await
+        .expect_err("encoded credential in an error must be scrubbed");
+    let percent_error = percent_leak.to_string();
+    assert!(percent_error.contains("[redacted:credential]"));
+    assert!(!percent_error.contains(&percent_encode_all("network-token-do-not-return")));
+    assert!(percent_error.len() < 600);
+
+    let oversized = broker
+        .invoke_network_json(
+            &organization,
+            &connection.connection_id,
+            "fixture.read",
+            "GET",
+            &format!("http://{provider}/oversized"),
+            None,
+        )
+        .await
+        .expect_err("oversized response must be refused before JSON parsing");
+    let oversized_error = oversized.to_string();
+    assert!(oversized_error.contains("exceeds the 1 MiB limit"));
+    assert!(oversized_error.len() < 160);
 }
 
 #[tokio::test]

@@ -20,11 +20,11 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::{DateTime, Utc};
 use opensesame_agent_hooks::sdk::InterceptionPoint;
 use opensesame_storage::agent_hook_policy::decisions::{
     AgentHookDecisionFilter, StoredAgentHookDecision,
 };
+use opensesame_time::{DateTime, Utc};
 use serde::Deserialize;
 use serde_json::{json, Value};
 

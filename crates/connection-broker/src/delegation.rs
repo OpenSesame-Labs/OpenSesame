@@ -23,13 +23,13 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Duration, Utc};
 use opensesame_claims::{generate_claim_token, generate_user_code, hash_eq, hash_low_entropy};
 use opensesame_domain::{
     ConnectionId, Grant, GrantConstraints, GrantId, OfflineUse, OrganizationId, PrincipalId,
     Shareability,
 };
 use opensesame_relay::ExecutionMode;
+use opensesame_time::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use sqlx::{sqlite::SqliteRow, Row, Sqlite, Transaction};
@@ -235,28 +235,17 @@ pub struct ResolvedDelegation {
     pub parent_grant_id: GrantId,
 }
 
-fn execution_mode_str(mode: ExecutionMode) -> &'static str {
-    match mode {
-        ExecutionMode::Broker => "broker",
-        ExecutionMode::Relay => "relay",
-    }
-}
-
-pub(super) fn parse_execution_mode(raw: &str) -> ExecutionMode {
-    match raw {
-        "relay" => ExecutionMode::Relay,
-        _ => ExecutionMode::Broker,
-    }
-}
+#[path = "delegation_mode.rs"]
+mod mode;
+use mode::execution_mode_str;
+pub(super) use mode::parse_execution_mode;
 
 fn now_rfc3339() -> String {
     Utc::now().to_rfc3339()
 }
 
 fn parse_time(raw: &str) -> DateTime<Utc> {
-    DateTime::parse_from_rfc3339(raw)
-        .map(|t| t.with_timezone(&Utc))
-        .unwrap_or(DateTime::<Utc>::MIN_UTC)
+    DateTime::parse_from_rfc3339(raw).map_or(DateTime::<Utc>::MIN_UTC, |t| t.with_timezone(&Utc))
 }
 
 impl ConnectionBroker {
@@ -442,6 +431,7 @@ impl ConnectionBroker {
                 "item dependency references a missing sibling".into(),
             ));
         }
+        mode::require_mint_modes(&request.items)?;
         Ok(ttl)
     }
 
@@ -680,7 +670,7 @@ impl ConnectionBroker {
                 actions: template.actions,
                 resources: template.resources,
                 expires_in_seconds: template.expires_in_seconds,
-                execution_mode: parse_execution_mode(&item.get::<String, _>("execution_mode")),
+                execution_mode: parse_execution_mode(&item.get::<String, _>("execution_mode"))?,
                 required: item.get::<i64, _>("required") != 0,
                 dependencies: serde_json::from_str(&item.get::<String, _>("dependencies"))
                     .map_err(internal)?,
@@ -934,6 +924,9 @@ impl ConnectionBroker {
         item_id: String,
         now: DateTime<Utc>,
     ) -> Result<PreparedClaim> {
+        let execution_mode = mode::require_claimable_mode(parse_execution_mode(
+            &item.get::<String, _>("execution_mode"),
+        )?)?;
         let connection_id: String = item.get("connection_id");
         let row = store::get_connection(&self.pool, &connection_id)
             .await?
@@ -961,7 +954,7 @@ impl ConnectionBroker {
             budgets: child.constraints.budgets.clone(),
             child,
             owner_grant_id: owner_grant.id,
-            execution_mode: parse_execution_mode(&item.get::<String, _>("execution_mode")),
+            execution_mode,
         })
     }
 
@@ -1291,6 +1284,7 @@ impl ConnectionBroker {
         if row.get::<Option<String>, _>("revoked_at").is_some() {
             return Err(BrokerError::InvalidState);
         }
+        let execution_mode = parse_execution_mode(&row.get::<String, _>("execution_mode"))?;
         let current =
             crate::delegation_lineage::load_grant(&self.pool, &row.get::<String, _>("grant_id"))
                 .await?
@@ -1355,7 +1349,7 @@ impl ConnectionBroker {
             connection_id: row.get("connection_id"),
             claimant_subject: row.get("claimant_subject"),
             grant_id: replacement.id.to_string(),
-            execution_mode: parse_execution_mode(&row.get::<String, _>("execution_mode")),
+            execution_mode,
             actions: replacement.actions.clone(),
             resources: replacement.resources.clone(),
             expires_at: replacement.constraints.expires_at.to_rfc3339(),
@@ -1475,7 +1469,7 @@ impl ConnectionBroker {
                 connection_id: row.get("connection_id"),
                 claimant_subject: row.get("claimant_subject"),
                 grant_id: row.get("grant_id"),
-                execution_mode: parse_execution_mode(&row.get::<String, _>("execution_mode")),
+                execution_mode: parse_execution_mode(&row.get::<String, _>("execution_mode"))?,
                 actions: grant
                     .as_ref()
                     .map(|g| g.actions.clone())

@@ -68,6 +68,13 @@ describe("violations", () => {
         ]),
       ],
       {
+        capabilitySourceClosures: [
+          {
+            module: "apps/pages/src/modules/sharing.drops/runtime.ts",
+            capability: "sharing.drops",
+            allowed: [],
+          },
+        ],
         moduleEdges: [
           {
             from: "virtual:opensesame-capability-modules",
@@ -142,6 +149,71 @@ describe("violations: hardened exclusions", () => {
 });
 
 describe("violations: chunk partition and module ownership", () => {
+  test("lazy route and rail leaves remain outside their capability initializer", () => {
+    const owner = chunk("assets/cap-access.js", [], {
+      imports: [],
+      dynamicImports: ["assets/AccessRailTree.js"],
+    });
+    owner.name = "cap-access.authority";
+    const facade = chunk("assets/AccessRailTree.js", [], {
+      imports: ["assets/access-rail.js"],
+    });
+    facade.name = "AccessRailTree";
+    const leaf = chunk("assets/access-rail.js", []);
+    leaf.name = "access-authority-rail";
+    const graph = baseGraph([owner, facade, leaf]);
+    assert.deepEqual(errorsOf(violations(graph, DISTRIBUTED, "selective")), []);
+
+    graph.chunks[0].imports = ["assets/access-rail.js"];
+    assert.deepEqual(errorsOf(violations(graph, DISTRIBUTED, "selective")), [
+      "INITIALIZER_LAZY_BOUNDARY",
+    ]);
+
+    graph.chunks[0].imports = [];
+    graph.chunks.pop();
+    assert.deepEqual(errorsOf(violations(graph, DISTRIBUTED, "selective")), [
+      "INITIALIZER_LAZY_BOUNDARY",
+    ]);
+  });
+
+  test("an activation-awaited lazy leaf may not lead back to its capability initializer", () => {
+    const graph = baseGraph([
+      chunk("assets/main.js", [mod("apps/pages/src/main.tsx", "core")], {
+        isEntry: true,
+      }),
+      chunk(
+        "assets/cap-vault.security-checks.js",
+        [
+          mod(
+            "apps/pages/src/modules/vault.security-checks/runtime.ts",
+            "optional",
+            "vault.security-checks",
+          ),
+        ],
+        { dynamicImports: ["assets/SecurityChecksPanel.js"] },
+      ),
+      chunk(
+        "assets/SecurityChecksPanel.js",
+        [
+          mod(
+            "apps/pages/src/modules/vault.security-checks/SecurityChecksPanel.tsx",
+            "optional",
+            "vault.security-checks",
+          ),
+        ],
+        { imports: ["assets/cap-vault.security-checks.js"] },
+      ),
+    ]);
+    assert.deepEqual(errorsOf(violations(graph, DISTRIBUTED, "selective")), [
+      "ACTIVATION_LAZY_CYCLE",
+    ]);
+
+    graph.chunks[2].imports = [];
+    assert.deepEqual(errorsOf(violations(graph, DISTRIBUTED, "selective")), []);
+  });
+});
+
+describe("violations: capability ownership and hardened output", () => {
   test("BUILD-06: a module under src/modules/<cap>/ classified as anything else is caught", () => {
     const graph = baseGraph([
       chunk("assets/main.js", [mod("apps/pages/src/main.tsx", "core")], {

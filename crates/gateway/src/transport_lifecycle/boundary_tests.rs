@@ -9,8 +9,8 @@
 
 use std::sync::Arc;
 
-use chrono::Utc;
 use opensesame_domain::transport::IdentitySourceKind;
+use opensesame_time::Utc;
 use opensesame_transport_security::testkit::DisposableCa;
 
 use crate::transport_lifecycle::test_support as support;

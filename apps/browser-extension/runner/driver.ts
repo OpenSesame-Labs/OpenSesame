@@ -70,6 +70,7 @@ async function fill(
   const value = await d.vault.resolve(reference, ctxOf(d));
   if (value === null) return failed("transport");
   const landed = await d.pages.fill(selector, value);
+  if (landed === "off_origin") return failed("navigation");
   moved(d.epoch);
   return filled(landed === "ok");
 }
@@ -114,10 +115,8 @@ async function screenshot(
   maskSelectors: string[],
   d: DriverDeps,
 ): Promise<RunnerStepOutcome> {
-  if (!d.pages.captureSupported) return failed("refused");
   await settleEpoch(d.pages, d.epoch);
   const taken = await d.pages.capture(maskSelectors);
-  if (taken === "unsupported") return failed("refused");
   if (taken === null) return failed("transport");
   // The mask was composited under one layout. If the page moved between the
   // mask and the still, the epoch advances past the one the Host asked for and

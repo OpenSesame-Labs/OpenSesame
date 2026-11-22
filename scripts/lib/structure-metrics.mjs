@@ -28,6 +28,8 @@ const IGNORED_PREFIXES = [
   ".codex/",
   ".cursor/",
   ".grok/",
+  "patches/vendor/keepass-0.17.0/",
+  "patches/vendor/sqlx-sqlite-0.9.0/",
   "skills/install-anti-slop/",
 ];
 

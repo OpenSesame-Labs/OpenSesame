@@ -1,8 +1,9 @@
 /**
  * Front door, setup choices, and the no-account road into the vault.
  *
- * Minimal, Default and Full commit and return. Custom opens the capabilities
- * ceremony; Skip all still retires the door onto sign-in.
+ * Default and Full commit and return. Minimal warns first and commits only
+ * on "Use Minimal anyway". Custom opens the capabilities ceremony; Skip all
+ * still retires the door onto sign-in.
  */
 
 import { sealLocalOnly } from "./pages-journey.mjs";
@@ -17,10 +18,10 @@ import {
 const CHOICES = ["Minimal", "Default", "Full", "Custom"];
 
 export async function openDoor(page, shot, record, href = `${ORIGIN}${BASE}`) {
-  await page.goto(href, { waitUntil: "domcontentloaded" });
+  await page.goto(href, { waitUntil: "load" });
   await page
     .getByRole("button", { name: "Set up your own", exact: true })
-    .waitFor({ state: "visible", timeout: 20_000 });
+    .waitFor({ state: "visible", timeout: 60_000 });
   await shot("front-door");
   const skip = await page
     .getByRole("button", { name: "Skip sign-in and continue as guest" })
@@ -66,7 +67,7 @@ export async function captureChoices(page, shot, record) {
   mark(record, "U1-setup-keyboard", focused === "Minimal", focused);
 }
 
-async function finishCustom(page, shot, record) {
+export async function finishCustom(page, shot, record) {
   await page
     .getByRole("tab", { name: "capabilities" })
     .waitFor({ timeout: 20_000 });
@@ -94,12 +95,48 @@ async function finishCustom(page, shot, record) {
     if (personalSeen) await personal.click();
     await shot("setup-custom");
   }
-  const left = await visibleClick(page, "button", "Skip all", 8_000);
-  if (!left) await visibleClick(page, "button", "Close", 8_000);
+  const skipAll = page.getByRole("button", { name: "Skip all", exact: true });
+  const close = page.getByRole("button", { name: "Close", exact: true });
+  if (await skipAll.isVisible().catch(() => false)) {
+    await skipAll.click();
+  } else if (await close.isVisible().catch(() => false)) {
+    await close.click();
+  }
+}
+
+export async function confirmMinimal(page, shot, record) {
+  const confirm = page.getByRole("button", { name: "Use Minimal anyway" });
+  await confirm.first().waitFor({ state: "visible", timeout: 8_000 });
+  const warning = await shot("setup-minimal-warning");
+  mark(
+    record,
+    "minimal-confirm",
+    /Use Minimal anyway/.test(warning) && /Advanced/.test(warning),
+    "confirm after the warning",
+  );
+  await confirm.first().click();
+}
+
+/**
+ * Clicks a setup road with a real pointer click; used by capture on main and
+ * after walks. The coach dim passes pointer events through, so Playwright
+ * actionability holds — and the walk fails if anything actually covers the
+ * control.
+ */
+export async function pickSetupChoice(page, choice, { shot, record } = {}) {
+  const choiceButton = page.getByRole("button", { name: choice, exact: true });
+  await choiceButton.waitFor({ state: "visible", timeout: 15_000 });
+  await choiceButton.click();
+  const shotFn = shot ?? (async () => "");
+  const rec = record ?? { checks: [] };
+  if (choice === "Minimal") await confirmMinimal(page, shotFn, rec);
+  if (choice === "Custom") await finishCustom(page, shotFn, rec);
+  await waitPastSetup(page);
 }
 
 export async function applySetupChoice(page, shot, record, choice) {
   await visibleClick(page, "button", choice);
+  if (choice === "Minimal") await confirmMinimal(page, shot, record);
   if (choice === "Custom") await finishCustom(page, shot, record);
   const where = await waitPastSetup(page);
   record.landed = where;

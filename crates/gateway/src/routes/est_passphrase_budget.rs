@@ -19,7 +19,7 @@ pub(super) async fn reserve(
     extensions: &Extensions,
 ) -> Result<(), Response> {
     let bucket = source::bucket(st, config, extensions)?;
-    let now = chrono::Utc::now();
+    let now = opensesame_time::Utc::now();
     let reserved = st
         .db
         .admit_est_passphrase_attempt(
@@ -30,6 +30,8 @@ pub(super) async fn reserve(
         )
         .await
         .map_err(|error| super::internal(error, "reserve est passphrase check"))?;
+    #[cfg(test)]
+    super::test_pause::point(&config.organization_id, "password").await;
     let Some(attempt) = reserved else {
         return Err((
             StatusCode::TOO_MANY_REQUESTS,
