@@ -166,19 +166,13 @@ fn let_pattern_intro(before_paren: &str) -> bool {
 }
 
 fn ends_with_kw(source: &str, keyword: &str) -> bool {
-    let Some(rest) = source.strip_suffix(keyword) else {
+    let Some(rest) = strip_suffix_kw(source, keyword) else {
         return false;
     };
-    if rest.chars().next_back().is_some_and(is_ident_char) {
-        return false;
-    }
     // `if let` / `while let` end in the keyword `let` but do not introduce a
     // `let` binding. Those patterns must not become URL bindings.
-    if keyword == "let" {
-        let head = rest.trim_end();
-        if ends_with_kw(head, "if") || ends_with_kw(head, "while") {
-            return false;
-        }
+    if keyword == "let" && (ends_with_kw(rest, "if") || ends_with_kw(rest, "while")) {
+        return false;
     }
     true
 }
@@ -257,6 +251,16 @@ pub(super) fn strip_prefix_kw<'a>(source: &'a str, keyword: &str) -> Option<&'a 
         .next()
         .is_none_or(|ch| !is_ident_char(ch))
         .then(|| rest.trim_start())
+}
+
+/// `keyword ` before `source`'s end: the suffix mirror of `strip_prefix_kw`,
+/// trimmed for the next suffix check.
+pub(super) fn strip_suffix_kw<'a>(source: &'a str, keyword: &str) -> Option<&'a str> {
+    let rest = source.strip_suffix(keyword)?;
+    rest.chars()
+        .next_back()
+        .is_none_or(|ch| !is_ident_char(ch))
+        .then(|| rest.trim_end())
 }
 
 #[cfg(test)]

@@ -1,5 +1,5 @@
 //! Bind a credentialed dispatch to the URL its builder was given.
-use super::super::sync_target_pact_norm::{is_keyword_at, non_code_len, string_len};
+use super::super::sync_target_pact_norm::{is_keyword_at, non_code_len};
 #[path = "bind_tail.rs"]
 mod bind_tail;
 
@@ -51,7 +51,9 @@ fn receiver_expr<'a>(source: &'a str, fn_start: usize, dot: usize) -> &'a str {
     let bytes = source.as_bytes();
     let (mut start, mut depth, mut index) = (fn_start + 1, 0i32, fn_start + 1);
     while index < dot {
-        if let Some(len) = string_len(bytes, index) {
+        // Strings and comments are not code: `=` / `;` inside `//` or
+        // `/* */` must not cut the receiver away from its builder.
+        if let Some(len) = non_code_len(bytes, index) {
             index += len;
             continue;
         }
