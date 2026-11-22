@@ -27,11 +27,12 @@ impl Broker {
     /// invocation. The snapshot does not prove current authority; this API
     /// never starts a delegated executor without a future durable effect fence.
     ///
-    /// Outcome disclosure follows the same host policy as every other
-    /// execution path: only a connection the host itself vouches for
-    /// (`opensesame_connector_host::HostRuntime::permits_outcome_disclosure`)
-    /// may settle a receipt with a disclosed outcome; every real egress stays
-    /// indeterminate.
+    /// The receipt outcome is always indeterminate. Disclosure is decided by
+    /// the execution path, not the routing identifier: the executor performs
+    /// its own (typically credentialed network) work and never runs the inert
+    /// builtin mock, so even a binding routed to the mock's fallback
+    /// connection cannot vouch for the effect, and a lost upstream response
+    /// must not be reported as a definitive failure.
     ///
     /// # Errors
     /// Returns an error when validation, authorization, or persistence fails.
@@ -44,14 +45,11 @@ impl Broker {
         E: FnOnce(InvocationBinding) -> F,
         F: Future<Output = Result<InvokeResult, HostError>>,
     {
-        let disclose_outcome = self
-            .host
-            .permits_outcome_disclosure(&input.connection_policy_id);
         self.invoke_with_mode(
             input,
             |binding| async move { execute(binding).await },
             false,
-            disclose_outcome,
+            false,
             true,
         )
         .await

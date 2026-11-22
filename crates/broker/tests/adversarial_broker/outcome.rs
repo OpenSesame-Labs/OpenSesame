@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 #[tokio::test]
-async fn connector_failure_is_signed_and_replayed_as_failure() {
+async fn independent_executor_outcome_is_signed_indeterminate_and_replayed() {
     for ok in [false, true] {
         let (broker, org, principal, actor) = setup().await;
         let params = json!({});
@@ -33,17 +33,11 @@ async fn connector_failure_is_signed_and_replayed_as_failure() {
             })
             .await
             .unwrap();
-        // The independent executor runs on the inert mock's connection, which
-        // is the one connection the host itself vouches for, so the outcome is
-        // disclosed — never the result body.
-        assert_eq!(
-            receipt.outcome,
-            if ok {
-                ReceiptOutcome::Succeeded
-            } else {
-                ReceiptOutcome::Failed
-            }
-        );
+        // The independent executor does its own work even when routed to the
+        // inert mock's fallback connection, so the host cannot vouch for the
+        // effect: the receipt stays indeterminate while the durable state
+        // records what the executor reported.
+        assert_eq!(receipt.outcome, ReceiptOutcome::Indeterminate);
         let state: String = sqlx::query_scalar("SELECT state FROM invocations WHERE id = ?")
             .bind(receipt.invocation_id.to_string())
             .fetch_one(broker.db.pool())
@@ -71,14 +65,7 @@ async fn connector_failure_is_signed_and_replayed_as_failure() {
             .await
             .unwrap();
         assert_eq!(replay.id, receipt.id);
-        assert_eq!(
-            replay.outcome,
-            if ok {
-                ReceiptOutcome::Succeeded
-            } else {
-                ReceiptOutcome::Failed
-            }
-        );
+        assert_eq!(replay.outcome, ReceiptOutcome::Indeterminate);
         assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
 }
@@ -102,9 +89,9 @@ async fn connector_error_text_never_enters_the_receipt() {
         )
         .await
         .unwrap();
-    // The executor failed on the mock's connection: a disclosed failure, but
-    // the error text itself never enters the receipt.
-    assert_eq!(receipt.outcome, ReceiptOutcome::Failed);
+    // An independent executor's failure is never disclosed, even on the
+    // mock's fallback connection, and its error text never enters the receipt.
+    assert_eq!(receipt.outcome, ReceiptOutcome::Indeterminate);
     assert!(receipt.has_opaque_result());
     assert!(!serde_json::to_string(&receipt)
         .unwrap()
