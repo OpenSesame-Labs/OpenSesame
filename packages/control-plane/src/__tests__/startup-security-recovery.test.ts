@@ -19,11 +19,12 @@ async function mint(plane: ControlPlane) {
     method: "POST",
   });
   expect(response.status).toBe(201);
-  return (await response.json()) as {
+  const result: {
     principalId: string;
     sessionId: string;
     accessToken: string;
-  };
+  } = overlapCast(await response.json());
+  return result;
 }
 
 function optionsFor(db: ReturnType<typeof drizzle<typeof schema>>) {
