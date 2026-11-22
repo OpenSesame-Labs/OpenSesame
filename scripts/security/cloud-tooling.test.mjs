@@ -46,7 +46,7 @@ test("scorecard npm commands use lockfile-pinned installs", () => {
   );
   const manifest = join(root, "apps/browser-extension-autofill/package.json");
   const pin = JSON.parse(readFileSync(manifest, "utf8")).devDependencies;
-  assert.equal(pin["@playwright/test"], "1.65.0");
+  assert.equal(pin["@playwright/test"], "1.65.1");
   assert.match(
     workflow,
     /npm ci -w @opensesame\/browser-extension-autofill[\s\S]*node node_modules\/@playwright\/test\/cli\.js install --with-deps chromium/,
