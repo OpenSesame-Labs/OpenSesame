@@ -24,7 +24,8 @@ def _packages_helper():
     if spec is None or spec.loader is None:
         raise ImportError(f"formal Cargo package helper unavailable: {path}")
     module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    # Execute the reviewed bytes themselves, never a cached bytecode file.
+    exec(compile(path.read_bytes(), str(path), "exec", dont_inherit=True), module.__dict__)
     return module
 
 

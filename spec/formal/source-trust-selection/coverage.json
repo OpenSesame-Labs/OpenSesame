@@ -298,7 +298,7 @@
     },
     {
       "path": "scripts/security/formal-cargo-freshness.py",
-      "sha256": "3ca1f6e22cbc0efc4c0887c3c1689ec699936230e27e9ce10ac842630ec05062"
+      "sha256": "2979653de809551b07132fcc526b115125bdcb9e32ae360feaae6a63f5f0ca89"
     },
     {
       "path": "scripts/security/formal_cargo_packages.py",
@@ -949,7 +949,7 @@
       },
       {
         "path": "scripts/security/formal-cargo-freshness.py",
-        "sha256": "3ca1f6e22cbc0efc4c0887c3c1689ec699936230e27e9ce10ac842630ec05062"
+        "sha256": "2979653de809551b07132fcc526b115125bdcb9e32ae360feaae6a63f5f0ca89"
       },
       {
         "path": "scripts/security/formal_cargo_packages.py",

@@ -207,9 +207,9 @@
     },
     {
       "path": "scripts/security/formal-cargo-freshness.py",
-      "sha256": "3ca1f6e22cbc0efc4c0887c3c1689ec699936230e27e9ce10ac842630ec05062",
+      "sha256": "2979653de809551b07132fcc526b115125bdcb9e32ae360feaae6a63f5f0ca89",
       "base_blob": null,
-      "reviewed_blob": "bd58d33caf6ea3954867ce6b93eb66e2edfbaa88"
+      "reviewed_blob": "69c01c15fe36438610c8f603e798634f7358a845"
     },
     {
       "path": "scripts/security/formal_cargo_packages.py",
