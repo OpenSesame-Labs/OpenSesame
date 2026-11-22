@@ -264,6 +264,7 @@ export async function deprovision(
         incarnation: target.incarnation,
         correlationId,
         reason: "scim_deactivated",
+        advanceEpochWithoutMembership: true,
       });
     }
     await withScimOrganizationBoundary(ctx, organization.id, async (tx) => {
