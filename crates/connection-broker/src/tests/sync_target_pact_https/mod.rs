@@ -29,6 +29,8 @@ mod mutate;
 mod pattern;
 mod sqlx_exec;
 
+pub(crate) use closure::closure_owns;
+
 use super::sync_target_pact_norm::string_len;
 
 /// `(sends, missing)` for credentialed dispatch sites.

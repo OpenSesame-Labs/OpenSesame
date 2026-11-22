@@ -2,7 +2,7 @@
 use super::super::sync_target_pact_norm::string_len;
 use super::is_ident_char;
 
-pub(super) fn closure_owns(before: &str) -> bool {
+pub(crate) fn closure_owns(before: &str) -> bool {
     let bytes = before.as_bytes();
     let mut index = 0usize;
     while index < bytes.len() {
