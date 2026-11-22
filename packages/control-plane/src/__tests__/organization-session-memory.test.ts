@@ -75,9 +75,8 @@ describe("memory membership revocation boundary", () => {
       started.ctx,
       owner.principalId,
     );
-    const organization = await started.ctx.stores.organizations.get(
-      organizationId,
-    );
+    const organization =
+      await started.ctx.stores.organizations.get(organizationId);
     if (!organization) throw new Error("Expected organization");
     // An owner write takes the in-process mutation turn, then the
     // cross-replica organization boundary. A join must not take them in the
