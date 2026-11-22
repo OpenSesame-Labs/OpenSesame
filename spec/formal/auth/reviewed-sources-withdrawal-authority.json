@@ -3,9 +3,9 @@
   "sources": [
     {
       "path": "packages/control-plane/src/middleware/auth.ts",
-      "base_blob": "b0faf205e3e807a673ae56ce96f68a1900692707",
-      "reviewed_blob": "b0faf205e3e807a673ae56ce96f68a1900692707",
-      "sha256": "9965ac9d8fe4cc34f320eef98605ca53bbf554539f072467f172d04ac94c22f6"
+      "base_blob": "b722af75833c7ea1d9b96e61f5da10aa6bac66f9",
+      "reviewed_blob": "a1e97e6aa9c47c4612998384cbeaec4d23df6048",
+      "sha256": "ccd2afe5149d80cd2f1432e09c8d523e26d51fe518f5ac0e7401f1882e1f5b3c"
     },
     {
       "path": "packages/control-plane/src/proofs/verified-principal.ts",
