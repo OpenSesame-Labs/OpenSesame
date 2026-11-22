@@ -35,5 +35,5 @@ export function itemHasGenerator(typeId: string): boolean {
  */
 export function itemRotationWarning(typeId: string): string | null {
   if (itemRotationMode(typeId) !== "manual") return null;
-  return "Automatic rotation couldn't verify this item type. Its generator makes a test-shaped value, not a provider change.";
+  return "Automatic rotation is unavailable for this item type. Requesting rotation does not generate a new value.";
 }
