@@ -58,13 +58,10 @@ fn else_at(bytes: &[u8], mut at: usize) -> Option<usize> {
     }
 }
 
-/// `else` with neither a block nor an `if` after it: `else return;` cannot
-/// fall through, so the if-arm exit is the only live state after it.
-pub(super) fn braceless_else(source: &str, at: usize) -> bool {
-    let bytes = source.as_bytes();
-    let Some(keyword_at) = else_at(bytes, at) else {
-        return false;
-    };
+/// Position just after the `else` keyword at or after `at`, skipping
+/// whitespace, comments, and strings.
+fn after_else_keyword(bytes: &[u8], at: usize) -> Option<usize> {
+    let keyword_at = else_at(bytes, at)?;
     let mut after = keyword_at + "else".len();
     loop {
         if let Some(len) = non_code_len(bytes, after) {
@@ -77,11 +74,35 @@ pub(super) fn braceless_else(source: &str, at: usize) -> bool {
         }
         break;
     }
+    Some(after)
+}
+
+/// `else` with neither a block nor an `if` after it. Only a diverging arm
+/// (`else return;` / `else break;` / `else continue;`) cannot fall through,
+/// so only those keep the if-arm exit as the sole live state. A braceless
+/// expression arm (`else request = client.get(url);`) is legal Rust and
+/// falls through like an `else` block: the arm merge must still run, or the
+/// forward scan overwrites the if-arm exit with the else-arm URL.
+pub(super) fn braceless_else(source: &str, at: usize) -> bool {
+    let bytes = source.as_bytes();
+    let Some(after) = after_else_keyword(bytes, at) else {
+        return false;
+    };
     match bytes.get(after) {
         Some(b'{') => false,
-        Some(_) => !is_keyword_at(bytes, after, b"if"),
+        Some(_) => ["return", "break", "continue"]
+            .iter()
+            .any(|keyword| is_keyword_at(bytes, after, keyword.as_bytes())),
         None => true,
     }
+}
+
+/// A non-diverging braceless arm is exactly one statement: its end is the
+/// arm's `;`, where the arm merge must run even with no `{` to close it.
+pub(super) fn else_arm_end(source: &str, at: usize) -> Option<usize> {
+    let bytes = source.as_bytes();
+    let after = after_else_keyword(bytes, at)?;
+    Some(stmt_end(bytes, after))
 }
 
 pub(super) fn brace_kind(source: &str, brace: usize) -> BraceKind {
@@ -276,3 +297,7 @@ fn ends_with_keyword(source: &str, keyword: &str) -> bool {
             .is_none_or(|ch| !super::super::is_ident_char(ch))
     })
 }
+
+#[path = "bind_scope_probes.rs"]
+#[cfg(test)]
+mod probes;

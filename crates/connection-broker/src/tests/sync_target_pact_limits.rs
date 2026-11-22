@@ -67,6 +67,10 @@ fn contract_scanner_files_stay_under_400_lines() {
             include_str!("sync_target_pact_chain/peel_probes.rs"),
         ),
         (
+            "sync_target_pact_chain/chain_probes.rs",
+            include_str!("sync_target_pact_chain/chain_probes.rs"),
+        ),
+        (
             "sync_target_pact_chain/tuple.rs",
             include_str!("sync_target_pact_chain/tuple.rs"),
         ),
@@ -81,6 +85,10 @@ fn contract_scanner_files_stay_under_400_lines() {
         (
             "sync_target_pact_https/bind_probes.rs",
             include_str!("sync_target_pact_https/bind_probes.rs"),
+        ),
+        (
+            "sync_target_pact_https/bind_scope_probes.rs",
+            include_str!("sync_target_pact_https/bind_scope_probes.rs"),
         ),
         (
             "sync_target_pact_https/bind_scope.rs",

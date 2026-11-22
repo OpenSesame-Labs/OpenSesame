@@ -36,11 +36,25 @@ fn tuple_open_and_index(source: &str, path_start: usize) -> Option<(usize, usize
             b'(' | b'[' | b'{' if depth > 0 => depth -= 1,
             b'(' if depth == 0 => return Some((index, commas)),
             b',' if depth == 0 => commas += 1,
+            // `==` / `!=` / `<=` / `>=` / `=>` inside an earlier element are
+            // not the tuple-introducing `=`: skip them like `peel::eq_before`.
+            b'=' if depth == 0 && compound_eq(bytes, index) => {}
             b'=' | b';' | b'{' if depth == 0 => return None,
             _ => {}
         }
     }
     None
+}
+
+/// `=` that is part of `==` / `!=` / `<=` / `>=` / `=>`, like `eq_before`.
+fn compound_eq(bytes: &[u8], eq: usize) -> bool {
+    if matches!(
+        eq.checked_sub(1).and_then(|prev| bytes.get(prev)),
+        Some(b'=' | b'!' | b'<' | b'>')
+    ) {
+        return true;
+    }
+    matches!(bytes.get(eq + 1), Some(b'=' | b'>'))
 }
 
 fn paren_inside(at_paren: &str) -> Option<&str> {
@@ -245,6 +259,38 @@ mod probes {
                 "{sample}"
             );
         }
+    }
+
+    /// `==` / `!=` / `<=` / `>=` inside an earlier element are not the
+    /// tuple's assignment `=`: the walk must skip them like `eq_before`, or
+    /// the alias binding silently disappears (GLM council chunk02).
+    #[test]
+    fn chunk02_comparison_in_earlier_tuple_element_keeps_send_alias() {
+        let hits = [
+            "fn f() { let (a, dispatch) = (x == y, Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (x != y, Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (x <= y, Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = (x >= y, Path::send); dispatch(request); }",
+            "fn f() { let (a, b, dispatch) = (x == y, z, Path::send); dispatch(request); }",
+            "fn f() { let (a, dispatch) = ((x == y).then_some(z), Path::send); dispatch(request); }",
+        ];
+        for sample in hits {
+            assert_eq!(
+                super::super::dispatch_alias_calls(sample).len(),
+                1,
+                "{sample}"
+            );
+        }
+        let bare =
+            "async fn f() { let (a, dispatch) = (x == y, Path::send); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(bare), (1, 1), "{bare}");
+        let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let (a, dispatch) = (x == y, Path::send); dispatch(request).await?; }";
+        assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
+        let single_eq = "fn f() { let a = (x == y, Path::send); dispatch(request); }";
+        assert!(
+            super::super::dispatch_alias_calls(single_eq).is_empty(),
+            "{single_eq}"
+        );
     }
 
     /// `let (dispatch @ _,) = …` binds `dispatch` across the whole

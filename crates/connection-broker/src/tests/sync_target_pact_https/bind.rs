@@ -13,7 +13,9 @@ pub(super) use bind_tail::{call_tail, ident_prefix, is_single_eq, stmt_end, stri
 mod scope;
 #[path = "bind_url.rs"]
 mod url;
-use scope::{brace_kind, braceless_else, else_follows, merge_both, merge_partial, note_binding};
+use scope::{
+    brace_kind, braceless_else, else_arm_end, else_follows, merge_both, merge_partial, note_binding,
+};
 pub(super) use url::{
     builder_url, call_inside, eq_after_name, plain_ident, skip_ascription, split_arg,
 };
@@ -83,10 +85,19 @@ fn close_block(bytes: &[u8], depth: i32, brace: usize, start: &mut usize) -> i32
     depth
 }
 
-/// `.` / `?` / `else` keep the block in the same expression.
+/// `.` / `?` / `else` after a block close keep it in the same expression.
+/// Comments between the `}` and the next link are not a statement break.
 fn expr_continues(bytes: &[u8], mut at: usize) -> bool {
-    while at < bytes.len() && bytes[at].is_ascii_whitespace() {
-        at += 1;
+    loop {
+        if let Some(len) = non_code_len(bytes, at) {
+            at += len;
+            continue;
+        }
+        if bytes.get(at).is_some_and(u8::is_ascii_whitespace) {
+            at += 1;
+            continue;
+        }
+        break;
     }
     if matches!(bytes.get(at), Some(b'.' | b'?')) {
         return true;
@@ -119,6 +130,10 @@ struct UrlBinding {
 struct PendingElse {
     entry: Vec<UrlBinding>,
     if_exit: Vec<UrlBinding>,
+    /// Braceless expression arm (`else request = …;`): the arm is one
+    /// statement ending at this `;`, where the merge must run even with no
+    /// `{` to close it.
+    braceless_end: Option<usize>,
 }
 
 struct Cond {
@@ -148,6 +163,7 @@ impl UrlScope {
     }
 
     fn on_byte(&mut self, prefix: &str, name: &str, index: usize) -> usize {
+        self.close_braceless_arm(index);
         match prefix.as_bytes()[index] {
             b'{' => self.open_brace(prefix, index),
             b'}' => self.close_brace(prefix, index),
@@ -204,6 +220,24 @@ impl UrlScope {
         }
     }
 
+    /// A braceless expression arm ends at its `;`: merge the if-arm exit with
+    /// the else-arm exit there, or the arm's own assignments would overwrite
+    /// the state the merge should have failed closed.
+    fn close_braceless_arm(&mut self, index: usize) {
+        let end = match &self.pending_else {
+            Some(pending) => pending.braceless_end,
+            None => None,
+        };
+        let Some(end) = end else {
+            return;
+        };
+        if index < end {
+            return;
+        }
+        let pending = self.pending_else.take().expect("pending else checked");
+        self.layers = merge_both(&pending.entry, &pending.if_exit, &self.layers);
+    }
+
     fn close_brace(&mut self, prefix: &str, index: usize) -> usize {
         // `request = client.get(url)` with no earlier binding is stored at the
         // branch depth. Keep that assignment for the arm merge. A `let` here
@@ -249,6 +283,7 @@ impl UrlScope {
             self.pending_else = Some(PendingElse {
                 entry: cond.entry.clone(),
                 if_exit: self.layers.clone(),
+                braceless_end: else_arm_end(prefix, close + 1),
             });
             self.layers = cond.entry;
             return;
