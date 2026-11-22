@@ -5,7 +5,7 @@ use super::{
     Realm,
 };
 use crate::{AccessDomainId, DomainControlId, DomainError, PrincipalId, ProjectId};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 
 fn now() -> DateTime<Utc> {
     DateTime::parse_from_rfc3339("2026-03-01T00:00:00Z")

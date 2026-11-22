@@ -37,7 +37,7 @@ pub fn require_vault_relay_caller(
         BindingPurpose::VaultRelay,
         current,
         current,
-        chrono::Utc::now(),
+        opensesame_time::Utc::now(),
     )
     .map_err(|error| deny_response(&error))?;
     caller

@@ -36,20 +36,32 @@ pub fn unframe(mut raw: &[u8]) -> Vec<Value> {
 pub struct Fixture {
     pub store: tempfile::TempDir,
     pub config: tempfile::TempDir,
+    pub witness: tempfile::TempDir,
 }
 
 impl Fixture {
     pub fn new() -> Self {
         let store = tempfile::tempdir().expect("store tempdir");
-        opensesame_pm_bridges::testing::init_store_fixture(store.path());
+        let witness = tempfile::tempdir().expect("witness tempdir");
+        opensesame_pm_bridges::testing::init_store_fixture(store.path(), witness.path());
         Self {
             store,
             config: tempfile::tempdir().expect("config tempdir"),
+            witness,
         }
     }
 
     pub fn store_path(&self) -> &Path {
         self.store.path()
+    }
+
+    pub fn store_access(&self) -> opensesame_pm_bridges::store::StoreAccess {
+        opensesame_pm_bridges::store::StoreAccess::open_with_test_witness_root(
+            self.store.path(),
+            self.witness.path(),
+            Some(opensesame_pm_bridges::testing::FIXTURE_PASSPHRASE),
+        )
+        .expect("open store")
     }
 
     /// Environment every bridge subprocess runs under.
@@ -67,6 +79,10 @@ impl Fixture {
             (
                 "OPENSESAME_BRIDGES_DIR",
                 self.config.path().to_string_lossy().to_string(),
+            ),
+            (
+                "OPENSESAME_TEST_ROLLBACK_WITNESS_DIR",
+                self.witness.path().to_string_lossy().to_string(),
             ),
         ]
     }

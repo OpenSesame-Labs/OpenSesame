@@ -45,7 +45,7 @@ impl FailureLimiter {
     /// # Errors
     /// Returns a storage or clock-overflow error.
     pub(crate) async fn reserve(&self, subject: &BudgetSubject<'_>) -> anyhow::Result<bool> {
-        self.reserve_at(subject, chrono::Utc::now().timestamp_millis())
+        self.reserve_at(subject, opensesame_time::Utc::now().timestamp_millis())
             .await
     }
 

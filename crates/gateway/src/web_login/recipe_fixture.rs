@@ -4,7 +4,6 @@
 //! trust level into a row, so what they exercise is the rule the runner
 //! enforces.
 
-use chrono::{Duration, Utc};
 use opensesame_rotation_web::recipe_doc::{
     key_id_of, CanaryAttestation, RecipeDocument, SigningKey, SCHEMA_VERSION,
 };
@@ -14,6 +13,7 @@ use opensesame_storage::web_login_runs::recipes::{
 };
 use opensesame_storage::web_login_runs::signers::SignerPin;
 use opensesame_storage::Db;
+use opensesame_time::{Duration, Utc};
 
 /// The signer every fixture recipe is signed by.
 pub(crate) fn signer() -> SigningKey {

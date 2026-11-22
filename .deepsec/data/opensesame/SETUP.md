@@ -48,8 +48,8 @@ still has placeholder sections.
 The user will run:
 
 ```bash
-npm run deepsec scan    --project-id opensesame
-npm run deepsec process --project-id opensesame
+npm run deepsec -- scan    --project-id opensesame
+npm run deepsec -- process --project-id opensesame
 ```
 
 You can delete this file once setup is complete.

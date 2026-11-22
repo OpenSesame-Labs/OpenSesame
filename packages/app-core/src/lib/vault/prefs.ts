@@ -11,7 +11,7 @@ export type VaultPrefs = {
    * Off by default — idle vault lock should not sign you out of everything.
    */
   signOutOnLock: boolean;
-  /** Seconds before a copied secret is cleared from the clipboard. 0 disables. */
+  /** Seconds before attempting to clear a copied secret. 0 disables the timer. */
   clipboardClearSeconds: number;
   theme: "system" | "light" | "dark";
   /**

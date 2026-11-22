@@ -41,8 +41,9 @@ except `federation.test.ts`, `session-exit.test.ts` and `opener-policy.test.ts`
 
 When an authorized Windows Entra-joined device is available:
 
-1. Record OS, Edge/Chrome versions, `@azure/msal-browser` 5.22.0, tenant and
-   SPA app registration class, CloudAP/SSO extension state, consent status.
+1. Record OS, Edge/Chrome versions, the installed `@azure/msal-browser`
+   version, tenant and SPA app registration class, CloudAP/SSO extension
+   state, consent status.
 2. Use synthetic accounts. Redact identifiers and tokens.
 3. Walk: first load with deployment policy; multi-account selection;
    interaction-required / MFA; private mode; sign-out then reopen; strict

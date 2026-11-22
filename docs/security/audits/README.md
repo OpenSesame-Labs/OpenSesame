@@ -1,9 +1,12 @@
 # Security audits
 
-A running, append-only series. Each file records one point-in-time audit:
+A running, append-only series. Each file records one point-in-time audit or a
+date compendium of older point-in-time reports:
 what was scanned or reviewed, what was found, how each finding was fixed at
 its enforcement boundary, and the command that proves it. Audits are history
-— add a new dated file rather than editing an old one.
+— add a new dated file rather than editing an old one. The August 2026
+compendia preserve their original reports verbatim, including the original
+filenames; their individual commits remain in Git history.
 
 Name new files `YYYY-MM-DD-<topic>.md` and run `npm run docs:index` to list them
 here. The architecture-level documents they refine live one level up in
@@ -13,105 +16,8 @@ here. The architecture-level documents they refine live one level up in
 
 | Date | Audit |
 |---|---|
-| 2026-08-07 | [Security audit — AAuth helpers + agent claim poll](2026-08-07-aauth-claim-poll.md) |
-| 2026-08-07 | [Security audit — ast-grep after UX merge](2026-08-07-ast-grep-popup.md) |
-| 2026-08-07 | [Security audit — ast-grep loop](2026-08-07-ast-grep.md) |
-| 2026-08-07 | [Security audit — 2026-08-07 (pass B)](2026-08-07-b.md) |
-| 2026-08-07 | [Security audit — cargo-audit loop](2026-08-07-cargo-audit.md) |
-| 2026-08-07 | [Security audit — claim verify HTML + API headers](2026-08-07-claim-verify-xss.md) |
-| 2026-08-07 | [Security audit — clippy / semgrep / ast-grep loop](2026-08-07-clippy-semgrep.md) |
-| 2026-08-07 | [Security audit — cargo clippy loop](2026-08-07-clippy.md) |
-| 2026-08-07 | [Security audit — credential-agent bind fence](2026-08-07-credential-agent-bind.md) |
-| 2026-08-07 | [Security audit — cve-lite + daemon bind](2026-08-07-cve-lite-daemon-bind.md) |
-| 2026-08-07 | [Security audit — cve-lite loop](2026-08-07-cve-lite.md) |
-| 2026-08-07 | [Security audit — gateway bind + production CORS](2026-08-07-gateway-bind-cors.md) |
-| 2026-08-07 | [Security audit — Host API CORS + security headers](2026-08-07-gateway-cors-headers.md) |
-| 2026-08-07 | [Security audit — Identity claim get/poll + provider health](2026-08-07-identity-claim-poll.md) |
-| 2026-08-07 | [Security audit — remaining listen fences](2026-08-07-listen-fence-remaining.md) |
-| 2026-08-07 | [Security audit loop 2](2026-08-07-loop-2.md) |
-| 2026-08-07 | [Security audit loop](2026-08-07-loop.md) |
-| 2026-08-07 | [Security audit — mobile MFA WebAuthn ceremony](2026-08-07-mobile-mfa-webauthn.md) |
-| 2026-08-07 | [Security audit — mock upstream IdP PKCE S256](2026-08-07-mock-idp-pkce.md) |
-| 2026-08-07 | [Security audit — OSV-Scanner loop](2026-08-07-osv-scanner.md) |
-| 2026-08-07 | [Security audit — Pages PWA localStorage](2026-08-07-pages-localstorage.md) |
-| 2026-08-07 | [Security audit — Pages unlock lockout](2026-08-07-pages-unlock-lockout.md) |
-| 2026-08-07 | [Security audit — Pages vault unlock PIN](2026-08-07-pages-unlock-pin.md) |
-| 2026-08-07 | [Security audit — provisional session id is not a credential](2026-08-07-provisional-session-id.md) |
-| 2026-08-07 | [Security audit — sdk-browser storage default](2026-08-07-sdk-browser-storage.md) |
-| 2026-08-07 | [Security audit — SPA CSP + mock-idp headers](2026-08-07-spa-csp-mock-idp.md) |
-| 2026-08-07 | [Security audit — supply-chain + CI wiring](2026-08-07-supply-chain-ci.md) |
-| 2026-08-07 | [Security audit — Host API task routes require auth](2026-08-07-task-api-auth.md) |
-| 2026-08-07 | [Security audit — stub TOTP gated for production](2026-08-07-totp-dev-only.md) |
-| 2026-08-07 | [Security audit — WebAuthn registration ceremony](2026-08-07-webauthn-registration.md) |
-| 2026-08-07 | [Security audit](2026-08-07.md) |
-| 2026-08-08 | [Audit tick 42 — agent-claim consent proof, receipt error text](2026-08-08-agent-claim-consent.md) |
-| 2026-08-08 | [Audit 2026-08-08 — the audit chain restarted at genesis every boot](2026-08-08-audit-chain-continuity.md) |
-| 2026-08-08 | [Audit 2026-08-08 — tamper evidence for the control-plane trail](2026-08-08-audit-chain.md) |
-| 2026-08-08 | [Audit tick 64 — a trail that can show an attack](2026-08-08-audit-trail-fidelity.md) |
-| 2026-08-08 | [Audit 2026-08-08 — three deferred authority bounds](2026-08-08-authority-bounds.md) |
-| 2026-08-08 | [Audit tick 67 — the browser client trusted whatever answered discovery](2026-08-08-browser-ceremony.md) |
-| 2026-08-08 | [Audit 2026-08-08 — four browser-surface follow-ups](2026-08-08-browser-followups.md) |
-| 2026-08-08 | [Audit 2026-08-08 — where the browser apps send secrets, and what their outbox holds](2026-08-08-browser-surface-destinations.md) |
-| 2026-08-08 | [Security audit — claim verification page disclosure](2026-08-08-claim-verify-disclosure.md) |
-| 2026-08-08 | [Audit tick 68 — the CLI took the issuer's word for where to send the code](2026-08-08-cli-ceremony.md) |
-| 2026-08-08 | [Audit tick 70 — the CLIs printed and stored tokens more freely than they meant to](2026-08-08-cli-session-hygiene.md) |
-| 2026-08-08 | [Audit tick 62 — what a client may say about itself](2026-08-08-client-registration.md) |
-| 2026-08-08 | [Audit tick 61 — the operator token stays on this machine](2026-08-08-daemon-operator-forwarding.md) |
-| 2026-08-08 | [Security audit — device code storage + approval fence](2026-08-08-device-code-digests.md) |
-| 2026-08-08 | [Audit 2026-08-08 — an issuer could aim our requests at our own network](2026-08-08-discovered-endpoint-fence.md) |
-| 2026-08-08 | [Security audit — DPoP replay cache bounds](2026-08-08-dpop-replay-cache.md) |
-| 2026-08-08 | [Audit 2026-08-08 — proofs that were not bound to a token](2026-08-08-dpop-token-binding.md) |
-| 2026-08-08 | [Audit tick 38 — backend error strings in responses, redaction gaps](2026-08-08-error-string-disclosure.md) |
-| 2026-08-08 | [Security audit — extension Host API loopback fence](2026-08-08-extension-host-fence.md) |
-| 2026-08-08 | [Audit — frozen intent custody and ceiling storage (2026-08-08)](2026-08-08-frozen-intent-custody.md) |
-| 2026-08-08 | [Audit tick 43 — frozen intents were advisory, not enforced](2026-08-08-frozen-intent-enforcement.md) |
-| 2026-08-08 | [Audit tick 63 — a grant covers what it was narrowed to](2026-08-08-grant-covers-intent.md) |
-| 2026-08-08 | [Audit tick 51 — a grant's resource scope was decorative](2026-08-08-grant-resource-scope.md) |
-| 2026-08-08 | [Audit tick 41 — idempotency replay across principals, claim consent proof](2026-08-08-idempotency-and-claim-consent.md) |
-| 2026-08-08 | [Audit tick 36 — self-asserted identity links promoted principals to `verified`](2026-08-08-identity-link-assurance.md) |
-| 2026-08-08 | [Audit 2026-08-08 — issuer persistence, and a worker that admitted what it does](2026-08-08-issuer-persistence-and-worker.md) |
-| 2026-08-08 | [Audit tick 44 — the deprecated credential agent was an unauthenticated daemon](2026-08-08-legacy-credential-agent.md) |
-| 2026-08-08 | [Audit tick 48 — lifetime quotas, unfenced MFA verification](2026-08-08-live-quotas-mfa-fences.md) |
-| 2026-08-08 | [Audit tick 32 — structured log redaction only reached one level deep](2026-08-08-log-redaction-depth.md) |
-| 2026-08-08 | [Audit 2026-08-08 — what the MCP host hands back to the model](2026-08-08-mcp-agent-boundary.md) |
-| 2026-08-08 | [Audit tick 52 — MCP servers aimed by their environment](2026-08-08-mcp-endpoint-fences.md) |
-| 2026-08-08 | [Audit tick 60 — a resource is not an origin](2026-08-08-mcp-resource-scope.md) |
-| 2026-08-08 | [Audit tick 35 — OAuth client registrations had no owner](2026-08-08-oauth-client-ownership.md) |
-| 2026-08-08 | [Audit tick 34 — OAuth provider minted tokens for any audience and any key](2026-08-08-oauth-provider-fail-closed.md) |
-| 2026-08-08 | [Audit — organization and OAuth client quotas (2026-08-08)](2026-08-08-org-client-quotas.md) |
-| 2026-08-08 | [Audit tick 37 — passkey signature counter, device approval fence](2026-08-08-passkey-counter-device-fence.md) |
-| 2026-08-08 | [Audit tick 59 — passkeys that verify their user](2026-08-08-passkey-user-verification.md) |
-| 2026-08-08 | [Audit tick 65 — placeholder substitution is bound to the placeholder that was issued](2026-08-08-placeholder-substitution.md) |
-| 2026-08-08 | [Audit tick 47 — the PEP answered "allow" for everything it had no rule for](2026-08-08-policy-default-allow.md) |
-| 2026-08-08 | [Audit tick 46 — three fences that compared prefixes instead of parsing](2026-08-08-prefix-match-fences.md) |
-| 2026-08-08 | [Audit tick 53 — temporary projects that never ran out](2026-08-08-project-expiry.md) |
-| 2026-08-08 | [Audit — proof keys and signature coverage (2026-08-08)](2026-08-08-proof-key-and-coverage.md) |
-| 2026-08-08 | [Audit tick 49 — ephemeral receipt signing key](2026-08-08-receipt-signing-key.md) |
-| 2026-08-08 | [Audit tick 50 — receipt verification keyed by authority, and published](2026-08-08-receipt-verifier-registry.md) |
-| 2026-08-08 | [Audit tick 66 — the resource-server SDK verified less than it looked like it did](2026-08-08-resource-server-sdk.md) |
-| 2026-08-08 | [Audit 2026-08-08 — the sealed store's "ciphertext only" guarantee](2026-08-08-sealed-store.md) |
-| 2026-08-08 | [Audit tick 40 — session bearers at rest, agent claim ownership](2026-08-08-session-digest-agent-ownership.md) |
-| 2026-08-08 | [Audit — SSRF host parsing (2026-08-08)](2026-08-08-ssrf-host-parsing.md) |
-| 2026-08-08 | [Security audit — metadata SSRF denylist IPv6 bypass](2026-08-08-ssrf-ipv6-bypass.md) |
-| 2026-08-08 | [Security audit — sync store quotas](2026-08-08-sync-quotas.md) |
-| 2026-08-08 | [Audit tick 69 — a number from the caller decided how long authority lives](2026-08-08-task-authority-bounds.md) |
-| 2026-08-08 | [Audit tick 39 — task authority expiry, fenced result buffers](2026-08-08-task-authority-expiry.md) |
-| 2026-08-08 | [Audit tick 33 — authenticated ≠ authorized on task and receipt routes](2026-08-08-task-receipt-ownership.md) |
-| 2026-08-08 | [Audit — user code digests (2026-08-08)](2026-08-08-user-code-digests.md) |
-| 2026-08-08 | [Audit tick 45 — the vault trusted KDF parameters it got back from the server](2026-08-08-vault-kdf-params.md) |
-| 2026-08-08 | [Audit 2026-08-08 — a stored nonce could panic the vault client](2026-08-08-vault-nonce-length.md) |
-| 2026-08-08 | [Audit 2026-08-08 — the vault unlock, and one definition of loopback](2026-08-08-vault-unlock.md) |
-| 2026-08-08 | [Audit 2026-08-08 — the cleanup worker did nothing, quietly](2026-08-08-worker-does-real-work.md) |
-| 2026-08-17 | [Audit — 2026-08-17 — deepsec install + scan + AI process](2026-08-17-deepsec.md) |
-| 2026-08-18 | [DeepSec follow-up and independent security audit (2026-08-18)](2026-08-18-deepsec-followup.md) |
-| 2026-08-19 | [Audit: mutation tooling transitive denial of service](2026-08-19-mutation-tooling-qs.md) |
-| 2026-08-19 | [Audit: authorization text redaction fuzz boundary](2026-08-19-redaction-fuzz.md) |
-| 2026-08-21 | [Audit — 2026-08-21 — certificate key custody and issuance ceremony](2026-08-21-certificate-key-custody.md) |
-| 2026-08-22 | [Audit: the federated relying-party leg accepted an unverified id_token](2026-08-22-federated-leg-id-token-signature.md) |
-| 2026-08-22 | [MCP administrative response minimization](2026-08-22-mcp-response-minimization.md) |
-| 2026-08-25 | [Certificate issuance-history tenant isolation audit](2026-08-25-certificate-tenant-isolation.md) |
-| 2026-08-30 | [Audit 2026-08-30 — mcp-host Streamable HTTP transport](2026-08-30-mcp-http-transport.md) |
-| 2026-08-31 | [Audit 2026-08-31 — AI-native contextual support](2026-08-31-ai-contextual-support.md) |
+| 2026-08-07 | [Security audit compendium](2026-08-07-security-audit-compendium.md) |
+| 2026-08-08 | [Security audit compendium](2026-08-08-security-audit-compendium.md) |
 | 2026-09-04 | [Audit 2026-09-04 — seven open dependency advisories](2026-09-04-dependency-advisories.md) |
 | 2026-09-07 | [Subscription-backed security review](2026-09-07-subscription-scan.md) |
 | 2026-09-08 | [Backup inventory and credential transport bounds](2026-09-08-backup-inventory-bounds.md) |
@@ -167,3 +73,5 @@ here. The architecture-level documents they refine live one level up in
 | 2026-10-24 | [The Tailscale browser node's port channel, re-landed with no sender left reachable](2026-10-24-tailnet-worker-port-reland.md) |
 | 2026-10-25 | [Codex Security Cloud finding remediation](2026-10-25-codex-cloud-remediation.md) |
 | 2026-11-11 | [Dependency patches were declared but not installed](2026-11-11-dependency-patches-not-installed.md) |
+| 2026-11-17 | [MQTT debug logs exposed credentials and live frames](2026-11-17-mqtt-debug-logging.md) |
+| 2026-11-20 | [Gitleaks history review of Bitwarden vault fixtures](2026-11-20-gitleaks-history-bitwarden-fixtures.md) |

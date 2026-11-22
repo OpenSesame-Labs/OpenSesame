@@ -53,10 +53,10 @@ pub struct StreamLimits {
 impl Default for StreamLimits {
     fn default() -> Self {
         Self {
-            max_age: Duration::from_secs(7 * 24 * 60 * 60),
+            max_age: Duration::from_hours(7 * 24),
             max_bytes: 1024 * 1024 * 1024,
             max_message_size: 1024 * 1024,
-            duplicate_window: Duration::from_secs(120),
+            duplicate_window: Duration::from_mins(2),
         }
     }
 }
@@ -82,7 +82,7 @@ impl Default for Redelivery {
             ack_wait: Duration::from_secs(30),
             max_deliver: 8,
             nak_delay: Duration::from_secs(5),
-            max_nak_delay: Duration::from_secs(5 * 60),
+            max_nak_delay: Duration::from_mins(5),
         }
     }
 }
@@ -289,10 +289,10 @@ mod tests {
         let cfg = stream_config("S", "opensesame.events.>".into(), &limits);
         assert_eq!(cfg.discard, stream::DiscardPolicy::Old);
         assert_eq!(cfg.retention, stream::RetentionPolicy::Limits);
-        assert!(cfg.max_age > Duration::ZERO, "unbounded age");
+        assert_eq!(cfg.max_age.as_secs(), 604_800);
         assert!(cfg.max_bytes > 0, "unbounded bytes");
         assert!(cfg.max_message_size > 0, "unbounded message");
-        assert_eq!(cfg.duplicate_window, Duration::from_secs(120));
+        assert_eq!(cfg.duplicate_window.as_secs(), 120);
     }
 
     #[test]
@@ -332,6 +332,7 @@ mod tests {
     #[test]
     fn retry_delay_doubles_to_a_cap_and_spans_minutes_not_seconds() {
         let r = Redelivery::default();
+        assert_eq!(r.max_nak_delay.as_secs(), 300);
         assert_eq!(retry_delay(&r, 1), Duration::from_secs(5));
         assert_eq!(retry_delay(&r, 2), Duration::from_secs(10));
         assert_eq!(retry_delay(&r, 4), Duration::from_secs(40));
@@ -339,7 +340,7 @@ mod tests {
         assert_eq!(retry_delay(&r, i64::MAX), r.max_nak_delay);
         assert_eq!(retry_delay(&r, 0), r.nak_delay);
         let budget: Duration = (1..r.max_deliver).map(|d| retry_delay(&r, d)).sum();
-        assert!(budget >= Duration::from_secs(8 * 60), "{budget:?}");
+        assert!(budget >= Duration::from_mins(8), "{budget:?}");
     }
 
     #[test]

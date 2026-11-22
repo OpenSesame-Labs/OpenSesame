@@ -9,9 +9,9 @@
 //! same hooks, the same observation run — differing only in who is watching,
 //! which is the one thing the trust ladder asks about.
 
-use chrono::Utc;
 use opensesame_domain::OrganizationId;
 use opensesame_lifecycle::{ExpiryStage, ExpirySubject, LifecycleEvent, SubjectKind};
+use opensesame_time::Utc;
 
 use super::recipe_trust::Attendance;
 use super::WebLoginLauncher;

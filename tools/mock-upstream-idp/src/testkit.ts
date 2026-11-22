@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import { randomBytes } from "node:crypto";
 import type { AddressInfo } from "node:net";
 import { createLogger } from "@opensesame/observability";

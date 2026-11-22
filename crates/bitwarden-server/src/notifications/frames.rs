@@ -2,7 +2,7 @@
 //! each message is a `MessagePack` array behind a variable-length size prefix.
 //! Only the handful of `MessagePack` forms these frames use are written here.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 
 /// Bitwarden's `PushType`: what changed, so a client knows what to fetch.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -190,7 +190,7 @@ pub fn is_handshake(text: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone as _;
+    use opensesame_time::TimeZone as _;
 
     #[test]
     fn a_ping_is_a_prefixed_one_element_array() {

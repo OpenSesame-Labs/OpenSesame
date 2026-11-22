@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "reviewed_revision": "38f23883f920d97a37dc18840b326fc53f789d83",
+  "sources": [
+    {
+      "path": "packages/control-plane/src/services/interaction-clock.ts",
+      "sha256": "d3077e54dde48e23074a46053d24ff6d1d52cf32d3070c36c1eb5d9c704daeb6"
+    },
+    {
+      "path": "packages/control-plane/src/routes/interaction-activation-spend.ts",
+      "sha256": "94bf40bad7d5d6c9100d05d8f246963f1e3deb084dd1c37d94f9dbdd6c5837c5"
+    },
+    {
+      "path": "packages/control-plane/src/routes/interaction-activation-deadline.ts",
+      "sha256": "5406681cc0544c73989d50ad124ae69ea68ca29b8bfc364014d7520f560842fc"
+    },
+    {
+      "path": "packages/control-plane/src/routes/interaction-activation.ts",
+      "sha256": "c1ae20236fdc70319bdd1fc3b812816ea29081f70b9bd10b94eaeca0c0cdfcf3"
+    },
+    {
+      "path": "packages/control-plane/src/routes/interaction-activation-totp.ts",
+      "sha256": "9fe3baff7c8a025ea95425d9ec9e81355658cd5900471c339ca26c607224ea7c"
+    },
+    {
+      "path": "packages/control-plane/src/routes/interaction-handoff.ts",
+      "sha256": "9080ec00843dc862d552fc4e414f0eb7692856bee43ee95092fcb678e1ecaa47"
+    },
+    {
+      "path": "packages/control-plane/src/services/interaction-settlement.ts",
+      "sha256": "c999baa88636db324f2ce9d87b95f61ac1db2bf255776bf6095e139e018ebb26"
+    },
+    {
+      "path": "packages/control-plane/src/__tests__/interaction-settlement-clock.security.test.ts",
+      "sha256": "01e70f8041a78b26e99aaa248651ed8e52d8c34355955d04936404acb1881603"
+    },
+    {
+      "path": "packages/os-domain/src/machines/interaction.ts",
+      "sha256": "869845f4bd3c3f6cce804063de93013ef26c9b78387eaf8667ef7fbf4e8e5baf"
+    },
+    {
+      "path": "packages/os-domain/src/errors.ts",
+      "sha256": "b53d0cec6685c2460faf554aabbcbbc420732982f9e3ff13c63201b578f63854"
+    }
+  ],
+  "reviewed_source_state": "Application samples are checked between awaited settlement stages. Hashes bind the reviewed route, settlement service, and controlled-clock regression; database commit-time clocks and rollback beyond the transaction boundary are not modeled."
+}

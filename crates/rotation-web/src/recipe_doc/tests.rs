@@ -1,5 +1,5 @@
-use chrono::{Duration, Utc};
 use ed25519_dalek::SigningKey;
+use opensesame_time::{Duration, Utc};
 use serde_json::{json, Value};
 
 use super::*;

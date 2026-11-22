@@ -24,8 +24,8 @@
 use std::collections::BTreeSet;
 use std::time::Duration;
 
-use chrono::{DateTime, Utc};
 use opensesame_domain::{Grant, GrantId, OrganizationId, ValidatedGrantChain};
+use opensesame_time::{DateTime, Utc};
 
 use crate::budget::ResourceBudget;
 use crate::capability::{AmbientKind, BrokeredCapability};

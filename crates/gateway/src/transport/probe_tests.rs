@@ -1,7 +1,7 @@
 //! The enforcement probe: what it may target and when its result goes stale.
 
-use chrono::{Duration, Utc};
 use opensesame_domain::transport::{EnforcementStatus, ServiceBindingSet};
+use opensesame_time::{Duration, Utc};
 
 use super::probe::{self, ProbeTarget, FRESH_FOR, PROBE_PATH};
 use super::test_support::{lookup, runtime};

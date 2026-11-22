@@ -84,18 +84,15 @@ fn rotation_reencrypts_entries_and_attachments_under_the_new_root() {
     let outcome = rotate_store_root(dir.path(), PW, RotationEdit::default()).unwrap();
     assert_eq!((outcome.entries, outcome.attachments), (1, 1));
     assert_eq!(outcome.root_epoch, 2);
-
     let new_key = unlock_store_key(dir.path(), PW).unwrap();
     assert_ne!(new_key.0, old_key.0);
     assert_eq!(store.show("Dev/token", &new_key).unwrap().secret, "hunter2");
     assert_eq!(read_attachment(&store, &new_key).unwrap(), payload());
-
     // The old root — and the old key file as history keeps it — opens none of it.
     let historic = key_from_copy(&old_file, PW);
     assert_eq!(historic.0, old_key.0);
     assert!(store.show("Dev/token", &old_key).is_err());
     assert!(read_attachment(&store, &old_key).is_err());
-
     // Old chunk ciphertext is gone from the pool; nothing staged is left behind.
     let new_objects = objects(dir.path());
     assert_eq!(new_objects.len(), old_objects.len());
@@ -112,12 +109,10 @@ fn rotating_rewrap_revokes_the_old_passphrase_and_old_key_file() {
         ..RotationEdit::default()
     };
     rotate_store_root(dir.path(), PW, edit).unwrap();
-
     assert!(unlock_store_key(dir.path(), PW).is_err());
     let key = unlock_store_key(dir.path(), b"new passphrase").unwrap();
     assert_eq!(store.show("Dev/token", &key).unwrap().secret, "hunter2");
     store.insert("Dev/later", &entry("after"), &key).unwrap();
-
     let leaked = key_from_copy(&old_file, PW);
     assert!(store.show("Dev/token", &leaked).is_err());
     assert!(store.show("Dev/later", &leaked).is_err());
@@ -232,8 +227,16 @@ fn a_failure_while_staging_leaves_the_store_untouched() {
 #[test]
 fn a_leftover_staging_directory_blocks_a_new_rotation() {
     let (dir, store, old_key) = seeded();
-    fs::create_dir(dir.path().join(ROTATION_STAGING_DIR)).unwrap();
+    let ciphertext = dir.path().join("Dev/token.osseal");
+    let before = fs::read(&ciphertext).unwrap();
+    let staging = dir.path().join(ROTATION_STAGING_DIR);
+    fs::create_dir(&staging).unwrap();
     assert!(rotate_store_root(dir.path(), PW, RotationEdit::default()).is_err());
+    // Reads consult the authenticated witness under the same lock as writes,
+    // so an interrupted rotation must be resolved before opening an entry.
+    assert!(store.show("Dev/token", &old_key).is_err());
+    assert_eq!(fs::read(&ciphertext).unwrap(), before);
+    fs::remove_dir(staging).unwrap();
     assert_eq!(store.show("Dev/token", &old_key).unwrap().secret, "hunter2");
 }
 
@@ -298,7 +301,7 @@ fn a_writer_is_refused_while_a_rotation_runs() {
                 .is_err(),
         );
         refused.push(attach_small(&store, "Dev/late-file", &old_key).is_err());
-        refused.push(store.rm("Dev/token").is_err());
+        refused.push(store.rm_with_key("Dev/token", &old_key).is_err());
         refused.push(protect_add_store_recovery(dir.path(), PW).is_err());
     })
     .unwrap();
@@ -377,4 +380,20 @@ fn leftover_staging_blocks_ordinary_writes_and_reserved_names_are_refused() {
     assert!(store.insert("Dev/new", &entry("blocked"), &key).is_err());
     assert!(attach_small(&store, "Dev/new-file", &key).is_err());
     assert!(!dir.path().join("Dev/new.osseal").exists());
+}
+
+#[test]
+fn rotation_preserves_an_existing_whitespace_bound_entry() {
+    let dir = tempfile::tempdir().unwrap();
+    let store = init_store(dir.path(), &[]).unwrap();
+    let key = init_store_key(dir.path(), PW).unwrap();
+    store
+        .insert("  Dev/token  ", &entry("old alias"), &key)
+        .unwrap();
+    rotate_store_root(dir.path(), PW, RotationEdit::default()).unwrap();
+    let new_key = unlock_store_key(dir.path(), PW).unwrap();
+    assert_eq!(
+        store.show("Dev/token", &new_key).unwrap().secret,
+        "old alias"
+    );
 }

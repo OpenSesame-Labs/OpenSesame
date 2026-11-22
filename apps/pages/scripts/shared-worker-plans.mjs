@@ -19,6 +19,14 @@ export function defaultWorkers(root) {
   );
   return [
     {
+      owner: resolve(
+        root,
+        "../../packages/app-core/src/lib/vault/import/formats/kdbx-argon2-worker-client.ts",
+      ),
+      specifier: "./kdbx-argon2.worker.ts",
+      name: "kdbx-argon2.worker",
+    },
+    {
       owner: resolve(backend, "bitwarden-native-worker-client.ts"),
       specifier: "./bitwarden-native.worker.ts",
       name: "bitwarden-native.worker",

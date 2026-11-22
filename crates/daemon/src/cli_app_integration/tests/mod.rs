@@ -91,6 +91,43 @@ async fn ensure_over_uds_ignores_body_terminal_session_id() {
         .await
         .unwrap();
     let parsed: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    if opensesame_cli_app_integration::is_approval_blocked("read") {
+        assert_eq!(parsed["status"], "denied");
+        assert_eq!(parsed["reason"], "authenticator_provenance_unavailable");
+        assert!(parsed["requestId"].is_null());
+        for verb in [
+            "run",
+            "pass-reveal",
+            "read",
+            "reveal",
+            "env-resolve",
+            "unknown",
+        ] {
+            let body =
+                serde_json::json!({ "terminalSessionId": "forged", "verb": verb }).to_string();
+            let res = app
+                .clone()
+                .oneshot(ensure_request(&body, Some(cred)))
+                .await
+                .unwrap();
+            assert_eq!(res.status(), StatusCode::OK);
+            let bytes = axum::body::to_bytes(res.into_body(), usize::MAX)
+                .await
+                .unwrap();
+            let response: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+            assert_eq!(response["status"], "denied");
+            assert_eq!(response["reason"], "authenticator_provenance_unavailable");
+            assert!(response["requestId"].is_null());
+        }
+        assert!(state
+            .cli_app_integration
+            .lock()
+            .unwrap()
+            .store
+            .list_pending()
+            .is_empty());
+        return;
+    }
     assert_eq!(parsed["status"], "pending");
     let request_id = parsed["requestId"].as_str().expect("request id");
     let pending = Request::builder()

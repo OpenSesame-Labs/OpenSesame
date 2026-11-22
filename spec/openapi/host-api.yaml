@@ -753,11 +753,14 @@ paths:
   /attachments/replicate/chunk:
     post:
       summary: Forward one sealed chunk to the configured target
+      security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
       description: >-
         Body is a raw `.oschunk` frame. The Host recomputes BLAKE3 over the body
         and refuses a mismatch: it cannot read the ciphertext either way, but an
         object filed under a digest that does not describe it would never
-        reassemble. Upload is idempotent by construction.
+        reassemble. A bearer must be an owner/admin session carrying the exact
+        `sealed_store.attach.replicate` operation grant. Upload is idempotent by
+        construction.
       parameters:
         - in: query
           name: digest
@@ -779,6 +782,8 @@ paths:
                   stored: { type: boolean }
         "400":
           description: digest_mismatch — the body does not hash to the claimed digest
+        "403":
+          description: The session lacks the required tenant role or exact operation grant
         "422":
           description: invalid_digest, empty_body, no_attachment_target, or attachment_target_disabled
         "502":
@@ -786,6 +791,10 @@ paths:
   /attachments/replicate/manifest:
     post:
       summary: Forward one sealed attachment manifest to the configured target
+      security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
+      description: >-
+        A bearer must be an owner/admin session carrying the exact
+        `sealed_store.attach.replicate` operation grant.
       parameters:
         - in: query
           name: path
@@ -806,6 +815,8 @@ paths:
                 type: object
                 properties:
                   stored: { type: boolean }
+        "403":
+          description: The session lacks the required tenant role or exact operation grant
         "422":
           description: invalid_path, empty_body, no_attachment_target, or attachment_target_disabled
         "502":
@@ -1510,7 +1521,7 @@ paths:
         "401": { $ref: "#/components/responses/ContractError" }
     post:
       summary: Mint a claimable delegation offer over the caller's connections
-      description: Every fence runs per item and any failure fails the whole mint. The claim token and consent code are returned once and stored only as hashes.
+      description: Every fence runs per item and any failure fails the whole mint. Broker-mode offers are temporarily unavailable; omitting execution_mode defaults to broker and is also refused. The claim token and consent code are returned once and stored only as hashes.
       security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
       requestBody:
         required: true
@@ -1550,6 +1561,7 @@ paths:
         "401": { $ref: "#/components/responses/ContractError" }
         "404": { $ref: "#/components/responses/ContractError" }
         "422": { $ref: "#/components/responses/ContractError" }
+        "503": { $ref: "#/components/responses/ContractError" }
   /delegations/present:
     post:
       summary: Spend an offer's single presentation and read its manifest
@@ -1579,6 +1591,7 @@ paths:
   /delegations/claim:
     post:
       summary: Complete a presented offer with the out-of-band consent code
+      description: Broker-mode claims are temporarily unavailable, including offers created before the restriction.
       security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
       requestBody:
         required: true
@@ -1606,6 +1619,7 @@ paths:
         "409": { $ref: "#/components/responses/ContractError" }
         "410": { $ref: "#/components/responses/ContractError" }
         "422": { $ref: "#/components/responses/ContractError" }
+        "503": { $ref: "#/components/responses/ContractError" }
   /delegations/offers:
     get:
       summary: Offers the caller minted, burned ones surfaced distinctly
@@ -1673,27 +1687,19 @@ paths:
         "422": { $ref: "#/components/responses/ContractError" }
   /relay/heartbeat:
     post:
-      summary: A credential holder's runtime announcing liveness (ADR 0046)
+      summary: Holder liveness heartbeat (temporarily unavailable)
+      description: No holder runtime consumes liveness yet. Authenticated requests receive relay_execution_unavailable and do not retain a presence record.
       security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
       responses:
-        "200":
-          description: Acknowledged, with the freshness window
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [ok, fresh_for_seconds]
-                properties:
-                  ok: { type: boolean }
-                  fresh_for_seconds: { type: integer }
         "401": { $ref: "#/components/responses/ContractError" }
+        "501": { $ref: "#/components/responses/Error" }
   /relay/requests:
     post:
-      summary: Submit a relayed request against a relay-mode delegation
-      description: Refused unless the delegation is relay-mode and the holder has a fresh heartbeat — an absent holder is the end of the request, never a queue.
+      summary: Submit a relayed request (temporarily unavailable)
+      description: Holder-side per-use authorization is not yet implemented. Authenticated requests receive relay_execution_unavailable, no request is created, and the request body is ignored.
       security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -1705,37 +1711,16 @@ paths:
                 resource: { type: string }
                 parameters: { type: object }
       responses:
-        "202":
-          description: Parked in the holder's inbox, digest-bound
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [id, state, request_digest, expires_in]
-                properties:
-                  id: { type: string }
-                  state: { type: string }
-                  request_digest: { type: string }
-                  expires_in: { type: integer }
         "401": { $ref: "#/components/responses/ContractError" }
-        "403": { $ref: "#/components/responses/ContractError" }
-        "404": { $ref: "#/components/responses/ContractError" }
-        "409": { $ref: "#/components/responses/ContractError" }
+        "501": { $ref: "#/components/responses/Error" }
   /relay/requests/pending:
     get:
-      summary: The holder drains its relay inbox (draining proves liveness)
+      summary: Deliver pending relay work (temporarily unavailable)
+      description: Executable request parameters are withheld until holder-side per-use authorization exists.
       security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
       responses:
-        "200":
-          description: Undecided and approved requests awaiting this holder
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [requests]
-                properties:
-                  requests: { type: array, items: { type: object } }
         "401": { $ref: "#/components/responses/ContractError" }
+        "501": { $ref: "#/components/responses/Error" }
   /relay/requests/{id}:
     get:
       summary: Delegate or holder polls one relayed request
@@ -1744,7 +1729,7 @@ paths:
         - { name: id, in: path, required: true, schema: { type: string } }
       responses:
         "200":
-          description: State, digest, and (when completed) the safe result
+          description: Host-owned request ID, state and normalized outcome only; executable details and legacy result summaries are withheld.
           content:
             application/json:
               schema: { type: object }
@@ -1752,12 +1737,13 @@ paths:
         "404": { $ref: "#/components/responses/ContractError" }
   /relay/requests/{id}/approve:
     post:
-      summary: The holder consents, echoing the digest it reviewed
+      summary: Approve a relayed request (temporarily unavailable)
+      description: Approval cannot authorize a later effect without an independently enforcing holder runtime. The request body is ignored while approval is unavailable.
       security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -1766,28 +1752,22 @@ paths:
               properties:
                 request_digest: { type: string }
       responses:
-        "200":
-          description: Approved
-          content:
-            application/json:
-              schema: { type: object }
         "401": { $ref: "#/components/responses/ContractError" }
-        "404": { $ref: "#/components/responses/ContractError" }
+        "501": { $ref: "#/components/responses/Error" }
   /relay/requests/{id}/deny:
     post:
-      summary: The holder refuses, echoing the digest it reviewed
+      summary: The holder denies a pending request by ID
+      description: Denial is scoped to the holder and organization and cannot change an approved or completed request. The request body is ignored.
       security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               type: object
-              required: [request_digest]
-              properties:
-                request_digest: { type: string }
+              properties: {}
       responses:
         "200":
           description: Denied
@@ -1798,13 +1778,13 @@ paths:
         "404": { $ref: "#/components/responses/ContractError" }
   /relay/requests/{id}/result:
     post:
-      summary: The holder reports the executed outcome, digest-bound
-      description: The full admission runs here — approval required and executed digest must equal the approved one. Summaries are leak-checked before they land.
+      summary: Report an executed outcome (temporarily unavailable)
+      description: Result acceptance is unavailable until the authority check and result update share a durable transaction. Reporting cannot authorize or undo an effect. The request body is ignored while reporting is unavailable.
       security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
@@ -1815,17 +1795,8 @@ paths:
                 outcome: { type: string, enum: [succeeded, failed] }
                 safe_summary: { type: object }
       responses:
-        "200":
-          description: Completed
-          content:
-            application/json:
-              schema: { type: object }
         "401": { $ref: "#/components/responses/ContractError" }
-        "403": { $ref: "#/components/responses/ContractError" }
-        "404": { $ref: "#/components/responses/ContractError" }
-        "409": { $ref: "#/components/responses/ContractError" }
-        "410": { $ref: "#/components/responses/ContractError" }
-        "422": { $ref: "#/components/responses/ContractError" }
+        "501": { $ref: "#/components/responses/Error" }
   /lifecycle/expiring:
     get:
       summary: Every tracked deadline and where it sits on the expiry ladder

@@ -1,7 +1,6 @@
-# Publish @opensesame-labs/cli after main merges.
-# Stage once, beside the Main CI gate. Preview waits for both.
-# Preview publishes 0.0.0-alpha.N on alpha under environment Preview (no reviewer wait).
-# Production publishes 0.0.0-next.N on next with NPM_TOKEN (OIDC when that token is empty).
+# Stage and prove @opensesame-labs/cli after main merges.
+# Stage once, beside the Main CI gate. Local proof waits for both.
+# npm publication is disabled until qualified candidate promotion exists.
 name: CD npm CLI
 
 on:
@@ -14,6 +13,7 @@ on:
       - "scripts/release/npm-prerelease-version.mjs"
       - "scripts/release/prepare-cli-release.mjs"
       - "scripts/release/npm-publish-names.mjs"
+      - "scripts/release/npm-local-package-smoke.mjs"
       - "scripts/release/cd-release-meta.mjs"
       - "scripts/release/cd-main-ci-gate.mjs"
       - "scripts/release/cd-preview-smoke.mjs"
@@ -26,7 +26,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: Stop after staging (before preview publish and Production).
+        description: Stop after staging (before local package proof).
         required: false
         type: boolean
         default: false
@@ -148,7 +148,7 @@ jobs:
         run: |
           set -euo pipefail
           short="$(git rev-parse --short=7 HEAD)"
-          node scripts/release/plan-cli-release.mjs --mode cd --sha "$short" | tee /tmp/plan.txt
+          node scripts/release/plan-cli-release.mjs --mode cd --local-proof --sha "$short" | tee /tmp/plan.txt
           version="$(sed -n 's/^version=//p' /tmp/plan.txt)"
           npm_dist_tag="$(sed -n 's/^npm_dist_tag=//p' /tmp/plan.txt)"
           test -n "$version"
@@ -169,7 +169,7 @@ jobs:
         working-directory: packages/cli/release
         env:
           NPM_DIST_TAG: ${{ steps.plan.outputs.npm_dist_tag }}
-        run: npm publish --dry-run --access public --tag "$NPM_DIST_TAG"
+        run: npm publish --dry-run --ignore-scripts --offline --access public --tag "$NPM_DIST_TAG"
       - name: Record release metadata
         env:
           VERSION: ${{ steps.plan.outputs.version }}
@@ -187,18 +187,14 @@ jobs:
           if-no-files-found: error
 
   preview:
-    name: Preview npm publish
+    name: Preview npm package proof
     needs: [stage, main_ci]
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
-    environment:
-      name: Preview
-    # npm publish --provenance signs with this job's OIDC token.
     permissions:
       contents: read
       actions: read
-      id-token: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
@@ -209,7 +205,6 @@ jobs:
           sparse-checkout: |
             scripts/release
             scripts/lib
-            .github/actions/publish-npm-package
             /mise.toml
             /mise.lock
             /package.json
@@ -236,25 +231,13 @@ jobs:
         env:
           EXPECTED_VERSION: ${{ needs.stage.outputs.version }}
         run: node scripts/release/cd-release-meta.mjs check artifacts/cd-npm-cli-meta/release.json packages/cli/release/package.json
-      # Preview environment supplies NPM_TOKEN (publish-npm-package → NODE_AUTH_TOKEN + .npmrc).
-      # No required reviewers on Preview; otherwise OIDC trusted publishing under the same environment.
-      - uses: ./.github/actions/publish-npm-package
-        with:
-          working-directory: packages/cli/release
-          npm-dist-tag: ${{ needs.stage.outputs.npm_dist_tag }}
-          npm-token: ${{ secrets.NPM_TOKEN }}
-      - name: Wait until the published version is visible
+      - name: Check the staged npm package locally
         env:
           EXPECTED_VERSION: ${{ needs.stage.outputs.version }}
-        run: |
-          set -euo pipefail
-          # publish-npm-package leaves NPM_CONFIG_USERCONFIG on a token npmrc.
-          # This view is anonymous, same as preview smoke.
-          unset NPM_CONFIG_USERCONFIG NODE_AUTH_TOKEN
-          node scripts/release/cd-registry-wait.mjs
+        run: node scripts/release/npm-local-package-smoke.mjs packages/cli/release '@opensesame-labs/cli' "$EXPECTED_VERSION"
 
   preview_smoke:
-    name: Preview npm smoke
+    name: Local npm CLI smoke
     needs: [stage, preview]
     if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
     runs-on: ubuntu-24.04
@@ -284,72 +267,25 @@ jobs:
             mise-v1-linux-
       - name: Install pinned mise and Node 24
         run: bash scripts/lib/install-mise-locked.sh node@24
-      - name: Prove alpha npm resolves and runs
-        env:
-          EXPECTED_VERSION: ${{ needs.stage.outputs.version }}
-          CD_REGISTRY_VERSION_CONFIRMED: ${{ needs.preview.result == 'success' && '1' || '' }}
-          CD_PROOF_GATE_FAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_gate_fail == true && '1' || '' }}
-        run: node scripts/release/cd-preview-smoke.mjs
-
-  production:
-    name: Production npm publish
-    needs: [stage, preview, preview_smoke]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    environment:
-      name: Production
-    # npm publish --provenance signs with this job's OIDC token.
-    permissions:
-      contents: read
-      actions: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-        with:
-          persist-credentials: false
-          fetch-depth: 1
-          filter: blob:none
-          sparse-checkout-cone-mode: false
-          sparse-checkout: |
-            scripts/release
-            scripts/lib
-            .github/actions/publish-npm-package
-            /mise.toml
-            /mise.lock
-            /package.json
-            /package-lock.json
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         with:
           name: npm-cli-release-${{ github.run_id }}
           path: packages/cli/release
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
-        with:
-          name: cd-npm-cli-meta-${{ github.run_id }}
-          path: artifacts/cd-npm-cli-meta
-      - name: Restore mise tool cache
-        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.local/share/mise
-          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
-          restore-keys: |
-            mise-v2-${{ runner.os }}-seed-main-node-
-            mise-v1-linux-
-      - name: Install pinned mise and Node 24
-        run: bash scripts/lib/install-mise-locked.sh node@24
-      - name: Require the staged metadata
+      - name: Install and run the staged npm CLI locally
         env:
           EXPECTED_VERSION: ${{ needs.stage.outputs.version }}
-        run: node scripts/release/cd-release-meta.mjs check artifacts/cd-npm-cli-meta/release.json packages/cli/release/package.json
-      - name: Rewrite alpha version to 0.0.0-next.N
-        run: node scripts/release/cd-production-npm-version.mjs rewrite packages/cli/release/package.json
-      # Production environment secret NPM_TOKEN. Empty token keeps OIDC.
-      # Same staged tarball, tag next, provenance. Never latest.
-      - name: Publish 0.0.0-next.N on next
-        uses: ./.github/actions/publish-npm-package
-        with:
-          working-directory: packages/cli/release
-          npm-dist-tag: next
-          npm-token: ${{ secrets.NPM_TOKEN }}
+          CD_PROOF_GATE_FAIL: ${{ github.event_name == 'workflow_dispatch' && inputs.proof_gate_fail == true && '1' || '' }}
+        run: node scripts/release/npm-local-package-smoke.mjs packages/cli/release '@opensesame-labs/cli' "$EXPECTED_VERSION" --run-cli
+
+  production:
+    name: npm publication disabled
+    needs: [stage, preview, preview_smoke]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions: {}
+    steps:
+      - name: Explain the publication boundary
+        run: echo "::notice::npm publication is disabled until qualified candidate-bound promotion is implemented."
 
   promotion_failed:
     name: Promotion failure notice

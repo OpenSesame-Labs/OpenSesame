@@ -48,18 +48,18 @@
     "reason": "authTagB64 fixture value; public authentication tag rather than credential"
   },
   {
-    "path": "crates/provider-bitwarden/tests/fixtures/cloud/sync.json",
+    "path": "crates/provider-bitwarden/tests/fixtures/cloud.json",
     "rule": "generic-api-key",
-    "line": 108,
-    "fileSha256": "1319a8f0567758996f1ac17b966ee440d77a5aae6f73dc97c9d799780e106130",
+    "line": 121,
+    "fileSha256": "f75a6a732439e3207027f17a9a7060b43310cd5dbb1fe5c28b2f427d32ef32d6",
     "matchSha256": "ba4f659ce1aadb0ec7cb2c82c1c9e2811b022725ab2be13c7ef36d9a32ec034f",
     "reason": "tests/fixtures_gen.rs states these API fixtures are self-generated from deterministic common test account material; committed_fixtures_match_the_generator verifies the committed JSON against build_fixtures."
   },
   {
-    "path": "crates/provider-bitwarden/tests/fixtures/vaultwarden/sync.json",
+    "path": "crates/provider-bitwarden/tests/fixtures/vaultwarden.json",
     "rule": "generic-api-key",
-    "line": 108,
-    "fileSha256": "2ec89a4c96b8d51abad00f69dde06b74b559169835469a32a1aa63f5af66bcfe",
+    "line": 122,
+    "fileSha256": "86cb45828178e1ac40eadbec388a8fcf1d73528c5e7b5ef8fca64c7916469e26",
     "matchSha256": "4080a58b29d2411142301397f817a3200418418030ef903733e037028d2cd885",
     "reason": "tests/fixtures_gen.rs states these API fixtures are self-generated from deterministic common test account material; committed_fixtures_match_the_generator verifies the committed JSON against build_fixtures."
   },

@@ -16,7 +16,7 @@ use std::sync::{Mutex, OnceLock};
 
 use sqlx::SqlitePool;
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 use uuid::Uuid;

@@ -16,12 +16,12 @@
 
 use std::sync::{Arc, RwLock};
 
-use chrono::Utc;
 use opensesame_domain::transport::{
     CapabilityOutcome, CredentialStatus, Custody, EnforcementStatus, IdentitySourceKind,
     ObservedAuthentication, RuntimeStatus, TransportCapabilities, TransportPolicy,
     TransportStatusView, VerifiedPeer,
 };
+use opensesame_time::Utc;
 use opensesame_transport_security::env::NativeIdentitySpec;
 
 use crate::transport_lifecycle::{activation, LifecycleState};
@@ -123,12 +123,30 @@ pub fn view(
         .map_or(TransportPolicy::ExistingLocal, |l| l.policy);
     let (credential, installed_runtime) = match (config.listener.as_ref(), installed) {
         (None, _) => (CredentialStatus::Unconfigured, RuntimeStatus::NotLoaded),
-        (Some(listener), None) => (
-            runtime
-                .spiffe_credential(Utc::now())
-                .unwrap_or_else(|| credential_unloaded(&listener.identity)),
-            RuntimeStatus::NotLoaded,
-        ),
+        (Some(listener), None) => {
+            let (_, kind) = custody_of(&listener.identity);
+            let raw = activation::credential_status(&runtime.generations, kind, lifecycle);
+            // Revocation takes precedence even when the manager has withdrawn
+            // its retained material. A stale source view must not claim the
+            // quarantined identity remains configured.
+            let credential = match raw {
+                CredentialStatus::Revoked { .. } => raw,
+                _ => match runtime.spiffe_credential(Utc::now()) {
+                    Some(CredentialStatus::Configured { generation, .. }) => {
+                        CredentialStatus::Expired { generation }
+                    }
+                    Some(status) => status,
+                    None => match raw {
+                        CredentialStatus::Configured { generation, .. } => {
+                            CredentialStatus::Expired { generation }
+                        }
+                        CredentialStatus::Unconfigured => credential_unloaded(&listener.identity),
+                        other => other,
+                    },
+                },
+            };
+            (credential, RuntimeStatus::NotLoaded)
+        }
         (Some(listener), Some((generation, loaded_at, _))) => {
             let (_, kind) = custody_of(&listener.identity);
             // The lifecycle owns this dimension: it reports `Revoked` ahead of
@@ -136,6 +154,38 @@ pub fn view(
             // denylist — a locally built view has no revoked arm at all and
             // would report a revoked leaf as configured and healthy.
             let credential = activation::credential_status(&runtime.generations, kind, lifecycle);
+            let source_healthy = runtime
+                .spiffe_credential(Utc::now())
+                .is_none_or(|status| matches!(status, CredentialStatus::Configured { .. }));
+            if !source_healthy
+                || runtime
+                    .generations
+                    .checked_current(Some(generation))
+                    .is_err()
+            {
+                let unavailable = match credential {
+                    CredentialStatus::Revoked { .. } => credential,
+                    _ => CredentialStatus::Expired { generation },
+                };
+                return TransportStatusView {
+                    target: super::HOST_TLS_LISTENER.to_owned(),
+                    desired,
+                    credential: unavailable,
+                    runtime: RuntimeStatus::NotLoaded,
+                    observed: facts.observed.clone(),
+                    enforcement: facts
+                        .enforcement
+                        .clone()
+                        .unwrap_or(EnforcementStatus::Unverified),
+                    capabilities: capabilities(
+                        runtime.mapping_auth,
+                        runtime.callout_auth,
+                        desired,
+                        managed,
+                    ),
+                }
+                .reconciled(Utc::now());
+            }
             let installed_runtime = match &facts.reload_failure {
                 Some(code) => RuntimeStatus::ReloadFailed {
                     generation,
@@ -178,3 +228,7 @@ fn credential_unloaded(spec: &NativeIdentitySpec) -> CredentialStatus {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "status_tests.rs"]
+mod tests;

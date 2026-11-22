@@ -7,8 +7,8 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use chrono::Utc;
 use opensesame_session_observe::{AttachRefusal, Attachment};
+use opensesame_time::Utc;
 use serde::Deserialize;
 use serde_json::json;
 
@@ -39,7 +39,8 @@ pub async fn claim_step(
         return refusal(AttachRefusal::StepUpRequired);
     };
     let now = Utc::now();
-    let expires_at = now + chrono::Duration::seconds(opensesame_storage::STEP_CLAIM_SECONDS);
+    let expires_at =
+        now + opensesame_time::Duration::seconds(opensesame_storage::STEP_CLAIM_SECONDS);
     match st
         .db
         .claim_runner_step(

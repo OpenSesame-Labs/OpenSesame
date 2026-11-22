@@ -17,8 +17,8 @@ Blocky's behaviour was measured against the pinned build.
   whose scenario registry in `scripts/lib/authority-fabric-scenarios-*.mjs`
   runs its `coverage`, `blocky::request` and `topology` unit tests and
   `tests/family_blocky.rs`.
-- **Builds on:** no other `OpenSesame` crate — `reqwest`, `url`, `chrono`,
-  `serde`, `thiserror`.
+- **Builds on:** [`opensesame-time`](../time), `reqwest`, `url`, `serde`,
+  `thiserror`.
 - **An allowance is a list entry, never a disable.** A Blocky disable with no
   `groups` turns off every group indefinitely, so nothing here maps an
   allowance onto a disable, and `DisableGroups` cannot be built empty.

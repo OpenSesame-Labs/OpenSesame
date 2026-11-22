@@ -3,7 +3,7 @@
 # Installed via `npm run setup:hooks` (see scripts/dev/setup-hooks.sh).
 #
 # Mode is controlled by OPENSESAME_PREPUSH:
-#   off  -> skip optional checks; exposure policy remains mandatory
+#   off  -> skip optional checks; exposure and mapped proofs remain mandatory
 #   fast -> lint, static quality and typecheck (default when unset)
 #   full -> npm run verify, including tests (explicit local opt-in)
 set -e
@@ -26,9 +26,14 @@ case "$mode" in
     ;;
 esac
 
-# The exposure invariant is mandatory, including when optional checks are off.
-# Git supplies the actual pushed refs on stdin; a different branch is not HEAD.
+# Both mandatory gates must see the same ref updates supplied by Git.
+refs_file=$(mktemp "${TMPDIR:-/tmp}/opensesame-push-refs.XXXXXXXX")
+trap 'rm -f "$refs_file"' EXIT
+cat > "$refs_file"
+exec < "$refs_file"
 node scripts/security/exposure-matrix-gate.mjs --push-refs
+exec < "$refs_file"
+node scripts/security/formal-proof-push-gate.mjs "$@"
 
 case "$mode" in
   off)

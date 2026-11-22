@@ -2,11 +2,11 @@
 //! a projection to plan.
 #![allow(dead_code)]
 
-use chrono::{DateTime, Duration, TimeZone, Utc};
 use opensesame_collab_adapter::{
     AuthorityProjection, ChannelId, CollabClient, GuildId, Platform, Registration, TargetSpec,
     UserId, Verb,
 };
+use opensesame_time::{DateTime, Duration, TimeZone, Utc};
 
 use super::transport::{bot_token, HyperTransport, RecordingBackoff};
 use super::{Fixture, GuildState, CHANNEL_ID, GUILD_ID, SUBJECT_ID};

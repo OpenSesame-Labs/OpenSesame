@@ -25,6 +25,34 @@
     "body-parser": "2.4.0",
     "qs": "6.16.1",
     "zod": "4.6.6",
-    "ip-address": "10.7.4"
+    "ip-address": "10.7.4",
+    "@aws-sdk/xml-builder": "$@aws-sdk/xml-builder"
+  },
+  "devDependencies": {
+    "@aws-sdk/xml-builder": "file:../patches/vendor/aws-sdk-xml-builder-3.972.42.tgz"
+  },
+  "scripts": {
+    "deepsec": "deepsec",
+    "test:aws-xml": "node --test aws-xml-compat.test.mjs"
+  },
+  "pnpm": {
+    "overrides": {
+      "@earendil-works/pi-coding-agent@0.81.1>undici": "8.12.2",
+      "undici@^7": "7.30.1",
+      "undici@^8": "8.12.2",
+      "brace-expansion@^5": "5.0.12",
+      "glob@>=11.0.0 <14.0.0": "14.0.2",
+      "minimatch@^10.0.0": "11.0.1",
+      "protobufjs@^7": "7.6.6",
+      "@modelcontextprotocol/sdk": "1.32.0",
+      "fast-uri": "3.1.9",
+      "body-parser": "2.4.0",
+      "qs": "6.16.1",
+      "zod": "4.6.6",
+      "ip-address": "10.7.4",
+      "@aws-sdk/xml-builder": "file:../patches/vendor/aws-sdk-xml-builder-3.972.42.tgz",
+      "hono": "npm:hono@4.13.16",
+      "@hono/node-server": "2.1.6"
+    }
   }
 }

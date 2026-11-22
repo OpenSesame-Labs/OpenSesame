@@ -108,6 +108,8 @@ pub struct WebAuthnCredential {
     pub credential_id_b64: String,
     pub public_key_spki_b64: String,
     pub sign_count: u32,
+    /// Exact page origin already bound by the pairing ceremony.
+    pub origin: String,
 }
 
 /// Vault-bound `WebAuthn` registration from the paired page.

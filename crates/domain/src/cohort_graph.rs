@@ -27,7 +27,7 @@ use crate::{
     Cohort, CohortId, CohortMember, CohortResolution, DomainError, Eligibility, EligibilityPath,
     PrincipalId, Roster, TeamId, MAX_COHORT_DEPTH, MAX_COHORT_NODES, MAX_ELIGIBLE_PRINCIPALS,
 };
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, BTreeSet, VecDeque};

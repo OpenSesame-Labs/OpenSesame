@@ -5,7 +5,7 @@
 //! to the same run before performing an effect.
 
 use crate::{DomainError, Grant, Intent};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

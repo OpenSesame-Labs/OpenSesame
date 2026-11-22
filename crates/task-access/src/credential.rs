@@ -1,5 +1,5 @@
-use chrono::{DateTime, Utc};
 use opensesame_domain::{TaskCredentialId, TaskRunId};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 /// Stored credential metadata — digest only, never raw secret material.

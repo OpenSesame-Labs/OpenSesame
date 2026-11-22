@@ -60,9 +60,9 @@ impl Db {
         // revoked grant.
         if let Some(revoked) = row.get::<Option<String>, _>("revoked_at") {
             grant.revoked_at = grant.revoked_at.or_else(|| {
-                chrono::DateTime::parse_from_rfc3339(&revoked)
+                opensesame_time::DateTime::parse_from_rfc3339(&revoked)
                     .ok()
-                    .map(|t| t.with_timezone(&chrono::Utc))
+                    .map(|t| t.with_timezone(&opensesame_time::Utc))
             });
         }
         Ok(Some(grant))
@@ -87,7 +87,7 @@ impl Db {
     pub async fn revoke_grant(
         &self,
         id: &GrantId,
-        at: chrono::DateTime<chrono::Utc>,
+        at: opensesame_time::DateTime<opensesame_time::Utc>,
     ) -> anyhow::Result<bool> {
         let commit = self
             .fence_grant(
@@ -125,7 +125,7 @@ impl Db {
     pub async fn assert_grant_chain_active(
         &self,
         grant: &Grant,
-        now: chrono::DateTime<chrono::Utc>,
+        now: opensesame_time::DateTime<opensesame_time::Utc>,
     ) -> anyhow::Result<()> {
         grant.assert_active(now)?;
         let verdict = self

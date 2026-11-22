@@ -246,7 +246,7 @@ async fn the_audit_filters_by_exact_match_and_by_time() {
             escalated: false,
             reason: None,
             policy_version: 0,
-            created_at: &chrono::Utc::now().to_rfc3339(),
+            created_at: &opensesame_time::Utc::now().to_rfc3339(),
         })
         .await
         .unwrap();

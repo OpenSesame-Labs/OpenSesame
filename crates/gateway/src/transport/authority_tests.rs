@@ -159,7 +159,8 @@ async fn a_withdrawn_binding_stops_admitting() {
     assert_eq!(code(&refused), "binding_disabled");
 
     bindings.bindings[0].enabled = true;
-    bindings.bindings[0].not_after = Some(chrono::Utc::now() - chrono::Duration::minutes(1));
+    bindings.bindings[0].not_after =
+        Some(opensesame_time::Utc::now() - opensesame_time::Duration::minutes(1));
     *st.transport
         .as_ref()
         .expect("runtime")

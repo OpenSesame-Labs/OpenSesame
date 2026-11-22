@@ -10,6 +10,7 @@ pub struct ProtocolFixture {
     pub spec_json: String,
 }
 
+#[must_use]
 pub fn protocol_fixture() -> ProtocolFixture {
     let mint_auth_key_id = synthetic::auth_control_id();
     let mint_auth_key = synthetic::auth_key_for_control_id(&mint_auth_key_id);

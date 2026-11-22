@@ -140,7 +140,7 @@ jobs:
         path: src
     - name: Restore trusted helpers beside the candidate tree
       run: mv "$RUNNER_TEMP/ci-control" "$GITHUB_WORKSPACE/.ci-control"
-    - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+    - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
       with:
         cache: false
         install_args: node
@@ -203,7 +203,7 @@ jobs:
         path: src
     - name: Restore trusted helpers beside the candidate tree
       run: mv "$RUNNER_TEMP/ci-control" "$GITHUB_WORKSPACE/.ci-control"
-    - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+    - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
       with:
         cache: false
         install_args: node
@@ -255,7 +255,7 @@ jobs:
           scripts/lib
           /scripts/release/pages-release.mjs
           /scripts/lib/pages-release.mjs
-    - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+    - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
       with:
         cache: false
         install_args: node@24
@@ -317,12 +317,12 @@ jobs:
         persist-credentials: false
         allow-unsafe-pr-checkout: false
         path: src
-    - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+    - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
       with:
         cache: false
         install_args: node
         working_directory: src
-    - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+    - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
       with:
         cache: false
         install_args: rust
@@ -341,15 +341,24 @@ jobs:
         source "$RUNNER_TEMP/opensesame-dbus/env.sh"
         [ "$(rustc -vV | sed -n 's/^host: //p')" = "$TARGET" ]
         export RUSTFLAGS="--remap-path-prefix=$GITHUB_WORKSPACE=/opensesame --remap-path-prefix=${CARGO_HOME:-$HOME/.cargo}=/cargo"
-        export CARGO_TARGET_DIR="$PWD/target"
         mkdir -p bins
-        cargo build --locked --release -p opensesame-cli --bin opensesame
-        cp target/release/opensesame bins/opensesame
+        resolve_bin() {
+          cargo build --locked --release -p "$1" --bin "$2" \
+            --message-format=json-render-diagnostics \
+            | node ../.ci-control/scripts/release/cargo-built-executable.mjs "$2"
+        }
+        OPENSESAME_BIN="$(resolve_bin opensesame-cli opensesame)"
+        echo "resolved opensesame: ${OPENSESAME_BIN}"
+        cp "${OPENSESAME_BIN}" bins/opensesame
         [ "$(bins/opensesame --version)" = "opensesame ${TAG#v}" ]
-        cargo build --locked --release -p opensesame-surrogate-proxy --bin opensesame-surrogate-proxy
-        cp target/release/opensesame-surrogate-proxy bins/opensesame-surrogate-proxy
-        cargo build --locked --release -p opensesame-surrogate-proxy --features upstream-override --bin opensesame-surrogate-proxy
-        cp target/release/opensesame-surrogate-proxy bins/opensesame-surrogate-proxy-TEST-upstream-override
+        SURROGATE_BIN="$(resolve_bin opensesame-surrogate-proxy opensesame-surrogate-proxy)"
+        echo "resolved opensesame-surrogate-proxy: ${SURROGATE_BIN}"
+        cp "${SURROGATE_BIN}" bins/opensesame-surrogate-proxy
+        SURROGATE_TEST_BIN="$(cargo build --locked --release -p opensesame-surrogate-proxy --features upstream-override --bin opensesame-surrogate-proxy \
+          --message-format=json-render-diagnostics \
+          | node ../.ci-control/scripts/release/cargo-built-executable.mjs opensesame-surrogate-proxy)"
+        echo "resolved opensesame-surrogate-proxy (TEST): ${SURROGATE_TEST_BIN}"
+        cp "${SURROGATE_TEST_BIN}" bins/opensesame-surrogate-proxy-TEST-upstream-override
         echo "${BRIDGE_SHA256}  bridge/opensesame-env-parse.mjs" | sha256sum -c -
         OPENSESAME_RELEASE_LICENSE="$PWD/LICENSE" ../.ci-control/scripts/release/kit-archive.sh pack "$TAG" "$TARGET" bins bridge/opensesame-env-parse.mjs dist
     - name: Smoke the actual archived kit and reject a writable bridge
@@ -396,7 +405,7 @@ jobs:
           scripts/lib
           /scripts/release/pages-release.mjs
           /scripts/lib/pages-release.mjs
-    - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+    - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
       with:
         cache: false
         install_args: node@24

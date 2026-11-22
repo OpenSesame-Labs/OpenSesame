@@ -2,9 +2,7 @@ mod frozen;
 mod idempotency;
 
 pub use frozen::{assert_grant_covers_frozen_intent, FrozenInvokeInput};
-pub use idempotency::legacy_fingerprint as invocation_fingerprint;
 
-use chrono::Utc;
 use opensesame_audit::ReceiptSigner;
 use opensesame_authz::{
     AuthZenAction, AuthZenRequest, AuthZenResource, AuthZenSubject, PolicyEngine,
@@ -15,6 +13,7 @@ use opensesame_domain::{
     InvocationState, ReceiptId, ReceiptOutcome, ValidatedGrantChain,
 };
 use opensesame_storage::Db;
+use opensesame_time::Utc;
 use serde_json::{json, Value};
 
 pub struct Broker {
@@ -38,7 +37,7 @@ pub struct InvokeInput {
 impl Broker {
     fn begin_invocation(
         intent_id: opensesame_domain::IntentId,
-        now: chrono::DateTime<Utc>,
+        now: opensesame_time::DateTime<Utc>,
     ) -> anyhow::Result<Invocation> {
         let mut invocation = Invocation {
             id: InvocationId::new(),
@@ -102,43 +101,6 @@ impl Broker {
             >,
         >,
     {
-        self.invoke_with_mode(input, execute, false).await
-    }
-
-    /// Return a prior receipt only after checking the current authorization
-    /// and the exact request binding. Never start new provider work.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when authorization fails or no matching receipt exists.
-    pub async fn replay(&self, input: InvokeInput) -> anyhow::Result<InvocationReceipt> {
-        self.invoke_with_mode(
-            input,
-            || async {
-                Err(opensesame_connector_host::HostError::Connector(
-                    "replay cannot execute".into(),
-                ))
-            },
-            true,
-        )
-        .await
-    }
-
-    async fn invoke_with_mode<E, F>(
-        &self,
-        input: InvokeInput,
-        execute: E,
-        replay_only: bool,
-    ) -> anyhow::Result<InvocationReceipt>
-    where
-        E: FnOnce() -> F,
-        F: std::future::Future<
-            Output = Result<
-                opensesame_connector_host::InvokeResult,
-                opensesame_connector_host::HostError,
-            >,
-        >,
-    {
         let now = Utc::now();
         input.intent.assert_fresh(now)?;
         input.grant.assert_active(now)?;
@@ -182,23 +144,29 @@ impl Broker {
             }),
         };
 
-        let decision = self.policy.decide(
-            &authz_req,
-            Some(&input.grant),
-            input.lineage.as_ref(),
-            AvailabilityClass::A3ExternalSideEffect,
-        )?;
+        // Binding conflicts fail here, before any authorization work. Only
+        // successful replays re-evaluate policy: a cached receipt is returned
+        // solely when the request would still be authorized today (intentional
+        // budget/audit semantics — a replay never skips the current check).
         if let Some(receipt) = self.prior_receipt(&input.intent, &fingerprint).await? {
+            let decision = self.policy.decide(
+                &authz_req,
+                Some(&input.grant),
+                input.lineage.as_ref(),
+                AvailabilityClass::A3ExternalSideEffect,
+            )?;
             anyhow::ensure!(
                 decision.decision,
                 "idempotency conflict: current authorization denied"
             );
             return Ok(receipt);
         }
-        anyhow::ensure!(
-            !replay_only,
-            "idempotency conflict: no prior invocation to replay"
-        );
+        let decision = self.policy.decide(
+            &authz_req,
+            Some(&input.grant),
+            input.lineage.as_ref(),
+            AvailabilityClass::A3ExternalSideEffect,
+        )?;
         self.db
             .insert_bound_intent(&input.intent, &fingerprint)
             .await?;

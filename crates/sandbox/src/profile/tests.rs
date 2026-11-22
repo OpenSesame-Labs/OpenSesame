@@ -1,5 +1,5 @@
-use chrono::{Duration, Utc};
 use opensesame_domain::ValidatedGrantChain;
+use opensesame_time::{Duration, Utc};
 
 use crate::budget::{keys, ResourceBudget};
 use crate::capability::{AmbientKind, BrokeredCapability};

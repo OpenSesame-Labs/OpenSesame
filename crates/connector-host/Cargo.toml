@@ -42,11 +42,12 @@ wasm-connectors = ["dep:wasmtime"]
 
 [dev-dependencies]
 tempfile = "3.20.0"
+opensesame-sealed-store = { path = "../sealed-store", features = ["testkit"] }
 # A real TLS upstream for the constrained-HTTP end-to-end suite: disposable
 # PKI and a listener, never a normal dependency.
 opensesame-transport-security = { path = "../transport-security", features = ["testkit"] }
 # The planted-PATH fixture for the provider CLI tests.
 opensesame-trusted-exec = { path = "../trusted-exec", features = ["testkit"] }
 axum = { workspace = true }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 tokio = { workspace = true }

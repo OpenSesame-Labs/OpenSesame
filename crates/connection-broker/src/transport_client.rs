@@ -1,11 +1,11 @@
 //! Building one scoped connector client: which addresses it may dial, and
 //! the TLS profile it presents (ADR 0132, CONN-POOLS/CONN-EXECUTE).
 //!
-//! Two fences live here. The **address** fence refuses an upstream that
-//! resolves to somebody's internal network — loopback, link-local, private,
-//! carrier-NAT, unique-local — because a public-looking name whose DNS answer
-//! points inward is exactly how a credentialed request gets aimed at a
-//! metadata service (AT-CONNECTOR-EGRESS). The **profile** fence is that the
+//! Two fences live here. The **address** fence permits only globally routable
+//! unicast answers — because a public-looking name whose DNS answer points at
+//! any special-use space is exactly how a credentialed request gets aimed at
+//! a metadata service or translation gateway (AT-CONNECTOR-EGRESS). The
+//! **profile** fence is that the
 //! client is built from the *resolved* trust bundle and identity only: the
 //! injected `rustls::ClientConfig` is the whole of its trust, it is https
 //! only, it verifies the exact configured server identity whatever address it
@@ -22,62 +22,93 @@ use opensesame_transport_security::{
 
 use super::ConnectionTransport;
 
-/// An address no upstream connector may be dialed at, whatever DNS answered:
-/// loopback, link-local, private, unspecified, multicast, or IPv6 unique-local.
-/// Checked on the *resolved* address, after the name lookup, because a name
-/// that looks public may answer with an internal one.
+const NON_GLOBAL_V4: &[(u32, u8)] = &[
+    (0x0000_0000, 8),  // 0.0.0.0/8, this network
+    (0x0a00_0000, 8),  // 10.0.0.0/8, private
+    (0x6440_0000, 10), // 100.64.0.0/10, shared carrier NAT
+    (0x7f00_0000, 8),  // 127.0.0.0/8, loopback
+    (0xa9fe_0000, 16), // 169.254.0.0/16, link-local
+    (0xac10_0000, 12), // 172.16.0.0/12, private
+    (0xc000_0000, 24), // 192.0.0.0/24, IETF protocol assignments
+    (0xc000_0200, 24), // 192.0.2.0/24, documentation
+    (0xc058_6300, 24), // 192.88.99.0/24, deprecated 6to4 relay anycast
+    (0xc0a8_0000, 16), // 192.168.0.0/16, private
+    (0xc612_0000, 15), // 198.18.0.0/15, benchmarking
+    (0xc633_6400, 24), // 198.51.100.0/24, documentation
+    (0xcb00_7100, 24), // 203.0.113.0/24, documentation
+    (0xe000_0000, 4),  // 224.0.0.0/4, multicast
+    (0xf000_0000, 4),  // 240.0.0.0/4, reserved/broadcast
+];
+
+fn v4_in_prefix(ip: std::net::Ipv4Addr, network: u32, prefix: u8) -> bool {
+    let mask = u32::MAX << (32 - prefix);
+    u32::from(ip) & mask == network
+}
+
+fn globally_routable_v4(ip: std::net::Ipv4Addr) -> bool {
+    // RFC 7723 and PCP anycast are the two globally reachable exceptions in
+    // the otherwise special 192.0.0.0/24 protocol-assignment block.
+    if matches!(ip.octets(), [192, 0, 0, 9 | 10]) {
+        return true;
+    }
+    !NON_GLOBAL_V4
+        .iter()
+        .any(|(network, prefix)| v4_in_prefix(ip, *network, *prefix))
+}
+
+fn nat64_well_known_embedded_v4(ip: std::net::Ipv6Addr) -> Option<std::net::Ipv4Addr> {
+    let octets = ip.octets();
+    (octets[..12] == [0x00, 0x64, 0xff, 0x9b, 0, 0, 0, 0, 0, 0, 0, 0])
+        .then(|| std::net::Ipv4Addr::new(octets[12], octets[13], octets[14], octets[15]))
+}
+
+fn globally_routable_v6(ip: std::net::Ipv6Addr) -> bool {
+    if let Some(embedded) = nat64_well_known_embedded_v4(ip) {
+        return globally_routable_v4(embedded);
+    }
+    let segments = ip.segments();
+    // Current IANA global-unicast allocations are within 2000::/3. Staying an
+    // allowlist means new special-use ranges fail closed until reviewed.
+    if segments[0] & 0xe000 != 0x2000 {
+        return false;
+    }
+    // IETF protocol assignments (Teredo, benchmarking, ORCHID, AMT, and
+    // friends), documentation, deprecated 6to4, and the newer 3fff::/20
+    // documentation block are not ordinary globally routable destinations.
+    !(segments[0] == 0x2001 && segments[1] <= 0x01ff)
+        && !(segments[0] == 0x2001 && segments[1] == 0x0db8)
+        && segments[0] != 0x2002
+        && !(segments[0] == 0x3fff && segments[1] & 0xf000 == 0)
+}
+
+/// Whether a resolved address is globally routable unicast according to the
+/// reviewed IANA special-purpose registry policy above. The pinned Rust 1.97.1
+/// toolchain still exposes `IpAddr::is_global` as unstable, so the policy is
+/// kept explicit and table-tested here.
+#[must_use]
+pub fn is_globally_routable(ip: IpAddr) -> bool {
+    match ip {
+        IpAddr::V4(v4) => globally_routable_v4(v4),
+        IpAddr::V6(v6) => globally_routable_v6(v6),
+    }
+}
+
+/// An address no upstream connector may dial, whatever DNS answered.
 #[must_use]
 pub fn is_internal(ip: IpAddr) -> bool {
-    match ip {
-        IpAddr::V4(v4) => {
-            v4.is_loopback()
-                || v4.is_private()
-                || v4.is_link_local()
-                || v4.is_unspecified()
-                || v4.is_multicast()
-                || v4.is_broadcast()
-                || v4.is_documentation()
-                || v4.octets()[0] == 0
-                // 100.64.0.0/10 (RFC 6598 carrier NAT) and 169.254.0.0/16 are
-                // both routes to somebody else's internal network.
-                || (v4.octets()[0] == 100 && (64..128).contains(&v4.octets()[1]))
-                || (v4.octets()[0..3] == [192, 0, 0])
-                || (v4.octets()[0] == 198 && (18..=19).contains(&v4.octets()[1]))
-                || v4.octets()[0] >= 240
-        }
-        IpAddr::V6(v6) => {
-            v6.is_loopback()
-                || v6.is_unspecified()
-                || v6.is_multicast()
-                // fe80::/10 link-local and fc00::/7 unique-local.
-                || (v6.segments()[0] & 0xffc0) == 0xfe80
-                // Deprecated site-local, local-use translation, discard-only,
-                // Teredo and documentation prefixes are not public services.
-                || (v6.segments()[0] & 0xffc0) == 0xfec0
-                || (v6.segments()[0] & 0xfe00) == 0xfc00
-                || v6.segments()[0..3] == [0x0064, 0xff9b, 1]
-                || v6.segments()[0..4] == [0x0100, 0, 0, 0]
-                || v6.segments()[0..2] == [0x2001, 0]
-                || v6.segments()[0..3] == [0x2001, 2, 0]
-                || (v6.segments()[0..2] == [0x2001, 0x0db8])
-                || (v6.segments()[0] == 0x3fff && (v6.segments()[1] & 0xf000) == 0)
-                || v6.to_ipv4().is_some_and(is_internal_v4)
-                || embedded_v4(v6.segments()).is_some_and(is_internal_v4)
-        }
-    }
+    !is_globally_routable(ip)
 }
 
-fn embedded_v4(segments: [u16; 8]) -> Option<std::net::Ipv4Addr> {
-    let from_pair =
-        |hi: u16, lo: u16| std::net::Ipv4Addr::from((u32::from(hi) << 16) | u32::from(lo));
-    if segments[0] == 0x0064 && segments[1] == 0xff9b && segments[2..6] == [0, 0, 0, 0] {
-        return Some(from_pair(segments[6], segments[7]));
-    }
-    (segments[0] == 0x2002).then(|| from_pair(segments[1], segments[2]))
-}
-
-fn is_internal_v4(v4: std::net::Ipv4Addr) -> bool {
-    is_internal(IpAddr::V4(v4))
+fn retain_permitted_addresses(host: &str, addrs: &mut Vec<SocketAddr>, allow_loopback: bool) {
+    let literal_loopback =
+        allow_loopback && matches!(host, "127.0.0.1" | "localhost" | "::1" | "[::1]");
+    addrs.retain(|addr| {
+        if literal_loopback {
+            addr.ip().is_loopback()
+        } else {
+            is_globally_routable(addr.ip())
+        }
+    });
 }
 
 /// The one authority a pooled client may dial, and the addresses the fence
@@ -87,6 +118,38 @@ pub struct PinnedAuthority {
     pub label: String,
     pub host: String,
     pub addrs: Vec<SocketAddr>,
+}
+
+/// Resolve an authority exactly once and retain only addresses safe for a
+/// credentialed connection. `allow_loopback` is limited to literal loopback
+/// targets used by the bundled mock provider and in-process tests; it never
+/// admits private, link-local, or other internal DNS answers.
+///
+/// # Errors
+///
+/// Returns `MalformedConfiguration` when resolution fails or yields no
+/// permitted address.
+pub async fn resolve_pinned_authority(
+    host: &str,
+    port: u16,
+    allow_loopback: bool,
+) -> Result<PinnedAuthority, TransportError> {
+    let host = host.to_ascii_lowercase();
+    let mut addrs: Vec<SocketAddr> = tokio::net::lookup_host((host.as_str(), port))
+        .await
+        .map_err(|_| TransportError::malformed("connector authority did not resolve"))?
+        .collect();
+    retain_permitted_addresses(&host, &mut addrs, allow_loopback);
+    if addrs.is_empty() {
+        return Err(TransportError::malformed(
+            "connector authority resolved to no permitted address",
+        ));
+    }
+    Ok(PinnedAuthority {
+        label: format!("{host}:{port}"),
+        host,
+        addrs,
+    })
 }
 
 /// The one client for one scope.
@@ -104,10 +167,11 @@ pub fn build_invoker(
     allow_loopback: bool,
 ) -> Result<Invoker, TransportError> {
     let Some(trust) = trust else {
-        // No configured trust profile: the connection uses the Host's ordinary
-        // Web PKI client. It must still dial the vetted addresses rather than
-        // resolve the host again. `mtls_required` never reaches this branch.
-        let invoker = Invoker::with_pinned(rules, &authority.host, &authority.addrs);
+        // No configured trust profile: WebPKI hostname verification still
+        // applies; only the dial is pinned to the vetted addresses so a
+        // second DNS lookup cannot rebind the credentialed request.
+        // `mtls_required` never reaches this branch.
+        let invoker = Invoker::with_pinned_webpki(rules, &authority.host, &authority.addrs);
         return Ok(if allow_loopback {
             invoker.allow_http_for_tests()
         } else {
@@ -142,3 +206,92 @@ pub fn build_invoker(
 #[cfg(all(test, target_os = "linux"))]
 #[path = "transport_client_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+mod address_tests {
+    use super::*;
+
+    fn socket(ip: &str) -> SocketAddr {
+        SocketAddr::new(ip.parse().unwrap(), 443)
+    }
+
+    #[test]
+    fn special_use_addresses_are_not_globally_routable() {
+        for denied in [
+            "0.0.0.0",
+            "0.1.2.3",
+            "10.0.0.1",
+            "100.64.0.1",
+            "127.0.0.1",
+            "169.254.169.254",
+            "172.16.0.1",
+            "192.0.0.8",
+            "192.0.2.1",
+            "192.88.99.1",
+            "192.168.0.1",
+            "198.18.0.1",
+            "198.51.100.1",
+            "203.0.113.1",
+            "224.0.0.1",
+            "240.0.0.1",
+            "255.255.255.255",
+            "::",
+            "::1",
+            "::ffff:8.8.8.8",
+            "64:ff9b::a00:1",
+            "64:ff9b:1::1",
+            "100::1",
+            "2001::1",
+            "2001:2::1",
+            "2001:db8::1",
+            "2002:808:808::1",
+            "3fff::1",
+            "fc00::1",
+            "fe80::1",
+            "fec0::1",
+            "ff02::1",
+        ] {
+            assert!(is_internal(denied.parse().unwrap()), "{denied}");
+        }
+        for allowed in [
+            "1.1.1.1",
+            "8.8.8.8",
+            "93.184.216.34",
+            "192.0.0.9",
+            "192.0.0.10",
+            "64:ff9b::808:808",
+            "2001:4860:4860::8888",
+            "2606:4700:4700::1111",
+        ] {
+            assert!(is_globally_routable(allowed.parse().unwrap()), "{allowed}");
+        }
+    }
+
+    #[test]
+    fn mixed_answers_keep_only_globally_routable_addresses() {
+        let mut addrs = vec![
+            socket("10.0.0.1"),
+            socket("198.18.0.1"),
+            socket("8.8.8.8"),
+            socket("64:ff9b::a00:1"),
+            socket("2606:4700:4700::1111"),
+        ];
+        retain_permitted_addresses("api.example", &mut addrs, false);
+        assert_eq!(
+            addrs,
+            vec![socket("8.8.8.8"), socket("2606:4700:4700::1111")]
+        );
+    }
+
+    #[test]
+    fn loopback_exception_is_literal_and_loopback_only() {
+        let original = vec![socket("127.0.0.1"), socket("10.0.0.1"), socket("8.8.8.8")];
+        let mut literal = original.clone();
+        retain_permitted_addresses("localhost", &mut literal, true);
+        assert_eq!(literal, vec![socket("127.0.0.1")]);
+
+        let mut named = original;
+        retain_permitted_addresses("api.example", &mut named, true);
+        assert_eq!(named, vec![socket("8.8.8.8")]);
+    }
+}

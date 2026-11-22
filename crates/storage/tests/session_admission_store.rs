@@ -4,9 +4,9 @@
 //! 0079 §7's rule; a spelling the domain does not know never lands; and the
 //! discovery helper names only open, public sessions that admit on ask.
 
-use chrono::Utc;
 use opensesame_domain::{PrincipalId, SessionAdmission, SessionId, SessionVisibility};
 use opensesame_storage::{Db, StoredSession};
+use opensesame_time::Utc;
 
 const ORG: &str = "org:one";
 

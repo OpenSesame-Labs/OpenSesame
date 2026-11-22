@@ -6,7 +6,7 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 
 use super::BudgetLedger;
 use crate::budget::fixtures::{at, calls_limits, key};

@@ -57,6 +57,32 @@ export const SPARSE_WORKSPACE_BUILD = Object.freeze([
   "/.dockerignore",
 ]);
 
+/**
+ * The opensesame GHCR job links `x86_64-unknown-linux-musl`. Cargo reads
+ * `.cargo/config.toml` for the musl linker, so that root file is on this
+ * checkout only.
+ */
+const SPARSE_OPENSESAME_RUST = Object.freeze([
+  ...SPARSE_WORKSPACE_BUILD,
+  "/.cargo/config.toml",
+]);
+
+/**
+ * Pages image build runs the SAML worker freshness guard, which formats with
+ * Biome. `biome.json` sets `vcs.useIgnoreFile`, so the Docker context needs
+ * the root `.gitignore` beside `/biome.json`.
+ */
+const SPARSE_WEB_PWA_AMD64 = Object.freeze([
+  ...SPARSE_WORKSPACE_BUILD.slice(
+    0,
+    SPARSE_WORKSPACE_BUILD.indexOf("/biome.json") + 1,
+  ),
+  "/.gitignore",
+  ...SPARSE_WORKSPACE_BUILD.slice(
+    SPARSE_WORKSPACE_BUILD.indexOf("/biome.json") + 1,
+  ),
+]);
+
 /** Release scripts and mise, with no workspace install. */
 export const SPARSE_CD_RELEASE_SCRIPT = Object.freeze([
   "scripts/lib",
@@ -78,23 +104,14 @@ export const SPARSE_CD_PWA_SMOKE = Object.freeze([
   "/patches/vendor",
 ]);
 
-/** Composite npm publish action and the release scripts it sits beside. */
-export const SPARSE_CD_PWA_PUBLISH = Object.freeze([
+/** npm package proof and live Pages verification scripts. */
+export const SPARSE_CD_NPM_PROOF = Object.freeze([
   "scripts/release",
   "scripts/lib",
-  ".github/actions/publish-npm-package",
   "/mise.toml",
   "/mise.lock",
   "/package.json",
   "/package-lock.json",
-]);
-
-/** GHCR manifest job only tests that these Dockerfiles exist. */
-export const SPARSE_GHCR_MANIFEST = Object.freeze([
-  "/ops/compose/Dockerfile",
-  "/ops/containers/cli/Dockerfile",
-  "/ops/containers/web-pwa/Dockerfile",
-  "/ops/containers/control-plane/Dockerfile",
 ]);
 
 export const AFFECTED_GRAPH_HISTORY =
@@ -120,22 +137,35 @@ export const PROOF_CHECKOUT_PLAN = Object.freeze({
     Object.freeze({ paths: SPARSE_CI_REPORTER }),
     Object.freeze({ paths: SPARSE_CI_REPORTER }),
   ]),
+  ".github/workflows/cd-pwa-stranded-dispatch.yml": Object.freeze([
+    Object.freeze({
+      paths: [
+        "scripts/lib",
+        "scripts/release",
+        "scripts/quality",
+        ".github/workflows/cd-pwa.yml",
+        "/mise.toml",
+        "/mise.lock",
+      ],
+      history:
+        "git diff from live Pages release.json revision to HEAD needs full history.",
+    }),
+  ]),
   ".github/workflows/cd-pwa.yml": Object.freeze([
     Object.freeze({ paths: SPARSE_CD_RELEASE_SCRIPT }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
-    Object.freeze({ paths: SPARSE_CD_PWA_PUBLISH }),
+    Object.freeze({ paths: SPARSE_CD_NPM_PROOF }),
     Object.freeze({ paths: SPARSE_CD_PWA_SMOKE }),
-    Object.freeze({ paths: SPARSE_CD_PWA_PUBLISH }),
+    Object.freeze({ paths: SPARSE_CD_NPM_PROOF }),
     Object.freeze({ paths: SPARSE_CD_RELEASE_SCRIPT }),
   ]),
   ".github/workflows/cd-npm-cli.yml": Object.freeze([
     Object.freeze({ paths: SPARSE_CD_RELEASE_SCRIPT }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
-    Object.freeze({ paths: SPARSE_CD_PWA_PUBLISH }),
+    Object.freeze({ paths: SPARSE_CD_NPM_PROOF }),
     Object.freeze({ paths: SPARSE_CD_RELEASE_SCRIPT }),
-    Object.freeze({ paths: SPARSE_CD_PWA_PUBLISH }),
     Object.freeze({ paths: SPARSE_CD_RELEASE_SCRIPT }),
   ]),
   ".github/workflows/cd-ghcr-publish.yml": Object.freeze([
@@ -152,11 +182,10 @@ export const PROOF_CHECKOUT_PLAN = Object.freeze({
         "/patches/vendor",
       ],
     }),
+    Object.freeze({ paths: SPARSE_OPENSESAME_RUST }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
-    Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
-    Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
-    Object.freeze({ paths: SPARSE_GHCR_MANIFEST }),
+    Object.freeze({ paths: SPARSE_WEB_PWA_AMD64 }),
   ]),
 });
 

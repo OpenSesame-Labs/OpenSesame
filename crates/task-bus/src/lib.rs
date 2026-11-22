@@ -231,17 +231,21 @@ pub async fn create_from_env() -> anyhow::Result<Arc<dyn TaskBus>> {
 ///
 /// Returns an error when validation or the underlying operation fails.
 pub async fn create_nats(nats_url: &str) -> anyhow::Result<Arc<dyn TaskBus>> {
-    #[cfg(feature = "jetstream")]
-    {
-        let transport = NatsTransportSpec::from_env()?.unwrap_or_else(NatsTransportSpec::plaintext);
-        let provision = !transport.is_secure();
-        create_with(nats_url, transport, NatsRole::Host, provision).await
-    }
-    #[cfg(not(feature = "jetstream"))]
-    {
-        let _ = nats_url;
-        anyhow::bail!("opensesame-task-bus was built without the `jetstream` feature");
-    }
+    create_nats_impl(nats_url).await
+}
+
+#[cfg(feature = "jetstream")]
+async fn create_nats_impl(nats_url: &str) -> anyhow::Result<Arc<dyn TaskBus>> {
+    let transport = NatsTransportSpec::from_env()?.unwrap_or_else(NatsTransportSpec::plaintext);
+    let provision = !transport.is_secure();
+    create_with(nats_url, transport, NatsRole::Host, provision).await
+}
+
+#[cfg(not(feature = "jetstream"))]
+fn create_nats_impl(_nats_url: &str) -> std::future::Ready<anyhow::Result<Arc<dyn TaskBus>>> {
+    std::future::ready(Err(anyhow::anyhow!(
+        "opensesame-task-bus was built without the `jetstream` feature"
+    )))
 }
 
 /// Connect a `JetStream` `TaskBus` with an explicit transport, role and

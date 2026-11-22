@@ -41,7 +41,7 @@ pub(crate) fn delivery_from_row(row: &SqliteRow) -> anyhow::Result<StoredSecurit
 pub(crate) async fn readable_deliveries(
     transaction: &mut sqlx::Transaction<'_, sqlx::Sqlite>,
     rows: &[SqliteRow],
-    now: chrono::DateTime<chrono::Utc>,
+    now: opensesame_time::DateTime<opensesame_time::Utc>,
 ) -> anyhow::Result<Vec<StoredSecurityDelivery>> {
     let (mut readable, mut unreadable) = (Vec::new(), Vec::new());
     for row in rows {

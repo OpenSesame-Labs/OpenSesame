@@ -3,21 +3,32 @@
 //! Used by capability setup (e.g. GitHub private password-store repos) so Pages
 //! can list/create remotes after OAuth without seeing access tokens (ADR 0005/0032).
 
+use std::time::Duration;
+
 use opensesame_domain::OrganizationId;
+use opensesame_invoke_through::scrub_credential_reflection;
 use serde_json::{json, Value};
 
 use crate::catalog::AuthMethod;
 use crate::error::{BrokerError, Result};
 use crate::model::ConnectionStatus;
+use crate::response_guard::{read_bounded_body, ResponseBodyError};
 use crate::store;
 use crate::token::TokenSet;
 use crate::ConnectionBroker;
 
+#[path = "egress_client.rs"]
+mod client;
 #[path = "egress_github.rs"]
 mod github;
-#[path = "egress_http.rs"]
-mod http;
+use client::credentialed_client;
 use github::{map_github_repo_create_error, parse_github_repo, parse_github_repo_list};
+
+/// Characters of an upstream error body kept for diagnostics. A provider error
+/// page is not worth holding in full, and the cap keeps a hostile upstream from
+/// deciding how much of our memory its message occupies.
+const MAX_ERROR_SNIPPET: usize = 512;
+const MAX_JSON_RESPONSE_BYTES: usize = 1024 * 1024;
 
 /// Headers the broker owns on a credentialed upload. A caller supplying any of
 /// these would be competing with the injected credential or the framing of the
@@ -31,28 +42,22 @@ const RESERVED_HEADERS: &[&str] = &[
     "transfer-encoding",
 ];
 
-/// Credentialed egress travels over https. The single exception is http to
-/// loopback, which the catalog already permits for the bundled `mock`
-/// provider (see `validate_egress`) and which never leaves this machine.
-/// The per-connection allowlist (`allows_url`) only proves the URL matches
-/// the configured scheme, so this transport floor is asserted again at the
-/// point the credential is attached.
-fn require_secure_egress_url(url: &str) -> Result<()> {
-    let parsed =
-        url::Url::parse(url).map_err(|_| BrokerError::Invalid("malformed egress url".into()))?;
-    let loopback = match parsed.host() {
-        Some(url::Host::Domain(host)) => host.eq_ignore_ascii_case("localhost"),
-        Some(url::Host::Ipv4(ip)) => ip == std::net::Ipv4Addr::LOCALHOST,
-        Some(url::Host::Ipv6(ip)) => ip == std::net::Ipv6Addr::LOCALHOST,
-        None => false,
-    };
-    match parsed.scheme() {
-        "https" => Ok(()),
-        "http" if loopback => Ok(()),
-        _ => Err(BrokerError::Invalid(
-            "credentialed egress requires https (http is loopback-only)".into(),
-        )),
+/// Build the no-proxy, no-redirect client for one credentialed request.
+/// Catalog providers get the DNS-pinned client that resolved the approved
+/// authority once; custom providers get the operator-policy client that vets
+/// every DNS answer (ADR 0115).
+async fn credentialed_egress_client(
+    config: &crate::config::BrokerConfig,
+    provider_id: &str,
+    url: &str,
+    timeout: Duration,
+) -> Result<reqwest::Client> {
+    if provider_id.starts_with(crate::CUSTOM_PROVIDER_PREFIX) {
+        let endpoint = url::Url::parse(url)
+            .map_err(|_| BrokerError::Invalid("malformed custom provider URL".into()))?;
+        return config.custom_egress().client(&endpoint, timeout).await;
     }
+    credentialed_client(url, timeout, provider_id == "mock").await
 }
 
 fn credential_header(auth: &AuthMethod, tokens: &TokenSet) -> Result<(String, String)> {
@@ -230,6 +235,14 @@ impl ConnectionBroker {
             .allows_url(url)
             .map_err(|e| BrokerError::Invalid(e.to_string()))?;
 
+        // Resolve and pin the approved authority before the credential is
+        // opened. The resulting client uses only those addresses and bypasses
+        // process proxies, so neither DNS rebinding nor a proxy can redirect
+        // the credentialed connection.
+        let client =
+            credentialed_egress_client(&self.config, &row.provider_id, url, Duration::from_secs(20))
+                .await?;
+
         let key = *self.sealing_key()?;
         let credential = store::get_credential(&self.pool, &row.id)
             .await?
@@ -242,10 +255,17 @@ impl ConnectionBroker {
             .resolve_provider(&row.organization_id, &row.provider_id)
             .await?;
 
-        let response = self
-            .http_authorized(&provider.id, &provider.auth, &tokens, method, url, body)
-            .await
-            .map_err(BrokerError::ExchangeFailed)?;
+        let response = Self::http_authorized(
+            &client,
+            &provider.id,
+            &provider.auth,
+            &tokens,
+            method,
+            url,
+            body,
+        )
+        .await
+        .map_err(BrokerError::ExchangeFailed)?;
 
         // Never echo Authorization headers or token fields from upstream.
         Ok(response)
@@ -259,7 +279,7 @@ impl ConnectionBroker {
     /// supplies the URL and must not be able to aim a credentialed request at
     /// an origin the connection never authorized.
     ///
-    /// Three things are deliberate. Redirects are not followed — a redirect
+    /// Two things are deliberate. Redirects are not followed — a redirect
     /// would replay the bearer token at an unapproved origin. The response
     /// body is not read: on failure the caller learns the status, not the
     /// provider's untrusted body, which may contain the injected credential.
@@ -291,6 +311,14 @@ impl ConnectionBroker {
             .allows_url(url)
             .map_err(|e| BrokerError::Invalid(e.to_string()))?;
 
+        // Resolve and pin the approved authority before the credential is
+        // opened. The resulting client uses only those addresses and bypasses
+        // process proxies, so neither DNS rebinding nor a proxy can redirect
+        // the credentialed connection.
+        let client =
+            credentialed_egress_client(&self.config, &row.provider_id, url, Duration::from_secs(60))
+                .await?;
+
         let key = *self.sealing_key()?;
         let credential = store::get_credential(&self.pool, &row.id)
             .await?
@@ -300,10 +328,6 @@ impl ConnectionBroker {
             return Err(BrokerError::NeedsReauth("access token missing".into()));
         }
 
-        require_secure_egress_url(url)?;
-        let client = self
-            .credentialed_egress_client(&row.provider_id, url)
-            .await?;
         let mut req = client
             .post(url)
             .header("Authorization", format!("Bearer {}", tokens.access_token))
@@ -346,6 +370,66 @@ impl ConnectionBroker {
             return Err(BrokerError::ExchangeFailed(format!("upstream {status}")));
         }
         Ok(())
+    }
+
+    async fn http_authorized(
+        client: &reqwest::Client,
+        provider_id: &str,
+        auth: &AuthMethod,
+        tokens: &TokenSet,
+        method: &str,
+        url: &str,
+        body: Option<Value>,
+    ) -> std::result::Result<Value, String> {
+        let parsed_method = method
+            .parse::<reqwest::Method>()
+            .map_err(|_| format!("unsupported method {method}"))?;
+        let mut request = client
+            .request(parsed_method, url)
+            .header("Accept", "application/json")
+            .header("User-Agent", "OpenSesame-Host/0.1");
+        let (credential_name, credential_value) =
+            credential_header(auth, tokens).map_err(|error| error.to_string())?;
+        request = request.header(credential_name, credential_value);
+        if provider_id == "github" {
+            request = request
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28");
+        }
+        if let Some(body) = body {
+            request = request.json(&body);
+        }
+        let mut response = request
+            .send()
+            .await
+            .map_err(|_| "upstream request failed".to_string())?;
+        let status = response.status();
+        let bytes = read_bounded_body(&mut response, MAX_JSON_RESPONSE_BYTES)
+            .await
+            .map_err(|error| match error {
+                ResponseBodyError::TooLarge { .. } => {
+                    "upstream response exceeds the 1 MiB limit".to_string()
+                }
+                ResponseBodyError::Read => "could not read upstream response".to_string(),
+            })?;
+        // Treat the response body as hostile at the one sink that can return
+        // it. The shared scrub covers raw, partially/mixed percent, JSON and
+        // HTML encodings plus standard/URL-safe base64 at every alignment.
+        let (safe_bytes, credential_reflected) =
+            scrub_credential_reflection(bytes, &tokens.access_token);
+        let text = String::from_utf8(safe_bytes.to_vec())
+            .map_err(|_| "upstream response was not valid UTF-8".to_string())?;
+        if !(200..300).contains(&status.as_u16()) {
+            let snippet: String = text.chars().take(MAX_ERROR_SNIPPET).collect();
+            return Err(format!("upstream {status}: {snippet}"));
+        }
+        if credential_reflected {
+            return Err("upstream response contained the injected credential".into());
+        }
+        if text.trim().is_empty() {
+            return Ok(json!({}));
+        }
+        serde_json::from_str(&text).map_err(|_| "upstream response was not valid JSON".to_string())
     }
 }
 

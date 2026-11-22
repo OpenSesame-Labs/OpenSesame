@@ -1,10 +1,10 @@
 use anyhow::Context;
 use async_trait::async_trait;
-use chrono::Utc;
 use opensesame_domain::{
     ConnectionId, ConnectionRecord, Grant, GrantId, Intent, Invocation, InvocationReceipt,
     OrganizationId, ProjectId,
 };
+use opensesame_time::Utc;
 use sqlx::{sqlite::SqlitePoolOptions, sqlite::SqliteRow, Row, SqlitePool};
 use std::path::Path;
 
@@ -1180,9 +1180,9 @@ fn certificate_issuance_state_is_terminal(state: &str) -> bool {
 }
 
 fn certificate_time_is_expired(expires_at: &str, now: &str) -> anyhow::Result<bool> {
-    let expires_at = chrono::DateTime::parse_from_rfc3339(expires_at)
+    let expires_at = opensesame_time::DateTime::parse_from_rfc3339(expires_at)
         .context("certificate delivery expiry is not RFC 3339")?;
-    let now = chrono::DateTime::parse_from_rfc3339(now)
+    let now = opensesame_time::DateTime::parse_from_rfc3339(now)
         .context("certificate delivery comparison time is not RFC 3339")?;
     Ok(expires_at <= now)
 }
@@ -1552,6 +1552,7 @@ pub mod backup_inventory;
 pub mod browser_pairing;
 mod cert_alerts;
 mod cert_authorities;
+mod cert_completion;
 mod cert_inventory;
 mod cert_issuance;
 mod cert_policy;

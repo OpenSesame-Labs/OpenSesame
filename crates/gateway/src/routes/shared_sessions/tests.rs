@@ -10,8 +10,8 @@ use axum::{
     http::{Request, StatusCode},
     Router,
 };
-use chrono::{Duration, Utc};
 use opensesame_domain::{OrganizationId, OrganizationRole, PrincipalId, VaultId, VaultItemId};
+use opensesame_time::{Duration, Utc};
 use serde_json::{json, Value};
 use tower::ServiceExt;
 /// A caller: a principal, the bearer that speaks for them, and their org.

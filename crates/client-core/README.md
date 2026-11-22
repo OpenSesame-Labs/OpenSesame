@@ -60,7 +60,10 @@ read only regular files and stop at the JSON limit. These bounds apply to the
 explicit legacy migration paths as well.
 
 Version 1 ciphertext and persisted stores cannot authenticate epochs. Normal
-loading and sync reject them. To retain existing data, stop sync on all devices,
+loading and sync reject them. This is a coordinated flag-day cutover: one
+authenticated batch fails if it mixes v1 and v2 blobs, so pause sync everywhere,
+migrate once from a single trusted export, then bring devices back on v2 before
+exchanging data again. To retain existing data, stop sync on all devices,
 select a legacy persisted store or snapshot whose provenance and freshness you
 trust, and explicitly use `migrate_trusted_legacy_json` or
 `migrate_trusted_legacy_snapshot` with its key. These methods re-seal the

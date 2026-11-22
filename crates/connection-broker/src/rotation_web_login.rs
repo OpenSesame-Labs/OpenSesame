@@ -171,7 +171,7 @@ mod tests {
     fn claim() -> WebLoginClaim<'static> {
         WebLoginClaim {
             run_id: "run_1",
-            lease: chrono::Duration::minutes(17),
+            lease: opensesame_time::Duration::minutes(17),
         }
     }
 

@@ -1,7 +1,7 @@
 //! Folders behind the Bitwarden-compatible server (ADR 0141). A folder's
 //! `name` is an `EncString` the server cannot open.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use sqlx::sqlite::SqliteRow;
 
 use super::accounts::{bitwarden_timestamp, parse_bitwarden_timestamp};

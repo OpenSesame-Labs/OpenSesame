@@ -19,6 +19,13 @@ struct PolicyDoc {
     poll_interval_ms: u64,
     daemon_pin_probe_verb: String,
     daemon_paths: DaemonPaths,
+    messages: PolicyMessages,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PolicyMessages {
+    blocked_approval: String,
 }
 
 fn daemon_sock_path() -> PathBuf {
@@ -295,6 +302,18 @@ fn tcp_correlation_id() -> String {
 #[derive(Debug, Deserialize)]
 struct EnsureBody {
     status: String,
+    reason: Option<String>,
+}
+
+fn ensure_refusal<'a>(body: &EnsureBody, policy: &'a PolicyDoc) -> Option<&'a str> {
+    match body.status.as_str() {
+        "expired" => Some(expired_message()),
+        "denied" if body.reason.as_deref() == Some("authenticator_provenance_unavailable") => {
+            Some(&policy.messages.blocked_approval)
+        }
+        "denied" | "wrongSession" => Some(denied_message()),
+        _ => None,
+    }
 }
 
 /// Pass reveal gate plus optional CLI app-integration approval.
@@ -309,6 +328,20 @@ pub fn require_pass_reveal(reveal: bool) -> anyhow::Result<()> {
 /// # Errors
 /// When the app is unavailable or integration is denied.
 pub fn ensure_reveal(verb: &str, reference: Option<&str>) -> anyhow::Result<()> {
+    with_available_approval(verb, || ensure_reveal_via_daemon(verb, reference))
+}
+
+fn with_available_approval(
+    verb: &str,
+    request: impl FnOnce() -> anyhow::Result<()>,
+) -> anyhow::Result<()> {
+    if opensesame_cli_app_integration::is_approval_blocked(verb) {
+        anyhow::bail!("{}", policy().messages.blocked_approval);
+    }
+    request()
+}
+
+fn ensure_reveal_via_daemon(verb: &str, reference: Option<&str>) -> anyhow::Result<()> {
     let base = daemon_base().ok_or_else(|| anyhow::anyhow!("{}", app_unavailable_message()))?;
     let sock = daemon_sock_path();
     let sock_configured = std::env::var_os(ENV_SOCK).is_some_and(|value| !value.is_empty());
@@ -343,11 +376,11 @@ pub fn ensure_reveal(verb: &str, reference: Option<&str>) -> anyhow::Result<()> 
             }
             Ok((status, body)) if (200..300).contains(&status) => {
                 let parsed = serde_json::from_str::<EnsureBody>(&body)?;
-                match parsed.status.as_str() {
-                    "approved" => return Ok(()),
-                    "expired" => anyhow::bail!("{}", expired_message()),
-                    "denied" | "wrongSession" => anyhow::bail!("{}", denied_message()),
-                    _ => {}
+                if parsed.status == "approved" {
+                    return Ok(());
+                }
+                if let Some(message) = ensure_refusal(&parsed, &policy) {
+                    anyhow::bail!("{message}");
                 }
             }
             Ok((_, _)) => anyhow::bail!("{}", denied_message()),
@@ -357,3 +390,7 @@ pub fn ensure_reveal(verb: &str, reference: Option<&str>) -> anyhow::Result<()> 
     }
     anyhow::bail!("{}", request_timeout_message())
 }
+
+#[cfg(test)]
+#[path = "cli_app_integration_tests.rs"]
+mod tests;

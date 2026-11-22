@@ -240,7 +240,10 @@ export function launcher(): HTMLElement {
 
 export async function openPanel(user: TestUser): Promise<HTMLElement> {
   await user.click(launcher());
-  return screen.findByRole("dialog", { name: "Support" });
+  // The launcher renders a real, busy dialog while the lazy panel module is
+  // loading. Wait for the interactive panel so callers never race that
+  // fallback when they immediately query its Tutorials or Questions regions.
+  return screen.findByRole("dialog", { name: "Support", busy: false });
 }
 
 /**

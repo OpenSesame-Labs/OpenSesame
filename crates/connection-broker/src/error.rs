@@ -27,6 +27,8 @@ pub enum BrokerError {
     IntegrationInUse,
     #[error("authorization state is not valid")]
     InvalidState,
+    #[error("broker-mode delegation is temporarily unavailable")]
+    DelegationUnavailable,
     #[error("authorization state expired")]
     StateExpired,
     #[error("token exchange failed: {0}")]
@@ -89,6 +91,7 @@ impl BrokerError {
             Self::IntegrationReadOnly => "integration_read_only",
             Self::IntegrationInUse => "integration_in_use",
             Self::InvalidState => "invalid_state",
+            Self::DelegationUnavailable => "delegation_unavailable",
             Self::StateExpired => "state_expired",
             Self::ExchangeFailed(_) => "exchange_failed",
             Self::NotRefreshable => "not_refreshable",
@@ -133,7 +136,9 @@ impl BrokerError {
             | Self::ConfigNotFound
             | Self::ConfigValueNotFound
             | Self::IntegrationNotFound => 404,
-            Self::ProviderUnconfigured { .. } | Self::SealUnavailable(_) => 503,
+            Self::ProviderUnconfigured { .. }
+            | Self::SealUnavailable(_)
+            | Self::DelegationUnavailable => 503,
             Self::BindingExists
             | Self::IntegrationConflict
             | Self::IntegrationInUse

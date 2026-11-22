@@ -18,7 +18,7 @@ opensesame-storage = { path = "../storage" }
 opensesame-connector-host = { path = "../connector-host" }
 opensesame-task-access = { path = "../task-access" }
 anyhow = { workspace = true }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
@@ -29,7 +29,7 @@ tokio = { workspace = true }
 [dev-dependencies]
 tokio = { workspace = true }
 uuid = { workspace = true }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 serde_json = { workspace = true }
 
 [[test]]

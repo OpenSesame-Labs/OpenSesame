@@ -3,7 +3,7 @@
 //! Auth-path denial is `fenced_authority`'s `expires_at` clause (ADR 0121);
 //! this module only proves the feed half — notifications are not revocation.
 
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 
 use crate::evaluate::{evaluate, should_respond, Watermarks};
 use crate::event::EVENT_EXPIRY_EXPIRED;

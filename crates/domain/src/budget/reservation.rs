@@ -17,7 +17,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
-use chrono::{DateTime, Duration, Utc};
+use opensesame_time::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 
 use super::{Amount, BudgetError, BudgetKey, Quantity, WindowId};

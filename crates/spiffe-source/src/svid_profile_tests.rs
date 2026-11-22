@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use chrono::Utc;
+use opensesame_time::Utc;
 use rcgen::KeyUsagePurpose;
 
 use super::{validate_leaf, SvidExpectation, SvidProfileError, SvidRole};
@@ -26,7 +26,7 @@ fn check(spec: &SvidSpec, exp: &SvidExpectation<'_>) -> Result<String, SvidProfi
 #[test]
 fn conforming_svid_passes_for_both_roles_and_reports_facts() {
     let td = FakeTrustDomain::new(TD);
-    let leaf = td.issue_svid(ID, Duration::from_secs(600));
+    let leaf = td.issue_svid(ID, Duration::from_mins(10));
     for role in [SvidRole::Client, SvidRole::Server] {
         let facts = validate_leaf(leaf.leaf_der(), &expect(Some(ID), role), Utc::now()).unwrap();
         assert_eq!(facts.spiffe_id, ID);
@@ -38,7 +38,7 @@ fn conforming_svid_passes_for_both_roles_and_reports_facts() {
 
 #[test]
 fn at_spiffe_san_extra_uri_san_is_rejected() {
-    let mut spec = SvidSpec::conforming(ID, Duration::from_secs(60));
+    let mut spec = SvidSpec::conforming(ID, Duration::from_mins(1));
     spec.uri_sans.push("spiffe://example.test/other".into());
     assert_eq!(
         check(&spec, &expect(None, SvidRole::Client)),
@@ -48,7 +48,7 @@ fn at_spiffe_san_extra_uri_san_is_rejected() {
 
 #[test]
 fn at_spiffe_san_dns_only_leaf_is_not_an_svid() {
-    let mut spec = SvidSpec::conforming(ID, Duration::from_secs(60));
+    let mut spec = SvidSpec::conforming(ID, Duration::from_mins(1));
     spec.uri_sans.clear();
     spec.dns_sans.push("gateway.example.test".into());
     assert_eq!(
@@ -66,7 +66,7 @@ fn at_spiffe_san_dns_only_leaf_is_not_an_svid() {
 fn at_spiffe_san_wrong_trust_domain_is_rejected_before_identity() {
     let spec = SvidSpec::conforming(
         "spiffe://other.test/opensesame/gateway",
-        Duration::from_secs(60),
+        Duration::from_mins(1),
     );
     assert_eq!(
         check(&spec, &expect(Some(ID), SvidRole::Client)),
@@ -81,7 +81,7 @@ fn at_spiffe_san_wrong_trust_domain_is_rejected_before_identity() {
 fn exact_identity_mismatch_is_rejected_even_in_the_right_domain() {
     let spec = SvidSpec::conforming(
         "spiffe://example.test/opensesame/worker",
-        Duration::from_secs(60),
+        Duration::from_mins(1),
     );
     assert!(matches!(
         check(&spec, &expect(Some(ID), SvidRole::Client)),
@@ -125,7 +125,7 @@ fn at_spiffe_san_confusables_are_not_valid_spiffe_ids() {
         ),
         ("spiffe://example.test", SvidProfileError::RootSpiffeId),
     ] {
-        let mut spec = SvidSpec::conforming(ID, Duration::from_secs(60));
+        let mut spec = SvidSpec::conforming(ID, Duration::from_mins(1));
         spec.uri_sans = vec![uri.into()];
         assert_eq!(
             check(&spec, &expect(None, SvidRole::Client)),
@@ -139,7 +139,7 @@ fn at_spiffe_san_confusables_are_not_valid_spiffe_ids() {
 fn at_spiffe_san_case_variant_path_is_a_different_identity_not_a_match() {
     let spec = SvidSpec::conforming(
         "spiffe://example.test/opensesame/Gateway",
-        Duration::from_secs(60),
+        Duration::from_mins(1),
     );
     assert!(matches!(
         check(&spec, &expect(Some(ID), SvidRole::Client)),
@@ -149,7 +149,7 @@ fn at_spiffe_san_case_variant_path_is_a_different_identity_not_a_match() {
 
 #[test]
 fn at_tls_purpose_ca_leaf_and_signing_key_usage_are_rejected() {
-    let mut ca = SvidSpec::conforming(ID, Duration::from_secs(60));
+    let mut ca = SvidSpec::conforming(ID, Duration::from_mins(1));
     ca.is_ca = true;
     ca.key_usages = vec![
         KeyUsagePurpose::KeyCertSign,
@@ -160,7 +160,7 @@ fn at_tls_purpose_ca_leaf_and_signing_key_usage_are_rejected() {
         Err(SvidProfileError::LeafIsCa)
     );
 
-    let mut signer = SvidSpec::conforming(ID, Duration::from_secs(60));
+    let mut signer = SvidSpec::conforming(ID, Duration::from_mins(1));
     signer.key_usages = vec![
         KeyUsagePurpose::DigitalSignature,
         KeyUsagePurpose::KeyCertSign,
@@ -178,7 +178,7 @@ fn at_tls_purpose_ca_leaf_and_signing_key_usage_are_rejected() {
 
 #[test]
 fn at_tls_purpose_key_usage_must_be_present_critical_and_digital_signature() {
-    let mut spec = SvidSpec::conforming(ID, Duration::from_secs(60));
+    let mut spec = SvidSpec::conforming(ID, Duration::from_mins(1));
     spec.key_usages = vec![KeyUsagePurpose::KeyEncipherment];
     assert_eq!(
         check(&spec, &expect(None, SvidRole::Client)),
@@ -198,7 +198,7 @@ fn at_tls_purpose_key_usage_must_be_present_critical_and_digital_signature() {
 
 #[test]
 fn at_tls_purpose_eku_must_match_role_and_be_dual_when_present() {
-    let mut spec = SvidSpec::conforming(ID, Duration::from_secs(60));
+    let mut spec = SvidSpec::conforming(ID, Duration::from_mins(1));
     spec.eku = Eku::ServerOnly;
     assert_eq!(
         check(&spec, &expect(None, SvidRole::Client)),
@@ -229,22 +229,22 @@ fn at_tls_purpose_eku_must_match_role_and_be_dual_when_present() {
 
 #[test]
 fn unknown_critical_extension_and_validity_window_are_enforced() {
-    let mut spec = SvidSpec::conforming(ID, Duration::from_secs(60));
+    let mut spec = SvidSpec::conforming(ID, Duration::from_mins(1));
     spec.unknown_critical_extension = true;
     assert_eq!(
         check(&spec, &expect(None, SvidRole::Client)),
         Err(SvidProfileError::UnknownCriticalExtension)
     );
-    let mut future = SvidSpec::conforming(ID, Duration::from_secs(60));
-    future.not_before = Utc::now() + chrono::Duration::hours(1);
-    future.not_after = Utc::now() + chrono::Duration::hours(2);
+    let mut future = SvidSpec::conforming(ID, Duration::from_mins(1));
+    future.not_before = Utc::now() + opensesame_time::Duration::hours(1);
+    future.not_after = Utc::now() + opensesame_time::Duration::hours(2);
     assert_eq!(
         check(&future, &expect(None, SvidRole::Client)),
         Err(SvidProfileError::NotYetValid)
     );
-    let mut past = SvidSpec::conforming(ID, Duration::from_secs(60));
-    past.not_before = Utc::now() - chrono::Duration::hours(2);
-    past.not_after = Utc::now() - chrono::Duration::hours(1);
+    let mut past = SvidSpec::conforming(ID, Duration::from_mins(1));
+    past.not_before = Utc::now() - opensesame_time::Duration::hours(2);
+    past.not_after = Utc::now() - opensesame_time::Duration::hours(1);
     assert_eq!(
         check(&past, &expect(None, SvidRole::Client)),
         Err(SvidProfileError::Expired)
@@ -259,7 +259,7 @@ fn garbage_is_malformed_not_a_panic() {
     );
     let td = FakeTrustDomain::new(TD);
     let mut der = td
-        .issue_svid(ID, Duration::from_secs(60))
+        .issue_svid(ID, Duration::from_mins(1))
         .leaf_der()
         .to_vec();
     der.push(0);

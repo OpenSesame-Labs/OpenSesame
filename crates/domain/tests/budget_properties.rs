@@ -8,10 +8,10 @@
 
 use std::collections::BTreeMap;
 
-use chrono::{Duration, TimeZone, Utc};
 use opensesame_domain::budget::{
     effective_grant_budgets, BudgetError, BudgetKey, Limit, Limits, Quantity, Unit, WindowSpec,
 };
+use opensesame_time::{Duration, TimeZone, Utc};
 use proptest::prelude::*;
 
 const KEYS: [&str; 4] = ["calls", "usd", "tokens", "egress_bytes"];

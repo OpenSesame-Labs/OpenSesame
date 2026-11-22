@@ -13,9 +13,9 @@
 
 use std::sync::Arc;
 
-use chrono::Utc;
 use opensesame_domain::transport::{CredentialStatus, Custody, IdentitySourceKind, TransportError};
 use opensesame_domain::OrganizationId;
+use opensesame_time::Utc;
 use opensesame_transport_security::{
     GenerationCandidate, SecretBytes, TlsIdentity, TransportGenerations,
 };

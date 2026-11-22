@@ -17,7 +17,10 @@
       "default": "./src/ldap-server.ts"
     }
   },
-  "files": ["dist", "src"],
+  "files": [
+    "dist",
+    "src"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -29,7 +32,8 @@
     "@opensesame/observability": "*",
     "@opensesame/os-domain": "*",
     "@xmldom/xmldom": "^0.9.12",
-    "jose": "6.2.15",
+    "jose": "6.2.17",
+    "reflect-metadata": "0.2.2",
     "selfsigned": "5.5.0",
     "xml-crypto": "6.4.0"
   },

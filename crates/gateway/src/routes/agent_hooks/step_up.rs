@@ -15,9 +15,9 @@
 //!   evidence `agent_runs` asks before a control handoff.
 //!
 //! Nothing delegated satisfies it, whatever evidence it carries: an agent
-//! capability, a browser grant, and a native session whose ceiling is
-//! anything but the plain `host:user` ceiling (it carries agent capabilities,
-//! so something is acting for the person) are refused as
+//! capability, a browser grant, and a native session whose ceiling carries
+//! anything beyond the plain human grant and server-issued attachment
+//! replication grant (for example, an agent capability) are refused as
 //! `delegated_credential`. The refusal is `403`, never `401` (ADR 0146): a
 //! caller asked to prove itself has not been signed out.
 //!
@@ -28,12 +28,14 @@
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::{IntoResponse, Response};
 use axum::Json;
-use chrono::{DateTime, Duration, Utc};
+use opensesame_time::{DateTime, Duration, Utc};
 use serde_json::json;
 
 use crate::app_state::AppState;
 use crate::middleware::auth::{require_session, Caller};
-use crate::session_claims::{Assurance, CredentialKind, HostSessionClaims};
+use crate::session_claims::{
+    Assurance, CredentialKind, HostSessionClaims, ATTACHMENT_REPLICATE_CAPABILITY,
+};
 
 /// How recent a step-up must be. Matches the window the run-control handoff
 /// asks for (`agent_runs`).
@@ -96,11 +98,14 @@ pub(crate) fn fresh_step_up(
     now: DateTime<Utc>,
 ) -> Result<(), StepUpRefusal> {
     if claims.credential_kind != CredentialKind::NativeSession
-        || claims.capability_ceiling.is_empty()
+        || !claims
+            .capability_ceiling
+            .iter()
+            .any(|cap| cap == "host:user")
         || claims
             .capability_ceiling
             .iter()
-            .any(|cap| cap != "host:user")
+            .any(|cap| cap != "host:user" && cap != ATTACHMENT_REPLICATE_CAPABILITY)
     {
         return Err(StepUpRefusal::Delegated);
     }

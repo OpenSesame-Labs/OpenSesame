@@ -60,7 +60,7 @@ impl Expectations {
     #[must_use]
     pub fn at_now() -> Self {
         Self {
-            now: chrono::Utc::now().timestamp(),
+            now: opensesame_time::Utc::now().timestamp(),
             ..Self::default()
         }
     }

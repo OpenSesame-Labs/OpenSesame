@@ -16,7 +16,7 @@
 use super::node::AccessDomain;
 use super::realm::Realm;
 use crate::{AccessDomainId, DomainError};
-use chrono::{DateTime, Utc};
+use opensesame_time::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 

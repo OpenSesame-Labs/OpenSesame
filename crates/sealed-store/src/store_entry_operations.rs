@@ -1,8 +1,8 @@
 //! Entry removal, listing, search, and copy/move operations.
 
 use super::{
-    auto_commit, confined_remove, fs, ItemDataKey, Path, StoreError, StoreLock, StoreRoot,
-    COMMIT_REMOVE,
+    auto_commit, confined_remove, fs, FormatHint, ItemDataKey, Path, StoreError, StoreLock,
+    StoreRoot, COMMIT_REMOVE,
 };
 use crate::path::relative_to_logical;
 
@@ -47,11 +47,33 @@ impl StoreRoot {
     ///
     /// Returns an error when validation or the underlying operation fails.
     pub fn rm(&self, name: &str) -> Result<(), StoreError> {
-        let (path, _) = self.find_existing(name)?;
+        self.rm_with_optional_key(name, None)
+    }
+
+    /// Remove a native entry after durably writing its authenticated tombstone.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the key is stale, the entry is absent, or the
+    /// tombstone cannot be committed before unlinking the ciphertext.
+    pub fn rm_with_key(&self, name: &str, key: &ItemDataKey) -> Result<(), StoreError> {
+        self.rm_with_optional_key(name, Some(key))
+    }
+
+    fn rm_with_optional_key(
+        &self,
+        name: &str,
+        key: Option<&ItemDataKey>,
+    ) -> Result<(), StoreError> {
+        let _lock = StoreLock::for_writing(&self.path, name, key)?;
+        let (path, hint) = self.find_existing(name)?;
         let rel = path
             .strip_prefix(&self.path)
             .map_err(|_| StoreError::InvalidPath("path escapes store root".into()))?;
-        let _lock = StoreLock::shared(&self.path)?;
+        if hint == FormatHint::Osseal {
+            let key = key.ok_or_else(|| StoreError::NotInitialized(self.path.clone()))?;
+            self.tombstone_entry(name, key)?;
+        }
         confined_remove(&self.path, rel)?;
         auto_commit(&self.path, COMMIT_REMOVE)?;
         Ok(())
@@ -114,7 +136,13 @@ impl StoreRoot {
     ) -> Result<(), StoreError> {
         let entry = self.show_with_age_identity(from, key, age_identity)?;
         self.insert(to, &entry, key)?;
-        self.rm(from)?;
+        self.rm_with_key(from, key)?;
         Ok(())
     }
+}
+
+/// List entries for connector-host without unlocking (names only).
+pub fn list_names(store_dir: &Path, prefix: &str) -> Result<Vec<String>, StoreError> {
+    let root = StoreRoot::open(store_dir)?;
+    root.ls(prefix)
 }

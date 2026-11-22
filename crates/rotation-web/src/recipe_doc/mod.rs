@@ -29,7 +29,7 @@ mod sign;
 #[cfg(test)]
 mod tests;
 
-use chrono::{DateTime, Duration, Utc};
+use opensesame_time::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

@@ -1,10 +1,10 @@
 //! Which session grants one lifecycle pass reads (ADR 0079 §4, ADR 0074 §1).
 
-use chrono::Duration;
 use opensesame_domain::{
     GrantLink, GrantScope, NewSessionGrant, PrincipalId, SessionGrantId, SessionId, SessionRole,
     SessionVisibility, VaultId,
 };
+use opensesame_time::Duration;
 
 use super::*;
 use crate::StoredSession;

@@ -132,7 +132,22 @@ fn rename_absent(
     let flags = libc::RENAME_NOREPLACE;
     // SAFETY: live owned original directory FDs and terminated relative names; no-overwrite kernel rename.
     let result = unsafe {
-        #[cfg(any(target_os = "linux", target_os = "android"))]
+        #[cfg(all(target_os = "linux", target_env = "musl"))]
+        {
+            // rustc's bundled musl omits the renameat2 wrapper. The syscall is the same call.
+            libc::syscall(
+                libc::SYS_renameat2,
+                from as libc::c_long,
+                stage.as_ptr() as libc::c_long,
+                to as libc::c_long,
+                target.as_ptr() as libc::c_long,
+                flags as libc::c_long,
+            ) as libc::c_int
+        }
+        #[cfg(any(
+            all(target_os = "linux", not(target_env = "musl")),
+            target_os = "android"
+        ))]
         {
             libc::renameat2(from, stage.as_ptr(), to, target.as_ptr(), flags)
         }

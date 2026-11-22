@@ -21,6 +21,16 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
+it("refuses to place a credential into a document from another origin", () => {
+  document.body.innerHTML = '<input id="field" value="unchanged">';
+  expect(pfFill("#field", "secret", "https://different.example")).toBe(
+    "off_origin",
+  );
+  expect(document.querySelector<HTMLInputElement>("#field")?.value).toBe(
+    "unchanged",
+  );
+});
+
 it("waits for actual attribute and child mutations, and rejects malformed or absent selectors", async () => {
   document.body.innerHTML = '<div id="later"></div>';
   expect(await pfWaitFor("#later", 50, ORIGIN)).toBe("ok");

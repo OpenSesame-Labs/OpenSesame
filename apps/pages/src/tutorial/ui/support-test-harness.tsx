@@ -93,7 +93,10 @@ export function lockTheVault(): void {
 export async function openPanel(user: ReturnType<typeof userEvent.setup>) {
   const affordance = screen.getByRole("button", { name: "Support" });
   await user.click(affordance);
-  const panel = await screen.findByRole("dialog", { name: "Support" });
+  const panel = await screen.findByRole("dialog", {
+    name: "Support",
+    busy: false,
+  });
   await waitFor(() =>
     expect(panel.contains(document.activeElement)).toBe(true),
   );

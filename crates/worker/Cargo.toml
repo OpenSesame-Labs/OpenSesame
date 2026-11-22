@@ -14,7 +14,7 @@ testkit = ["opensesame-transport-security/testkit", "dep:reqwest"]
 opensesame-connector-host = { path = "../../crates/connector-host" }
 opensesame-domain = { path = "../../crates/domain" }
 opensesame-transport-security = { path = "../../crates/transport-security" }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 anyhow = { workspace = true }
 axum = { workspace = true }
 clap = { workspace = true }

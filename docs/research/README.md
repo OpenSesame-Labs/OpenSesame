@@ -17,3 +17,4 @@ names the ADR it fed, or says that no ADR has adopted it yet.
 | [Travel mode](travel-mode.md) | [ADR 0143](../adr/0143-travel-mode.md) — 1Password's Travel Mode, comparable designs, and what a good travel mode needs. It also fed [ADR 0168](../adr/0168-duress-modes-from-scenarios.md) (duress modes). |
 | [Hiding items while traveling](travel-hidden-items.md) | [ADR 0171](../adr/0171-hide-items-while-traveling.md) — the audit of every place an item's name or content persists after it leaves the vault you carry. |
 | [Modularity and refactoring](modularity-refactor-strategy.md) | An evaluation, not yet a decision: where the codebase's complexity comes from, and the refactoring strategy that would follow. |
+| [GitOps at scale](gitops-at-scale-linkedin.md) | No ADR yet — LinkedIn's move from Argo CD to a per-deployment engine (3-way drift diff, deletion candidates, field ownership), mapped onto our settings-as-code, drift alarm and candidate promotion, with proposals. |

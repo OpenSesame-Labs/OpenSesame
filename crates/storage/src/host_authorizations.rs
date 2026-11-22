@@ -187,7 +187,7 @@ impl Db {
         if changed == 0 {
             return Ok(false);
         }
-        let timestamp = chrono::DateTime::from_timestamp(now, 0)
+        let timestamp = opensesame_time::DateTime::from_timestamp(now, 0)
             .ok_or_else(|| anyhow::anyhow!("invalid time"))?
             .to_rfc3339();
         let changed = sqlx::query(

@@ -46,8 +46,9 @@ pub fn wrap_vrk_with_password(
     kek.zeroize();
     let mut nonce = [0u8; 24];
     rand::rng().fill_bytes(&mut nonce);
+    let nonce_ref: &XNonce = (&nonce).into();
     let wrapped = cipher
-        .encrypt(XNonce::from_slice(&nonce), vrk.0.as_ref())
+        .encrypt(nonce_ref, vrk.0.as_ref())
         .map_err(|_| VaultCryptoError::Aead)?;
     Ok(PasswordWrapper {
         salt: STANDARD.encode(salt),
@@ -144,8 +145,9 @@ fn unwrap_admitted(
     let cipher =
         XChaCha20Poly1305::new_from_slice(&wrapping_key).map_err(|_| VaultCryptoError::Aead)?;
     wrapping_key.zeroize();
+    let nonce_ref: &XNonce = (&nonce).into();
     let mut plaintext_vrk = cipher
-        .decrypt(XNonce::from_slice(&nonce), wrapped_bytes.as_ref())
+        .decrypt(nonce_ref, wrapped_bytes.as_ref())
         .map_err(|_| VaultCryptoError::Aead)?;
     // Authentic but wrong-sized material must be an error, not a panic on
     // `copy_from_slice`.

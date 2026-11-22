@@ -1,9 +1,10 @@
 /**
- * Smoke the Preview publish before Production publishes `0.0.0-next.N`.
+ * Legacy registry smoke helper. CD npm jobs now use local package proofs;
+ * the Pages smoke imports the shared intentional-failure guard from this file.
  *
  * Resolves `@opensesame-labs/cli@alpha`, installs it, and requires
  * `opensesame --version` to exit 0. When EXPECTED_VERSION is set and
- * SMOKE_PUBLISHED_PACKAGE is unset (CD npm CLI), both the dist-tag and the
+ * SMOKE_PUBLISHED_PACKAGE is unset, both the dist-tag and the
  * command output must match it.
  *
  * Registry, dist-tag, install, `--version`, and Pages checks poll until
@@ -16,23 +17,21 @@
  * or `time`, and some dist-tag value (including `latest`) equals it. The
  * deadline is not shortened and a miss is not treated as success.
  *
- * CLI CD starts that version wait in the Preview publish job
- * (`cd-registry-wait.mjs`) on the same deadline. When
- * CD_REGISTRY_VERSION_CONFIRMED=1, this script skips only that duplicate
+ * When CD_REGISTRY_VERSION_CONFIRMED=1, this script skips only that duplicate
  * wait. Dist-tag equality, `npm install @alpha`, and `opensesame --version`
  * still run.
  *
- * SMOKE_PUBLISHED_PACKAGE defaults to `@opensesame-labs/cli`. CD PWA sets it
- * to `@opensesame-labs/web-pwa` and passes EXPECTED_VERSION from the PWA
- * build. That wait targets web-pwa, then the CLI alpha install still runs.
+ * SMOKE_PUBLISHED_PACKAGE defaults to `@opensesame-labs/cli`. When set to
+ * `@opensesame-labs/web-pwa`, the wait targets web-pwa and then the CLI alpha
+ * install still runs.
  * The CLI dist-tag is compared to EXPECTED_VERSION only when the published
  * package is the CLI.
  *
- * `CD_PROOF_GATE_FAIL=1` (workflow_dispatch `proof_gate_fail`) throws
+ * `CD_PROOF_GATE_FAIL=1` throws
  * `intentional promotion gate proof failure` before any registry call.
  *
- * cd-pwa also sets PAGES_URL. That URL must load, and the Pages release
- * marker must match GITHUB_SHA (`pages-release` verify).
+ * If PAGES_URL is set, that URL must load and the Pages release marker must
+ * match GITHUB_SHA (`pages-release` verify).
  *
  *   EXPECTED_VERSION=0.0.0-alpha.4 node scripts/release/cd-preview-smoke.mjs
  *   EXPECTED_VERSION=0.0.0-alpha.4 \

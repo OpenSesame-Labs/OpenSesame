@@ -13,8 +13,8 @@ use x509_parser::pem::parse_x509_pem;
 use x509_parser::prelude::parse_x509_certificate;
 use zeroize::Zeroizing;
 
-pub const DEFAULT_TTL: Duration = Duration::from_secs(24 * 60 * 60);
-pub const MAX_TTL: Duration = Duration::from_secs(90 * 24 * 60 * 60);
+pub const DEFAULT_TTL: Duration = Duration::from_hours(24);
+pub const MAX_TTL: Duration = Duration::from_hours(90 * 24);
 const MAX_DNS_NAMES: usize = 100;
 const MAX_IP_ADDRS: usize = 16;
 const MAX_CERTIFICATE_CHAIN_BYTES: usize = 256 * 1024;

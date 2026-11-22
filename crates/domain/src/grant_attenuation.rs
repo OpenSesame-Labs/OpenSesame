@@ -277,7 +277,7 @@ pub fn validate_lineage_pointers(parent: &Grant, child: &Grant) -> Result<(), Do
 mod tests {
     use super::*;
     use crate::{ConnectionId, GrantId, OfflineUse, OrganizationId, PrincipalId, ProjectId};
-    use chrono::{Duration, Utc};
+    use opensesame_time::{Duration, Utc};
 
     fn parent_grant() -> Grant {
         let now = Utc::now();

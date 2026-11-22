@@ -10,8 +10,6 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use opensesame_broker::{invocation_fingerprint, InvokeInput};
-use opensesame_connection_broker::delegation_invoke_budget::InvokeBudgetClaim;
 use opensesame_storage::authority::InvokeBudgetOutcome;
 use serde_json::json;
 
@@ -20,135 +18,38 @@ use crate::app_state::AppState;
 use super::intents::ResolvedInvocation;
 
 /// Holds taken against `authority_budgets` for this invoke, if any.
-struct AuthorityBudgetHold {
+pub(super) struct AuthorityBudgetHold {
     organization_id: String,
     keys: Vec<String>,
 }
 
-/// Only the request that created the durable claim may release its holds.
-pub(super) struct InvokeBudgetHold {
-    organization_id: String,
-    claim_id: String,
-    authority: Option<AuthorityBudgetHold>,
-}
-
-/// Claim the invocation and spend both meters after authorization and before execution.
-/// A prior intent skips spending and must still pass broker replay checks.
+/// Spend both meters after authorization and before execution.
 ///
 /// # Errors
 ///
-/// Returns 403 when a ledger refuses the spend, or 409 for an incompatible
-/// or not-yet-persisted invocation using the same idempotency key.
+/// Returns a 403 response when either ledger refuses the spend.
 pub(super) async fn spend_invoke_budgets(
     st: &AppState,
     organization_id: &str,
     resolved: &ResolvedInvocation,
-    input: &InvokeInput,
-) -> Result<Option<InvokeBudgetHold>, Response> {
-    let key = &input.intent.idempotency_key;
-    // A previously stored intent is replayed through the broker, which checks
-    // the exact binding and current authorization before returning a receipt.
-    if st
-        .db
-        .find_idempotent_intent(&input.intent.organization_id, key)
-        .await
-        .map_err(|_| budget_exhausted())?
-        .is_some()
-    {
-        return Ok(None);
-    }
-    let fingerprint = invocation_budget_binding(st, input).map_err(|_| budget_exhausted())?;
-    let claim = st
-        .connection_broker
-        .claim_invoke_budget(
-            organization_id,
-            key,
-            &fingerprint,
-            resolved.spend_budget.as_deref(),
-        )
-        .await
-        .map_err(|_| budget_exhausted())?;
-    let claim_id = match claim {
-        InvokeBudgetClaim::Reserved { claim_id } => claim_id,
-        InvokeBudgetClaim::Conflict => return Err(idempotency_conflict()),
-        InvokeBudgetClaim::Duplicate => {
-            // Only the broker's persisted intent can make a retry safe. A
-            // claim without an intent is in flight or survived a crash before
-            // the outcome became known: fail closed rather than run for free.
-            return if st
-                .db
-                .find_idempotent_intent(&input.intent.organization_id, key)
-                .await
-                .map_err(|_| budget_exhausted())?
-                .is_some()
-            {
-                Ok(None)
-            } else {
-                Err(idempotency_conflict())
-            };
-        }
-    };
-    // This per-claim key avoids reopening an earlier released authority hold.
-    let authority = match spend_authority_budget(st, organization_id, resolved, &claim_id).await {
-        Ok(hold) => hold,
-        Err(response) => {
-            let _ = st
-                .connection_broker
-                .release_invoke_budget_claim(organization_id, &claim_id)
-                .await;
-            return Err(response);
-        }
-    };
-    Ok(Some(InvokeBudgetHold {
-        organization_id: organization_id.to_owned(),
-        claim_id,
-        authority,
-    }))
-}
-
-pub(super) fn invocation_budget_binding(
-    st: &AppState,
-    input: &InvokeInput,
-) -> anyhow::Result<String> {
-    let fingerprint = invocation_fingerprint(input)?;
-    let fingerprint = serde_json::to_string(&fingerprint)?;
-    // Do not expose a dictionary-checkable digest of request parameters in a
-    // database row: bind it under the deployment's existing claim pepper.
-    Ok(opensesame_claims::hash_low_entropy(
-        &st.claim_pepper,
-        "invocation-budget-fingerprint-v1",
-        &fingerprint,
-    ))
-}
-
-/// After an authorized broker replay returns its receipt, complete any hold
-/// whose settlement was interrupted after the original provider outcome.
-pub(super) async fn settle_replayed_invoke(
-    st: &AppState,
-    organization_id: &str,
     idempotency_key: &str,
-    fingerprint: &str,
-) {
-    let claim: Result<Option<String>, _> = sqlx::query_scalar(
-        "SELECT claim_id FROM invocation_budget_claims \
-         WHERE organization_id = ? AND idempotency_key = ? AND fingerprint = ?",
-    )
-    .bind(organization_id)
-    .bind(idempotency_key)
-    .bind(fingerprint)
-    .fetch_optional(st.db.pool())
-    .await;
-    if let Ok(Some(claim_id)) = claim {
-        let _ = st
-            .db
-            .settle_invoke_claim_budgets(organization_id, &claim_id)
-            .await;
+) -> Result<Option<AuthorityBudgetHold>, Response> {
+    let hold = spend_authority_budget(st, organization_id, resolved, idempotency_key).await?;
+    if let Err(response) = spend_delegation_budget(st, resolved).await {
+        if let Some(hold) = hold.as_ref() {
+            let _ = st
+                .db
+                .release_invoke_budgets(&hold.organization_id, &hold.keys)
+                .await;
+        }
+        return Err(response);
     }
+    Ok(hold)
 }
 
 /// Settle authority holds after the provider outcome (unknown outcomes charge).
-pub(super) async fn settle_authority_budget_hold(st: &AppState, hold: Option<InvokeBudgetHold>) {
-    let Some(hold) = hold.and_then(|hold| hold.authority) else {
+pub(super) async fn settle_authority_budget_hold(st: &AppState, hold: Option<AuthorityBudgetHold>) {
+    let Some(hold) = hold else {
         return;
     };
     let _ = st
@@ -158,19 +59,16 @@ pub(super) async fn settle_authority_budget_hold(st: &AppState, hold: Option<Inv
 }
 
 /// Release a hold that never reached the side-effect boundary (AT-REVOKE-QUEUE).
-pub(super) async fn release_authority_budget_hold(st: &AppState, hold: Option<InvokeBudgetHold>) {
+pub(super) async fn release_authority_budget_hold(
+    st: &AppState,
+    hold: Option<AuthorityBudgetHold>,
+) {
     let Some(hold) = hold else {
         return;
     };
-    if let Some(authority) = hold.authority {
-        let _ = st
-            .db
-            .release_invoke_budgets(&authority.organization_id, &authority.keys)
-            .await;
-    }
     let _ = st
-        .connection_broker
-        .release_invoke_budget_claim(&hold.organization_id, &hold.claim_id)
+        .db
+        .release_invoke_budgets(&hold.organization_id, &hold.keys)
         .await;
 }
 
@@ -195,18 +93,26 @@ async fn spend_authority_budget(
     }
 }
 
+async fn spend_delegation_budget(
+    st: &AppState,
+    resolved: &ResolvedInvocation,
+) -> Result<(), Response> {
+    let Some(delegation_id) = &resolved.spend_budget else {
+        return Ok(());
+    };
+    st.connection_broker
+        .spend_delegation_budget(
+            delegation_id,
+            opensesame_connection_broker::delegation::BUDGET_INVOCATIONS,
+        )
+        .await
+        .map_err(|_| budget_exhausted())
+}
+
 fn budget_exhausted() -> Response {
     (
         StatusCode::FORBIDDEN,
         Json(json!({"error": "budget_exhausted"})),
-    )
-        .into_response()
-}
-
-fn idempotency_conflict() -> Response {
-    (
-        StatusCode::CONFLICT,
-        Json(json!({"error": "idempotency_conflict"})),
     )
         .into_response()
 }

@@ -7,7 +7,7 @@ license.workspace = true
 
 [dependencies]
 opensesame-domain = { path = "../domain" }
-chrono = { workspace = true }
+opensesame-time = { workspace = true }
 rand = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }

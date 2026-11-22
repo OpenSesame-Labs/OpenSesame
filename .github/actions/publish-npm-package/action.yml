@@ -1,85 +1,22 @@
-name: Publish npm package
+name: npm publication disabled
 description: >-
-  Publish a staged release directory to npm with provenance. A non-empty
-  npm-token is the only registry credential (NODE_AUTH_TOKEN). That path
-  does not attempt OIDC trusted publishing. An empty token leaves registry
-  auth to OIDC (id-token: write). Preview publishes 0.0.0-alpha.N on alpha.
-  Production publishes the same staged payload as 0.0.0-next.N on next.
-  Never prints tokens. Never publishes latest.
-
+  Refuse registry publication until immutable npm packages are included in a
+  qualified candidate and promoted with independently protected credentials.
 inputs:
   working-directory:
-    description: Directory that contains the publish package.json and payload files.
-    required: true
-  npm-dist-tag:
-    description: >-
-      npm dist-tag for this publish. Preview passes alpha with version
-      0.0.0-alpha.N. Production passes next after package.json is rewritten
-      to 0.0.0-next.N. This action refuses latest.
-    required: true
-  npm-token:
-    description: >-
-      npm token from the GitHub Environment. Non-empty values publish with
-      NODE_AUTH_TOKEN only. Leave empty for OIDC trusted publishing.
+    description: Reserved for a future qualified publisher.
     required: false
-    default: ""
-
+  npm-dist-tag:
+    description: Reserved for a future qualified publisher.
+    required: false
+  npm-token:
+    description: Reserved for a future qualified publisher; never read here.
+    required: false
 runs:
   using: composite
   steps:
-    - name: Pin npm 11.21.1 and configure the npmjs registry
+    - name: Refuse unqualified npm publication
       shell: bash
-      env:
-        NPM_TOKEN_INPUT: ${{ inputs.npm-token }}
       run: |
-        set -euo pipefail
-        # npx caches under the runner user. A global install writes
-        # /usr/local/share/man and fails with EACCES (exit 243).
-        test "$(npx -y npm@11.21.1 --version)" = "11.21.1"
-        npmrc="${RUNNER_TEMP}/opensesame-npmjs.npmrc"
-        if [ -n "${NPM_TOKEN_INPUT:-}" ]; then
-          printf '%s\n' \
-            'registry=https://registry.npmjs.org/' \
-            '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}' \
-            > "$npmrc"
-        else
-          printf '%s\n' 'registry=https://registry.npmjs.org/' > "$npmrc"
-        fi
-        unset NPM_TOKEN_INPUT
-        echo "NPM_CONFIG_USERCONFIG=${npmrc}" >> "$GITHUB_ENV"
-
-    - name: Publish to npm
-      shell: bash
-      working-directory: ${{ inputs.working-directory }}
-      env:
-        NPM_TOKEN_INPUT: ${{ inputs.npm-token }}
-        NPM_DIST_TAG: ${{ inputs.npm-dist-tag }}
-      run: |
-        set -euo pipefail
-        test -n "$NPM_DIST_TAG"
-        if [ "$NPM_DIST_TAG" = "latest" ]; then
-          echo "Refusing dist-tag latest. Preview publishes alpha; Production publishes 0.0.0-next.N on next." >&2
-          exit 1
-        fi
-        version="$(node -p "JSON.parse(require('node:fs').readFileSync('package.json','utf8')).version")"
-        test -n "$version"
-        case "$NPM_DIST_TAG:$version" in
-          alpha:0.0.0-alpha.[0-9]*|next:0.0.0-next.[0-9]*) ;;
-          *)
-            echo "Refusing ${NPM_DIST_TAG} for ${version}. Trunk CD publishes 0.0.0-alpha.N on alpha or 0.0.0-next.N on next." >&2
-            exit 1
-            ;;
-        esac
-        # Non-empty token: NODE_AUTH_TOKEN only. Do not try OIDC first.
-        # Empty token: OIDC trusted publishing (id-token: write) only.
-        # Each publish says which it is, so a stored token is never in quiet
-        # use. Only the kind of credential is printed, never a value.
-        if [ -n "${NPM_TOKEN_INPUT:-}" ]; then
-          export NODE_AUTH_TOKEN="$NPM_TOKEN_INPUT"
-          echo "::warning title=npm credential::This publish uses the stored NPM_TOKEN secret, which outlives the run. Configure the npm trusted publisher and delete the secret: docs/operators/publishing.md."
-        else
-          unset NODE_AUTH_TOKEN
-          echo "::notice title=npm credential::This publish uses OIDC trusted publishing. No stored npm token is read."
-        fi
-        unset NPM_TOKEN_INPUT
-        node "${GITHUB_WORKSPACE}/scripts/release/npm-trunk-publish.mjs"
+        echo "::error::npm publication is disabled until qualified candidate-bound promotion is implemented." >&2
+        exit 1

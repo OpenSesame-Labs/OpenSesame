@@ -2,13 +2,13 @@ use crate::{
     InMemoryTaskStore, ProposeRestrictionParams, RenewCredentialParams, SharedTaskStore,
     StartTaskParams, TaskAccessEngine, TaskAccessError, TaskStore,
 };
-use chrono::{Duration, Utc};
 use opensesame_domain::{
     AuthorityContext, AuthorityContextId, AuthorityContextMode, Capability, CapabilitySet,
     CeilingInput, DomainError, EnforcementAcknowledgement, EnforcementAcknowledgementId,
     MediationPointId, OrganizationId, PrincipalId, ResourceSelector, TaskRunStatus, TaskTemplateId,
     VerificationEvidenceId,
 };
+use opensesame_time::{Duration, Utc};
 
 #[test]
 fn database_state_versions_reject_out_of_range_values() {

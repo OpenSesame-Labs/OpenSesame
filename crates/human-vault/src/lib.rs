@@ -109,7 +109,6 @@ impl ItemDataKey {
     }
 }
 
-///
 /// # Errors
 ///
 /// Returns `Kdf` if the associated data cannot be serialized.
@@ -118,7 +117,6 @@ pub fn ad_digest(ad: &AssociatedData) -> Result<String, VaultCryptoError> {
     Ok(format!("blake3:{}", blake3::hash(&bytes).to_hex()))
 }
 
-///
 /// # Errors
 ///
 /// Returns an error for an unsupported envelope version or encryption failure.
@@ -134,9 +132,10 @@ pub fn encrypt_item(
     let cipher = XChaCha20Poly1305::new_from_slice(&idk.0).map_err(|_| VaultCryptoError::Aead)?;
     let mut nonce = [0u8; 24];
     rand::rng().fill_bytes(&mut nonce);
+    let nonce_ref: &XNonce = (&nonce).into();
     let ct = cipher
         .encrypt(
-            XNonce::from_slice(&nonce),
+            nonce_ref,
             Payload {
                 msg: plaintext,
                 aad: digest.as_bytes(),
@@ -152,7 +151,6 @@ pub fn encrypt_item(
     })
 }
 
-///
 /// # Errors
 ///
 /// Returns an error when the envelope, associated data, nonce, or ciphertext
@@ -177,12 +175,13 @@ pub fn decrypt_item(
     }
     let cipher = XChaCha20Poly1305::new_from_slice(&idk.0).map_err(|_| VaultCryptoError::Aead)?;
     let nonce = decode_nonce(&envelope.nonce)?;
+    let nonce_ref: &XNonce = (&nonce).into();
     let ct = STANDARD
         .decode(&envelope.ciphertext)
         .map_err(|_| VaultCryptoError::Aead)?;
     cipher
         .decrypt(
-            XNonce::from_slice(&nonce),
+            nonce_ref,
             Payload {
                 msg: &ct,
                 aad: expected.as_bytes(),
@@ -192,7 +191,6 @@ pub fn decrypt_item(
 }
 
 /// Decrypt only when the caller's independently reconstructed context matches.
-///
 /// # Errors
 ///
 /// Returns an error when the expected associated data differs or decryption
@@ -310,9 +308,10 @@ pub fn seal_chunk(
     let cipher = XChaCha20Poly1305::new_from_slice(&key.0).map_err(|_| VaultCryptoError::Aead)?;
     let mut nonce = [0u8; 24];
     rand::rng().fill_bytes(&mut nonce);
+    let nonce_ref: &XNonce = (&nonce).into();
     let ct = cipher
         .encrypt(
-            XNonce::from_slice(&nonce),
+            nonce_ref,
             Payload {
                 msg: plaintext,
                 aad: digest.as_bytes(),
@@ -353,11 +352,12 @@ pub fn open_chunk(
     }
     let mut nonce = [0u8; 24];
     nonce.copy_from_slice(&frame[OSCHUNK_MAGIC.len()..OSCHUNK_HEADER_LEN]);
+    let nonce_ref: &XNonce = (&nonce).into();
     let digest = chunk_ad_digest(ad)?;
     let cipher = XChaCha20Poly1305::new_from_slice(&key.0).map_err(|_| VaultCryptoError::Aead)?;
     cipher
         .decrypt(
-            XNonce::from_slice(&nonce),
+            nonce_ref,
             Payload {
                 msg: &frame[OSCHUNK_HEADER_LEN..],
                 aad: digest.as_bytes(),
@@ -598,8 +598,8 @@ mod tests {
         .unwrap();
 
         // The envelope arrives through a server this crate does not trust, so every
-        // length in it is untrusted input. `XNonce::from_slice` panics on anything
-        // but 24 bytes, which turned a corrupt or hostile record into a crash.
+        // length in it is untrusted input. The typed nonce conversion must reject
+        // every non-24-byte value instead of turning a hostile record into a crash.
         for len in [0usize, 5, 12, 23, 25, 64] {
             let mut hostile = env.clone();
             hostile.nonce = STANDARD.encode(vec![0u8; len]);

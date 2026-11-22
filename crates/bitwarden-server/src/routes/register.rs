@@ -8,8 +8,8 @@
 use axum::extract::State;
 use axum::http::StatusCode;
 use axum::Json;
-use chrono::Utc;
 use opensesame_storage::bitwarden::BitwardenUser;
+use opensesame_time::Utc;
 use serde_json::{Map, Value};
 
 use super::credentials::{self, text, Names};

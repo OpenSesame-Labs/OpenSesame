@@ -14,7 +14,7 @@ ADR 0048 §5 (dependency budget and daemon quarantine),
 ADR 0052-cert ([key custody](0052-automatic-certificate-authority-selection.md)),
 ADR 0066 (Certificate Manager domain model), ADR 0067 (CRL/OCSP signing),
 ADR 0070 (code signing)
-Plan: [docs/archive/plans/plans/2026-08-30-infisical-cert-manager-parity-swarm.md](../archive/plans/plans/2026-08-30-infisical-cert-manager-parity-swarm.md)
+Validation: [Certificate Manager implementation evidence](../validation/certificate-manager.md)
 
 ## Context
 

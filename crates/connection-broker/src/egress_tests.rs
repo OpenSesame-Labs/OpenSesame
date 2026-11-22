@@ -34,25 +34,6 @@ fn places_oauth_and_api_key_credentials_from_catalog_auth() {
 }
 
 #[test]
-fn credentialed_egress_requires_https_except_loopback() {
-    assert!(require_secure_egress_url("https://api.github.com/user/repos").is_ok());
-    assert!(require_secure_egress_url("http://127.0.0.1:8080/upload").is_ok());
-    assert!(require_secure_egress_url("http://localhost:8080/upload").is_ok());
-    for refused in [
-        "http://api.github.com/user/repos",
-        "http://169.254.169.254/latest/meta-data/",
-        "http://127.0.0.1.evil.com/upload",
-        "ftp://127.0.0.1/upload",
-        "not a url",
-    ] {
-        assert!(
-            require_secure_egress_url(refused).is_err(),
-            "{refused} must be refused"
-        );
-    }
-}
-
-#[test]
 fn parses_private_repo() {
     let v = json!({
         "name": "opensesame-passwords",

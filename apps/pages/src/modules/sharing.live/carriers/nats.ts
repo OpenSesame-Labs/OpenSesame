@@ -20,7 +20,6 @@
 import {
   type ConnectionOptions,
   type NatsConnection,
-  jwtAuthenticator,
   wsconnect,
 } from "@nats-io/nats-core";
 import type {
@@ -28,8 +27,8 @@ import type {
   CarrierRole,
 } from "@opensesame/app-core/lib/live/rendezvous.js";
 import type { CarrierSpec } from "@opensesame/app-core/lib/live/transport.js";
-
-const SERVICE = "opensesame-live";
+import { browserJwtAuthenticator } from "./nats-authenticator.js";
+import { serveNatsSession } from "./nats-service.js";
 
 function connectOptions(spec: CarrierSpec, base: string): ConnectionOptions {
   const options: ConnectionOptions = {
@@ -39,10 +38,7 @@ function connectOptions(spec: CarrierSpec, base: string): ConnectionOptions {
     inboxPrefix: `${base}._INBOX`,
   };
   if (spec.jwt && spec.seed)
-    options.authenticator = jwtAuthenticator(
-      spec.jwt,
-      new TextEncoder().encode(spec.seed),
-    );
+    options.authenticator = browserJwtAuthenticator(spec.jwt, spec.seed);
   if (spec.username) options.user = spec.username;
   if (spec.password) options.pass = spec.password;
   if (spec.token) options.token = spec.token;
@@ -67,7 +63,10 @@ function subjectCarrier(
           if (!error) onText(message.string());
         },
       });
-      const stop = () => sub.unsubscribe();
+      const stop = () => {
+        sub.unsubscribe();
+        stops.delete(stop);
+      };
       stops.add(stop);
       return stop;
     },
@@ -89,21 +88,7 @@ async function serve(
   base: string,
 ): Promise<(() => void) | null> {
   try {
-    const { Svcm } = await import("@nats-io/services");
-    const service = await new Svcm(connection).add({
-      name: SERVICE,
-      version: "1.0.0",
-      description: "An OpenSesame live session, served by the owner's tab",
-      metadata: { protocol: "osm-live-v1" },
-      queue: "",
-    });
-    service.addEndpoint("info", {
-      subject: `${base}.info`,
-      handler: (error, message) => {
-        if (!error) message.respond(JSON.stringify({ live: true }));
-      },
-    });
-    return () => void service.stop();
+    return serveNatsSession(connection, base);
   } catch {
     return null;
   }
