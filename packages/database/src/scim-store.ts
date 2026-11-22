@@ -1,7 +1,7 @@
-import { randomUUID } from "node:crypto";
 import { overlapCast } from "@opensesame/os-domain";
-import { and, asc, count, eq, isNull } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 import {
+  type ScimUserRecord,
   type ScimUserStore,
   createMemoryScimUserStore,
   createPostgresScimWithinLimit,
@@ -12,6 +12,15 @@ import { isUniqueViolation } from "./client-origin-store.js";
 import { ConflictError } from "./repos/interfaces.js";
 import type { Database } from "./repos/postgres.js";
 import * as schema from "./schema/index.js";
+import {
+  createMemoryScimTokenStore,
+  createPostgresScimTokenStore,
+} from "./scim-token-store.js";
+import {
+  ScimUserCapacityError,
+  type ScimUserLimits,
+  scimUserLimits,
+} from "./scim-user-limits.js";
 
 /**
  * A SCIM 2.0 provisioned user (ADR 0056).
@@ -48,98 +57,41 @@ export interface ScimStores {
   tokens: ScimTokenStore;
 }
 
-function mapScimToken(
-  row: typeof schema.scimTokens.$inferSelect,
-): ScimTokenRecord {
+/**
+ * `options` lowers the hard per-tenant and deployment-wide user ceilings
+ * (`scim-user-limits.ts`) for smaller deployments and tests.
+ */
+export function createMemoryScimStores(
+  options?: Partial<ScimUserLimits>,
+): ScimStores {
   return {
-    id: row.id,
-    organizationId: row.organizationId,
-    createdAt: row.createdAt,
-    ...(row.revokedAt ? { revokedAt: row.revokedAt } : undefined),
+    users: createMemoryScimUserStore(options),
+    tokens: createMemoryScimTokenStore(),
   };
 }
 
-export function createMemoryScimStores(): ScimStores {
-  const tokens = new Map<string, ScimTokenRecord & { hash: string }>();
-  return {
-    users: createMemoryScimUserStore(),
-    tokens: {
-      async mint(orgId, hash) {
-        // Row id, not the token: the plaintext `sct_` value never lands here.
-        const id = `scimtok_${randomUUID()}`;
-        tokens.set(id, {
-          id,
-          organizationId: orgId,
-          createdAt: new Date(),
-          hash,
-        });
-        return { id };
-      },
-
-      async verify(orgId, hash) {
-        for (const row of tokens.values()) {
-          if (
-            row.organizationId === orgId &&
-            row.hash === hash &&
-            row.revokedAt === undefined
-          ) {
-            return true;
-          }
-        }
-        return false;
-      },
-
-      async revoke(orgId, id) {
-        const row = tokens.get(id);
-        if (!row || row.organizationId !== orgId || row.revokedAt) return false;
-        tokens.set(id, { ...row, revokedAt: new Date() });
-        return true;
-      },
-
-      async list(orgId) {
-        return [...tokens.values()]
-          .filter((row) => row.organizationId === orgId)
-          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-          .map(({ hash: _hash, ...record }) => ({ ...record }));
-      },
-    },
-  };
-}
-
-export function createPostgresScimStores(db: Database): ScimStores {
+export function createPostgresScimStores(
+  db: Database,
+  options?: Partial<ScimUserLimits>,
+): ScimStores {
+  const limits = scimUserLimits(options);
+  const admit = (user: ScimUserRecord, limit: number) =>
+    createPostgresScimWithinLimit(
+      db,
+      user,
+      Math.min(limit, limits.perOrganization),
+      limits.perDeployment,
+    );
   return {
     users: {
       async create(user) {
-        const row = normalizeScimUser(user);
-        try {
-          const [inserted] = await db
-            .insert(schema.scimUsers)
-            .values({
-              id: row.id,
-              organizationId: row.organizationId,
-              externalId: row.externalId ?? null,
-              userName: row.userName,
-              active: row.active,
-              displayName: row.displayName ?? null,
-              raw: row.raw,
-              createdAt: row.createdAt,
-              updatedAt: row.updatedAt,
-            })
-            .returning();
-          if (!inserted) throw new Error("insert scim user returned no row");
-          return mapScimUser(inserted);
-        } catch (error) {
-          if (isUniqueViolation(overlapCast(error))) {
-            throw new ConflictError(
-              `scim user already exists: ${row.userName}`,
-            );
-          }
-          throw error;
-        }
+        const created = await admit(user, limits.perOrganization);
+        if (!created) throw new ScimUserCapacityError();
+        return created;
       },
 
       async createWithinLimit(user, limit) {
-        return createPostgresScimWithinLimit(db, user, limit);
+        return admit(user, limit);
       },
 
       async getById(orgId, id) {
@@ -250,56 +202,6 @@ export function createPostgresScimStores(db: Database): ScimStores {
       },
     },
 
-    tokens: {
-      async mint(orgId, hash) {
-        // Row id, not the token: the plaintext `sct_` value never lands here.
-        const id = `scimtok_${randomUUID()}`;
-        await db.insert(schema.scimTokens).values({
-          id,
-          organizationId: orgId,
-          tokenHash: hash,
-        });
-        return { id };
-      },
-
-      async verify(orgId, hash) {
-        const [row] = await db
-          .select({ id: schema.scimTokens.id })
-          .from(schema.scimTokens)
-          .where(
-            and(
-              eq(schema.scimTokens.organizationId, orgId),
-              eq(schema.scimTokens.tokenHash, hash),
-              isNull(schema.scimTokens.revokedAt),
-            ),
-          )
-          .limit(1);
-        return row !== undefined;
-      },
-
-      async revoke(orgId, id) {
-        const rows = await db
-          .update(schema.scimTokens)
-          .set({ revokedAt: new Date() })
-          .where(
-            and(
-              eq(schema.scimTokens.organizationId, orgId),
-              eq(schema.scimTokens.id, id),
-              isNull(schema.scimTokens.revokedAt),
-            ),
-          )
-          .returning({ id: schema.scimTokens.id });
-        return rows.length > 0;
-      },
-
-      async list(orgId) {
-        const rows = await db
-          .select()
-          .from(schema.scimTokens)
-          .where(eq(schema.scimTokens.organizationId, orgId))
-          .orderBy(asc(schema.scimTokens.createdAt), asc(schema.scimTokens.id));
-        return rows.map(mapScimToken);
-      },
-    },
+    tokens: createPostgresScimTokenStore(db),
   };
 }

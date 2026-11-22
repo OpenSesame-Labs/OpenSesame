@@ -10,7 +10,7 @@ import type { Variables } from "../middleware/context.js";
 
 const ERROR_SCHEMA = "urn:ietf:params:scim:api:messages:2.0:Error";
 const SCIM_CONTENT_TYPE = "application/scim+json";
-type ScimStatus = 400 | 401 | 403 | 404 | 409;
+type ScimStatus = 400 | 401 | 403 | 404 | 409 | 413 | 429;
 
 export function scimBody(
   c: Context<{ Variables: Variables }>,

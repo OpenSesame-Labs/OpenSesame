@@ -5,6 +5,13 @@ import { isUniqueViolation } from "./client-origin-store.js";
 import { ConflictError, normalizeIssuer } from "./repos/interfaces.js";
 import type { Database } from "./repos/postgres.js";
 import * as schema from "./schema/index.js";
+import {
+  SCIM_USERS_PER_DEPLOYMENT,
+  ScimUserCapacityError,
+  type ScimUserLimits,
+  scimUserLimits,
+  validateScimRaw,
+} from "./scim-user-limits.js";
 
 export interface ScimUserRecord {
   id: string;
@@ -137,40 +144,54 @@ export function normalizeScimUser(user: ScimUserRecord): ScimUserRecord {
   return row;
 }
 
+/**
+ * Memory admission. `limit` is the caller's tenant limit; the deployment-wide
+ * bound applies to every tenant together, inactive rows included.
+ */
 export function createMemoryScimWithinLimit(
   users: Map<string, ScimUserRecord>,
   user: ScimUserRecord,
   limit: number,
+  deploymentLimit = SCIM_USERS_PER_DEPLOYMENT,
 ): ScimUserRecord | null {
+  validateScimRaw(user.raw);
   const row = normalizeScimUser(user);
   const scoped = [...users.values()].filter(
     (existing) => existing.organizationId === row.organizationId,
   );
-  if (scoped.some((existing) => existing.userName === row.userName)) {
+  if (
+    scoped.some((existing) => existing.userName === row.userName) ||
+    users.has(row.id)
+  ) {
     throw new ConflictError(`scim user already exists: ${row.userName}`);
   }
-  if (scoped.length >= limit) return null;
+  if (scoped.length >= limit || users.size >= deploymentLimit) return null;
   users.set(row.id, row);
   return normalizeScimUser(row);
 }
 
-export function createMemoryScimUserStore(): ScimUserStore {
+export function createMemoryScimUserStore(
+  options?: Partial<ScimUserLimits>,
+): ScimUserStore {
+  const limits = scimUserLimits(options);
   const users = new Map<string, ScimUserRecord>();
   const ofOrg = (orgId: string) =>
     [...users.values()].filter((user) => user.organizationId === orgId);
+  const admit = (user: ScimUserRecord, limit: number) =>
+    createMemoryScimWithinLimit(
+      users,
+      user,
+      Math.min(limit, limits.perOrganization),
+      limits.perDeployment,
+    );
   return {
     async create(user) {
-      const row = normalizeScimUser(user);
-      if (
-        ofOrg(row.organizationId).some((item) => item.userName === row.userName)
-      ) {
-        throw new ConflictError(`scim user already exists: ${row.userName}`);
-      }
-      users.set(row.id, row);
-      return normalizeScimUser(row);
+      const created = admit(user, limits.perOrganization);
+      if (!created) throw new ScimUserCapacityError();
+      return created;
     },
     async createWithinLimit(user, limit) {
-      return createMemoryScimWithinLimit(users, user, limit);
+      return admit(user, limit);
     },
     async getById(orgId, id) {
       const row = users.get(id);
@@ -189,7 +210,7 @@ export function createMemoryScimUserStore(): ScimUserStore {
     },
     async update(user) {
       const row = normalizeScimUser(user);
-      if (!users.has(row.id)) {
+      if (users.get(row.id)?.organizationId !== row.organizationId) {
         throw new ConflictError(`scim user not found: ${row.id}`);
       }
       users.set(row.id, row);
@@ -200,7 +221,11 @@ export function createMemoryScimUserStore(): ScimUserStore {
     },
     async listByOrganization(orgId, page) {
       const ordered = ofOrg(orgId)
-        .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+        .sort(
+          (a, b) =>
+            a.createdAt.getTime() - b.createdAt.getTime() ||
+            (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+        )
         .map(normalizeScimUser);
       return page
         ? ordered.slice(page.offset, page.offset + page.limit)
@@ -229,10 +254,17 @@ export async function createPostgresScimWithinLimit(
   db: Database,
   user: ScimUserRecord,
   limit: number,
+  deploymentLimit = SCIM_USERS_PER_DEPLOYMENT,
 ): Promise<ScimUserRecord | null> {
+  validateScimRaw(user.raw);
   const normalized = normalizeScimUser(user);
   try {
     return await db.transaction(async (tx) => {
+      // The deployment-wide bound spans tenants, so every admission first
+      // takes one shared transaction lock; the tenant row lock follows.
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtext('OpenSesame:ScimUsers'), 0)`,
+      );
       // Lock the tenant through admission so separate API processes share it.
       const [organization] = await tx
         .select({ id: schema.organizations.id })
@@ -259,11 +291,17 @@ export async function createPostgresScimWithinLimit(
           `scim user already exists: ${normalized.userName}`,
         );
       }
-      const [total] = await tx
-        .select({ value: count() })
-        .from(schema.scimUsers)
-        .where(eq(schema.scimUsers.organizationId, normalized.organizationId));
-      if (Number(total?.value ?? 0) >= limit) return null;
+      const [usage] = await tx
+        .select({
+          deployment: count(),
+          organization: sql<number>`count(*) filter (where ${schema.scimUsers.organizationId} = ${normalized.organizationId})`,
+        })
+        .from(schema.scimUsers);
+      if (
+        Number(usage?.organization ?? 0) >= limit ||
+        Number(usage?.deployment ?? 0) >= deploymentLimit
+      )
+        return null;
       const [inserted] = await tx
         .insert(schema.scimUsers)
         .values({
