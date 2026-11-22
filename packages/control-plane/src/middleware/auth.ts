@@ -1,3 +1,4 @@
+import { PostgresRepositories } from "@opensesame/database";
 import { getCookie } from "hono/cookie";
 import { createMiddleware } from "hono/factory";
 import type { AppContext } from "../context.js";
@@ -39,7 +40,7 @@ export async function resolveProvisionalSession(
       ctx.stores,
       session.principalId,
       "authenticate",
-      async (stores) => {
+      async (stores, database) => {
         // Re-read after taking the shared boundary: a revocation may have
         // committed between the initial token lookup and lock acquisition.
         const standingId = await stores.provisionalTokens.get(token);
@@ -53,7 +54,21 @@ export async function resolveProvisionalSession(
         ) {
           return undefined;
         }
-        if (!(await principalStillAuthenticates(ctx, standing.principalId)))
+        const authenticationContext = database
+          ? {
+              ...ctx,
+              repos: {
+                ...ctx.repos,
+                principals: new PostgresRepositories(database).principals,
+              },
+            }
+          : ctx;
+        if (
+          !(await principalStillAuthenticates(
+            authenticationContext,
+            standing.principalId,
+          ))
+        )
           return undefined;
         return { principalId: standing.principalId, sessionId: standing.id };
       },
