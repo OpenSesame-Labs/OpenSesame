@@ -202,6 +202,7 @@ PATHS = [
     'scripts/security/cargo-workspace-multipackage.py',
     'scripts/security/formal-cargo-isolation.py',
     'scripts/security/formal-cargo-freshness.py',
+    'scripts/security/formal_cargo_packages.py',
     'scripts/security/formal-proof-source-history.mjs',
     'scripts/security/test_formal_cargo_freshness.py',
     'spec/formal/source-trust-history/SourceTrustHistory.lean',

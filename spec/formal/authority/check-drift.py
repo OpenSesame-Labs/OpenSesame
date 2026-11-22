@@ -93,6 +93,7 @@ paths = [
     "spec/formal/authority/conformance.rs",
     "scripts/security/formal-cargo-isolation.py",
     "scripts/security/formal-cargo-freshness.py",
+    "scripts/security/formal_cargo_packages.py",
     "scripts/security/cargo-lock-projection.py",
     "scripts/security/cargo-workspace-projection.py",
     "scripts/security/formal_coverage_drift.py",

@@ -316,9 +316,15 @@
     },
     {
       "path": "scripts/security/formal-cargo-freshness.py",
-      "sha256": "dddc45d402e6a9dc9c840041c8509f4788147da714d3d2132ddf2932af7d21e8",
+      "sha256": "3ca1f6e22cbc0efc4c0887c3c1689ec699936230e27e9ce10ac842630ec05062",
       "base_blob": null,
-      "reviewed_blob": "3eaedffa82936b2d1d23924d83c209ccd179816d"
+      "reviewed_blob": "bd58d33caf6ea3954867ce6b93eb66e2edfbaa88"
+    },
+    {
+      "path": "scripts/security/formal_cargo_packages.py",
+      "sha256": "ba1a9a5455c84891ec5f917015d4ec28f21d470f094f1e20785b77f927480eb4",
+      "base_blob": null,
+      "reviewed_blob": "aa9d1612c903ede6f76b6448d3e7a19d28665cbd"
     },
     {
       "path": "scripts/security/formal-cargo-isolation.py",

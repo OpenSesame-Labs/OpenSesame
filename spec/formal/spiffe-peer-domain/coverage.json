@@ -338,7 +338,11 @@
     },
     {
       "path": "scripts/security/formal-cargo-freshness.py",
-      "sha256": "dddc45d402e6a9dc9c840041c8509f4788147da714d3d2132ddf2932af7d21e8"
+      "sha256": "3ca1f6e22cbc0efc4c0887c3c1689ec699936230e27e9ce10ac842630ec05062"
+    },
+    {
+      "path": "scripts/security/formal_cargo_packages.py",
+      "sha256": "ba1a9a5455c84891ec5f917015d4ec28f21d470f094f1e20785b77f927480eb4"
     },
     {
       "path": "crates/a2h/Cargo.toml",
