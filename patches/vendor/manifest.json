@@ -67,30 +67,6 @@
       "upstreamIntegrity": "sha512-smX8/gNP8Kjq+CWTBMZQLQ912vOQjiWExzwzvMO+eujPB5RY8IbtF0AGdUUXHKN7KoDWK9dIcuW0WG269kiP6w==",
       "upstreamTarball": "https://registry.npmjs.org/@aws-sdk/xml-builder/-/xml-builder-3.972.42.tgz"
     },
-    "glob@10.5.0": {
-      "patch": "patches/glob@10.5.0.patch",
-      "tarball": "patches/vendor/glob-10.5.0.tgz",
-      "upstreamIntegrity": "sha512-DfXN8DfhJ7NH3Oe7cFmu3NCu1wKbkReJ8TorzSAFbSKrlNaQSKfIzqYqVY8zlbs2NLBbWpRiU52GX2PbaBVNkg==",
-      "upstreamFileMapSha256": "c2a363194438a851d193a8a167702d51480e9547ae87bf30439875269cf1aeb2",
-      "rootDependency": "glob10-patched",
-      "override": "glob@^10.0.0"
-    },
-    "glob@11.1.0": {
-      "patch": "patches/glob@11.1.0.patch",
-      "tarball": "patches/vendor/glob-11.1.0.tgz",
-      "upstreamIntegrity": "sha512-vuNwKSaKiqm7g0THUBu2x7ckSs3XJLXE+2ssL7/MfTGPLLcrJQ/4Uq1CjPTtO5cCIiRxqvN6Twy1qOwhL0Xjcw==",
-      "upstreamFileMapSha256": "4816a93773653820c70e024a417ea6f26eb84c912a1a2e858fe5d614a28c63ab",
-      "rootDependency": "glob11-patched",
-      "override": "glob@^11.0.1"
-    },
-    "minimatch@9.0.9": {
-      "patch": "patches/minimatch@9.0.9.patch",
-      "tarball": "patches/vendor/minimatch-9.0.9.tgz",
-      "upstreamIntegrity": "sha512-OBwBN9AL4dqmETlpS2zasx+vTeWclWzkblfZk7KTA5j3jeOONz/tRCnZomUyvNg83wL5Zv9Ss6HMJXAgL8R2Yg==",
-      "upstreamFileMapSha256": "4b237892bc30463c10e867a0f053defd60feaf4d131fed9a85e4e6c04e0cc661",
-      "rootDependency": "minimatch9-patched",
-      "override": "minimatch@^9.0.4"
-    },
     "minimatch@11.0.9": {
       "patch": "patches/minimatch@11.0.9.patch",
       "tarball": "patches/vendor/minimatch-11.0.9.tgz",

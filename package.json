@@ -210,10 +210,7 @@
     "nunjucks": "file:patches/vendor/nunjucks-3.2.4.tgz",
     "nostr-tools": "2.26.0",
     "@aws-sdk/xml-builder": "file:patches/vendor/aws-sdk-xml-builder-3.972.42.tgz",
-    "glob10-patched": "file:patches/vendor/glob-10.5.0.tgz",
-    "glob11-patched": "file:patches/vendor/glob-11.1.0.tgz",
     "gcp-metadata": "9.2.3",
-    "minimatch9-patched": "file:patches/vendor/minimatch-9.0.9.tgz",
     "minimatch11-patched": "file:patches/vendor/minimatch-11.0.9.tgz",
     "docgen-plugin-patched": "file:patches/vendor/joshwooding-vite-plugin-react-docgen-typescript-0.7.0.tgz",
     "react-docgen-patched": "file:patches/vendor/react-docgen-typescript-2.4.0.tgz",
@@ -266,13 +263,7 @@
     "glob@14.0.6": {
       "minimatch": "$minimatch11-patched"
     },
-    "glob@^10.0.0": "$glob10-patched",
-    "archiver-utils": {
-      "glob": {
-        ".": "$glob10-patched",
-        "minimatch": "$minimatch9-patched"
-      }
-    },
+    "glob@^10.0.0": "14.0.6",
     "filelist": {
       "minimatch": "5.1.9"
     },
@@ -282,7 +273,6 @@
     "minimatch@^10.0.0": "$minimatch11-patched",
     "minimatch@~10.2.4": "$minimatch11-patched",
     "minimatch@^10.2.4": "$minimatch11-patched",
-    "minimatch@^9.0.4": "$minimatch9-patched",
     "minimatch@^5.1.0": "5.1.9",
     "minimatch@^5.0.1": "5.1.9",
     "chokidar@^3": "5.0.0",
@@ -321,17 +311,11 @@
     "nunjucks": "$nunjucks",
     "@aws-sdk/xml-builder": "$@aws-sdk/xml-builder",
     "brace-expansion@^2.0.1": "2.1.8",
-    "glob@^11.0.1": "$glob11-patched",
+    "glob@^11.0.1": "14.0.6",
     "glob@^13.0.1": "14.0.6",
     "glob@^13.0.6": "14.0.6",
     "minimatch@^10.1.1": "$minimatch11-patched",
     "minimatch@^10.2.2": "$minimatch11-patched",
-    "workbox-build": {
-      "glob": {
-        ".": "$glob11-patched",
-        "minimatch": "$minimatch9-patched"
-      }
-    },
     "@joshwooding/vite-plugin-react-docgen-typescript": {
       ".": "$docgen-plugin-patched",
       "glob": "14.0.6"
@@ -374,9 +358,6 @@
     "nunjucks@3.2.4": "patches/nunjucks@3.2.4.patch",
     "kdbxweb@2.1.1": "patches/kdbxweb@2.1.1.patch",
     "@aws-sdk/xml-builder@3.972.42": "patches/@aws-sdk__xml-builder@3.972.42.patch",
-    "glob@10.5.0": "patches/glob@10.5.0.patch",
-    "glob@11.1.0": "patches/glob@11.1.0.patch",
-    "minimatch@9.0.9": "patches/minimatch@9.0.9.patch",
     "minimatch@11.0.9": "patches/minimatch@11.0.9.patch",
     "@joshwooding/vite-plugin-react-docgen-typescript@0.7.0": "patches/@joshwooding__vite-plugin-react-docgen-typescript@0.7.0.patch",
     "react-docgen-typescript@2.4.0": "patches/react-docgen-typescript@2.4.0.patch",

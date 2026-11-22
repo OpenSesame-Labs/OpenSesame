@@ -103,6 +103,7 @@ PATHS = [
     "crates/spiffe-source/src/source_lease_tests.rs",
     "scripts/security/formal-cargo-isolation.py",
     "scripts/security/formal-cargo-freshness.py",
+    "scripts/security/formal_cargo_packages.py",
     "scripts/security/cargo-lock-projection.py",
 ]
 OPTIONAL_PATHS = [

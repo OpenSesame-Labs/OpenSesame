@@ -54,9 +54,6 @@ var patches = {
   "kdbxweb@2.1.1": "patches/kdbxweb@2.1.1.patch",
   "@aws-sdk/xml-builder@3.972.42":
     "patches/@aws-sdk__xml-builder@3.972.42.patch",
-  "glob@10.5.0": "patches/glob@10.5.0.patch",
-  "glob@11.1.0": "patches/glob@11.1.0.patch",
-  "minimatch@9.0.9": "patches/minimatch@9.0.9.patch",
   "minimatch@11.0.9": "patches/minimatch@11.0.9.patch",
   "@joshwooding/vite-plugin-react-docgen-typescript@0.7.0":
     "patches/@joshwooding__vite-plugin-react-docgen-typescript@0.7.0.patch",

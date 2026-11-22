@@ -17,7 +17,8 @@ ISOLATION: dict = {}
 TREES = (Path("crates/domain"), Path("crates/transport-security"), Path("spec/formal/source-lifetime"))
 FILES = (Path("Cargo.toml"), Path("Cargo.lock"), Path("rust-toolchain.toml"),
          Path("spec/formal/check-axioms.sh"), Path("spec/formal/required-theorem-command.lean"),
-         Path("scripts/security/formal-cargo-isolation.py"), Path("scripts/security/formal-cargo-freshness.py"))
+         Path("scripts/security/formal-cargo-isolation.py"), Path("scripts/security/formal-cargo-freshness.py"),
+         Path("scripts/security/formal_cargo_packages.py"))
 
 
 def run(command: list[str], cwd: Path, env: dict[str, str]) -> subprocess.CompletedProcess[str]:

@@ -119,7 +119,7 @@ async function abortWalk(glob, directory, stream) {
   assert2.equal(afterAbort, 0);
 }
 test2(
-  "glob 10, 11 and 13 stop both promise and stream traversal after abort",
+  "glob 14 consumers stop both promise and stream traversal after abort",
   {
     timeout: 3e4,
   },
@@ -321,60 +321,57 @@ test3(
   },
 );
 test3(
-  "the compatible minimatch 9 and 11 builds bound globstar expansion",
+  "archive and Workbox use published glob 14 with the bounded minimatch 11",
   {
     timeout: 3e4,
   },
   async () => {
     for (const owner of ["archiver-utils", "workbox-build"]) {
       const glob = local(owner).resolve("glob");
+      const globRoot = dirname2(dirname2(dirname2(glob)));
+      assert3.equal(
+        JSON.parse(readFileSync2(join2(globRoot, "package.json"), "utf8"))
+          .version,
+        "14.0.6",
+      );
       const matcher = createRequire2(glob).resolve("minimatch");
-      const esm = pathToFileURL2(
-        join2(dirname2(dirname2(dirname2(matcher))), "dist/esm/index.js"),
-      ).href;
-      const maximum = 65536;
+      const matcherRoot = dirname2(dirname2(dirname2(matcher)));
+      assert3.equal(
+        JSON.parse(readFileSync2(join2(matcherRoot, "package.json"), "utf8"))
+          .version,
+        "11.0.9",
+      );
+      const esm = pathToFileURL2(join2(matcherRoot, "dist/esm/index.js")).href;
       for (const { Minimatch, minimatch } of [
         require2(matcher),
         await import(esm),
       ]) {
-        const pattern = Array(14).fill("**/../a/b").join("/");
-        const bounded = new Minimatch(pattern, {
-          optimizationLevel: 2,
-          braceExpandMax: 128,
-        });
-        assert3.ok(bounded.globParts.length <= maximum);
+        const amplified = (count) => Array(count).fill("**/../a/b").join("/");
+        assert3.throws(
+          () =>
+            new Minimatch(amplified(14), {
+              optimizationLevel: 2,
+              braceExpandMax: 128,
+            }),
+          /too many patterns/,
+        );
+        for (const braceExpandMax of [Number.NaN, Number.POSITIVE_INFINITY])
+          assert3.throws(
+            () =>
+              new Minimatch(amplified(24), {
+                optimizationLevel: 2,
+                braceExpandMax,
+              }),
+            /too many patterns/,
+          );
         assert3.equal(new Minimatch("**/*.js").match("src/a.js"), true);
-        if (owner !== "workbox-build") continue;
-        const invalidOption = new Minimatch("x", {
-          braceExpandMax: Number.NaN,
-        });
-        invalidOption.firstPhasePreProcess({
-          length: 1e5,
-          *[Symbol.iterator]() {
-            yield ["**", "..", "a", "b"];
-          },
-          push() {
-            throw new Error("NaN bypassed the glob-part bound");
-          },
-        });
-        assert3.equal(
-          minimatch
-            .defaults({ braceExpandMax: Number.NaN })
-            .braceExpand("{1..100001}").length,
-          1e5,
-        );
-        assert3.equal(
-          minimatch
-            .defaults({ braceExpandMax: "invalid" })
-            .braceExpand("{1..100001}").length,
-          1e5,
-        );
-        assert3.equal(
-          minimatch
-            .defaults({ braceExpandMax: Number.POSITIVE_INFINITY })
-            .braceExpand("{1..100001}").length,
-          100000,
-        );
+        assert3.equal(new Minimatch("**/*.js").match("src/a.css"), false);
+        for (const braceExpandMax of [Number.NaN, "invalid"])
+          assert3.equal(
+            minimatch.defaults({ braceExpandMax }).braceExpand("{1..100001}")
+              .length,
+            1e5,
+          );
       }
     }
   },
