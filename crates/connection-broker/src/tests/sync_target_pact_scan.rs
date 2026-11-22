@@ -39,6 +39,10 @@ pub(crate) fn response_body_reads(source: &str) -> Vec<&'static str> {
         "::headers_mut(",
         ".into_body(",
         "::into_body(",
+        ".error_for_status(",
+        "::error_for_status(",
+        ".error_for_status_ref(",
+        "::error_for_status_ref(",
         "response.into",
         "res.into",
         "upstream.into",
@@ -59,6 +63,7 @@ pub(crate) fn response_body_reads(source: &str) -> Vec<&'static str> {
         || alias_reader(&scanned, &alias_calls, &alias_modules)
         || super::sync_target_pact_rename::response_into_read(&scanned)
         || super::sync_target_pact_rename::ufcs_response_move(&scanned)
+        || response_metadata_reads(&scanned)
     {
         hits.push("::text;");
     }
@@ -312,6 +317,11 @@ fn body_function_items(scanned: &str, separator: &str) -> bool {
         "text_with_charset",
         "json",
         "copy_to",
+        "headers",
+        "headers_mut",
+        "into_body",
+        "error_for_status",
+        "error_for_status_ref",
     ];
     for method in METHODS {
         let marker = format!("{separator}{method}");
@@ -326,6 +336,214 @@ fn body_function_items(scanned: &str, separator: &str) -> bool {
         }
     }
     false
+}
+
+/// Provider metadata that `reqwest::Response` reflects without `.text()` / `.bytes()`.
+/// `Debug` prints url, status, and headers. `error_for_status`'s `Display` includes
+/// the HTTP/1 reason phrase. `Body::from` as a function item moves the body.
+fn response_metadata_reads(scanned: &str) -> bool {
+    body_from_function_item(scanned)
+        || named_debug_response(scanned)
+        || macro_debug_response(scanned)
+}
+
+fn body_from_function_item(scanned: &str) -> bool {
+    let mut offset = 0usize;
+    while let Some(rel) = scanned[offset..].find("::from") {
+        let index = offset + rel;
+        let after = &scanned[index + "::from".len()..];
+        if is_function_item_tail(after) && ident_before(&scanned[..index]) == "Body" {
+            return true;
+        }
+        offset = index + "::from".len();
+    }
+    false
+}
+
+/// `{response:?}` / `{reply:#?}` inside a format string, including let-aliases.
+fn named_debug_response(scanned: &str) -> bool {
+    let bytes = scanned.as_bytes();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if bytes[index] == b'{' {
+            if let Some(name) = capture_debug_name(&scanned[index..]) {
+                if super::sync_target_pact_rename::tracks_response_receiver(scanned, index, name) {
+                    return true;
+                }
+            }
+        }
+        index += 1;
+    }
+    false
+}
+
+fn capture_debug_name(tail: &str) -> Option<String> {
+    let rest = tail.strip_prefix('{')?;
+    let name: String = rest.chars().take_while(|ch| is_ident_char(*ch)).collect();
+    if name.is_empty() {
+        return None;
+    }
+    let after = &rest[name.len()..];
+    (after.starts_with(":?}") || after.starts_with(":#?}")).then_some(name)
+}
+
+fn macro_debug_response(scanned: &str) -> bool {
+    let bytes = scanned.as_bytes();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if let Some(len) = super::sync_target_pact_norm::string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        if bytes[index] == b'!' && debug_macro_at(scanned, index) {
+            return true;
+        }
+        index += 1;
+    }
+    false
+}
+
+fn debug_macro_at(scanned: &str, bang: usize) -> bool {
+    const MACROS: &[&str] = &[
+        "format",
+        "format_args",
+        "println",
+        "eprintln",
+        "print",
+        "eprint",
+        "writeln",
+        "write",
+        "panic",
+        "dbg",
+    ];
+    let Some(name) = macro_name_before(scanned, bang) else {
+        return false;
+    };
+    if !MACROS.contains(&name.as_str()) {
+        return false;
+    }
+    let Some(open) = macro_paren(scanned, bang) else {
+        return false;
+    };
+    debug_macro_args(scanned, open, name == "dbg")
+}
+
+fn macro_name_before(source: &str, bang: usize) -> Option<String> {
+    if bang == 0 {
+        return None;
+    }
+    let name = ident_before(&source[..bang]);
+    (!name.is_empty()).then_some(name)
+}
+
+fn macro_paren(source: &str, bang: usize) -> Option<usize> {
+    let after = source[bang + 1..].trim_start();
+    after
+        .starts_with('(')
+        .then_some(bang + 1 + (source[bang + 1..].len() - after.len()))
+}
+
+fn debug_macro_args(scanned: &str, open: usize, dbg_macro: bool) -> bool {
+    let Some(args) = paren_inside_at(scanned, open) else {
+        return false;
+    };
+    let pieces = split_args(args);
+    let debug_fmt = dbg_macro || pieces.iter().any(|piece| piece_has_debug_format(piece));
+    if !debug_fmt {
+        return false;
+    }
+    let mut offset = 0usize;
+    for piece in &pieces {
+        if piece.is_empty() {
+            continue;
+        }
+        let Some(rel) = args[offset..].find(piece) else {
+            continue;
+        };
+        let at = open + 1 + offset + rel;
+        if arg_is_response(scanned, piece, at) {
+            return true;
+        }
+        offset += rel + piece.len();
+    }
+    false
+}
+
+fn piece_has_debug_format(piece: &str) -> bool {
+    piece.contains(":?") && piece.contains('"')
+}
+
+fn arg_is_response(scanned: &str, arg: &str, at: usize) -> bool {
+    let arg = strip_ref_mut(arg.trim());
+    let name: String = arg.chars().take_while(|ch| is_ident_char(*ch)).collect();
+    if name.is_empty() || !arg[name.len()..].trim().is_empty() {
+        return false;
+    }
+    super::sync_target_pact_rename::tracks_response_receiver(scanned, at, name)
+}
+
+fn strip_ref_mut(arg: &str) -> &str {
+    let mut arg = arg.trim();
+    if let Some(rest) = arg.strip_prefix('&') {
+        arg = rest.trim_start();
+    }
+    if let Some(rest) = arg.strip_prefix("mut") {
+        if rest.chars().next().is_none_or(|ch| !is_ident_char(ch)) {
+            arg = rest.trim_start();
+        }
+    }
+    arg
+}
+
+fn paren_inside_at(source: &str, open: usize) -> Option<&str> {
+    let bytes = source.as_bytes();
+    if bytes.get(open) != Some(&b'(') {
+        return None;
+    }
+    let mut depth = 0i32;
+    let mut index = open;
+    while index < bytes.len() {
+        if let Some(len) = super::sync_target_pact_norm::string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'(' => depth += 1,
+            b')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(&source[open + 1..index]);
+                }
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    None
+}
+
+fn split_args(args: &str) -> Vec<&str> {
+    let bytes = args.as_bytes();
+    let (mut depth, mut index, mut start) = (0i32, 0usize, 0usize);
+    let mut out = Vec::new();
+    while index < bytes.len() {
+        if let Some(len) = super::sync_target_pact_norm::string_len(bytes, index) {
+            index += len;
+            continue;
+        }
+        match bytes[index] {
+            b'(' | b'[' | b'{' | b'<' => depth += 1,
+            b')' | b']' | b'}' | b'>' if depth > 0 => depth -= 1,
+            b',' if depth == 0 => {
+                out.push(args[start..index].trim());
+                start = index + 1;
+            }
+            _ => {}
+        }
+        index += 1;
+    }
+    out.push(args[start..].trim());
+    out
 }
 
 /// Remove `request.json(&…)` / `request.json::<T>(&…)` call syntax only.
