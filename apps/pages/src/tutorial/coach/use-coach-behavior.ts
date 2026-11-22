@@ -80,15 +80,27 @@ export function useCoachFocus(
   stepKey: string,
   card: RefObject<HTMLElement | null>,
   primary: RefObject<HTMLButtonElement | null>,
+  actionOnly = false,
 ): void {
   useEffect(() => {
     const before = document.activeElement;
     return () => {
-      const home =
-        before instanceof HTMLElement && before.isConnected
-          ? before
-          : resolveGuideTargetElement("shell.support");
-      home?.focus({ preventScroll: true });
+      // The launcher or a panel control may have disappeared while the guide
+      // ran. The body is also connected, but focusing it does not give the
+      // keyboard a useful starting point. A still-mounted control can become
+      // hidden or disabled as well, so check that it actually took focus.
+      if (
+        before instanceof HTMLElement &&
+        before !== document.body &&
+        before !== document.documentElement &&
+        before.isConnected
+      ) {
+        before.focus({ preventScroll: true });
+        if (document.activeElement === before) return;
+      }
+      resolveGuideTargetElement("shell.support")?.focus({
+        preventScroll: true,
+      });
     };
   }, []);
   const arrived = useRef(false);
@@ -110,7 +122,7 @@ export function useCoachFocus(
       document.removeEventListener("keydown", note, true);
     };
   }, [card]);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new step, or the first placing, is the trigger.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new step, placing, or a change in available actions is the trigger.
   useEffect(() => {
     if (!placed) return;
     const held = document.activeElement;
@@ -124,10 +136,15 @@ export function useCoachFocus(
       card.current?.contains(held) ||
       lastInputInCard.current
     ) {
-      primary.current?.focus({ preventScroll: true });
+      const focus = actionOnly
+        ? card.current?.querySelector<HTMLButtonElement>(
+            'button[aria-label="Exit tutorial"]',
+          )
+        : primary.current;
+      focus?.focus({ preventScroll: true });
     }
     arrived.current = true;
-  }, [stepKey, placed]);
+  }, [stepKey, placed, actionOnly]);
 }
 
 /**
@@ -157,15 +174,77 @@ export function useEscapeToExit(support: SupportController): void {
 export function cardKeys(
   support: SupportController,
   canBack: boolean,
+  canNext = true,
 ): (event: ReactKeyboardEvent<HTMLElement>) => void {
   return (event) => {
     if (event.altKey || event.ctrlKey || event.metaKey) return;
     if (event.key === "ArrowRight") {
       event.preventDefault();
-      support.nextStep();
+      if (canNext) support.nextStep();
     } else if (event.key === "ArrowLeft" && canBack) {
       event.preventDefault();
       support.backStep();
     }
+  };
+}
+
+/** Stop correcting when the person scrolls, while allowing pinch zoom. */
+export function observeScrollIntent(
+  stop: () => void,
+  target: () => HTMLElement | null,
+): () => void {
+  const onWheel = (event: WheelEvent): void => {
+    if (!event.ctrlKey) stop();
+  };
+  const onTouchMove = (event: TouchEvent): void => {
+    if (event.touches.length < 2) stop();
+  };
+  const onPointerMove = (event: PointerEvent): void => {
+    if (event.pointerType !== "touch" && event.buttons !== 0) stop();
+  };
+  const onPointerDown = (event: PointerEvent): void => {
+    const element = event.target;
+    if (
+      element instanceof Element &&
+      !element.closest(".coach") &&
+      !target()?.contains(element)
+    )
+      stop();
+  };
+  const onKey = (event: KeyboardEvent): void => {
+    if (
+      event.key === "Tab" ||
+      ([
+        "ArrowUp",
+        "ArrowDown",
+        "PageUp",
+        "PageDown",
+        "Home",
+        "End",
+        " ",
+      ].includes(event.key) &&
+        !(
+          event.target instanceof Element &&
+          event.target.closest(
+            ".coach, input, textarea, select, [contenteditable=true]",
+          )
+        ))
+    )
+      stop();
+  };
+  window.addEventListener("pointerdown", onPointerDown, true);
+  window.addEventListener("wheel", onWheel, { capture: true, passive: true });
+  window.addEventListener("touchmove", onTouchMove, {
+    capture: true,
+    passive: true,
+  });
+  window.addEventListener("pointermove", onPointerMove, true);
+  window.addEventListener("keydown", onKey, true);
+  return () => {
+    window.removeEventListener("pointerdown", onPointerDown, true);
+    window.removeEventListener("wheel", onWheel, true);
+    window.removeEventListener("touchmove", onTouchMove, true);
+    window.removeEventListener("pointermove", onPointerMove, true);
+    window.removeEventListener("keydown", onKey, true);
   };
 }

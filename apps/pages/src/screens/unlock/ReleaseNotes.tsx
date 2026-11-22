@@ -103,6 +103,7 @@ function ReleasePanel({
       <button
         type="button"
         className="unlock__notes-summary"
+        aria-label={newest ? `${release.version} Latest` : undefined}
         aria-expanded={open}
         aria-controls={panelId}
         onClick={onToggle}

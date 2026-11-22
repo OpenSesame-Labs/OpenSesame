@@ -134,7 +134,7 @@ function describeWebauthnErrorDefault<Thrown>(error: Thrown): string {
     return "The browser rejected this origin for passkeys. Use a DNS hostname (localhost for local dev), not a raw IP address.";
   }
   if (name === "NotAllowedError") {
-    return "Passkey was cancelled or timed out. Try again, or use a PIN / password unlock instead.";
+    return "Passkey was cancelled or timed out. Try again or choose another method.";
   }
   if (name === "InvalidStateError") {
     return "A passkey for this site may already exist on this authenticator. Remove it from the OS password manager, or enroll on another device.";

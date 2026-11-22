@@ -31,6 +31,16 @@ describe("feature tours on a default plan", () => {
     });
   }
 
+  it("points model and password-reset setup to their actual settings", () => {
+    const ai = FEATURE_GOALS.find((goal) => goal.id === "feature.ai")?.guide;
+    const reset = FEATURE_GOALS.find(
+      (goal) => goal.id === "feature.password-reset",
+    )?.guide;
+    expect(ai).toContain("Settings → Features → AI");
+    expect(reset).toContain("Integrations → Password reset");
+    expect(reset).toContain("Features → AI");
+  });
+
   it("covers the sections that have no surface of their own", () => {
     const certificates = FEATURES.find((entry) => entry.id === "certificates");
     const telemetry = FEATURES.find((entry) => entry.id === "telemetry");

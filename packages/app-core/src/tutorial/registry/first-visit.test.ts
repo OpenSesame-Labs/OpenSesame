@@ -136,4 +136,12 @@ describe("first-visit tours", () => {
     const tour = firstVisitTour("/settings/danger", new Set());
     expect(tour?.steps).toBeGreaterThan(0);
   });
+
+  it("includes the password portion in the first-vault offer", () => {
+    const tour = firstVisitTour("/unlock/door", new Set(), {
+      holds: () => true,
+    });
+    expect(tour?.goal.id).toBe("gate.front-door");
+    expect(tour?.steps).toBe(16);
+  });
 });

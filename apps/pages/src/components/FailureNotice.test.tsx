@@ -56,6 +56,20 @@ describe("FailureNotice", () => {
     expect(listNotices()).toHaveLength(1);
   });
 
+  it("clears an inline failure on unmount when requested", () => {
+    const { unmount } = render(
+      <FailureNotice
+        id="area:thing"
+        title="Thing"
+        message="It failed."
+        clearOnUnmount
+      />,
+    );
+    expect(listNotices()).toHaveLength(1);
+    unmount();
+    expect(listNotices()).toHaveLength(0);
+  });
+
   it("does not clear another screen's notice on mount with no failure", () => {
     render(
       <FailureNotice id="area:thing" title="Thing" message="It failed." />,

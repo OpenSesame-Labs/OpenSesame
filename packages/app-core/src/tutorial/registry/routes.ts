@@ -24,7 +24,10 @@ const SECTION_ROUTES: readonly GuideRouteDescriptor[] = [
   // The screens behind `/unlock` and `/setup`, each its own place a tutorial
   // can be scoped to (ADR 0166). `/unlock` and `/setup` stay the parents: a
   // control or a written answer scoped to one still applies in every child.
-  { id: "/unlock/door", title: "Front door — set up, join, or skip" },
+  {
+    id: "/unlock/door",
+    title: "Setup — create a vault, join a session, or skip",
+  },
   { id: "/unlock/form", title: "Unlock — open this device's vault" },
   {
     id: "/unlock/passkey",
@@ -43,7 +46,7 @@ const SECTION_ROUTES: readonly GuideRouteDescriptor[] = [
     id: "/broker/authorize",
     title: "Broker — approve a static site sign-in",
   },
-  { id: "/vault", title: "Vault — every item this deployment holds" },
+  { id: "/vault", title: "Vault — saved items" },
   { id: "/vault/health", title: "Vault health — weak, reused and aging items" },
   {
     id: "/vault/list",

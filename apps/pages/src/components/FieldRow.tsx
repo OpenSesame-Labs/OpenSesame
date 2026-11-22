@@ -1,3 +1,4 @@
+import { reportGuideActivation } from "@opensesame/app-core/tutorial/registry/targets.js";
 import {
   type ReactNode,
   type Ref,
@@ -26,10 +27,21 @@ export function useCopyFeedback() {
   );
 
   const copy = useCallback(
-    async (key: string, value: string) => {
+    async (
+      key: string,
+      value: string,
+      guideActivation?: string | string[],
+      onCopied?: () => void,
+    ) => {
       const result = await copySecret(value);
       if (timer.current) window.clearTimeout(timer.current);
       if (result === "copied") {
+        if (guideActivation) {
+          for (const target of [guideActivation].flat()) {
+            reportGuideActivation(target);
+          }
+        }
+        onCopied?.();
         setFailed(null);
         setCopied(key);
         timer.current = window.setTimeout(() => setCopied(null), 1800);
@@ -73,15 +85,21 @@ export function CopyButton({
   failed,
   onCopy,
   guideRef,
+  guideActivation,
 }: {
   value: string;
   label: string;
   fieldKey: string;
   copied: string | null;
   failed: string | null;
-  onCopy: (key: string, value: string) => Promise<void>;
+  onCopy: (
+    key: string,
+    value: string,
+    guideActivation?: string | string[],
+  ) => Promise<void>;
   /** Set by the one copy key a tutorial points at (`item.copy-password`). */
   guideRef?: Ref<HTMLButtonElement>;
+  guideActivation?: string | string[] | undefined;
 }) {
   const isCopied = copied === fieldKey;
   const isFailed = failed === fieldKey;
@@ -90,7 +108,10 @@ export function CopyButton({
       ref={guideRef}
       type="button"
       className={`icon-btn${isCopied ? " is-on" : ""}`}
-      onClick={() => void onCopy(fieldKey, value)}
+      onClick={() => {
+        if (guideActivation) void onCopy(fieldKey, value, guideActivation);
+        else void onCopy(fieldKey, value);
+      }}
       aria-label={
         isFailed
           ? `Could not copy ${label}`
