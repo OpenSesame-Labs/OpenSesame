@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -51,15 +51,18 @@ interface Fixture {
   };
 }
 
+/** `valid.json` and `invalid.json` each map a case name to one fixture. */
 function load(): Fixture[] {
   const out: Fixture[] = [];
   for (const sub of ["valid", "invalid"]) {
-    const dir = join(corpus, sub);
-    for (const file of readdirSync(dir).sort()) {
-      if (!file.endsWith(".json")) continue;
-      const doc = JSON.parse(readFileSync(join(dir, file), "utf8"));
-      out.push({ name: `${sub}/${file}`, ...doc });
-    }
+    const bundle: Record<string, Omit<Fixture, "name">> = JSON.parse(
+      readFileSync(join(corpus, `${sub}.json`), "utf8"),
+    );
+    const cases = Object.entries(bundle).sort(([a], [b]) =>
+      a < b ? -1 : a > b ? 1 : 0,
+    );
+    for (const [name, doc] of cases)
+      out.push({ ...doc, name: `${sub}/${name}` });
   }
   return out;
 }

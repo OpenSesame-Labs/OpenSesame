@@ -1,6 +1,0 @@
-k: | # hdr
-  blk
-l: >- # fold
-  txt
-m: "q" # after quoted
-n: !!str 42 # after tagged
