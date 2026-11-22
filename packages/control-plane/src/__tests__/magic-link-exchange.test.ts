@@ -6,6 +6,8 @@ import { drizzle } from "drizzle-orm/pglite";
 import { beforeAll, expect, it, vi } from "vitest";
 import type { AppContext } from "../context.js";
 import { DurableMap, type SecurityMap } from "../repos/durable-map.js";
+import type { MfaCodeSendWindow } from "../security-state-types.js";
+import { chargeMagicLinkBudget } from "../services/magic-link-budget.js";
 import {
   type MagicLinkExchange,
   consumeMagicLinkExchange,
@@ -136,4 +138,58 @@ it("encrypts its record and admits one exchange across replicas", async () => {
   } finally {
     await client.close();
   }
+});
+
+it("enforces a shared per-address send budget across replicas", async () => {
+  const client = await migratedPGlite();
+  try {
+    const db = drizzle(client, { schema });
+    const store = () =>
+      new DurableMap<MfaCodeSendWindow>(
+        overlapCast(db),
+        "OpenSesame:MfaCodeSend",
+        false,
+        3_600_000,
+        10_000,
+        createEventSealer("magic-link-budget-fixture"),
+      );
+    const budgetContext = () =>
+      overlapCast<unknown, AppContext>({
+        stores: { mfaCodeSends: store() },
+        config: { claimPepper: "shared-budget-fixture-key" },
+        clock: () => new Date(),
+      });
+    const first = budgetContext();
+    const second = budgetContext();
+    const email = "limited-recipient@example.test";
+    const results = await Promise.all(
+      Array.from({ length: 6 }, (_, index) =>
+        chargeMagicLinkBudget(index % 2 ? first : second, email),
+      ),
+    );
+    expect(results.filter((result) => result === "ok")).toHaveLength(5);
+    expect(results.filter((result) => result === "recipient")).toHaveLength(1);
+    expect(
+      JSON.stringify(await db.select().from(schema.oidcPayloads)),
+    ).not.toContain(email);
+  } finally {
+    await client.close();
+  }
+});
+
+it("does not reset the send budget if the clock moves backward", async () => {
+  let now = Date.now();
+  const ctx = overlapCast<unknown, AppContext>({
+    stores: { mfaCodeSends: new Map() },
+    config: { claimPepper: "budget-clock-fixture" },
+    clock: () => new Date(now),
+  });
+  for (let attempt = 0; attempt < 5; attempt++)
+    expect(await chargeMagicLinkBudget(ctx, "clock@example.test")).toBe("ok");
+  now -= 60_000;
+  expect(await chargeMagicLinkBudget(ctx, "clock@example.test")).toBe(
+    "recipient",
+  );
+  now += 11 * 60_000;
+  expect(await chargeMagicLinkBudget(ctx, "clock@example.test")).toBe("ok");
 });
