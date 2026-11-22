@@ -148,6 +148,22 @@ describe("dev container", () => {
     for (const name of names)
       expect(name).not.toMatch(/TOKEN|SECRET|PASSWORD|KEY/i);
   });
+
+  it("runs no personal or third-party installer in any lifecycle phase", () => {
+    // Exact declared commands also catch an indirect shell addition or a new
+    // phase (postStart, postAttach) rather than checking a few script names:
+    // nothing unreviewed is fetched or executed when the container starts.
+    const locked =
+      'MISE_GLOBAL_CONFIG_FILE="$PWD/.devcontainer/mise-global.toml" mise install --locked';
+    const commands = Object.fromEntries(
+      Object.entries(config).filter(([name]) => name.endsWith("Command")),
+    );
+    expect(commands).toEqual({
+      onCreateCommand: "mise --version",
+      updateContentCommand: `${locked} && mise run deps`,
+      postCreateCommand: `${locked} && mise run deps && bash scripts/dev/setup-hooks.sh`,
+    });
+  });
 });
 
 describe("dev container toolchain install", () => {
@@ -162,7 +178,9 @@ describe("dev container toolchain install", () => {
       config.updateContentCommand,
       config.postCreateCommand,
       config.postStartCommand,
-    ].join(" && ");
+    ]
+      .filter(Boolean)
+      .join(" && ");
     const installs =
       commands.match(/(?:\S+=\S+ )*mise install --locked/g) ?? [];
     expect(installs.length).toBeGreaterThan(0);
@@ -219,7 +237,9 @@ describe("dev container proof", () => {
       config.updateContentCommand,
       config.postCreateCommand,
       config.postStartCommand,
-    ].map((command) => at(`( ${command} )`));
+    ]
+      .filter(Boolean)
+      .map((command) => at(`( ${command} )`));
     expect(order.every((index) => index > 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     expect(lines[0]).toBe("set -euo pipefail");

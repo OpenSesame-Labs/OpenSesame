@@ -1,14 +1,14 @@
 # Skills index
 
-Skills table moved from `AGENTS.md` §7. First-party skill source is `skills/*/SKILL.md`; third-party skills install into `.agents/skills/` as gitignored output authenticated against reviewed `skills-lock.json` hashes. Container start verifies offline; `npm run skills:install` is the explicit refresh workflow. This page is a routing index only. Ownership tiers (19 core first-party, 14 reusable-optional, 8 design-experiment-optional) are defined in `skills/profiles.json` and summarised in `skills/README.md`; core validation passes with optional profiles uninstalled.
+Skills table moved from `AGENTS.md` §7. First-party skill source is `skills/*/SKILL.md`; third-party skills install into `.agents/skills/` as gitignored output authenticated against reviewed `skills-lock.json` hashes. Nothing runs at container start: `npm run skills:verify` checks installed copies offline and `npm run skills:install` is the explicit refresh workflow. This page is a routing index only. Ownership tiers (19 core first-party, 14 reusable-optional, 8 design-experiment-optional) are defined in `skills/profiles.json` and summarised in `skills/README.md`; core validation passes with optional profiles uninstalled.
 
 ## 7. Skills
 
 First-party agent skills live under `skills/*/SKILL.md` (tracked canonical
 source). Harness discovery links to these directories are set up by the
 OpenSesame Labs dotfiles, not tracked here. Reviewed third-party skills are
-installed into `.agents/skills/` as gitignored output and verified at container
-start by `scripts/dev/install-agent-skills.sh`; `.claude/skills/` and `.grok/skills/`
+installed into `.agents/skills/` as gitignored output and verified on request
+by `scripts/dev/install-agent-skills.sh` (`npm run skills:verify`); `.claude/skills/` and `.grok/skills/`
 mirrors are relative links to that install. Run
 `node scripts/dev/sync-agent-skills.mjs` and its `--check` mode to verify
 mirrors; never stage installed trees.

@@ -138,8 +138,10 @@ under the gitignored `.agents/skills/`. First-party
 skills are canonical in `skills/`; third-party skills are optional profiles
 catalogued in `skills/profiles.json` (see `skills/README.md`), not universal
 defaults. Catalogued skills are authenticated by reviewed hashes in
-`skills-lock.json`; container start performs no update. Maintainers explicitly
-run `npm run skills:install` to refresh and review the lock change. Core
+`skills-lock.json`; container start installs and runs nothing, and the locked
+toolchain pins no skill installer CLI. `npm run skills:verify` checks installed
+copies offline; maintainers explicitly run `npm run skills:install` to refresh
+and review the lock change. Core
 validation passes with the optional profiles uninstalled. Update that installation once, then run
 `node scripts/dev/sync-agent-skills.mjs` and its `--check` mode. Other harnesses
 share relative links; do not install copied trees for each agent. The MCP files name the
@@ -161,7 +163,7 @@ Claude Code's plugin form (`npx plugins add google-labs-code/stitch-skills
 `~/.claude/plugins/`; enabling it is a user-scope choice (tracked settings
 no longer turn plugins on for collaborators). In cloud sessions, where a
 project's marketplaces do not load, the installed `.claude/skills/` mirrors
-from `scripts/dev/install-agent-skills.sh` provide the same skills.
+from an explicit `npm run skills:install` provide the same skills.
 
 ## Keep design artifacts small
 
