@@ -4,6 +4,7 @@
  * no state of its own.
  */
 
+import { FIRST_VAULT_PIN_STEPS } from "@opensesame/app-core/tutorial/registry/first-vault-guide.js";
 import {
   isKnownGuidePredicate,
   readGuidePredicate,
@@ -55,6 +56,22 @@ export function coachMessage(
 
 type TourProgress = { offset: number; count: number };
 
+/**
+ * First-vault meter lengths, pinned to the authored walks in
+ * `@opensesame/app-core/tutorial/registry/first-vault-guide.ts`: the door
+ * walks two setup steps plus a two-step road to the seal decision, the PIN
+ * road then walks `FIRST_VAULT_PIN_STEPS`' seal fields where the passkey road
+ * seals in one ceremony, and the shell continuation is the nine-step password
+ * walk. CoachHud.test.tsx re-derives these from the authored guides, so an
+ * edit that changes a walk's length fails the meter test instead of drifting
+ * the counter silently.
+ */
+const FIRST_VAULT_PASSKEY_GATE_STEPS = 4;
+const FIRST_VAULT_PIN_SEAL_STEPS = FIRST_VAULT_PIN_STEPS.length;
+const FIRST_VAULT_PIN_GATE_STEPS =
+  FIRST_VAULT_PASSKEY_GATE_STEPS + FIRST_VAULT_PIN_SEAL_STEPS;
+const FIRST_VAULT_SHELL_STEPS = 9;
+
 /** Join the adaptive gate phase to its first-vault shell continuation. */
 export function firstVaultTourProgress(
   target: string | null,
@@ -71,12 +88,18 @@ export function firstVaultTourProgress(
   ].includes(target ?? "");
   // The shell continuation is the nine-step password walk — save waits for
   // the saved item, the copy step, and the list the item lands in.
-  if (count === 9 && !gateTarget)
+  if (count === FIRST_VAULT_SHELL_STEPS && !gateTarget)
     return { offset: gateSteps, count: gateSteps + count };
-  // The sign-in continuation resumes the meter where the door left it: six
-  // steps on the PIN road, two where the passkey seals in one ceremony.
+  // The gate phase and the sign-in continuation show the whole projected
+  // walk: the passkey road's total until the PIN fields open, the PIN road's
+  // from then on. The sign-in continuation resumes after the door's two
+  // setup steps: six steps on the PIN road, two where the passkey seals in
+  // one ceremony.
   const signIn = count === 6 || count === 2;
-  return { offset: signIn ? 2 : 0, count: pinTarget ? 17 : 13 };
+  const roadSteps = pinTarget
+    ? FIRST_VAULT_PIN_GATE_STEPS
+    : FIRST_VAULT_PASSKEY_GATE_STEPS;
+  return { offset: signIn ? 2 : 0, count: roadSteps + FIRST_VAULT_SHELL_STEPS };
 }
 
 export function padded(box: Box): Box {
