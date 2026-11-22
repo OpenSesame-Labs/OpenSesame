@@ -14,7 +14,6 @@ import {
   withPrincipalSessionBoundary,
 } from "../repos/principal-session-boundary.js";
 import { removeOrganizationMembership } from "../services/org-admin.js";
-import { removeOrphanTokens } from "../repos/session-storage.js";
 import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import {
   type PreparedWithdrawal,
