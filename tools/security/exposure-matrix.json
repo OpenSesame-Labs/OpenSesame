@@ -1390,14 +1390,14 @@
       "9861c64a"
     ],
     "crates/storage/tests/certmgr_pact.rs": [
-      "817d04fa",
-      "0df8724d",
-      "a9648c39",
-      "a9c89c68",
-      "45e5ee2b",
-      "2051ffab",
-      "9b708231",
-      "b3e2a57f"
+      "56ad2050",
+      "34ca703d",
+      "499db549",
+      "361fe9d0",
+      "7ed08ca7",
+      "1ccea129",
+      "8a9dc21d",
+      "6dd2a59c"
     ],
     "packages/app-core/package.json": [
       "ff6d0078",
@@ -2860,14 +2860,14 @@
       "d49fa90d"
     ],
     "crates/gateway/src/config.rs": [
-      "7732beba",
-      "4593fc00",
-      "e2c7cc5f",
-      "c38d87d5",
-      "94771c7a",
-      "98f3de0a",
-      "d2efa186",
-      "0d887a47"
+      "4753d375",
+      "7f9733d3",
+      "6ad261a5",
+      "3788c7f1",
+      "508528ae",
+      "6545e467",
+      "cd84787f",
+      "dbff580d"
     ],
     "crates/gateway/src/config_listener_tests.rs": [
       "af16ae93",
@@ -2880,14 +2880,14 @@
       "b997cc50"
     ],
     "crates/gateway/src/lib.rs": [
-      "0e5988ea",
-      "f0273eda",
-      "3d1f002a",
-      "32a671a5",
-      "97e45874",
-      "6dc0ff95",
-      "14a1e34a",
-      "cdb50dd4"
+      "c579b81b",
+      "75de6f9f",
+      "7142247a",
+      "f07df116",
+      "f9df6757",
+      "044b9abf",
+      "6e044dd9",
+      "7f878cd0"
     ],
     "crates/gateway/src/routes/est_config_policy.rs": [
       "f610fa83",
@@ -3180,14 +3180,14 @@
       "7301dfad"
     ],
     "crates/storage/src/migrations.rs": [
-      "5427e2a5",
-      "1adcce8b",
-      "9a30aa75",
-      "5be66679",
-      "31e52203",
-      "7bcc31f5",
-      "c4dbb582",
-      "89d9e17a"
+      "e16c2f4e",
+      "96eff0be",
+      "28bf6e29",
+      "b40dce19",
+      "2ed956fe",
+      "b2f21215",
+      "a261a4da",
+      "2e45e8fb"
     ],
     "crates/storage/tests/est_passphrase_budget.rs": [
       "c4e115a8",
@@ -3400,14 +3400,14 @@
       "fed25c68"
     ],
     "packages/control-plane/src/create-app.ts": [
-      "7a3672a0",
-      "f2f9e736",
-      "d6f2e37b",
-      "67b2f475",
-      "dfba9665",
-      "d33ab951",
-      "6397b170",
-      "4f2ffc8b"
+      "a475d7cc",
+      "83c71fc0",
+      "cc0ca33c",
+      "b39ed488",
+      "2128ee98",
+      "2a3520f9",
+      "75626a7e",
+      "6c007d7f"
     ],
     "packages/control-plane/src/repos/durable-claim-store.ts": [
       "65e86396",
@@ -3420,24 +3420,24 @@
       "e7b4d73c"
     ],
     "packages/control-plane/src/repos/durable-map.ts": [
-      "b95cc885",
-      "1eac9b3f",
-      "c84f3dc4",
-      "84ee5ed6",
-      "101aa32d",
-      "cb39efb1",
-      "3100df65",
-      "ffc3e47c"
+      "0d1143a2",
+      "5d6f025f",
+      "576f6c22",
+      "da354e99",
+      "7403e519",
+      "18649fce",
+      "e3381d1a",
+      "7d9d484c"
     ],
     "packages/control-plane/src/repos/security-maps.ts": [
-      "fc893725",
-      "4e108702",
-      "eede0e72",
-      "06649c64",
-      "dce4173c",
-      "84720c22",
-      "33823fec",
-      "b3ba8d62"
+      "fd962e05",
+      "a6cfd21c",
+      "deac88f9",
+      "7b82cfd6",
+      "33cee1c3",
+      "d64877ed",
+      "399047b7",
+      "c5613172"
     ],
     "packages/control-plane/src/routes/claim-presentation.ts": [
       "f8eb3088",
@@ -3600,14 +3600,14 @@
       "8729b44f"
     ],
     "packages/control-plane/src/state.ts": [
-      "a196a900",
-      "82610571",
-      "22c0b6de",
-      "68cc7cc6",
-      "77fb3b5f",
-      "fd634c37",
-      "cc3b795a",
-      "b6b9b346"
+      "c2e70248",
+      "41b806a4",
+      "1872a13c",
+      "a7f61d69",
+      "d8e27687",
+      "750ef6a2",
+      "0b68cbe3",
+      "a812ce41"
     ],
     "packages/oauth-provider/src/__tests__/signing-keys.test.ts": [
       "9758bdc0",
@@ -6750,14 +6750,14 @@
       "a23325a7"
     ],
     "crates/gateway/src/app_state.rs": [
-      "05cab6d9",
-      "42fa31d7",
-      "a812bef8",
-      "3ef026d2",
-      "abfd1bea",
-      "e0573035",
-      "2739e904",
-      "348c5911"
+      "e76b046b",
+      "1d95f99a",
+      "0f791b39",
+      "0f3412db",
+      "a66a8aeb",
+      "086d5ebf",
+      "632de952",
+      "3a9f7c60"
     ],
     "crates/gateway/src/testkit/mod.rs": [
       "18d8967d",
@@ -6770,14 +6770,14 @@
       "b83bd9ed"
     ],
     "crates/gateway/src/testkit/state.rs": [
-      "d9f16459",
-      "e1d76610",
-      "d7d59125",
-      "ba362cea",
-      "3bad673b",
-      "cd276a8e",
-      "019168ca",
-      "4aaf74ff"
+      "e2cd7860",
+      "c464cfa0",
+      "4e53e045",
+      "39acfcb1",
+      "90647f33",
+      "ac9766be",
+      "d997d651",
+      "3aff259a"
     ],
     "crates/gateway/src/testkit/server.rs": [
       "1de97a97",
@@ -6820,14 +6820,14 @@
       "a47984b2"
     ],
     "crates/gateway/src/routes/session.rs": [
-      "6868b567",
-      "4fbc695e",
-      "ac302078",
-      "225d09a8",
-      "f312b320",
-      "b33d0ef7",
-      "6d6509c0",
-      "86c52cfc"
+      "cb296cb3",
+      "069b773a",
+      "25110c12",
+      "39740627",
+      "7281a240",
+      "b93f62fd",
+      "8209ee3d",
+      "efc8c2ee"
     ],
     "crates/gateway/src/routes/connections.rs": [
       "4ab1439a",
@@ -6840,24 +6840,24 @@
       "3bec49e5"
     ],
     "crates/gateway/src/routes/agent_capabilities.rs": [
-      "488be129",
-      "ed31bd51",
-      "d78af310",
-      "ee695241",
-      "1bf4fd9a",
-      "1d8ac157",
-      "3a1b734a",
-      "b191baab"
+      "3a55969d",
+      "d66becbb",
+      "6c7fb567",
+      "c628a987",
+      "2ed6d84c",
+      "d46aa67e",
+      "c068ee1c",
+      "c21f9aee"
     ],
     "crates/gateway/src/routes/browser_pairings.rs": [
-      "244bfdf9",
-      "957aefaf",
-      "63437504",
-      "cae79017",
-      "2214e3a2",
-      "fe81cee5",
-      "08ca38b5",
-      "a273adfa"
+      "96595e78",
+      "6ed3d3ee",
+      "88a8c075",
+      "90e87bb2",
+      "f4568137",
+      "6fa351e8",
+      "97c644cf",
+      "78dff4d9"
     ],
     "crates/gateway/src/browser_pairing_proof.rs": [
       "05ab8d32",
@@ -6870,14 +6870,14 @@
       "2feff855"
     ],
     "crates/gateway/src/middleware/mod.rs": [
-      "2389fc92",
-      "7348d2cb",
-      "472c54f4",
-      "ef02c862",
-      "e09c3705",
-      "8614481e",
-      "e696f27d",
-      "d40676bf"
+      "d9142e05",
+      "7f33f762",
+      "cd3a1968",
+      "a770dd3c",
+      "a79eace3",
+      "faef15af",
+      "7c5a9788",
+      "dc0b4038"
     ],
     "crates/gateway/src/middleware/auth.rs": [
       "79d3114a",
@@ -6900,14 +6900,14 @@
       "ad429a91"
     ],
     "crates/gateway/src/middleware/browser_grants.rs": [
-      "cde1d0c9",
-      "b23d4793",
-      "169c886f",
-      "7582bc20",
-      "7722d233",
-      "6f80be3c",
-      "09b988bd",
-      "8e99e5c0"
+      "6fa5c77b",
+      "89789cbf",
+      "29f6e278",
+      "bfb002e8",
+      "ce05ae47",
+      "ade028cd",
+      "e5b60985",
+      "d45d509a"
     ],
     "crates/gateway/src/middleware/browser_user_routes.rs": [
       "634a2058",
@@ -6920,14 +6920,14 @@
       "5e1e864a"
     ],
     "crates/gateway/src/middleware/public_enrollment.rs": [
-      "148b6c76",
-      "00e4b756",
-      "66c64ba8",
-      "2abac592",
-      "fd2003e8",
-      "96422249",
-      "98f55bef",
-      "9b88dc6f"
+      "dad6bd68",
+      "146d716c",
+      "ffad89ab",
+      "116afaa8",
+      "4bf736b2",
+      "e3635792",
+      "d4fbc16b",
+      "b51f05b5"
     ],
     "crates/host-core/src/operator.rs": [
       "6ff3fa9f",
@@ -7030,14 +7030,14 @@
       "7555a60e"
     ],
     "crates/storage/src/lib.rs": [
-      "eafab5f9",
-      "688d370d",
-      "28e57a9d",
-      "c1423225",
-      "2b137cb2",
-      "2708ebd4",
-      "3c37578f",
-      "994db327"
+      "b868b92e",
+      "b8efd3f9",
+      "e120b2c4",
+      "61b841bd",
+      "05680c18",
+      "1116998e",
+      "a121f89a",
+      "e5b7e70a"
     ],
     "crates/storage/src/tenancy.rs": [
       "10cd6d36",
@@ -7270,14 +7270,14 @@
       "aada4db2"
     ],
     "crates/gateway/src/transport/status_tests.rs": [
-      "59b1b652",
-      "48d0246a",
-      "e33365a3",
-      "734148dc",
-      "15b6a083",
-      "780b161a",
-      "12d3afb4",
-      "d635702d"
+      "288d375b",
+      "18aa112e",
+      "29956567",
+      "06c7d9c0",
+      "ea785f4a",
+      "e0ebb023",
+      "fa74ae92",
+      "bb6b667e"
     ],
     "crates/transport-security/src/generations.rs": [
       "626e1506",
