@@ -100,6 +100,7 @@ const suiteMinimums = {
     "spec/formal/authority/Cargo.lock",
     "scripts/security/cargo-workspace-projection.py",
     ...cargoRunners,
+    "scripts/security/formal_coverage_drift.py",
   ],
   dpop: [
     "spec/formal/dpop/verify.sh",

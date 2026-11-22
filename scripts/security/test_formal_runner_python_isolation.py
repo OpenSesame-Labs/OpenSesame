@@ -27,6 +27,7 @@ class RunnerIsolationTest(unittest.TestCase):
         cls.root = Path(cls.temp.name) / "repo"
         paths = {"Cargo.toml", "Cargo.lock", "rust-toolchain.toml",
                  "scripts/security/cargo-lock-projection.py", "scripts/security/cargo-workspace-projection.py",
+                 "scripts/security/formal_coverage_drift.py",
                  "spec/formal/dpop/mutate.py"}
         for runner, checker in SUITES.values():
             paths.update((runner, checker))
@@ -81,7 +82,8 @@ chmod +x "$output"
             path.chmod(0o755)
         cls.env = {**os.environ, "PATH": f"{bin_dir}:{os.environ.get('PATH', '')}",
                    "OPENSESAME_LEAN_BIN": str(bin_dir / "lean"), "RUSTC": str(bin_dir / "rustc"),
-                   "OPENSESAME_RUSTC": str(bin_dir / "rustc")}
+                   "OPENSESAME_RUSTC": str(bin_dir / "rustc"),
+                   "OPENSESAME_FORMAL_GIT_ROOT": str(ROOT)}
         cls.env.pop("PROOF_TEST_MUTATE", None)
 
     def test_runner_checks_ignore_local_stdlib_shadows_and_detect_drift(self):

@@ -113,6 +113,9 @@ def main() -> None:
     with isolation["scratch_checkout"](root) as lease:
         scratch, fd = lease.path, lease.lock_fd
         env["OPENSESAME_FORMAL_SCRATCH_LOCK_FD"] = str(fd)
+        # The archived tree has no .git; reviewed_revision lineage resolves
+        # against this repository, which the live baseline check verified.
+        env["OPENSESAME_FORMAL_GIT_ROOT"] = str(root)
         archive(root, scratch, (fd,))
         destination = scratch / "spec/formal/authority"
         baseline = check(scratch, env, fd)
