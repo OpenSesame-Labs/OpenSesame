@@ -9,9 +9,12 @@ import type {
 import { isJsonObject } from "@opensesame/os-domain";
 import type { Context } from "hono";
 import type { AppContext } from "../context.js";
-import type { OrganizationId } from "../lib/ids.js";
+import type { ActorId, OrganizationId } from "../lib/ids.js";
 import type { Variables } from "../middleware/context.js";
-import type { ActiveOrgOwner } from "../proofs/org-owner.js";
+import {
+  type ActiveOrgOwner,
+  activeOrgOwner,
+} from "../proofs/org-owner.js";
 import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import {
   type PreparedWithdrawal,
@@ -64,36 +67,44 @@ export { memberIds, parseMemberSelector };
  */
 export async function putGroupRoleMapping<A, O>(
   ctx: AppContext,
+  actor: Named<A, ActorId>,
   org: Named<O, OrganizationId>,
   _proof: ActiveOrgOwner<A, O>,
   groupId: string,
   role: OrganizationRole,
-): Promise<void> {
+): Promise<
+  | { ok: true }
+  | { ok: false; status: 403 | 404; error: "not_found" | "owner_required" }
+> {
   const orgId = org.value;
-  const organization = await ctx.stores.organizations.get(orgId);
-  if (!organization) return;
-  const prepared = await withScimOrganizationBoundary(
+  const decision = await withScimOrganizationBoundary(
     ctx,
     orgId,
     async (tx) => {
+      // A proof obtained before the request body was read can be stale. The
+      // organization lock orders this check with membership withdrawal.
+      const owner = await activeOrgOwner(tx.stores, actor, org);
+      if (!owner.ok) return owner;
       await tx.stores.scim.mappings.put(orgId, groupId, role);
       const group = await tx.stores.scim.groups.getById(orgId, groupId);
-      if (!group) return [];
+      if (!group) return { ok: true as const, prepared: [] };
       const pending: PreparedWithdrawal[] = [];
       for (const memberId of group.memberIds) {
         pending.push(
           ...(await syncDerivedRole(
             tx,
-            organization,
+            owner.organization,
             memberId,
             `scim-role-${groupId}`,
           )),
         );
       }
-      return pending;
+      return { ok: true as const, prepared: pending };
     },
   );
-  await finishRoleChanges(ctx, prepared);
+  if (!decision.ok) return decision;
+  await finishRoleChanges(ctx, decision.prepared);
+  return { ok: true };
 }
 
 export async function patchScimGroup(
