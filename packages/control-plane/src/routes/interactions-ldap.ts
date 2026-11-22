@@ -378,6 +378,7 @@ export function createLdapInteractionRoutes(
       subject: bound.subject,
       method: "ldap",
       correlationId,
+      roleSource: "ldap",
       ...(role !== undefined ? { role } : undefined),
     });
     if (!joined.ok) {

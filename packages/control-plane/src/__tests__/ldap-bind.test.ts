@@ -9,6 +9,7 @@ import {
   afterAll,
   afterEach,
   beforeAll,
+  beforeEach,
   describe,
   expect,
   it,
@@ -25,6 +26,7 @@ import {
 import { resetLdapAttemptBudget } from "../routes/interactions-ldap.js";
 import type { startServer } from "../server.js";
 import { onFreePort } from "./free-port.js";
+import { installHostRevocationMock } from "./scim-test-helpers.js";
 import { hopUrl } from "./upstream-hop.js";
 
 /**
@@ -481,6 +483,11 @@ describe("directory sign-in from the hosted login page", () => {
     vi.restoreAllMocks();
   });
 
+  beforeEach(() => {
+    // restoreAllMocks above also drops this spy between tests.
+    installHostRevocationMock();
+  });
+
   async function req(jar: Jar, path: string, init: RequestInit = {}) {
     const res = await fetch(path.startsWith("http") ? path : `${base}${path}`, {
       redirect: "manual",
@@ -615,11 +622,19 @@ describe("directory sign-in from the hosted login page", () => {
     expect(membership?.role).toBe("member");
 
     // Simulate a stale elevated role: the next bind sees only the engineers
-    // group, which maps to `member`, and must reconcile it downward.
+    // group, which maps to `member`, and must reconcile it downward. A second
+    // owner keeps the demotion clear of the last-owner fence.
     if (!membership) throw new Error("no bob membership");
     await started.ctx.stores.organizationMemberships.upsert({
       ...membership,
       role: "owner",
+      updatedAt: started.ctx.clock(),
+    });
+    await started.ctx.stores.organizationMemberships.upsert({
+      organizationId: ORG_ID,
+      principalId: "prn_directory_fallback_owner",
+      role: "owner",
+      createdAt: started.ctx.clock(),
       updatedAt: started.ctx.clock(),
     });
 
