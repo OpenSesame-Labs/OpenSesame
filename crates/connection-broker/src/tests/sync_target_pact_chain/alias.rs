@@ -140,19 +140,43 @@ fn assign_target(lhs: &str) -> Option<String> {
 
 pub(super) fn statement_tail(lhs: &str) -> &str {
     let bytes = lhs.as_bytes();
+    let code = super::peel::code_mask(bytes);
     let mut depth = 0i32;
     let mut index = bytes.len();
     while index > 0 {
         index -= 1;
+        if !code[index] {
+            continue;
+        }
         match bytes[index] {
-            b'>' if index > 0 && bytes[index - 1] == b'-' => {}
-            b')' | b']' | b'>' => depth += 1,
-            b'(' | b'[' | b'<' if depth > 0 => depth -= 1,
-            b';' | b'{' if depth == 0 => return lhs[index + 1..].trim(),
+            // `->` is not a generic closer.
+            b'>' if index > 0 && bytes[index - 1] == b'-' && code[index - 1] => {}
+            // A finished block ends the statement. Entering it would let a `;`
+            // inside `if` / `loop` become the tail, so `dispatch = Path::send`
+            // no longer parses as a bare name.
+            b'}' if depth == 0 => return trim_noise_ends(&lhs[index + 1..]),
+            b')' | b']' | b'>' | b'}' => depth += 1,
+            b'(' | b'[' | b'<' | b'{' if depth > 0 => depth -= 1,
+            b';' | b'{' if depth == 0 => return trim_noise_ends(&lhs[index + 1..]),
             _ => {}
         }
     }
-    lhs.trim()
+    trim_noise_ends(lhs)
+}
+
+/// Whitespace and comments against either end are not part of the tail.
+fn trim_noise_ends(tail: &str) -> &str {
+    let bytes = tail.as_bytes();
+    let code = super::peel::code_mask(bytes);
+    let mut start = 0usize;
+    let mut end = bytes.len();
+    while start < end && (bytes[start].is_ascii_whitespace() || !code[start]) {
+        start += 1;
+    }
+    while end > start && (bytes[end - 1].is_ascii_whitespace() || !code[end - 1]) {
+        end -= 1;
+    }
+    &tail[start..end]
 }
 
 /// Whitespace and comments between a function item and its terminator.

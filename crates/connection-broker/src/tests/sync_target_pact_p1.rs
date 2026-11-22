@@ -1,4 +1,5 @@
 //! Council P1 closures: unrelated URL bindings, `.execute` receivers, UFCS body reads.
+use super::sync_target_pact_chain::{dispatch_alias_calls, response_chain_consumer};
 use super::sync_target_pact_https::credentialed_send_https_gaps;
 use super::sync_target_pact_scan::response_body_reads;
 
@@ -277,5 +278,70 @@ fn logging_macros_and_ufcs_header_reads_are_metadata() {
             reads.is_empty(),
             "status and request headers are not response metadata: {sample} -> {reads:?}"
         );
+    }
+}
+
+/// A bare `dispatch = Path::send` after `if` / `loop` is still a credentialed
+/// send. `}` must bound the previous block, so a `;` inside that block is not
+/// the statement tail.
+#[test]
+fn chunk01_bare_dispatch_after_if_or_loop_is_a_send() {
+    let forms = [
+        "if cond { let _ = 1; } dispatch = reqwest::RequestBuilder::send; dispatch(request).await?",
+        "if cond { return; } dispatch = Path::send; dispatch(request).await?",
+        "loop { break; } dispatch = Path::send; dispatch(request).await?",
+        "loop { break } dispatch = Path::send; dispatch(request).await?",
+        "if cond { a; } else { b; } dispatch = Path::send; dispatch(request).await?",
+        "if cond { let _ = 1; } let dispatch = Path::send; dispatch(request).await?",
+    ];
+    for form in forms {
+        let bare = format!("async fn f() {{ {form} }}");
+        assert_eq!(credentialed_send_https_gaps(&bare), (1, 1), "{form}");
+        let guarded = format!(
+            "async fn f() {{ if parsed.scheme() != \"https\" {{ return Err(\"x\".into()); }} {form} }}"
+        );
+        assert_eq!(credentialed_send_https_gaps(&guarded), (1, 0), "{form}");
+    }
+    let commented = [
+        "fn f() { if cond { a; } /* } */ dispatch = Path::send; dispatch(request); }",
+        "fn f() { loop { break; } // }\n dispatch = Path::send; dispatch(request); }",
+        "fn f() { if cond { a; } /* c */ dispatch = Path::send; dispatch(request); }",
+    ];
+    for sample in commented {
+        assert_eq!(dispatch_alias_calls(sample).len(), 1, "{sample}");
+    }
+    let not_send =
+        "async fn f() { if cond { let _ = 1; } dispatch = other_fn; dispatch(request).await? }";
+    assert_eq!(credentialed_send_https_gaps(not_send), (0, 0), "{not_send}");
+}
+
+/// `/* ) */` and `/* , */` are not code, so the chain root stays the response.
+#[test]
+fn chunk01_comment_paren_keeps_response_root() {
+    let hits = [
+        "response.map(|b| /* ) */ b).collect()",
+        "response.map(|b| /* ) */ b)?.collect()",
+        "StreamExt::map(/* , */ response, |b| b).collect()",
+        "StreamExt::map(/* ) */ response, |b| b).collect()",
+        "futures::StreamExt::map(/* , */ &mut response, |b| b).count()",
+    ];
+    for sample in hits {
+        assert!(
+            response_chain_consumer(sample),
+            "comment must not drop the response root: {sample}"
+        );
+        assert!(!response_body_reads(sample).is_empty(), "{sample}");
+    }
+    let misses = [
+        "rows.map(|b| /* ) */ b).collect()",
+        "StreamExt::map(/* , */ rows, |b| b).collect()",
+        "\"response.map(|b| /* ) */ b).collect()\"",
+    ];
+    for sample in misses {
+        assert!(
+            !response_chain_consumer(sample),
+            "unrelated chain is not a response read: {sample}"
+        );
+        assert!(response_body_reads(sample).is_empty(), "{sample}");
     }
 }
