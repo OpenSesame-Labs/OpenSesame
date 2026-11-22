@@ -46,6 +46,8 @@ export const HOST_TESTKIT_CONTRACT = Object.freeze({
     `${broker}Cargo.toml`,
     `${broker}src/lib.rs`,
     `${broker}src/config.rs`,
+    `${broker}src/config_custom_egress.rs`,
+    `${broker}src/custom_egress.rs`,
     `${broker}src/constructor.rs`,
     `${broker}src/store.rs`,
     "crates/storage/src/lib.rs",

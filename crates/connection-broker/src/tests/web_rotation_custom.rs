@@ -174,3 +174,73 @@ async fn oauth_custom_connector_authorizes_through_a_sealed_org_client() {
     );
     assert!(start.authorization_url.contains("client_id=acme-client"));
 }
+
+#[tokio::test]
+async fn custom_provider_requests_cannot_reach_private_dns_without_operator_consent() {
+    let (_db, broker) = broker().await;
+    let org = OrganizationId::new();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let mut definition = api_key_def("custom-private");
+    definition.base_url = format!("https://localhost:{port}/v1");
+    broker
+        .create_custom_provider(&org, definition, "principal:admin")
+        .await
+        .unwrap();
+    let connection = broker
+        .create_connection(
+            &org,
+            CreateConnection {
+                owner_subject: Some("principal:admin".into()),
+                ..create("custom-private")
+            },
+        )
+        .await
+        .unwrap();
+    broker
+        .set_api_key(&org, &connection.connection_id, "private-canary")
+        .await
+        .unwrap();
+    let error = broker
+        .authorized_json(
+            &org,
+            &connection.connection_id,
+            "GET",
+            &format!("https://localhost:{port}/v1/data"),
+            None,
+        )
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("private"));
+    let error = broker
+        .authorized_bytes(
+            &org,
+            &connection.connection_id,
+            &format!("https://localhost:{port}/v1/upload"),
+            &[],
+            b"ciphertext".to_vec(),
+        )
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("private"));
+    assert!(
+        tokio::time::timeout(std::time::Duration::from_millis(250), listener.accept())
+            .await
+            .is_err()
+    );
+}
+
+#[tokio::test]
+async fn registration_refuses_unapproved_cross_origin_token_endpoints() {
+    let (_db, broker) = broker().await;
+    let org = OrganizationId::new();
+    let mut definition = oauth_def("custom-cross-origin");
+    if let CustomAuthSpec::Oauth2AuthorizationCode { token_url, .. } = &mut definition.auth {
+        *token_url = "https://other.example/oauth/token".into();
+    }
+    let error = broker
+        .create_custom_provider(&org, definition, "principal:admin")
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("operator approval"));
+}

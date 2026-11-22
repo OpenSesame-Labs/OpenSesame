@@ -10,16 +10,22 @@
 import { name } from "@gdp-ts/core";
 import type { AppContext } from "../context.js";
 import { actorId, organizationId } from "../lib/ids.js";
+import { putGroupRoleMapping } from "../routes/scim-groups.js";
 import {
+  mintScimToken,
   prepareOwnerRemovalWithdrawal,
   putLdapConfig,
   removeLdapConfig,
+  removeOrganizationMembership,
+  revokeScimToken,
+  writeOrganizationMembership,
 } from "../services/org-admin.js";
-import { orgOwner } from "./org-owner.js";
+import { activeOrgOwner, orgOwner } from "./org-owner.js";
 
 export async function orgOwnerMistakes(
   ctx: AppContext,
   config: Parameters<typeof putLdapConfig>[3],
+  membership: Parameters<typeof writeOrganizationMembership>[3],
 ): Promise<void> {
   await name(
     actorId("prn_1"),
@@ -31,25 +37,6 @@ export async function orgOwnerMistakes(
 
       // The honest path compiles: proof about `orgA`, call about `orgA`.
       await removeLdapConfig(ctx, orgA, verdict.proof);
-      const revocation = {
-        principalId: "prn_member",
-        actorPrincipalId: actor.value,
-        actorType: "human" as const,
-        correlationId: "type-regression",
-        reason: "organization_owner_removed" as const,
-      };
-      await prepareOwnerRemovalWithdrawal(ctx, orgA, verdict.proof, revocation);
-
-      // @ts-expect-error — owner removal cannot compile without the owner proof.
-      await prepareOwnerRemovalWithdrawal(ctx, orgA, revocation);
-
-      await prepareOwnerRemovalWithdrawal(
-        ctx,
-        orgB,
-        // @ts-expect-error — a proof about organization A cannot remove from B.
-        verdict.proof,
-        revocation,
-      );
 
       // @ts-expect-error — a proof about organization A does not authorize B.
       await removeLdapConfig(ctx, orgB, verdict.proof);
@@ -65,6 +52,54 @@ export async function orgOwnerMistakes(
 
       // @ts-expect-error — a user id is not an organization id.
       await orgOwner(ctx.stores, actor, actor, "not_deleted");
+
+      // A repair proof does not establish that an organization is active.
+      // @ts-expect-error — active owner proof required for membership writes.
+      await writeOrganizationMembership(ctx, orgA, verdict.proof, membership);
+      // @ts-expect-error — active owner proof required for membership removal.
+      await removeOrganizationMembership(ctx, orgA, verdict.proof, "prn_1");
+      await putGroupRoleMapping(
+        ctx,
+        actor,
+        orgA,
+        // @ts-expect-error — active owner proof required for role mappings.
+        verdict.proof,
+        "group",
+        "owner",
+      );
+      // @ts-expect-error — active owner proof required for SCIM token minting.
+      await mintScimToken(ctx, orgA, verdict.proof, "hash");
+      // @ts-expect-error — active owner proof required for SCIM token revocation.
+      await revokeScimToken(ctx, orgA, verdict.proof, "token");
+
+      const active = await activeOrgOwner(ctx.stores, actor, orgA);
+      if (!active.ok) return;
+      await writeOrganizationMembership(ctx, orgA, active.proof, membership);
+      // @ts-expect-error — an active owner proof about A does not authorize B.
+      await writeOrganizationMembership(ctx, orgB, active.proof, membership);
+
+      const revocation = {
+        principalId: "prn_member",
+        actorPrincipalId: actor.value,
+        actorType: "human" as const,
+        correlationId: "type-regression",
+        reason: "organization_owner_removed" as const,
+      };
+      await prepareOwnerRemovalWithdrawal(ctx, orgA, active.proof, revocation);
+
+      // @ts-expect-error — a repair owner proof cannot withdraw membership.
+      await prepareOwnerRemovalWithdrawal(ctx, orgA, verdict.proof, revocation);
+
+      // @ts-expect-error — owner removal cannot compile without the owner proof.
+      await prepareOwnerRemovalWithdrawal(ctx, orgA, revocation);
+
+      await prepareOwnerRemovalWithdrawal(
+        ctx,
+        // @ts-expect-error — a proof about organization A cannot remove from B.
+        orgB,
+        active.proof,
+        revocation,
+      );
     },
   );
 

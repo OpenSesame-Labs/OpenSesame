@@ -56,7 +56,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: true
           install_args: node
@@ -138,7 +138,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: true
           install_args: go
@@ -155,10 +155,13 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: true
           install_args: node
+      # patched-dependencies.mjs imports tar from the locked tree.
+      - name: Install locked npm dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
       # The lockfile pins each tarball under patches/vendor/ by integrity, so
       # an install cannot be handed different bytes. This proves the other
       # half: the committed bytes are the published package plus the reviewed
@@ -172,6 +175,7 @@ jobs:
           python3 scripts/security/test_vendored_sqlx.py
           python3 scripts/security/verify-vendored-keepass.py
           python3 scripts/security/test_vendored_keepass.py
+          python3 scripts/security/test_cargo_lock_projection.py
 
   osv-scanner:
     name: OSV-Scanner (lockfiles)
@@ -185,7 +189,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Scan every lockfile against the OSV database
-        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        uses: google/osv-scanner-action/osv-scanner-action@32d3cd482bdadfb38b186c0ad1b031902d55d932 # v2.7.1
         with:
           # osv-scanner 2.x auto-discovers osv-scanner.toml at the scan root.
           # Keep this scheduled scan consistent with the local no-exception gate.
@@ -196,7 +200,7 @@ jobs:
             ./
         continue-on-error: true
       - name: Convert results to SARIF
-        uses: google/osv-scanner-action/osv-reporter-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        uses: google/osv-scanner-action/osv-reporter-action@32d3cd482bdadfb38b186c0ad1b031902d55d932 # v2.7.1
         with:
           scan-args: |-
             --output=osv-results.sarif
@@ -278,7 +282,7 @@ jobs:
           printf 'Scanned image: `%s` (`%s`, linux/%s)\n\n' "$IMAGE@$digest" "$TAG" "$ARCH" >> "$GITHUB_STEP_SUMMARY"
       - name: Scan every layer against the OSV database
         if: steps.pull.outputs.published == 'true'
-        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        uses: google/osv-scanner-action/osv-scanner-action@32d3cd482bdadfb38b186c0ad1b031902d55d932 # v2.7.1
         with:
           scan-args: |-
             scan
@@ -324,7 +328,7 @@ jobs:
           docker build --quiet --file .devcontainer/Dockerfile --tag opensesame-devcontainer:scan .devcontainer
           docker save --output image.tar opensesame-devcontainer:scan
       - name: Scan every layer against the OSV database
-        uses: google/osv-scanner-action/osv-scanner-action@b1d267aea5211fa648d9d442fa64b90dbdcbdd36 # v2.7.0
+        uses: google/osv-scanner-action/osv-scanner-action@32d3cd482bdadfb38b186c0ad1b031902d55d932 # v2.7.1
         with:
           scan-args: |-
             scan
@@ -451,7 +455,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: true
           install_args: node
@@ -477,7 +481,7 @@ jobs:
           persist-credentials: false
           sparse-checkout: |
             scripts/security
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: true
           install_args: node
@@ -531,7 +535,7 @@ jobs:
             scripts/security
             scripts/lib
             ops/github
-      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           cache: true
           install_args: node

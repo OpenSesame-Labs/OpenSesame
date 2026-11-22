@@ -58,6 +58,7 @@ export function typescriptComponents(root) {
         workspaceNames,
         manifest.dependencies,
         manifest.peerDependencies,
+        manifest.optionalDependencies,
       ),
       devDeps: internalDeps(workspaceNames, manifest.devDependencies),
     });

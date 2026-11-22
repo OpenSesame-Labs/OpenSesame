@@ -4,8 +4,8 @@ use std::collections::BTreeMap;
 use zeroize::Zeroizing;
 
 use crate::{
-    open, sync_limits, CiphertextSyncSnapshot, ClientCoreError, DeviceKey, PersistedStore,
-    SyncBlob, SyncCursor, SyncStore, sync_auth, MAX_SYNC_ID_BYTES,
+    open, sync_auth, sync_limits, CiphertextSyncSnapshot, ClientCoreError, DeviceKey,
+    PersistedStore, SyncBlob, SyncCursor, SyncStore, MAX_SYNC_ID_BYTES,
 };
 
 impl SyncStore {
@@ -58,12 +58,6 @@ fn migrate(
 ) -> Result<SyncStore, ClientCoreError> {
     crate::sync_limits::validate_cursor(&cursor)?;
     crate::sync_limits::validate_blobs(&blobs)?;
-    if cursor.device_id.is_empty() || cursor.device_id.len() > 128 || cursor.epoch > i64::MAX as u64
-    {
-        return Err(ClientCoreError::Persist(
-            "invalid legacy sync cursor".into(),
-        ));
-    }
     let mut high = cursor.epoch;
     let mut latest: BTreeMap<String, SyncBlob> = BTreeMap::new();
     for blob in blobs {
@@ -113,5 +107,6 @@ fn migrate(
         })
         .collect();
     sync_limits::validate_blobs(&migrated)?;
+    store.remember_key(store.checked_key(key)?)?;
     Ok(store)
 }

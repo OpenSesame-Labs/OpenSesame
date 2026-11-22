@@ -7,12 +7,13 @@
 //! verbs re-encrypt the store under a new root unless `--no-rotate` is given,
 //! and then they say plainly that nothing was revoked.
 
+use std::io::{self, Write};
 use std::path::Path;
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use opensesame_sealed_store::{
-    protect_remove_store, protect_rewrap_store_password, rotate_store_root, RotationEdit,
-    RotationOutcome,
+    protect_remove_store, protect_rewrap_store_password, rotate_store_root_with_commit,
+    RotationEdit, RotationGitNotice, RotationOutcome,
 };
 
 use super::require_yes;
@@ -37,6 +38,10 @@ const NOT_REVOKED: &str = "warning: the root key was NOT rotated (--no-rotate). 
 const HISTORY_NOTE: &str = "note: ciphertext already in git history (and any pushed remote) \
      still opens with the previous root; rotation covers the current store and everything \
      written from now on, not history";
+
+const RECOVERY_OUTPUT_FAILURE: &str = "root rotation committed, but recovery output failed; \
+     fix output, unlock the current store, and add a new recovery key with \
+     `opensesame vault pass protect recovery add --yes --reveal`. Do not retry the rotation.";
 
 fn check_rotate_args(args: RotateArgs, no_rotate: bool) -> anyhow::Result<()> {
     if args.reissue_recovery && no_rotate {
@@ -74,12 +79,15 @@ pub fn cmd_protect_rewrap(
         reissue_recovery: args.reissue_recovery,
         ..RotationEdit::default()
     };
-    let outcome = rotate_store_root(&root, old.as_bytes(), edit)?;
-    eprintln!(
-        "rewrapped under the new passphrase; the previous passphrase no longer opens the store"
-    );
-    report(&outcome, args);
-    Ok(())
+    rotate_and_report(
+        &root,
+        old.as_bytes(),
+        edit,
+        args,
+        Some(
+            "rewrapped under the new passphrase; the previous passphrase no longer opens the store",
+        ),
+    )
 }
 
 /// The new passphrase is typed (or piped), never taken from
@@ -129,10 +137,15 @@ pub fn cmd_protect_remove(
         reissue_recovery: args.reissue_recovery,
         ..RotationEdit::default()
     };
-    let outcome = rotate_store_root(&root, password.as_bytes(), edit)?;
-    eprintln!("removed {protector_id}; it no longer opens the store");
-    report(&outcome, args);
-    Ok(())
+    rotate_and_report(
+        &root,
+        password.as_bytes(),
+        edit,
+        args,
+        Some(&format!(
+            "removed {protector_id}; it no longer opens the store"
+        )),
+    )
 }
 
 pub fn cmd_protect_root_rotate(
@@ -149,106 +162,162 @@ pub fn cmd_protect_root_rotate(
         reissue_recovery: args.reissue_recovery,
         ..RotationEdit::default()
     };
-    let outcome = rotate_store_root(&root, password.as_bytes(), edit)?;
-    report(&outcome, args);
-    Ok(())
+    rotate_and_report(&root, password.as_bytes(), edit, args, None)
 }
 
-fn report(outcome: &RotationOutcome, args: RotateArgs) {
-    eprintln!(
-        "root key rotated (epoch {}): re-encrypted {} entries and {} attachments",
-        outcome.root_epoch, outcome.entries, outcome.attachments
-    );
-    if outcome.foreign_entries > 0 {
-        eprintln!(
-            "note: {} gpg/age entries are not sealed under the root key and were left unchanged",
-            outcome.foreign_entries
-        );
-    }
-    eprintln!("{HISTORY_NOTE}");
-    for recovery in &outcome.reissued_recovery {
-        println!(
-            "protector={} kind=recovery-key fingerprint={}",
-            recovery.protector_id, recovery.fingerprint_b64
-        );
-        if args.reveal {
-            println!("recovery={}", URL_SAFE_NO_PAD.encode(recovery.secret));
+fn rotate_and_report(
+    root: &Path,
+    password: &[u8],
+    edit: RotationEdit<'_>,
+    args: RotateArgs,
+    note: Option<&str>,
+) -> anyhow::Result<()> {
+    let outcome = rotate_store_root_with_commit(root, password, edit, &mut |outcome| {
+        let delivery = write_recovery_output(outcome, args, &mut io::stdout().lock());
+        if delivery.is_err() {
+            warn_delivery_failure(delivery, &mut io::stderr().lock())
+        } else {
+            delivery
         }
-    }
+    })?;
+    report_after_delivery(
+        &outcome,
+        note,
+        outcome.delivery_error.is_some(),
+        &mut io::stderr().lock(),
+    )
 }
 
 #[cfg(test)]
-mod tests {
-    use clap::Parser;
+fn report_to(
+    outcome: &RotationOutcome,
+    args: RotateArgs,
+    note: Option<&str>,
+    stdout: &mut dyn Write,
+    stderr: &mut dyn Write,
+) -> anyhow::Result<()> {
+    let delivery = write_recovery_output(outcome, args, stdout);
+    let failed = warn_delivery_failure(delivery, stderr).is_err();
+    report_after_delivery(outcome, note, failed, stderr)
+}
 
-    use super::super::{PassProtectCmd, PassProtectRecoveryCmd};
-    use super::*;
-
-    #[derive(Parser)]
-    struct Harness {
-        #[command(subcommand)]
-        cmd: PassProtectCmd,
+fn warn_delivery_failure(delivery: io::Result<()>, stderr: &mut dyn Write) -> io::Result<()> {
+    if delivery.is_err() {
+        let _ = writeln!(stderr, "{RECOVERY_OUTPUT_FAILURE}");
     }
+    delivery
+}
 
-    fn parse(args: &[&str]) -> Result<PassProtectCmd, clap::Error> {
-        Harness::try_parse_from(std::iter::once("protect").chain(args.iter().copied()))
-            .map(|h| h.cmd)
+fn report_after_delivery(
+    outcome: &RotationOutcome,
+    note: Option<&str>,
+    delivery_failed: bool,
+    stderr: &mut dyn Write,
+) -> anyhow::Result<()> {
+    if delivery_failed {
+        let git_note = if outcome.git_deferred {
+            " Git was deferred; after restoring recovery output, commit and back up the current encrypted store."
+        } else if outcome.git_error.is_some() {
+            " Separately, Git could not record the rotation; repair the repository and back up the current encrypted store."
+        } else {
+            ""
+        };
+        anyhow::bail!("{RECOVERY_OUTPUT_FAILURE}{git_note}");
     }
-
-    #[test]
-    fn rewrap_and_remove_rotate_unless_told_not_to() {
-        let Ok(PassProtectCmd::Rewrap { no_rotate, .. }) = parse(&["rewrap", "--yes"]) else {
-            panic!("rewrap parses");
+    if write_status(outcome, note, stderr).is_err() {
+        let git_note = if outcome.git_deferred {
+            " Git was deferred; commit and back up the current encrypted store."
+        } else if outcome.git_error.is_some() {
+            " Git also failed to record the rotation; repair the repository and back up the current encrypted store."
+        } else {
+            ""
         };
-        assert!(!no_rotate);
-        let Ok(PassProtectCmd::Remove { no_rotate, .. }) =
-            parse(&["remove", "abc", "--yes", "--no-rotate"])
-        else {
-            panic!("remove parses");
-        };
-        assert!(no_rotate);
+        anyhow::bail!(
+            "root rotation committed, but status output failed; retain any recovery keys shown on stdout.{git_note}"
+        );
     }
+    if let Some(error) = &outcome.git_error {
+        anyhow::bail!(
+            "root rotation committed, but Git could not record the updated ciphertext ({error}); \
+             repair the repository, commit the current encrypted store files, and back them up. \
+             Do not retry the rotation to repair Git."
+        );
+    }
+    if outcome.git_deferred {
+        anyhow::bail!(
+            "root rotation committed; automatic Git was deferred to deliver the reissued recovery keys. \
+             Save the keys, commit the current encrypted store files, and back them up. \
+             Do not retry the rotation to perform Git backup."
+        );
+    }
+    Ok(())
+}
 
-    #[test]
-    fn reissuing_recovery_needs_reveal_and_a_rotation() {
-        let bare = RotateArgs {
-            reissue_recovery: true,
-            reveal: false,
-        };
-        assert!(check_rotate_args(bare, false).is_err());
-        let shown = RotateArgs {
-            reissue_recovery: true,
-            reveal: true,
-        };
-        assert!(check_rotate_args(shown, true).is_err());
-        // Flag combination is valid. A non-terminal still refuses the reveal,
-        // which is the human gate rather than a bad flag pair.
-        match check_rotate_args(shown, false) {
-            Ok(()) => {}
-            Err(err) => {
-                let message = err.to_string();
-                assert!(message.contains("interactive terminals"), "{message}");
+fn write_status(
+    outcome: &RotationOutcome,
+    note: Option<&str>,
+    stderr: &mut dyn Write,
+) -> io::Result<()> {
+    if let Some(note) = note {
+        writeln!(stderr, "{note}")?;
+    }
+    writeln!(
+        stderr,
+        "root key rotated (epoch {}): re-encrypted {} entries and {} attachments",
+        outcome.root_epoch, outcome.entries, outcome.attachments
+    )?;
+    if outcome.foreign_entries > 0 {
+        writeln!(
+            stderr,
+            "note: {} gpg/age entries are not sealed under the root key and were left unchanged",
+            outcome.foreign_entries
+        )?;
+    }
+    writeln!(stderr, "{HISTORY_NOTE}")?;
+    if let Some(notice) = outcome.git_notice {
+        let message = match notice {
+            RotationGitNotice::NoRepository => {
+                "the store has no Git repository; initialize one before backing up"
             }
+            RotationGitNotice::NoRemote => "the store has no Git remote; configure one and back up",
+            RotationGitNotice::AutoPushDisabled => {
+                "automatic backup is disabled; run the backup command"
+            }
+            RotationGitNotice::AutoPushFailed => {
+                "automatic backup failed; run the backup command to retry"
+            }
+        };
+        writeln!(stderr, "warning: {message}")?;
+    }
+    Ok(())
+}
+
+fn write_recovery_output(
+    outcome: &RotationOutcome,
+    args: RotateArgs,
+    stdout: &mut dyn Write,
+) -> io::Result<()> {
+    for recovery in &outcome.reissued_recovery {
+        writeln!(
+            stdout,
+            "protector={} kind=recovery-key fingerprint={}",
+            recovery.protector_id, recovery.fingerprint_b64
+        )?;
+        if args.reveal {
+            writeln!(
+                stdout,
+                "recovery={}",
+                URL_SAFE_NO_PAD.encode(recovery.secret)
+            )?;
         }
     }
-
-    #[test]
-    fn a_new_passphrase_must_differ_match_and_be_nonempty() {
-        assert!(check_new_passphrase("old", "old", "old").is_err());
-        assert!(check_new_passphrase("old", "", "").is_err());
-        assert!(check_new_passphrase("old", "new", "typo").is_err());
-        assert!(check_new_passphrase("old", "new", "new").is_ok());
+    if !outcome.reissued_recovery.is_empty() {
+        // Recovery keys are shown once, before any fallible status output.
+        stdout.flush()?;
     }
-
-    /// A recovery key on argv lands in shell history and `/proc/<pid>/cmdline`.
-    #[test]
-    fn recovery_test_refuses_the_secret_on_argv() {
-        assert!(parse(&["recovery", "test", "AAAA"]).is_err());
-        assert!(matches!(
-            parse(&["recovery", "test"]),
-            Ok(PassProtectCmd::Recovery {
-                cmd: PassProtectRecoveryCmd::Test { .. }
-            })
-        ));
-    }
+    Ok(())
 }
+
+#[cfg(test)]
+#[path = "rotate_tests.rs"]
+mod tests;

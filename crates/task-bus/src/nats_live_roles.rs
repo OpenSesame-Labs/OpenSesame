@@ -9,7 +9,206 @@
 use super::live_harness::{secure_server, Pki, Roles};
 use super::live_tests::{backup_config, config, event, must_fail};
 use super::*;
-use opensesame_domain::transport::PeerIdentitySelector;
+use crate::nats::live_mixed::options;
+use crate::nats_connect::load_material;
+use crate::nats_policy::{IdentityRef, NatsTransportSource};
+use opensesame_domain::transport::{
+    IdentitySourceKind, PeerIdentitySelector, TransportError, TrustProfileKind, TrustProfileRef,
+};
+use opensesame_transport_security::{
+    testkit::{DisposableCa, IssuedLeaf},
+    TrustBundle,
+};
+use std::collections::HashMap;
+
+fn policy_from_env(vars: &HashMap<&str, String>) -> NatsTransportSpec {
+    NatsTransportSpec::from_lookup("OPENSESAME_NATS", &|key| vars.get(key).cloned())
+        .unwrap()
+        .unwrap()
+        .normalized("tls://localhost:4222")
+        .unwrap()
+}
+
+async fn trust_and_stored_policy(
+    ca: &DisposableCa,
+    other: &DisposableCa,
+    spec: &NatsTransportSpec,
+) -> (IssuedLeaf, InjectedMaterial) {
+    let trust = |ca: &DisposableCa, kind| {
+        TrustBundle::from_pem(
+            TrustProfileRef::new("nats-trust").unwrap(),
+            kind,
+            &ca.ca_pem(),
+        )
+        .unwrap()
+    };
+    let mut injected = InjectedMaterial {
+        trust: Some(trust(ca, TrustProfileKind::PrivateRoot)),
+        identity: None,
+    };
+    assert!(
+        matches!(
+            load_material(spec, &injected),
+            Err(TransportError::EnforcementUnsupported)
+        ),
+        "PEM trust locator must reject injection even if matching"
+    );
+    injected.trust = Some(trust(other, TrustProfileKind::PrivateRoot));
+    assert!(
+        matches!(
+            load_material(spec, &injected),
+            Err(TransportError::EnforcementUnsupported)
+        ),
+        "PEM trust locator must reject mismatched injection"
+    );
+    assert!(
+        options(spec, &InjectedMaterial::default()).await,
+        "PEM trust file loads normally"
+    );
+    let mut wrong_file_kind = NatsTransportSpec::clone(spec);
+    wrong_file_kind
+        .transport
+        .server_trust
+        .as_mut()
+        .unwrap()
+        .kind = TrustProfileKind::WebPkiDns;
+    assert!(
+        matches!(
+            load_material(&wrong_file_kind, &InjectedMaterial::default()),
+            Err(TransportError::TrustUnknown)
+        ),
+        "loaded trust kind must match the public policy"
+    );
+    assert!(
+        matches!(
+            wrong_file_kind.normalized("tls://localhost:4222"),
+            Err(TransportError::TrustUnknown)
+        ),
+        "trust locator kind must match the public policy"
+    );
+    let mut stored = NatsTransportSpec::from_public(spec.public(), NatsTransportSource::Stored)
+        .normalized("tls://localhost:4222")
+        .unwrap();
+    injected.trust = Some(trust(ca, TrustProfileKind::PrivateRoot));
+    assert!(options(&stored, &injected).await, "matching stored trust");
+    injected.trust = Some(trust(ca, TrustProfileKind::WebPkiDns));
+    assert!(
+        !options(&stored, &injected).await,
+        "wrong kind must be refused"
+    );
+    injected.trust = Some(trust(ca, TrustProfileKind::PrivateRoot));
+    let leaf = ca.issue_client(PeerIdentitySelector::DnsName("client.test".into()));
+    injected.identity = Some(Arc::new(leaf.try_identity().unwrap()));
+    assert!(
+        !options(&stored, &injected).await,
+        "unrequested identity must not be presented"
+    );
+    stored.transport.client_identity = Some(IdentityRef {
+        name: "client".into(),
+        kind: IdentitySourceKind::PemFiles,
+    });
+    assert!(
+        options(&stored, &injected).await,
+        "requested stored identity is accepted"
+    );
+    (leaf, injected)
+}
+
+#[tokio::test]
+async fn injected_kind_and_identity_must_match_configured_policy() {
+    let ca = DisposableCa::new("nats-injection-policy");
+    let other = DisposableCa::new("nats-other-policy");
+    let directory = tempfile::tempdir().unwrap();
+    let trust_file = directory.path().join("trust.pem");
+    std::fs::write(&trust_file, ca.ca_pem()).unwrap();
+    let mut values = HashMap::from([
+        ("OPENSESAME_NATS_REQUIRE_TLS", "1".to_owned()),
+        ("OPENSESAME_NATS_TLS_TRUST_KIND", "private_root".to_owned()),
+        ("OPENSESAME_NATS_TLS_TRUST_NAME", "nats-trust".to_owned()),
+        (
+            "OPENSESAME_NATS_TLS_TRUST_FILE",
+            trust_file.display().to_string(),
+        ),
+        ("OPENSESAME_NATS_TLS_SERVER_NAME", "localhost".to_owned()),
+    ]);
+    let spec = policy_from_env(&values);
+    assert_eq!(
+        spec.transport.server_trust.as_ref().unwrap().kind,
+        TrustProfileKind::PrivateRoot,
+        "PEM trust kind must be represented accurately"
+    );
+    let (leaf, injected) = trust_and_stored_policy(&ca, &other, &spec).await;
+    let (cert, key) = leaf.write_to(directory.path());
+    values.insert("OPENSESAME_NATS_TLS_IDENTITY_SOURCE", "pem".into());
+    values.insert("OPENSESAME_NATS_TLS_CERT_FILE", cert.display().to_string());
+    values.insert("OPENSESAME_NATS_TLS_KEY_FILE", key.display().to_string());
+    let pem_identity = policy_from_env(&values);
+    assert_eq!(
+        pem_identity
+            .transport
+            .client_identity
+            .as_ref()
+            .unwrap()
+            .kind,
+        IdentitySourceKind::PemFiles,
+        "PEM identity kind must be represented accurately"
+    );
+    let mut wrong_identity = pem_identity.clone();
+    wrong_identity
+        .transport
+        .client_identity
+        .as_mut()
+        .unwrap()
+        .kind = IdentitySourceKind::ManagedCertificate;
+    assert!(
+        matches!(
+            wrong_identity.normalized("tls://localhost:4222"),
+            Err(TransportError::IdentityMissing)
+        ),
+        "identity locator kind must match the public policy"
+    );
+    let mut missing_identity = pem_identity.clone();
+    missing_identity.transport.client_identity = None;
+    assert!(
+        matches!(
+            missing_identity.normalized("tls://localhost:4222"),
+            Err(TransportError::IdentityMissing)
+        ),
+        "identity locator must not lose its public reference"
+    );
+    let identity_only = InjectedMaterial {
+        trust: None,
+        identity: injected.identity.clone(),
+    };
+    assert!(
+        matches!(
+            load_material(&pem_identity, &identity_only),
+            Err(TransportError::EnforcementUnsupported)
+        ),
+        "PEM identity locator must reject injection"
+    );
+    assert!(
+        options(&pem_identity, &InjectedMaterial::default()).await,
+        "PEM identity file loads normally"
+    );
+    values.insert("OPENSESAME_NATS_TLS_IDENTITY_SOURCE", "managed".into());
+    values.insert(
+        "OPENSESAME_NATS_TLS_MANAGED_CERTIFICATE_ID",
+        "nats-managed".into(),
+    );
+    values.remove("OPENSESAME_NATS_TLS_CERT_FILE");
+    values.remove("OPENSESAME_NATS_TLS_KEY_FILE");
+    let managed = policy_from_env(&values);
+    assert_eq!(
+        managed.transport.client_identity.as_ref().unwrap().kind,
+        IdentitySourceKind::ManagedCertificate,
+        "managed identity kind must be represented accurately"
+    );
+    assert!(
+        options(&managed, &identity_only).await,
+        "managed identity injection remains supported"
+    );
+}
 
 /// The one-time provisioning action: stream + both durable consumers.
 async fn provision(pki: &Pki, roles: &Roles, url: &str, leaf: &IssuedLeafRef<'_>) {

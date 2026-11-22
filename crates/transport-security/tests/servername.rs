@@ -45,7 +45,9 @@ fn dns_profile(server_ca: &DisposableCa, name: &str) -> ClientProfile {
 
 fn spiffe_profile(bundle_ca: &DisposableCa, expected: &str) -> ClientProfile {
     ClientProfile {
-        server_trust: spiffe_bundle("mesh", bundle_ca),
+        server_trust: spiffe_bundle("mesh", bundle_ca)
+            .with_spiffe_trust_domain("example.org")
+            .unwrap(),
         server_name: ServerNamePolicy::SpiffeId(expected.into()),
         identity: None,
         min_version: TlsVersion::Tls13,
@@ -212,7 +214,9 @@ async fn profile_and_bundle_kind_must_agree() {
         .unwrap_err()
         .to_string()
         .contains("spiffe_trust_domain"));
-    profile.server_trust = spiffe_bundle("mesh", &ca);
+    profile.server_trust = spiffe_bundle("mesh", &ca)
+        .with_spiffe_trust_domain("example.org")
+        .unwrap();
     profile.server_name = ServerNamePolicy::Dns("localhost".into());
     assert!(client_config(&profile)
         .unwrap_err()
@@ -224,5 +228,22 @@ async fn profile_and_bundle_kind_must_agree() {
         "a trust domain alone is not a workload ID"
     );
     profile.server_name = ServerNamePolicy::SpiffeId("https://example.org/x".into());
+    assert!(client_config(&profile).is_err());
+}
+
+#[test]
+fn outbound_spiffe_reference_must_belong_to_explicit_bundle_domain() {
+    let ca = DisposableCa::new("source-domain");
+    let mut profile = spiffe_profile(&ca, SVID);
+    assert!(client_config(&profile).is_ok());
+    profile.server_name = ServerNamePolicy::SpiffeId("spiffe://other.test/host/gateway".into());
+    assert!(client_config(&profile).is_err());
+    profile.server_name = ServerNamePolicy::SpiffeId(SVID.into());
+    profile.server_trust = TrustBundle::from_pem(
+        profile_ref("mesh"),
+        TrustProfileKind::SpiffeTrustDomain,
+        &ca.root_pem(),
+    )
+    .unwrap();
     assert!(client_config(&profile).is_err());
 }

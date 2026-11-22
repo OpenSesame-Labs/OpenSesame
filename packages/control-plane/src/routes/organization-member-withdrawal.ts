@@ -6,16 +6,18 @@ import type { OrganizationRole } from "@opensesame/os-domain";
 import { type Context, Hono } from "hono";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
-import { orgOwner } from "../proofs/org-owner.js";
+import { activeOrgOwner } from "../proofs/org-owner.js";
 import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import {
   prepareOwnerRemovalWithdrawal,
   prepareOwnerRoleWithdrawal,
 } from "../services/org-admin.js";
 import { finishOrganizationWithdrawal } from "../services/organization-withdrawal.js";
-import { type OrgOwnerSource, asOrgOwner } from "./org-owner-gate.js";
+import { asActiveOrgOwner } from "./org-owner-gate.js";
 
-const MEMBER_ADMIN: OrgOwnerSource = { param: "id", liveness: "not_deleted" };
+// Membership administration, including withdrawal, requires an active
+// organization (ADR 0178). Suspension preserves memberships until reactivation.
+const MEMBER_ADMIN = { param: "id" };
 export const organizationMemberWithdrawalRoutes = new Hono<{
   Variables: Variables;
 }>();
@@ -24,18 +26,13 @@ async function withdraw(
   c: Context<{ Variables: Variables }>,
   request: { kind: "remove" } | { kind: "change_role"; role: OrganizationRole },
 ): Promise<Response> {
-  return asOrgOwner(c, MEMBER_ADMIN, async ({ ctx, actor, org }) => {
+  return asActiveOrgOwner(c, MEMBER_ADMIN, async ({ ctx, actor, org }) => {
     const prepared = await withScimOrganizationBoundary(
       ctx,
       org.value,
       async (tx) => {
         // Recheck inside the same cross-replica boundary that records the intent.
-        const owner = await orgOwner(
-          tx.stores,
-          actor,
-          org,
-          MEMBER_ADMIN.liveness,
-        );
+        const owner = await activeOrgOwner(tx.stores, actor, org);
         if (!owner.ok) return { status: "unauthorized" as const, owner };
         const input = {
           principalId: c.req.param("principalId") ?? "",

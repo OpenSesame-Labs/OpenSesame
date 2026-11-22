@@ -8,8 +8,12 @@
 //! happened in the ingress's handshake, not here, and nothing can recreate it.
 
 use opensesame_domain::transport::attest::AttestedPeer;
-use opensesame_domain::transport::{EvidenceSource, TransportError, TransportPolicy, VerifiedPeer};
+use opensesame_domain::transport::{
+    EvidenceSource, PeerIdentitySelector, TransportError, TransportPolicy, TrustProfileKind,
+    VerifiedPeer,
+};
 use opensesame_time::{DateTime, Utc};
+use opensesame_transport_security::svid_profile::{validate_leaf, SvidExpectation, SvidRole};
 use opensesame_transport_security::{provider, ParsedLeaf, TrustBundle, MAX_CHAIN_DEPTH};
 use rustls_pki_types::{CertificateDer, UnixTime};
 
@@ -63,9 +67,28 @@ pub fn verify_originating(
         return Err(TransportError::EvidenceExpired);
     }
     let usable_until = ingress.usable_until().min(leaf.not_after);
-    AttestedPeer {
+    let spiffe = trust.kind() == TrustProfileKind::SpiffeTrustDomain;
+    let identities = if spiffe {
+        let domain = trust
+            .spiffe_trust_domain()
+            .ok_or(TransportError::TrustUnknown)?;
+        let facts = validate_leaf(
+            leaf_der.as_ref(),
+            &SvidExpectation {
+                trust_domain: domain,
+                spiffe_id: None,
+                role: SvidRole::Client,
+            },
+            now,
+        )
+        .map_err(|_| TransportError::ForwardedEvidenceUnverified)?;
+        vec![PeerIdentitySelector::SpiffeId(facts.spiffe_id)]
+    } else {
+        leaf.selectors
+    };
+    let evidence = AttestedPeer {
         source: EvidenceSource::TrustedIngressAssertion,
-        identities: leaf.selectors,
+        identities,
         leaf_thumbprint_sha256: leaf.thumbprint_sha256,
         not_before: leaf.not_before,
         not_after: leaf.not_after,
@@ -77,9 +100,13 @@ pub fn verify_originating(
         tls_version: ingress.tls_version(),
         authenticated_at: now,
         usable_until,
-        ingress: Some(Box::new(attested_from(ingress))),
+        ingress: None,
+    };
+    if spiffe {
+        evidence.into_verified_spiffe_with_ingress(ingress.clone())
+    } else {
+        evidence.into_verified_with_ingress(ingress.clone())
     }
-    .into_verified()
 }
 
 fn check_ingress(
@@ -137,26 +164,5 @@ fn classify(error: &webpki::Error) -> TransportError {
         E::CertRevoked | E::UnknownRevocationStatus => TransportError::EvidenceRevoked,
         E::UnknownIssuer => TransportError::TrustUnknown,
         _ => TransportError::ForwardedEvidenceUnverified,
-    }
-}
-
-/// The ingress's evidence, restated for `AttestedPeer::ingress` from the
-/// verified peer's own accessors. Nothing is added or reinterpreted.
-fn attested_from(peer: &VerifiedPeer) -> AttestedPeer {
-    AttestedPeer {
-        source: peer.source(),
-        identities: peer.identities().to_vec(),
-        leaf_thumbprint_sha256: peer.leaf_thumbprint_sha256().to_owned(),
-        not_before: peer.not_before(),
-        not_after: peer.not_after(),
-        trust_profile: peer.trust_profile().clone(),
-        trust_generation: peer.trust_generation(),
-        credential_generation: peer.credential_generation(),
-        listener: peer.listener().to_owned(),
-        policy: peer.policy(),
-        tls_version: peer.tls_version(),
-        authenticated_at: peer.authenticated_at(),
-        usable_until: peer.usable_until(),
-        ingress: None,
     }
 }

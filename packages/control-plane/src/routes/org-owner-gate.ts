@@ -20,8 +20,10 @@ import {
 } from "../lib/ids.js";
 import type { Variables } from "../middleware/context.js";
 import {
+  type ActiveOrgOwner,
   type OrgLiveness,
   type OrgOwner,
+  activeOrgOwner,
   orgOwner,
 } from "../proofs/org-owner.js";
 
@@ -34,6 +36,15 @@ export interface OrgOwnerGate<A, O> {
 }
 
 export type OrgOwnerHandler<R> = <A, O>(gate: OrgOwnerGate<A, O>) => Promise<R>;
+
+export interface ActiveOrgOwnerGate<A, O>
+  extends Omit<OrgOwnerGate<A, O>, "proof"> {
+  readonly proof: ActiveOrgOwner<A, O>;
+}
+
+export type ActiveOrgOwnerHandler<R> = <A, O>(
+  gate: ActiveOrgOwnerGate<A, O>,
+) => Promise<R>;
 
 export interface OrgOwnerSource {
   /** The path parameter that names the organization (`id` or `organizationId`). */
@@ -57,6 +68,30 @@ export async function asOrgOwner<R>(
     organizationId(c.req.param(source.param) ?? ""),
     async (actor, org) => {
       const verdict = await orgOwner(ctx.stores, actor, org, source.liveness);
+      if (!verdict.ok) return c.json({ error: verdict.error }, verdict.status);
+      return handler({
+        ctx,
+        actor,
+        org,
+        proof: verdict.proof,
+        organization: verdict.organization,
+      });
+    },
+  );
+}
+
+/** Owner gate for authority which requires an active organization. */
+export async function asActiveOrgOwner<R>(
+  c: Context<{ Variables: Variables }>,
+  source: Pick<OrgOwnerSource, "param">,
+  handler: ActiveOrgOwnerHandler<R>,
+): Promise<R | Response> {
+  const ctx = c.get("ctx");
+  return name(
+    actorId(c.get("principalId")),
+    organizationId(c.req.param(source.param) ?? ""),
+    async (actor, org) => {
+      const verdict = await activeOrgOwner(ctx.stores, actor, org);
       if (!verdict.ok) return c.json({ error: verdict.error }, verdict.status);
       return handler({
         ctx,

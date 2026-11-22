@@ -30,6 +30,7 @@
 //! looked like locators, and are resolved only through
 //! [`ClientIdentityResolver`](crate::transport::ClientIdentityResolver).
 
+use std::net::SocketAddr;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -40,7 +41,7 @@ use opensesame_invoke_through::{
 use opensesame_transport_security::{TlsIdentity, TrustBundle};
 use secrecy::SecretString;
 
-use super::client::{build_invoker, resolve_pinned_authority, PinnedAuthority};
+use super::client::{build_invoker, is_internal, PinnedAuthority};
 use super::pool::{ConnectorClientPool, ConnectorPoolKey};
 use super::{
     ConnectionTransport, ConnectorResolvers, IdentityScope, TrustScope, PURPOSE_CONNECTOR_INVOKE,
@@ -107,6 +108,25 @@ pub struct ConnectorTransportExecutor {
     /// Loopback targets, for in-process TLS listeners in tests. Never set in
     /// production construction; a production authority is never loopback.
     allow_loopback_for_tests: bool,
+}
+
+fn pool_key(
+    ctx: &ConnectorContext,
+    transport: &ConnectionTransport,
+    identity: Option<&Arc<TlsIdentity>>,
+    trust_generation: u64,
+    authority: &PinnedAuthority,
+) -> ConnectorPoolKey {
+    ConnectorPoolKey {
+        organization_id: ctx.organization_id.clone(),
+        connection_id: ctx.connection_id.clone(),
+        executor: transport.execution_target,
+        authority: authority.label.clone(),
+        credential_thumbprint: identity.map(|value| value.leaf_thumbprint_sha256()),
+        trust_profile: transport.trust.as_ref().map(|value| value.name.clone()),
+        trust_generation,
+        policy: transport.policy,
+    }
 }
 
 impl std::fmt::Debug for ConnectorTransportExecutor {
@@ -188,20 +208,15 @@ impl ConnectorTransportExecutor {
         let authority = self.pin_authority(&prepared).await?;
 
         // 5. The client for exactly this scope.
-        let key = ConnectorPoolKey {
-            organization_id: ctx.organization_id.clone(),
-            connection_id: ctx.connection_id.clone(),
-            executor: transport.execution_target,
-            authority: authority.label.clone(),
-            credential_thumbprint: identity
-                .as_ref()
-                .map(|value| value.leaf_thumbprint_sha256()),
-            trust_profile: transport.trust.as_ref().map(|value| value.name.clone()),
+        let key = pool_key(
+            ctx,
+            transport,
+            identity.as_ref(),
             trust_generation,
-            policy: transport.policy,
-        };
+            &authority,
+        );
         let allow_loopback = self.allow_loopback_for_tests;
-        let invoker = self.pool.get_or_build(&key, || {
+        let invoker = self.pool.get_or_build_pinned(&key, &authority.addrs, || {
             build_invoker(
                 transport,
                 identity.as_ref(),
@@ -213,6 +228,7 @@ impl ConnectorTransportExecutor {
         })?;
 
         // 6. Only now is the sealed credential opened, for this one request.
+        invoker.ensure_pinned_destination(&prepared)?;
         let token = credential.open_bearer(ctx).await?;
 
         // 7. The wire.
@@ -272,9 +288,33 @@ impl ConnectorTransportExecutor {
         &self,
         prepared: &PreparedRequest,
     ) -> Result<PinnedAuthority, TransportError> {
-        let host = prepared.host();
-        let port = prepared.port().unwrap_or(443);
-        resolve_pinned_authority(host, port, self.allow_loopback_for_tests).await
+        // Lowercased for the pinned record; `ensure_pinned_destination`
+        // compares hosts case-insensitively (`eq_ignore_ascii_case`), so a
+        // differently-cased request host still matches this pin.
+        let host = prepared.host().to_ascii_lowercase();
+        let port = prepared.effective_port();
+        let addrs: Vec<SocketAddr> = tokio::time::timeout(
+            std::time::Duration::from_secs(5),
+            tokio::net::lookup_host((host.as_str(), port)),
+        )
+        .await
+        .map_err(|_| TransportError::malformed("connector authority resolution timed out"))?
+        .map_err(|_| TransportError::malformed("connector authority did not resolve"))?
+        .take(33)
+        .collect();
+        if addrs.is_empty()
+            || addrs.len() > 32
+            || (!self.allow_loopback_for_tests && addrs.iter().any(|addr| is_internal(addr.ip())))
+        {
+            return Err(TransportError::malformed(
+                "connector authority did not resolve exclusively to permitted addresses",
+            ));
+        }
+        Ok(PinnedAuthority {
+            label: format!("{host}:{port}"),
+            host,
+            addrs,
+        })
     }
 }
 
@@ -285,7 +325,7 @@ pub const INVOKE_ORDER: &[&str] = &[
     "self.fence.preflight(",
     "self.resolve_identity(",
     "self.pin_authority(",
-    "self.pool.get_or_build(",
+    "self.pool.get_or_build_pinned(",
     "credential.open_bearer(",
     "invoker.execute(",
 ];
@@ -316,3 +356,7 @@ pub fn assert_invoke_order() {
 #[cfg(test)]
 #[path = "transport_execute_tests.rs"]
 mod tests;
+
+#[cfg(all(test, target_os = "linux"))]
+#[path = "transport_dns_pool_tests.rs"]
+mod dns_pool_tests;

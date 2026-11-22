@@ -3,8 +3,9 @@ import {
   writeIssuerAdmittedOrganization,
 } from "./org-issuer-approval.js";
 /**
- * Owner-only organization mutations, each demanding an `OrgOwner` proof about
- * the exact organization it touches (ADR 0178).
+ * Owner-only organization mutations each demand a proof about the exact
+ * organization they touch. Membership and SCIM token writes require the
+ * stricter `ActiveOrgOwner` proof (ADR 0178).
  *
  * A route used to run its owner check and then call a store with an id string,
  * and nothing tied the two together: a handler that forgot the check, or ran it
@@ -23,7 +24,7 @@ import type {
 } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
 import type { OrganizationId } from "../lib/ids.js";
-import type { OrgOwner } from "../proofs/org-owner.js";
+import type { ActiveOrgOwner, OrgOwner } from "../proofs/org-owner.js";
 import { organizationIssuerUpdateAdmission } from "../proofs/organization-issuer-admission.js";
 import {
   prepareRemovalWithdrawal,
@@ -93,7 +94,7 @@ export function removeLdapConfig<A, O>(
 export function mintScimToken<A, O>(
   ctx: AppContext,
   org: Org<O>,
-  _proof: OrgOwner<A, O>,
+  _proof: ActiveOrgOwner<A, O>,
   tokenHash: string,
 ): ReturnType<AppContext["stores"]["scim"]["tokens"]["mint"]> {
   return ctx.stores.scim.tokens.mint(org.value, tokenHash);
@@ -102,7 +103,7 @@ export function mintScimToken<A, O>(
 export function revokeScimToken<A, O>(
   ctx: AppContext,
   org: Org<O>,
-  _proof: OrgOwner<A, O>,
+  _proof: ActiveOrgOwner<A, O>,
   tokenId: string,
 ): ReturnType<AppContext["stores"]["scim"]["tokens"]["revoke"]> {
   return ctx.stores.scim.tokens.revoke(org.value, tokenId);
@@ -133,7 +134,7 @@ export async function writeOrganization<A, O>(
 export function writeOrganizationMembership<A, O>(
   ctx: AppContext,
   org: Org<O>,
-  _proof: OrgOwner<A, O>,
+  _proof: ActiveOrgOwner<A, O>,
   membership: OrganizationMembership,
 ): Promise<OrganizationMembership> {
   if (membership.organizationId !== org.value) {
@@ -145,7 +146,7 @@ export function writeOrganizationMembership<A, O>(
 export function removeOrganizationMembership<A, O>(
   ctx: AppContext,
   org: Org<O>,
-  _proof: OrgOwner<A, O>,
+  _proof: ActiveOrgOwner<A, O>,
   principalId: string,
 ): Promise<boolean> {
   return Promise.resolve(
@@ -157,7 +158,7 @@ export function removeOrganizationMembership<A, O>(
 export function prepareOwnerRoleWithdrawal<A, O>(
   ctx: AppContext,
   org: Org<O>,
-  _proof: OrgOwner<A, O>,
+  _proof: ActiveOrgOwner<A, O>,
   input: Omit<Parameters<typeof prepareRoleWithdrawal>[1], "organizationId">,
 ) {
   return prepareRoleWithdrawal(ctx, { ...input, organizationId: org.value });
@@ -166,7 +167,7 @@ export function prepareOwnerRoleWithdrawal<A, O>(
 export function prepareOwnerRemovalWithdrawal<A, O>(
   ctx: AppContext,
   org: Org<O>,
-  _proof: OrgOwner<A, O>,
+  _proof: ActiveOrgOwner<A, O>,
   input: Omit<Parameters<typeof prepareRemovalWithdrawal>[1], "organizationId">,
 ) {
   return prepareRemovalWithdrawal(ctx, { ...input, organizationId: org.value });

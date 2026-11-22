@@ -3,10 +3,21 @@
 The invocation broker for the Host / authority plane: the step between an
 authorized intent and a signed receipt. `Broker` checks that the intent is fresh
 and the grant active, that both belong to the same organization, that policy
-and quorum allow it and that the idempotency key is new — then runs the
-connector and signs an `InvocationReceipt`. A repeated idempotency key returns
-the receipt already stored, or fails as a conflict while the first attempt has
-none, instead of running twice.
+and quorum allow it — then reserves the idempotency key, runs the connector,
+and signs an `InvocationReceipt`. A retry returns the stored receipt only when
+the request and authority match the original and current policy still allows
+it. A different request or a first attempt without a receipt conflicts instead
+of running twice. Legacy invocations may retry with a new intent ID, nonce,
+timestamps, and signature; their operation, principal, key identity, grant,
+connection, parameters, and delegation context must match. Frozen invocations
+must use the same frozen intent digest and task context.
+
+Records created before request binding was introduced have no trustworthy
+fingerprint and cannot be replayed through the idempotency path. Reconcile the
+prior operation and its receipt before issuing a new key: a new key can repeat
+an external effect. Drain older broker processes during rollout; they can still
+create unbound records until upgraded. An older binary encountering a bound
+record cannot decode it and fails rather than returning its receipt.
 
 ## Where it fits
 

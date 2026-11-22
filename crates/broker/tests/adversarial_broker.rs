@@ -356,3 +356,6 @@ async fn receipt_roundtrip_prefixed_and_bare_id() {
     );
     broker.signer.verify_receipt(&receipt).unwrap();
 }
+
+#[path = "idempotency_binding/mod.rs"]
+mod idempotency_binding;

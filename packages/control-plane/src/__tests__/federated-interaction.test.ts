@@ -169,14 +169,13 @@ describe("pending leg state", () => {
     expect(decodePending(encodePending(pending))).toEqual(pending);
   });
 
-  it("round-trips the v2 provenance fields", () => {
-    const v2 = {
-      ...pending,
-      kind: "oauth2" as const,
-      providerId: "github",
-      byoId: "byo_1",
-      orgId: "org_1",
-    };
+  it.each([
+    ["static OIDC", { kind: "oidc" as const, providerId: "mock" }],
+    ["static OAuth2", { kind: "oauth2" as const, providerId: "github" }],
+    ["bring-your-own", { kind: "oidc" as const, byoId: "byo_1" }],
+    ["organization", { kind: "oidc" as const, orgId: "org_1" }],
+  ])("round-trips %s provenance", (_label, provenance) => {
+    const v2 = { ...pending, ...provenance };
     expect(decodePending(encodePending(v2))).toEqual(v2);
   });
 

@@ -11,7 +11,7 @@ import type { Context } from "hono";
 import type { AppContext } from "../context.js";
 import type { ActorId, OrganizationId } from "../lib/ids.js";
 import type { Variables } from "../middleware/context.js";
-import { type OrgOwner, orgOwner } from "../proofs/org-owner.js";
+import { type ActiveOrgOwner, orgOwner } from "../proofs/org-owner.js";
 import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import {
   SCIM_ROLE_ATTRIBUTE,
@@ -60,14 +60,14 @@ export { memberIds, parseMemberSelector };
 
 /**
  * Map a directory group to an organization role. Mapping a group to `owner`
- * grants ownership to everyone in it, so this takes the owner's proof about the
- * exact organization rather than trusting the caller to have checked (ADR 0178).
+ * grants ownership to everyone in it, so this requires an active-owner proof
+ * about the exact organization (ADR 0178).
  */
 export async function putGroupRoleMapping<A, O>(
   ctx: AppContext,
   actor: Named<A, ActorId>,
   org: Named<O, OrganizationId>,
-  _proof: OrgOwner<A, O>,
+  _proof: ActiveOrgOwner<A, O>,
   groupId: string,
   role: OrganizationRole,
 ): Promise<

@@ -88,7 +88,12 @@ impl StoredTrustProfile {
                 pem.extend_from_slice(retiring.as_bytes());
             }
         }
-        TrustBundle::from_pem(self.profile.clone(), self.kind, &pem)
+        let bundle = TrustBundle::from_pem(self.profile.clone(), self.kind, &pem)?;
+        if let Some(domain) = &self.trust_domain {
+            bundle.with_spiffe_trust_domain(domain)
+        } else {
+            Ok(bundle)
+        }
     }
 
     /// Whether the retiring anchors are still honoured at `now`.
@@ -106,7 +111,9 @@ impl StoredTrustProfile {
             )));
         }
         match (self.kind, &self.trust_domain) {
-            (TrustProfileKind::SpiffeTrustDomain, Some(domain)) if !domain.is_empty() => {}
+            (TrustProfileKind::SpiffeTrustDomain, Some(domain)) => {
+                TrustBundle::validate_spiffe_trust_domain(domain)?;
+            }
             (TrustProfileKind::SpiffeTrustDomain, _) => {
                 return Err(TransportError::malformed(format!(
                     "trust profile {}: a spiffe_trust_domain profile must name its trust domain",
@@ -203,10 +210,14 @@ impl TrustProfileSet {
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ActivatedEpoch {
     pub revision: u32,
+    /// Exact generation installed by this adoption, not a later observation.
+    pub generation: Option<u64>,
     pub next_overlap_expiry: Option<DateTime<Utc>>,
     /// Every profile name the activated set stored, so a later activation
     /// never mistakes a removed stored profile for a deployment-plane one.
     pub names: std::collections::BTreeSet<TrustProfileRef>,
+    /// Stored entries excluded because their names belong to the source.
+    pub quarantined: std::collections::BTreeSet<TrustProfileRef>,
 }
 
 /// Why a trust write was refused.

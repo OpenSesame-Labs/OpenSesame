@@ -27,10 +27,10 @@
     "@opensesame/log-scrub": "*",
     "@opensesame/os-domain": "*",
     "drizzle-orm": "0.45.4",
-    "postgres": "4.1.0"
+    "postgres": "4.1.1"
   },
   "devDependencies": {
-    "@electric-sql/pglite": "0.5.15",
+    "@electric-sql/pglite": "0.5.16",
     "@opensesame/testing": "*",
     "@types/node": "26.6.6",
     "drizzle-kit": "0.31.11",

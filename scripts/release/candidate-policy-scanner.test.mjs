@@ -1,5 +1,16 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import { GitHub, policyEntriesForTree } from "./lib/candidate-api.mjs";
 import { CI_RECIPE, POLICY } from "./lib/candidate-policy.mjs";
 
@@ -26,6 +37,7 @@ const policies = [
   "scripts/lib/dependency-compatibility.test.mjs",
   "scripts/fuzz/jazzer-gate.sh",
   "scripts/lib/fuzz-directory.sh",
+  "scripts/mtls/mtls-fixtures.sh",
   "spec/formal/proof-registry.json",
   "spec/formal/proof-requirements.json",
   "spec/formal/check-axioms.sh",
@@ -39,6 +51,11 @@ const policies = [
   "scripts/security/formal-proof-release-gate.mjs",
   "scripts/security/formal-proof-required-suites.mjs",
   "scripts/security/formal-proof-pinned-suites.mjs",
+  "scripts/security/formal-proof-source-selection.mjs",
+  "scripts/security/formal-proof-spiffe-peer-domain.mjs",
+  "scripts/security/formal-proof-source-history.mjs",
+  "scripts/security/formal-cargo-isolation.py",
+  "scripts/security/formal-cargo-freshness.py",
   "scripts/security/formal-proof-push-gate-registry.mjs",
   "scripts/security/formal-proof-push-gate.mjs",
   "scripts/security/formal-proof-push-history.mjs",
@@ -88,6 +105,68 @@ const policies = [
   "tools/pwa-tailscale-native-http/new-helper.mjs",
   "scripts/security/gitleaks-reviewed-working-tree.json",
 ];
+
+test("release formal tools fetch and verify the NATS pin before exporting it", (t) => {
+  const work = mkdtempSync(join(tmpdir(), "formal-release-tools-"));
+  t.after(() => rmSync(work, { recursive: true, force: true }));
+  const bin = join(work, "bin");
+  const fixture = join(work, "scripts/mtls");
+  mkdirSync(bin);
+  mkdirSync(fixture, { recursive: true });
+  const stub = (path, body) =>
+    writeFileSync(path, `#!/bin/sh\n${body}\n`, { mode: 0o755 });
+  stub(join(bin, "curl"), "exit 0");
+  stub(join(bin, "sha256sum"), "cat >/dev/null; exit 0");
+  stub(
+    join(bin, "tar"),
+    'd="$RUNNER_TEMP/release-tools/formal-proofs/lean-4.24.0-linux/bin"\nmkdir -p "$d"\nprintf "#!/bin/sh\\nexit 0\\n" > "$d/lean"\nchmod +x "$d/lean"',
+  );
+  for (const name of ["node", "npm", "rustc"]) stub(join(bin, name), "exit 0");
+  stub(
+    join(fixture, "mtls-fixtures.sh"),
+    'printf "%s %s %s\\n" "$1" "$2" "$OPENSESAME_MTLS_FIXTURE_DIR" >> "$FIXTURE_LOG"\n[ "${MOCK_FIXTURE_FAIL:-}" != "$1" ]',
+  );
+  const script = fileURLToPath(new URL("./deep-tools.sh", import.meta.url));
+  const ghEnv = join(work, "github-env");
+  const log = join(work, "fixture-log");
+  const fixtureDir = join(work, "release-tools/formal-proofs/mtls-fixtures");
+  const run = (check, fail = "") => {
+    writeFileSync(ghEnv, "");
+    writeFileSync(log, "");
+    return spawnSync("bash", [script, check], {
+      cwd: work,
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        RUNNER_TEMP: work,
+        GITHUB_PATH: join(work, "github-path"),
+        GITHUB_ENV: ghEnv,
+        FIXTURE_LOG: log,
+        MOCK_FIXTURE_FAIL: fail,
+      },
+    });
+  };
+  const success = run("formal-proofs");
+  assert.equal(success.status, 0, success.stderr);
+  assert.deepEqual(readFileSync(log, "utf8").trim().split("\n"), [
+    `fetch nats-server ${fixtureDir}`,
+    `verify nats-server ${fixtureDir}`,
+  ]);
+  assert.match(
+    readFileSync(ghEnv, "utf8"),
+    new RegExp(`^OPENSESAME_MTLS_FIXTURE_DIR=${fixtureDir}$`, "m"),
+  );
+  for (const failure of ["fetch", "verify"]) {
+    assert.notEqual(run("formal-proofs", failure).status, 0, failure);
+    assert.doesNotMatch(
+      readFileSync(ghEnv, "utf8"),
+      /^OPENSESAME_MTLS_FIXTURE_DIR=/m,
+    );
+  }
+  assert.equal(run("shuttle").status, 0);
+  assert.equal(readFileSync(log, "utf8"), "");
+});
 
 test("scanner configuration, ignores and helpers are part of policy compatibility", async () => {
   const controller = new Map(policies.map((path) => [path, `blob:${path}`]));
@@ -146,6 +225,7 @@ test("missing required controller scanner configuration fails closed", async () 
     "scripts/lib/dependency-compatibility.test.mjs",
     "scripts/fuzz/jazzer-gate.sh",
     "scripts/lib/fuzz-directory.sh",
+    "scripts/mtls/mtls-fixtures.sh",
     "spec/formal/proof-registry.json",
     "spec/formal/proof-requirements.json",
     "spec/formal/check-axioms.sh",
@@ -159,6 +239,11 @@ test("missing required controller scanner configuration fails closed", async () 
     "scripts/security/formal-proof-push-gate-registry.mjs",
     "scripts/security/formal-proof-required-suites.mjs",
     "scripts/security/formal-proof-pinned-suites.mjs",
+    "scripts/security/formal-proof-source-selection.mjs",
+    "scripts/security/formal-proof-spiffe-peer-domain.mjs",
+    "scripts/security/formal-proof-source-history.mjs",
+    "scripts/security/formal-cargo-isolation.py",
+    "scripts/security/formal-cargo-freshness.py",
     "scripts/security/formal-proof-push-gate.mjs",
     "scripts/security/formal-proof-push-history.mjs",
     "scripts/security/formal-proof-remote-main.mjs",

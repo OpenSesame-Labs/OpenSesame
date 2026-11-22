@@ -3,6 +3,8 @@
 
 mod support;
 
+use std::sync::Arc;
+
 use http::{HeaderMap, HeaderValue};
 use opensesame_domain::transport::attest::AttestedPeer;
 use opensesame_domain::transport::{
@@ -10,7 +12,8 @@ use opensesame_domain::transport::{
     TrustProfileKind, VerifiedPeer,
 };
 use opensesame_ingress_evidence::{
-    parse_client_cert_fields, verify_originating, ForwardedChain, IngressLimits,
+    parse_client_cert_fields, verify_originating, BindingSetAdmission, ForwardedChain,
+    IngressAdmission, IngressLimits,
 };
 use opensesame_time::{Duration, Utc};
 use opensesame_transport_security::testkit::{IssuedLeaf, LeafSpec, SanEntry};
@@ -259,4 +262,100 @@ fn refuses_evidence_whose_ingress_is_not_a_trusted_ingress_peer() {
         "evidence_expired",
         "an ingress past its usable bound cannot vouch for anyone"
     );
+}
+
+fn spiffe_ingress_peer(pki: &Pki) -> VerifiedPeer {
+    AttestedPeer {
+        source: EvidenceSource::DirectTls,
+        identities: vec![PeerIdentitySelector::SpiffeId(
+            "spiffe://example.test/ingress".into(),
+        )],
+        leaf_thumbprint_sha256: pki.ingress.thumbprint.clone(),
+        not_before: Utc::now() - Duration::minutes(5),
+        not_after: Utc::now() + Duration::hours(1),
+        trust_profile: Pki::ingress_profile(),
+        trust_generation: 1,
+        credential_generation: 1,
+        listener: TRUSTED_LISTENER.to_owned(),
+        policy: TransportPolicy::TrustedIngress,
+        tls_version: TlsVersion::Tls13,
+        authenticated_at: Utc::now(),
+        usable_until: Utc::now() + Duration::minutes(5),
+        ingress: None,
+    }
+    .into_verified_spiffe()
+    .unwrap()
+}
+
+#[test]
+fn spiffe_forwarding_preserves_ingress_policy_and_checks_origin_domain() {
+    let pki = Pki::new();
+    let peer = spiffe_ingress_peer(&pki);
+    let trust = TrustBundle::from_pem(
+        Pki::originating_profile(),
+        TrustProfileKind::SpiffeTrustDomain,
+        &pki.originating_root.ca_pem(),
+    )
+    .unwrap()
+    .with_spiffe_trust_domain("example.test")
+    .unwrap();
+    let good = pki
+        .originating_int
+        .issue_spiffe("spiffe://example.test/alice");
+    let verified = verify_originating(
+        &chain_for(&good, &pki),
+        &trust,
+        &peer,
+        Utc::now(),
+        TRUSTED_LISTENER,
+    )
+    .unwrap();
+    assert_eq!(
+        verified.identities(),
+        &[PeerIdentitySelector::SpiffeId(
+            "spiffe://example.test/alice".into()
+        )]
+    );
+    assert_eq!(verified.ingress().unwrap().identities(), peer.identities());
+    let bad = pki
+        .originating_int
+        .issue_spiffe("spiffe://other.test/alice");
+    assert!(verify_originating(
+        &chain_for(&bad, &pki),
+        &trust,
+        &peer,
+        Utc::now(),
+        TRUSTED_LISTENER
+    )
+    .is_err());
+    // Alice chains correctly but its client-only EKU is not a full X.509-SVID.
+    assert!(verify_originating(
+        &chain_for(&pki.alice, &pki),
+        &trust,
+        &peer,
+        Utc::now(),
+        TRUSTED_LISTENER
+    )
+    .is_err());
+}
+
+#[test]
+fn spiffe_ingress_admission_checks_leaf_revocation_separately() {
+    let pki = Pki::new();
+    let peer = spiffe_ingress_peer(&pki);
+    let bindings = pki.bindings();
+    bindings.write().unwrap().bindings[0].peer =
+        PeerIdentitySelector::SpiffeId("spiffe://example.test/ingress".into());
+    let admission = BindingSetAdmission::new(Arc::clone(&bindings));
+    assert!(admission.is_authorized_ingress(&peer));
+    bindings.write().unwrap().bindings[0]
+        .denied_thumbprints
+        .push(pki.ingress.thumbprint.clone());
+    assert!(!admission.is_authorized_ingress(&peer));
+    let mut set = bindings.write().unwrap();
+    set.bindings[0].denied_thumbprints.clear();
+    set.bindings[0].peer =
+        PeerIdentitySelector::LeafThumbprintSha256(pki.ingress.thumbprint.clone());
+    drop(set);
+    assert!(!admission.is_authorized_ingress(&peer));
 }

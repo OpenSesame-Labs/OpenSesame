@@ -126,7 +126,7 @@ test("release qualification rejects weakened suite contracts", (t) => {
       assert.notEqual(result.status, 0, `${required.id}: ${kind}`);
       assert.match(
         result.stderr,
-        /does not match required mappings, proofs, or command/,
+        /does not match required mappings, proofs, or command|Invalid formal proof suite/,
       );
       assert.deepEqual(f.commands(), []);
     }
@@ -142,7 +142,7 @@ test("release qualification requires new mappings to be pinned", (t) => {
   assert.notEqual(result.status, 0);
   assert.match(
     result.stderr,
-    /does not match required mappings, proofs, or command/,
+    /does not match required mappings, proofs, or command|Invalid formal proof suite/,
   );
   assert.deepEqual(f.commands(), []);
 });
@@ -188,7 +188,20 @@ test("release qualification refuses to lose a required suite", (t) => {
 test("the independently pinned suite contracts survive coordinated JSON weakening", (t) => {
   assert.deepEqual(
     PINNED_FORMAL_SUITES.map((suite) => suite.id),
-    ["auth", "oauth", "webauthn", "interaction-clock", "authority", "dpop"],
+    [
+      "auth",
+      "oauth",
+      "webauthn",
+      "interaction-clock",
+      "authority",
+      "dpop",
+      "spiffe",
+      "source-lifetime",
+      "source-trust-selection",
+      "spiffe-peer-domain",
+      "nats-trust-rotation",
+      "source-history",
+    ],
   );
   for (const id of [
     "auth",
@@ -197,6 +210,12 @@ test("the independently pinned suite contracts survive coordinated JSON weakenin
     "interaction-clock",
     "authority",
     "dpop",
+    "spiffe",
+    "source-lifetime",
+    "source-trust-selection",
+    "spiffe-peer-domain",
+    "nats-trust-rotation",
+    "source-history",
   ]) {
     for (const kind of ["suite", "mapping", "proof", "command"]) {
       const f = fixture(t);
@@ -215,6 +234,69 @@ test("the independently pinned suite contracts survive coordinated JSON weakenin
       const result = f.run();
       assert.notEqual(result.status, 0, `${id}: ${kind}`);
       assert.match(result.stderr, /required|mapping|proof/i);
+      assert.deepEqual(f.commands(), []);
+    }
+  }
+});
+test("the pinned source and SPIFFE lock projections cannot be weakened", (t) => {
+  for (const id of [
+    "spiffe",
+    "source-lifetime",
+    "source-trust-selection",
+    "spiffe-peer-domain",
+    "nats-trust-rotation",
+    "source-history",
+  ]) {
+    for (const kind of ["remove", "root", "dependency"]) {
+      const f = fixture(t);
+      const altered = structuredClone(REQUIREMENTS);
+      const suite = altered.suites.find((entry) => entry.id === id);
+      if (kind === "remove") delete suite.lockProjection;
+      if (kind === "root") suite.lockProjection.root = "other";
+      if (kind === "dependency") suite.lockProjection.dependency = "spiffe";
+      for (const name of ["proof-registry.json", "proof-requirements.json"])
+        writeFileSync(
+          join(f.dir, "spec/formal", name),
+          JSON.stringify(altered),
+        );
+      const result = f.run();
+      assert.notEqual(result.status, 0, `${id}: ${kind}`);
+      assert.match(result.stderr, /required|mapping|proof/i);
+      assert.deepEqual(f.commands(), []);
+    }
+  }
+});
+test("the pinned authority and NATS projections cannot be removed or narrowed", (t) => {
+  for (const id of ["authority", "nats-trust-rotation"]) {
+    for (const kind of [
+      "remove-manifest",
+      "manifest-root",
+      "manifest-package",
+      "manifest-lock",
+      ...(id === "nats-trust-rotation" ? ["manifest-list"] : []),
+      "remove-lock",
+      "lock-root",
+    ]) {
+      const f = fixture(t);
+      const altered = structuredClone(REQUIREMENTS);
+      const suite = altered.suites.find((entry) => entry.id === id);
+      if (kind === "remove-manifest") delete suite.manifestProjection;
+      if (kind === "manifest-root") suite.manifestProjection.root = "other";
+      if (kind === "manifest-package")
+        suite.manifestProjection.package = "crates/other/Cargo.toml";
+      if (kind === "manifest-lock")
+        suite.manifestProjection.lock = "other.lock";
+      if (kind === "manifest-list") suite.manifestProjection.manifests.pop();
+      if (kind === "remove-lock") delete suite.lockProjection;
+      if (kind === "lock-root") suite.lockProjection.root = "other";
+      for (const name of ["proof-registry.json", "proof-requirements.json"])
+        writeFileSync(
+          join(f.dir, "spec/formal", name),
+          JSON.stringify(altered),
+        );
+      const result = f.run();
+      assert.notEqual(result.status, 0, kind);
+      assert.match(result.stderr, /required|mapping|proof|invalid/i);
       assert.deepEqual(f.commands(), []);
     }
   }

@@ -19,7 +19,7 @@ import {
 import {
   ONEPASSWORD_ASSETS,
   ONEPASSWORD_SDK,
-  assertOnePasswordHash,
+  assertPinnedArtifactDigest,
   attachOnePasswordAssets,
   loadOnePasswordAssets,
   onePasswordPackageRoot,
@@ -78,7 +78,7 @@ it("preserves every upstream business statement and adds only static browser boo
       runtime.indexOf("const wasmURL ="),
     ),
   ).toBe(business);
-  assertOnePasswordHash(runtime, ONEPASSWORD_SDK.runtimeHash);
+  assertPinnedArtifactDigest(runtime, ONEPASSWORD_SDK.runtimeHash);
   expect(runtime).toContain("await WebAssembly.instantiate(bytes, imports)");
 });
 it.each([
@@ -113,7 +113,7 @@ it("includes the complete unchanged pinned MIT notice absent from the published 
   expect(notice.toString()).toContain("THE SOFTWARE IS PROVIDED");
   expect(ONEPASSWORD_SDK.licenseSource).toContain(ONEPASSWORD_SDK.sourceCommit);
   expect(() =>
-    assertOnePasswordHash(
+    assertPinnedArtifactDigest(
       Buffer.from("changed notice"),
       ONEPASSWORD_SDK.licenseHash,
     ),
@@ -148,7 +148,7 @@ it.each(["length", "digest"])(
     expect(() => loadOnePasswordAssets(fixture({ wasm: bytes }))).toThrow(
       new RegExp(change),
     );
-    assertOnePasswordHash(
+    assertPinnedArtifactDigest(
       readFileSync(join(packageRoot, "nodejs/core_bg.wasm")),
       ONEPASSWORD_SDK.wasmHash,
     );

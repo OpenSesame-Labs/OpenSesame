@@ -148,81 +148,86 @@ describe("Lean approval binding correspondence", () => {
     ).toBe(true);
   });
 
-  it("matches the actual approval and sequential-consume functions", () => {
-    for (const row of vectors) {
-      const [
-        _type,
-        kindInput,
-        statusInput,
-        clockInput,
-        expiryInput,
-        requestInput,
-        proofInput,
-        expected,
-      ] = row;
-      const kind = choice(kinds, kindInput);
-      const status = choice(statuses, statusInput);
-      const clock = choice(clocks, clockInput);
-      const sampledNow = clock === "valid" ? now : new Date(Number.NaN);
-      const expiry = choice(expiries, expiryInput);
-      const request = choice(requestDigests, requestInput);
-      const proofValue = choice(proofDigests, proofInput);
-      const digest = {
-        absent: undefined,
-        empty: "",
-        a: "sha256:a",
-        b: "sha256:b",
-      }[request];
-      const expiresAt = {
-        invalid: new Date(Number.NaN),
-        past: new Date(-1),
-        equal: new Date(0),
-        future: new Date(1),
-      }[expiry];
-      const interaction: Interaction = {
-        id: "int_formal",
-        kind,
-        status,
-        subject: { kind, subjectId: "subject_formal" },
-        createdAt: now,
-        expiresAt,
-        authorizationDetails: [],
-        version: 1,
-      };
-      if (digest !== undefined) interaction.requestDigest = digest;
-      const boundDigest = {
-        empty: "",
-        a: "sha256:a",
-        b: "sha256:b",
-        other: "sha256:other",
-      }[proofValue];
-      const proof = sealApprovalProof({
-        mechanism: "webauthn",
-        assurance: "phishing_resistant",
-        boundDigest,
-        verifiedAt: now,
+  it.each(vectors)("approval %s %s %s %s %s %s %s", (...row) => {
+    const [
+      _type,
+      kindInput,
+      statusInput,
+      clockInput,
+      expiryInput,
+      requestInput,
+      proofInput,
+      expected,
+    ] = row;
+    const kind = choice(kinds, kindInput);
+    const status = choice(statuses, statusInput);
+    const clock = choice(clocks, clockInput);
+    const sampledNow = clock === "valid" ? now : new Date(Number.NaN);
+    const expiry = choice(expiries, expiryInput);
+    const request = choice(requestDigests, requestInput);
+    const proofValue = choice(proofDigests, proofInput);
+    const digest = {
+      absent: undefined,
+      empty: "",
+      a: "sha256:a",
+      b: "sha256:b",
+    }[request];
+    const expiresAt = {
+      invalid: new Date(Number.NaN),
+      past: new Date(-1),
+      equal: new Date(0),
+      future: new Date(1),
+    }[expiry];
+    const interaction: Interaction = {
+      id: "int_formal",
+      kind,
+      status,
+      subject: { kind, subjectId: "subject_formal" },
+      createdAt: now,
+      expiresAt,
+      authorizationDetails: [],
+      version: 1,
+    };
+    if (digest !== undefined) interaction.requestDigest = digest;
+    const boundDigest = {
+      empty: "",
+      a: "sha256:a",
+      b: "sha256:b",
+      other: "sha256:other",
+    }[proofValue];
+    const proof = sealApprovalProof({
+      mechanism: "webauthn",
+      assurance: "phishing_resistant",
+      boundDigest,
+      verifiedAt: now,
+    });
+    const key = [
+      kindInput,
+      statusInput,
+      clockInput,
+      expiryInput,
+      requestInput,
+      proofInput,
+    ].join("/");
+    let result: Interaction | undefined;
+    try {
+      result = approve(interaction, {
+        approverPrincipalId: "prn_formal",
+        proof,
+        now: sampledNow,
       });
-      const key = row.slice(1, 7).join("/");
-      let result: Interaction | undefined;
-      try {
-        result = approve(interaction, {
-          approverPrincipalId: "prn_formal",
-          proof,
-          now: sampledNow,
-        });
-      } catch (error) {
-        if (!(error instanceof Error) || error.name !== "DomainError")
-          throw error;
-      }
-      expect(result !== undefined, key).toBe(expected === "1");
-      if (result) {
-        expect(result.status, key).toBe("approved");
-        expect(result.approvalProof?.boundDigest, key).toBe(boundDigest);
-        expect(result.version, key).toBe(interaction.version + 1);
-        const consumed = consume(result, sampledNow);
-        expect(consumed.status, key).toBe("consumed");
-        expect(() => consume(consumed, sampledNow), key).toThrow();
-      }
+    } catch (error) {
+      if (!(error instanceof Error) || error.name !== "DomainError")
+        throw error;
+    }
+    expect(result !== undefined, key).toBe(expected === "1");
+    if (result) {
+      expect(result.status, key).toBe("approved");
+      expect(result.approvalProof?.boundDigest, key).toBe(boundDigest);
+      expect(result.version, key).toBe(interaction.version + 1);
+      const consumed = consume(result, sampledNow);
+      expect(consumed.status, key).toBe("consumed");
+      expect(() => consume(consumed, sampledNow), key).toThrow();
     }
   });
 });

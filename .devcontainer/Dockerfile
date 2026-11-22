@@ -1,12 +1,12 @@
 # Devcontainer image for OpenSesame.
-# The Rust base matches the previous pinned devcontainer image. Node, npm,
-# Go, Java, and the locked Rust toolchain are not baked from a Node feature.
+# Alpine base (no Debian dpkg/status for OSV devcontainer scans).
+# Rust, Node, Go, Java, and Playwright come from `mise install --locked` only.
 # updateContentCommand runs `mise install --locked`, which installs the tools
 # pinned in the workspace mise.toml and mise.lock.
 #
 # ghcr.io/devcontainers-extra/features/mise is not used. Its gh-release asset
 # filter matches both the glibc and musl tarballs for one mise version.
-FROM mcr.microsoft.com/devcontainers/rust:2.1-bookworm@sha256:4d944fc913385b14c0507bc4636749a773543067c2f5fc885b6fd4a42e59f006
+FROM mcr.microsoft.com/devcontainers/base:alpine@sha256:8be2a2435e239e24b160276c79704c3a4b9d8f261ef669fe99efe15f20cb9ee6
 
 USER root
 
@@ -40,25 +40,32 @@ ENV RUSTUP_HOME=/opt/mise/rustup
 ENV BASH_ENV=/etc/profile.d/mise.sh
 ENV PATH=/opt/mise/shims:/home/vscode/.local/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
-ARG DEBIAN_FRONTEND=noninteractive
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends \
+# gcompat + libstdc++ run glibc-linked mise artifacts (go, hurl).
+# Node musl pins: official nodejs.org linux-x64-musl, unofficial-builds
+# linux-arm64-musl. Temurin publishes an Alpine JDK for x64 only. Apple
+# Silicon installs openjdk17 from apk and skips mise's java tool.
+RUN apk add --no-cache \
+    build-base \
     ca-certificates \
     curl \
+    gcompat \
     git \
-  && rm -rf /var/lib/apt/lists/*
+    libstdc++ \
+    pkgconf \
+    python3
 
-# Pinned GitHub release tarball. Same version and linux digests as the
-# Cursor Cloud image. The digest is checked before extraction.
+# Pinned GitHub release tarball (musl build for Alpine). Same MISE_VERSION as
+# scripts/lib/mise-pins.sh; musl digests differ from glibc used on GitHub-hosted
+# runners. The digest is checked before extraction.
 ARG MISE_VERSION=2026.10.18
-ARG MISE_SHA256_LINUX_X64=0d41b60745a6273a80089c86f80d8729042d2f57f87fda70aecc7d1c3ffbd3be
-ARG MISE_SHA256_LINUX_ARM64=c5a49a47f8184f5649f3d8685b408bd72325a823f41cf618c60f3ffc303090a1
+ARG MISE_SHA256_LINUX_X64_MUSL=bb2f31a377789e85df9358f23aaadb4283e2d760cf657ca7449856f92c4230c4
+ARG MISE_SHA256_LINUX_ARM64_MUSL=88bbc1480e196c45c67194b653a08170b9e45e6573e5036f643f288eee95120e
 
 RUN set -eu; \
-  arch="$(dpkg --print-architecture)"; \
+  arch="$(uname -m)"; \
   case "$arch" in \
-    amd64) mise_target="linux-x64"; mise_sha="${MISE_SHA256_LINUX_X64}" ;; \
-    arm64) mise_target="linux-arm64"; mise_sha="${MISE_SHA256_LINUX_ARM64}" ;; \
+    x86_64) mise_target="linux-x64-musl"; mise_sha="${MISE_SHA256_LINUX_X64_MUSL}" ;; \
+    aarch64) mise_target="linux-arm64-musl"; mise_sha="${MISE_SHA256_LINUX_ARM64_MUSL}" ;; \
     *) echo "unsupported mise architecture: ${arch}" >&2; exit 1 ;; \
   esac; \
   archive="mise-v${MISE_VERSION}-${mise_target}.tar.gz"; \
@@ -72,5 +79,57 @@ RUN set -eu; \
   mise --version; \
   mkdir -p /opt/mise; \
   chown -R vscode:vscode /opt/mise
+
+# Temurin publishes no Alpine/musl aarch64 JDK, so mise.lock has no
+# linux-arm64-musl Java asset. On Apple Silicon, install Alpine openjdk17
+# before `mise install --locked` and skip mise's java tool. Without that
+# skip, locked install fails closed on the missing asset. linux-x64 keeps
+# the Temurin Alpine JDK.
+ARG TARGETARCH
+RUN set -eu; \
+  arch="${TARGETARCH:-}"; \
+  if [ -z "$arch" ]; then \
+    case "$(uname -m)" in \
+      aarch64|arm64) arch=arm64 ;; \
+      *) arch=amd64 ;; \
+    esac; \
+  fi; \
+  if [ "$arch" != "arm64" ]; then \
+    exit 0; \
+  fi; \
+  apk add --no-cache openjdk17; \
+  jdk=/usr/lib/jvm/java-17-openjdk; \
+  test -x "$jdk/bin/java"; \
+  ln -sfn "$jdk" /usr/lib/jvm/default-jvm; \
+  for cmd in java javac jar javadoc jlink keytool; do \
+    if [ -x "$jdk/bin/$cmd" ]; then \
+      ln -sfn "$jdk/bin/$cmd" "/usr/local/bin/$cmd"; \
+    fi; \
+  done; \
+  printf '%s\n' java > /etc/mise-disable-tools; \
+  mkdir -p /usr/local/libexec; \
+  mv /usr/local/bin/mise /usr/local/libexec/mise; \
+  printf '%s\n' \
+    '#!/bin/sh' \
+    'if [ -z "${MISE_DISABLE_TOOLS:-}" ] && [ -s /etc/mise-disable-tools ]; then' \
+    '  MISE_DISABLE_TOOLS=$(tr -d '"'"'[:space:]'"'"' < /etc/mise-disable-tools)' \
+    '  export MISE_DISABLE_TOOLS' \
+    'fi' \
+    'if [ -z "${JAVA_HOME:-}" ] && [ -x /usr/lib/jvm/java-17-openjdk/bin/java ]; then' \
+    '  export JAVA_HOME=/usr/lib/jvm/java-17-openjdk' \
+    'fi' \
+    'exec /usr/local/libexec/mise "$@"' \
+    > /usr/local/bin/mise; \
+  chmod 0755 /usr/local/bin/mise; \
+  printf '%s\n' \
+    'if [ -x /usr/lib/jvm/java-17-openjdk/bin/java ]; then' \
+    '  export JAVA_HOME="${JAVA_HOME:-/usr/lib/jvm/java-17-openjdk}"' \
+    '  case ":${PATH}:" in' \
+    '    *:"${JAVA_HOME}/bin":*) ;;' \
+    '    *) PATH="${JAVA_HOME}/bin:${PATH}" ;;' \
+    '  esac' \
+    '  export PATH' \
+    'fi' \
+    >> /etc/profile.d/mise.sh
 
 USER vscode

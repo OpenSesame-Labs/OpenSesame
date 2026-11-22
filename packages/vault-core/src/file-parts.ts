@@ -245,7 +245,14 @@ export async function sealFile(input: {
   if (input.stores.length === 0) throw new Error("file needs a store");
   const partBytes = input.partBytes ?? FILE_PART_BYTES;
   const maxBytes = input.maxBytes ?? MAX_FILE_BYTES;
-  if (partBytes < 1 || partBytes > FILE_PART_BYTES) throw new Error(MISSING);
+  if (
+    !Number.isSafeInteger(partBytes) ||
+    partBytes < 1 ||
+    partBytes > FILE_PART_BYTES
+  )
+    throw new Error("invalid file part size");
+  if (!Number.isSafeInteger(maxBytes) || maxBytes < 0)
+    throw new Error("invalid file size limit");
   if (input.bytes.byteLength > Math.min(maxBytes, MAX_FILE_BYTES))
     throw new Error("file exceeds the size limit");
   const count = partCount(input.bytes.byteLength, partBytes);

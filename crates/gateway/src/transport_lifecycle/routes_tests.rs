@@ -135,6 +135,126 @@ async fn the_deployment_operator_may_write_trust_and_revoke_by_thumbprint() {
     assert!(state.transport_lifecycle.is_denied(&"a".repeat(64)));
 }
 
+#[tokio::test]
+async fn trust_status_reports_quarantine_and_a_changed_serving_generation() {
+    use crate::transport_lifecycle::trust::{self, StoredTrustProfile, TrustProfileSet};
+    use opensesame_domain::transport::TrustProfileKind;
+    use opensesame_transport_security::testkit::DisposableCa;
+    use opensesame_transport_security::GenerationCandidate;
+
+    let state = support::state().await;
+    let server = DisposableCa::new("server")
+        .issue_server("localhost")
+        .identity();
+    let generations = support::generations(server, &DisposableCa::new("clients"));
+    let old_name = support::profile_ref("old-source.test");
+    generations
+        .seed_source_history(1, &std::collections::BTreeSet::from([old_name.clone()]))
+        .unwrap();
+    state.transport_lifecycle.attach_generations(
+        generations.clone(),
+        generations.current().peer_trust.clone(),
+    );
+    let current = generations.current();
+    let source = GenerationCandidate {
+        identity: current.identity.clone(),
+        peer_trust: current.peer_trust.clone(),
+        own_trust: None,
+        identity_required: true,
+    };
+    let owner = generations.source_owner();
+    let claimed = generations.claim_source(&owner).unwrap();
+    let epoch = generations
+        .activate_from_source(&owner, claimed, source.clone())
+        .unwrap();
+    let stored = TrustProfileSet {
+        revision: 1,
+        profiles: vec![StoredTrustProfile {
+            profile: old_name,
+            kind: TrustProfileKind::PrivateRoot,
+            anchors_pem: String::from_utf8(DisposableCa::new("old").root_pem()).unwrap(),
+            retiring_anchors_pem: None,
+            overlap_until: None,
+            enabled: true,
+            trust_domain: None,
+        }],
+    };
+    state
+        .db
+        .set_host_kv(
+            trust::KV_TRUST_PROFILES,
+            &serde_json::to_string(&stored).unwrap(),
+        )
+        .await
+        .unwrap();
+    assert!(trust::refresh(&state, opensesame_time::Utc::now())
+        .await
+        .unwrap());
+    let (status, body) = call(&state, "GET", TRUST, operator(&state), None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["trust_application"]["reconciled"], true);
+    assert_eq!(
+        body["trust_application"]["quarantined_stored_profiles"],
+        json!(["old-source.test"])
+    );
+
+    generations
+        .activate_from_source(&owner, epoch, source)
+        .unwrap();
+    let (status, body) = call(&state, "GET", TRUST, operator(&state), None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["trust_application"]["reconciled"], false);
+}
+
+#[tokio::test]
+async fn empty_trust_reports_reconciled_for_a_live_manager() {
+    use opensesame_transport_security::testkit::DisposableCa;
+    use opensesame_transport_security::GenerationCandidate;
+
+    let state = support::state().await;
+    let server = DisposableCa::new("server")
+        .issue_server("localhost")
+        .identity();
+    let generations = support::generations(server, &DisposableCa::new("clients"));
+    state.transport_lifecycle.attach_generations(
+        generations.clone(),
+        generations.current().peer_trust.clone(),
+    );
+    assert!(
+        !crate::transport_lifecycle::trust::refresh(&state, opensesame_time::Utc::now())
+            .await
+            .unwrap()
+    );
+    let (status, body) = call(&state, "GET", TRUST, operator(&state), None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["trust_application"]["reconciled"], true);
+    assert_eq!(
+        body["trust_application"]["quarantined_stored_profiles"],
+        json!([])
+    );
+
+    let current = generations.current();
+    generations
+        .activate(GenerationCandidate {
+            identity: current.identity.clone(),
+            peer_trust: current.peer_trust.clone(),
+            own_trust: None,
+            identity_required: true,
+        })
+        .unwrap();
+    let (_, body) = call(&state, "GET", TRUST, operator(&state), None).await;
+    assert_eq!(body["trust_application"]["reconciled"], false);
+    let rotated = generations.current().number;
+    assert!(
+        !crate::transport_lifecycle::trust::refresh(&state, opensesame_time::Utc::now())
+            .await
+            .unwrap()
+    );
+    assert_eq!(generations.current().number, rotated);
+    let (_, body) = call(&state, "GET", TRUST, operator(&state), None).await;
+    assert_eq!(body["trust_application"]["reconciled"], true);
+}
+
 /// The organization-scoped half is unchanged: an admin still reads trust and
 /// still reaches revocation of its own certificate by id (absent here, so a
 /// 404 from the organization-fenced lookup — not a 403 from the gate).
