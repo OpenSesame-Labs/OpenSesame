@@ -1,5 +1,7 @@
--- A key-scoped sentinel avoids a table rewrite when adding the revision.
-ALTER TABLE "organization_memberships" ADD COLUMN "authority_revision" uuid DEFAULT '00000000-0000-0000-0000-000000000000' NOT NULL;--> statement-breakpoint
+-- Host scopes the non-nil revision sentinel to the organization, principal,
+-- and membership incarnation. Later rows and role changes get fresh UUIDs.
+-- The constant avoids a table rewrite when adding the revision.
+ALTER TABLE "organization_memberships" ADD COLUMN "authority_revision" uuid DEFAULT '00000000-0000-4000-8000-000000000002' NOT NULL;--> statement-breakpoint
 ALTER TABLE "organization_memberships" ALTER COLUMN "authority_revision" SET DEFAULT gen_random_uuid();--> statement-breakpoint
 ALTER TABLE "organization_memberships" ADD COLUMN "withdrawal_id" uuid;--> statement-breakpoint
 ALTER TABLE "organization_memberships" ADD COLUMN "withdrawal_kind" text;--> statement-breakpoint

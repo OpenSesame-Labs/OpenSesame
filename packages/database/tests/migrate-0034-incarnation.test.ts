@@ -18,7 +18,8 @@ const migrationsFolder = join(
   "..",
   "drizzle",
 );
-const sentinel = "00000000-0000-0000-0000-000000000000";
+const legacyIncarnation = "00000000-0000-4000-8000-000000000001";
+const legacyRevision = "00000000-0000-4000-8000-000000000002";
 
 it("upgrades existing memberships and gives later inserts a new incarnation", async () => {
   const before = mkdtempSync(join(tmpdir(), "os-migrate-0034-"));
@@ -47,12 +48,21 @@ it("upgrades existing memberships and gives later inserts a new incarnation", as
     const existing = await client.query<{
       principal_id: string;
       incarnation: string;
+      authority_revision: string;
     }>(
-      "SELECT principal_id, incarnation FROM organization_memberships ORDER BY principal_id",
+      "SELECT principal_id, incarnation, authority_revision FROM organization_memberships ORDER BY principal_id",
     );
     expect(existing.rows).toEqual([
-      { principal_id: "p1", incarnation: sentinel },
-      { principal_id: "p2", incarnation: sentinel },
+      {
+        principal_id: "p1",
+        incarnation: legacyIncarnation,
+        authority_revision: legacyRevision,
+      },
+      {
+        principal_id: "p2",
+        incarnation: legacyIncarnation,
+        authority_revision: legacyRevision,
+      },
     ]);
 
     // An old-version writer omits the column, and a recreated row must not
@@ -62,14 +72,23 @@ it("upgrades existing memberships and gives later inserts a new incarnation", as
       INSERT INTO organization_memberships (organization_id, principal_id, role)
       VALUES ('org', 'p2', 'member');
     `);
-    const replacement = await client.query<{ incarnation: string }>(
-      "SELECT incarnation FROM organization_memberships WHERE organization_id = 'org' AND principal_id = 'p2'",
+    const replacement = await client.query<{
+      incarnation: string;
+      authority_revision: string;
+    }>(
+      "SELECT incarnation, authority_revision FROM organization_memberships WHERE organization_id = 'org' AND principal_id = 'p2'",
     );
     const token = replacement.rows[0]?.incarnation;
     expect(token).toMatch(
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
     );
-    expect(token).not.toBe(sentinel);
+    expect(token).not.toBe(legacyIncarnation);
+    expect(replacement.rows[0]?.authority_revision).not.toBe(legacyRevision);
+    const staleDelete = await client.query(
+      "DELETE FROM organization_memberships WHERE organization_id = 'org' AND principal_id = 'p2' AND incarnation = $1 RETURNING principal_id",
+      [legacyIncarnation],
+    );
+    expect(staleDelete.rows).toHaveLength(0);
     await migrate(db, { migrationsFolder });
     const afterRetry = await client.query<{ incarnation: string }>(
       "SELECT incarnation FROM organization_memberships WHERE organization_id = 'org' AND principal_id = 'p2'",
