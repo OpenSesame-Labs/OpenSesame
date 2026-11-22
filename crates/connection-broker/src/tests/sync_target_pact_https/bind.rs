@@ -1,8 +1,12 @@
 //! Bind a credentialed dispatch to the URL its builder was given.
 use super::super::sync_target_pact_norm::{is_keyword_at, string_len};
-use super::{is_ident_char, strip_turbofish};
+use super::strip_turbofish;
+
+#[path = "bind_tail.rs"]
+mod bind_tail;
 
 pub(super) use super::mutate::shadows;
+pub(super) use bind_tail::{call_tail, ident_prefix, is_single_eq, stmt_end, strip_ref};
 
 pub(super) fn dispatch_url(source: &str, fn_start: usize, at: usize) -> Option<String> {
     let expr = request_expr(source, fn_start, at)?;
@@ -45,7 +49,8 @@ fn receiver_expr<'a>(source: &'a str, fn_start: usize, dot: usize) -> &'a str {
         }
         match bytes[index] {
             b'(' | b'[' | b'{' => depth += 1,
-            b')' | b']' | b'}' if depth > 0 => depth -= 1,
+            b')' | b']' if depth > 0 => depth -= 1,
+            b'}' if depth > 0 => depth = close_block(bytes, depth, index, &mut start),
             b';' if depth == 0 => start = index + 1,
             b'=' if depth == 0 && is_single_eq(bytes, index) => start = index + 1,
             _ => {}
@@ -53,6 +58,27 @@ fn receiver_expr<'a>(source: &'a str, fn_start: usize, dot: usize) -> &'a str {
         index += 1;
     }
     &source[start..dot]
+}
+
+/// `if decoy { return } request.send` starts a new statement at `}`.
+/// `{ builder }.send` and `} else {` stay one expression.
+fn close_block(bytes: &[u8], depth: i32, brace: usize, start: &mut usize) -> i32 {
+    let depth = depth - 1;
+    if depth == 0 && !expr_continues(bytes, brace + 1) {
+        *start = brace + 1;
+    }
+    depth
+}
+
+/// `.` / `?` / `else` keep the block in the same expression.
+fn expr_continues(bytes: &[u8], mut at: usize) -> bool {
+    while at < bytes.len() && bytes[at].is_ascii_whitespace() {
+        at += 1;
+    }
+    if matches!(bytes.get(at), Some(b'.' | b'?')) {
+        return true;
+    }
+    is_keyword_at(bytes, at, b"else")
 }
 
 fn assigned_builder_url(prefix: &str, name: &str) -> Option<String> {
@@ -64,32 +90,59 @@ fn assigned_builder_url(prefix: &str, name: &str) -> Option<String> {
             index += len;
             continue;
         }
-        if is_keyword_at(bytes, index, name.as_bytes()) {
-            if let Some((url, end)) = super::pattern::destructured_url(prefix, index, name) {
-                // `let (request,) = (client.get(evil),)` is a binding. An empty
-                // URL still closes the unresolved-destination exception.
-                found = Some(url);
-                index = end;
-                continue;
-            }
-            let eq = index + name.len();
-            if is_single_eq(bytes, eq) {
-                let end = stmt_end(bytes, eq + 1);
-                let rhs = &prefix[eq + 1..end];
-                if let Some(url) = builder_url(rhs) {
-                    found = Some(url.to_string());
-                } else if ident_prefix(rhs.trim()) != name {
-                    // `request = other` supersedes a prior URL. `request = request.json(&body)`
-                    // keeps it: the chain root is still that binding.
-                    found = Some(String::new());
-                }
-                index = end;
-                continue;
-            }
+        if let Some(end) = note_name_binding(prefix, index, name, &mut found) {
+            index = end;
+            continue;
         }
         index += 1;
     }
     found
+}
+
+fn note_name_binding(
+    prefix: &str,
+    index: usize,
+    name: &str,
+    found: &mut Option<String>,
+) -> Option<usize> {
+    let bytes = prefix.as_bytes();
+    if !is_keyword_at(bytes, index, name.as_bytes()) {
+        return None;
+    }
+    if let Some((url, end)) = super::pattern::destructured_url(prefix, index, name) {
+        // `let (request,) = (client.get(evil),)` is a binding. An empty
+        // URL still closes the unresolved-destination exception.
+        *found = Some(url);
+        return Some(end.max(index + 1));
+    }
+    let eq = eq_after_name(bytes, index + name.len())?;
+    let end = stmt_end(bytes, eq + 1);
+    apply_assigned_rhs(prefix, name, eq, end, found);
+    Some(end.max(index + 1))
+}
+
+fn apply_assigned_rhs(prefix: &str, name: &str, eq: usize, end: usize, found: &mut Option<String>) {
+    let rhs = &prefix[eq + 1..end];
+    if let Some(url) = builder_url(rhs) {
+        *found = Some(url.to_string());
+        return;
+    }
+    // `request = other` supersedes a prior URL. `request = request.json(&body)`
+    // keeps it: the chain root is still that binding.
+    if ident_prefix(rhs.trim()) != name {
+        *found = Some(String::new());
+    }
+}
+
+/// `=` after `name`, skipping a type ascription (`let request: T =`).
+pub(super) fn eq_after_name(bytes: &[u8], mut at: usize) -> Option<usize> {
+    if bytes.get(at) == Some(&b':') && bytes.get(at + 1) != Some(&b':') {
+        at = skip_ascription(bytes, at + 1);
+    }
+    while at < bytes.len() && bytes[at].is_ascii_whitespace() {
+        at += 1;
+    }
+    is_single_eq(bytes, at).then_some(at)
 }
 
 pub(super) fn builder_url(expr: &str) -> Option<&str> {
@@ -97,47 +150,71 @@ pub(super) fn builder_url(expr: &str) -> Option<&str> {
 }
 
 fn marked_url(expr: &str) -> Option<&str> {
-    const MARKS: &[&str] = &[
-        ".request(",
-        ".get(",
-        ".post(",
-        ".put(",
-        ".patch(",
-        ".delete(",
-        ".head(",
-        "::request(",
-        "::get(",
-        "::post(",
-        "::put(",
-        "::patch(",
-        "::delete(",
-        "::head(",
-    ];
     let bytes = expr.as_bytes();
     let mut index = 0usize;
-    // `Some(None)` is an unproven URL (`url.clone()`, `url,`). The last mark wins.
-    let mut found: Option<Option<&str>> = None;
+    // Disagreeing branch URLs and unproven marks (`url.clone()`, `url,`) fail closed.
+    let mut found: Option<&str> = None;
+    let mut bad = false;
     while index < bytes.len() {
         if let Some(len) = string_len(bytes, index) {
             index += len;
             continue;
         }
-        if let Some(mark) = MARKS
-            .iter()
-            .copied()
-            .find(|mark| expr[index..].starts_with(mark))
-        {
-            let at_paren = index + mark.len() - 1;
+        if let Some(at_paren) = builder_paren(expr, index) {
             let url = call_inside(&expr[at_paren..])
                 .and_then(|inner| plain_ident(strip_ref(split_arg(inner, false))));
-            found = Some(url);
+            bad |= !note_mark(&mut found, url);
         }
         index += 1;
     }
-    match found {
-        Some(Some(url)) => Some(url),
-        Some(None) => Some(""),
-        None => None,
+    if bad {
+        Some("")
+    } else {
+        found
+    }
+}
+
+/// `.get::<T>(` / `::request::<T>(`. A longer ident (`.get_mut`) is not a builder.
+fn builder_paren(expr: &str, index: usize) -> Option<usize> {
+    const METHODS: &[&str] = &["request", "get", "post", "put", "patch", "delete", "head"];
+    let rest = &expr[index..];
+    let sep = if rest.starts_with('.') {
+        1
+    } else if rest.starts_with("::") {
+        2
+    } else {
+        return None;
+    };
+    let after_sep = &rest[sep..];
+    let method = METHODS
+        .iter()
+        .copied()
+        .find(|method| after_sep.starts_with(method))?;
+    let method_end = index + sep + method.len();
+    if expr
+        .as_bytes()
+        .get(method_end)
+        .is_some_and(|byte| super::is_ident_byte(*byte))
+    {
+        return None;
+    }
+    let tail = &expr[method_end..];
+    let after = strip_turbofish(tail).unwrap_or(tail);
+    if !after.starts_with('(') {
+        return None;
+    }
+    Some(method_end + (tail.len() - after.len()))
+}
+
+/// `false` when this mark disagrees with a URL already seen, or is unproven.
+fn note_mark<'a>(found: &mut Option<&'a str>, url: Option<&'a str>) -> bool {
+    match (*found, url) {
+        (_, None) => false,
+        (None, Some(url)) => {
+            *found = Some(url);
+            true
+        }
+        (Some(prev), Some(url)) => prev == url,
     }
 }
 
@@ -152,16 +229,20 @@ fn call_arg_url(expr: &str) -> Option<&str> {
             index += len;
             continue;
         }
-        if bytes[index] == b'(' && is_free_call(expr, index) {
-            if let Some(inner) = call_inside(&expr[index..]) {
-                if let Some(url) = plain_ident(strip_ref(split_arg(inner, false))) {
-                    found = Some(url);
-                }
-            }
+        if let Some(url) = free_call_url(expr, index) {
+            found = Some(url);
         }
         index += 1;
     }
     found
+}
+
+fn free_call_url(expr: &str, index: usize) -> Option<&str> {
+    if expr.as_bytes().get(index) != Some(&b'(') || !is_free_call(expr, index) {
+        return None;
+    }
+    let inner = call_inside(&expr[index..])?;
+    plain_ident(strip_ref(split_arg(inner, false)))
 }
 
 fn is_free_call(expr: &str, paren: usize) -> bool {
@@ -267,79 +348,31 @@ fn plain_receiver(expr: &str) -> Option<&str> {
     plain_ident(expr.strip_prefix('&').unwrap_or(expr).trim())
 }
 
-pub(super) fn ident_prefix(expr: &str) -> &str {
-    let end = expr
-        .char_indices()
-        .find(|(_, ch)| !is_ident_char(*ch))
-        .map(|(index, _)| index)
-        .unwrap_or(expr.len());
-    &expr[..end]
-}
+#[cfg(test)]
+mod probes {
+    use super::super::credentialed_send_https_gaps;
 
-pub(super) fn strip_ref(arg: &str) -> &str {
-    arg.strip_prefix("&mut ")
-        .or_else(|| arg.strip_prefix('&'))
-        .unwrap_or(arg)
-}
-
-pub(super) fn is_single_eq(bytes: &[u8], index: usize) -> bool {
-    bytes.get(index) == Some(&b'=')
-        && !matches!(bytes.get(index + 1), Some(b'=' | b'>'))
-        && !matches!(
-            index.checked_sub(1).and_then(|prev| bytes.get(prev)),
-            Some(b'=' | b'!' | b'<' | b'>')
-        )
-}
-
-/// Argument list opener for `name(…)` and `(name)(…)` alias dispatches.
-pub(super) fn call_tail(source: &str, at: usize) -> Option<&str> {
-    let rest = &source[at..];
-    let name_len = leading_ident(rest).len();
-    if name_len == 0 {
-        return None;
+    #[test]
+    fn p5_decoy_scheme_after_builder_let_is_missing() {
+        let sample = r#"async fn f() { let request = client.get(evil); if decoy.scheme() != "https" { return } request.send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(sample), (1, 1), "{sample}");
     }
-    let mut tail = rest[name_len..].trim_start();
-    if tail.starts_with('(') {
-        return Some(tail);
-    }
-    loop {
-        let Some(stripped) = tail.strip_prefix(')') else {
-            break;
-        };
-        tail = strip_turbofish(stripped).unwrap_or(stripped).trim_start();
-        if tail.starts_with('(') {
-            return Some(tail);
-        }
-        if !tail.starts_with(')') {
-            break;
-        }
-    }
-    None
-}
 
-fn leading_ident(source: &str) -> &str {
-    let end = source
-        .char_indices()
-        .find(|(_, ch)| !is_ident_char(*ch))
-        .map(|(index, _)| index)
-        .unwrap_or(source.len());
-    &source[..end]
-}
-
-pub(super) fn stmt_end(bytes: &[u8], start: usize) -> usize {
-    let (mut depth, mut index) = (0i32, start);
-    while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        match bytes[index] {
-            b'(' | b'[' | b'{' => depth += 1,
-            b')' | b']' | b'}' if depth > 0 => depth -= 1,
-            b';' if depth == 0 => return index,
-            _ => {}
-        }
-        index += 1;
+    #[test]
+    fn p5_turbofish_typed_let_and_branch_urls() {
+        let fish = r#"async fn f() { if evil.scheme() != "https" { return Err("x".into()); } let request = client.get::<Body>(evil); request.send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(fish), (1, 0), "{fish}");
+        let fish_decoy = r#"async fn f() { if decoy.scheme() != "https" { return Err("x".into()); } let request = client.get::<Body>(evil); request.send().await?; }"#;
+        assert_eq!(
+            credentialed_send_https_gaps(fish_decoy),
+            (1, 1),
+            "{fish_decoy}"
+        );
+        let typed = r#"async fn f() { if decoy.scheme() != "https" { return Err("x".into()); } let request: RequestBuilder = client.request::<Body>(method, evil); request.send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(typed), (1, 1), "{typed}");
+        let branch = r#"async fn f() { let request = if cond { client.get(evil) } else { client.get(url) }; if url.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(branch), (1, 1), "{branch}");
+        let same = r#"async fn f() { let request = if cond { client.get(url) } else { client.get(url) }; if url.scheme() != "https" { return Err("x".into()); } request.send().await?; }"#;
+        assert_eq!(credentialed_send_https_gaps(same), (1, 0), "{same}");
     }
-    bytes.len()
 }
