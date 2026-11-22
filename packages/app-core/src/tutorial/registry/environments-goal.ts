@@ -13,12 +13,12 @@ export const ENVIRONMENTS_GOAL = {
   guide: [
     "guide/1",
     'goal "vault.environments"',
-    'say "An Environment item holds one varlock-compatible .env.schema and the vault item paths its keys bind to. It writes <vault-item-name>.<env-name>.env.schema and never holds a value."',
+    'say "An Environment item stores a varlock-compatible .env.schema and links its keys to vault items. Secret values remain in those items."',
     'wait state "vault.unlocked" is=true timeout=60000',
     'navigate "/vault"',
     'wait route "/vault" timeout=15000',
     'say "Press New item, choose Environment, name it, type the environment name, paste the schema, and add one KEY=vault/item/path alias for each key whose item name differs from the variable."',
-    'success "Save writes the item; its generated schema is ready to copy or download."',
+    'success "Save the item, then copy or download its generated schema."',
     "end",
   ].join("\n"),
 } satisfies GuideGoalDescriptor;

@@ -286,6 +286,7 @@ describe("the keyboard tab's reset leaves the gestures alone", () => {
 
 describe("the shake switch", () => {
   it("is absent where the browser has no motion sensor", () => {
+    vi.stubGlobal("DeviceMotionEvent", undefined);
     openGestures();
     expect(
       screen.queryByRole("switch", { name: /moving the phone/ }),

@@ -497,6 +497,17 @@
   gap: 0.85rem;
 }
 
+.unlock__seal-actions {
+  display: grid;
+  gap: 0.85rem;
+}
+
+@media (max-width: 560px) {
+  .unlock--lock-v5:not(.door) .unlock__seal-actions {
+    gap: 1.25rem;
+  }
+}
+
 .unlock__methods {
   display: flex;
   flex-wrap: wrap;
@@ -760,6 +771,21 @@
   .unlock__notes-summary {
     min-height: 44px;
     padding: 0.65rem 0;
+  }
+}
+
+/* Keep utilities in reach while a phone scrolls its gate. In a short
+   keyboard viewport the form gets the whole scrollport. */
+@media (max-width: 900px) and (min-height: 320px) {
+  .unlock--lock-v5:not(.door) {
+    scroll-padding-block-start: calc(3rem + env(safe-area-inset-top, 0px));
+  }
+
+  :where(.unlock--lock-v5:not(.door)) .unlock__brand {
+    position: sticky;
+    z-index: 1;
+    top: max(0.25rem, env(safe-area-inset-top, 0px));
+    background: var(--canvas);
   }
 }
 

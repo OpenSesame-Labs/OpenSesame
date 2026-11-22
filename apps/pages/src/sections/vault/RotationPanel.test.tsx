@@ -27,10 +27,10 @@ function snapshotApproving(approved: readonly string[]): CompositionSnapshot {
   return { ...base, plan: { ...base.plan, approvedCapabilities: approved } };
 }
 
-function renderPanel(item: VaultItem) {
+function renderPanel(item: VaultItem, scope = "personal") {
   return render(
     <MemoryRouter>
-      <RotationPanel item={item} scope="personal" />
+      <RotationPanel item={item} scope={scope} />
     </MemoryRouter>,
   );
 }
@@ -74,7 +74,7 @@ describe("RotationPanel", () => {
   it("prompts to configure password reset when the capability is off", async () => {
     renderPanel(account());
     await userEvent.click(
-      screen.getByRole("button", { name: /Generate new password/i }),
+      screen.getByRole("button", { name: /Request password rotation/i }),
     );
     expect(loadRotationEvents()).toHaveLength(0);
     const notices = listNotices();
@@ -96,7 +96,7 @@ describe("RotationPanel", () => {
     try {
       renderPanel(account());
       await userEvent.click(
-        screen.getByRole("button", { name: /Generate new password/i }),
+        screen.getByRole("button", { name: /Request password rotation/i }),
       );
       expect(loadRotationEvents()).toHaveLength(1);
       expect(await screen.findByText(/Out of sync/u)).toBeTruthy();
@@ -112,18 +112,74 @@ describe("RotationPanel", () => {
     expect(
       screen.queryByRole("button", { name: "Automatic rotation" }),
     ).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Request rotation" }),
+    ).toBeTruthy();
   });
 
-  it("warns when an account has no https site to target", () => {
-    renderPanel(createItem("account", "Private mail"));
-    expect(screen.getByText(/no https site to rotate/u)).toBeTruthy();
+  it("queues a manual request without changing the saved value", async () => {
+    const item = createItem("secret", "Service secret");
+    const original = structuredClone(item);
+    renderPanel(item);
+    await userEvent.click(
+      screen.getByRole("button", { name: "Request rotation" }),
+    );
+    expect(await screen.findByText(/Out of sync/u)).toBeTruthy();
+    expect(loadRotationEvents()).toHaveLength(1);
+    expect(item).toEqual(original);
+  });
+
+  it("offers to add a website instead of requesting an unavailable rotation", () => {
+    const item = createItem("account", "Private mail");
+    renderPanel(item);
+    expect(
+      screen.getByText("Add an HTTPS website to enable automatic rotation."),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Add website" }).getAttribute("href"),
+    ).toBe(`/vault/${item.id}/edit`);
     expect(
       screen.queryByRole("button", { name: "Automatic rotation" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Request password rotation" }),
     ).toBeNull();
   });
 
   it("draws nothing for a type without a generator", () => {
     renderPanel(createItem("note", "Memo"));
     expect(screen.queryByRole("heading", { name: "Rotation" })).toBeNull();
+  });
+
+  it("offers the editor instead of a rotation that cannot run in a guest vault", () => {
+    const item = account();
+    renderPanel(item, "");
+    expect(
+      screen
+        .getByRole("link", { name: "Edit to generate" })
+        .getAttribute("href"),
+    ).toBe(`/vault/${item.id}/edit`);
+    expect(
+      screen.queryByRole("button", { name: "Request password rotation" }),
+    ).toBeNull();
+    expect(loadRotationEvents()).toHaveLength(0);
+  });
+
+  it("offers guest secrets for editing without labeling their values as test data", () => {
+    const item = createItem("secret", "Service secret");
+    renderPanel(item, "");
+    expect(
+      screen
+        .getByRole("link", { name: "Edit to generate" })
+        .getAttribute("href"),
+    ).toBe(`/vault/${item.id}/edit`);
+    expect(screen.queryByText(/test|synthetic/iu)).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Request password rotation" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Request rotation" }),
+    ).toBeNull();
+    expect(loadRotationEvents()).toHaveLength(0);
   });
 });

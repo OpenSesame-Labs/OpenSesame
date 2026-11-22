@@ -6,7 +6,6 @@ import {
   itemTypeId,
 } from "@opensesame/vault-core";
 import type { PageTreeNode } from "../lib/page-to-tree.js";
-import { useGuideTarget } from "../tutorial/registry/react.jsx";
 import { PageTreeBranch, PageTreeLeafRow } from "./PageTreeBranch.js";
 
 export type VaultCounts = {
@@ -45,7 +44,6 @@ export function VaultRail({
   /** Incoming item shares, so the rail can name the received view. */
   sharedItems?: ReadonlyMap<string, { incoming: readonly unknown[] }>;
 }) {
-  const filtersRef = useGuideTarget<HTMLDivElement>("vault.filter");
   const live = items.filter((item) => item.deletedAt === null);
   const sharedCount = live.filter(
     (item) => (sharedItems?.get(item.id)?.incoming.length ?? 0) > 0,
@@ -60,7 +58,7 @@ export function VaultRail({
     ),
   );
   return (
-    <div className="railtree__kids" ref={filtersRef}>
+    <div className="railtree__kids">
       <PageTreeLeafRow
         node={vaultLeaf("all", allTo, counts.all)}
         level={2}
