@@ -202,6 +202,14 @@ removed after the interrupted sync has stopped. On Windows the temporary
 directory must be on local NTFS, where the snapshot can use a verified private
 ACL; unsupported filesystems are refused.
 
+When a local attachment revision counter exists, snapshot creation refuses a
+manifest advertising a different revision before contacting a destination or
+writing to it. This passphrase-free comparison cannot authenticate the header;
+an absent, edited, or restored counter is not an independent freshness witness.
+It does not protect direct operator uploads, nor an older concurrent snapshot
+that finishes after a newer sync. A restored whole store and its old counters
+can still roll back a replica. Preserve and independently verify backups.
+
 This is not an atomic multi-manifest snapshot on the provider: a failure during
 manifest publication can leave some old and some new versions. The CLI binds
 each upload to the `replication_version` returned by target discovery and
