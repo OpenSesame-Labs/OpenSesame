@@ -72,8 +72,7 @@ When upstream ships the fix: bump the dependency, delete the `.patch` file, the 
 | `nunjucks@3.2.4` | Supports chokidar 5 and starts its resolver watcher with an empty path list | `scripts/security/npm-workspaces.test.mjs` |
 | `@aws-sdk/xml-builder@3.972.42` | Preserves XML Unicode and entities and bounds custom entity expansion | `scripts/security/aws-xml-compat.test.mjs` and `.deepsec/aws-xml-compat.test.mjs` |
 | `kdbxweb@2.1.1` | Preserves tabs and carriage returns in XML text and CDATA and uses the reviewed fixed XML parser | `scripts/security/kdbxweb-compat.test.mjs` |
-| `glob@10.5.0`, `glob@11.1.0` | Stop filesystem traversal after cancellation while retaining compatible glob behavior | [compatibility note](#glob-and-minimatch-compatibility) |
-| `minimatch@9.0.9`, `minimatch@11.0.9` | Bound glob-part expansion while preserving matching behavior for older consumers | [compatibility note](#glob-and-minimatch-compatibility) |
+| `minimatch@11.0.9` | Keeps a bounded `braceExpandMax` default of 100,000 on the published release outside GHSA-g3hv-75wg-m249 | [compatibility note](#glob-and-minimatch-compatibility) |
 | `@joshwooding/vite-plugin-react-docgen-typescript@0.7.0`, `react-docgen-typescript@2.4.0` | Use the TypeScript 6 compiler API alongside the workspace's TypeScript 7 | `scripts/security/removed-dependencies.test.mjs` |
 | `node-turn@0.0.6` | Declares the reviewed security-fixed `js-yaml` and `log4js` releases used by the live TURN verifier | `scripts/security/dependency-override-upgrade.test.mjs` |
 | `@noble/post-quantum@0.5.4` | Declares the compatible, reviewed Noble 2.4 primitives already used by the workspace | `scripts/security/dependency-override-upgrade.test.mjs` |
@@ -96,47 +95,37 @@ A patch does not travel with a package published from this repository. A consume
 
 ## Glob and minimatch compatibility
 
-The dependency graph requires different major versions of `glob` and
-`minimatch`. A global override to glob 14 and minimatch 11 changes their
-matching behavior: an archive or Workbox precache can silently omit a file
-after the first 10,000 brace alternatives, and `readdir-glob` changes a
-documented `noglobstar` match. The regression tests exercise those consumers.
+Every `glob` copy is the published `glob` 14.0.6, outside GHSA-3g3m-2fjr-6pw4
+(`>=9.0.0 <=14.0.1`). The `glob@^10.0.0`, `glob@^11.0.1`, `glob@^13.0.1` and
+`glob@^13.0.6` overrides, and the direct glob pins for Promptfoo, docgen and
+the filesystem server, select it. Archiver (`archiver-utils`, through
+testcontainers) calls `glob.sync` and Workbox (`workbox-build`, through
+`vite-plugin-pwa`) calls `globSync` with `cwd`, `follow` and `ignore`; glob 14
+keeps those exports and options in both its CommonJS and ESM builds.
 
-The npm tarballs are pinned to these published versions and patched sources:
+Glob 14 depends on `minimatch` 11. Every `minimatch` 10 or 11 range, and
+glob 14 itself, resolves to the vendored `minimatch` 11.0.9, outside
+GHSA-g3hv-75wg-m249 (`>=7.0.0 <=11.0.0`). Upstream 11.x throws a `RangeError`
+instead of building an unbounded glob-part set. The patch only gives brace
+expansion a bounded 100,000-alternative default when `braceExpandMax` is unset
+or invalid, so an archive or Workbox precache pattern still matches past the
+10,000th alternative instead of silently omitting a file.
 
-- `glob` 10.5.0 and 11.1.0: the four abort branches return after invoking the
-  callback, matching the upstream cancellation fix for GHSA-3g3m-2fjr-6pw4.
-  Both CommonJS and ESM distributions receive the change.
-- `minimatch` 9.0.9 and 11.0.9: the 9.x tarball keeps the glob-part expansion cap
-  for legacy consumers; the 11.0.9 tarball is outside GHSA-g3hv-75wg-m249 and
-  adds the same bounded `braceExpandMax` default used on the old 10.x backport.
-- `minimatch` 5.1.9 uses `brace-expansion` 2.1.8. Both are published versions
-  within the older consumers' declared ranges and outside the known affected
-  ranges in the local advisory database.
+`minimatch` 5.1.9 uses `brace-expansion` 2.1.8 for `filelist` and
+`readdir-glob`, which keep their documented `noglobstar` and parent-segment
+behavior. Both are published versions within those consumers' declared ranges
+and outside the known affected ranges in the local advisory database.
 
-The published `glob` 13.0.7 already has the four cancellation returns, but the
-local OSV data still lists releases before 14.0.2 as affected. The
-`glob@^13.0.1` and `glob@^13.0.6` overrides, and the direct glob pins for
-those same consumers, therefore select published `glob` 14.0.6. That release
-depends on `minimatch` 11, so those glob edges do not force the patched
-`minimatch` 10 tarball. Glob 10 and 11 stay on the patched tarballs so older
-consumers keep their matching behavior. The withdrawn picomatch advisory
-GHSA-fc5q-39xc-vjpf is no longer a scanner finding. The audit gate keeps the
-four patched Glob and Minimatch findings in its artifact while a fail-closed
-attestation binds each exact tuple to every lock occurrence, published or
-reverse-reconstructed upstream source, patch and vendored tarball digest, and
-named behavior regression. It cannot classify a new advisory, version, range,
-occurrence, source, patch, tarball, or test.
+No Glob or Minimatch advisory finding remains, so the audit gate attests no
+exception: any finding fails it.
 
-`removed-dependencies.test.mjs` exercises promise and stream cancellation
-through the installed CommonJS and ESM packages. Its consumer tests cover the
-archive, Workbox, Promptfoo, filesystem search, Stryker and docgen paths, as
-well as the actual legacy matcher behavior. `patches:verify` compares each
+`glob-override-upgrade.test.mjs` fails if any lockfile copy of either package
+re-enters its advisory range. `removed-dependencies.test.mjs` exercises promise
+and stream cancellation through the installed CommonJS and ESM packages, and
+its consumer tests cover the archive, Workbox, Promptfoo, filesystem search,
+Stryker and docgen paths, including the bounded glob-part and brace expansion
+of the matcher that Archiver and Workbox load. `patches:verify` compares the
 vendored tarball against the integrity-pinned published archive plus its patch.
-
-The patched generated JavaScript retains the upstream line count. Its source
-maps embed the corresponding modified TypeScript and map generated code back to
-the changed guards in both CommonJS and ES module builds.
 
 ## SQLx SQLite compatibility backport
 

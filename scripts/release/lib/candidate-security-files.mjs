@@ -42,6 +42,7 @@ export const REQUIRED_SECURITY_POLICY_FILES = [
   "scripts/security/formal-proof-source-history.mjs",
   "scripts/security/formal-cargo-isolation.py",
   "scripts/security/formal-cargo-freshness.py",
+  "scripts/security/formal_cargo_packages.py",
   "scripts/security/formal-proof-required-suites.mjs",
   "scripts/security/formal-proof-push-gate.mjs",
   "scripts/security/formal-proof-push-history.mjs",

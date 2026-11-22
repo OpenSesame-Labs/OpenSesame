@@ -149,7 +149,7 @@
     },
     {
       "path": "crates/storage/src/lib.rs",
-      "sha256": "eafab5f9688d370d28e57a9dc14232252b137cb22708ebd43c37578f994db327"
+      "sha256": "c4f53cb771ca9aba298fc7fc0f3aa074e73fa4a2f65624efa3030e605a6ad47c"
     },
     {
       "path": "crates/storage/src/migrations.rs",
@@ -361,7 +361,11 @@
     },
     {
       "path": "scripts/security/formal-cargo-freshness.py",
-      "sha256": "dddc45d402e6a9dc9c840041c8509f4788147da714d3d2132ddf2932af7d21e8"
+      "sha256": "2979653de809551b07132fcc526b115125bdcb9e32ae360feaae6a63f5f0ca89"
+    },
+    {
+      "path": "scripts/security/formal_cargo_packages.py",
+      "sha256": "ba1a9a5455c84891ec5f917015d4ec28f21d470f094f1e20785b77f927480eb4"
     },
     {
       "path": "scripts/security/formal-proof-source-history.mjs",

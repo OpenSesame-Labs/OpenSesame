@@ -538,6 +538,8 @@ jobs:
           PULL_NUMBER: ${{ github.event.pull_request.number }}
           SELECTED: ${{ needs.changes.outputs.typescript }}
           SUITE_RESULT: ${{ needs.typescript-build.result }}
+          # Named in the failure so an abandoned upstream build is visible.
+          SUITE_JOB: typescript-build
         run: node scripts/lib/ci-required-result.mjs
 
   bundle-check:
@@ -570,6 +572,8 @@ jobs:
           PULL_NUMBER: ${{ github.event.pull_request.number }}
           SELECTED: ${{ needs.changes.outputs.typescript }}
           SUITE_RESULT: ${{ needs.typescript-build.result }}
+          # Named in the failure so an abandoned upstream build is visible.
+          SUITE_JOB: typescript-build
         run: node scripts/lib/ci-required-result.mjs
 
   rust-check:
@@ -601,4 +605,6 @@ jobs:
           PULL_NUMBER: ${{ github.event.pull_request.number }}
           SELECTED: ${{ needs.changes.outputs.rust }}
           SUITE_RESULT: ${{ needs.rust-build.result }}
+          # Named in the failure so an abandoned upstream build is visible.
+          SUITE_JOB: rust-build
         run: node scripts/lib/ci-required-result.mjs
