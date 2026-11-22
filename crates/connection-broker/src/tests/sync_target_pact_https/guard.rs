@@ -1,6 +1,6 @@
 //! Scheme predicate, closure-local `return`, and URL binding for the HTTPS guard.
 use super::super::sync_target_pact_norm::{is_keyword_at, match_brace, string_len};
-use super::{after_paren, ident_at, is_ident_byte, is_ident_char, strip_turbofish};
+use super::{after_paren, ident_at, is_ident_byte, strip_turbofish};
 
 pub(super) fn guarded(prefix: &str, dest: Option<&str>) -> bool {
     let bytes = prefix.as_bytes();
@@ -111,7 +111,7 @@ fn scheme_subject(expr: &str) -> Option<String> {
     let at = scheme_at(expr)?;
     let bytes = expr.as_bytes();
     if at > 0 && bytes[at - 1] == b'.' {
-        let name = trailing_name(&expr[..at - 1]);
+        let name = super::closure::trailing_name(&expr[..at - 1]);
         return (!name.is_empty()).then(|| name.to_string());
     }
     if at >= 2 && &bytes[at - 2..at] == b"::" {
@@ -262,7 +262,7 @@ fn depth0_return(body: &str) -> bool {
             b'}' => depth -= 1,
             b';' if depth == 0 => stmt = index + 1,
             _ if depth == 0 && is_keyword_at(bytes, index, b"return") => {
-                if !closure_owns(&body[stmt..index]) {
+                if !super::closure::closure_owns(&body[stmt..index]) {
                     return true;
                 }
             }
@@ -271,81 +271,6 @@ fn depth0_return(body: &str) -> bool {
         index += 1;
     }
     false
-}
-
-fn closure_owns(before: &str) -> bool {
-    let bytes = before.as_bytes();
-    let mut index = 0usize;
-    while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        if bytes[index] == b'|'
-            && pipe_is_closure(before, index)
-            && closure_body_at(before, index).is_some_and(|at| runs_to_end(&before[at..]))
-        {
-            return true;
-        }
-        index += 1;
-    }
-    false
-}
-
-fn pipe_is_closure(body: &str, pipe: usize) -> bool {
-    if pipe == 0 {
-        return true;
-    }
-    let prev = body.as_bytes()[pipe - 1];
-    matches!(prev, b'=' | b'(' | b'{' | b',' | b';' | b'[')
-        || matches!(trailing_name(&body[..pipe]), "move" | "async")
-}
-
-fn closure_body_at(body: &str, pipe: usize) -> Option<usize> {
-    let bytes = body.as_bytes();
-    if bytes.get(pipe + 1) == Some(&b'|') {
-        return Some(pipe + 2);
-    }
-    let (mut depth, mut index) = (0i32, pipe + 1);
-    while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        match bytes[index] {
-            b'(' | b'[' | b'{' | b'<' => depth += 1,
-            b')' | b']' | b'}' | b'>' if depth > 0 => depth -= 1,
-            b'|' if depth == 0 => return Some(index + 1),
-            b';' | b'=' if depth == 0 => return None,
-            _ => {}
-        }
-        index += 1;
-    }
-    None
-}
-
-fn runs_to_end(body: &str) -> bool {
-    let bytes = body.as_bytes();
-    let (mut depth, mut index) = (0i32, 0usize);
-    while index < bytes.len() {
-        if let Some(len) = string_len(bytes, index) {
-            index += len;
-            continue;
-        }
-        match bytes[index] {
-            b'(' | b'[' | b'{' | b'<' => depth += 1,
-            b')' | b']' | b'}' | b'>' => {
-                if depth == 0 {
-                    return false;
-                }
-                depth -= 1;
-            }
-            b',' | b';' if depth == 0 => return false,
-            _ => {}
-        }
-        index += 1;
-    }
-    true
 }
 
 fn scheme_neq_end(source: &str, index: usize) -> Option<usize> {
@@ -396,15 +321,4 @@ fn strip_ref(arg: &str) -> &str {
 
 fn plain_ident(expr: &str) -> Option<&str> {
     super::bind::plain_ident(expr)
-}
-
-fn trailing_name(prefix: &str) -> &str {
-    let mut start = prefix.len();
-    for (index, ch) in prefix.char_indices().rev() {
-        if !is_ident_char(ch) {
-            break;
-        }
-        start = index;
-    }
-    &prefix[start..]
 }
