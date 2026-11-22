@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 import {
+  claimGuestAuth,
   continueAsGuest,
   guestAuthDependencies,
   linkGuestAccount,
@@ -18,20 +19,25 @@ import { clearNotices, listNotices } from "./notices.js";
 describe("guest login journey", () => {
   beforeEach(() => {
     clearNotices();
+    const guest = {
+      principalId: "prn_guest",
+      accessToken: "guest-tok",
+      issuerOrigin: "http://127.0.0.1:18788",
+    };
+    let active: typeof guest | null = null;
     guestAuthDependencies.createGuest = vi.fn().mockResolvedValue(undefined);
     guestAuthDependencies.isRemoteIdentityConfigured = () => true;
-    guestAuthDependencies.connectProvisional = vi
-      .fn()
-      .mockResolvedValue({ principalId: "prn_guest" });
+    guestAuthDependencies.connectFreshProvisional = vi.fn(async () => {
+      active = guest;
+      return guest;
+    });
+    guestAuthDependencies.connectProvisional = vi.fn().mockResolvedValue(guest);
     guestAuthDependencies.identityJson = vi.fn().mockResolvedValue({
       principalId: "prn_guest",
       identity: { assurance: "verified" },
     });
-    guestAuthDependencies.currentSession = () => ({
-      principalId: "prn_guest",
-      accessToken: "guest-tok",
-      issuerOrigin: "http://127.0.0.1:18788",
-    });
+    guestAuthDependencies.currentSession = () => active;
+    guestAuthDependencies.loadFederationSession = () => null;
   });
 
   afterEach(() => {
@@ -52,13 +58,13 @@ describe("guest login journey", () => {
     expect(notice?.title).toMatch(/Claim this guest session/);
   });
 
-  it("Given a guest claim already waiting, When they continue as guest again, Then Identity is not asked again", async () => {
+  it("does not request another claim while one is waiting", async () => {
     await continueAsGuest();
     vi.mocked(guestAuthDependencies.connectProvisional).mockClear();
 
-    await continueAsGuest();
+    await claimGuestAuth();
 
-    expect(guestAuthDependencies.createGuest).toHaveBeenCalledTimes(2);
+    expect(guestAuthDependencies.createGuest).toHaveBeenCalledTimes(1);
     expect(guestAuthDependencies.connectProvisional).not.toHaveBeenCalled();
     expect(listNotices()).toHaveLength(1);
   });

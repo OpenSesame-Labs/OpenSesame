@@ -1,10 +1,4 @@
-/**
- * Guest login — no passkey or password. A provisional Identity session is
- * minted, then a registered-auth claim waits on the notifications bell.
- * Completing that claim POSTs the upstream id_token to Identity so the same
- * principalId is promoted (ADR 0033). The HttpOnly provisional cookie survives
- * the OIDC redirect; browser storage never receives the bearer.
- */
+/** Guest entry and identity claim; the bearer stays in memory (ADR 0033). */
 
 import {
   clearPendingLink,
@@ -18,6 +12,7 @@ export {
   storedKeyPresent,
 } from "./federated-pending-link.js";
 
+import { resolveIdentityBase } from "./device-identity.js";
 import { assertGuestsAllowed } from "./guest-access.js";
 import { claimProvisionalHistoryAccounts } from "./history-backups.js";
 import {
@@ -27,6 +22,7 @@ import {
 } from "./history-claim-notice.js";
 import {
   IdentityError,
+  connectFreshProvisional,
   connectProvisional,
   currentSession,
   identityJson,
@@ -46,19 +42,21 @@ const FEDERATED_NOTICE_TITLE = "Finish attaching your sign-in";
 const FEDERATED_NOTICE_BODY =
   "You are signed in, but this device's vault was locked so the account was not attached yet. Unlock the vault, then finish from here.";
 
-/**
- * Identity answers 409 when this upstream account is already bound to another
- * principal. Nothing the user can retry into — say so instead of leaking a
- * transport-shaped message.
- */
+/** A 409 means the upstream identity belongs to another principal. */
 const COLLISION_MESSAGE =
   "That account is already attached to a different OpenSesame identity.";
+
+export const FRESH_GUEST_SIGN_OUT_MESSAGE =
+  "Sign out of the current account first, then continue as a fresh guest.";
+export const FRESH_GUEST_STATUS_UNKNOWN_MESSAGE =
+  "Check your connection, then try again.";
 
 // Stryker disable all: mutable test seam; behavior is exercised through the exported operations
 export const guestAuthDependencies = {
   rebindSession,
   sessionEpoch: identitySessionEpoch,
   connectProvisional,
+  connectFreshProvisional,
   resumeSession: () => identitySeams.resumeSession(),
   currentSession,
   isRemoteIdentityConfigured,
@@ -67,6 +65,7 @@ export const guestAuthDependencies = {
     vaultStore.createGuest(options),
   vaultStatus: () => vaultStore.getSnapshot().status,
   loadFederationSession,
+  mintGuestPerson: mintGuestSessionPersonLocked,
   /** Identity installs the directory seed; a minimal vault leaves it undone. */
   ensureDefaultAccess: async (_tomb: string): Promise<void> => {},
 };
@@ -74,15 +73,7 @@ export const guestAuthDependencies = {
 
 let inFlightClaim: Promise<void> | null = null;
 
-/**
- * Whether there is an identity service to attach a principal to at all.
- *
- * A static deployment with no Identity API is the common case and a complete
- * one (ADR 0090): a guest session is a local vault, and a federated sign-in is
- * the broker's assertion held on this device. Nothing here is "pending" — a
- * claim or link prompt would name a service that does not exist and read as
- * an error on a deployment that is working exactly as designed.
- */
+/** A local-only deployment has no remote identity to claim (ADR 0090). */
 function hasIdentityService(): boolean {
   return guestAuthDependencies.isRemoteIdentityConfigured();
 }
@@ -127,25 +118,56 @@ async function seedGuestAccess(): Promise<void> {
   }
 }
 
-async function openGuestVault(mode: "fresh" | "resume"): Promise<void> {
+function assertNoKnownRemoteSession(expectedPrincipalId?: string): void {
+  const active = guestAuthDependencies.currentSession();
+  if (
+    (active && active.principalId !== expectedPrincipalId) ||
+    guestAuthDependencies.loadFederationSession()
+  ) {
+    throw new Error(FRESH_GUEST_SIGN_OUT_MESSAGE);
+  }
+}
+
+async function openGuestVault(
+  mode: "fresh" | "resume",
+  freshAdmission = false,
+  expectedPrincipalId?: string,
+): Promise<void> {
   // Both guest roads end here, so the operator's switch is enforced here too.
   assertGuestsAllowed();
   // Fresh mints a new principal (`guest-N`); resume only when none survived.
-  if (mode === "fresh" || !readGuestSessionPerson())
-    await mintGuestSessionPersonLocked();
+  if (mode === "fresh" || !readGuestSessionPerson()) {
+    await guestAuthDependencies.mintGuestPerson(
+      freshAdmission
+        ? () => assertNoKnownRemoteSession(expectedPrincipalId)
+        : undefined,
+    );
+  }
   await guestAuthDependencies.createGuest({ resume: mode === "resume" });
   await seedGuestAccess();
 }
 
 async function continueAsGuestDefault(): Promise<void> {
-  await openGuestVault("fresh");
+  // A fresh guest must not reuse a local or remote session; resume keeps its person.
+  const principalId = await establishFreshGuestIdentity();
+  await openGuestVault("fresh", true, principalId);
   await claimGuestAuthDefault();
 }
 
 /** Unlock on the guest road after lock/reload — same principal, keep claims. */
 async function resumeGuestSessionDefault(): Promise<void> {
-  await openGuestVault("resume");
+  const fresh = !readGuestSessionPerson();
+  const principalId = fresh ? await establishFreshGuestIdentity() : undefined;
+  await openGuestVault("resume", fresh, principalId);
   await claimGuestAuthDefault();
+}
+
+async function establishFreshGuestIdentity(): Promise<string | undefined> {
+  assertNoKnownRemoteSession();
+  if (!hasIdentityService()) return undefined;
+  const session = await guestAuthDependencies.connectFreshProvisional();
+  assertNoKnownRemoteSession(session.principalId);
+  return session.principalId;
 }
 
 export type LinkGuestAccountOutcome = { mintedPrincipal: boolean };
@@ -155,10 +177,7 @@ async function linkGuestAccountDefault(
 ): Promise<LinkGuestAccountOutcome> {
   let mintedPrincipal = false;
   if (!guestAuthDependencies.currentSession()) {
-    // Resume the server-authenticated HttpOnly cookie first — that is the
-    // persistent user, reused. Only when no session survived does
-    // connecting mint a new provisional principal, and the caller is told
-    // so a brand-new identity is never created silently.
+    // Resume the cookie first; report if a new principal had to be minted.
     const resumed = await guestAuthDependencies.resumeSession();
     if (!resumed) {
       mintedPrincipal = true;
@@ -168,6 +187,7 @@ async function linkGuestAccountDefault(
   // The session this link is for. A sign-out or lock while the request is
   // in flight must not be undone by the token the answer carries.
   const epoch = guestAuthDependencies.sessionEpoch();
+  const issuerBase = resolveIdentityBase();
   const linked = await guestAuthDependencies.identityJson<{
     principalId?: string;
     accessToken?: string;
@@ -175,15 +195,14 @@ async function linkGuestAccountDefault(
     method: "POST",
     body: JSON.stringify({ idToken }),
   });
-  // The verified identity can belong to a principal that already exists
-  // (verified-email join, or the same upstream account returning): the
-  // server rebound the session to that principal and issued its token.
-  // Stand on it (rebind, not adopt: the cookie already names it), so this
-  // device continues as the person it used to be rather
-  // than as a provisional minted for the trip — nothing new was created.
+  // Rebind to the existing principal; the cookie already names its token.
   if (linked?.accessToken) {
     mintedPrincipal = false;
-    await guestAuthDependencies.rebindSession(linked.accessToken, epoch);
+    await guestAuthDependencies.rebindSession(
+      linked.accessToken,
+      epoch,
+      issuerBase,
+    );
   }
   const principalId =
     linked?.principalId ?? guestAuthDependencies.currentSession()?.principalId;
@@ -208,30 +227,15 @@ function describeLinkFailure(caught: Error | null): string {
     : "Attaching the account failed.";
 }
 
-/**
- * What `adoptFederatedIdentity` did with the verified identity — the caller
- * (the federation return screen) surfaces this instead of guessing, so a
- * sign-in that could not finish is said out loud rather than swallowed.
- */
+/** Outcome surfaced by the federation return screen. */
 export type FederatedAdoptOutcome =
   | { kind: "linked" }
-  /**
-   * Signed in on this device with no identity service to attach to. Not a
-   * failure and not pending: the broker's assertion is the identity here.
-   */
+  /** Local sign-in with no remote identity service. */
   | { kind: "local" }
   | { kind: "pending_link" }
   | { kind: "link_failed"; reason: string };
 
-/**
- * Attach a verified upstream identity to a principal, whatever state this
- * device is in when the browser comes back from the upstream (ADR 0033 §4).
- *
- * Federation establishes *who you are* — it never decrypts the local E2EE
- * vault. On a true first run the vault is therefore created the same ephemeral
- * way "Continue as guest" creates one; sealing it with a passkey, PIN, or
- * password stays a later choice in Settings.
- */
+/** Attach verified identity without decrypting a locked vault (ADR 0033). */
 async function adoptFederatedIdentityDefault(
   idToken: string,
 ): Promise<FederatedAdoptOutcome> {
@@ -264,10 +268,7 @@ async function adoptFederatedIdentityDefault(
       clearPendingLink();
       return { kind: "linked" };
     } catch (caught) {
-      // The user is already inside the app; throwing here would push them back
-      // out of a sign-in that, from their side, worked. The verified assertion
-      // survives in web storage (federation's `saveSession`), so the bell can
-      // retry.
+      // Preserve the sign-in and offer the failed link for retry.
       const reason = describeLinkFailure(
         caught instanceof Error ? caught : null,
       );
@@ -312,18 +313,7 @@ async function linkToOpenVault(idToken: string): Promise<void> {
   }
 }
 
-/**
- * Land a finished ceremony inside the app, not back on the sign-in screen.
- *
- * A verified sign-in with no vault on this device opens the same ephemeral
- * vault "Continue as guest" would — the session says who you are, and sealing
- * the vault with a passkey, PIN, or password stays a later choice in Settings.
- * A locked vault stays locked: federation never decrypts the local E2EE vault,
- * so the caller keeps its "signed in, now unlock" banner for that case.
- *
- * Returns whether the vault is open afterwards — i.e. whether the person
- * landed in the app.
- */
+/** Open an empty vault after sign-in; federation never unlocks a sealed vault. */
 async function openVaultAfterSignInDefault(): Promise<boolean> {
   if (guestAuthDependencies.vaultStatus() === "empty") {
     await openGuestVault("resume");
@@ -331,13 +321,7 @@ async function openVaultAfterSignInDefault(): Promise<boolean> {
   return guestAuthDependencies.vaultStatus() === "unlocked";
 }
 
-/**
- * Re-raise the "finish attaching this sign-in" prompt after a reload. Notices
- * are in-memory, so a refresh drops them while the upstream assertion lives on
- * in web storage. The prompt reuses the notifications bell's existing claim
- * button, which restarts sign-in and lands back in `adoptFederatedIdentity`
- * with the vault now open.
- */
+/** Restore the pending-link notice after a reload. */
 function recoverPendingFederatedLinkDefault(): void {
   if (!pendingLinkMarked()) return;
   if (!guestAuthDependencies.loadFederationSession()) {

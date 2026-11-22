@@ -22,8 +22,14 @@ import {
   peekGuestArrival,
   takeGuestArrival,
 } from "@opensesame/app-core/lib/ceremony-aliases.js";
-import { continueAsGuest } from "@opensesame/app-core/lib/guest-auth.js";
-import { useCallback, useEffect, useRef } from "react";
+import {
+  FRESH_GUEST_SIGN_OUT_MESSAGE,
+  FRESH_GUEST_STATUS_UNKNOWN_MESSAGE,
+  continueAsGuest,
+} from "@opensesame/app-core/lib/guest-auth.js";
+import { signOut } from "@opensesame/app-core/lib/session-exit.js";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useGuestsAllowed } from "../../bindings/guest-access.js";
 import { landFocus } from "../../lib/focus.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
@@ -114,26 +120,52 @@ export function GuestUnlockSwitch({
   hidden?: boolean;
 }) {
   const ref = useGuestArrivalFocus();
+  const [admissionFailure, setAdmissionFailure] = useState<string | null>(null);
   if (!useGuestsAllowed() || hidden) return null;
+  const startGuest = () => {
+    setError(null);
+    setAdmissionFailure(null);
+    setBusy(true);
+    void continueAsGuest()
+      .catch((caught) => {
+        const message =
+          caught instanceof Error ? caught.message : "Guest login failed.";
+        setAdmissionFailure(message);
+        setError(message);
+      })
+      .finally(() => setBusy(false));
+  };
+  const recovery =
+    admissionFailure === FRESH_GUEST_SIGN_OUT_MESSAGE ? (
+      <button
+        type="button"
+        className="unlock__switch"
+        onClick={() => {
+          signOut();
+          setAdmissionFailure(null);
+          setError(null);
+        }}
+      >
+        Sign out
+      </button>
+    ) : admissionFailure === FRESH_GUEST_STATUS_UNKNOWN_MESSAGE ? (
+      <button type="button" className="unlock__switch" onClick={startGuest}>
+        Try again
+      </button>
+    ) : null;
+  const seat = recovery ? document.querySelector(".gate-notice-seat") : null;
   return (
-    <button
-      ref={ref}
-      type="button"
-      className="unlock__switch"
-      disabled={busy}
-      onClick={() => {
-        setError(null);
-        setBusy(true);
-        void continueAsGuest()
-          .catch((caught) => {
-            setError(
-              caught instanceof Error ? caught.message : "Guest login failed.",
-            );
-          })
-          .finally(() => setBusy(false));
-      }}
-    >
-      {GUEST_VAULT_LINK}
-    </button>
+    <>
+      <button
+        ref={ref}
+        type="button"
+        className="unlock__switch"
+        disabled={busy}
+        onClick={startGuest}
+      >
+        {GUEST_VAULT_LINK}
+      </button>
+      {seat && recovery ? createPortal(recovery, seat) : recovery}
+    </>
   );
 }
