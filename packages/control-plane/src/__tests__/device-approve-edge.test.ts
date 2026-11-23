@@ -65,9 +65,9 @@ describe("device approve edge cases", () => {
     const { app } = createControlPlane({ config: testConfig() });
     const owner = await verified(app, "device-multi-org");
     // Personal workspace plus one created organization.
-    expect((await createOrg(app, owner.accessToken, "second-org")).status).toBe(
-      201,
-    );
+    const created = await createOrg(app, owner.accessToken, "second-org");
+    expect(created.status).toBe(201);
+    const organization = overlapCast(await created.json());
 
     const res = await app.request("/v1/device/approve", {
       method: "POST",
@@ -80,6 +80,49 @@ describe("device approve edge cases", () => {
     expect(res.status).toBe(400);
     expect(overlapCast(await res.json()).error).toBe(
       "organization_id_required",
+    );
+    const host = mockHostFetch(() =>
+      Promise.resolve(Response.json({ ok: true })),
+    );
+    const selected = await app.request("/v1/device/approve", {
+      method: "POST",
+      headers: {
+        ...auth(owner.accessToken),
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        user_code: "ABCD-EFGH",
+        organization_id: organization.id,
+      }),
+    });
+    expect(selected.status).toBe(200);
+    const forwarded = JSON.parse(String(host.mock.calls[0]?.[1]?.body));
+    expect(forwarded).toMatchObject({
+      user_code: "ABCD-EFGH",
+      principal: owner.principalId,
+      organization_id: organization.id,
+      organization_role: "owner",
+    });
+    expect(forwarded.membership_incarnation).toMatch(/^[0-9a-f-]{36}$/);
+    expect(forwarded.authority_revision).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it("explains when the account has no organization and bootstrap is disabled", async () => {
+    const { app } = createControlPlane({
+      config: { ...testConfig(), bootstrapPersonalOrganization: false },
+    });
+    const created = await provisional(app);
+    const res = await app.request("/v1/device/approve", {
+      method: "POST",
+      headers: {
+        ...auth(created.accessToken),
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ user_code: "ABCD-EFGH" }),
+    });
+    expect(res.status).toBe(403);
+    expect(overlapCast(await res.json()).error).toBe(
+      "organization_membership_required",
     );
   });
 

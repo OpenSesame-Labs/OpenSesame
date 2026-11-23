@@ -75,7 +75,8 @@ describe("approveDevice", () => {
     [404, "host_approval_failed", /No device is waiting on that code/],
     [502, "host_approval_failed", /could not be approved/],
     [400, "invalid_request", /exactly as the device shows it/],
-    [400, "organization_id_required", /several organizations/],
+    [400, "organization_id_required", /Choose an organization/],
+    [403, "organization_membership_required", /add you to an organization/],
     [403, "organization_access_denied", /organization that device is joining/],
   ])("words a %i carrying %s by its code", async (status, code, words) => {
     const error = await failure(answer(status, { error: code, hint: "x" }));

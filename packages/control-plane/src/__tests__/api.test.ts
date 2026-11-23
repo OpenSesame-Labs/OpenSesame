@@ -750,7 +750,7 @@ describe("control-plane API", () => {
         publicUrl: "http://127.0.0.1:8788",
         issuer: "http://127.0.0.1:8788",
         // Keep bootstrapPersonalOrganization: false so device approve hits
-        // organization_id_required and quota tests are not pre-consumed.
+        // organization_membership_required and quota tests are not pre-consumed.
         bootstrapPersonalOrganization: false,
       },
     });
@@ -768,7 +768,7 @@ describe("control-plane API", () => {
       headers: { ...auth, "content-type": "application/json" },
       body: JSON.stringify({ user_code: "ABCD-EFGH" }),
     });
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(403);
     const body = await res.text();
     expect(body).not.toContain(config.operatorToken);
     expect(body.toLowerCase()).not.toContain("x-opensesame-operator");
@@ -798,12 +798,13 @@ describe("control-plane API", () => {
     expect((await approve({ origin: "https://evil.example" })).status).toBe(
       401,
     );
-    // An origin this deployment listed, or its own, is a caller it expects.
+    // An origin this deployment listed, or its own, is a caller it expects:
+    // it passes the origin gate and is refused only for having no membership.
     expect((await approve({ origin: "https://console.example" })).status).toBe(
-      400,
+      403,
     );
     expect((await approve({ origin: "http://127.0.0.1:8788" })).status).toBe(
-      400,
+      403,
     );
     // Reads are untouched: a forged read is not a forged write.
     const read = await app.request("/v1/audit/events", {
