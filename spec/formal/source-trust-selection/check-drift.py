@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import stat
 import sys
+import tarfile
 import tempfile
 import types
 
@@ -239,6 +240,12 @@ NATS_PATHS = [
 ]
 NATS_BUILD_PATHS = [str(Path(path).with_name("build.rs")) for path in NATS_MANIFESTS]
 NATS_OPTIONAL_PATHS = ["crates/Cargo.toml", *NATS_BUILD_PATHS, ".cargo/config", ".cargo/config.toml"]
+# 2026-11-23: opensesame-time's default sqlx feature compiles the declared
+# sqlx-sqlite path patch into this closure. It is outside the modeled property;
+# its tree is pinned by the reviewed vendored-crate verifier, run on each check.
+VENDORED_VERIFIERS = ["scripts/security/verify-vendored-sqlx.py"]
+PATHS.extend(VENDORED_VERIFIERS)
+NATS_PATHS.extend(VENDORED_VERIFIERS)
 
 
 def check_nats_test_inventory():
@@ -327,6 +334,8 @@ def main():
         helper_name = "scripts/security/formal-cargo-isolation.py"
         isolation = load_verified("reviewed_cargo_isolation", helper_name, verified[helper_name])
         isolation.check_cargo_targets(ROOT, NATS_TARGETS if nats else TARGETS, set(verified))
+        for name in VENDORED_VERIFIERS:  # re-attest each declared vendored patch
+            load_verified("reviewed_vendored_crate", name, verified[name]).verify(ROOT)
         # Load the exact verified bytes in a new private directory. This also
         # isolates nested helper imports from ignored stale/forged __pycache__.
         helpers = [
@@ -364,7 +373,7 @@ def main():
             }
             if coverage.get("workspace_projection") != expected_workspace:
                 raise ValueError("review gateway workspace inputs drift")
-    except (OSError, ValueError, KeyError, TypeError) as exc:
+    except (OSError, ValueError, KeyError, TypeError, tarfile.TarError) as exc:
         raise SystemExit(f"source-trust-selection-formal: {exc}") from exc
     print(f"source-trust-selection-formal: reviewed sources and dependencies match base {coverage['reviewed_revision']}")
 

@@ -222,6 +222,12 @@
       "sha256": "f0d313d9895adc193afc26ae954b90bceb94deda66da239199c527eaf628eeda",
       "base_blob": null,
       "reviewed_blob": "b8e717016bf2334cbbe6bf514b322cb97bc9513f"
+    },
+    {
+      "path": "scripts/security/verify-vendored-sqlx.py",
+      "sha256": "9e5379943c90e2c65db4a64a47a4111c23a579aa24252827867fa1dde90afb7b",
+      "base_blob": "1d9776a6c01608eb81f4114b01a5811186369fb8",
+      "reviewed_blob": "1d9776a6c01608eb81f4114b01a5811186369fb8"
     }
   ]
 }
