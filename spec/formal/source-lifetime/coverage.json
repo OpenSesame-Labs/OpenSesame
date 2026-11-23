@@ -1,7 +1,7 @@
 {
   "version": 2,
   "reviewed_revision": "863b64ec3ed5178b7ac7c3fec37b83657c038554",
-  "reviewed_source_state": "Source hashes identify the reviewed ownership fix and evidence after the recorded base revision. 2026-11-23: re-pinned after behaviour-preserving lint and format repairs: cargo fmt of files main left unformatted; spiffe-source source.rs drops a test-only import; WaitError boxes its SourceStatus (clippy result_large_err; same variants and observations); xkeys open drops a redundant nonce re-conversion; est_freshness.rs is loaded once. No modeled transition, guard or persistence changed. Lean suites not run here (no Lean toolchain); Rust regressions for spiffe-source, transport-security, gateway routes/transport and xkeys passed, and every check-drift.py matches.",
+  "reviewed_source_state": "Source hashes identify the reviewed ownership fix and evidence after the recorded base revision. 2026-11-23 review (PR #2898): crates/gateway/src/routes/mod.rs adds a private `mod tasks_opening;` (no #[path]; resolves to src/routes/tasks_opening.rs, which imports no transport, EST, generation or source-lifetime item) and mounts POST /api/v1/tasks/intent-opening inside the existing router chain, so it inherits the same layers, state and listeners. No listener, bind, EST route, admission, generation, epoch or deadline check changed, so the source-owned lifetime boundary the model covers is unaffected; reviewed_blob moves to the current bytes and base_blob stays the recorded base. 2026-11-23: re-pinned after behaviour-preserving lint and format repairs: cargo fmt of files main left unformatted; spiffe-source source.rs drops a test-only import; WaitError boxes its SourceStatus (clippy result_large_err; same variants and observations); xkeys open drops a redundant nonce re-conversion; est_freshness.rs is loaded once. No modeled transition, guard or persistence changed. Lean suites not run here (no Lean toolchain); Rust regressions for spiffe-source, transport-security, gateway routes/transport and xkeys passed, and every check-drift.py matches. 2026-11-23 merge review (main 760292b7 into #2900): crates/gateway/src/routes/mod.rs is the union of two disjoint reviewed hunks, main's private tasks_opening module and POST /api/v1/tasks/intent-opening route (PR #2898) and this branch's test-only est_freshness alias to est_wire::freshness; no listener, bind, layer, admission or other route changed, so the digest is recomputed for the merged bytes. Regression runs on the merged tree are recorded in the follow-up note.",
   "lock_projection": {
     "root": "opensesame-spiffe-source",
     "algorithm": "cargo-lock-projection-v1-sha256",
@@ -232,14 +232,14 @@
     },
     {
       "path": "crates/storage/Cargo.toml",
-      "sha256": "06d3cbf04f778cdafb83c3e9a32d563367c0670a62382fe52a2e530375e03621",
-      "reviewed_blob": "27054bd54715bb09f246aed32ab979acd3980a72",
+      "sha256": "7982c5fd4c46e25b95a44c98ad1a925870196662729caadb14f0c8fd2a32bfeb",
+      "reviewed_blob": "e8ba84d5d093c65335c53249dfe829a90d164e8b",
       "base_blob": "27054bd54715bb09f246aed32ab979acd3980a72"
     },
     {
       "path": "crates/storage/src/lib.rs",
-      "sha256": "c4f53cb771ca9aba298fc7fc0f3aa074e73fa4a2f65624efa3030e605a6ad47c",
-      "reviewed_blob": "c7ccf7a15528c6b2920b09d09acab27cdb1cf0b2",
+      "sha256": "08dc4872ca5a500e09ad9d0f86a30793f3f1b10f662cff4ecd71ba530a15a3ba",
+      "reviewed_blob": "1f1df8dcaf4f31896c9d5fdcdc3480986c8c0d09",
       "base_blob": "8e2f4b23e890813115a0320e23fdae03e77d1f27"
     },
     {
@@ -256,14 +256,14 @@
     },
     {
       "path": "crates/gateway/src/lib.rs",
-      "sha256": "0e5988eaf0273eda3d1f002a32a671a597e458746dc0ff9514a1e34acdb50dd4",
-      "reviewed_blob": "30db57b703552ef0240e76577f940c716f92b0b3",
+      "sha256": "c579b81b75de6f9f7142247af07df116f9df6757044b9abf6e044dd97f878cd0",
+      "reviewed_blob": "d9fce70a5dca9dc150c30b16261757499d43c093",
       "base_blob": "5039a9251a27c9b9f56183bb9e67e61da7f50786"
     },
     {
       "path": "crates/gateway/src/routes/mod.rs",
-      "sha256": "51799ec002d091ce3ee43b912cba0758653c45617ceb92db9433ca61f5e758fc",
-      "reviewed_blob": "27ed44959188e0b1363f7bf72c07f5b749664f35",
+      "sha256": "4cfb2813c8341df08ab3e6cc1d633d0686ad3ef8d29f60abf3955de923916f7c",
+      "reviewed_blob": "108d9d4999ee3c5a79f39ab0e44c105a802db302",
       "base_blob": "8848d46dbe49bb9b65ad6466c88a036858ce5c92"
     },
     {

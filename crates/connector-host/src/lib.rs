@@ -3,10 +3,20 @@
 //! Host capabilities: authorized HTTP / sign / opaque token handles.
 //! There is no secrets.get path for guests.
 
+#[cfg(test)]
+mod binding_test_fixtures;
+mod builtin_connector;
+mod connector;
 mod constrained_http;
+mod invocation_binding;
+mod invocation_dispatch;
+pub use connector::Connector;
+pub use constrained_http::opaque_http_result;
+pub use invocation_binding::InvocationBinding;
 pub mod manifest;
 pub mod password_agent;
 pub mod providers;
+mod registry;
 #[cfg(feature = "wasm-connectors")]
 pub mod wasm;
 
@@ -34,6 +44,10 @@ pub enum HostError {
     ParameterDigestMismatch,
     #[error("operation mismatch")]
     OperationMismatch,
+    #[error("invocation binding mismatch")]
+    InvocationBindingMismatch,
+    #[error("delegated execution unavailable")]
+    DelegatedExecutionUnavailable,
     #[error("invoke level denied")]
     InvokeLevelDenied,
     #[error("secret materialization denied")]
@@ -109,6 +123,18 @@ pub fn assert_component_trusted(
 /// Returns an error when the URL is invalid, non-HTTPS, private, or outside
 /// the configured egress policy.
 pub fn assert_destination_allowed(policy: &HostPolicy, raw_url: &str) -> Result<(), HostError> {
+    assert_destination_allowed_with_pin(policy, raw_url, None)
+}
+
+/// [`assert_destination_allowed`] with the one port the invoker pinned for
+/// this host judged at the scheme default — the same trust the surrogate
+/// ledger extends an approved socket. Every other port stays behind the
+/// default-port fence, and the invoker re-proves the pin before connecting.
+pub(crate) fn assert_destination_allowed_with_pin(
+    policy: &HostPolicy,
+    raw_url: &str,
+    pinned_port: Option<u16>,
+) -> Result<(), HostError> {
     let url = Url::parse(raw_url).map_err(|_| HostError::DestinationDenied(raw_url.into()))?;
     if url.scheme() != "https" {
         return Err(HostError::DestinationDenied(raw_url.into()));
@@ -117,9 +143,16 @@ pub fn assert_destination_allowed(policy: &HostPolicy, raw_url: &str) -> Result<
     if is_blocked_host(host) {
         return Err(HostError::PrivateAddress);
     }
+    let judged = if pinned_port.is_some_and(|pin| url.port() == Some(pin) && pin != 443) {
+        let mut normalized = url.clone();
+        let _ = normalized.set_port(None);
+        normalized
+    } else {
+        url
+    };
     policy
         .egress
-        .allows_url(raw_url)
+        .allows_url(judged.as_str())
         .map_err(|e| HostError::DestinationDenied(e.to_string()))?;
     Ok(())
 }
@@ -296,85 +329,12 @@ pub struct InvokeResult {
     pub external_request_digest: Option<String>,
 }
 
-pub trait Connector: Send + Sync {
-    fn id(&self) -> &str;
-    fn version(&self) -> &str;
-    fn component_digest(&self) -> &str;
-    fn operations(&self) -> &[&str];
-    /// # Errors
-    ///
-    /// Returns an error when the request fails connector validation or execution.
-    fn invoke(&self, req: &InvokeRequest) -> Result<InvokeResult, HostError>;
-}
-
 /// Deterministic mock connector — no external network; never returns secret bytes.
 pub struct MockConnector;
 
 const MOCK_CONNECTOR_ID: &str = "mock";
 const MOCK_CONNECTOR_VERSION: &str = "1.0.0";
 const MOCK_CONNECTOR_DIGEST: &str = "sha256:mock-connector";
-
-impl Connector for MockConnector {
-    fn id(&self) -> &str {
-        MOCK_CONNECTOR_ID
-    }
-    fn version(&self) -> &str {
-        MOCK_CONNECTOR_VERSION
-    }
-    fn component_digest(&self) -> &str {
-        MOCK_CONNECTOR_DIGEST
-    }
-    fn operations(&self) -> &[&str] {
-        &[
-            "repository.read",
-            "pull_request.create",
-            "error.transient",
-            "error.permanent",
-            "error.rate_limit",
-            "error.timeout",
-            "error.indeterminate",
-            "rotate.plan",
-            "credential.resolve",
-        ]
-    }
-    fn invoke(&self, req: &InvokeRequest) -> Result<InvokeResult, HostError> {
-        if req.operation != req.authorized_operation {
-            return Err(HostError::OperationMismatch);
-        }
-        let expected = opensesame_param_digest(&req.parameters);
-        if expected != req.parameters_digest {
-            return Err(HostError::ParameterDigestMismatch);
-        }
-        if req.operation == "credential.resolve"
-            || req.invoke_level == Some(InvokeLevel::Materialize.as_u8())
-        {
-            return Err(HostError::MaterializeDenied);
-        }
-        match req.operation.as_str() {
-            "error.transient" => Err(HostError::Connector("transient".into())),
-            "error.permanent" => Err(HostError::Connector("permanent".into())),
-            "error.rate_limit" => Err(HostError::Connector("rate_limited".into())),
-            "error.timeout" => Err(HostError::Connector("timeout".into())),
-            "error.indeterminate" => Err(HostError::Connector("indeterminate".into())),
-            "repository.read" => Ok(InvokeResult {
-                ok: true,
-                safe_summary: json!({"resource": req.resource, "title": "README"}),
-                external_request_digest: Some("sha256:mock-read".into()),
-            }),
-            "pull_request.create" => Ok(InvokeResult {
-                ok: true,
-                safe_summary: json!({"pr_number": 42, "resource": req.resource}),
-                external_request_digest: Some("sha256:mock-pr".into()),
-            }),
-            "rotate.plan" => Ok(InvokeResult {
-                ok: true,
-                safe_summary: json!({"steps": ["generate", "install", "verify", "revoke"]}),
-                external_request_digest: None,
-            }),
-            other => Err(HostError::Connector(format!("unknown op {other}"))),
-        }
-    }
-}
 
 #[must_use]
 /// # Panics
@@ -427,7 +387,7 @@ pub fn follow_redirect_with_credential(
 
 pub struct HostRuntime {
     pub policy: HostPolicy,
-    connectors: HashMap<String, Arc<dyn Connector>>,
+    connectors: HashMap<String, RegisteredConnector>,
     connection_connectors: HashMap<String, String>,
     /// Provider id → connection-policy id (the `connection_connectors` key)
     /// that executes that provider's typed operations. Unbound providers
@@ -436,6 +396,14 @@ pub struct HostRuntime {
     /// L2 constrained HTTP: the connections this host holds a credential
     /// for, and the ledger their placeholders are admitted through.
     constrained: constrained_http::ConstrainedHttp,
+}
+
+struct RegisteredConnector {
+    connector: Arc<dyn Connector>,
+    // A connector's later result must not be able to change receipt metadata
+    // or the identity checked by host policy.
+    component_digest: String,
+    inert_builtin_mock: bool,
 }
 
 /// Counts only: the connection table holds credentials.
@@ -459,8 +427,15 @@ impl Default for HostRuntime {
         policy
             .trusted_digests
             .insert("sha256:mock-connector".into());
-        let mut connectors: HashMap<String, Arc<dyn Connector>> = HashMap::new();
-        connectors.insert("mock".into(), Arc::new(MockConnector));
+        let mut connectors = HashMap::new();
+        connectors.insert(
+            MOCK_CONNECTOR_ID.into(),
+            RegisteredConnector {
+                connector: Arc::new(MockConnector),
+                component_digest: MOCK_CONNECTOR_DIGEST.into(),
+                inert_builtin_mock: true,
+            },
+        );
         let connection_connectors = HashMap::from([("demo-conn".into(), "mock".into())]);
         Self {
             policy,
@@ -478,123 +453,28 @@ impl Default for HostRuntime {
 pub const FALLBACK_CONNECTION_POLICY_ID: &str = "demo-conn";
 
 impl HostRuntime {
-    /// # Errors
-    ///
-    /// Returns an error when a connector with the same identifier is registered.
-    pub fn register_connector(&mut self, connector: Arc<dyn Connector>) -> Result<(), HostError> {
-        let id = connector.id().to_owned();
-        if self.connectors.contains_key(&id) {
-            return Err(HostError::Connector(format!(
-                "connector {id} is already registered"
-            )));
-        }
-        self.connectors.insert(id, connector);
-        Ok(())
-    }
-
-    /// # Errors
-    ///
-    /// Returns an error when the connector identifier is not registered.
-    pub fn bind_connection(
-        &mut self,
-        connection_id: impl Into<String>,
-        connector_id: &str,
-    ) -> Result<(), HostError> {
-        if !self.connectors.contains_key(connector_id) {
-            return Err(HostError::Connector(format!(
-                "connector {connector_id} is not registered"
-            )));
-        }
-        self.connection_connectors
-            .insert(connection_id.into(), connector_id.into());
-        Ok(())
-    }
-
-    /// Route a provider's typed operations to a registered connection-policy
-    /// id. Refuses ids that nothing is bound to — a provider can never be
-    /// pointed at a connector that does not exist (ADR 0065 §5).
-    ///
-    /// # Errors
-    ///
-    /// Returns an error when `connection_policy_id` has no bound connector.
-    pub fn bind_provider(
-        &mut self,
-        provider_id: impl Into<String>,
-        connection_policy_id: &str,
-    ) -> Result<(), HostError> {
-        if !self
-            .connection_connectors
-            .contains_key(connection_policy_id)
-        {
-            return Err(HostError::Connector(format!(
-                "connection policy {connection_policy_id} has no connector"
-            )));
-        }
-        self.provider_connectors
-            .insert(provider_id.into(), connection_policy_id.into());
-        Ok(())
-    }
-
-    /// The connection-policy id that executes `provider_id`'s typed
-    /// operations. Unbound providers keep the historical mock fallback,
-    /// byte-for-byte: unknown operations there fail closed.
-    #[must_use]
-    pub fn connector_for_provider(&self, provider_id: &str) -> &str {
-        self.provider_connectors
-            .get(provider_id)
-            .map_or(FALLBACK_CONNECTION_POLICY_ID, String::as_str)
-    }
-
-    #[must_use]
-    pub fn component_digest(&self, connection_id: &str) -> Option<&str> {
-        self.connector(connection_id)
-            .map(Connector::component_digest)
-    }
-
-    /// # Errors
-    ///
-    /// Returns an error when trust, destination, invoke-level, operation, or
-    /// connector validation fails. An L2 constrained-HTTP request is admitted
-    /// here exactly as [`HostRuntime::invoke_constrained_http`] admits it, and
-    /// then refused: executing it takes the invoke-through broker, which a
-    /// synchronous call does not have. Nothing here reports a credential it
-    /// did not place.
-    pub fn invoke(
-        &self,
-        connection_id: &str,
-        req: &InvokeRequest,
-    ) -> Result<InvokeResult, HostError> {
-        let (connector, level) = self.checked_level(connection_id, req)?;
-        if is_constrained_http(level, req) {
-            self.admit_constrained_http(connection_id, req, constrained_http::now_unix(), None)?;
-            return Err(HostError::Connector(constrained_http::NEEDS_BROKER.into()));
-        }
-        if !connector.operations().contains(&req.operation.as_str()) {
-            return Err(HostError::Connector(format!(
-                "connector {} does not implement {}",
-                connector.id(),
-                req.operation
-            )));
-        }
-        connector.invoke(req)
-    }
-
     /// The checks every invocation passes before anything runs: a connector
     /// is bound, a named destination is allowed, the component is trusted,
     /// and the level is neither materialization nor above the policy's
-    /// ceiling.
+    /// ceiling. `approved_port` carries the invoker's pinned socket for the
+    /// named host, when there is one, so the destination fence and the
+    /// surrogate ledger extend the same trust.
     fn checked_level(
         &self,
         connection_id: &str,
         req: &InvokeRequest,
+        approved_port: Option<u16>,
     ) -> Result<(&dyn Connector, InvokeLevel), HostError> {
         let connector = self.connector(connection_id).ok_or_else(|| {
             HostError::Connector(format!("connection {connection_id} has no connector"))
         })?;
         if let Some(url) = req.parameters.get("url").and_then(|v| v.as_str()) {
-            assert_destination_allowed(&self.policy, url)?;
+            assert_destination_allowed_with_pin(&self.policy, url, approved_port)?;
         }
-        assert_component_trusted(&self.policy, connector.component_digest(), true)?;
+        let digest = self
+            .component_digest(connection_id)
+            .ok_or(HostError::UntrustedComponent)?;
+        assert_component_trusted(&self.policy, digest, true)?;
         let level = req
             .invoke_level
             .map_or(InvokeLevel::TypedOperation, |n| match n {
@@ -616,7 +496,9 @@ impl HostRuntime {
 
     fn connector(&self, connection_id: &str) -> Option<&dyn Connector> {
         let connector_id = self.connection_connectors.get(connection_id)?;
-        self.connectors.get(connector_id).map(Arc::as_ref)
+        self.connectors
+            .get(connector_id)
+            .map(|registered| registered.connector.as_ref())
     }
 }
 
@@ -804,67 +686,60 @@ mod tests {
 
     #[test]
     fn mock_invoke_ok() {
+        use crate::binding_test_fixtures::binding_for;
+
         let rt = HostRuntime::default();
         let params = json!({"title": "hi"});
         let digest = opensesame_param_digest(&params);
-        let res = rt
-            .invoke(
-                "demo-conn",
-                &InvokeRequest {
-                    operation: "pull_request.create".into(),
-                    resource: "repo:acme/catalog".into(),
-                    audience: "https://api.github.com".into(),
-                    parameters: params,
-                    parameters_digest: digest,
-                    authorized_operation: "pull_request.create".into(),
-                    invoke_level: Some(1),
-                    connection_ref: String::new(),
-                },
-            )
-            .unwrap();
+        let request = InvokeRequest {
+            operation: "pull_request.create".into(),
+            resource: "repo:acme/catalog".into(),
+            audience: "https://api.github.com".into(),
+            parameters: params,
+            parameters_digest: digest,
+            authorized_operation: "pull_request.create".into(),
+            invoke_level: Some(1),
+            connection_ref: "demo-conn".into(),
+        };
+        let binding = binding_for(&request).unwrap();
+        let res = rt.invoke_bound("demo-conn", &request, &binding).unwrap();
         assert!(res.ok);
         assert_eq!(res.safe_summary["pr_number"], 42);
     }
 
     #[test]
     fn operation_mismatch_denied() {
-        let rt = HostRuntime::default();
+        let mock = MockConnector;
         let params = json!({});
-        let err = rt
-            .invoke(
-                "demo-conn",
-                &InvokeRequest {
-                    operation: "pull_request.create".into(),
-                    resource: "r".into(),
-                    audience: "https://api.github.com".into(),
-                    parameters: params.clone(),
-                    parameters_digest: opensesame_param_digest(&params),
-                    authorized_operation: "repository.read".into(),
-                    invoke_level: None,
-                    connection_ref: String::new(),
-                },
-            )
+        let err = mock
+            .invoke(&InvokeRequest {
+                operation: "pull_request.create".into(),
+                resource: "r".into(),
+                audience: "https://api.github.com".into(),
+                parameters: params.clone(),
+                parameters_digest: opensesame_param_digest(&params),
+                authorized_operation: "repository.read".into(),
+                invoke_level: Some(1),
+                connection_ref: "demo-conn".into(),
+            })
             .unwrap_err();
         assert_eq!(err, HostError::OperationMismatch);
     }
 
     #[test]
     fn param_digest_mismatch_denied() {
-        let rt = HostRuntime::default();
-        let err = rt
-            .invoke(
-                "demo-conn",
-                &InvokeRequest {
-                    operation: "repository.read".into(),
-                    resource: "r".into(),
-                    audience: "https://api.github.com".into(),
-                    parameters: json!({"a": 1}),
-                    parameters_digest: "sha256:nope".into(),
-                    authorized_operation: "repository.read".into(),
-                    invoke_level: None,
-                    connection_ref: String::new(),
-                },
-            )
+        let mock = MockConnector;
+        let err = mock
+            .invoke(&InvokeRequest {
+                operation: "repository.read".into(),
+                resource: "r".into(),
+                audience: "https://api.github.com".into(),
+                parameters: json!({"a": 1}),
+                parameters_digest: "sha256:nope".into(),
+                authorized_operation: "repository.read".into(),
+                invoke_level: Some(1),
+                connection_ref: "demo-conn".into(),
+            })
             .unwrap_err();
         assert_eq!(err, HostError::ParameterDigestMismatch);
     }
@@ -880,6 +755,40 @@ mod tests {
     }
 
     #[test]
+    fn the_invokers_pinned_port_is_the_one_non_default_port_allowed() {
+        let p = HostPolicy::default();
+        // Without the pin, a non-default port is a different authority.
+        assert!(matches!(
+            assert_destination_allowed_with_pin(
+                &p,
+                "https://api.github.com:8443/v",
+                Some(8443 - 1)
+            ),
+            Err(HostError::DestinationDenied(_))
+        ));
+        // With the pin, the same URL is judged at the scheme default.
+        assert!(assert_destination_allowed_with_pin(
+            &p,
+            "https://api.github.com:8443/v",
+            Some(8443)
+        )
+        .is_ok());
+        // The pin never widens the host, the scheme, or the SSRF fence.
+        assert!(matches!(
+            assert_destination_allowed_with_pin(&p, "https://evil.example:8443/v", Some(8443)),
+            Err(HostError::DestinationDenied(_))
+        ));
+        assert!(matches!(
+            assert_destination_allowed_with_pin(&p, "http://api.github.com:8443/v", Some(8443)),
+            Err(HostError::DestinationDenied(_))
+        ));
+        assert_eq!(
+            assert_destination_allowed_with_pin(&p, "https://169.254.169.254:8443/v", Some(8443)),
+            Err(HostError::PrivateAddress)
+        );
+    }
+
+    #[test]
     fn http_scheme_denied() {
         let p = HostPolicy::default();
         assert!(matches!(
@@ -890,22 +799,23 @@ mod tests {
 
     #[test]
     fn ssrf_via_url_parameter_blocked() {
+        use crate::binding_test_fixtures::binding_for;
+
         let rt = HostRuntime::default();
         let params = json!({"url": "https://169.254.169.254/latest"});
+        let request = InvokeRequest {
+            operation: "repository.read".into(),
+            resource: "r".into(),
+            audience: "https://api.github.com".into(),
+            parameters: params.clone(),
+            parameters_digest: opensesame_param_digest(&params),
+            authorized_operation: "repository.read".into(),
+            invoke_level: Some(1),
+            connection_ref: "demo-conn".into(),
+        };
+        let binding = binding_for(&request).unwrap();
         let err = rt
-            .invoke(
-                "demo-conn",
-                &InvokeRequest {
-                    operation: "repository.read".into(),
-                    resource: "r".into(),
-                    audience: "https://api.github.com".into(),
-                    parameters: params.clone(),
-                    parameters_digest: opensesame_param_digest(&params),
-                    authorized_operation: "repository.read".into(),
-                    invoke_level: None,
-                    connection_ref: String::new(),
-                },
-            )
+            .invoke_bound("demo-conn", &request, &binding)
             .unwrap_err();
         assert_eq!(err, HostError::PrivateAddress);
     }
@@ -922,6 +832,8 @@ mod tests {
 
     #[test]
     fn mock_error_modes() {
+        use crate::binding_test_fixtures::binding_for;
+
         let rt = HostRuntime::default();
         for op in [
             "error.transient",
@@ -931,42 +843,36 @@ mod tests {
             "error.indeterminate",
         ] {
             let params = json!({});
-            assert!(rt
-                .invoke(
-                    "demo-conn",
-                    &InvokeRequest {
-                        operation: op.into(),
-                        resource: "r".into(),
-                        audience: "a".into(),
-                        parameters: params.clone(),
-                        parameters_digest: opensesame_param_digest(&params),
-                        authorized_operation: op.into(),
-                        invoke_level: None,
-                        connection_ref: String::new(),
-                    }
-                )
-                .is_err());
+            let request = InvokeRequest {
+                operation: op.into(),
+                resource: "r".into(),
+                audience: "https://api.github.com".into(),
+                parameters: params.clone(),
+                parameters_digest: opensesame_param_digest(&params),
+                authorized_operation: op.into(),
+                invoke_level: Some(1),
+                connection_ref: "demo-conn".into(),
+            };
+            let binding = binding_for(&request).unwrap();
+            assert!(rt.invoke_bound("demo-conn", &request, &binding).is_err());
         }
     }
 
     #[test]
     fn materialize_denied_even_on_mock() {
-        let rt = HostRuntime::default();
+        let mock = MockConnector;
         let params = json!({});
-        let err = rt
-            .invoke(
-                "demo-conn",
-                &InvokeRequest {
-                    operation: "credential.resolve".into(),
-                    resource: "r".into(),
-                    audience: "a".into(),
-                    parameters: params.clone(),
-                    parameters_digest: opensesame_param_digest(&params),
-                    authorized_operation: "credential.resolve".into(),
-                    invoke_level: Some(3),
-                    connection_ref: String::new(),
-                },
-            )
+        let err = mock
+            .invoke(&InvokeRequest {
+                operation: "credential.resolve".into(),
+                resource: "r".into(),
+                audience: "a".into(),
+                parameters: params.clone(),
+                parameters_digest: opensesame_param_digest(&params),
+                authorized_operation: "credential.resolve".into(),
+                invoke_level: Some(3),
+                connection_ref: "demo-conn".into(),
+            })
             .unwrap_err();
         assert_eq!(err, HostError::MaterializeDenied);
     }

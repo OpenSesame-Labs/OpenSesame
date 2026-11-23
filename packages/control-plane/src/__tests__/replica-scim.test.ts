@@ -1,8 +1,4 @@
 import { PGlite } from "@electric-sql/pglite";
-import {
-  createMemoryOrganizationStores,
-  createMemoryScimStores,
-} from "@opensesame/database";
 import * as schema from "@opensesame/database/schema";
 import {
   type ReferenceIdp,
@@ -13,6 +9,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { createControlPlane } from "../create-app.js";
+import { mockHostWithdrawal } from "./host-withdrawal-test-helper.js";
 import {
   DEFAULT_IDP_SUBJECT,
   PAGES_ORIGIN,
@@ -53,12 +50,8 @@ describe("J-REPLICA SCIM cleanup", () => {
         import.meta.url,
       ).pathname,
     });
-    const organizationStores = createMemoryOrganizationStores();
-    const scimStores = createMemoryScimStores();
     const options = {
       database: overlapCast(db),
-      organizationStores,
-      scimStores,
       config: {
         ...testConfig(idp.issuer),
         claimPepper: "replica-test-only-claim-pepper-32chars",
@@ -92,6 +85,7 @@ describe("J-REPLICA SCIM cleanup", () => {
         .status,
     ).toBe(201);
 
+    const host = mockHostWithdrawal(first.ctx);
     const deactivated = await patchScim(
       first.app,
       usersPath(org.id, `/${created.body.id}`),
@@ -110,5 +104,6 @@ describe("J-REPLICA SCIM cleanup", () => {
       headers: { authorization: `Bearer ${guest.accessToken}` },
     });
     expect(stillSignedIn.status).toBe(401);
+    host.restore();
   }, 30_000);
 });

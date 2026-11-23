@@ -795,7 +795,7 @@
       "max-lines": 1132
     },
     "packages/control-plane/src/__tests__/auth-upstream.test.ts": {
-      "max-lines": 654
+      "max-lines": 636
     },
     "packages/control-plane/src/__tests__/authentication-service.test.ts": {
       "max-lines": 562
@@ -823,7 +823,7 @@
       "max-lines": 867
     },
     "packages/control-plane/src/__tests__/ldap-bind.test.ts": {
-      "max-lines": 828
+      "max-lines": 827
     },
     "packages/control-plane/src/__tests__/ldap-sync.test.ts": {
       "max-lines": 407
@@ -943,7 +943,7 @@
       "complexity": 1
     },
     "packages/control-plane/src/routes/authentication-service.ts": {
-      "max-lines": 1186
+      "max-lines": 1185
     },
     "packages/control-plane/src/routes/authorization-requests.ts": {
       "complexity": 3,
@@ -1080,7 +1080,6 @@
     },
     "packages/control-plane/src/services/better-auth-bridge.ts": {
       "complexity": 1,
-      "max-lines": 425,
       "max-lines-per-function": 1
     },
     "packages/control-plane/src/services/identity-link.ts": {

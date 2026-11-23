@@ -14,9 +14,6 @@ import type {
   ScimGroupMappingStore,
 } from "./scim-group-store.js";
 
-function key(orgId: string, groupId: string): string {
-  return `${orgId}\0${groupId}`;
-}
 /** New or raised over-long mappings are refused; reductions stay possible. */
 function validateId(
   groupId: string,
@@ -25,53 +22,6 @@ function validateId(
 ): void {
   if (!scimMappingAdmissible(groupId, role, existing))
     throw new Error("Invalid SCIM group id");
-}
-
-export function createMemoryScimMappingStore(
-  options?: Partial<ScimAdminLimits>,
-): ScimGroupMappingStore {
-  const limits = scimAdminLimits(options);
-  const mappings = new Map<string, ScimGroupMapping>();
-  const ofOrg = (orgId: string) =>
-    [...mappings.values()].filter((row) => row.organizationId === orgId);
-  return {
-    async put(orgId: string, groupId: string, role: OrganizationRole) {
-      const id = key(orgId, groupId);
-      validateId(groupId, role, mappings.get(id)?.role);
-      if (
-        !mappings.has(id) &&
-        (ofOrg(orgId).length >= limits.mappingsPerOrganization ||
-          mappings.size >= limits.mappingsPerDeployment)
-      )
-        throw new ScimAdminCapacityError();
-      const row = { organizationId: orgId, groupId, role };
-      mappings.set(id, row);
-      return { ...row };
-    },
-    async get(orgId, groupId) {
-      return mappings.get(key(orgId, groupId))?.role;
-    },
-    async count(orgId) {
-      return ofOrg(orgId).length;
-    },
-    async listByOrganization(orgId, input) {
-      const page = scimAdminPage(input);
-      return ofOrg(orgId)
-        .sort((a, b) =>
-          a.groupId < b.groupId ? -1 : a.groupId > b.groupId ? 1 : 0,
-        )
-        .slice(page.offset, page.offset + page.limit)
-        .map((row) => ({ ...row }));
-    },
-    async removeIfNeutral(orgId, groupId) {
-      const id = key(orgId, groupId);
-      const row = mappings.get(id);
-      if (!row) return "not_found";
-      if (row.role !== "member") return "mapping_not_neutral";
-      mappings.delete(id);
-      return "deleted";
-    },
-  };
 }
 
 async function putPostgresMapping(

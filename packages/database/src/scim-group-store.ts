@@ -4,29 +4,35 @@ import type { Database } from "./repos/postgres.js";
 import { scimGroups } from "./schema/scim-groups.js";
 import type { ScimAdminLimits, ScimListPage } from "./scim-admin-limits.js";
 import {
-  SCIM_GROUP_ID_MAX,
-  SCIM_GROUP_MEMBERS_MAX,
   ScimGroupCapacityError,
   type ScimGroupLimits,
-  ScimGroupPayloadError,
   scimGroupLimits,
 } from "./scim-group-limits.js";
+import { normalizeGroup, validateGroup } from "./scim-group-values.js";
 import {
-  createMemoryScimMappingStore,
-  createPostgresScimMappingStore,
-} from "./scim-mapping-store.js";
+  MemoryScimGroupMappingStore,
+  MemoryScimGroupStore,
+} from "./scim-groups-memory.js";
+import { createPostgresScimMappingStore } from "./scim-mapping-store.js";
 import {
   type ScimTokenRecord,
   type ScimTokenStore,
   type ScimUserRecord,
   type ScimUserStore,
   type ScimStores as ScimUserTokenStores,
+  type VersionedScimUser,
   createMemoryScimStores as createMemoryScimUserTokenStores,
   createPostgresScimStores as createPostgresScimUserTokenStores,
 } from "./scim-store.js";
 import type { ScimUserLimits } from "./scim-user-limits.js";
 
-export type { ScimTokenRecord, ScimTokenStore, ScimUserRecord, ScimUserStore };
+export type {
+  ScimTokenRecord,
+  ScimTokenStore,
+  ScimUserRecord,
+  ScimUserStore,
+  VersionedScimUser,
+};
 
 export interface ScimGroupRecord {
   id: string;
@@ -72,97 +78,6 @@ export interface ScimGroupMappingStore {
 export interface ScimStores extends ScimUserTokenStores {
   groups: ScimGroupStore;
   mappings: ScimGroupMappingStore;
-}
-
-function groupKey(orgId: string, id: string): string {
-  return `${orgId}\0${id}`;
-}
-
-function cloneGroup(group: ScimGroupRecord): ScimGroupRecord {
-  return { ...group, memberIds: [...group.memberIds] };
-}
-
-function normalizeGroup(group: ScimGroupRecord): ScimGroupRecord {
-  return {
-    id: group.id,
-    organizationId: group.organizationId,
-    displayName: group.displayName,
-    memberIds: [...new Set(group.memberIds)],
-    createdAt: group.createdAt,
-    updatedAt: group.updatedAt,
-  };
-}
-
-/**
- * Id ceilings bound new admissions only: a group or member id that predates
- * them may stay (or be removed), so a legacy group can always be reduced.
- */
-function validateGroup(
-  group: ScimGroupRecord,
-  previous: readonly string[] | undefined,
-): void {
-  const held = new Set(previous ?? []);
-  if (
-    !group.id ||
-    (previous === undefined && group.id.length > SCIM_GROUP_ID_MAX) ||
-    group.memberIds.some(
-      (id) => !id || (id.length > SCIM_GROUP_ID_MAX && !held.has(id)),
-    ) ||
-    (group.memberIds.length > SCIM_GROUP_MEMBERS_MAX &&
-      group.memberIds.length >= (previous?.length ?? 0))
-  )
-    throw new ScimGroupPayloadError();
-}
-
-function createMemoryGroupStores(
-  options?: Partial<ScimGroupLimits>,
-  adminLimits?: Partial<ScimAdminLimits>,
-): Pick<ScimStores, "groups" | "mappings"> {
-  const limits = scimGroupLimits(options);
-  const groups = new Map<string, ScimGroupRecord>();
-
-  const ofOrg = (orgId: string) =>
-    [...groups.values()].filter((group) => group.organizationId === orgId);
-
-  return {
-    groups: {
-      async upsert(group) {
-        const row = normalizeGroup(group);
-        validateGroup(
-          row,
-          groups.get(groupKey(row.organizationId, row.id))?.memberIds,
-        );
-        if (
-          !groups.has(groupKey(row.organizationId, row.id)) &&
-          (ofOrg(row.organizationId).length >= limits.perOrganization ||
-            groups.size >= limits.perDeployment)
-        )
-          throw new ScimGroupCapacityError();
-        groups.set(groupKey(row.organizationId, row.id), row);
-        return cloneGroup(row);
-      },
-
-      async getById(orgId, id) {
-        const row = groups.get(groupKey(orgId, id));
-        return row ? cloneGroup(row) : null;
-      },
-
-      async listByOrganization(orgId) {
-        return ofOrg(orgId)
-          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-          .map(cloneGroup);
-      },
-
-      async listByMember(orgId, memberId) {
-        return ofOrg(orgId)
-          .filter((group) => group.memberIds.includes(memberId))
-          .sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-          .map(cloneGroup);
-      },
-    },
-
-    mappings: createMemoryScimMappingStore(adminLimits),
-  };
 }
 
 function attachGroupStores(
@@ -280,17 +195,6 @@ function createPostgresGroupTableStore(
   };
 }
 
-function createPostgresGroupStores(
-  db: Database,
-  limits?: Partial<ScimGroupLimits>,
-  adminLimits?: Partial<ScimAdminLimits>,
-): Pick<ScimStores, "groups" | "mappings"> {
-  return {
-    groups: createPostgresGroupTableStore(db, scimGroupLimits(limits)),
-    mappings: createPostgresScimMappingStore(db, adminLimits),
-  };
-}
-
 export function createMemoryScimStores(
   limits?: Partial<ScimUserLimits>,
   groupLimits?: Partial<ScimGroupLimits>,
@@ -298,7 +202,10 @@ export function createMemoryScimStores(
 ): ScimStores {
   return attachGroupStores(
     createMemoryScimUserTokenStores(limits, adminLimits),
-    createMemoryGroupStores(groupLimits, adminLimits),
+    {
+      groups: new MemoryScimGroupStore(groupLimits),
+      mappings: new MemoryScimGroupMappingStore(adminLimits),
+    },
   );
 }
 
@@ -310,6 +217,9 @@ export function createPostgresScimStores(
 ): ScimStores {
   return attachGroupStores(
     createPostgresScimUserTokenStores(db, limits, adminLimits),
-    createPostgresGroupStores(db, groupLimits, adminLimits),
+    {
+      groups: createPostgresGroupTableStore(db, scimGroupLimits(groupLimits)),
+      mappings: createPostgresScimMappingStore(db, adminLimits),
+    },
   );
 }

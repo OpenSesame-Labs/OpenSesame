@@ -7,6 +7,7 @@ import { parseAuthCallback } from "./federation-callback.js";
 import { configuredIdentitySessionTrusted } from "./federation-configured-token.js";
 import type {
   BeginSignInOptions,
+  CompletedReturn,
   CompletedSignIn,
   OidcDiscovery,
   TrustedUpstream,
@@ -35,11 +36,14 @@ import { clearFederationSession as clearSessionDefault } from "./federation-reti
 import { readFederationSessionJson } from "./federation-session-store.js";
 import { readStoredSessionSync } from "./federation-stored-session.js";
 import { type IdentitySession, remoteIdentityApi } from "./identity.js";
+import { completeMagicLinkIfPresent } from "./magic-link-client.js";
 import { settingsEpoch, signInMethods } from "./settings.js";
 
 export type {
   BeginSignInOptions,
+  CompletedReturn,
   CompletedSignIn,
+  MagicLinkSignIn,
   OidcDiscovery,
   TrustedUpstream,
 } from "./federation-contract.js";
@@ -58,19 +62,6 @@ export {
   saveSession,
 } from "./federation-publication.js";
 
-/**
- * Federated sign-in against a trusted upstream broker (ADR 0033).
- *
- * This app is a static deployment: it has no server, so it holds no client
- * secret and mints nothing. It is a public OAuth client whose `client_id` is
- * derived from its own origin, and the identity it ends up with was signed by
- * the upstream, not here. The wire contract is
- * docs/architecture/federated-signin.md §1.
- */
-/**
- * Trust is configuration, not discovery: an issuer absent from this list is
- * refused even if it completes a flow correctly (ADR 0033 §2).
- */
 export const TRUSTED_UPSTREAMS: readonly TrustedUpstream[] = [
   {
     id: "shoo",
@@ -84,8 +75,6 @@ export const TRUSTED_UPSTREAMS: readonly TrustedUpstream[] = [
     sessionCheckEndpoint: "https://shoo.dev/session/check",
   },
   {
-    // Hermetic tests name this upstream explicitly. It is never the product
-    // default — first run signs in through Shoo, which is a real OIDC broker.
     id: "mock",
     displayName: "Local mock IdP",
     issuer: "http://127.0.0.1:9090",
@@ -256,6 +245,8 @@ function captureFederationAction() {
         "error",
         "error_description",
         "scope",
+        "magic_code",
+        "magic_state",
       ])
         url.searchParams.delete(key);
       expectedHref = url.toString();
@@ -388,8 +379,16 @@ function loadSessionDefault(): UpstreamIdentity | null {
   return identity;
 }
 
-async function completeSignInWired(): Promise<CompletedSignIn | null> {
+async function completeReturnWired(): Promise<CompletedReturn | null> {
   const captured = captureFederationAction();
+  if (
+    await completeMagicLinkIfPresent(
+      captured.search,
+      captured.scrub,
+      captured.assertCurrent,
+    )
+  )
+    return { magicLink: true };
   const ambient = await ambientAuthSeams.completeIfPresent(captured.search);
   if (ambient) {
     captured.scrub();
@@ -401,7 +400,7 @@ async function completeSignInWired(): Promise<CompletedSignIn | null> {
 export const federationSeams = {
   defaultUpstream: defaultUpstreamDefault,
   beginSignIn: beginSignInDefault,
-  completeSignIn: completeSignInWired,
+  completeReturn: completeReturnWired,
   adoptBrokeredSession: adoptBrokeredSessionDefault,
   loadSession: loadSessionDefault,
   clearSession: clearSessionDefault,
@@ -419,8 +418,15 @@ export async function beginSignIn(
   return federationSeams.beginSignIn(upstream, options);
 }
 
+/** Finish whichever sign-in return this page carries (OIDC or email link). */
+export async function completeReturn(): Promise<CompletedReturn | null> {
+  return federationSeams.completeReturn();
+}
+
+/** `completeReturn` for callers that only handle an upstream identity. */
 export async function completeSignIn(): Promise<CompletedSignIn | null> {
-  return federationSeams.completeSignIn();
+  const result = await federationSeams.completeReturn();
+  return result && "magicLink" in result ? null : result;
 }
 
 export async function adoptBrokeredSession(

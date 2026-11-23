@@ -70,6 +70,16 @@ const sessions = vectors.filter(([kind]) => kind === "session");
 const projects = vectors.filter(([kind]) => kind === "project");
 const now = new Date(0);
 
+/**
+ * Guard knobs the resolver's Lean model does not cover: a session whose
+ * revocation cleanup is pending and a principal with a pending withdrawal
+ * (AUTH-S2 in the register).
+ */
+type ResolveExtras = {
+  cleanupPending?: boolean;
+  pendingWithdrawal?: boolean;
+};
+
 describe("Lean auth policy correspondence", () => {
   it("contains every declared abstract case exactly once", () => {
     expect(principals).toHaveLength(assuranceCases.length);
@@ -125,29 +135,40 @@ describe("Lean auth policy correspondence", () => {
       };
       // This fixture supplies the stores, repository, and clock read by the resolver;
       // unrelated AppContext services are intentionally absent.
-      const ctx: Parameters<typeof resolveProvisionalSession>[0] = overlapCast({
-        stores: {
-          provisionalTokens: {
-            get: async () => (mapped === "1" ? "ps_formal" : undefined),
-          },
-          provisionalSessions: {
-            get: async () => (present === "1" ? session : undefined),
-          },
-        },
-        repos: {
-          principals: {
-            getById: async () =>
-              principalState === "missing"
-                ? undefined
-                : { state: principalState },
-          },
-        },
-        clock: () => now,
-      });
-      const result = await resolveProvisionalSession(
-        ctx,
-        prefix === "1" ? "pst_formal" : "ps_formal",
-      );
+      const resolve = (extra: ResolveExtras) =>
+        resolveProvisionalSession(
+          overlapCast({
+            stores: {
+              provisionalTokens: {
+                get: async () => (mapped === "1" ? "ps_formal" : undefined),
+              },
+              provisionalSessions: {
+                get: async () =>
+                  present === "1"
+                    ? {
+                        ...session,
+                        revocationCleanupPending: extra.cleanupPending,
+                      }
+                    : undefined,
+              },
+              organizationMemberships: {
+                hasPendingWithdrawalForPrincipal: async () =>
+                  extra.pendingWithdrawal === true,
+              },
+            },
+            repos: {
+              principals: {
+                getById: async () =>
+                  principalState === "missing"
+                    ? undefined
+                    : { state: principalState },
+              },
+            },
+            clock: () => now,
+          }),
+          prefix === "1" ? "pst_formal" : "ps_formal",
+        );
+      const result = await resolve({});
       if (expected === "1") {
         expect(result).toEqual({
           principalId: "prn_formal",
@@ -156,6 +177,12 @@ describe("Lean auth policy correspondence", () => {
       } else {
         expect(result).toBeUndefined();
       }
+      // Guards outside the Lean model may only narrow it: a session whose
+      // revocation cleanup is pending, or whose principal has a pending
+      // organization withdrawal, never authenticates. These are executable
+      // checks, not Lean properties (AUTH-S2 in the register).
+      expect(await resolve({ cleanupPending: true })).toBeUndefined();
+      expect(await resolve({ pendingWithdrawal: true })).toBeUndefined();
     },
   );
 

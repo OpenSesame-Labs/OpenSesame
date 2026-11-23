@@ -25,7 +25,43 @@ export function installDurableSecurityMaps(
     false,
     ttlMs,
   );
+  stores.provisionalProofs = map(
+    "OpenSesame:ProvisionalProof",
+    true,
+    ttlMs + 86_400_000,
+  );
+  stores.upstreamLogoutOperations = map(
+    "OpenSesame:UpstreamLogoutOperation",
+    true,
+    null,
+  );
+  stores.organizationRevocationAudits = map(
+    "OpenSesame:OrganizationRevocationAudit",
+    true,
+    null,
+  );
+  stores.organizationWithdrawalAudits = map(
+    "OpenSesame:OrganizationWithdrawalAudit",
+    true,
+    null,
+  );
+  stores.principalSessionEpochs = map(
+    "OpenSesame:PrincipalSessionEpoch",
+    true,
+    null,
+  );
   stores.provisionalTokens = map("OpenSesame:ProvisionalToken", true, ttlMs);
+  stores.magicLinkExchanges = map(
+    "OpenSesame:MagicLinkExchange",
+    true,
+    300_000,
+  );
+  stores.magicLinkBudgets = map(
+    "OpenSesame:MagicLinkBudget",
+    false,
+    3_600_000,
+    1,
+  );
   stores.totpSecrets = map("OpenSesame:TotpSecret", false, null);
   // Outlives the one step a code is good for; after that the step is past.
   stores.totpSteps = map("OpenSesame:TotpStep", false, 120_000);

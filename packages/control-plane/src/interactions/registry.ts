@@ -1,7 +1,10 @@
 import { normalizeIssuer } from "./issuer-normalization.js";
+
 export { normalizeIssuer } from "./issuer-normalization.js";
+
 import { readFileSync } from "node:fs";
 import type { ControlPlaneConfig } from "../config.js";
+import { isLoopbackIssuer } from "./issuer-loopback.js";
 import { loadManifestProviders } from "./manifest-providers.js";
 
 /**
@@ -197,11 +200,6 @@ function issuerHost(issuer: string): string {
   }
 }
 
-function isLoopbackIssuer(issuer: string): boolean {
-  const [host] = issuerHost(issuer).split(":");
-  return host === "127.0.0.1" || host === "localhost" || host === "[::1]";
-}
-
 /**
  * Id and label for an issuer that is allowlisted but has no registry entry.
  * Mirrors `describeUpstream` in `./federated.ts` and the Pages
@@ -341,8 +339,7 @@ export function assertProviderDescriptor(provider: ProviderDescriptor): void {
     const apple = provider.apple;
     if (
       !provider.clientId ||
-      !apple ||
-      !apple.teamId ||
+      !apple?.teamId ||
       !apple.keyId ||
       !apple.privateKeyPem
     ) {

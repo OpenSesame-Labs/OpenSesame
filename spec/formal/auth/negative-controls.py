@@ -19,6 +19,9 @@ SOURCES = (
     "packages/control-plane/src/services/project-access.ts",
     "packages/os-domain/src/json.ts",
     "spec/formal/auth/auth-conformance.test.ts",
+    # Runtime imports of auth.ts; they are copied so the scratch suite loads.
+    "packages/control-plane/src/middleware/bound-cookie.ts",
+    "packages/control-plane/src/middleware/bound-cookie-name.ts",
 )
 MUTATIONS = (
     ("session-prefix", "session", SOURCES[1],
@@ -29,7 +32,13 @@ MUTATIONS = (
     ("session-expiry", "session", SOURCES[1],
      'session.expiresAt <= ctx.clock()', 'session.expiresAt < ctx.clock()'),
     ("session-revocation", "session", SOURCES[1],
-     '|| session.revokedAt)', '|| false)'),
+     '    session.revokedAt ||\n', '    false ||\n'),
+    # Guards outside the Lean model; the correspondence test checks they narrow it.
+    ("session-cleanup-pending", "session", SOURCES[1],
+     '    session.revocationCleanupPending\n', '    false\n'),
+    ("session-pending-withdrawal", "session", SOURCES[1],
+     '!(await ctx.stores.organizationMemberships.hasPendingWithdrawalForPrincipal(',
+     '!(false && await ctx.stores.organizationMemberships.hasPendingWithdrawalForPrincipal('),
     ("session-suspension", "session", SOURCES[1],
      'principal.state !== "suspended" &&\n    principal.state !== "closed"',
      'true &&\n    principal.state !== "closed"'),

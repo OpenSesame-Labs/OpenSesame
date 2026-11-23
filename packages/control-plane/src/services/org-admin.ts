@@ -26,6 +26,10 @@ import type { AppContext } from "../context.js";
 import type { OrganizationId } from "../lib/ids.js";
 import type { ActiveOrgOwner, OrgOwner } from "../proofs/org-owner.js";
 import { organizationIssuerUpdateAdmission } from "../proofs/organization-issuer-admission.js";
+import {
+  prepareRemovalWithdrawal,
+  prepareRoleWithdrawal,
+} from "./organization-withdrawal.js";
 
 type Org<O> = Named<O, OrganizationId>;
 type EmailDomains = AppContext["stores"]["orgFederation"]["emailDomains"];
@@ -157,4 +161,23 @@ export function removeOrganizationMembership<A, O>(
   return Promise.resolve(
     ctx.stores.organizationMemberships.remove(org.value, principalId),
   );
+}
+
+/** Bind an owner's proof to the same organization as the pending transition. */
+export function prepareOwnerRoleWithdrawal<A, O>(
+  ctx: AppContext,
+  org: Org<O>,
+  _proof: OrgOwner<A, O>,
+  input: Omit<Parameters<typeof prepareRoleWithdrawal>[1], "organizationId">,
+) {
+  return prepareRoleWithdrawal(ctx, { ...input, organizationId: org.value });
+}
+
+export function prepareOwnerRemovalWithdrawal<A, O>(
+  ctx: AppContext,
+  org: Org<O>,
+  _proof: OrgOwner<A, O>,
+  input: Omit<Parameters<typeof prepareRemovalWithdrawal>[1], "organizationId">,
+) {
+  return prepareRemovalWithdrawal(ctx, { ...input, organizationId: org.value });
 }

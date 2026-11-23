@@ -917,9 +917,9 @@ pub mod agent_hook_records;
 pub mod bitwarden;
 pub mod callback_replay;
 pub mod host_authorizations;
+pub mod host_membership;
 mod migrations;
 use migrations::MIGRATIONS;
-
 /// Embedded migration versions in the order they are applied.
 ///
 /// Exposed so contract tests can pin the append-only ordering without reaching
@@ -969,12 +969,19 @@ impl Db {
         .context("creating schema_migrations")?;
 
         for (version, sql) in MIGRATIONS {
-            if self.migration_applied(version).await? {
+            // Host replicas may migrate one store at once: the version check and
+            // migration share a write transaction, so a later replica sees it.
+            let mut tx = self.pool.begin_with("BEGIN IMMEDIATE").await?;
+            let applied = sqlx::query("SELECT 1 FROM schema_migrations WHERE version = ?")
+                .bind(version)
+                .fetch_optional(&mut *tx)
+                .await?
+                .is_some();
+            if applied {
+                tx.commit().await?;
                 continue;
             }
-            // A version lands whole or not at all, so a failure mid-file cannot
-            // leave a database that reports itself migrated.
-            let mut tx = self.pool.begin().await?;
+            // A version lands whole, so it never reports a half-applied file.
             for stmt in split_statements(sql) {
                 sqlx::query(&stmt)
                     .execute(&mut *tx)
@@ -1005,14 +1012,6 @@ impl Db {
             .into_iter()
             .map(|r| r.get::<String, _>("version"))
             .collect())
-    }
-
-    async fn migration_applied(&self, version: &str) -> anyhow::Result<bool> {
-        let row = sqlx::query("SELECT 1 AS present FROM schema_migrations WHERE version = ?")
-            .bind(version)
-            .fetch_optional(&self.pool)
-            .await?;
-        Ok(row.is_some())
     }
 
     #[must_use]

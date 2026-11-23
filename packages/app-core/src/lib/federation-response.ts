@@ -4,5 +4,5 @@ import { page } from "../ports.js";
 export function hasAuthResponse(search = page().location.search): boolean {
   const params = new URLSearchParams(search);
   if (params.has("github_app") || params.has("github_app_code")) return false;
-  return params.has("code") || params.has("error");
+  return params.has("code") || params.has("error") || params.has("magic_code");
 }

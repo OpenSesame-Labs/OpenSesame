@@ -17,7 +17,7 @@ import type { ProviderConnection } from "./provider.js";
 import type { AmbientReasonCode, PassiveOutcome } from "./types.js";
 
 export const ENTRA_SCOPES = ["openid"] as const;
-export const MSAL_BROWSER_VERSION = "5.28.0";
+export const MSAL_BROWSER_VERSION = "5.29.1";
 
 export type EntraSilentRequest = {
   connection: ProviderConnection;

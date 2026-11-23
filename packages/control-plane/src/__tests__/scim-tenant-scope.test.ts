@@ -1,8 +1,9 @@
 import { isString, overlapCast } from "@opensesame/os-domain";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { emailIdentityIssuer } from "../services/better-auth-bridge.js";
 import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
+import { mockHostWithdrawal } from "./host-withdrawal-test-helper.js";
 import {
   type App,
   auth,
@@ -26,9 +27,10 @@ import {
  */
 
 const DEPLOYMENT_ISSUER = "http://127.0.0.1:8788";
+afterEach(() => vi.restoreAllMocks());
 
 function plane() {
-  return createControlPlane({
+  const result = createControlPlane({
     config: {
       port: 0,
       publicUrl: DEPLOYMENT_ISSUER,
@@ -36,6 +38,8 @@ function plane() {
       trustedUpstreamIssuers: ["https://unrelated.example"],
     },
   });
+  mockHostWithdrawal(result.ctx);
+  return result;
 }
 
 async function createOrg(app: App, ownerToken: string, slug: string) {

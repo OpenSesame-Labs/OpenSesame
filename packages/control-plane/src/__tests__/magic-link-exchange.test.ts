@@ -1,0 +1,336 @@
+import { createHash, randomBytes } from "node:crypto";
+import { createEventSealer } from "@opensesame/database";
+import * as schema from "@opensesame/database/schema";
+import { overlapCast } from "@opensesame/os-domain";
+import { drizzle } from "drizzle-orm/pglite";
+import { beforeAll, expect, it, vi } from "vitest";
+import type { AppContext } from "../context.js";
+import { DurableMap, type SecurityMap } from "../repos/durable-map.js";
+import {
+  type MagicLinkBudgetLedger,
+  chargeAuthenticationMagicLinkBudget,
+  chargeMagicLinkBudget,
+} from "../services/magic-link-budget.js";
+import {
+  type MagicLinkExchange,
+  consumeMagicLinkExchange,
+  issueMagicLinkExchange,
+} from "../services/magic-link-exchange.js";
+import { migratedPGlite, warmMigratedPGlite } from "./migrated-pglite.js";
+
+vi.setConfig({ testTimeout: 60_000 });
+beforeAll(warmMigratedPGlite, 60_000);
+const subject = {
+  id: "upstream-subject-fixture",
+  email: "verified@example.test",
+  emailVerified: true,
+};
+const verifier = randomBytes(32).toString("base64url");
+const challenge = createHash("sha256").update(verifier).digest("base64url");
+const state = randomBytes(24).toString("base64url");
+const origin = "https://pages.example.test";
+const context = (
+  store: SecurityMap<MagicLinkExchange>,
+  clock = () => new Date(),
+) =>
+  overlapCast<unknown, AppContext>({
+    stores: { magicLinkExchanges: store },
+    clock,
+  });
+
+it("binds an exchange to its verifier and state and burns a wrong attempt", async () => {
+  const ctx = context(new Map());
+  const code = await issueMagicLinkExchange(
+    ctx,
+    subject,
+    challenge,
+    state,
+    origin,
+  );
+  const wrong = randomBytes(32).toString("base64url");
+  expect(
+    await consumeMagicLinkExchange(ctx, code, wrong, state, origin),
+  ).toBeUndefined();
+  expect(
+    await consumeMagicLinkExchange(ctx, code, verifier, state, origin),
+  ).toBeUndefined();
+  const next = await issueMagicLinkExchange(
+    ctx,
+    subject,
+    challenge,
+    state,
+    origin,
+  );
+  expect(
+    await consumeMagicLinkExchange(ctx, next, verifier, state, origin),
+  ).toEqual(subject);
+  expect(
+    await consumeMagicLinkExchange(ctx, next, verifier, state, origin),
+  ).toBeUndefined();
+});
+
+it("expires an unused exchange", async () => {
+  let now = Date.now();
+  const ctx = context(new Map(), () => new Date(now));
+  const code = await issueMagicLinkExchange(
+    ctx,
+    subject,
+    challenge,
+    state,
+    origin,
+  );
+  now += 5 * 60_000;
+  expect(
+    await consumeMagicLinkExchange(ctx, code, verifier, state, origin),
+  ).toBeUndefined();
+});
+
+it("does not allow an exchange from a different origin", async () => {
+  const ctx = context(new Map());
+  const code = await issueMagicLinkExchange(
+    ctx,
+    subject,
+    challenge,
+    state,
+    origin,
+  );
+  expect(
+    await consumeMagicLinkExchange(
+      ctx,
+      code,
+      verifier,
+      state,
+      "https://other.example",
+    ),
+  ).toBeUndefined();
+  expect(
+    await consumeMagicLinkExchange(ctx, code, verifier, state, origin),
+  ).toBeUndefined();
+});
+
+it("encrypts its record and admits one exchange across replicas", async () => {
+  const client = await migratedPGlite();
+  try {
+    const db = drizzle(client, { schema });
+    const store = () =>
+      new DurableMap<MagicLinkExchange>(
+        overlapCast(db),
+        "OpenSesame:MagicLinkExchange",
+        true,
+        300_000,
+        10_000,
+        createEventSealer("magic-link-exchange-fixture"),
+      );
+    const first = context(store());
+    const second = context(store());
+    const code = await issueMagicLinkExchange(
+      first,
+      subject,
+      challenge,
+      state,
+      origin,
+    );
+    const rows = JSON.stringify(await db.select().from(schema.oidcPayloads));
+    expect(rows).not.toContain(code);
+    expect(rows).not.toContain(subject.email);
+    const results = await Promise.all([
+      consumeMagicLinkExchange(first, code, verifier, state, origin),
+      consumeMagicLinkExchange(second, code, verifier, state, origin),
+    ]);
+    expect(results.filter(Boolean)).toEqual([subject]);
+  } finally {
+    await client.close();
+  }
+});
+
+it("enforces a shared per-address send budget across replicas", async () => {
+  const client = await migratedPGlite();
+  try {
+    const db = drizzle(client, { schema });
+    const store = () =>
+      new DurableMap<MagicLinkBudgetLedger>(
+        overlapCast(db),
+        "OpenSesame:MagicLinkBudget",
+        false,
+        3_600_000,
+        1,
+        createEventSealer("magic-link-budget-fixture"),
+      );
+    const budgetContext = () =>
+      overlapCast<unknown, AppContext>({
+        stores: { magicLinkBudgets: store() },
+        config: { claimPepper: "shared-budget-fixture-key" },
+        clock: () => new Date(),
+      });
+    const first = budgetContext();
+    const second = budgetContext();
+    const email = "limited-recipient@example.test";
+    const results = await Promise.all(
+      Array.from({ length: 6 }, (_, index) =>
+        chargeMagicLinkBudget(index % 2 ? first : second, email),
+      ),
+    );
+    expect(results.filter((result) => result === "ok")).toHaveLength(5);
+    expect(results.filter((result) => result === "recipient")).toHaveLength(1);
+    expect(
+      JSON.stringify(await db.select().from(schema.oidcPayloads)),
+    ).not.toContain(email);
+  } finally {
+    await client.close();
+  }
+});
+
+it("does not reset the send budget if the clock moves backward", async () => {
+  let now = Date.now();
+  const ctx = overlapCast<unknown, AppContext>({
+    stores: { magicLinkBudgets: new Map() },
+    config: { claimPepper: "budget-clock-fixture" },
+    clock: () => new Date(now),
+  });
+  for (let attempt = 0; attempt < 5; attempt++)
+    expect(await chargeMagicLinkBudget(ctx, "clock@example.test")).toBe("ok");
+  now -= 60_000;
+  expect(await chargeMagicLinkBudget(ctx, "clock@example.test")).toBe(
+    "recipient",
+  );
+  now += 11 * 60_000;
+  expect(await chargeMagicLinkBudget(ctx, "clock@example.test")).toBe("ok");
+});
+
+it("limits rotating recipients by source without draining global on refusal", async () => {
+  const ctx = overlapCast<unknown, AppContext>({
+    stores: { magicLinkBudgets: new Map() },
+    config: { claimPepper: "source-budget-fixture" },
+    clock: () => new Date(),
+  });
+  for (let attempt = 0; attempt < 20; attempt++)
+    expect(
+      await chargeMagicLinkBudget(
+        ctx,
+        `rotated-${attempt}@example.test`,
+        "192.0.2.20",
+      ),
+    ).toBe("ok");
+  const beforeSourceRefusal = structuredClone(
+    ctx.stores.magicLinkBudgets.get("deployment"),
+  );
+  expect(
+    await chargeMagicLinkBudget(ctx, "next@example.test", "192.0.2.20"),
+  ).toBe("source");
+  expect(ctx.stores.magicLinkBudgets.get("deployment")).toEqual(
+    beforeSourceRefusal,
+  );
+  expect(
+    await chargeMagicLinkBudget(ctx, "limited@example.test", "192.0.2.21"),
+  ).toBe("ok");
+  for (let attempt = 0; attempt < 4; attempt++)
+    await chargeMagicLinkBudget(
+      ctx,
+      "limited@example.test",
+      `192.0.2.${attempt + 30}`,
+    );
+  for (let attempt = 0; attempt < 25; attempt++) {
+    const beforeRecipientRefusal = structuredClone(
+      ctx.stores.magicLinkBudgets.get("deployment"),
+    );
+    expect(
+      await chargeMagicLinkBudget(
+        ctx,
+        "limited@example.test",
+        `192.0.2.${attempt + 60}`,
+      ),
+    ).toBe("recipient");
+    expect(ctx.stores.magicLinkBudgets.get("deployment")).toEqual(
+      beforeRecipientRefusal,
+    );
+  }
+  expect(
+    await chargeMagicLinkBudget(ctx, "fresh@example.test", "192.0.2.22"),
+  ).toBe("ok");
+});
+
+it("bounds authenticated backend mail per application and recipient", async () => {
+  const ctx = overlapCast<unknown, AppContext>({
+    stores: { magicLinkBudgets: new Map() },
+    config: { claimPepper: "backend-budget-fixture" },
+    clock: () => new Date(),
+  });
+  for (let attempt = 0; attempt < 5; attempt++)
+    expect(
+      await chargeAuthenticationMagicLinkBudget(
+        ctx,
+        "app_one",
+        "recipient@example.test",
+      ),
+    ).toBe(true);
+  const beforeRecipientRefusal = structuredClone(
+    ctx.stores.magicLinkBudgets.get("deployment"),
+  );
+  expect(
+    await chargeAuthenticationMagicLinkBudget(
+      ctx,
+      "app_one",
+      "recipient@example.test",
+    ),
+  ).toBe(false);
+  expect(ctx.stores.magicLinkBudgets.get("deployment")).toEqual(
+    beforeRecipientRefusal,
+  );
+  expect(
+    await chargeAuthenticationMagicLinkBudget(
+      ctx,
+      "app_two",
+      "recipient@example.test",
+    ),
+  ).toBe(true);
+});
+
+it("does not charge recipient dimensions when global or application admission refuses", async () => {
+  const publicStore = new Map<string, MagicLinkBudgetLedger>();
+  const ctx = overlapCast<unknown, AppContext>({
+    stores: { magicLinkBudgets: publicStore },
+    config: { claimPepper: "atomic-budget-fixture" },
+    clock: () => new Date(),
+  });
+  for (let attempt = 0; attempt < 200; attempt++)
+    expect(
+      await chargeMagicLinkBudget(
+        ctx,
+        `global-${attempt}@example.test`,
+        `192.0.2.${Math.floor(attempt / 20)}`,
+      ),
+    ).toBe("ok");
+  const beforeGlobal = structuredClone(publicStore.get("deployment"));
+  expect(
+    await chargeMagicLinkBudget(
+      ctx,
+      "global-refused@example.test",
+      "198.51.100.1",
+    ),
+  ).toBe("global");
+  expect(publicStore.get("deployment")).toEqual(beforeGlobal);
+
+  const backendStore = new Map<string, MagicLinkBudgetLedger>();
+  const backend = overlapCast<unknown, AppContext>({
+    stores: { magicLinkBudgets: backendStore },
+    config: { claimPepper: "atomic-backend-budget-fixture" },
+    clock: () => new Date(),
+  });
+  for (let attempt = 0; attempt < 100; attempt++)
+    expect(
+      await chargeAuthenticationMagicLinkBudget(
+        backend,
+        "full_application",
+        `backend-${attempt}@example.test`,
+      ),
+    ).toBe(true);
+  const beforeApplication = structuredClone(backendStore.get("deployment"));
+  expect(
+    await chargeAuthenticationMagicLinkBudget(
+      backend,
+      "full_application",
+      "backend-refused@example.test",
+    ),
+  ).toBe(false);
+  expect(backendStore.get("deployment")).toEqual(beforeApplication);
+});

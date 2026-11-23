@@ -62,6 +62,10 @@ paths:
   /agent-launches:
     post:
       summary: Native operator approves a one-use scoped agent launch
+      description: >-
+        A revision-bound launch requires the current Identity membership
+        incarnation and authority revision. An unbound local launch is accepted
+        only if this principal and organization have no prior withdrawal.
       security: [{HostOperatorBearer: []}, {HostOperatorHeader: []}]
       requestBody:
         required: true
@@ -81,6 +85,16 @@ paths:
                   minItems: 1
                   maxItems: 6
                   items: {type: string, enum: [host.tasks.read, host.tasks.create, host.tasks.invoke, host.tasks.terminate, host.sync.read, host.sync.write]}
+                membership_incarnation: {type: [string, 'null'], format: uuid}
+                authority_revision: {type: [string, 'null'], format: uuid}
+              oneOf:
+                - properties:
+                    membership_incarnation: {type: 'null'}
+                    authority_revision: {type: 'null'}
+                - required: [membership_incarnation, authority_revision]
+                  properties:
+                    membership_incarnation: {$ref: '#/components/schemas/NonNilUuid'}
+                    authority_revision: {$ref: '#/components/schemas/NonNilUuid'}
       responses:
         "201": {description: One-use launch_handle, client_id, audience, scope and expires_in=300; Cache-Control no-store}
         "401": {$ref: '#/components/responses/Error'}
@@ -462,10 +476,15 @@ paths:
               required: [capabilities]
               properties:
                 capabilities:
-                  type: array
-                  minItems: 1
-                  maxItems: 2
-                  items: {type: string, enum: [host.sync.read, host.sync.write]}
+                  oneOf:
+                    - type: array
+                      minItems: 1
+                      maxItems: 2
+                      items: {type: string, enum: [host.sync.read, host.sync.write]}
+                    - type: array
+                      minItems: 1
+                      maxItems: 1
+                      items: {const: host.join}
       responses:
         "200":
           description: One-use device code and human verification code; expires after five minutes
@@ -566,7 +585,10 @@ paths:
   /browser-pairings/decision:
     post:
       summary: Atomically approve or deny an inspected pairing
-      description: Native operator selects the canonical principal and organization. Approval establishes local_unverified assurance, not MFA.
+      description: >-
+        Native operator selects the canonical principal and organization. Approval
+        establishes local_unverified assurance, not MFA. A previously withdrawn
+        membership requires a fresh Identity assertion before sync authority is usable.
       security: [{HostOperatorBearer: []}, {HostOperatorHeader: []}]
       requestBody:
         required: true
@@ -585,6 +607,7 @@ paths:
         "204": {description: Decision recorded}
         "401": {$ref: "#/components/responses/Error"}
         "429": {$ref: "#/components/responses/Error"}
+        "503": {description: Role provisioning failed; the pairing remains pending and can be retried}
   /browser-clients:
     get:
       summary: List only the authenticated principal's paired clients in its organization
@@ -627,6 +650,8 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/DeviceAuthorizeResponse" }
+        "503":
+          description: Device approval is unavailable because the Pages app URL is not configured; no device code was issued
   /device/token:
     post:
       summary: Poll a device authorization and mint an organization-bound session
@@ -645,7 +670,11 @@ paths:
   /device/approve:
     post:
       summary: Approve a device code with Identity-derived organization authority
-      description: Internal Identity-to-Host operation; principal, organization, and role must come from Identity state.
+      description: >-
+        Internal Identity-to-Host operation; the principal, organization, role,
+        membership incarnation and authority revision come from Identity state.
+        A local development bootstrap may omit all four organization and revision
+        fields; it cannot be used as a remote Identity approval.
       security: [{ HostOperatorBearer: [] }, { HostOperatorHeader: [] }]
       requestBody:
         required: true
@@ -661,6 +690,8 @@ paths:
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+        "409": {description: The supplied membership authority was withdrawn}
+        "503": {description: Host authorization policy or storage is unavailable}
   /session:
     get:
       summary: Count active Host sessions
@@ -677,8 +708,12 @@ paths:
                   active_sessions: { type: integer, minimum: 0 }
   /sessions/revoke:
     post:
-      summary: Revoke live and approved sessions for one principal in one organization
-      description: Internal Identity-to-Host operation used before a membership mutation completes.
+      summary: Withdraw a specific Identity membership authority revision
+      description: >-
+        Internal Identity-to-Host operation. Atomically records an idempotent
+        withdrawal fence and removes matching browser and agent authority. It
+        invalidates matching live sessions and pending device approvals; a retry
+        cannot revoke a later membership revision.
       security: [{ HostOperatorBearer: [] }, { HostOperatorHeader: [] }]
       requestBody:
         required: true
@@ -693,6 +728,7 @@ paths:
               schema: { $ref: "#/components/schemas/RevokeSessionsResponse" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
+        "503": {description: Withdrawal storage is unavailable; retry with the same withdrawal ID}
   /whoami:
     get:
       summary: Resolve the current principal, organization, and organization role
@@ -920,13 +956,17 @@ paths:
             schema: { $ref: "#/components/schemas/InvokeRequest" }
       responses:
         "200":
-          description: Signed organization-bound invocation receipt
+          description: Signed receipt and private opening for this authorized invocation caller.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/InvocationReceipt" }
+              schema: { $ref: "#/components/schemas/InvocationResponse" }
         "400": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /tasks:
     get:
       summary: List task runs owned by the caller in the caller's organization
@@ -965,12 +1005,16 @@ paths:
       responses:
         "201":
           description: Frozen intent handle
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/FreezeTaskIntentResponse" }
         "400": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
   /tasks/invoke:
@@ -984,11 +1028,44 @@ paths:
             schema: { $ref: "#/components/schemas/InvokeTaskRequest" }
       responses:
         "200":
-          description: Signed organization-bound invocation receipt
+          description: Signed receipt and private opening for this authorized invocation caller.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/InvocationReceipt" }
+              schema: { $ref: "#/components/schemas/InvocationResponse" }
         "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /tasks/intent-opening:
+    post:
+      summary: Recover the private opening for a completed frozen task invocation
+      description: >-
+        Submit the exact saved frozen intent and digest from task freeze. The
+        same canonical principal/subject and authority fingerprint must still
+        match; explicit operator authority applies. Native opaque sessions and
+        operators are accepted; agent capabilities and browser grants are not.
+        Authentication precedes body parsing and all authenticated mismatches
+        return the same 404.
+      security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecoverTaskOpeningRequest" }
+      responses:
+        "200":
+          description: Private opening only; use the saved receipt ID to obtain signed evidence separately.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoverTaskOpeningResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
   /tasks/{id}:
     parameters:
       - $ref: "#/components/parameters/TaskId"
@@ -4428,6 +4505,10 @@ components:
     OrganizationRole:
       type: string
       enum: [owner, admin, member]
+    NonNilUuid:
+      type: string
+      format: uuid
+      pattern: '^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
     CallerRole:
       type: string
       enum: [owner, admin, member, operator]
@@ -4448,8 +4529,8 @@ components:
       type: object
       required: [device_code, user_code, verification_uri, verification_uri_complete, expires_in, interval, client_id, scope]
       properties:
-        device_code: { type: string }
-        user_code: { type: string }
+        device_code: { type: string, writeOnly: true }
+        user_code: { type: string, writeOnly: true }
         verification_uri: { type: string, format: uri }
         verification_uri_complete: { type: string, format: uri }
         expires_in: { type: integer, minimum: 1 }
@@ -4465,19 +4546,27 @@ components:
         grant_type: { type: string, const: "urn:ietf:params:oauth:grant-type:device_code" }
     HostSession:
       type: object
-      required: [session_id, principal_id, actor_id, issuer, assurance, organization_id, organization_role, project_id, credential_handle, approved_as, expires_at]
+      required: [principal_id, approved_as, organization_id, organization_role, client_id, audience, assurance, auth_time, amr, last_step_up_at, capability_ceiling, project_id, actor_id, credential_handle, issued_at, expires_at, local_session, membership_incarnation, authority_revision]
       properties:
-        session_id: { type: string }
         principal_id: { type: string }
         actor_id: { type: [string, "null"] }
-        issuer: { type: string, format: uri }
-        assurance: { type: string }
+        client_id: { type: string }
+        audience: { type: string }
+        assurance: { type: string, enum: [anonymous, local_unverified, local_user_presence, federated, mfa, phishing_resistant] }
+        auth_time: { type: string, format: date-time }
+        amr: { type: array, items: { type: string } }
+        last_step_up_at: { type: [string, "null"], format: date-time }
+        capability_ceiling: { type: array, items: { type: string } }
         organization_id: { type: string }
         organization_role: { $ref: "#/components/schemas/OrganizationRole" }
         project_id: { type: [string, "null"] }
         credential_handle: { type: [string, "null"] }
         approved_as: { type: string }
+        issued_at: { type: string, format: date-time }
         expires_at: { type: string, format: date-time }
+        local_session: { type: boolean }
+        membership_incarnation: { type: [string, "null"], format: uuid }
+        authority_revision: { type: [string, "null"], format: uuid }
     DeviceTokenResponse:
       type: object
       required: [token_type, expires_in, session, access_token]
@@ -4485,15 +4574,32 @@ components:
         token_type: { type: string, const: Bearer }
         expires_in: { type: integer, minimum: 1 }
         session: { $ref: "#/components/schemas/HostSession" }
-        access_token: { type: string }
+        access_token: { type: string, writeOnly: true }
     DeviceApproveRequest:
       type: object
-      required: [user_code]
+      required: [user_code, principal]
       properties:
         user_code: { type: string }
         principal: { type: string }
-        organization_id: { type: string }
-        organization_role: { $ref: "#/components/schemas/OrganizationRole" }
+        organization_id: { type: [string, "null"] }
+        organization_role:
+          oneOf:
+            - { $ref: "#/components/schemas/OrganizationRole" }
+            - { type: "null" }
+        membership_incarnation: { type: [string, "null"], format: uuid }
+        authority_revision: { type: [string, "null"], format: uuid }
+      oneOf:
+        - required: [organization_id, organization_role, membership_incarnation, authority_revision]
+          properties:
+            organization_id: { type: string }
+            organization_role: { $ref: "#/components/schemas/OrganizationRole" }
+            membership_incarnation: { $ref: "#/components/schemas/NonNilUuid" }
+            authority_revision: { $ref: "#/components/schemas/NonNilUuid" }
+        - properties:
+            organization_id: { type: "null" }
+            organization_role: { type: "null" }
+            membership_incarnation: { type: "null" }
+            authority_revision: { type: "null" }
     DeviceApproveResponse:
       type: object
       required: [status]
@@ -4501,27 +4607,29 @@ components:
         status: { type: string, const: approved }
     RevokeSessionsRequest:
       type: object
-      required: [principal_id, organization_id]
+      required: [principal_id, organization_id, membership_incarnation, authority_revision, withdrawal_id]
       properties:
         principal_id: { type: string }
         organization_id: { type: string }
+        membership_incarnation: { $ref: "#/components/schemas/NonNilUuid" }
+        authority_revision: { $ref: "#/components/schemas/NonNilUuid" }
+        withdrawal_id:
+          $ref: "#/components/schemas/NonNilUuid"
+          description: Stable idempotency key for this withdrawal
     RevokeSessionsResponse:
       type: object
       required: [revoked]
       properties:
         revoked: { type: integer, minimum: 0 }
     WhoAmI:
-      type: object
-      required: [principal_id, actor_id, client_id, issuer, assurance, organization_id, organization_role, context]
-      properties:
-        principal_id: { type: string }
-        actor_id: { type: [string, "null"] }
-        client_id: { type: string }
-        issuer: { type: string, format: uri }
-        assurance: { type: string }
-        organization_id: { type: string }
-        organization_role: { $ref: "#/components/schemas/CallerRole" }
-        context: { type: [string, "null"] }
+      oneOf:
+        - { $ref: "#/components/schemas/HostSession" }
+        - type: object
+          required: [authentication, assurance, issuer]
+          properties:
+            authentication: { const: operator }
+            assurance: { const: local_unverified }
+            issuer: { type: string }
     InvokeRequest:
       type: object
       required: [operation, resource]
@@ -4631,18 +4739,37 @@ components:
         idempotency_key: { type: string }
     FreezeTaskIntentResponse:
       type: object
-      required: [intent_id, intent_digest, task_run_id, task_state_version, canonical_arguments]
+      required: [intent_id, intent_digest, task_run_id, task_state_version, canonical_arguments, receipt_id, intent]
       properties:
         intent_id: { type: string }
         intent_digest: { type: string }
         task_run_id: { type: string }
         task_state_version: { type: integer, minimum: 0 }
         canonical_arguments: {}
+        receipt_id:
+          type: string
+          description: Preassigned handle for the resulting signed receipt; save before invoking.
+        intent:
+          type: object
+          description: Private frozen digest input; save exact field values and numeric precision for offline verification and opening recovery.
     InvokeTaskRequest:
       type: object
       required: [intent_digest]
       properties:
         intent_digest: { type: string }
+    RecoverTaskOpeningRequest:
+      type: object
+      required: [intent, intent_digest]
+      additionalProperties: false
+      properties:
+        intent: { type: object }
+        intent_digest: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+    RecoverTaskOpeningResponse:
+      type: object
+      required: [opening]
+      additionalProperties: false
+      properties:
+        opening: { type: string, pattern: '^hmac-sha256:v1:[0-9a-f]{64}$' }
     TerminateTaskRequest:
       type: object
       properties:
@@ -4660,7 +4787,10 @@ components:
       properties:
         id: { type: string }
         invocation_id: { type: string }
-        intent_digest: { type: string }
+        intent_digest:
+          type: string
+          pattern: '^sha256:[0-9a-f]{64}$'
+          description: Salted commitment to the authorized intent digest; the private opening is returned only to the invocation caller.
         principal_id: { type: string }
         organization_id:
           type: string
@@ -4682,14 +4812,47 @@ components:
         external_response_digest: { type: [string, "null"] }
         started_at: { type: string, format: date-time }
         completed_at: { type: string, format: date-time }
-        outcome: { type: string, enum: [succeeded, failed, denied, cancelled] }
+        outcome: { type: string, enum: [succeeded, failed, denied, cancelled, indeterminate] }
         safe_result_summary: {}
         authority_key_id: { type: string }
         signature: { type: string }
         receipt_schema_version: { type: integer, minimum: 1 }
+        idempotency_binding:
+          type: string
+          pattern: '^hmac-sha256:v1:[0-9a-f]{64}$'
+          description: Opaque keyed commitment to the request and authority; historical unkeyed bindings are not disclosed.
         task_run_id: { type: string }
         task_state_version: { type: integer, minimum: 0 }
         task_state_digest: { type: string }
+    InvocationResponse:
+      description: >-
+        The receipt fields are signed. The private intent_opening is separate
+        unsigned verification material and must be saved and shared only with
+        parties authorized to learn the original intent. A retry for the same
+        canonical principal/subject and authority can use a different session;
+        explicit operator authority also applies. Verify the receipt signature
+        independently before checking its intent commitment. Receipt GET and
+        the generic KV and MCP responses do not return the opening.
+      allOf:
+        - $ref: "#/components/schemas/InvocationReceipt"
+        - type: object
+          required: [intent_opening]
+          properties:
+            intent_opening:
+              type: object
+              required: [opening, intent_digest, intent]
+              properties:
+                opening:
+                  type: string
+                  pattern: '^hmac-sha256:v1:[0-9a-f]{64}$'
+                  description: Private per-invocation opening; possession permits testing guesses about the intent.
+                intent_digest:
+                  type: string
+                  pattern: '^sha256:[0-9a-f]{64}$'
+                  description: Digest of the original intent, distinct from the signed commitment on the receipt.
+                intent:
+                  type: object
+                  description: Original normal or frozen intent used to calculate the private digest.
     ReceiptKey:
       type: object
       required: [key_id, algorithm, public_key_b64]

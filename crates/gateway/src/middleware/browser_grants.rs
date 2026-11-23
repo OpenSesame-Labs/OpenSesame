@@ -190,6 +190,12 @@ async fn authenticate(
     if grant.origin != origin || grant.audience != st.resource {
         return Err(refusal("invalid_grant"));
     }
+    if grant.identity_required
+        && grant.authentication_json.is_none()
+        && !matches!(path, "/api/v1/host-authorizations" | "/api/v1/host-authorizations/verify")
+    {
+        return Err(refusal("identity_authentication_required"));
+    }
     let claims = session_claims(&grant)?;
     let capability =
         required_capability(method, path).ok_or_else(|| refusal("capability_denied"))?;

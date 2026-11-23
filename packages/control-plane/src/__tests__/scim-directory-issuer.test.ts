@@ -1,8 +1,9 @@
 import { isString, overlapCast } from "@opensesame/os-domain";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { ldapIssuer } from "../interactions/ldap.js";
 import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
+import { mockHostWithdrawal } from "./host-withdrawal-test-helper.js";
 import {
   type App,
   auth,
@@ -22,15 +23,18 @@ import {
 
 const SAML_ENTITY = "https://idp.example/metadata";
 const SAML_METADATA = `<EntityDescriptor entityID="${SAML_ENTITY}"><IDPSSODescriptor><KeyDescriptor use="signing"><KeyInfo><X509Data><X509Certificate>MIIB</X509Certificate></X509Data></KeyInfo></KeyDescriptor></IDPSSODescriptor></EntityDescriptor>`;
+afterEach(() => vi.restoreAllMocks());
 
 function plane() {
-  return createControlPlane({
+  const result = createControlPlane({
     config: {
       port: 0,
       publicUrl: "http://127.0.0.1:8788",
       issuer: "http://127.0.0.1:8788",
     },
   });
+  mockHostWithdrawal(result.ctx);
+  return result;
 }
 
 async function createOrg(

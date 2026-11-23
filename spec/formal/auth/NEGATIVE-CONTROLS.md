@@ -21,8 +21,9 @@ baseline. No product source file in the active checkout is mutated. The command
 fails if a mutation point is absent or ambiguous, a baseline fails, or an
 expected assertion is not observed.
 
-The ten controls disable or alter the session token prefix, session mapping,
-expiry boundary, revocation, suspended-principal and closed-principal checks;
+The twelve controls disable or alter the session token prefix, session mapping,
+expiry boundary, revocation, revocation-cleanup-pending, pending organization
+withdrawal, suspended-principal and closed-principal checks;
 the provisional-principal guard; the project role proof; and project state and
 expiry checks. A changed guard should prompt review and an update to its control,
 not removal of the failure check.

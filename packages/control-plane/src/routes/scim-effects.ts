@@ -1,11 +1,33 @@
+import { randomUUID } from "node:crypto";
 import type { ScimUserRecord } from "@opensesame/database";
 import type { Organization, OrganizationRole } from "@opensesame/os-domain";
 import { isString } from "@opensesame/os-domain";
 import type { AppContext } from "../context.js";
 import {
-  revokeOrganizationMembership,
-  serializeMembershipMutation,
-} from "./organizations.js";
+  type DeprovisionTarget,
+  SCIM_DEPROVISION_JOURNAL_ATTRIBUTE,
+  deprovisionJournal,
+} from "./scim-deprovision-journal.js";
+import { finishLegacyOrphan } from "./scim-legacy-orphan.js";
+
+export {
+  SCIM_DEPROVISION_JOURNAL_ATTRIBUTE,
+  deprovisionJournal,
+} from "./scim-deprovision-journal.js";
+
+import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
+import {
+  type PreparedWithdrawal,
+  prepareRoleWithdrawal,
+} from "../services/organization-withdrawal.js";
+import {
+  forgetScimDeprovision,
+  queueScimDeprovision,
+} from "../services/scim-deprovision-queue.js";
+import {
+  prepareDirectoryRemoval,
+  removeDirectoryMembership,
+} from "./directory-removal.js";
 
 /**
  * Where a Groups PATCH records the derived role, on the SCIM row itself.
@@ -22,15 +44,15 @@ export const SCIM_SUBJECTS_ATTRIBUTE =
  * multi-row revocation starts so a retry after a partial failure still knows
  * whose sessions to end, without guessing from a now-removed membership.
  */
-const SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE =
+export const SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE =
   "urn:opensesame:params:scim:2.0:deprovision-principals";
-const SCIM_DEPROVISION_BATCH = 64;
 
 /** Directory-supplied payloads cannot set or read internal reconciliation state. */
 export const SCIM_BOOKKEEPING_ATTRIBUTES = new Set([
   SCIM_ROLE_ATTRIBUTE,
   SCIM_SUBJECTS_ATTRIBUTE,
   SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE,
+  SCIM_DEPROVISION_JOURNAL_ATTRIBUTE,
 ]);
 
 const ORG_IDENTITY_KINDS = ["oidc", "oauth2", "saml", "ldap", "email"] as const;
@@ -120,7 +142,9 @@ async function issuersForOrganization(
       const directoryIssuer = ldapIssuer(ldap);
       if (!issuers.includes(directoryIssuer)) issuers.push(directoryIssuer);
     } catch {
-      /* An unusable directory URL is not an issuer. */
+      throw new Error(
+        "Cannot resolve the LDAP issuer for directory reconciliation",
+      );
     }
   }
   if (
@@ -132,12 +156,14 @@ async function issuersForOrganization(
         "../interactions/saml.js"
       );
       const cfg = samlOrgConfig(organization);
-      if (cfg) {
-        const entityId = (await resolveIdpMetadata(ctx, cfg)).entityId;
-        if (entityId && !issuers.includes(entityId)) issuers.push(entityId);
-      }
+      if (!cfg) throw new Error("SAML configuration is incomplete");
+      const entityId = (await resolveIdpMetadata(ctx, cfg)).entityId;
+      if (!entityId) throw new Error("SAML metadata has no entity ID");
+      if (!issuers.includes(entityId)) issuers.push(entityId);
     } catch {
-      /* Metadata that cannot be read adds no issuer. */
+      throw new Error(
+        "Cannot resolve the SAML issuer for directory reconciliation",
+      );
     }
   }
   return issuers;
@@ -196,89 +222,171 @@ async function principalsForUser(
   return [...principalIds];
 }
 
-/** Withdraw a deactivated subject's membership and live sessions (D11). */
+/** Must run inside the organization boundary before the inactive row commits. */
+export async function prepareDeprovision(
+  ctx: AppContext,
+  organization: Organization,
+  user: ScimUserRecord,
+  correlationId: string,
+  additionalPrincipals: string[] = [],
+  excludedPrincipals: string[] = [],
+): Promise<ScimUserRecord> {
+  const targets: DeprovisionTarget[] = [];
+  const currentOrganization = await ctx.stores.organizations.get(
+    organization.id,
+  );
+  if (!currentOrganization) throw new Error("Organization no longer exists");
+  for (const principalId of new Set([
+    ...(await principalsForUser(ctx, currentOrganization, user, false)),
+    ...additionalPrincipals,
+  ])) {
+    if (excludedPrincipals.includes(principalId)) continue;
+    const current = await ctx.stores.organizationMemberships.findVersioned(
+      organization.id,
+      principalId,
+    );
+    if (!current) continue;
+    const prepared = await prepareDirectoryRemoval(ctx, {
+      organizationId: organization.id,
+      principalId,
+      incarnation: current.incarnation,
+      reason: "scim_deactivated",
+      correlationId,
+    });
+    // An unrelated removal already fences admission until it completes. A
+    // competing role change cannot safely be allowed to clear that fence.
+    if (prepared.status === "busy" && current.withdrawal?.kind !== "remove") {
+      throw new Error("Membership update is in progress; retry deprovisioning");
+    }
+    if (prepared.status === "last_owner")
+      throw new Error("Directory removal could not be prepared");
+    targets.push({
+      principalId,
+      incarnation: current.incarnation,
+      completed: false,
+    });
+  }
+  const raw = { ...user.raw };
+  delete raw[SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE];
+  raw[SCIM_DEPROVISION_JOURNAL_ATTRIBUTE] = { cycle: randomUUID(), targets };
+  return { ...user, raw };
+}
+
+/** Resume only the exact membership incarnations selected by this transition. */
 export async function deprovision(
   ctx: AppContext,
   organization: Organization,
   user: ScimUserRecord,
   correlationId: string,
-  previous?: ScimUserRecord,
 ): Promise<void> {
-  const record = previous ? withRememberedSubjects(previous, user) : user;
-  // Resolve members first. Only a principal that held a membership in THIS
-  // organization is in scope; the persisted marker carries that set into a
-  // retry after the membership rows are already gone.
-  const members = await principalsForUser(ctx, organization, record, true);
-  const prior = record.raw[SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE];
-  const recorded = Array.isArray(prior)
-    ? prior.filter(
-        (value): value is string => isString(value) && value.length > 0,
-      )
-    : [];
-  let pendingRecorded = [...new Set(recorded)];
-  const targets = [...new Set<string>([...pendingRecorded, ...members])];
-  const raw = { ...record.raw };
-  delete raw[SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE];
-  // Process old retry targets first. Preserve any unprocessed legacy markers:
-  // their memberships may already be gone, so they cannot be rediscovered.
-  // New targets enter the marker in bounded batches and retain memberships
-  // until their batch runs. A failed batch stays recorded for a retry.
-  for (
-    let offset = 0;
-    offset < targets.length;
-    offset += SCIM_DEPROVISION_BATCH
-  ) {
-    const batch = targets.slice(offset, offset + SCIM_DEPROVISION_BATCH);
-    const marker = [...new Set([...pendingRecorded, ...batch])];
-    await ctx.stores.scim.users.update({
-      ...record,
-      raw: {
-        ...raw,
-        [SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE]: marker,
-      },
-      updatedAt: ctx.clock(),
-    });
-    for (const principalId of batch) {
-      await revokeOrganizationMembership(ctx, {
+  const journal = deprovisionJournal(user);
+  if (!journal)
+    throw new Error(
+      "Cannot safely resume a legacy SCIM deactivation without an incarnation journal",
+    );
+  const work = {
+    organizationId: organization.id,
+    userId: user.id,
+    cycle: journal.cycle,
+  };
+  queueScimDeprovision(ctx, work);
+  for (const target of journal.targets) {
+    if (target.completed) continue;
+    if (target.legacyOrphan)
+      await finishLegacyOrphan(ctx, organization.id, target, correlationId);
+    else
+      await removeDirectoryMembership(ctx, {
         organizationId: organization.id,
-        principalId,
+        principalId: target.principalId,
         correlationId,
         reason: "scim_deactivated",
-        revokeSessionsWithoutMembership: true,
+        incarnation: target.incarnation,
       });
-    }
-    const completed = new Set(batch);
-    pendingRecorded = pendingRecorded.filter((id) => !completed.has(id));
-    await ctx.stores.scim.users.update({
-      ...record,
-      raw:
-        pendingRecorded.length > 0
-          ? { ...raw, [SCIM_DEPROVISION_PRINCIPALS_ATTRIBUTE]: pendingRecorded }
-          : raw,
-      updatedAt: ctx.clock(),
+    await withScimOrganizationBoundary(ctx, organization.id, async (tx) => {
+      const current = await tx.stores.scim.users.getVersioned(
+        organization.id,
+        user.id,
+      );
+      if (!current) return;
+      const latest = deprovisionJournal(current.user);
+      if (!latest) throw new Error("Invalid SCIM deprovision journal");
+      if (latest.cycle !== journal.cycle) return;
+      if (
+        !latest.targets.some(
+          (entry) =>
+            entry.principalId === target.principalId &&
+            entry.incarnation === target.incarnation,
+        )
+      )
+        throw new Error("SCIM deprovision target changed concurrently");
+      const targets = latest.targets.map((entry) =>
+        entry.principalId === target.principalId &&
+        entry.incarnation === target.incarnation
+          ? { ...entry, completed: true }
+          : entry,
+      );
+      const updated = await tx.stores.scim.users.replaceIfRevision(
+        organization.id,
+        user.id,
+        current.revision,
+        {
+          ...current.user,
+          raw: {
+            ...current.user.raw,
+            [SCIM_DEPROVISION_JOURNAL_ATTRIBUTE]: {
+              cycle: latest.cycle,
+              targets,
+            },
+          },
+        },
+      );
+      if (!updated)
+        throw new Error("SCIM deprovision journal changed concurrently");
     });
   }
+  forgetScimDeprovision(ctx, work);
 }
 
-/** Apply a Groups mapping to whoever already holds a membership here. */
+/** Prepare membership role changes in the caller's organization transaction. */
 export async function applyRole(
   ctx: AppContext,
   organization: Organization,
   user: ScimUserRecord,
   role: OrganizationRole,
-): Promise<void> {
+  correlationId: string,
+  onlyPending = false,
+): Promise<PreparedWithdrawal[]> {
+  const prepared: PreparedWithdrawal[] = [];
   for (const principalId of await principalsForUser(ctx, organization, user)) {
-    await serializeMembershipMutation(ctx, organization.id, async () => {
-      const existing = await ctx.stores.organizationMemberships.find(
-        organization.id,
-        principalId,
-      );
-      if (!existing || existing.role === role) return;
-      await ctx.stores.organizationMemberships.upsert({
-        ...existing,
-        role,
-        updatedAt: ctx.clock(),
-      });
+    const current = await ctx.stores.organizationMemberships.findVersioned(
+      organization.id,
+      principalId,
+    );
+    if (!current) continue;
+    if (
+      onlyPending &&
+      (current.withdrawal?.kind !== "change_role" ||
+        current.withdrawal.role !== role)
+    )
+      continue;
+    const result = await prepareRoleWithdrawal(ctx, {
+      organizationId: organization.id,
+      principalId,
+      expectedIncarnation: current.incarnation,
+      role,
+      actorPrincipalId: ctx.systemOwnerPrincipalId,
+      actorType: "system",
+      correlationId,
     });
+    if (result.status === "ready") prepared.push(result.prepared);
+    else if (result.status === "last_owner")
+      throw new Error(
+        "The directory would leave this organization without an owner",
+      );
+    else if (result.status === "busy")
+      throw new Error(
+        "Membership update is in progress; retry the group update",
+      );
   }
+  return prepared;
 }

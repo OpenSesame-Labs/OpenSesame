@@ -56,6 +56,7 @@ mod sync_page;
 mod sync_targets;
 mod taskbus_config;
 mod tasks;
+mod tasks_opening;
 mod web_login_recipes;
 mod wire_connections;
 use crate::app_state::AppState;
@@ -360,6 +361,7 @@ pub fn router(state: AppState) -> Router {
         )
         .route("/api/v1/tasks/intents", post(tasks::freeze_intent))
         .route("/api/v1/tasks/invoke", post(tasks::invoke_task))
+        .route("/api/v1/tasks/intent-opening", post(tasks_opening::recover))
         .route("/api/v1/tasks/{id}", get(tasks::get_task))
         .route("/api/v1/tasks/{id}/terminate", post(tasks::terminate_task))
         // ADR 0159: agent-hooks verdicts and the organization's hook policy.

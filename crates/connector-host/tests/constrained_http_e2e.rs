@@ -1,12 +1,12 @@
-//! L2 constrained HTTP end to end (ADR 0150 §6.7): the host admits a
-//! placeholder through its ledger and the invoke-through broker sends the
-//! request to a real TLS upstream standing in for `api.github.com`.
+//! L2 constrained HTTP end to end (ADR 0150): the host admits a placeholder
+//! through its ledger and the invoke-through broker sends the request to a
+//! real TLS upstream standing in for `api.github.com`.
 //!
 //! What the upstream sees is the proof. The credential arrives exactly once,
-//! in the one header the provider's rule names; the placeholder never
-//! arrives at all, because its header is stripped rather than rewritten; and
-//! an upstream that echoes what it was sent hands nothing back, because the
-//! broker scrubs the response before the summary is built.
+//! in the one header the provider's rule names; the placeholder never arrives,
+//! because its header is stripped rather than rewritten; and an upstream that
+//! echoes or reversibly encodes what it was sent does not appear in the host
+//! result. A pinned socket on another port is refused before any byte is sent.
 
 use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
@@ -40,8 +40,7 @@ const MATERIAL: &str = "CANARY-e2e-material-9f2c41";
 #[derive(Clone, Debug)]
 struct Hit {
     authorization: Vec<String>,
-    /// The target, every header name and value, and the body, run together:
-    /// anything the client sent is somewhere in here.
+    /// The target, every header name and value, and the body, run together.
     everything: String,
 }
 
@@ -54,9 +53,8 @@ impl Seen {
     }
 }
 
-/// Records the request, then echoes its `Authorization` back in the body and
-/// in `etag` (an allowlisted response header): the reflection a debug route
-/// or an error quoting the rejected token would produce.
+/// Records the request, then echoes its `Authorization` in the body and a
+/// reversible encoding in both the body and an allowlisted response header.
 async fn reflect(State(seen): State<Seen>, req: Request) -> Response {
     let (parts, body) = req.into_parts();
     let body = axum::body::to_bytes(body, 1 << 20)
@@ -80,11 +78,12 @@ async fn reflect(State(seen): State<Seen>, req: Request) -> Response {
         everything,
     });
     let echoed = authorization.join(",");
+    let reversed: String = echoed.chars().rev().collect();
     Response::builder()
         .status(200)
         .header("content-type", "text/plain")
-        .header("etag", echoed.as_str())
-        .body(format!("you sent: {echoed}").into())
+        .header("etag", reversed.as_str())
+        .body(format!("you sent: {echoed}; reversed: {reversed}").into())
         .expect("response")
 }
 
@@ -137,9 +136,8 @@ async fn upstream() -> Upstream {
     }
 }
 
-/// The production rule set and fence, with the one host it names pinned to
-/// the listener. The URL stays `https://api.github.com/…` on the default
-/// port: nothing about the fence is relaxed for the test.
+/// The production host allowlist, pinned to the ephemeral listener. Test mode
+/// permits its non-default TLS port; the pin must still match the request.
 fn invoker(upstream: &Upstream) -> Invoker {
     let trust = TrustBundle::from_pem(
         TrustProfileRef::new("upstream").unwrap(),
@@ -158,7 +156,7 @@ fn invoker(upstream: &Upstream) -> Invoker {
         server_name: None,
         pinned: Some((HOST.into(), vec![upstream.addr])),
     };
-    Invoker::with_tls(EGRESS_RULES.to_vec(), &spec)
+    Invoker::with_tls(EGRESS_RULES.to_vec(), &spec).allow_http_for_tests()
 }
 
 fn host() -> (HostRuntime, String) {
@@ -205,41 +203,75 @@ fn repo_read(placeholder: &str) -> Value {
     })
 }
 
-#[tokio::test]
-async fn the_upstream_sees_the_credential_once_and_never_the_placeholder() {
-    let upstream = upstream().await;
-    let (host, ph) = host();
-    let result = host
-        .invoke_constrained_http(CALLER, &request(repo_read(&ph)), &invoker(&upstream))
-        .await
-        .expect("sent");
-    assert!(result.ok, "{:?}", result.safe_summary);
-    let hits = upstream.seen.hits();
-    assert_eq!(hits.len(), 1, "exactly one request left the host");
-    assert_eq!(hits[0].authorization, vec![format!("Bearer {MATERIAL}")]);
-    assert!(
-        !hits[0].everything.contains(&ph),
-        "the placeholder is stripped, never forwarded or rewritten"
-    );
-    assert!(result
-        .external_request_digest
-        .is_some_and(|digest| digest.starts_with("sha256:")));
+fn repo_read_on_port(placeholder: &str, port: u16) -> Value {
+    json!({
+        "url": format!("https://api.github.com:{port}/repos/acme/x"),
+        "connection_ref": CONNECTION,
+        "headers": [
+            ["accept", "application/vnd.github+json"],
+            ["authorization", format!("Bearer {placeholder}")],
+        ],
+        "body": "note=owner",
+    })
 }
 
 #[tokio::test]
-async fn a_reflected_credential_never_reaches_the_safe_summary() {
+async fn pinned_destination_refuses_a_mismatched_listener_port() {
+    let upstream = upstream().await;
+    let (host, ph) = host();
+    let error = host
+        .invoke_constrained_http(CALLER, &request(repo_read(&ph)), &invoker(&upstream))
+        .await
+        .expect_err("port mismatch must be refused");
+    assert!(
+        matches!(error, HostError::DestinationDenied(ref message) if message.contains("api.github.com")),
+        "{error:?}"
+    );
+    assert!(upstream.seen.hits().is_empty());
+}
+
+#[tokio::test]
+async fn real_tls_response_cannot_disclose_a_transformed_credential() {
     let upstream = upstream().await;
     let (host, ph) = host();
     let result = host
-        .invoke_constrained_http(CALLER, &request(repo_read(&ph)), &invoker(&upstream))
+        .invoke_constrained_http(
+            CALLER,
+            &request(repo_read_on_port(&ph, upstream.addr.port())),
+            &invoker(&upstream),
+        )
         .await
         .expect("sent");
-    let summary = result.safe_summary.to_string();
-    assert!(!summary.contains(MATERIAL), "{summary}");
-    assert!(!summary.contains(&ph), "{summary}");
-    assert_eq!(result.safe_summary["receipt"]["credential_reflected"], true);
-    let body = result.safe_summary["body"].as_str().expect("body");
-    assert!(body.contains("[redacted:credential]"), "{body}");
+    let hits = upstream.seen.hits();
+    assert_eq!(hits.len(), 1, "exactly one request left the host");
+    assert_eq!(hits[0].authorization, vec![format!("Bearer {MATERIAL}")]);
+    assert_eq!(
+        hits[0]
+            .authorization
+            .iter()
+            .filter(|value| value.contains(MATERIAL))
+            .count(),
+        1,
+        "the credential is placed once"
+    );
+    assert!(
+        !hits[0].everything.contains(&ph),
+        "the placeholder is stripped, never forwarded or rewritten: {}",
+        hits[0].everything
+    );
+    assert!(
+        hits[0].everything.contains("note=owner"),
+        "the request body is recorded: {}",
+        hits[0].everything
+    );
+    let reversed: String = MATERIAL.chars().rev().collect();
+    let disclosed = format!("{result:?}{}", result.safe_summary);
+    assert!(!disclosed.contains(MATERIAL), "{disclosed}");
+    assert!(!disclosed.contains(&reversed), "{disclosed}");
+    assert!(!disclosed.contains(&ph), "{disclosed}");
+    assert_eq!(result.safe_summary, json!({"result":"completed"}));
+    assert!(result.external_request_digest.is_none());
+    assert!(result.ok);
 }
 
 #[tokio::test]

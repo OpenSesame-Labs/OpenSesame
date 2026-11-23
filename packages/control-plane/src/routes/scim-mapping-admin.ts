@@ -4,8 +4,13 @@ import {
   ScimAdminCapacityError,
   scimMappingAdmissible,
 } from "@opensesame/database";
-import { isString, overlapCast } from "@opensesame/os-domain";
+import {
+  type OrganizationRole,
+  isString,
+  overlapCast,
+} from "@opensesame/os-domain";
 import { Hono } from "hono";
+import type { AppContext } from "../context.js";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
 import { asActiveOrgOwner } from "./org-owner-gate.js";
@@ -59,7 +64,7 @@ scimMappingAdminRoutes.put(
     asActiveOrgOwner(
       c,
       OWNER,
-      async ({ ctx, org, proof, actor, organization }) => {
+      async ({ ctx, actor, org, proof, organization }) => {
         const groupId = decodeURIComponent(c.req.param("groupId") ?? "");
         const body = overlapCast(await c.req.json().catch(() => ({})));
         const role = isString(body.role) ? body.role : "";
@@ -69,42 +74,33 @@ scimMappingAdminRoutes.put(
         ) {
           return c.json({ error: "validation_error" }, 400);
         }
-        // An over-long legacy group id may only keep or lower its mapping.
-        const current = await ctx.stores.scim.mappings.get(
+        const refused = await mappingRefusal(
+          ctx,
           organization.id,
           groupId,
+          role,
         );
-        if (!scimMappingAdmissible(groupId, role, current))
-          return c.json({ error: "validation_error" }, 400);
-        const group = await ctx.stores.scim.groups.getById(
-          organization.id,
-          groupId,
-        );
-        if (group && group.memberIds.length > SCIM_GROUP_MEMBERS_MAX)
-          return c.json({ error: "group_requires_reduction" }, 409);
-        const cost = Math.max(
-          1,
-          Math.ceil((group?.memberIds.length ?? 0) / 10),
-        );
-        if (
-          !(await consumeScimMutation(
-            ctx,
-            organization.id,
-            undefined,
-            cost,
-            "admin",
-          ))
-        ) {
-          c.header("Retry-After", "60");
-          return c.json({ error: "rate_limited" }, 429);
+        if (refused) {
+          if (refused.status === 429) c.header("Retry-After", "60");
+          return c.json({ error: refused.error }, refused.status);
         }
-        try {
-          await putGroupRoleMapping(ctx, org, proof, groupId, role);
-        } catch (error) {
+        const result = await putGroupRoleMapping(
+          ctx,
+          actor,
+          org,
+          proof,
+          groupId,
+          role,
+        ).catch((error) => {
           if (error instanceof ScimAdminCapacityError)
-            return c.json({ error: "scim_mapping_capacity" }, 409);
+            return {
+              ok: false as const,
+              status: 409 as const,
+              error: "scim_mapping_capacity" as const,
+            };
           throw error;
-        }
+        });
+        if (!result.ok) return c.json({ error: result.error }, result.status);
         await appendAuditEvent(ctx.repos.auditEvents, {
           eventType: "organization.scim_mapping_changed",
           outcome: "succeeded",
@@ -158,3 +154,34 @@ scimMappingAdminRoutes.delete(
       },
     ),
 );
+
+/**
+ * Checks that precede a mapping change: an over-long legacy group id may only
+ * keep or lower its mapping, an over-capacity group must shrink first, and a
+ * mapping change is charged by the members it will reconcile.
+ */
+async function mappingRefusal(
+  ctx: AppContext,
+  organizationId: string,
+  groupId: string,
+  role: OrganizationRole,
+): Promise<
+  | {
+      status: 400 | 409 | 429;
+      error: "validation_error" | "group_requires_reduction" | "rate_limited";
+    }
+  | undefined
+> {
+  const current = await ctx.stores.scim.mappings.get(organizationId, groupId);
+  if (!scimMappingAdmissible(groupId, role, current))
+    return { status: 400, error: "validation_error" };
+  const group = await ctx.stores.scim.groups.getById(organizationId, groupId);
+  if (group && group.memberIds.length > SCIM_GROUP_MEMBERS_MAX)
+    return { status: 409, error: "group_requires_reduction" };
+  const cost = Math.max(1, Math.ceil((group?.memberIds.length ?? 0) / 10));
+  if (
+    !(await consumeScimMutation(ctx, organizationId, undefined, cost, "admin"))
+  )
+    return { status: 429, error: "rate_limited" };
+  return undefined;
+}

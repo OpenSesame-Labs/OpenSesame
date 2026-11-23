@@ -32,6 +32,30 @@ async fn changed_request_or_authority_cannot_reuse_the_receipt() {
         .await
         .unwrap();
     assert_eq!(first.outcome, ReceiptOutcome::Succeeded);
+    let raw_digest = intent.digest().unwrap();
+    assert_ne!(first.intent_digest, raw_digest);
+    assert_eq!(
+        first.intent_digest,
+        broker
+            .signer
+            .intent_commitment(&first.invocation_id, &raw_digest)
+            .unwrap()
+    );
+    broker.signer.verify_receipt(&first).unwrap();
+    let opening = broker.signer.open_receipt_intent(&first).unwrap();
+    assert!(first.verifies_intent_opening(&opening, &raw_digest));
+    let other_digest = format!("sha256:{}", "0".repeat(64));
+    assert!(!first.verifies_intent_opening(&opening, &other_digest));
+    let other_opening = format!("hmac-sha256:v1:{}", "0".repeat(64));
+    assert!(!first.verifies_intent_opening(&other_opening, &raw_digest));
+    let mut tampered_receipt = first.clone();
+    tampered_receipt.operation = "forged-operation".into();
+    assert!(tampered_receipt.verifies_intent_opening(&opening, &raw_digest));
+    assert!(broker.signer.verify_receipt(&tampered_receipt).is_err());
+    assert!(broker
+        .signer
+        .open_receipt_intent(&tampered_receipt)
+        .is_err());
 
     type Change = (&'static str, fn(&mut InvokeInput));
     let changes: &[Change] = &[
@@ -181,4 +205,107 @@ async fn concurrent_reservations_atomically_keep_the_winners_fingerprint() {
     );
     db.pool().close().await;
     std::fs::remove_file(path).unwrap();
+}
+
+#[tokio::test]
+async fn legacy_raw_intent_digest_cannot_replay_or_start_another_effect() {
+    let (broker, org, principal, actor) = setup().await;
+    let grant = sample_grant(org, principal);
+    let parameters = json!({"private_choice": "small-domain"});
+    let mut intent = sample_intent(
+        org,
+        principal,
+        actor,
+        "repository.read",
+        "raw-digest",
+        &parameters,
+    );
+    // Public broker callers can provide a predictable nonce. Receipt secrecy
+    // must not depend on the gateway's random-nonce behavior.
+    intent.nonce = "known-nonce".into();
+    let raw_digest = intent.digest().unwrap();
+    let receipt = broker
+        .invoke(input(&intent, &grant, &parameters))
+        .await
+        .unwrap();
+    assert_ne!(receipt.intent_digest, raw_digest);
+    assert_eq!(
+        receipt.intent_digest,
+        broker
+            .signer
+            .intent_commitment(&receipt.invocation_id, &raw_digest)
+            .unwrap()
+    );
+    sqlx::query("DELETE FROM receipts WHERE id = ?")
+        .bind(receipt.id.to_string())
+        .execute(broker.db.pool())
+        .await
+        .unwrap();
+    let mut legacy = receipt;
+    legacy.receipt_schema_version = 5;
+    legacy.intent_digest = raw_digest;
+    let legacy = broker.signer.sign_receipt(legacy).unwrap();
+    broker.signer.verify_receipt(&legacy).unwrap();
+    broker.db.insert_receipt(&legacy).await.unwrap();
+    assert!(broker
+        .replay(input(&intent, &grant, &parameters))
+        .await
+        .is_err());
+    assert!(broker
+        .invoke(input(&intent, &grant, &parameters))
+        .await
+        .is_err());
+    assert_eq!(
+        broker
+            .db
+            .count_invocations_for_intent(&intent.id)
+            .await
+            .unwrap(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn receipt_signing_key_rotation_refuses_replay_without_reexecution() {
+    let (mut broker, org, principal, actor) = setup().await;
+    broker.signer = opensesame_audit::ReceiptSigner::from_seed(&[41; 32]);
+    let params = json!({});
+    let intent = sample_intent(
+        org,
+        principal,
+        actor,
+        "repository.read",
+        "key-rotation",
+        &params,
+    );
+    let grant = sample_grant(org, principal);
+    let input = || InvokeInput {
+        intent: intent.clone(),
+        grant: grant.clone(),
+        subject: "user:demo".into(),
+        connection_policy_id: "demo-conn".into(),
+        parameters: params.clone(),
+        lineage: None,
+    };
+    let receipt = broker.invoke(input()).await.unwrap();
+    let raw_digest = intent.digest().unwrap();
+    let opening = broker.signer.open_receipt_intent(&receipt).unwrap();
+    assert!(receipt.verifies_intent_opening(&opening, &raw_digest));
+    let mut verifier = opensesame_audit::ReceiptVerifier::new();
+    verifier.trust(broker.signer.verifying_key());
+    broker.signer = opensesame_audit::ReceiptSigner::from_seed(&[42; 32]);
+    assert!(broker.signer.open_receipt_intent(&receipt).is_err());
+    verifier.verify(&receipt).unwrap();
+    assert!(receipt.verifies_intent_opening(&opening, &raw_digest));
+    assert_ne!(receipt.authority_key_id, broker.signer.key_id);
+    assert!(broker.replay(input()).await.is_err());
+    assert!(broker.invoke(input()).await.is_err());
+    assert_eq!(
+        broker
+            .db
+            .count_invocations_for_intent(&intent.id)
+            .await
+            .unwrap(),
+        1
+    );
 }

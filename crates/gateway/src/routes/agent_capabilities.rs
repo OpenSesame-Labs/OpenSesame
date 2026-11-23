@@ -39,6 +39,8 @@ pub struct LaunchRequest {
     client_id: String,
     audience: String,
     capabilities: Vec<String>,
+    membership_incarnation: Option<String>,
+    authority_revision: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -100,6 +102,12 @@ pub async fn create(
     {
         return refused();
     }
+    let membership = match (&req.membership_incarnation, &req.authority_revision) {
+        (None, None) => None,
+        (Some(incarnation), Some(revision)) if valid_client(incarnation) && valid_client(revision) =>
+            Some((incarnation.as_str(), revision.as_str())),
+        _ => return refused(),
+    };
     let handle = random_secret();
     let digest = hash_secret(&handle);
     let principal = principal.to_string();
@@ -115,7 +123,7 @@ pub async fn create(
         capabilities_json: &capabilities,
         now: Utc::now().timestamp(),
     };
-    match st.db.create_agent_launch(&launch).await {
+    match st.db.create_agent_launch_bound(&launch, membership).await {
         Ok(true)=>(StatusCode::CREATED,[("cache-control", "no-store")],Json(json!({"launch_handle":handle,"expires_in":300,"client_id":req.client_id,"audience":req.audience,"scope":req.capabilities}))).into_response(),
         _=>refused(),
     }
@@ -216,6 +224,7 @@ pub fn claims(grant: &AgentGrant) -> Option<HostSessionClaims> {
         issued_at: DateTime::from_timestamp(grant.issued_at, 0)?,
         expires_at: DateTime::from_timestamp(grant.expires_at, 0)?,
         local_session: false,
+        membership_revision: None,
     };
     claims
         .valid_for(&grant.resource, Utc::now())

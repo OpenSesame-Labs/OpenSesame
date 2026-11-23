@@ -2,14 +2,14 @@ import { LinkIdentityResponseSchema } from "@opensesame/contracts";
 import type { ExternalIdentity } from "@opensesame/os-domain";
 import { isString } from "@opensesame/os-domain";
 import type { Context } from "hono";
-import { getCookie, setCookie } from "hono/cookie";
+import { getCookie } from "hono/cookie";
 import { decodeJwt } from "jose";
 import type { AppContext } from "../context.js";
 import { normalizeIssuer } from "../interactions/issuer-normalization.js";
 import { resolveTrustedIssuer } from "../interactions/trust.js";
 import { resolveProvisionalSession } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
-import { revokeSessionTokens } from "../repos/session-storage.js";
+import { revokeProvisionalSession } from "../repos/provisional-revocation.js";
 import { emailLinkFields } from "../services/email-authority.js";
 import { attachVerifiedExternalIdentity } from "../services/identity-link.js";
 import {
@@ -24,6 +24,10 @@ import {
   originAudiences,
   verifyOrgIdToken,
 } from "./org-assertion.js";
+import {
+  bindReboundProof,
+  setSessionCookie,
+} from "./principals-link-cookie.js";
 import { ensurePersonalOnAuthenticatedSession } from "./projects.js";
 
 type LinkContext = Context<{ Variables: Variables }>;
@@ -56,17 +60,6 @@ function identitySummary(identity: ExternalIdentity) {
     assurance: identity.assurance,
     linkedAt: identity.linkedAt.toISOString(),
   };
-}
-
-/** Bind the browser cookie to a rebound session's token. */
-function setSessionCookie(c: LinkContext, ctx: AppContext, token: string) {
-  setCookie(c, ctx.config.provisionalCookieName, token, {
-    httpOnly: true,
-    sameSite: "Lax",
-    path: "/",
-    maxAge: Math.floor(ctx.config.provisionalTtlMs / 1000),
-    secure: ctx.config.publicUrl.startsWith("https://"),
-  });
 }
 
 /** Decode `iss` and allowlist it: the token's issuer, or the refusal. */
@@ -144,13 +137,11 @@ async function revokePresentedSession(c: LinkContext, ctx: AppContext) {
     if (resolved) sessionIds.add(resolved.sessionId);
   }
   for (const sessionId of sessionIds) {
-    const presented = await ctx.stores.provisionalSessions.get(sessionId);
-    if (!presented || presented.revokedAt) continue;
-    await ctx.stores.provisionalSessions.set(sessionId, {
-      ...presented,
-      revokedAt: ctx.clock(),
+    await revokeProvisionalSession(ctx, sessionId, {
+      actorType: "human",
+      correlationId: c.get("correlationId"),
+      metadata: { action: "principal.provisional_revoke" },
     });
-    await revokeSessionTokens(ctx.stores, sessionId);
   }
 }
 
@@ -191,13 +182,15 @@ async function collisionRebind(
     throw error;
   }
   if (!(await settleAdoption(ctx, adoption))) return null;
-  setSessionCookie(c, ctx, adoption.accessToken);
+  await bindReboundProof(c, ctx, adoption);
+  setSessionCookie(c, ctx, adoption);
   await revokePresentedSession(c, ctx);
   return c.json(
     LinkIdentityResponseSchema.parse({
       principalId: existing.principalId,
       identity: identitySummary(existing),
       accessToken: adoption.accessToken,
+      sessionId: adoption.sessionId,
       expiresAt: adoption.expiresAt,
     }),
   );
@@ -285,7 +278,8 @@ async function bindJoinedSession(
   if (adoption) {
     if (!(await settleAdoption(ctx, adoption)))
       return { refusal: c.json(COLLISION, 409) };
-    setSessionCookie(c, ctx, adoption.accessToken);
+    await bindReboundProof(c, ctx, adoption);
+    setSessionCookie(c, ctx, adoption);
     await revokePresentedSession(c, ctx);
     return { adoption };
   }
@@ -362,7 +356,11 @@ export async function linkFromVerifiedIdToken(
   const body = LinkIdentityResponseSchema.parse({
     principalId: identity.principalId,
     ...(adoption
-      ? { accessToken: adoption.accessToken, expiresAt: adoption.expiresAt }
+      ? {
+          accessToken: adoption.accessToken,
+          expiresAt: adoption.expiresAt,
+          sessionId: adoption.sessionId,
+        }
       : undefined),
     identity: identitySummary(identity),
   });
