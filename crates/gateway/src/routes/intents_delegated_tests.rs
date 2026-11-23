@@ -322,3 +322,9 @@ mod legacy_queue_tests;
 
 #[path = "intents_relay_mode_tests.rs"]
 mod relay_mode_tests;
+
+#[path = "intents_budget_retry_tests.rs"]
+mod budget_retry_tests;
+
+#[path = "intents_effect_fence_tests.rs"]
+mod effect_fence_tests;

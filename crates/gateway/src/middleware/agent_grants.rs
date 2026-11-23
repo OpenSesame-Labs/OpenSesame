@@ -129,6 +129,7 @@ mod tests {
             "/api/v1/operator/taskbus",
             "/api/v1/tasks/../device/approve",
             "/api/v1/tasks/%2e%2e",
+            "/api/v1/tasks/intent-opening",
             "/api/v1/agent-launches",
         ] {
             assert!(capability("POST", path).is_none());

@@ -1,11 +1,38 @@
+//! Receipt signing, verification, and keyed commitments.
+//!
+//! One Ed25519 signing key (seed from `OPENSESAME_RECEIPT_SIGNING_KEY`) signs
+//! every receipt. The same key also roots the two keyed commitments a receipt
+//! carries — the idempotency binding and the intent opening — via
+//! [`ReceiptSigner::keyed_commitment`]: HKDF-SHA-256 over the signing-key bytes
+//! with a per-family salt and a per-family purpose label, then HMAC-SHA-256 of
+//! the committed value.
+//!
+//! Domain separation is by construction: each commitment family uses its own
+//! salt and purpose, so the derived keys are independent of one another and of
+//! the signing key (HKDF expand output is not the input key material), and the
+//! commitments are HMAC outputs — no Ed25519 operation — so a published
+//! commitment or opening is neither an offline oracle for other values nor
+//! material toward a forged signature.
+//!
+//! The signing key has a single owner: the authority host process. It is never
+//! serialized, exported, or shared; only [`ReceiptSigner::open_receipt_intent`]
+//! hands out a derived opening, and only after re-verifying the receipt. One
+//! provisioned secret roots both signing and commitments deliberately — it
+//! matches the repository's HKDF-from-a-root pattern
+//! (`docs/security/key-hierarchy.md`) and keeps rotation to a single key,
+//! while a retired key stays verifiable through its public half in
+//! [`ReceiptVerifier`].
 use base64::{
     engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD},
     Engine,
 };
 use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
-use opensesame_domain::{digest_json, DomainError, InvocationReceipt};
+use hkdf::Hkdf;
+use hmac::{Hmac, KeyInit as _, Mac};
+use opensesame_domain::{digest_json, DomainError, InvocationId, InvocationReceipt};
 use rand::{rngs::SysRng, TryCryptoRng};
 use serde_json::Value;
+use sha2::Sha256;
 use std::collections::BTreeMap;
 use zeroize::Zeroizing;
 
@@ -162,6 +189,82 @@ impl ReceiptSigner {
     #[must_use]
     pub fn verifying_key(&self) -> VerifyingKey {
         self.signing_key.verifying_key()
+    }
+
+    /// Commit to a request fingerprint without publishing an offline oracle.
+    ///
+    /// # Panics
+    /// Never: 32 bytes is a valid HKDF output and HMAC accepts this key size.
+    #[must_use]
+    pub fn idempotency_commitment(&self, fingerprint: &str) -> String {
+        self.keyed_commitment(
+            b"opensesame:receipt-idempotency:v1",
+            b"opensesame:receipt-idempotency:mac-key:v1",
+            fingerprint,
+        )
+    }
+
+    /// Create a salted receipt commitment to the authorized intent digest.
+    /// The opening is derived separately for each invocation and stays private
+    /// to the invocation caller or anyone they explicitly share it with.
+    ///
+    /// # Errors
+    /// Returns an error if the digest is malformed.
+    pub fn intent_commitment(
+        &self,
+        invocation_id: &InvocationId,
+        intent_digest: &str,
+    ) -> Result<String, DomainError> {
+        opensesame_domain::receipt_intent_commitment(
+            &self.intent_opening(invocation_id),
+            intent_digest,
+        )
+    }
+
+    fn intent_opening(&self, invocation_id: &InvocationId) -> String {
+        self.keyed_commitment(
+            b"opensesame:receipt-intent-opening:v1",
+            b"opensesame:receipt-intent-opening:mac-key:v1",
+            &invocation_id.to_string(),
+        )
+    }
+
+    /// Return the opening only for a receipt signed by this active signer.
+    /// A verifier must protect the opening and verify the receipt signature.
+    ///
+    /// Caller contract: authenticate and authorize the requester against the
+    /// receipt's principal and organization *before* calling this (the gateway
+    /// resolves the caller and confirms ownership first), and treat the
+    /// returned opening as private material — its holder can open the
+    /// receipt's intent commitment, so it travels only in private responses to
+    /// the principal it belongs to. This method re-verifies the receipt under
+    /// this signer's key and refuses receipts without an opaque result; it
+    /// never executes or re-executes anything.
+    ///
+    /// # Errors
+    /// Returns an error for an invalid receipt or a receipt under another key.
+    pub fn open_receipt_intent(&self, receipt: &InvocationReceipt) -> Result<String, DomainError> {
+        self.verify_receipt(receipt)?;
+        if !receipt.has_opaque_result() {
+            return Err(DomainError::Canonicalization(
+                "receipt intent opening unavailable".into(),
+            ));
+        }
+        Ok(self.intent_opening(&receipt.invocation_id))
+    }
+
+    fn keyed_commitment(&self, salt: &[u8], purpose: &[u8], value: &str) -> String {
+        let mut key = Zeroizing::new([0u8; 32]);
+        Hkdf::<Sha256>::new(Some(salt), self.signing_key.as_bytes())
+            .expand(purpose, key.as_mut())
+            .expect("32 bytes is a valid HKDF-SHA256 output length");
+        let mut mac = Hmac::<Sha256>::new_from_slice(key.as_ref())
+            .expect("HMAC-SHA256 accepts a 32-byte key");
+        mac.update(value.as_bytes());
+        format!(
+            "hmac-sha256:v1:{}",
+            hex::encode(mac.finalize().into_bytes())
+        )
     }
 
     ///

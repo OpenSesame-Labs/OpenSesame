@@ -1,7 +1,7 @@
 {
   "version": 1,
   "reviewed_revision": "51809907c3f6914142d247b68d1ce0a7f607a98b",
-  "reviewed_source_state": "Source hashes identify the reviewed history prototype after this base; they do not prove implementation refinement.",
+  "reviewed_source_state": "Source hashes identify the reviewed history prototype after this base; they do not prove implementation refinement. 2026-11-23 review (PR #2898): crates/storage/src/migrations.rs appends only the literal 0060_invocation_budget_claims entry, which creates one new invocation_budget_claims table and alters no existing table, so the history schema and migration order are unchanged and 0060 joins the executed inventory. crates/gateway/src/app_state.rs only drops the organization argument from Wasm connector loading; source-history, transport and stored-trust construction are untouched. crates/audit/Cargo.toml adds the workspace hex, hkdf and hmac dependencies (receipt commitments) and crates/broker/Cargo.toml adds a sqlx dev-dependency; Cargo.lock gains only those edges, no new package or version, and the CLI lock projection was recomputed for that graph (the workspace projection is unchanged). The durable source-trust naming property is unaffected. The same review adds 0060_invocation_budget_claims to the push gate's STORAGE_MIGRATIONS in scripts/security/formal-proof-source-history.mjs and to the source-history implementation list in spec/formal/proof-registry.json, so a later change to that SQL selects this suite; no runner logic changed. 2026-11-23 merge review (main 7ab65ea1 into #2680): crates/storage/src/migrations.rs is the union of both reviewed lists, with main's 0060_invocation_budget_claims first and the session-revocation migrations renumbered 0061_host_membership_withdrawals, 0062_host_native_authority and 0063_pairing_membership_revision (SQL bytes unchanged, pinned under the new paths); crates/gateway/src/app_state.rs is the branch's reviewed file plus only main's two-argument load_wasm_connectors call. Cargo.lock is the union of both sides' edges (main's audit/broker edges plus the branch's storage tempfile dev edge, no new package or version) and the CLI lock projection was recomputed for that merged graph. The same merge review adds the three renumbered migrations to STORAGE_MIGRATIONS in scripts/security/formal-proof-source-history.mjs (pinned here) and to the source-history implementation lists in spec/formal/proof-registry.json and proof-requirements.json, so a later change to their SQL selects this suite; no runner logic changed.",
   "sources": [
     {
       "path": "apps/cli/src/main.rs",
@@ -153,7 +153,7 @@
     },
     {
       "path": "crates/storage/src/migrations.rs",
-      "sha256": "e16c2f4e96eff0be28bf6e29b40dce192ed956feb2f21215a261a4da2e45e8fb"
+      "sha256": "0dfe540adfd0f04660ee75c4b2fd2492a14d95d6479099635878a3bedb502cb7"
     },
     {
       "path": "crates/storage/src/host_kv.rs",
@@ -185,7 +185,7 @@
     },
     {
       "path": "crates/gateway/src/app_state.rs",
-      "sha256": "e76b046b1d95f99a0f791b390f3412dba66a8aeb086d5ebf632de9523a9f7c60"
+      "sha256": "797b409d567994387df750464bd02b6a1c06d66db2cdebc2a8659d1912677941"
     },
     {
       "path": "crates/gateway/src/config.rs",
@@ -369,7 +369,7 @@
     },
     {
       "path": "scripts/security/formal-proof-source-history.mjs",
-      "sha256": "7421ad98fc4e7b1c2b32a4d9edb484201e3d9fc4f386be85761eef2b3bda46f5"
+      "sha256": "b79cb515f6eaf2b015b3e9967c5ed039d094ec786c2b93affd41b38030e42498"
     },
     {
       "path": "scripts/security/test_formal_cargo_freshness.py",
@@ -640,15 +640,19 @@
       "sha256": "2fde289c1feda48c8d7b985a3a53b9c1a0f198055843b77abad9a66117f6b1d1"
     },
     {
-      "path": "crates/storage/migrations/0060_host_membership_withdrawals.sql",
+      "path": "crates/storage/migrations/0060_invocation_budget_claims.sql",
+      "sha256": "225d0e9d4dd39b51fb29c9fc00381b9b9452c21f19530fc91e07fd735f4c2a4d"
+    },
+    {
+      "path": "crates/storage/migrations/0061_host_membership_withdrawals.sql",
       "sha256": "e36a8e14c6fcd48f0de5498d619b5ab80d3d1ab69aededf3fefcc5158145943f"
     },
     {
-      "path": "crates/storage/migrations/0061_host_native_authority.sql",
+      "path": "crates/storage/migrations/0062_host_native_authority.sql",
       "sha256": "baa5bab0d39e1114c2e543c21938f4589c7e397f10dbb4bf385474664e54b408"
     },
     {
-      "path": "crates/storage/migrations/0062_pairing_membership_revision.sql",
+      "path": "crates/storage/migrations/0063_pairing_membership_revision.sql",
       "sha256": "8c1f25899f9af533f19e48288e031b0458ffa7f091e33f1643b425d2d209d068"
     },
     {
@@ -669,7 +673,7 @@
     },
     {
       "path": "crates/audit/Cargo.toml",
-      "sha256": "d0f4703bb7ec3383c97dee93dd63689d36e24acbca0ab9b85177c15392d78193"
+      "sha256": "45ed9af9e12b2270bc85d245a7ed4f364153a689e01e3193b56286c6d0aca64d"
     },
     {
       "path": "crates/authenticator-core/Cargo.toml",
@@ -693,7 +697,7 @@
     },
     {
       "path": "crates/broker/Cargo.toml",
-      "sha256": "a9759bc70fa0241eee36176584886b79384dae90af00e715661f71fb3cc41810"
+      "sha256": "3a034e73b9489415bc470378be2f97e62e26d942f9fc25c9f49e75fdb4de45b1"
     },
     {
       "path": "crates/ceremony/Cargo.toml",
@@ -1201,7 +1205,7 @@
   "lock_projection": {
     "root": "opensesame-cli",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "1d63e8f981f0947dd9158edae22318e028249a25086dbcf47774400380500a8d"
+    "sha256": "1a1be9ec40a8832b8de66653daa2272001b8757dfe662f35dfce9906f502d765"
   },
   "workspace_projection": {
     "root": "opensesame-cli",

@@ -19,6 +19,24 @@ pub enum InvocationState {
 }
 
 impl InvocationState {
+    /// Stable column value persisted in `invocations.state` (snake_case, not `Debug`).
+    #[must_use]
+    pub const fn as_sql_value(self) -> &'static str {
+        match self {
+            Self::Received => "received",
+            Self::Authorizing => "authorizing",
+            Self::AwaitingApproval => "awaiting_approval",
+            Self::Authorized => "authorized",
+            Self::Leased => "leased",
+            Self::Executing => "executing",
+            Self::Succeeded => "succeeded",
+            Self::Failed => "failed",
+            Self::Denied => "denied",
+            Self::Cancelled => "cancelled",
+            Self::Expired => "expired",
+        }
+    }
+
     #[must_use]
     pub fn can_transition(self, to: Self) -> bool {
         use InvocationState::{
@@ -78,6 +96,18 @@ impl Invocation {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sql_values_are_stable_snake_case() {
+        assert_eq!(
+            InvocationState::AwaitingApproval.as_sql_value(),
+            "awaiting_approval"
+        );
+        assert_ne!(
+            InvocationState::AwaitingApproval.as_sql_value(),
+            format!("{:?}", InvocationState::AwaitingApproval).to_lowercase()
+        );
+    }
 
     #[test]
     fn happy_path_transitions() {

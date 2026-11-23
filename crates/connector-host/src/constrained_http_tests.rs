@@ -64,8 +64,24 @@ fn get(headers: &Value) -> Value {
 }
 
 fn admit(host: &HostRuntime, params: Value) -> Result<(), HostError> {
-    host.admit_constrained_http(CALLER, &request(params), now_unix(), None)
+    host.admit_constrained_http(CALLER, &request(params), now_unix(), None, None, None)
         .map(|_| ())
+}
+
+fn admit_bound(
+    host: &HostRuntime,
+    params: Value,
+    binding: &crate::InvocationBinding,
+) -> Result<(), HostError> {
+    host.admit_constrained_http(
+        CALLER,
+        &request(params),
+        now_unix(),
+        None,
+        None,
+        Some(binding),
+    )
+    .map(|_| ())
 }
 
 fn refused(host: &HostRuntime, params: Value) -> RefusalCode {
@@ -225,6 +241,37 @@ fn a_placeholder_from_another_connector_binding_is_refused() {
         .invoke("other-conn", &request(get(&bearer(&ph))))
         .unwrap_err();
     assert_eq!(err, HostError::SurrogateRefused(RefusalCode::ForeignCaller));
+}
+
+#[test]
+fn a_delegated_binding_never_reaches_credentialed_admission() {
+    use crate::binding_test_fixtures::delegated;
+
+    let (host, ph) = host();
+    // CALLER ("demo-conn") is the inert builtin mock's connection, so the
+    // dispatch path's mock exemption is the very one that must not carry a
+    // delegated snapshot into the credential-holding admission.
+    assert!(host.is_inert_builtin_mock(CALLER));
+    let (intent, grant, _request, chain) = delegated();
+    let binding = crate::InvocationBinding::from_intent(
+        opensesame_domain::InvocationId::new(),
+        &intent,
+        &grant,
+        "user:delegate",
+        CALLER,
+        Some(&chain),
+    )
+    .unwrap();
+    assert!(binding.is_delegated());
+    // An admissible L2 request is refused because the snapshot is delegated,
+    // before the ledger, the connection table, or any credential is read.
+    assert_eq!(
+        admit_bound(&host, get(&bearer(&ph)), &binding).unwrap_err(),
+        HostError::DelegatedExecutionUnavailable
+    );
+    // The same request without a delegated snapshot still takes admission:
+    // the refusal names the binding, not the placeholder.
+    assert!(admit(&host, get(&bearer(&ph))).is_ok());
 }
 
 #[test]
