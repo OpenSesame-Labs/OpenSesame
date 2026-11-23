@@ -291,3 +291,37 @@ fn a_grant_file_without_a_mac_admits_nothing() {
     let mints = HelperMints::open(Some(dir.path()), crate::test_operator_token());
     assert!(!mints.admits("conn_stub", None));
 }
+
+/// The allow body is read no further than its limit and decoded strictly: an
+/// unknown field, malformed JSON or an oversized body grants nothing.
+#[tokio::test]
+async fn allow_bodies_are_bounded_and_strict() {
+    let state = test_state("http://127.0.0.1:1");
+    let app = router(state.clone());
+    let token = crate::test_operator_token();
+    let put = |body: String| {
+        Request::builder()
+            .method("PUT")
+            .uri("/v1/helper-mints/conn_stub")
+            .header("x-opensesame-operator", token)
+            .body(Body::from(body))
+            .unwrap()
+    };
+    for body in [
+        r#"{"installation_id":"42","admin":true}"#.to_owned(),
+        r#"{"installation_id":"#.to_owned(),
+        format!(r#"{{"installation_id":"{}"}}"#, "9".repeat(MAX_ALLOW_BODY)),
+    ] {
+        let res = app.clone().oneshot(put(body)).await.unwrap();
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
+        assert_eq!(json_of(res).await["error"], "invalid_body");
+    }
+    assert!(state.helper_mints.list().is_empty());
+
+    let res = app
+        .oneshot(put(r#"{"installation_id":"42"}"#.to_owned()))
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+    assert!(state.helper_mints.admits("conn_stub", Some("42")));
+}

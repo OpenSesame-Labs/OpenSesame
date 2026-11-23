@@ -15,13 +15,13 @@ pub use verify::{
 };
 
 use axum::{
-    body::Bytes,
     extract::State,
     http::{HeaderMap, StatusCode},
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
+use opensesame_host_core::bounded_json::{BodyRejection, BoundedJson};
 use p256::ecdsa::VerifyingKey;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -74,9 +74,9 @@ pub fn router(state: DuressReceiverState) -> Router {
 async fn receive_envelope_axum(
     State(st): State<DuressReceiverState>,
     headers: HeaderMap,
-    body: Bytes,
+    body: EnvelopeBody,
 ) -> axum::response::Response {
-    receive_envelope_response(&st, &headers, &body)
+    receive_envelope_response(&st, &headers, body)
 }
 
 /// Health JSON after operator/UDS gate in the daemon.
@@ -108,8 +108,13 @@ async fn health(State(st): State<DuressReceiverState>) -> impl IntoResponse {
     }))
 }
 
+/// A peer envelope body: at most [`MAX_BODY`] bytes, decoded straight into
+/// [`IncomingEnvelope`].
+pub type EnvelopeBody = Result<BoundedJson<IncomingEnvelope, MAX_BODY>, BodyRejection>;
+
+/// The envelope a peer posts; the signature covers these fields.
 #[derive(Debug, Deserialize)]
-struct IncomingEnvelope {
+pub struct IncomingEnvelope {
     #[serde(rename = "schemaVersion")]
     schema_version: u32,
     alg: String,
@@ -159,9 +164,9 @@ struct ReceiptBody {
 pub fn receive_envelope_response(
     st: &DuressReceiverState,
     headers: &HeaderMap,
-    body: &[u8],
+    body: EnvelopeBody,
 ) -> axum::response::Response {
-    if body.len() > MAX_BODY {
+    if matches!(body, Err(BodyRejection::TooLarge)) {
         return (
             StatusCode::PAYLOAD_TOO_LARGE,
             Json(json!({"ok": false, "code": "unsupported_factor"})),
@@ -188,8 +193,8 @@ pub fn receive_envelope_response(
             .into_response();
     }
 
-    let parsed: IncomingEnvelope = match serde_json::from_slice(body) {
-        Ok(v) => v,
+    let parsed: IncomingEnvelope = match body {
+        Ok(BoundedJson(envelope)) => envelope,
         Err(_) => {
             return (
                 StatusCode::BAD_REQUEST,

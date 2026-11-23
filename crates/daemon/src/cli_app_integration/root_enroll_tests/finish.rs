@@ -209,3 +209,36 @@ async fn oversized_body_is_rejected() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
 }
+
+/// A finish body with a field it does not have, or longer than the route
+/// reads, is refused without burning the session; the honest one still works.
+/// An oversized body is answered 413, as the router's limit always answered.
+#[tokio::test]
+async fn finish_with_an_extra_field_or_oversized_body_is_refused_and_retryable() {
+    let dir = tempfile::tempdir().unwrap();
+    let (app, _) = router_at(Some(dir.path()));
+    let started = begin(&app).await;
+    let spki = root_spki_der(&generate_root_signing_key());
+    let (message, confirm) = honest(&started, &spki);
+    let body = proof(&started, &spki, confirm.client_confirm(), &message);
+    let mut extra: serde_json::Value = serde_json::from_str(&body).unwrap();
+    extra["rootPrivateKey"] = serde_json::Value::String("x".into());
+    let oversized = format!("{}{}", " ".repeat(4096), body);
+    let refused = app
+        .clone()
+        .oneshot(finish_request(extra.to_string(), false))
+        .await
+        .unwrap();
+    let (status, parsed, _) = read_json(refused).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+    assert_eq!(parsed["error"], "root_enroll_refused");
+    let too_large = app
+        .clone()
+        .oneshot(finish_request(oversized, false))
+        .await
+        .unwrap();
+    assert_eq!(too_large.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    let response = app.oneshot(finish_request(body, false)).await.unwrap();
+    let (status, _, _) = read_json(response).await;
+    assert_eq!(status, StatusCode::OK);
+}
