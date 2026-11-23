@@ -674,6 +674,10 @@ eb81a0ad453402f3514b2f0ab5f6d4d2d7313eb1:crates/daemon/src/tailnet_admin_conform
 17ccb6ae8759525000d4467b8552bb5674a1fc64:packages/app-core/src/lib/native-tailscale.test-support.ts:generic-api-key:3
 eb81a0ad453402f3514b2f0ab5f6d4d2d7313eb1:apps/pages/scripts/lib/tailscale-stub.mjs:generic-api-key:14
 
+# gitleaks generic-api-key (history): the legacy file-part test's tailnet pairing key (#2890), the
+# alphabet-pattern literal "AbCdEfGhIjKl-_09" passed to a mocked drive client. Not a credential.
+dac7b203b438cb44d6d3e153fb98321500875623:packages/app-core/src/lib/tailnet-sync/parts-legacy.test.ts:generic-api-key:18
+
 # generic-api-key (history, both scanners): SHA-256 source digests in tools/security/exposure-matrix.json, in 13 commits.
 # Every one is a whole line of the form `"<repo path>": "<64 lowercase hex>"` (checked for all 118), i.e. a content digest in
 # a map of source files, not a key. The matrix no longer carries them at the tip (#2535). Fingerprinted rather than
