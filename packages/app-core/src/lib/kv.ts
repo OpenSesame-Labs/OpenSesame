@@ -13,6 +13,7 @@ import {
 import { bindRead } from "./kv-original-reader-data.js";
 import { haltedWriteError, storageWritesHalted } from "./storage-halt.js";
 import { ORIGIN_FILE_PREFIX } from "./storage-ownership.js";
+
 /**
  * Same-origin KV with OPFS primary + in-memory fallback.
  * Never uses localStorage/sessionStorage (XSS-exfiltrable; banned by ast-grep).
@@ -323,7 +324,8 @@ async function kvHydrateDefault(keys: string[]): Promise<void> {
 
 /** Refresh a security record without treating storage failure as absence.
  * Call under the record's Web Lock before evaluating or changing authority.
- * Browsers without OPFS retain explicitly session-only storage.
+ * Browsers without OPFS, and documents whose at-rest key is ephemeral,
+ * retain explicitly session-only storage.
  */
 export async function kvRefresh(
   key: string,
@@ -341,6 +343,11 @@ export async function kvRefresh(
   return withOriginFile(fileName(key), async (turn) => {
     try {
       original();
+      // Session-only (ephemeral at-rest key): writes stay in memory and never
+      // reach a file, so memory is the record and no file is consulted.
+      const atRest = await atRestReady();
+      original();
+      if (!atRest.durable) return;
       const root = await openRoot();
       original();
       durability = "persistent";
