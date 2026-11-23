@@ -13,8 +13,10 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "../..");
 export const workflowDir = join(root, ".github/workflows");
 export const { parse } = createRequire(import.meta.url)("yaml");
 
+// Reviewed 2026-11-23: v5.2.8 (Dependabot #2835); tag SHA checked against
+// refs/tags/v5.2.8 on github.com/jdx/mise-action.
 export const miseUses =
-  "jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b";
+  "jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785";
 
 export function workflows() {
   return readdirSync(workflowDir)

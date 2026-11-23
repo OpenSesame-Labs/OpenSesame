@@ -13,7 +13,7 @@ import {
 import { workflowsWithMiseCacheDisabled } from "./ci-mise-cache-policy.mjs";
 
 const miseLine =
-  /uses:\s+jdx\/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5\.2\.7\s*$/u;
+  /uses:\s+jdx\/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5\.2\.8\s*$/u;
 const allowedArgs = new Set([
   "node",
   "node@24",
@@ -321,9 +321,14 @@ test("workflows() includes every workflow yml in sorted order", () => {
   assert.deepEqual(listed, onDisk);
 });
 
-test("workflow files do not contain the retired mise-action v5.2.6 SHA", () => {
-  const retiredSha = "f5be966e4a917d54244728e6a5fdcd1d93a35e6c";
+test("workflow files do not contain a retired mise-action SHA", () => {
+  const retiredShas = [
+    "f5be966e4a917d54244728e6a5fdcd1d93a35e6c", // v5.2.6
+    "b44d12e7d0d8ee7461bb893e1b1993500433185b", // v5.2.7
+  ];
   for (const { name, text } of workflows()) {
-    assert.equal(text.includes(retiredSha), false, name);
+    for (const sha of retiredShas) {
+      assert.equal(text.includes(sha), false, `${name}: ${sha}`);
+    }
   }
 });
