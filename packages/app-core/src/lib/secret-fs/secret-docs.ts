@@ -99,7 +99,13 @@ const RuntimeManifestDoc = z.object({
   sealed: SealedRuntimeSchema,
 });
 
-export type Listing = { id: string; file: string; rev: number };
+export type Listing = {
+  id: string;
+  file: string;
+  rev: number;
+  /** Stable label-derived path; `file` is an immutable physical generation. */
+  logical?: string | undefined;
+};
 /** A folder is listed like an item; a manifest written before folders were files holds them whole. */
 export type ManifestPayload = Omit<VaultBody, "items" | "folders"> & {
   items: Listing[];
@@ -107,10 +113,16 @@ export type ManifestPayload = Omit<VaultBody, "items" | "folders"> & {
 };
 export type FolderPayload = { v: 1; rev: number; folder: Folder };
 export type SecretPayload = { v: 1; rev: number; item: VaultItem };
+export type StagingPayload = {
+  v: 1;
+  entries: Array<{ id: string; file: string }>;
+};
 
 /** What this process knows is on disk for one vault, so a write sends only what changed. */
 export type Projected = Readonly<{
   file: string;
+  /** Stable label-derived path, retained when the physical name is truncated. */
+  logical?: string | undefined;
   rev: number;
   json: string;
   /** The document file's revision as last read or written; the next write must find it so. */
@@ -119,6 +131,8 @@ export type Projected = Readonly<{
 export type TombProjection = Readonly<{
   /** The manifest's revision as last read or written; the next write must find it so. */
   manifestRevision: Revision | null;
+  /** Exact committed bytes, retained for conditional rollback after a race. */
+  manifestBytes?: Uint8Array;
   items: ReadonlyMap<string, Projected>;
   /** A flat `body.json` from before this layout is still on disk, to be retired. */
   legacyBody: boolean;
@@ -142,7 +156,7 @@ export const corrupt = (path: string, reason: string) =>
 
 export const sealed = (
   key: CryptoKey,
-  value: ManifestPayload | SecretPayload | FolderPayload,
+  value: ManifestPayload | SecretPayload | FolderPayload | StagingPayload,
   binding: string,
   path: string,
 ) =>
@@ -203,6 +217,8 @@ export const secretBinding = (tomb: string, id: string) =>
   vaultSealBinding(tomb, `secret/${id}`);
 export const folderBinding = (tomb: string, id: string) =>
   vaultSealBinding(tomb, `folder/${id}`);
+export const stagingBinding = (tomb: string, attempt: string) =>
+  vaultSealBinding(tomb, `projection-attempt/${attempt}`);
 export const manifestBinding = (tomb: string) =>
   vaultSealBinding(tomb, "manifest");
 export const kindOf = (item: VaultItem) =>

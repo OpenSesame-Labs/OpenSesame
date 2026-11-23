@@ -20,11 +20,11 @@
  * It never retries a conflict: a rival write is the caller's to resolve.
  */
 import { Clock, Duration, Effect, type Exit, Ref, Schedule } from "effect";
-import { SecretFsUnavailable, isTransient } from "./errors.js";
 import type { SecretFsError } from "./errors.js";
-import { checkWriteOwner } from "./files-owner.js";
-import { revisionOf } from "./files.js";
+import { SecretFsUnavailable, isTransient } from "./errors.js";
 import type { SecretFiles } from "./files.js";
+import { revisionOf } from "./files.js";
+import { checkWriteOwner } from "./files-owner.js";
 
 export type ResiliencePolicy = Readonly<{
   /** Attempts after the first. */
@@ -191,27 +191,44 @@ export function resilient(
   return Effect.gen(function* () {
     const circuit = makeCircuit(yield* Ref.make<Breaker>(CLOSED), policy);
     const guardedCommit = files.writeGuarded?.bind(files);
+    const guardedRemove = files.removeGuarded?.bind(files);
     const wrapped: SecretFiles = {
       read: (path) => guarded(circuit, policy, path, files.read(path)),
       write: guardedWrite(files, circuit, policy),
-      remove: (path) => guarded(circuit, policy, path, files.remove(path)),
+      remove: (path, options) =>
+        guarded(circuit, policy, path, files.remove(path, options)),
       list: (prefix) => guarded(circuit, policy, prefix, files.list(prefix)),
     };
-    if (guardedCommit)
-      return {
-        ...wrapped,
-        writeGuarded: (path, bytes, check, options) =>
-          guardedWrite(
-            {
-              ...files,
-              write: (target, data, condition) =>
-                guardedCommit(target, data, check, condition),
-            },
-            circuit,
-            policy,
-            check,
-          )(path, bytes, options),
-      };
-    return wrapped;
+    const withWrites: SecretFiles = guardedCommit
+      ? {
+          ...wrapped,
+          writeGuarded: (path, bytes, check, options) =>
+            guardedWrite(
+              {
+                ...files,
+                write: (target, data, condition) =>
+                  guardedCommit(target, data, check, condition),
+              },
+              circuit,
+              policy,
+              check,
+            )(path, bytes, options),
+        }
+      : wrapped;
+    if (!guardedRemove) return withWrites;
+    return {
+      ...withWrites,
+      removeGuarded: (path, check, options) =>
+        guarded(
+          circuit,
+          policy,
+          path,
+          Effect.suspend(() =>
+            checkWriteOwner(path, check).pipe(
+              Effect.andThen(guardedRemove(path, check, options)),
+            ),
+          ),
+        ).pipe(Effect.tap(() => checkWriteOwner(path, check))),
+    };
   });
 }

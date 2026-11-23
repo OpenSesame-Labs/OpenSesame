@@ -11,6 +11,7 @@ import {
   wrapVaultKeyWithPassword,
 } from "@opensesame/vault-core";
 import { wrapVaultKeyWithCeremony } from "../passkey-unlock-session.js";
+import { FileBackedRotationUnsupportedError } from "../seal-rebind.js";
 import { operationHeader } from "../store-operation-check.js";
 import {
   type VaultUnlocks,
@@ -340,7 +341,12 @@ export async function rotateCompromisedRoot(
         // session. A fully completed reverse preserves the known old root.
         let restored = false;
         try {
-          if (operationHeader(host.getHeader()) === operationHeader(header)) {
+          if (error instanceof FileBackedRotationUnsupportedError) {
+            // Refused before the first physical write: the old root is still current.
+            restored = true;
+          } else if (
+            operationHeader(host.getHeader()) === operationHeader(header)
+          ) {
             await host.replaceRawVaultKey(previousRoot);
             restored = true;
           }

@@ -3,8 +3,9 @@
  * canary value that must never rest in the clear, the way a fresh process is
  * started over a store, and small readers of a directory's tree.
  */
-import { createItem } from "@opensesame/vault-core";
+
 import type { VaultItem } from "@opensesame/vault-core";
+import { createItem } from "@opensesame/vault-core";
 import { Effect } from "effect";
 import { configureHost, host } from "../../host.js";
 import { kvForgetAll } from "../kv.js";
@@ -78,6 +79,30 @@ export async function tree(files: SecretFiles): Promise<Map<string, string>> {
     out.set(path, (await run(files.read(path))).revision);
   }
   return out;
+}
+
+/** Resolve the immutable generation currently carrying a logical document name. */
+export async function versionedPath(
+  files: SecretFiles,
+  logical: string,
+): Promise<string> {
+  const jsonDot = logical.lastIndexOf(".json");
+  const kindDot = logical.lastIndexOf(".", jsonDot - 1);
+  const prefix = logical
+    .slice(0, kindDot)
+    .replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const extension = logical
+    .slice(kindDot)
+    .replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  const pattern = new RegExp(`^${prefix}~v[0-9a-f]{32}${extension}$`, "u");
+  const matches = (await run(files.list(""))).filter((path) =>
+    pattern.test(path),
+  );
+  if (matches.length !== 1)
+    throw new Error(
+      `Expected one generation for ${logical}; found ${matches.length}.`,
+    );
+  return matches[0] ?? "";
 }
 
 /** The value a secret holds; anything else holds none. */

@@ -2,6 +2,7 @@
 import { openJson, sealJson } from "@opensesame/vault-core";
 import { kvDeleteDurable, kvGet, kvRefresh, kvSetDurable } from "./kv.js";
 import { type VfsSeams, vfsSeams as installed } from "./vfs-seams-state.js";
+
 export type { VfsSeams } from "./vfs-seams-state.js";
 export const vfsSeams: VfsSeams = Object.assign(installed, {
   readRaw: kvGet,
@@ -13,6 +14,8 @@ export const vfsSeams: VfsSeams = Object.assign(installed, {
     _vaultKey?: CryptoKey,
   ) => kvSetDurable(key, value, beforeCommit),
   deleteRaw: kvDeleteDurable,
+  deleteRawGuarded: (key: string, beforeCommit: () => void) =>
+    kvDeleteDurable(key, beforeCommit),
   refreshRaw: kvRefresh,
   seal: sealJson,
   open: openJson,

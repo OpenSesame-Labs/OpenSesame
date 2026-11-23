@@ -93,7 +93,10 @@ a bounded retry and an honest account of what a lost answer meant.
      page uses TOML today.
    - **The manifest is the commit point.** A write puts the changed documents
      first and the manifest last (a revision-checked write), then removes what is
-     no longer listed. An edit to one secret rewrites that secret's file and the
+     no longer listed. (2026-11-23: changed documents are written under fresh
+     immutable `~v<version>` names recorded first in a sealed `staging/`
+     journal, so no write replaces a file the committed manifest names; a
+     direct edit that crosses the commit rolls the manifest back.) An edit to one secret rewrites that secret's file and the
      manifest, and nothing else.
    - **Reads hold files to the manifest.** A listed file that is missing, does
      not open under this vault and id, or is older than listed (a restored copy)

@@ -4,17 +4,16 @@ import {
   bytesToB64,
   vaultSealBinding,
 } from "@opensesame/vault-core";
+import { deleteSealedFile } from "./vfs-delete.js";
 import {
   type SealedFileEnvelope,
-  type TombsRegistry,
   assertFilePath,
   assertTombName,
   parseEnvelope,
-  parseRegistry,
-  parseRegistryForWrite,
   parseSealedBlob,
 } from "./vfs-metadata-data.js";
-import { originalVfsCheck } from "./vfs-operation-check.js";
+import { guardedVfsWrite, originalVfsCheck } from "./vfs-operation-check.js";
+import { registerTomb } from "./vfs-registry.js";
 import { INDEX_PATH, readIndex, reviseIndex } from "./vfs-sealed-index.js";
 import { vfsSeams } from "./vfs-seams.js";
 import { type TombWriteTurn, enqueueTombWrite } from "./vfs-write-order.js";
@@ -26,10 +25,6 @@ export { vfsFlush } from "./vfs-write-order.js";
  * data. Plaintext is tomb names, headers and migration markers. Storage is OPFS.
  */
 
-import {
-  VFS_REGISTRY_LOCK,
-  withVfsCrossTabLock,
-} from "./vfs-cross-tab-lock.js";
 import { VfsError } from "./vfs-error.js";
 
 export { VfsError, type VfsErrorCode } from "./vfs-error.js";
@@ -38,8 +33,12 @@ export const PERSONAL_TOMB = "personal"; // same as the personal project id
 /** Isolated guest session tomb — never a project in the vault list. */
 export const GUEST_TOMB = "guest";
 
-/** Plaintext top-level registry key — tomb names only, never contents. */
-export const TOMBS_REGISTRY_KEY = "tombs.v1";
+export {
+  TOMBS_REGISTRY_KEY,
+  listTombs,
+  registerTomb,
+  unregisterTomb,
+} from "./vfs-registry.js";
 
 export const HEADER_PATH = "header";
 export const BODY_PATH = "body";
@@ -57,9 +56,12 @@ export { type VfsSeams, vfsSeams } from "./vfs-seams.js";
 const tombKeys = new Map<string, CryptoKey>();
 /** One token per unlock lifetime: a lock, or a different key, starts a new one. */
 const tombLifetimes = new Map<string, object>();
+/** One token per locked-to-unlocked transition; a key rotation keeps it. */
+const tombSessions = new Map<string, object>();
 
 export function unlockTomb(tomb: string, key: CryptoKey): void {
   assertTombName(tomb);
+  if (!tombKeys.has(tomb)) tombSessions.set(tomb, {});
   if (tombKeys.get(tomb) !== key) tombLifetimes.set(tomb, {});
   tombKeys.set(tomb, key);
 }
@@ -86,6 +88,29 @@ export function requireTombCheck(tomb: string): () => void {
   return () => {
     if (!tombKeys.has(tomb) || tombLifetimes.get(tomb) !== lifetime)
       throw new VfsError("locked", "The vault was locked in the meantime.");
+  };
+}
+
+/** Like requireTombCheck, but a key rotation within the same unlock keeps it. */
+function requireTombSession(tomb: string): () => void {
+  requireTombKey(tomb);
+  const session = tombSessions.get(tomb);
+  return () => {
+    if (!tombKeys.has(tomb) || tombSessions.get(tomb) !== session)
+      throw new VfsError("locked", "The vault was locked in the meantime.");
+  };
+}
+
+/**
+ * Fence work that may start while the tomb is locked: the check fails once any
+ * unlock lifetime begins or ends after capture. It never holds the key.
+ */
+export function captureTombEpoch(tomb: string): () => void {
+  if (tombKeys.has(tomb)) return requireTombCheck(tomb);
+  const lifetime = tombLifetimes.get(tomb);
+  return () => {
+    if (tombKeys.has(tomb) || tombLifetimes.get(tomb) !== lifetime)
+      throw new VfsError("locked", "The vault was unlocked in the meantime.");
   };
 }
 
@@ -126,71 +151,6 @@ function assertSealedPath(path: string): void {
       `"${path}" is a plaintext file — use the plaintext helpers.`,
     );
   }
-}
-
-/* --------------------------------------------------------------- registry */
-
-function readRegistry(): string[] {
-  return parseRegistry(vfsSeams.readRaw(TOMBS_REGISTRY_KEY));
-}
-
-/** Under the registry lock: the physical record, so a stale tab erases no vault. */
-async function readRegistryForWrite(check: () => void): Promise<string[]> {
-  await vfsSeams.refreshRaw?.(TOMBS_REGISTRY_KEY, 1024 * 1024, check);
-  check();
-  return parseRegistryForWrite(vfsSeams.readRaw(TOMBS_REGISTRY_KEY));
-}
-
-async function writeRegistry(
-  names: string[],
-  check: () => void = () => {},
-  commit: (storageKey: string, value: string) => Promise<void> = (
-    storageKey,
-    value,
-  ) => vfsSeams.writeRaw(storageKey, value),
-): Promise<void> {
-  check();
-  const registry: TombsRegistry = {
-    v: 1,
-    tombs: [...new Set(names)].sort(),
-  };
-  await commit(TOMBS_REGISTRY_KEY, JSON.stringify(registry));
-  check();
-}
-
-/**
- * Every tomb on this device, by name. Plaintext by design (the `tombs.json`
- * analog — names are not secrets). Sync because the registry hydrates with
- * the rest of the boot keys.
- */
-export function listTombs(): string[] {
-  return readRegistry();
-}
-
-/** Add a tomb to the registry. Idempotent; every tomb write ensures this. */
-export async function registerTomb(
-  tomb: string,
-  check: () => void = () => {},
-  commit?: (storageKey: string, value: string) => Promise<void>,
-): Promise<void> {
-  check();
-  assertTombName(tomb);
-  await withVfsCrossTabLock(VFS_REGISTRY_LOCK, async () => {
-    check();
-    if (readRegistry().includes(tomb)) return;
-    const names = await readRegistryForWrite(check);
-    if (names.includes(tomb)) return;
-    await writeRegistry([...names, tomb], check, commit);
-  });
-}
-
-export async function unregisterTomb(tomb: string): Promise<void> {
-  await withVfsCrossTabLock(VFS_REGISTRY_LOCK, async () => {
-    if (!readRegistry().includes(tomb)) return;
-    const names = await readRegistryForWrite(() => {});
-    if (!names.includes(tomb)) return;
-    await writeRegistry(names.filter((name) => name !== tomb));
-  });
 }
 
 /* ------------------------------------------------------------------ index */
@@ -243,8 +203,11 @@ export async function writeFile(
 ): Promise<void> {
   assertSealedPath(path);
   const operation = originalVfsCheck(check);
+  // A checked write keeps its key and lifetime; an unchecked one survives a key
+  // rotation within the same unlock, never a lock (even one reusing the key).
   const originalKey = check ? requireTombKey(tomb) : null;
-  const guarded = vfsSeams.writeRawGuarded ?? vfsSeams.writeOwnedMetadata;
+  const owner = check ? requireTombCheck(tomb) : requireTombSession(tomb);
+  const guarded = guardedVfsWrite();
   if (check && !guarded)
     throw new VfsError(
       "locked",
@@ -252,12 +215,11 @@ export async function writeFile(
     );
   const active = () => {
     operation();
-    if (originalKey && requireTombKey(tomb) !== originalKey)
-      throw new VfsError("locked", "Original tomb key changed.");
+    owner();
   };
   await enqueueTombWrite(tomb, async () => {
     active();
-    const key = requireTombKey(tomb);
+    const key = originalKey ?? requireTombKey(tomb);
     const commit = (storageKey: string, value: string) =>
       check && guarded
         ? guarded(storageKey, value, active, key)
@@ -322,14 +284,19 @@ export async function listDir(tomb: string, prefix: string): Promise<string[]> {
 /** Remove a sealed file and its index entry. Locked ciphertext stays. */
 export async function deleteFile(tomb: string, path: string): Promise<void> {
   assertSealedPath(path);
-  await enqueueTombWrite(tomb, async () => {
-    const storageKey = tombFileKey(tomb, path);
-    const key = tombKeys.get(tomb);
-    if (!key && vfsSeams.readRaw(storageKey) !== null) requireTombKey(tomb);
-    if (!key) return;
-    await vfsSeams.deleteRaw(storageKey);
-    await reviseIndex(tomb, key, path, false);
-  });
+  const key = tombKeys.get(tomb);
+  if (!key) {
+    if (vfsSeams.readRaw(tombFileKey(tomb, path)) !== null)
+      requireTombKey(tomb);
+    return;
+  }
+  return deleteSealedFile(
+    tomb,
+    path,
+    tombFileKey(tomb, path),
+    () => requireTombKey(tomb),
+    requireTombSession(tomb),
+  );
 }
 
 /* ------------------------------------------------- verbatim sealed (body) */
@@ -356,21 +323,29 @@ export async function writeSealedFile(
   const operation = originalVfsCheck(check);
   assertSealedPath(path);
   const key = requireTombKey(tomb);
+  const owner = requireTombCheck(tomb);
+  // A file-backed body is many files; only its owned projection may write it.
+  const fileBackedBody =
+    vfsSeams.authenticationStorage === "file-backed" && path === BODY_PATH;
+  const ownedBody = fileBackedBody ? vfsSeams.writeOwnedBody : undefined;
+  if (fileBackedBody && !ownedBody)
+    throw new VfsError(
+      "locked",
+      "This storage cannot commit an original-owner write.",
+    );
   const active = () => {
     operation();
-    if (requireTombKey(tomb) !== key)
-      throw new VfsError("locked", "Original tomb key changed.");
+    owner();
   };
   await enqueueTombWrite(
     tomb,
     async () => {
       active();
       assertSealed(blob);
-      await vfsSeams.writeRaw(
-        tombFileKey(tomb, path),
-        JSON.stringify(blob),
-        key,
-      );
+      const storageKey = tombFileKey(tomb, path);
+      if (ownedBody)
+        await ownedBody(storageKey, JSON.stringify(blob), active, key);
+      else await vfsSeams.writeRaw(storageKey, JSON.stringify(blob), key);
       active();
       await reviseIndex(tomb, key, path, true, active);
       active();
