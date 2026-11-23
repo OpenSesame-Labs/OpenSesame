@@ -66,7 +66,7 @@ export function RecordWorkspace(props: RecordWorkspaceProps) {
             </div>
           )}
         </div>
-        {narrow && pane !== "detail" && createLabel ? (
+        {narrow && pane === "list" && createLabel ? (
           <RecordAdd model={model} guide={props.createGuide} />
         ) : null}
       </div>

@@ -149,6 +149,18 @@ it("keeps notice registration mounted before any record is selected", () => {
   expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
 });
 
+it("shows the phone add action in the list, without covering the section tree", async () => {
+  narrow = true;
+  start("/identity");
+  expect(document.querySelector(".record-workspace__add")).toBeNull();
+
+  cleanup();
+  start("/identity?view=agents");
+  await waitFor(() =>
+    expect(document.querySelector(".record-workspace__add")).not.toBeNull(),
+  );
+});
+
 it("exposes a guided phone Grant command through the visible add control", async () => {
   narrow = true;
   const grant = vi.fn();
