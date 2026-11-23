@@ -22,6 +22,18 @@ import sys
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts" / "security"))
 from formal_coverage_drift import assert_reviewed_revision_on_main  # noqa: E402
+TARGETS = {
+    "crates/domain/Cargo.toml": {"package": "opensesame-domain", "lib": ("opensesame_domain", "src/lib.rs")},
+    "crates/transport-security/Cargo.toml": {
+        "package": "opensesame-transport-security", "lib": ("opensesame_transport_security", "src/lib.rs"),
+        "test": {name: f"tests/{name}.rs" for name in (
+            "source_lifetime_formal", "signing_fence_races", "source_lifetime_tls12", "source_lifetime", "source_lifetime_edges",
+        )},
+    },
+    "crates/spiffe-source/Cargo.toml": {"package": "opensesame-spiffe-source", "lib": ("opensesame_spiffe_source", "src/lib.rs")},
+    "crates/storage/Cargo.toml": {"package": "opensesame-storage", "lib": ("opensesame_storage", "src/lib.rs")},
+    "crates/gateway/Cargo.toml": {"package": "opensesame-gateway", "lib": ("opensesame_gateway", "src/lib.rs")},
+}
 PATHS = [
     "crates/domain/Cargo.toml",
     "crates/domain/src/lib.rs",
@@ -171,7 +183,8 @@ def revision_blob(revision: str, path: str) -> str | None:
     return blob
 
 
-def verify_sources(entries: list, revision: str) -> None:
+def verify_sources(entries: list, revision: str) -> dict[str, bytes]:
+    verified = {}
     for item in entries:
         path = item["path"]
         expected = item["sha256"]
@@ -179,7 +192,8 @@ def verify_sources(entries: list, revision: str) -> None:
             raise ValueError(f"malformed covered source entry for {path!r}")
         if path.startswith("/") or ".." in Path(path).parts:
             raise ValueError(f"covered source path must stay in-repo: {path!r}")
-        work = hashlib.sha256(regular_path(path).read_bytes()).hexdigest()
+        source = regular_path(path).read_bytes()
+        work = hashlib.sha256(source).hexdigest()
         if work != expected:
             raise ValueError(f"review source drift: {path}")
         reviewed = hashlib.sha256(blob_bytes(item["reviewed_blob"])).hexdigest()
@@ -198,6 +212,8 @@ def verify_sources(entries: list, revision: str) -> None:
                 raise ValueError(f"reviewed revision bytes unavailable for {path}")
             if hashlib.sha256(shown.stdout).hexdigest() != hashlib.sha256(blob_bytes(base_blob)).hexdigest():
                 raise ValueError(f"reviewed revision bytes do not match base blob: {path}")
+        verified[path] = source
+    return verified
 
 
 def main():
@@ -210,18 +226,23 @@ def main():
                 [entry.get("path") for entry in entries] != PATHS):
             raise ValueError("invalid reviewed source manifest")
         assert_reviewed_revision_on_main(ROOT, revision, "source-lifetime-formal")
-        verify_sources(entries, revision)
+        verified = verify_sources(entries, revision)
         optional = coverage["optional_sources"]
         if ([entry.get("path") for entry in optional] != OPTIONAL_PATHS or
                 any(optional_hash(entry["path"]) != entry["sha256"] for entry in optional)):
             raise ValueError("review optional source/build-script drift")
-        helper = regular_path("scripts/security/cargo-lock-projection.py")
+        helper_name = "scripts/security/formal-cargo-isolation.py"
+        scope = {"__name__": "reviewed_cargo_isolation", "__file__": str(ROOT / helper_name)}
+        exec(compile(verified[helper_name], scope["__file__"], "exec", dont_inherit=True), scope)
+        scope["check_cargo_targets"](ROOT, TARGETS, set(verified))
+        helper_name = "scripts/security/cargo-lock-projection.py"
+        helper = regular_path(helper_name)
         spec = importlib.util.spec_from_file_location("cargo_lock_projection", helper)
         if spec is None or spec.loader is None:
             raise ValueError("lock projection helper unavailable")
         projection = importlib.util.module_from_spec(spec)
         sys.modules[spec.name] = projection
-        exec(compile(helper.read_bytes(), str(helper), "exec", dont_inherit=True), projection.__dict__)
+        exec(compile(verified[helper_name], str(helper), "exec", dont_inherit=True), projection.__dict__)
         recorded = coverage["lock_projection"]
         if (recorded.get("root") != "opensesame-spiffe-source" or
                 recorded.get("algorithm") != "cargo-lock-projection-v1-sha256"):
