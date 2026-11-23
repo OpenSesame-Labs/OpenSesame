@@ -798,8 +798,7 @@ describe("control-plane API", () => {
     expect((await approve({ origin: "https://evil.example" })).status).toBe(
       401,
     );
-    // An origin this deployment listed, or its own, is a caller it expects:
-    // it passes the origin gate and is refused only for having no membership.
+    // A listed or own origin passes the gate; only the missing membership refuses.
     expect((await approve({ origin: "https://console.example" })).status).toBe(
       403,
     );

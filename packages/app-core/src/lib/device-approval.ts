@@ -57,7 +57,9 @@ export async function approveDeviceEntry(
 ): Promise<DeviceApprovalResult> {
   const userCode = userCodeFromEntry(entry);
   try {
-    const answer = await approveDevice(userCode, organizationId);
+    const answer = organizationId
+      ? await approveDevice(userCode, organizationId)
+      : await approveDevice(userCode);
     if (!answer.ok) {
       return refusal(
         deviceApprovalWords("host_approval_failed", answer.status) ??

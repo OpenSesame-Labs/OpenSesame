@@ -17,14 +17,11 @@ import {
   approveDeviceEntry,
   clearDeviceApprovalNotice,
 } from "@opensesame/app-core/lib/device-approval.js";
-import {
-  type DeviceApprovalOrganization,
-  NO_ACTIVE_DEVICE_ORGANIZATION,
-  deviceApprovalOrganizationSeams,
-} from "@opensesame/app-core/lib/device-approval-organizations.js";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { FormCommit } from "../../components/FormCommit.js";
 import { StatusMark } from "../../components/StatusMark.js";
+import { DeviceOrganizationField } from "./DeviceOrganizationField.js";
+import { useApprovalOrganizations } from "./use-approval-organizations.js";
 
 export type DeviceApprovalProps = {
   online: boolean;
@@ -43,14 +40,7 @@ export function DeviceApproval({
 }: DeviceApprovalProps) {
   const [code, setCode] = useState(arrivedCode ?? "");
   const [busy, setBusy] = useState(false);
-  const [organizations, setOrganizations] = useState<
-    DeviceApprovalOrganization[] | null
-  >(null);
-  const [organization, setOrganization] = useState("");
-  const [organizationError, setOrganizationError] = useState<string | null>(
-    null,
-  );
-  const [retry, setRetry] = useState(0);
+  const organizations = useApprovalOrganizations(online);
   const [result, setResult] = useState<DeviceApprovalResult | null>(
     initialResult,
   );
@@ -58,58 +48,22 @@ export function DeviceApproval({
   const goRef = useRef<HTMLButtonElement | null>(null);
   const organizationRef = useRef<HTMLSelectElement | null>(null);
 
+  const { ready, needsChoice } = organizations;
   useEffect(() => {
-    if (!online) return;
-    void retry;
-    let active = true;
-    setOrganizations(null);
-    setOrganizationError(null);
-    deviceApprovalOrganizationSeams.listOrganizations().then(
-      (rows) => {
-        if (!active) return;
-        setOrganizations(rows);
-        setOrganization(rows.length === 1 ? (rows[0]?.id ?? "") : "");
-      },
-      (error: unknown) => {
-        if (active)
-          setOrganizationError(
-            error instanceof Error &&
-              error.message === NO_ACTIVE_DEVICE_ORGANIZATION
-              ? NO_ACTIVE_DEVICE_ORGANIZATION
-              : "Could not load organizations.",
-          );
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [online, retry]);
-
-  useEffect(() => {
-    if (
-      arrivedCode &&
-      online &&
-      organizations &&
-      organizations.length > 1 &&
-      !organization
-    )
-      organizationRef.current?.focus();
-    else if (arrivedCode && online && organizations) goRef.current?.focus();
+    if (arrivedCode && online && needsChoice) organizationRef.current?.focus();
+    else if (arrivedCode && online && ready) goRef.current?.focus();
     else codeRef.current?.focus();
-  }, [arrivedCode, online, organizations, organization]);
+  }, [arrivedCode, online, ready, needsChoice]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (
-      !code.trim() ||
-      busy ||
-      !organizations ||
-      (organizations.length > 1 && !organization)
-    )
-      return;
+    if (!code.trim() || busy || !ready) return;
     setBusy(true);
     setResult(null);
-    const answer = await approveDeviceEntry(code, organization || undefined);
+    const answer = await approveDeviceEntry(
+      code,
+      organizations.chosen || undefined,
+    );
     setBusy(false);
     setResult(answer);
     if (answer.tone === "ok") setCode(answer.userCode);
@@ -155,43 +109,16 @@ export function DeviceApproval({
           </output>
         </div>
       </div>
-      {organizations && organizations.length > 1 ? (
-        <div className="field">
-          <label htmlFor={`${id}-organization`}>Organization</label>
-          <select
-            id={`${id}-organization`}
-            ref={organizationRef}
-            value={organization}
-            disabled={busy}
-            onChange={(event) => setOrganization(event.target.value)}
-          >
-            <option value="">Choose an organization</option>
-            {organizations.map((row) => (
-              <option key={row.id} value={row.id}>
-                {row.name}
-              </option>
-            ))}
-          </select>
-        </div>
-      ) : null}
-      {organizationError ? (
-        <div role="alert">
-          {organizationError}{" "}
-          <button type="button" onClick={() => setRetry((value) => value + 1)}>
-            Try again
-          </button>
-        </div>
-      ) : null}
+      <DeviceOrganizationField
+        id={`${id}-organization`}
+        organizations={organizations}
+        disabled={busy}
+        selectRef={organizationRef}
+      />
       <FormCommit
         label={busy ? "Approving…" : "Approve device"}
         buttonRef={goRef}
-        disabled={
-          busy ||
-          !online ||
-          !code.trim() ||
-          !organizations ||
-          (organizations.length > 1 && !organization)
-        }
+        disabled={busy || !online || !code.trim() || !ready}
         busy={busy}
       />
     </form>

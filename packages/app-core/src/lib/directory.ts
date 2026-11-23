@@ -362,7 +362,7 @@ function createOrganizationDefault(
 /**
  * `POST /v1/device/approve` — browsers never hold the operator token; the
  * control plane injects it and forwards `{user_code, principal, …}` to the
- * Host. Only the user code leaves this client.
+ * Host. Only the user code and any chosen organization leave this client.
  *
  * One implementation (ADR 0140 D3): `@opensesame/ceremony-kit`'s
  * `approveDevice` sends the request and words the failures the body's code
@@ -370,15 +370,12 @@ function createOrganizationDefault(
  * own transport wording for a failure that names no code, so it reads like
  * every other directory call.
  */
-async function approveDeviceDefault(
-  userCode: string,
-  organizationId?: string,
-): Promise<DeviceApproval> {
+async function approveDeviceDefault(userCode: string, org?: string) {
   try {
     return await approveDeviceRequest({
       baseUrl: "",
       userCode,
-      ...(organizationId ? { organizationId } : {}),
+      organizationId: org,
       fetchImpl: (input, init) => identityFetch(String(input), init),
       fallbackWords: plainWords,
     });
@@ -455,11 +452,5 @@ export function createOrganization(
 ): ReturnType<typeof createOrganizationDefault> {
   return directorySeams.createOrganization(...args);
 }
-export function approveDevice(
-  userCode: string,
-  organizationId?: string,
-): Promise<DeviceApproval> {
-  return organizationId
-    ? directorySeams.approveDevice(userCode, organizationId)
-    : directorySeams.approveDevice(userCode);
-}
+export const approveDevice: typeof approveDeviceDefault = (...args) =>
+  directorySeams.approveDevice(...args);

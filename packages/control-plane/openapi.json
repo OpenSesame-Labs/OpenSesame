@@ -619,7 +619,7 @@
             "description": "Authentication or cookie Origin required"
           },
           "403": {
-            "description": "Caller has no organization membership or is not an active member of the selected organization"
+            "description": "Caller has no active membership for this approval"
           },
           "404": {
             "description": "Host device authorization not found"

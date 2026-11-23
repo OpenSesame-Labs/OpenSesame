@@ -48,7 +48,7 @@ export interface ApproveDeviceInput {
   baseUrl: string;
   userCode: string;
   /** The organization the person selected, when the account has several. */
-  organizationId?: string;
+  organizationId?: string | undefined;
   /**
    * The surface's own fetch. Pages passes one that already carries its bearer
    * and its local-network timeouts; a caller with nothing to add passes the
@@ -150,9 +150,10 @@ export async function approveDevice({
   const res = await fetchImpl(`${base}/v1/device/approve`, {
     method: "POST",
     headers: { "content-type": "application/json" },
+    // JSON leaves an unchosen organization out of the body.
     body: JSON.stringify({
       user_code: code,
-      ...(organizationId ? { organization_id: organizationId } : {}),
+      organization_id: organizationId || undefined,
     }),
     credentials,
   });

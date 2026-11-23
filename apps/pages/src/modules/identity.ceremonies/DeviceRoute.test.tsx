@@ -19,12 +19,13 @@ import type { IdentitySession } from "@opensesame/app-core/lib/identity.js";
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
 import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
 import { overlapCast } from "@opensesame/os-domain";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { identityHookSeams } from "../../bindings/identity.js";
 import { useOnlineSeams } from "../../lib/use-online.js";
+import { DEVICE_ORGANIZATIONS_NOTICE } from "../../sections/identity/use-approval-organizations.js";
 import { DeviceRoute } from "./DeviceRoute.js";
 
 const session: { current: IdentitySession | null } = { current: null };
@@ -226,16 +227,21 @@ describe("the /device route", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
-  it("lets the user retry when organizations cannot be loaded", async () => {
+  it("lets the user retry from the tray when organizations cannot be loaded", async () => {
     deviceApprovalOrganizationSeams.listOrganizations = vi
       .fn()
       .mockRejectedValueOnce(new Error("offline"))
       .mockResolvedValueOnce([{ id: "org:one", name: "First" }]);
     show();
-    expect((await screen.findByRole("alert")).textContent).toContain(
-      "Could not load organizations",
-    );
-    await userEvent.click(screen.getByRole("button", { name: "Try again" }));
+    const failure = await waitFor(() => {
+      const notice = listNotices().find(
+        (entry) => entry.id === DEVICE_ORGANIZATIONS_NOTICE,
+      );
+      expect(notice?.body).toContain("Could not load organizations");
+      return notice;
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
+    act(() => failure?.retry?.());
     await userEvent.type(screen.getByLabelText("User code"), "ABCD-EFGH");
     await userEvent.click(
       screen.getByRole("button", { name: "Approve device" }),
@@ -243,5 +249,8 @@ describe("the /device route", () => {
     await waitFor(() =>
       expect(approveDevice).toHaveBeenCalledWith("ABCD-EFGH", "org:one"),
     );
+    expect(
+      listNotices().some((entry) => entry.id === DEVICE_ORGANIZATIONS_NOTICE),
+    ).toBe(false);
   });
 });
