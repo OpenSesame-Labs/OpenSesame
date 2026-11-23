@@ -49,6 +49,13 @@ does not send a cookie deletion: a delayed name-only deletion could erase a
 newer sign-in cookie. The invalid old cookie cannot authenticate and expires
 or is replaced by the next sign-in.
 
+Sign-out on the client ([`signOut`](../../packages/app-core/src/lib/session-exit.ts))
+runs each local clearing step independently, so blocked browser storage cannot
+stop the Identity session being ended or the vault being locked; a failed step
+leaves a transient "Sign-out incomplete" notice with a retry. This is outside
+AUTH-C1's reviewed sources and the Lean models. Evidence: `session-exit.test.ts`
+(blocked session storage). Status: **unproved**.
+
 AUTH-C1 was independently reviewed against these exact Git blobs. A squash
 commit that contains the reviewed implementation retains these content-addressed
 objects, so the evidence does not depend on an intermediate commit remaining in

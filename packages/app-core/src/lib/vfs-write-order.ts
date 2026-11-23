@@ -26,6 +26,15 @@ export function withTombWriteTurn<T>(
   });
 }
 const tombWriteChains = new Map<string, Promise<unknown>>();
+/** Writes scheduled behind other work, before they reach a tomb's queue. */
+const scheduledWrites = new Set<Promise<void>>();
+
+/** Keep a scheduled write visible to callers waiting for a quiet VFS. */
+export function trackVfsWork(work: Promise<void>): void {
+  scheduledWrites.add(work);
+  const settle = () => scheduledWrites.delete(work);
+  void work.then(settle, settle);
+}
 
 export function enqueueTombWrite<T>(
   tomb: string,
@@ -46,5 +55,9 @@ export function enqueueTombWrite<T>(
 
 /** Settle every queued tomb write — for tests that need a quiet store. */
 export async function vfsFlush(): Promise<void> {
+  do {
+    await Promise.all([...tombWriteChains.values()]);
+    await Promise.allSettled([...scheduledWrites]);
+  } while (scheduledWrites.size > 0);
   await Promise.all([...tombWriteChains.values()]);
 }

@@ -55,9 +55,12 @@ export { type VfsSeams, vfsSeams } from "./vfs-seams.js";
 
 /** Session vault key for one tomb. Dropped on lock; sealed I/O then fails locked. */
 const tombKeys = new Map<string, CryptoKey>();
+/** One token per unlock lifetime: a lock, or a different key, starts a new one. */
+const tombLifetimes = new Map<string, object>();
 
 export function unlockTomb(tomb: string, key: CryptoKey): void {
   assertTombName(tomb);
+  if (tombKeys.get(tomb) !== key) tombLifetimes.set(tomb, {});
   tombKeys.set(tomb, key);
 }
 
@@ -71,6 +74,19 @@ export function lockAllTombs(): void {
 
 export function tombUnlocked(tomb: string): boolean {
   return tombKeys.has(tomb);
+}
+
+/**
+ * Capture the tomb's current unlock lifetime without its key. The check fails
+ * once that lifetime ends, even when a later unlock uses the same key.
+ */
+export function requireTombCheck(tomb: string): () => void {
+  requireTombKey(tomb);
+  const lifetime = tombLifetimes.get(tomb);
+  return () => {
+    if (!tombKeys.has(tomb) || tombLifetimes.get(tomb) !== lifetime)
+      throw new VfsError("locked", "The vault was locked in the meantime.");
+  };
 }
 
 function requireTombKey(tomb: string): CryptoKey {

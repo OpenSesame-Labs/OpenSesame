@@ -39,14 +39,15 @@ export { openJsonForRebind } from "@opensesame/vault-core";
 
 /** Cancellation and original transport identity only; supplies no root or admission verdict. */
 function originalSealIO(check?: () => void) {
-  const { readRaw, writeRaw, open, seal } = vfsSeams;
+  const { readRaw, writeRaw, open, seal, refreshRaw } = vfsSeams;
   const active = () => {
     check?.();
     if (
       vfsSeams.readRaw !== readRaw ||
       vfsSeams.writeRaw !== writeRaw ||
       vfsSeams.open !== open ||
-      vfsSeams.seal !== seal
+      vfsSeams.seal !== seal ||
+      vfsSeams.refreshRaw !== refreshRaw
     )
       throw new Error("Original vault seal transport changed.");
   };
@@ -55,12 +56,32 @@ function originalSealIO(check?: () => void) {
     active,
     readRaw: readRaw.bind(vfsSeams),
     writeRaw: writeRaw.bind(vfsSeams),
+    refreshRaw,
     open: <T>(key: CryptoKey, blob: SealedBlob, binding?: string): Promise<T> =>
       open<T>(key, blob, binding),
     seal: seal.bind(vfsSeams),
   });
 }
 type OriginalSealIO = ReturnType<typeof originalSealIO>;
+
+const INDEX_READ_LIMIT = 8 * 1024 * 1024;
+const FILE_READ_LIMIT = 256 * 1024 * 1024;
+
+/**
+ * Load one stored record into memory from disk. A transport with a physical
+ * refresh reports a failed read instead of leaving the record absent, so a
+ * read that failed is never mistaken for a file that does not exist.
+ */
+async function loadRaw(
+  io: OriginalSealIO,
+  key: string,
+  maxBytes: number,
+): Promise<void> {
+  io.active();
+  if (io.refreshRaw) await io.refreshRaw(key, maxBytes, io.active);
+  else await kvHydrate([key]);
+  io.active();
+}
 
 type TombIndex = { v: 1; files: Record<string, number> };
 
@@ -138,30 +159,41 @@ async function rebindIndex(
 
 /**
  * Rewrite every unbound seal in the tomb, then mark the tomb so later opens
- * require the path binding. Safe to call on every unlock.
+ * require the path binding. Safe to call on every unlock. Answers false when
+ * an indexed file could not be loaded, so it was neither rebound nor marked.
  */
 export async function rebindTombSeals(
   tomb: string,
   key: CryptoKey,
   check?: () => void,
-): Promise<void> {
+): Promise<boolean> {
   const io = originalSealIO(check);
-  if (readPlaintextFile(tomb, SEAL_BOUND_MARKER_PATH) === "1") return;
+  if (readPlaintextFile(tomb, SEAL_BOUND_MARKER_PATH) === "1") return true;
   // This runs first on a vault's first unlock, ahead of the unlock's own
   // hydrate: on a fresh page the index and the files it names are on disk but
   // not yet in memory. Reading them as absent would seal an empty index over
-  // the real one and drop every file written before the reload from the listing.
-  await kvHydrate([
-    tombFileKey(tomb, INDEX_PATH),
-    tombFileKey(tomb, BODY_PATH),
-  ]);
+  // the real one and drop every file written before the reload from the
+  // listing, so a failed read of either stops the unlock here.
+  await loadRaw(io, tombFileKey(tomb, INDEX_PATH), INDEX_READ_LIMIT);
+  await loadRaw(io, tombFileKey(tomb, BODY_PATH), FILE_READ_LIMIT);
   const index = await rebindIndex(tomb, key, io);
   io.active();
   const paths = new Set<string>(Object.keys(index.files));
   paths.add(BODY_PATH);
-  await kvHydrate([...paths].map((path) => tombFileKey(tomb, path)));
+  // One unreadable file must not keep the rest of the vault shut. It is left
+  // as it is and the tomb stays unmarked, so the next unlock tries it again.
+  let complete = true;
   for (const path of paths) {
     if (path === INDEX_PATH) continue;
+    if (path !== BODY_PATH) {
+      try {
+        await loadRaw(io, tombFileKey(tomb, path), FILE_READ_LIMIT);
+      } catch {
+        io.active();
+        complete = false;
+        continue;
+      }
+    }
     const raw = io.readRaw(tombFileKey(tomb, path));
     if (!raw) continue;
     const blob = parseBlob(raw);
@@ -170,8 +202,10 @@ export async function rebindTombSeals(
     io.active();
   }
   io.active();
+  if (!complete) return false;
   await writePlaintextFile(tomb, SEAL_BOUND_MARKER_PATH, "1", io.active);
   io.active();
+  return true;
 }
 
 async function publishRekeyedSeals(
@@ -243,8 +277,12 @@ export async function rekeyTomb(
   // Entering the original turn has already drained earlier cooperating writes.
   io.active();
   // Bound first: a seal that predates path binding is rewritten, never carried.
-  await rebindTombSeals(tomb, from, io.active);
+  // A file that could not be loaded is still sealed under `from`; adopting
+  // `to` would strand it, so the rotation stops with the tomb as it was.
+  const rebound = await rebindTombSeals(tomb, from, io.active);
   io.active();
+  if (!rebound)
+    throw new Error("A vault file could not be read; the key was not rotated.");
   const rawIndex = io.readRaw(tombFileKey(tomb, INDEX_PATH));
   const indexBlob = rawIndex ? parseBlob(rawIndex) : null;
   if (!indexBlob) {

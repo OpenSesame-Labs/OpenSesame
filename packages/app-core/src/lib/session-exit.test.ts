@@ -7,16 +7,18 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { configureHost, host } from "../host.js";
 import { localStore, sessionStore } from "../ports.js";
-import {
-  ambientAuthSeams,
-  resetAmbientAuthSeams,
-} from "./ambient-auth-seam.js";
+import { createTestHost } from "../test-host.js";
 import {
   fenceLocalSignOut,
   isAutoAuthSuppressed,
 } from "./ambient-auth/generation.js";
 import { cancelAllTransactions } from "./ambient-auth/transactions.js";
+import {
+  ambientAuthSeams,
+  resetAmbientAuthSeams,
+} from "./ambient-auth-seam.js";
 import { readAuthOutcome } from "./auth-outcome.js";
 import {
   captureClaimArrivalFromPage,
@@ -25,6 +27,7 @@ import {
 import { claimStash } from "./claims/stash.js";
 import { federationSeams } from "./federation.js";
 import { identitySeams } from "./identity.js";
+import { listNotices } from "./notices.js";
 import { attachAccount, signOut, switchAccount } from "./session-exit.js";
 import { vaultStore } from "./vault/store.js";
 
@@ -126,6 +129,38 @@ describe("signOut", () => {
 
     expect(vaultStore.isUnlocked()).toBe(false);
     expect(endSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("locks the guest and reports incomplete cleanup when session storage is blocked", async () => {
+    await vaultStore.createGuest();
+    const original = host();
+    configureHost(
+      createTestHost({
+        storage: {
+          get session(): never {
+            throw new DOMException("blocked", "SecurityError");
+          },
+        },
+      }),
+    );
+    try {
+      expect(() => signOut()).not.toThrow();
+      expect(vaultStore.isUnlocked()).toBe(false);
+      expect(endSession).toHaveBeenCalledTimes(1);
+      expect(
+        listNotices().find(
+          (notice) => notice.id === "session.signout-incomplete",
+        )?.title,
+      ).toBe("Sign-out incomplete");
+    } finally {
+      configureHost(original);
+    }
+    signOut();
+    expect(
+      listNotices().some(
+        (notice) => notice.id === "session.signout-incomplete",
+      ),
+    ).toBe(false);
   });
 });
 

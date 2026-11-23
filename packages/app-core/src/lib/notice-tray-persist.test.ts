@@ -7,13 +7,34 @@ import {
   installTrayNoticePersistence,
   restoreTrayNoticeHistory,
 } from "./notice-tray-persist.js";
-import { appendStatusNotice, clearNotices, listNotices } from "./notices.js";
+import {
+  appendStatusNotice,
+  clearNotices,
+  listNotices,
+  setStatusNotice,
+} from "./notices.js";
 
 afterEach(() => {
   clearNotices();
 });
 
 describe("notice tray persistence", () => {
+  it("does not restore a temporary screen-specific notice", async () => {
+    configureHost(createTestHost());
+    installTrayNoticePersistence();
+    setStatusNotice({
+      id: "temporary-tutorial",
+      tone: "info",
+      title: "Tutorial",
+      body: "Start the tutorial.",
+      transient: true,
+    });
+    await atRestReady();
+    clearNotices();
+    await restoreTrayNoticeHistory();
+    expect(listNotices()).toHaveLength(0);
+  });
+
   it("restores status history after reload", async () => {
     configureHost(createTestHost());
     installTrayNoticePersistence();

@@ -26,8 +26,14 @@ import {
   parseLegacyInteractionLink,
   readInteractionArrival,
 } from "@opensesame/ceremony-kit/links";
+import {
+  type BoundaryValue,
+  isJsonObject,
+  isNumber,
+  isString,
+} from "@opensesame/os-domain";
 import { env } from "../host.js";
-import { maybePage } from "../ports.js";
+import { maybePage, maybeSessionStore } from "../ports.js";
 
 export type DeviceArrival =
   /** Not the device route, or the route opened with no code. */
@@ -141,6 +147,57 @@ export function userCodeFromEntry(raw: string): string {
 }
 
 let captured: DeviceArrival = { kind: "none" };
+/**
+ * The waiting code, kept for this tab across a sign-in redirect: the device
+ * route sends a signed-out person away to sign in, and the code they came
+ * with must still be on screen when they return. Taken on approval, refused
+ * once the authorization has expired.
+ */
+const DEVICE_ARRIVAL_KEY = "opensesame.device-arrival";
+/** A device authorization's own lifetime: a code older than this is spent. */
+const DEVICE_ARRIVAL_MAX_AGE_MS = 15 * 60 * 1000;
+const STASHED_CODE = /^[A-Z0-9._-]{1,64}$/;
+
+function saveArrival(arrival: DeviceArrival): void {
+  try {
+    const store = maybeSessionStore();
+    if (arrival.kind === "code") {
+      store?.setItem(
+        DEVICE_ARRIVAL_KEY,
+        JSON.stringify({ code: arrival.userCode, at: Date.now() }),
+      );
+    } else {
+      store?.removeItem(DEVICE_ARRIVAL_KEY);
+    }
+  } catch {
+    /* the current page can still finish its ceremony */
+  }
+}
+
+function restoredArrival(): DeviceArrival {
+  try {
+    const store = maybeSessionStore();
+    const raw = store?.getItem(DEVICE_ARRIVAL_KEY);
+    if (!raw) return { kind: "none" };
+    const value: BoundaryValue = JSON.parse(raw);
+    const now = Date.now();
+    if (
+      isJsonObject(value) &&
+      isString(value.code) &&
+      STASHED_CODE.test(value.code) &&
+      isNumber(value.at) &&
+      Number.isFinite(value.at) &&
+      value.at <= now &&
+      now - value.at <= DEVICE_ARRIVAL_MAX_AGE_MS
+    ) {
+      return { kind: "code", userCode: value.code };
+    }
+    store?.removeItem(DEVICE_ARRIVAL_KEY);
+  } catch {
+    /* the current page can still finish its ceremony */
+  }
+  return { kind: "none" };
+}
 
 /**
  * Take a device link out of this page's address, before anything renders
@@ -152,22 +209,28 @@ export function captureDeviceLinkFromPage(): DeviceArrival {
   if (!page) return { kind: "none" };
   const read = readDeviceLink(page.location.href, env().BASE_URL || "/");
   if (read.address !== null) page.replaceUrl(read.address);
-  if (read.arrival.kind !== "none") captured = read.arrival;
+  if (read.arrival.kind !== "none") {
+    captured = read.arrival;
+    saveArrival(captured);
+  }
   return read.arrival;
 }
 
 /** Look without taking: the route's first render. */
 export function peekDeviceArrival(): DeviceArrival {
+  if (captured.kind === "none") captured = restoredArrival();
   return captured;
 }
 
 /** Hand the waiting arrival to the device route, and forget it here. */
 export function takeDeviceArrival(): DeviceArrival {
-  const taken = captured;
+  const taken = peekDeviceArrival();
   captured = { kind: "none" };
+  saveArrival(captured);
   return taken;
 }
 
-export function resetDeviceArrivalForTests(): void {
+export function resetDeviceArrivalForTests(preserveStash = false): void {
   captured = { kind: "none" };
+  if (!preserveStash) saveArrival(captured);
 }

@@ -21,12 +21,13 @@
 import { ambientAuthSeams } from "./ambient-auth-seam.js";
 import { storeAuthOutcome } from "./auth-outcome.js";
 import { forgetClaim } from "./claims/arrival.js";
-import { clearPendingSignIn } from "./federation-pending.js";
 import { clearSession as clearFederationSession } from "./federation.js";
+import { clearPendingSignIn } from "./federation-pending.js";
 import { forgetPendingLink } from "./guest-auth.js";
 import { endSession } from "./identity.js";
 import { endJoinAuthority } from "./join/client.js";
 import { clearPendingJoin } from "./join/stash.js";
+import { dismissNotice, setStatusNotice } from "./notices.js";
 import { vaultStore } from "./vault/store.js";
 
 /**
@@ -42,26 +43,52 @@ import { vaultStore } from "./vault/store.js";
 /** Whether this sign-out is the first half of "switch account". */
 type SignOutIntent = "leave" | "switch";
 
+const INCOMPLETE_ID = "session.signout-incomplete";
+
 function signOutDefault(intent: SignOutIntent = "leave"): void {
-  ambientAuthSeams.fenceLocalSignOut();
-  ambientAuthSeams.cancelAllTransactions();
-  clearFederationSession();
-  clearPendingSignIn();
-  forgetPendingLink();
+  // Each step runs whatever the one before it did: blocked browser storage
+  // must not stop the session ending or leave the vault open behind it.
+  let incomplete = false;
+  const step = (run: () => void) => {
+    try {
+      run();
+    } catch {
+      incomplete = true;
+    }
+  };
+  step(() => ambientAuthSeams.fenceLocalSignOut());
+  step(() => ambientAuthSeams.cancelAllTransactions());
+  step(clearFederationSession);
+  step(clearPendingSignIn);
+  step(forgetPendingLink);
   // A join half-done under this account is not the next person's to finish.
-  clearPendingJoin();
-  endJoinAuthority();
+  step(clearPendingJoin);
+  step(endJoinAuthority);
   // Nor is a claim or drop a link brought: the arrival and the stashed bearer.
-  forgetClaim();
-  storeAuthOutcome(
-    intent === "switch"
-      ? { kind: "signed_out", switching: true }
-      : { kind: "signed_out" },
+  step(forgetClaim);
+  step(() =>
+    storeAuthOutcome(
+      intent === "switch"
+        ? { kind: "signed_out", switching: true }
+        : { kind: "signed_out" },
+    ),
   );
-  endSession();
+  step(endSession);
   if (vaultStore.isUnlocked() || vaultStore.getSnapshot().awaitingSecondStep) {
-    vaultStore.lock();
+    step(() => vaultStore.lock());
   }
+  if (!incomplete) {
+    dismissNotice(INCOMPLETE_ID);
+    return;
+  }
+  setStatusNotice({
+    id: INCOMPLETE_ID,
+    tone: "err",
+    title: "Sign-out incomplete",
+    body: "Check your connection and browser storage, then try signing out again.",
+    retry: () => signOutDefault(intent),
+    transient: true,
+  });
 }
 
 /**
