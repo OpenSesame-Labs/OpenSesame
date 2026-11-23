@@ -22,6 +22,10 @@ import {
   settleRevokes,
   subscribeIdentitySession,
 } from "./identity.js";
+import {
+  assertSignOutEpoch,
+  captureSignOutEpoch,
+} from "./identity-shared-signout.js";
 import { beginMagicLink, completeMagicLink } from "./magic-link-client.js";
 
 const ME = `${IDENTITY}/v1/principals/me`;
@@ -160,4 +164,12 @@ it("refuses a magic-link return after any tab signed out, revoking what it issue
       String(url).endsWith("/magic-link/exchange"),
     ),
   ).toBe(false);
+});
+
+it("lets guest code fence its own work to the durable sign-out epoch", () => {
+  const epoch = captureSignOutEpoch();
+  expect(() => assertSignOutEpoch(epoch)).not.toThrow();
+  anotherTabSignsOut();
+  expect(() => assertSignOutEpoch(epoch)).toThrow(/signed out/i);
+  expect(() => assertSignOutEpoch(null)).toThrow(/signed out/i);
 });

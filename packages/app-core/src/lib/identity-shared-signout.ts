@@ -48,6 +48,23 @@ export function sharedSignOutObserved(): boolean {
   return true;
 }
 
+/**
+ * The durable sign-out epoch, for code outside identity.ts (guest returns,
+ * tomb openings) that must not finish across a sign-out in any tab. Capture
+ * it before work that can yield and pass it to `assertSignOutEpoch` before
+ * publishing. Null means the store refused the read: treat it as unknown and
+ * refuse remote work rather than assume no sign-out happened.
+ */
+export function captureSignOutEpoch(): number | null {
+  return readAuthGeneration();
+}
+
+/** Throws when any tab has signed out since `captured` (or it is unknown). */
+export function assertSignOutEpoch(captured: number | null): void {
+  if (captured === null || readAuthGeneration() !== captured)
+    throw new Error("You signed out meanwhile. Sign in again.");
+}
+
 /** Move the shared generation for a local sign-out, then wake other tabs. */
 export function announceSharedSignOut(): void {
   sharedSignOutObserved();

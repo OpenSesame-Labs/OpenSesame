@@ -44,6 +44,7 @@ import {
 import {
   finishSignOut,
   journalSignOut,
+  refuseCookieWhileOwed,
   requireNoOwedRevocation,
   revocationPendingFor,
 } from "./identity-signout.js";
@@ -92,7 +93,8 @@ function emit(): void {
   for (const listener of listeners) listener();
 }
 
-/** Another tab signed out: retire this tab's session and fence its sign-ins. */
+/** Another tab signed out: retire this tab's session, fence its sign-ins, and
+ * notify off-stack, since readers call this while rendering. */
 function retireForSharedSignOut(): void {
   const ended = session;
   if (ended && !ended.cookieOnly)
@@ -101,7 +103,6 @@ function retireForSharedSignOut(): void {
   clearHostSession();
   sessionEpoch += 1;
   sessionRevision += 1;
-  // Readers call this while rendering, so listeners hear it off-stack.
   queueMicrotask(emit);
 }
 const syncSharedSignOut = (): void =>
@@ -161,14 +162,17 @@ function setOrphan(next: boolean | null, base = resolveIdentityBase()): void {
   if (updateOrphan(next, base)) emit();
 }
 
+/** A fresh guest's bearer travels alone; a member cookie is not its to end. */
+const isolatedFrom = (base: string): boolean =>
+  guestCookieObserved !== base &&
+  (Boolean(session?.bearerOnly) || guestIsolationActive());
+
 /** Revoke both the bearer and any independently authenticating cookie. */
 function endSessionDefault(options?: { signOut?: boolean }): void {
   // An adopted token has no cookie, so send its bearer before forgetting it.
   const base = resolveIdentityBase();
   const bearer = bearerForIssuer(session, base, identityOrigin());
-  const isolated =
-    guestCookieObserved !== base &&
-    (Boolean(session?.bearerOnly) || guestIsolationActive());
+  const isolated = isolatedFrom(base);
   if (isolated && bearer) rememberBearerRevoke(bearer, base);
   syncSharedSignOut();
   const ending = Boolean(session || options?.signOut);
@@ -255,9 +259,7 @@ async function identityFetchDefault(
   const base = resolveIdentityBase();
   const headers = new Headers(init.headers);
   const active = currentSession();
-  // While a sign-out is owed, the old cookie must not answer for anyone.
-  if (!active && revocationPendingFor(base))
-    throw new IdentityError("Finish signing out before signing in again.", 409);
+  if (!active) refuseCookieWhileOwed(base);
   if (active && !active.cookieOnly)
     headers.set("authorization", `Bearer ${active.accessToken}`);
   if (init.body && !headers.has("content-type"))
@@ -265,13 +267,7 @@ async function identityFetchDefault(
   const res = await identityPlaneRequest(path, {
     ...init,
     headers,
-    // Standalone guests and adopted bearers must not use an ambient cookie.
-    credentials:
-      active?.adopted ||
-      active?.bearerOnly ||
-      (!active && guestIsolationActive())
-        ? "omit"
-        : "include",
+    credentials: cookieCredentials(active),
     timeoutMs: IDENTITY_FETCH_MS,
   });
   requireIssuer(base);
@@ -279,6 +275,12 @@ async function identityFetchDefault(
     identitySeams.noteUnauthorized();
   return res;
 }
+
+/** Standalone guests and adopted bearers must not use an ambient cookie. */
+const cookieCredentials = (active: IdentitySession | null) =>
+  active?.adopted || active?.bearerOnly || (!active && guestIsolationActive())
+    ? "omit"
+    : "include";
 
 /** Drop a refused bearer and check whether its cookie survived. */
 function noteUnauthorizedDefault(): void {
@@ -544,9 +546,8 @@ function restoreSessionDefault(
   emit();
 }
 
-export async function probeIdentityDetailed(): Promise<ProbeResult> {
-  return probeIdentityPlane(identityBase, PROBE_MS);
-}
+export const probeIdentityDetailed = (): Promise<ProbeResult> =>
+  probeIdentityPlane(identityBase, PROBE_MS);
 
 export const identitySeams = {
   hostFetch: hostFetchDefault,

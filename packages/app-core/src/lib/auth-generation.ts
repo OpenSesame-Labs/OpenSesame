@@ -1,6 +1,7 @@
 /** Shared principal-generation fence; all sign-in roads use the same durable counter. */
 import { maybeLocalStore } from "../ports.js";
 import { notifyFederationSessionChanged } from "./federation-session-events.js";
+
 const GENERATION_KEY = "opensesame:ambient-auth:generation";
 function readNumber(key: string): number {
   try {

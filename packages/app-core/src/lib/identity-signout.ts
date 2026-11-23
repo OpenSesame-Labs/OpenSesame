@@ -111,6 +111,12 @@ export async function finishSignOut(work: SignOutWork): Promise<void> {
   }
 }
 
+/** While a sign-out is owed, the old cookie must not answer for anyone. */
+export function refuseCookieWhileOwed(base: string): void {
+  if (revocationPendingFor(base))
+    throw new IdentityError("Finish signing out before signing in again.", 409);
+}
+
 /** Retry an owed revoke for `base`, refusing sign-in while it stays owed. */
 export async function requireNoOwedRevocation(base: string): Promise<void> {
   if (!revocationPendingFor(base)) return;
