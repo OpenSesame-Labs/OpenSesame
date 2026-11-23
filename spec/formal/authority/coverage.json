@@ -1,7 +1,7 @@
 {
   "version": 2,
   "reviewed_revision": "66d79b7cfa4d8304499541ff3794033ea72c5bc6",
-  "reviewed_source_state": "The covered domain sources and root Cargo inputs match reviewed_revision. The standalone authority harness inputs were reviewed at ac8236c9b2d1236fec5dc4593390724ff17e6f6d; the recorded projections are computed from those same root Cargo inputs. The compiler-isolation and projection helpers were reviewed separately; their hashes identify the reviewed helper bytes.",
+  "reviewed_source_state": "The covered domain sources and root Cargo inputs match reviewed_revision. The standalone authority harness inputs were reviewed at ac8236c9b2d1236fec5dc4593390724ff17e6f6d; the recorded projections are computed from those same root Cargo inputs. The compiler-isolation and projection helpers were reviewed separately; their hashes identify the reviewed helper bytes. 2026-11-23 (RUSTSEC-2026-0592): url 2.5.8 -> 2.5.9 and form_urlencoded 1.2.2 -> 1.2.3 in the root and harness Cargo.lock; the domain lock projection differs only by those two registry packages and the edges from opensesame-domain, sqlx-core and sqlx-sqlite to them (225 nodes before and after; no package added or removed, url's own dependency list unchanged). The harness lock changes only those two entries, with checksums identical to the root lock, so its direct dependencies still match production. No covered domain or time source, harness manifest or conformance input changed and the model needs no change; the Cargo.lock and lock_projection hashes are recomputed for those reviewed bytes, and reviewed_revision is left at the last reviewed main ancestor.",
   "sources": [
     {
       "path": "crates/domain/Cargo.toml",
@@ -309,7 +309,7 @@
     },
     {
       "path": "spec/formal/authority/Cargo.lock",
-      "sha256": "358a70605a03b4ed584d1ff98b2ead3fbf123551348be41ee39174e609bee564"
+      "sha256": "90b5a589da42eff3e4e62e19ab42a2320677692126b595fb091b1d25e62d3694"
     },
     {
       "path": "spec/formal/authority/conformance.rs",
@@ -343,7 +343,7 @@
   "lock_projection": {
     "root": "opensesame-domain",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "ae56da6ec2390a178520464564442bc73493d496de6f106010654ca33043acf5"
+    "sha256": "cf607e4b1b205d7ceac7646b43a2af16d33a672bc2a69ef06a73549e1959e180"
   },
   "workspace_projection": {
     "root": "opensesame-domain",
