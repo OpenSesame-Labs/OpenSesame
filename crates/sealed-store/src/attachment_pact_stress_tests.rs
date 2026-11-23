@@ -95,7 +95,10 @@ fn an_oversize_attachment_is_refused_before_anything_is_read() {
         "should refuse on size, not on a later length mismatch: {err}"
     );
     // Nothing was written on the way to refusing.
-    assert!(root.object_files().unwrap().is_empty());
+    assert_eq!(
+        root.object_files().unwrap(),
+        [] as [(String, std::path::PathBuf); 0]
+    );
 }
 
 #[test]

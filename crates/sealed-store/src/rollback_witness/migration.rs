@@ -80,7 +80,7 @@ impl StoreRoot {
             // read must abort the migration instead of silently selecting a
             // candidate from a lower epoch.
             if let Some(witness) =
-                self.read_witness_slot(&root, &directory.join(slot), store_id, key)?
+                Self::read_witness_slot(&root, &directory.join(slot), store_id, key)?
             {
                 candidates.push(witness);
             }

@@ -247,14 +247,10 @@ impl StoreRoot {
                         "store identity does not match its outside rollback anchor".into(),
                     ));
                 }
-                let witness = match self.load_witness(&identity.store_id, key)? {
-                    Some(witness) => witness,
-                    None => {
-                        return Err(StoreError::Crypto(
-                            "rollback witness is missing; restore its outside-store checkpoint"
-                                .into(),
-                        ));
-                    }
+                let Some(witness) = self.load_witness(&identity.store_id, key)? else {
+                    return Err(StoreError::Crypto(
+                        "rollback witness is missing; restore its outside-store checkpoint".into(),
+                    ));
                 };
                 if inside.is_none() {
                     confined_replace(
@@ -276,6 +272,11 @@ impl StoreRoot {
     }
     /// Explicitly anchors a pre-witness store after the operator has verified
     /// that its current checkout is the intended high-water state.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the store is locked, already anchored without its
+    /// outside checkpoint, or the witness cannot be built or persisted.
     pub fn migrate_rollback_anchor(&self, key: &ItemDataKey) -> Result<(), StoreError> {
         let _lock = StoreLock::exclusive_for_key(&self.path, key)?;
         if let Some(identity) = self.read_outside_identity(key)? {

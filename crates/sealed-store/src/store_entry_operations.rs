@@ -181,6 +181,10 @@ impl StoreRoot {
 }
 
 /// List entries for connector-host without unlocking (names only).
+///
+/// # Errors
+///
+/// Returns an error when the store cannot be opened or listed.
 pub fn list_names(store_dir: &Path, prefix: &str) -> Result<Vec<String>, StoreError> {
     let root = StoreRoot::open(store_dir)?;
     root.ls(prefix)

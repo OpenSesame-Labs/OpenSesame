@@ -40,7 +40,7 @@ domain = "age"
 fn age_minimal_config_keeps_omitted_defaults() {
     let config = parse("fallback_language = 'en-US'\n[fluent]\nassets_dir = 'i18n'\n")
         .expect("age localization configuration");
-    assert!(config.subcrates.is_empty());
+    assert_eq!(config.subcrates, [] as [std::path::PathBuf; 0]);
     assert!(config
         .fluent
         .expect("Fluent configuration")

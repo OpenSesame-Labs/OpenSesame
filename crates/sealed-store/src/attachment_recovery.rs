@@ -2,7 +2,11 @@
 
 use zeroize::Zeroizing;
 
-use super::*;
+use super::{
+    attach_relative, auto_commit, confined_atomic_write, confined_read, seal_osseal_in,
+    AttachmentManifest, ItemDataKey, StoreError, StoreRoot, COLLECTION_ATTACHMENTS,
+    MANIFEST_FORMAT, MAX_FILENAME_BYTES,
+};
 
 impl StoreRoot {
     /// Reseal the current manifest after its owner independently decides to

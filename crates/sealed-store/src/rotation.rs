@@ -269,7 +269,7 @@ fn stage_attachments(
             };
             let mut plaintext =
                 open_chunk(&old_ak, &frame, &ad).map_err(|e| StoreError::Crypto(e.to_string()))?;
-            ad.item_id = name.clone();
+            ad.item_id.clone_from(name);
             let resealed = seal_chunk(&new_ak, &plaintext, &ad);
             plaintext.zeroize();
             let resealed = resealed.map_err(|e| StoreError::Crypto(e.to_string()))?;

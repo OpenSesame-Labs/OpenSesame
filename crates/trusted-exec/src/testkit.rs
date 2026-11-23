@@ -54,12 +54,12 @@ fn private_root() -> PathBuf {
             Ok(()) => {
                 let owner = std::fs::metadata(&root).expect("fixture directory metadata");
                 // SAFETY: these calls take no arguments and cannot fail.
-                let (euid, egid) = unsafe { (libc::geteuid(), libc::getegid()) };
-                assert_eq!(owner.uid(), euid, "fixture directory owner");
-                assert_eq!(owner.gid(), egid, "fixture directory group");
+                let (user, group) = unsafe { (libc::geteuid(), libc::getegid()) };
+                assert_eq!(owner.uid(), user, "fixture directory owner");
+                assert_eq!(owner.gid(), group, "fixture directory group");
                 return root;
             }
-            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(error) => panic!("fixture directory: {error}"),
         }
     }
@@ -67,6 +67,11 @@ fn private_root() -> PathBuf {
 
 /// Copy exact bytes from a pinned canonical regular executable into a new
 /// caller-owned 0500 file, refusing a final-component link at open.
+///
+/// # Panics
+///
+/// Panics when the source is not a readable regular executable or the copy
+/// cannot be created, verified, or read back byte for byte.
 pub fn copy_executable(source: &Path, destination: &Path) {
     let source = source.canonicalize().expect("canonical executable");
     let mut source = std::fs::OpenOptions::new()
@@ -104,8 +109,8 @@ pub fn copy_executable(source: &Path, destination: &Path) {
 
     source.rewind().expect("rewind source executable");
     copy.rewind().expect("rewind executable copy");
-    let mut source_chunk = [0_u8; 64 * 1024];
-    let mut copy_chunk = [0_u8; 64 * 1024];
+    let mut source_chunk = vec![0_u8; 64 * 1024];
+    let mut copy_chunk = vec![0_u8; 64 * 1024];
     loop {
         let source_read = source
             .read(&mut source_chunk)

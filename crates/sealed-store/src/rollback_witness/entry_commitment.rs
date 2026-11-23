@@ -101,7 +101,7 @@ impl StoreRoot {
         if let Some(state) = witness.entries.get(&identity).filter(|_| !trust_plaintext) {
             self.refuse_forked_entry(name, path, key, state)?;
         }
-        let commitment = plaintext.map(entry_plaintext_commitment).unwrap_or([0; 32]);
+        let commitment = plaintext.map_or([0; 32], entry_plaintext_commitment);
         let current = witness
             .entries
             .get(&identity)

@@ -132,7 +132,7 @@ fn refuses_a_pin_only_policy_even_when_the_old_password_and_body_still_decrypt()
         &vault_seal_binding("proj_vectors01", "body"),
     );
     let body: Value = serde_json::from_slice(&independent).unwrap();
-    assert!(!body["items"].as_array().unwrap().is_empty());
+    assert_ne!(body["items"].as_array().unwrap(), &[] as &[Value]);
     let policy = pin_only_policy(&envelope, &root);
     assert_eq!(policy["records"][0]["kind"], "pin");
     envelope["vault"]["header"]["protection"] = policy;
