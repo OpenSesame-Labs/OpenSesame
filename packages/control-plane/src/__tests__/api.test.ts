@@ -2,7 +2,7 @@ import {
   MemoryPairwiseSubjectStore,
   createPairwiseIdentifierCallback,
 } from "@opensesame/oauth-provider";
-import { type JsonObject, overlapCast } from "@opensesame/os-domain";
+import { overlapCast } from "@opensesame/os-domain";
 import {
   DEFAULT_PROVISIONAL_QUOTA,
   DEFAULT_VERIFIED_QUOTA,
@@ -1469,7 +1469,7 @@ describe("control-plane API", () => {
         markMutationReachedHost = resolve;
       });
       const hostUrls: string[] = [];
-      const hostBodies: Array<JsonObject> = [];
+      const hostBodies: Array<Record<string, unknown>> = [];
       const host = vi
         .spyOn(globalThis, "fetch")
         .mockImplementationOnce(async (input, init) => {

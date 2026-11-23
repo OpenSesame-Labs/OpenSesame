@@ -15,16 +15,13 @@ import { createPostgresOrganizationStores } from "../src/repos/postgres.js";
 import { makePrincipal } from "./factories.js";
 import type { PgTestContext } from "./pg-harness-full.js";
 
-/** What {@link fixture} hands a withdrawal test: the store and the seeded row. */
-export type MembershipFixture = {
-  store: OrganizationMembershipStore;
-  row: OrganizationMembership;
-};
-
 export async function fixture(
   pg: PgTestContext,
   sql: boolean,
-): Promise<MembershipFixture> {
+): Promise<{
+  store: OrganizationMembershipStore;
+  row: OrganizationMembership;
+}> {
   const repos = sql ? pg.repos : new MemoryRepositories();
   const stores = sql
     ? createPostgresOrganizationStores(pg.db)

@@ -91,7 +91,7 @@ scimMappingAdminRoutes.put(
           proof,
           groupId,
           role,
-        ).catch((error) => {
+        ).catch((error: unknown) => {
           if (error instanceof ScimAdminCapacityError)
             return {
               ok: false as const,

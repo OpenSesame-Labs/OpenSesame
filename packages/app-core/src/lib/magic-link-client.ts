@@ -1,7 +1,6 @@
 import {
   type BoundaryValue,
   isJsonObject,
-  isNumber,
   isString,
   overlapCast,
 } from "@opensesame/os-domain";
@@ -35,7 +34,7 @@ function readPending(): PendingMagicLink | undefined {
       !isString(value.state) ||
       !isString(value.identityBase) ||
       !isString(value.callback) ||
-      !isNumber(value.sessionEpoch)
+      typeof value.sessionEpoch !== "number"
     )
       return undefined;
     return overlapCast(value);
@@ -44,16 +43,10 @@ function readPending(): PendingMagicLink | undefined {
   }
 }
 
-/**
- * The sign-in request to send, plus the commit that records the pending
- * link so the returning tab can be checked against the requesting one.
- */
-export type MagicLinkHandoff = {
+export async function beginMagicLink(email: string): Promise<{
   request: RequestInit;
   commit: () => void;
-};
-
-export async function beginMagicLink(email: string): Promise<MagicLinkHandoff> {
+}> {
   const identityBase = remoteIdentityApi();
   if (!identityBase) throw new Error("No sign-in service is connected.");
   const verifier = randomString(32);

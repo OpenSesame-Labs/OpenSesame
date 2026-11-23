@@ -2,12 +2,6 @@ import {
   MemoryOrganizationMembershipStore,
   PostgresOrganizationMembershipStore,
 } from "@opensesame/database";
-import {
-  type BoundaryValue,
-  isBoolean,
-  isJsonObject,
-  overlapCast,
-} from "@opensesame/os-domain";
 import { sql } from "drizzle-orm";
 import type { AppStores } from "../state.js";
 import { DurableMap } from "./durable-map.js";
@@ -79,24 +73,20 @@ async function memoryBoundary<T>(
   }
 }
 
-/**
- * Parse the one-row answer of the principal session advisory lock at the
- * database I/O boundary: a bare row list, or a driver result wrapping rows.
- */
-function acquired(result: BoundaryValue): boolean {
+function acquired(result: unknown): boolean {
   const rows = Array.isArray(result)
     ? result
-    : isJsonObject(result)
+    : result && typeof result === "object" && "rows" in result
       ? result.rows
       : undefined;
   if (!Array.isArray(rows) || rows.length !== 1) {
     throw new Error("Could not verify the principal session lock");
   }
-  const row = rows[0];
-  if (row === undefined || !isJsonObject(row)) {
+  const row: unknown = rows[0];
+  if (!row || typeof row !== "object" || !("acquired" in row)) {
     throw new Error("Could not verify the principal session lock");
   }
-  if (!isBoolean(row.acquired)) {
+  if (row.acquired !== true && row.acquired !== false) {
     throw new Error("Invalid principal session lock result");
   }
   return row.acquired;
@@ -147,10 +137,8 @@ export async function withPrincipalSessionBoundary<T>(
   }
   return sessions.transaction(async (db) => {
     if (mode === "publish") {
-      const result: BoundaryValue = overlapCast(
-        await db.execute(
-          sql`SELECT pg_try_advisory_xact_lock_shared(hashtext('OpenSesame:PrincipalSession'), hashtext(${principalId})) AS acquired`,
-        ),
+      const result = await db.execute(
+        sql`SELECT pg_try_advisory_xact_lock_shared(hashtext('OpenSesame:PrincipalSession'), hashtext(${principalId})) AS acquired`,
       );
       if (!acquired(result)) throw new ProvisionalSessionEpochChangedError();
     } else {

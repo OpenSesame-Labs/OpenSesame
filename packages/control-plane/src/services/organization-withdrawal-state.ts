@@ -22,14 +22,13 @@ export function newWithdrawal(
     actorType: input.actorType,
     correlationId: input.correlationId,
   };
-  if (request.kind !== "remove") {
-    return { ...details, kind: "change_role", role: request.role };
-  }
-  // Two literals rather than a conditional spread: a withdrawal without a
-  // reason and one carrying `reason: undefined` are different records.
-  return input.reason
-    ? { ...details, kind: "remove", reason: input.reason }
-    : { ...details, kind: "remove" };
+  return request.kind === "remove"
+    ? {
+        ...details,
+        kind: "remove",
+        ...(input.reason ? { reason: input.reason } : {}),
+      }
+    : { ...details, kind: "change_role", role: request.role };
 }
 
 export function mustProtectOwner(
@@ -67,10 +66,8 @@ export async function existingWithdrawal(
       actorType: "system",
       actorPrincipalId: input.actorPrincipalId,
       correlationId: input.correlationId,
+      ...(input.reason ? { reason: input.reason } : {}),
     };
-    // Added only when present: a system removal without a reason and one
-    // carrying `reason: undefined` are different records to the store.
-    if (input.reason) withdrawal.reason = input.reason;
     const upgraded = await store.upgradeRoleWithdrawalToRemoval(
       input.organizationId,
       input.principalId,

@@ -52,7 +52,9 @@ mod tests {
         role: OrganizationRole,
         capabilities: &[&str],
     ) -> String {
-        let raw = uuid::Uuid::new_v4().to_string();
+        // In-memory fixture sessions must carry the `fixture_` prefix; any
+        // other opaque session is resolved against the durable native store.
+        let raw = format!("fixture_{}", uuid::Uuid::new_v4());
         let mut claims = crate::session_claims::fixture(
             opensesame_domain::PrincipalId::new(),
             state.connection_organization,
