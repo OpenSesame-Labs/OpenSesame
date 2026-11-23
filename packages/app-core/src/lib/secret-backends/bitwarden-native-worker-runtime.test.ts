@@ -11,7 +11,10 @@ import {
   NativeWorkerRequest,
   type NativeWorkerSettings,
 } from "./bitwarden-native-worker-protocol.js";
-import { createBitwardenNativeWorkerRuntime } from "./bitwarden-native-worker-runtime.js";
+import {
+  createBitwardenNativeWorkerRuntime,
+  isWorkerOwnerMessage,
+} from "./bitwarden-native-worker-runtime.js";
 
 type Fixture = Awaited<ReturnType<typeof nativeHttpFixture>>;
 const fixtures: Fixture[] = [];
@@ -178,4 +181,89 @@ it("reports sanitized authentication failure and closes instead of retaining a t
   ).toMatchObject({ ok: false, code: "authentication" });
   await open.closed;
   expect(JSON.stringify(open.replies)).not.toContain(input.masterPassword);
+});
+it.each([
+  { id: 1, type: "list" },
+  { id: 1, type: "get", selector: "anything" },
+  { id: 1, type: "delete", itemId: "00000000-0000-4000-8000-000000000000" },
+  { id: 1, type: "dispose" },
+])(
+  "refuses $type before initialization and ends without a reply or provider request",
+  async (request) => {
+    const open = await runtime(false);
+    const count = open.fixture.requests.length;
+    open.owner.receive(request);
+    await open.closed;
+    // The ended runtime admits no initialization afterwards either.
+    open.owner.receive({
+      id: 2,
+      type: "initialize",
+      settings: settings(open.fixture),
+    });
+    await Promise.resolve();
+    expect(open.replies).toEqual([]);
+    expect(open.fixture.requests.length).toBe(count);
+  },
+);
+it("admits initialize exactly once: a second one, while pending or after ready, ends the worker", async () => {
+  const pending = await runtime(true);
+  const held = pending.fixture.hold("/api/sync?excludeDomains=true", "GET");
+  pending.owner.receive({
+    id: 1,
+    type: "initialize",
+    settings: settings(pending.fixture),
+  });
+  await held.ready;
+  pending.owner.receive({
+    id: 2,
+    type: "initialize",
+    settings: settings(pending.fixture),
+  });
+  await pending.closed;
+  held.release();
+  expect(pending.replies.filter((reply) => reply.ok)).toEqual([]);
+
+  const ready = await runtime(false);
+  expect(
+    await ready.invoke({
+      id: 1,
+      type: "initialize",
+      settings: settings(ready.fixture),
+    }),
+  ).toEqual({ id: 1, ok: true, value: null });
+  const count = ready.fixture.requests.length;
+  ready.owner.receive({
+    id: 2,
+    type: "initialize",
+    settings: settings(ready.fixture),
+  });
+  await ready.closed;
+  expect(ready.replies).toHaveLength(1);
+  // Re-authentication was refused, not attempted.
+  expect(
+    ready.fixture.requests
+      .slice(count)
+      .filter((row) => row.path.includes("/connect/token")),
+  ).toEqual([]);
+});
+it("accepts messages only from the constructing page", () => {
+  const origin = "https://pages.example";
+  const owner = { origin: "", source: null, ports: [] };
+  expect(isWorkerOwnerMessage(owner, origin)).toBe(true);
+  expect(isWorkerOwnerMessage({ ...owner, origin }, origin)).toBe(true);
+  expect(
+    isWorkerOwnerMessage({ ...owner, origin: "https://evil.example" }, origin),
+  ).toBe(false);
+  const channel = new MessageChannel();
+  try {
+    expect(
+      isWorkerOwnerMessage({ ...owner, ports: [channel.port1] }, origin),
+    ).toBe(false);
+    expect(
+      isWorkerOwnerMessage({ ...owner, source: channel.port2 }, origin),
+    ).toBe(false);
+  } finally {
+    channel.port1.close();
+    channel.port2.close();
+  }
 });
