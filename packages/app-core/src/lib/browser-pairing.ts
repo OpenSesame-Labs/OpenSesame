@@ -12,6 +12,7 @@ import {
   validatedToken,
 } from "./browser-pairing-wire.js";
 import { mayPairLocalAuthority } from "./deployment-profile.js";
+import { isLocalOnlyGuest } from "./guest-session-context.js";
 import { HostSessionError } from "./identity-session-types.js";
 import { localNetworkFetch } from "./local-network-fetch.js";
 import { loadSettings } from "./settings.js";
@@ -94,6 +95,10 @@ export function browserPairingSignal(): AbortSignal {
   return lifetime.signal;
 }
 function assertEligible(): void {
+  if (isLocalOnlyGuest())
+    throw new Error(
+      "This vault is local only. Sign out and start a new guest session to connect services.",
+    );
   if (!browserPairingSeams.eligible())
     throw new BrowserPairingError("restricted_demo");
 }
@@ -146,6 +151,7 @@ export async function beginBrowserPairing(
   const signal = lifetime.signal;
   const hostApi = baseUrl(rawHost);
   const key = await browserPairingSeams.createKey();
+  assertEligible();
   if (epoch !== generation) throw new BrowserPairingError("pairing_expired");
   const response = await pairingRequest(
     hostApi,
@@ -156,6 +162,7 @@ export async function beginBrowserPairing(
   );
   if (!response.ok) throw new BrowserPairingError("pairing_failed");
   const value = await body(response);
+  assertEligible();
   const { prompt, deviceCode } = validatedPrompt(value, hostApi);
   if (epoch !== generation) throw new BrowserPairingError("pairing_expired");
   pending = {
@@ -190,6 +197,7 @@ export async function pollBrowserPairing(): Promise<BrowserGrant | null> {
     lifetime.signal,
   );
   const value = await body(response);
+  assertEligible();
   if (pending !== active || epoch !== active.epoch)
     throw new BrowserPairingError("pairing_expired");
   if (!response.ok) {
@@ -221,6 +229,7 @@ export function clearBrowserPairing(): void {
 }
 
 export function currentBrowserGrant(rawHost: string): BrowserGrant | null {
+  if (isLocalOnlyGuest()) return null;
   if (grant && grant.expiresAt <= Date.now()) clearBrowserPairing();
   const requested = rawHost ? normalizeHttpBaseUrl(rawHost) : null;
   if (
@@ -259,6 +268,7 @@ export async function pairedHostFetch(
     "DPoP",
     await active.key.createDpopProof(url, method, active.accessToken),
   );
+  assertEligible();
   if (init.body && !headers.has("content-type"))
     headers.set("content-type", "application/json");
   if (grant !== active) throw new BrowserPairingError("pairing_expired");
@@ -271,6 +281,7 @@ export async function pairedHostFetch(
     timeoutMs: 8000,
   };
   let response = await localNetworkFetch(url, request);
+  await refuseGuestResponse(response);
   const nonce = response.headers.get("DPoP-Nonce");
   if (nonceRetry(active, response.status, nonce)) {
     await response.body?.cancel();
@@ -278,15 +289,24 @@ export async function pairedHostFetch(
       "DPoP",
       await active.key.createDpopProof(url, method, active.accessToken, nonce),
     );
+    assertEligible();
     if (grant !== active) throw new BrowserPairingError("pairing_expired");
     response = await localNetworkFetch(url, request);
   }
+  await refuseGuestResponse(response);
   if (response.status === 401) clearBrowserPairing();
   if (staleResponse(active, response.status)) {
     await response.body?.cancel();
     throw new BrowserPairingError("pairing_expired");
   }
+  assertEligible();
   return response;
+}
+
+async function refuseGuestResponse(response: Response): Promise<void> {
+  if (!isLocalOnlyGuest()) return;
+  await response.body?.cancel();
+  throw new BrowserPairingError("pairing_expired");
 }
 
 /**
@@ -307,7 +327,7 @@ export async function renewBrowserGrant(rawHost: string): Promise<boolean> {
   const payload = await body(response);
   // Signing out or clearing the pairing during the read must not bring the
   // grant back with a fresh token.
-  if (grant !== active) return false;
+  if (grant !== active || !currentBrowserGrant(rawHost)) return false;
   const renewed = validatedToken(payload, active.capabilities);
   if (renewed.clientId !== active.clientId) return false;
   grant = { ...active, ...renewed };
