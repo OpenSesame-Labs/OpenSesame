@@ -69,6 +69,13 @@ A target that will be missed is said so on the alert, with the reason and a new 
 2. Take the fixed version. Review the update as any other ([dependency supply chain](dependency-supply-chain.md)); a security update skips the seven-day cooldown, not the review.
 3. If there is no fix: remove the dependency, replace it, or record in the alert why the vulnerable path is unreachable. Do not add a scanner exception to get a gate green.
 
+### A container image carries a vulnerable package
+
+OSV-Scanner reports operating-system and bundled packages per image ([GHCR images](../operators/ghcr-images.md#vulnerability-scanning)). Read the category first.
+
+1. `container-source-<image>-<platform>` is what the current source builds. Fix it in the repository: move the base image digest, bump the package, or stop copying it in. The next run closes the alert.
+2. `container-image-<image>-<tag>-<platform>` is a historical registry tag the repository no longer updates. Fixing the source does not change it. Once the source category is clean, delete that tag's package version (or ship qualified OCI promotion); the next run uploads an empty report and closes the category. Do not dismiss these alerts while the tag can still be pulled.
+
 ### Code scanning finds a vulnerability
 
 1. Reproduce it or show why it cannot happen. Read the source-to-sink path.
