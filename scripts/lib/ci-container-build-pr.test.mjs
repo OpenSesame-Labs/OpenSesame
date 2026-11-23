@@ -235,7 +235,10 @@ describe("heavy auxiliary suites are CD concerns", () => {
     expect(workflow).not.toMatch(
       /^ {2}(?:pull_request|pull_request_target|push|merge_group):/m,
     );
-    expect(workflow).toContain("ref: ${{ inputs.source_sha");
+    expect(workflow).toContain(
+      "ref: ${{ needs.admit.outputs.revision || github.sha }}",
+    );
+    expect(workflow).toContain("REQUESTED_SOURCE: ${{ inputs.source_sha }}");
   });
 
   it("keeps drafts failing all three required CI reporters", () => {

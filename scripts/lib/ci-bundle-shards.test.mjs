@@ -132,7 +132,7 @@ describe("the bundle job's shards", () => {
     expect(shards.length).toBeGreaterThan(1);
     expect(new Set(shards).size).toBe(shards.length);
     expect(bundle).toContain("fail-fast: false");
-    expect(bundle).toContain("needs: changes");
+    expect(bundle).toContain("needs: [changes, admit]");
     // The legs come from the shard file, narrowed to the gates the diff reaches;
     // a diff that reaches none skips the job, which the check reads as passing.
     expect(bundle).toContain("needs.changes.outputs.bundle_matrix != '[]'");

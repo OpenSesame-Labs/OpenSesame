@@ -1,7 +1,7 @@
 /**
  * Candidate coverage checks out the selected snapshot only in a read-only job.
- * That job has no token. A checkout ref field whose name contains "sha" is an
- * untrusted pull-request head, so the snapshot is bound to CANDIDATE_REVISION.
+ * That job has no token. CANDIDATE_REVISION is bound to
+ * the admission job's output: a source already on main.
  */
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -35,7 +35,9 @@ describe("ci-coverage untrusted checkout", () => {
     expect(JSON.stringify(job)).not.toContain("secrets.");
     expect(JSON.stringify(job)).not.toContain("id-token");
     expect(JSON.stringify(job)).not.toContain("attestations");
-    expect(job.env.CANDIDATE_REVISION).toBe("${{ inputs.source_sha }}");
+    expect(job.env.CANDIDATE_REVISION).toBe(
+      "${{ needs.admit.outputs.revision }}",
+    );
     const refs = checkouts(job).map((step) => step.with.ref);
     expect(refs).toEqual([
       "${{ github.workflow_sha }}",
@@ -54,11 +56,12 @@ describe("ci-coverage untrusted checkout", () => {
     const checkoutsText = blocks.filter((block) =>
       /uses:\s*actions\/checkout@/.test(block),
     );
-    expect(checkoutsText.length).toBe(2);
+    expect(checkoutsText.length).toBe(3);
     for (const block of checkoutsText) {
       expect(block).toContain("allow-unsafe-pr-checkout: false");
       expect(block).toContain("persist-credentials: false");
-      expect(block).not.toContain("inputs.source_sha");
+      // The admission step after the last checkout reads the raw input; no ref does.
+      expect(block.match(/ref: .*/)?.[0] ?? "").not.toContain("inputs.");
     }
   });
 });

@@ -1,8 +1,8 @@
 # Release checks for one selected candidate snapshot.
 # That source is checked out only by the read-only mutation and security jobs.
 # Those jobs have no token. Privileged jobs check out the workflow SHA.
-# A checkout ref field whose name contains "sha" is an untrusted pull-request head.
-# The read-only jobs bind the snapshot to CANDIDATE_REVISION.
+# The source_sha input is admitted first (admission job, admit-candidate-source.mjs):
+# only a full commit already on main; CANDIDATE_REVISION is bound to that output.
 name: Candidate release checks
 on:
   workflow_call:
@@ -79,7 +79,7 @@ jobs:
 
   mutation:
     name: Mutation (${{ matrix.check }})
-    needs: admit
+    needs: [admit, admit-source]
     if: inputs.suite == 'mutation'
     runs-on: ubuntu-24.04
     timeout-minutes: 360
@@ -91,7 +91,7 @@ jobs:
       matrix:
         check: [mutation-typescript, mutation-duress, mutation-rust]
     env:
-      CANDIDATE_REVISION: ${{ inputs.source_sha }}
+      CANDIDATE_REVISION: ${{ needs.admit-source.outputs.revision }}
       CARGO_BUILD_JOBS: '2'
       CARGO_INCREMENTAL: '0'
       CARGO_PROFILE_DEV_DEBUG: '0'
@@ -174,7 +174,7 @@ jobs:
 
   security:
     name: Security (${{ matrix.check }})
-    needs: admit
+    needs: [admit, admit-source]
     if: inputs.suite == 'security'
     runs-on: ubuntu-24.04
     timeout-minutes: 360
@@ -186,7 +186,7 @@ jobs:
       matrix:
         check: [dependencies, sast, secrets, kani, miri, shuttle, fuzz-rust, fuzz-typescript, formal-proofs]
     env:
-      CANDIDATE_REVISION: ${{ inputs.source_sha }}
+      CANDIDATE_REVISION: ${{ needs.admit-source.outputs.revision }}
       CARGO_BUILD_JOBS: '2'
       CARGO_INCREMENTAL: '0'
       CARGO_PROFILE_DEV_DEBUG: '0'
@@ -376,3 +376,33 @@ jobs:
           --artifact-id "$RECEIPT_ARTIFACT_ID"
           --artifact-digest "$RECEIPT_ARTIFACT_DIGEST"
           --output "$GITHUB_OUTPUT"
+
+  # The candidate is admitted before any job fetches it: only a full commit
+  # already on the default branch. This job holds the token and checks out
+  # the workflow SHA only; candidate jobs read its output, never the raw input
+  # (scripts/release/admit-candidate-source.mjs, docs/security/actions-security.md).
+  admit-source:
+    name: Admit candidate source
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      revision: ${{ steps.admitted.outputs.revision }}
+    steps:
+      - name: Check out the trusted candidate admission helper
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          allow-unsafe-pr-checkout: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/release/admit-candidate-source.mjs
+            scripts/lib/json-boundary.mjs
+      - name: Admit only a candidate already on the default branch
+        id: admitted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_SOURCE: ${{ inputs.source_sha }}
+        run: node scripts/release/admit-candidate-source.mjs

@@ -136,11 +136,11 @@ describe("complete candidate qualification preserves coverage", () => {
       "coverage",
     ])
       expect(full[id], id).toBeDefined();
-    expect(full.changes).toContain("needs: admission");
+    expect(full.changes).toContain("needs: [admission, admit]");
     expect(full.changes).toContain("BASE_SHA: ''");
     expect(full.changes).toContain("HEAD_SHA: ''");
     expect(full["typescript-tests"]).toContain(
-      "CANDIDATE_REVISION: ${{ inputs.source_sha }}",
+      "CANDIDATE_REVISION: ${{ needs.admit.outputs.revision }}",
     );
     expect(full["typescript-tests"]).toContain(
       "ref: ${{ env.CANDIDATE_REVISION }}",

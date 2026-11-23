@@ -118,7 +118,9 @@ describe("release qualification evidence", () => {
   it("binds tests to source and writes receipts outside immutable payloads", () => {
     for (const id of ["mutation", "security"]) {
       const body = job(release, id);
-      expect(body).toContain("CANDIDATE_REVISION: ${{ inputs.source_sha }}");
+      expect(body).toContain(
+        "CANDIDATE_REVISION: ${{ needs.admit-source.outputs.revision }}",
+      );
       expect(body).toContain("ref: ${{ env.CANDIDATE_REVISION }}");
       expect(body).toContain('test "$(git rev-parse HEAD)" = "$SOURCE_SHA"');
       expect(body).toContain(
@@ -278,7 +280,7 @@ describe("complete coverage and publication boundaries", () => {
         file === "native-platform-validation.yml"
       ) {
         expect(workflow).toContain(
-          "CANDIDATE_REVISION: ${{ inputs.source_sha }}",
+          "CANDIDATE_REVISION: ${{ needs.admit.outputs.revision }}",
         );
         expect(workflow).toContain("ref: ${{ env.CANDIDATE_REVISION }}");
         expect(workflow).not.toContain("ref: ${{ inputs.source_sha }}");
