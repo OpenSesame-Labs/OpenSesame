@@ -292,23 +292,24 @@ export async function kvDeleteDurable(
   if (!beforeCommit) {
     originMemoryChanged(fileName(key), true);
     forget();
-    return withOriginFile(fileName(key), () => unlinkOriginFile(key, false));
+    return withOriginFile(fileName(key), () => unlinkOriginFile(key));
   }
   return withOriginFile(fileName(key), async (turn) => {
     beforeCommit();
     const atRest = await atRestReady();
     beforeCommit();
-    if (atRest.durable) await unlinkOriginFile(key, true);
+    if (atRest.durable) await unlinkOriginFile(key, beforeCommit);
     beforeCommit();
     if (!turn.publish(forget))
       throw new Error("Storage changed during deletion.");
   });
 }
 
-/** Unlink one origin file; absent is success. A guarded (strict) unlink reports refusals. */
-async function unlinkOriginFile(key: string, strict: boolean): Promise<void> {
-  const root = await opfsRoot(strict);
+/** Unlink one origin file (absent is success); a guarded one rechecks `owner` and reports refusals. */
+async function unlinkOriginFile(key: string, owner?: () => void) {
+  const root = await opfsRoot(owner !== undefined);
   if (!root) return;
+  owner?.();
   try {
     await root.removeEntry(fileName(key));
   } catch (error) {
@@ -318,7 +319,7 @@ async function unlinkOriginFile(key: string, strict: boolean): Promise<void> {
     const refused =
       error.name === "NoModificationAllowedError" ||
       error.name === "SecurityError";
-    if (strict || !refused) throw error;
+    if (owner || !refused) throw error;
     durability = "memory";
   }
 }
