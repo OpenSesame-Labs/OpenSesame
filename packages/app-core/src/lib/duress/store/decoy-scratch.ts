@@ -56,7 +56,7 @@ export function markDecoySession(on: boolean): boolean {
   return was;
 }
 
-/** What the snapshot reports: the scratch tomb presents as the guest road. */
+/** The road a tomb presents as (display only): the scratch tomb reads as guest. */
 export function presentedTomb(tomb: string): string {
   return tomb === DECOY_SCRATCH_TOMB ? GUEST_TOMB : tomb;
 }

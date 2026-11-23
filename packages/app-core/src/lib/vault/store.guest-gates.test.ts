@@ -5,8 +5,18 @@ import { createItem, createVault } from "@opensesame/vault-core";
  * including after a reload, when nothing is held in memory.
  */
 import { beforeEach, describe, expect, it } from "vitest";
+import {
+  DECOY_SCRATCH_TOMB,
+  presentedTomb,
+} from "../duress/store/decoy-scratch.js";
 import { kvDelete, kvGet, kvSet } from "../kv.js";
-import { GUEST_TOMB, HEADER_PATH, PERSONAL_TOMB, tombFileKey } from "../vfs.js";
+import {
+  GUEST_TOMB,
+  HEADER_PATH,
+  PERSONAL_TOMB,
+  tombFileKey,
+  tombUnlocked,
+} from "../vfs.js";
 import { VaultStore } from "./store.js";
 import { TEMPORARY_GUEST_PROTECTION_MESSAGE } from "./store-header-publication.js";
 
@@ -71,6 +81,25 @@ describe("a guest beside a protected guest", () => {
     expect(names).toContain("Protected guest item");
     expect(names).not.toContain("Temporary guest item");
     store.lock();
+  });
+
+  it("reports the scratch tomb as its storage while presenting as the guest road", async () => {
+    const { store, header } = await protectedGuest();
+    await store.createGuest();
+    const snap = store.getSnapshot();
+    // Storage consumers key on `tomb`: it is the tomb that is actually open,
+    // never the sealed guest's, which stays locked under its own key.
+    expect(snap.tomb).toBe(DECOY_SCRATCH_TOMB);
+    expect(snap.tomb).toBe(store.activeTomb());
+    expect(tombUnlocked(snap.tomb)).toBe(true);
+    expect(tombUnlocked(GUEST_TOMB)).toBe(false);
+    // Display and road identity still read the guest road.
+    expect(presentedTomb(snap.tomb)).toBe(GUEST_TOMB);
+    expect(snap.guest).toBe(true);
+    store.lock();
+    await store.flushPendingWrites();
+    expect(store.getSnapshot().tomb).toBe(GUEST_TOMB);
+    expect(kvGet(tombFileKey(GUEST_TOMB, HEADER_PATH))).toBe(header);
   });
 
   it("refuses to protect the temporary guest, whose items are erased on lock", async () => {
