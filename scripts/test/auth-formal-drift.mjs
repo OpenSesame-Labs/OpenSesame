@@ -23,6 +23,9 @@ const authC1Paths = [
   "packages/app-core/src/lib/identity-probe.ts",
   "packages/app-core/src/lib/identity-token-proof.ts",
   "packages/app-core/src/lib/identity-session-types.ts",
+  ...["cookie-inspection", "signout", "revocation-journal", "shared-signout"]
+    .map((name) => `packages/app-core/src/lib/identity-${name}.ts`)
+    .concat("packages/app-core/src/lib/auth-generation.ts"),
   "packages/app-core/src/lib/device-identity.ts",
   "packages/app-core/src/lib/browser-pairing.ts",
   "packages/app-core/src/lib/guest-auth.ts",
