@@ -70,6 +70,16 @@ const sessions = vectors.filter(([kind]) => kind === "session");
 const projects = vectors.filter(([kind]) => kind === "project");
 const now = new Date(0);
 
+/**
+ * Guard knobs the resolver's Lean model does not cover: a session whose
+ * revocation cleanup is pending and a principal with a pending withdrawal
+ * (AUTH-S2 in the register).
+ */
+type ResolveExtras = {
+  cleanupPending?: boolean;
+  pendingWithdrawal?: boolean;
+};
+
 describe("Lean auth policy correspondence", () => {
   it("contains every declared abstract case exactly once", () => {
     expect(principals).toHaveLength(assuranceCases.length);
@@ -125,10 +135,7 @@ describe("Lean auth policy correspondence", () => {
       };
       // This fixture supplies the stores, repository, and clock read by the resolver;
       // unrelated AppContext services are intentionally absent.
-      const resolve = (extra: {
-        cleanupPending?: boolean;
-        pendingWithdrawal?: boolean;
-      }) =>
+      const resolve = (extra: ResolveExtras) =>
         resolveProvisionalSession(
           overlapCast({
             stores: {

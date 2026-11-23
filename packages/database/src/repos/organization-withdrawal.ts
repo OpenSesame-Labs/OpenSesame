@@ -8,14 +8,13 @@ const removalReasons = new Set([
 ]);
 const roles = new Set(["owner", "admin", "member"]);
 
+// `id`, `actorPrincipalId` and `correlationId` are typed strings on
+// OrganizationMembershipWithdrawal; only the UUID shape needs proving.
 function validMetadata(withdrawal: OrganizationMembershipWithdrawal): boolean {
   return (
     !!withdrawal &&
-    typeof withdrawal.id === "string" &&
     isCanonicalUuid(withdrawal.id) &&
-    (withdrawal.actorType === "human" || withdrawal.actorType === "system") &&
-    typeof withdrawal.actorPrincipalId === "string" &&
-    typeof withdrawal.correlationId === "string"
+    (withdrawal.actorType === "human" || withdrawal.actorType === "system")
   );
 }
 

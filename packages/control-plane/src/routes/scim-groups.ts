@@ -60,7 +60,10 @@ function refusal(
   detail: string,
   scimType?: string,
 ): GroupRefusal {
-  return { refused: { status, detail, ...(scimType ? { scimType } : {}) } };
+  // Two literals rather than a conditional spread: omitting `scimType` and
+  // carrying `scimType: undefined` are different answers to a SCIM client.
+  if (!scimType) return { refused: { status, detail } };
+  return { refused: { status, detail, scimType } };
 }
 
 export type ScimSession = {
