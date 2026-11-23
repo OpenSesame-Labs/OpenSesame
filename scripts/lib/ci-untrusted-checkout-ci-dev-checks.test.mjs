@@ -27,7 +27,9 @@ describe("ci-dev-checks artifact-smoke untrusted checkout", () => {
     const materialize = job.steps.find((step) =>
       step.name?.includes("Materialize the admitted candidate source"),
     );
-    expect(materialize?.env?.TARGET_SHA).toBe("${{ inputs.source_sha }}");
+    expect(materialize?.env?.TARGET_SHA).toBe(
+      "${{ needs.admit.outputs.revision }}",
+    );
     expect(materialize?.run).toContain("materialize-git-sha.sh");
     expect(checkouts(job)[0].with.path).toBe(".ci-control");
     const park = job.steps.find((step) =>

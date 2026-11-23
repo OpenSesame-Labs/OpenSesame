@@ -105,7 +105,7 @@ describe("release qualification evidence", () => {
     const codeql = read("codeql.yml");
     expect(job(codeql, "analyze-native-go")).toContain("target: [wasm, host]");
     expect(job(codeql, "verify-sarif")).toContain(
-      "needs: [analyze, analyze-native-go]",
+      "needs: [admit, analyze, analyze-native-go]",
     );
     expect(job(codeql, "verify-sarif")).toContain(
       'test "$NATIVE_GO_RESULT" = success',
@@ -283,7 +283,8 @@ describe("complete coverage and publication boundaries", () => {
         expect(workflow).toContain("ref: ${{ env.CANDIDATE_REVISION }}");
         expect(workflow).not.toContain("ref: ${{ inputs.source_sha }}");
       } else {
-        expect(workflow).toContain("ref: ${{ inputs.source_sha }}");
+        expect(workflow).toContain("ref: ${{ needs.admit.outputs.revision }}");
+        expect(workflow).not.toContain("ref: ${{ inputs.source_sha }}");
       }
       expect(workflow).not.toContain("ref: ${{ github.sha }}");
       expect(workflow).not.toContain("continue-on-error");
@@ -304,7 +305,9 @@ describe("CodeQL and publication boundaries", () => {
     expect(workflow).not.toMatch(/^ {2}(?:push|pull_request|merge_group):/m);
     expect(workflow).toMatch(/^ {2}workflow_dispatch:/m);
     expect(workflow).toMatch(/^ {2}schedule:\n/m);
-    expect(workflow).toContain("ref: ${{ inputs.source_sha || github.sha }}");
+    expect(workflow).toContain(
+      "ref: ${{ needs.admit.outputs.revision || github.sha }}",
+    );
     expect(workflow).toContain(
       "ref: ${{ inputs.source_sha && 'refs/heads/main' || github.ref }}",
     );
@@ -335,7 +338,7 @@ describe("CodeQL and publication boundaries", () => {
     );
     const trusted = job(workflow, "verify-sarif");
     expect(trusted).toContain("if: ${{ always() && inputs.source_sha }}");
-    expect(trusted).toContain("needs: [analyze, analyze-native-go]");
+    expect(trusted).toContain("needs: [admit, analyze, analyze-native-go]");
     expect(trusted).toContain('test "$ANALYZE_RESULT" = success');
     expect(trusted).toContain('test "$NATIVE_GO_RESULT" = success');
     expect(trusted).toContain('test "$GITHUB_REF" = refs/heads/main');

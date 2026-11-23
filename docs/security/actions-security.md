@@ -45,6 +45,12 @@ To add an action: resolve the commit SHA of a tagged release from the action's o
 
 A pull-request-triggered workflow must also be added to the trunk inventory in [`scripts/lib/ci-container-build-pr.test.mjs`](../../scripts/lib/ci-container-build-pr.test.mjs). That list is deliberately short ([ADR 0215](../adr/0215-trunk-builds-only.md)).
 
+## Candidate checkouts
+
+Reusable qualification workflows receive the candidate to test as the `source_sha` input. CodeQL's `actions/untrusted-checkout` query treats a checkout of such an input from a `workflow_call` as a pull-request head, and it is right to: a `workflow_run` on `main` can be raised by a fork branch named `main`, and GitHub serves fork commits through the base repository, so a SHA alone proves nothing about review.
+
+So no job fetches the raw input. Each such workflow has an `admit` job that holds the read-only token, checks out only the workflow SHA, and runs [`admit-candidate-source.mjs`](../../scripts/release/admit-candidate-source.mjs): the input must be a full 40-hex commit that is the merge base of itself and the default branch, with the default branch not behind it, i.e. already merged. Candidate jobs `need` that job and check out or materialize `needs.admit.outputs.revision`, never the input. [`ci-candidate-admission.test.mjs`](../../scripts/lib/ci-candidate-admission.test.mjs) enforces this for `ci-dev-checks`, `codeql`, `complete-verify`, `container-build-pr`, `full-suite`, `password-parity` and `pwa-native-wasm`. Binding the input to another name (such as `CANDIDATE_REVISION`) is not admission; workflows that still do only that rely on the candidate controller's own source checks.
+
 ## How the recommendations map
 
 | Recommendation | Here |
