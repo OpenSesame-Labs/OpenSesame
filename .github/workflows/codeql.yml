@@ -26,7 +26,9 @@ jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 10
+    # Rust extraction of the whole workspace needs more than ten minutes; at
+    # ten the job was cancelled on every run and Rust never reported.
+    timeout-minutes: ${{ matrix.timeout || 10 }}
     permissions:
       contents: read
       actions: read
@@ -47,6 +49,7 @@ jobs:
           - language: rust
             runner: ubuntu-latest
             mode: none
+            timeout: 45
           - language: go
             runner: ubuntu-latest
             mode: manual
