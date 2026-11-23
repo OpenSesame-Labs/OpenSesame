@@ -18,38 +18,54 @@ impl StoreRoot {
             ));
         }
         if let Some(marker) = self.read_commit_marker(store_id, key)? {
-            if marker.is_rotation_pending() {
-                // This entry point is an explicit trust ceremony and holds the
-                // current-key lock; normal reads cannot clear the fence.
-                self.recover_pending_rotation(store_id, key)?;
-                self.current_witness(key)?;
-                return Ok(());
-            }
-            if inside.is_none() {
-                // Authenticate the committed state before repairing either
-                // identity slot. Publish both slots before the in-store ID so
-                // another interruption still follows this recovery path.
-                self.load_witness(store_id, key)?.ok_or_else(|| {
-                    StoreError::Crypto("committed rollback witness is missing".into())
-                })?;
-                self.write_outside_identity(key, store_id)?;
-            }
-            let (_, witness) = self.current_witness(key)?;
-            if !attachments::marked(&witness) {
-                return self.upgrade_attachment_anchor(key);
-            }
-            // The first anchor was published, but writing its in-store identity
-            // stopped. current_witness has now completed that final step.
-            return if inside.is_none() {
-                Ok(())
-            } else {
-                Err(StoreError::Other("rollback anchor already exists".into()))
-            };
+            return self.migrate_committed_witness(
+                key,
+                store_id,
+                marker.is_rotation_pending(),
+                inside.is_none(),
+            );
         }
         self.migrate_markerless_witness(key, store_id)?;
         // Complete an identity write interrupted after publishing the marker.
         self.current_witness(key)?;
         Ok(())
+    }
+
+    /// Continue a migration whose commit marker is already published.
+    fn migrate_committed_witness(
+        &self,
+        key: &ItemDataKey,
+        store_id: &str,
+        rotation_pending: bool,
+        inside_missing: bool,
+    ) -> Result<(), StoreError> {
+        if rotation_pending {
+            // This entry point is an explicit trust ceremony and holds the
+            // current-key lock; normal reads cannot clear the fence.
+            self.recover_pending_rotation(store_id, key)?;
+            self.current_witness(key)?;
+            return Ok(());
+        }
+        if inside_missing {
+            // Authenticate the committed state before repairing either
+            // identity slot. Publish both slots before the in-store ID so
+            // another interruption still follows this recovery path.
+            self.load_witness(store_id, key)?.ok_or_else(|| {
+                StoreError::Crypto("committed rollback witness is missing".into())
+            })?;
+            self.write_outside_identity(key, store_id)?;
+        }
+        let (_, witness) = self.current_witness(key)?;
+        if !attachments::marked(&witness) {
+            return self.upgrade_attachment_anchor(key);
+        }
+        // The first anchor was published, but writing its in-store identity
+        // stopped. current_witness has now completed that final step.
+        if inside_missing {
+            Ok(())
+        } else {
+            Err(StoreError::Other("rollback anchor already exists".into()))
+        }
     }
 
     fn migrate_markerless_witness(

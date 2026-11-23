@@ -1,8 +1,9 @@
-//! Entry removal, listing, search, and copy/move operations.
+//! Witnessed native reads, entry removal, listing, search, and copy/move
+//! operations.
 
 use super::{
-    auto_commit, confined_remove, fs, FormatHint, ItemDataKey, Path, StoreError, StoreLock,
-    StoreRoot, COMMIT_REMOVE,
+    auto_commit, confined_read, confined_remove, fs, open_osseal_for_path, FormatHint, ItemDataKey,
+    Path, StoreError, StoreLock, StoreRoot, COMMIT_REMOVE,
 };
 use crate::path::relative_to_logical;
 
@@ -42,6 +43,44 @@ fn collect_entry_names(
 }
 
 impl StoreRoot {
+    pub(super) fn show_osseal(
+        &self,
+        name: &str,
+        rel: &Path,
+        key: &ItemDataKey,
+    ) -> Result<Vec<u8>, StoreError> {
+        let lock = StoreLock::shared(&self.path)?;
+        let (_, plaintext) = self.open_witnessed_osseal(name, rel, key)?;
+        if self.revision(name)?.is_some() {
+            return Ok(plaintext);
+        }
+        // Without a local counter, record the witnessed revision under the
+        // sealing lock after authenticating the ciphertext again.
+        drop(lock);
+        let _lock = StoreLock::for_sealing(&self.path, name, key)?;
+        let (revision, plaintext) = self.open_witnessed_osseal(name, rel, key)?;
+        if self.revision(name)?.is_none() {
+            self.record_revision(name, revision)?;
+        }
+        Ok(plaintext)
+    }
+
+    fn open_witnessed_osseal(
+        &self,
+        name: &str,
+        rel: &Path,
+        key: &ItemDataKey,
+    ) -> Result<(u64, Vec<u8>), StoreError> {
+        let witness = self.entry_witness(name, key)?;
+        if witness.deleted {
+            return Err(StoreError::NotFound(name.into()));
+        }
+        let blob = confined_read(&self.path, rel)?;
+        let opened = open_osseal_for_path(&blob, key, name, Some(witness.revision))?;
+        Self::verify_entry_plaintext_opened(&witness, &opened.plaintext)?;
+        Ok((witness.revision, opened.plaintext))
+    }
+
     ///
     /// # Errors
     ///

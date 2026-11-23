@@ -14,13 +14,8 @@ fn same_revision_forked_entry_fails_witness_check() {
     let path = dir.path().join(&rel);
     let original = std::fs::read(&path).unwrap();
     let witnessed = root.entry_witness("Dev/token", &key).unwrap();
-    let _opened = open_osseal_for_path(
-        &original,
-        &key,
-        "Dev/token",
-        Some(witnessed.revision),
-    )
-    .unwrap();
+    let _opened =
+        open_osseal_for_path(&original, &key, "Dev/token", Some(witnessed.revision)).unwrap();
     let fork_plaintext = Entry::parse("beta").render().into_bytes();
     let forked = seal_osseal(&fork_plaintext, &key, "Dev/token", witnessed.revision).unwrap();
     std::fs::write(&path, &forked).unwrap();
@@ -49,7 +44,10 @@ fn trusted_recovery_rebinds_forked_entry() {
         .unwrap();
     let rebound = root.entry_witness("Dev/token", &key).unwrap();
     assert!(rebound.revision > witnessed.revision);
-    assert_eq!(rebound.commitment, *blake3::hash(&fork_plaintext).as_bytes());
+    assert_eq!(
+        rebound.commitment,
+        *blake3::hash(&fork_plaintext).as_bytes()
+    );
     assert_eq!(root.show("Dev/token", &key).unwrap().secret, "beta");
     std::fs::write(&path, original).unwrap();
     assert!(root.show("Dev/token", &key).is_err());

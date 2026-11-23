@@ -76,9 +76,9 @@ pub(crate) fn parse_attachment_manifest(
     }
     let mut declared = 0u64;
     for chunk in &manifest.chunks {
-        declared = declared.checked_add(chunk.pt_bytes).ok_or_else(|| {
-            StoreError::Crypto("manifest chunk sizes overflow".into())
-        })?;
+        declared = declared
+            .checked_add(chunk.pt_bytes)
+            .ok_or_else(|| StoreError::Crypto("manifest chunk sizes overflow".into()))?;
         super::object_relative(&chunk.digest)?;
     }
     if declared != manifest.total_bytes {

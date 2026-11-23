@@ -112,7 +112,8 @@ fn equivalent_entry_spelling_can_read_and_recover_authenticated_ciphertext() {
     root.insert("  a  ", &Entry::parse("secret"), &key).unwrap();
     assert_eq!(root.show("a", &key).unwrap().secret, "secret");
     let path = dir.path().join("a.osseal");
-    root.next_entry_revision("a", &path, &key).unwrap();
+    root.next_entry_revision_after("a", &path, &key, 0, None, false)
+        .unwrap();
     assert!(root.show("a", &key).is_err());
     root.recover_entry_trusting_ciphertext("a", &key).unwrap();
     assert_eq!(root.show("a", &key).unwrap().secret, "secret");

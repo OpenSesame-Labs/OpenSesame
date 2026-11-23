@@ -27,10 +27,10 @@ mod recovery;
 const KEY_FILE: &str = ".opensesame-key";
 const REVISION_FILE: &str = ".opensesame-revisions.json";
 
-#[path = "store_revision.rs"]
-mod revision_state;
 #[path = "store_foreign_fallback.rs"]
 mod foreign_fallback;
+#[path = "store_revision.rs"]
+mod revision_state;
 pub(crate) use revision_state::{
     normalize_revisions, revision_for, revision_identity, set_revision,
 };
@@ -261,14 +261,8 @@ impl StoreRoot {
                 let key = key.ok_or_else(|| StoreError::NotInitialized(self.path.clone()))?;
                 let rel = Self::entry_relative(name, "osseal")?;
                 let path = self.path.join(&rel);
-                let revision = self.next_entry_revision_after(
-                    name,
-                    &path,
-                    key,
-                    0,
-                    Some(&plaintext),
-                    false,
-                )?;
+                let revision =
+                    self.next_entry_revision_after(name, &path, key, 0, Some(&plaintext), false)?;
                 let blob = seal_osseal(&plaintext, key, name, revision)?;
                 // Keep the preceding ciphertext whole if a write stops after
                 // advancing the counter; it can then be explicitly recovered.
@@ -338,39 +332,7 @@ impl StoreRoot {
         let plaintext = match hint {
             FormatHint::Osseal => {
                 let key = key.ok_or_else(|| StoreError::NotInitialized(self.path.clone()))?;
-                let lock = StoreLock::shared(&self.path)?;
-                let witness = self.entry_witness(name, key)?;
-                if witness.deleted {
-                    return Err(StoreError::NotFound(name.into()));
-                }
-                let opened = open_osseal_for_path(
-                    &confined_read(&self.path, rel)?,
-                    key,
-                    name,
-                    Some(witness.revision),
-                )?;
-                Self::verify_entry_plaintext_opened(&witness, &opened.plaintext)?;
-                if self.revision(name)?.is_some() {
-                    opened.plaintext
-                } else {
-                    drop(lock);
-                    let _lock = StoreLock::for_sealing(&self.path, name, key)?;
-                    let witness = self.entry_witness(name, key)?;
-                    if witness.deleted {
-                        return Err(StoreError::NotFound(name.into()));
-                    }
-                    let reopened = open_osseal_for_path(
-                        &confined_read(&self.path, rel)?,
-                        key,
-                        name,
-                        Some(witness.revision),
-                    )?;
-                    Self::verify_entry_plaintext_opened(&witness, &reopened.plaintext)?;
-                    if self.revision(name)?.is_none() {
-                        self.record_revision(name, witness.revision)?;
-                    }
-                    reopened.plaintext
-                }
+                self.show_osseal(name, rel, key)?
             }
             FormatHint::Gpg => {
                 if let Some(key) = key {

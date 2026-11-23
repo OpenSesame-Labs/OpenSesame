@@ -62,32 +62,38 @@ impl StoreRoot {
         let revisions = self.attachment_revisions()?;
         let mut total = 0usize;
         for (relative, source) in &mut units {
-            if let Some(name) = relative.strip_suffix(".osattach") {
-                let rel = Path::new(relative);
-                let bytes = confined_read_bounded(&self.path, rel, MAX_MANIFEST_BYTES)?;
-                if let Some(expected) = crate::store::revision_for(&revisions, name)? {
-                    // This is only a fail-closed comparison with the local
-                    // counter. The cleartext header has not been authenticated.
-                    let advertised = crate::envelope::envelope_revision(&bytes)?;
-                    if advertised != expected {
-                        return Err(StoreError::Crypto(format!(
-                            "attachment {name} revision does not match local state"
-                        )));
-                    }
-                }
-                total = total
-                    .checked_add(bytes.len())
-                    .ok_or_else(|| StoreError::Other("attachment snapshot size overflow".into()))?;
-                if total > MAX_SNAPSHOT_BYTES {
-                    return Err(StoreError::Other(
-                        "attachment manifests exceed the snapshot size limit".into(),
-                    ));
-                }
-                confined_write(scratch, rel, &bytes)?;
-                *source = scratch.join(rel);
+            let Some(name) = relative.strip_suffix(".osattach") else {
+                continue;
+            };
+            let rel = Path::new(relative);
+            let bytes = confined_read_bounded(&self.path, rel, MAX_MANIFEST_BYTES)?;
+            if let Some(expected) = crate::store::revision_for(&revisions, name)? {
+                require_advertised_revision(name, &bytes, expected)?;
             }
+            total = total
+                .checked_add(bytes.len())
+                .ok_or_else(|| StoreError::Other("attachment snapshot size overflow".into()))?;
+            if total > MAX_SNAPSHOT_BYTES {
+                return Err(StoreError::Other(
+                    "attachment manifests exceed the snapshot size limit".into(),
+                ));
+            }
+            confined_write(scratch, rel, &bytes)?;
+            *source = scratch.join(rel);
         }
         Ok(units)
+    }
+}
+
+/// This is only a fail-closed comparison with the local counter. The
+/// cleartext header has not been authenticated.
+fn require_advertised_revision(name: &str, bytes: &[u8], expected: u64) -> Result<(), StoreError> {
+    if crate::envelope::envelope_revision(bytes)? == expected {
+        Ok(())
+    } else {
+        Err(StoreError::Crypto(format!(
+            "attachment {name} revision does not match local state"
+        )))
     }
 }
 
