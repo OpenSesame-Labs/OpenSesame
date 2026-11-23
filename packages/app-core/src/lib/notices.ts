@@ -51,6 +51,11 @@ export type Notice = {
   alt?: NoticeAct | undefined;
   /** An in-app route the notice points at, opened from the tray. */
   open?: NoticeOpen;
+  /**
+   * About this page's work only — a failure its retry can still finish. Kept
+   * out of tray history, so a reload never brings it back without its retry.
+   */
+  transient?: boolean;
   createdAt: string;
 };
 
@@ -91,6 +96,7 @@ export type StatusNoticeInput = {
   act?: NoticeAct;
   alt?: NoticeAct;
   open?: NoticeOpen;
+  transient?: boolean;
 };
 
 type Listener = () => void;
@@ -143,7 +149,8 @@ function sameStatusCopy(existing: Notice, input: StatusNoticeInput): boolean {
     existing.body === input.body &&
     existing.ceremony === input.ceremony &&
     existing.ceremonyLabel === input.ceremonyLabel &&
-    existing.retryLabel === input.retryLabel
+    existing.retryLabel === input.retryLabel &&
+    existing.transient === input.transient
   );
 }
 
