@@ -144,7 +144,7 @@ describe("VAULT-07 — switching tombs leaks nothing across them", () => {
 
     const guest = new VaultStore();
     await guest.createGuest();
-    expect(guest.activeTomb()).toBe(GUEST_TOMB);
+    expect(guest.activeTomb()).toMatch(/^guest_[0-9a-f-]{36}$/u);
     expect(guest.getSnapshot().guest).toBe(true);
     // Nothing of the personal tomb is visible from here.
     expect(
