@@ -157,7 +157,6 @@ function Menu({
 }: MenuProps) {
   return (
     <>
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop mirrors Escape */}
       <div
         className="account-switcher__backdrop"
         aria-hidden="true"

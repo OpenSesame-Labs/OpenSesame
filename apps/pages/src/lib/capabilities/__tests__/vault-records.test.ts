@@ -215,7 +215,8 @@ describe("VAULT-09 — a malformed import is bounded and starts nothing else", (
     expect(result.warnings.length).toBeLessThan(20);
 
     // Deep nesting is answered by the same bound, not by recursion.
-    let nested: unknown = "leaf";
+    type Nest = string | { accounts: Nest };
+    let nested: Nest = "leaf";
     for (let depth = 0; depth < 5_000; depth += 1)
       nested = { accounts: nested };
     expect(() =>

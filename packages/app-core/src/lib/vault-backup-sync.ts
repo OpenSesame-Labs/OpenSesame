@@ -226,7 +226,7 @@ function resolveForgeCredentialsDefault(
   const { status, items } = vaultStore.getSnapshot();
   if (status !== "unlocked") return null;
   const item = items.find((row) => row.id === remote.secretItemId);
-  if (!item || item.kind !== "secret") return null;
+  if (item?.kind !== "secret") return null;
   const token = readSecretToken(item.value);
   if (!token) return null;
   const forge = resolveForgeId(target, remote.remoteUrl);
@@ -378,7 +378,7 @@ export async function syncVaultBackup(
   performSavedCategory(["backup_recovery"]);
   if (providerId) {
     const target = readLocalBackupTarget(providerId);
-    if (!target || !target.enabled) return target;
+    if (!target?.enabled) return target;
     return syncOneTarget(target);
   }
   const enabled = listLocalBackupTargets().filter((row) => row.enabled);

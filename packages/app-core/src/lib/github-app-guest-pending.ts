@@ -32,7 +32,7 @@ function show(): void {
 
 export function stagePendingGuestGithubClaim(retry: Pending["retry"]): void {
   const owner = captureGuestSessionContext();
-  if (!owner || !owner()) return;
+  if (!owner?.()) return;
   pending = { retry, owner, busy: false };
   show();
 }
