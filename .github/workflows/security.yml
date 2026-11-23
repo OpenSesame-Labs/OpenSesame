@@ -26,6 +26,9 @@
 #   - npm registry signatures and provenance attestations over the locked tree
 #     (`npm audit signatures`)
 #   - Tailscale key material (`node scripts/security/tailscale-key-material-gate.mjs`)
+#   - On a manual run only: the historical `next` and `latest` GHCR versions,
+#     listed (`dry-run`, the default) or deleted (`delete`) so the published
+#     image rows close their findings (docs/operators/ghcr-images.md)
 #   - OpenSSF Scorecard (checks the repo against the OpenSSF supply-chain
 #     criteria and publishes the score to the code-scanning dashboard and
 #     the badge on the README)
@@ -40,6 +43,14 @@ on:
     # Mondays 05:23 UTC, off the hour to spread GitHub load.
     - cron: "23 5 * * 1"
   workflow_dispatch:
+    inputs:
+      mode:
+        description: "Historical GHCR tags: dry-run lists the versions; delete removes them"
+        type: choice
+        options:
+          - dry-run
+          - delete
+        default: dry-run
 
 permissions: {}
 
@@ -215,8 +226,41 @@ jobs:
         with:
           sarif_file: osv-results.sarif
 
+  # Publication is disabled, so the `next` and `latest` versions below are
+  # historical. A hand-started run lists them (`dry-run`) or deletes them
+  # (`delete`) before the scan, so a deleted tag closes its findings in the
+  # same run. Only versions tagged `next` or `latest` are touched; a package,
+  # an untagged or otherwise-tagged version and a package's last version are
+  # never deleted (scripts/security/ghcr-historical-cleanup.mjs).
+  historical-tags:
+    name: Historical GHCR tags
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Deleting a version also needs this repository to hold the Admin role
+      # on each package ("Manage Actions access"); a 403 names the package.
+      packages: write
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            scripts/security
+      - name: Select and remove the historical versions
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MODE: ${{ inputs.mode }}
+        run: node scripts/security/ghcr-historical-cleanup.mjs
+
   container-images:
     name: Published image (${{ matrix.target.image }}:${{ matrix.tag }}, ${{ matrix.target.arch }})
+    # After a hand-started cleanup, so a deleted tag is reported as gone. The
+    # scheduled run skips the cleanup and scans as before; a failed cleanup
+    # still scans whatever remains.
+    needs: [historical-tags]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

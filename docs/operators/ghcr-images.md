@@ -104,17 +104,45 @@ while publication is disabled, so their alerts cannot be fixed from the source.
 Fix what the `container-source-*` categories report. Then remove the stale
 artifacts, by one of:
 
-1. Delete the `next` and `latest` package versions of each image in GHCR
-   (the organization's **Packages** page, then the package's versions).
+1. Delete the `next` and `latest` package versions of each image in GHCR.
    A version carries all of its tags, so deleting it removes each of them.
    Delete the tagged versions, not the whole package: a package that no longer
    exists is a registry error, which fails the row instead of closing it.
+   Use the security workflow's job `historical-tags` (see
+   [the cleanup job](#the-cleanup-job)), or the organization's **Packages**
+   page, then the package's versions.
 2. Ship qualified OCI promotion ([restoring qualified
    publication](#restoring-qualified-publication)), which republishes those
    tags from a qualified candidate.
 
 The next scheduled or hand-started run of the security workflow then closes
 the deleted tags' categories, or rescans the republished images.
+
+#### The cleanup job
+
+Start **Repository security monitoring**
+([`security.yml`](../../.github/workflows/security.yml)) by hand from the
+Actions tab. Its job `historical-tags` runs only on a hand-started run, with
+the run's `GITHUB_TOKEN` and `packages: write`, through
+[`ghcr-historical-cleanup.mjs`](../../scripts/security/ghcr-historical-cleanup.mjs).
+For `opensesame`, `cli`, `web-pwa` and `control-plane` it:
+
+- lists every version of the package and selects only those whose tags
+  include `next` or `latest`. It never deletes a package, an untagged version,
+  or a version that carries other tags only.
+- skips and reports a selected version that is the package's last version,
+  because deleting the last version deletes the package.
+- with mode `dry-run` (the default), logs each selected version's package,
+  id, tags and creation time to the log and the step summary, and deletes
+  nothing. Run it first and read the summary, then start the workflow again
+  with mode `delete`.
+- fails on any API error, except a delete that finds the version already
+  gone. A 403 on delete means this repository lacks the Admin role on that
+  package: grant it under the package's settings, **Manage Actions access**,
+  and run again.
+
+The published-image scans wait for the job, so a `delete` run reports each
+removed tag as gone and closes its categories in the same run.
 
 The dev container image is not published, so the same workflow builds it from
 `.devcontainer/` and scans it the same way, under the category
