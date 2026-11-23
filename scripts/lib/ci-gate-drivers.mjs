@@ -70,6 +70,9 @@ export const DRIVER_GATES = {
   "verify-fresh-vault-login.mjs": ["journeys"],
   // Vault password-reset setup and local password generation.
   "verify-vault-password-reset.mjs": ["journeys"],
+  // #2776: before/after evidence capture for setup profiles and the tutorial
+  // pause queue. It builds origin/main for comparison and no ci.yml job runs it.
+  "verify-setup-tutorial-pause.mjs": null,
   // Focused phone rotation feedback is run locally alongside the mobile gate.
   "verify-rotation-mobile.mjs": null,
   // P8-5: CLI pairing on the public static site (journeys-2).
