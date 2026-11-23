@@ -278,6 +278,26 @@ test("the cleanup job runs on dispatch only, before the scan, defaulting to dry-
   const step = job.steps.find((entry) =>
     String(entry.run ?? "").includes("ghcr-historical-cleanup.mjs"),
   );
+  // The sparse checkout carries every directory the script imports from, so
+  // the job can load it (a missing scripts/lib once failed the first run).
+  const checkout = job.steps.find((entry) =>
+    String(entry.uses ?? "").startsWith("actions/checkout@"),
+  );
+  const checkedOut = String(checkout.with["sparse-checkout"])
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const source = readFileSync(
+    join(root, "scripts/security/ghcr-historical-cleanup.mjs"),
+    "utf8",
+  );
+  for (const [, specifier] of source.matchAll(/from "(\.{1,2}\/[^"]+)"/g)) {
+    const path = join("scripts/security", specifier);
+    assert.ok(
+      checkedOut.some((dir) => path === dir || path.startsWith(`${dir}/`)),
+      `${path} is outside the job's sparse checkout`,
+    );
+  }
   // The input reaches the script through env, never the script body.
   assert.equal(step.env.MODE, "${{ inputs.mode }}");
   assert.doesNotMatch(step.run, /\$\{\{/);
