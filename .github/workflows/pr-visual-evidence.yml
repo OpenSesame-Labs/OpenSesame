@@ -80,7 +80,7 @@ jobs:
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
         run: |
           npm ci --ignore-scripts
-          test "$(node -p "require('./node_modules/@playwright/test/package.json').version")" = 1.65.0
+          test "$(node -p "require('./node_modules/@playwright/test/package.json').version")" = 1.65.1
       - name: Test the trusted evidence controller
         working-directory: base
         run: node --test scripts/ci/pr-visual-*.test.mjs
