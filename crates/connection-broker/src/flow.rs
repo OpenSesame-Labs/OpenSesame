@@ -3,8 +3,9 @@
 
 use std::env;
 
-use oauth2::{CsrfToken, PkceCodeChallenge};
-use sha2::{Digest, Sha256};
+#[path = "pkce.rs"]
+mod pkce;
+pub use pkce::{new_state, Pkce, CHALLENGE_METHOD};
 use url::Url;
 
 use opensesame_invoke_through::scrub_credential_reflections;
@@ -22,40 +23,6 @@ pub const STATE_TTL_SECONDS: i64 = 600;
 
 /// Provider-controlled token response bodies are bounded before allocation.
 const MAX_TOKEN_RESPONSE_BYTES: usize = 256 * 1024;
-
-pub struct Pkce {
-    pub verifier: String,
-    pub challenge: String,
-}
-
-pub const CHALLENGE_METHOD: &str = "S256";
-
-impl Pkce {
-    #[must_use]
-    pub fn generate() -> Self {
-        let (challenge, verifier) = PkceCodeChallenge::new_random_sha256();
-        Self {
-            verifier: verifier.secret().clone(),
-            challenge: challenge.as_str().to_string(),
-        }
-    }
-
-    /// The challenge a verifier must produce, per RFC 7636 §4.2. Computed here
-    /// rather than through `oauth2`, whose constructor panics on a verifier of the
-    /// wrong length — this is also used to check verifiers we did not generate.
-    #[must_use]
-    pub fn challenge_for(verifier: &str) -> String {
-        use base64::Engine;
-        base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(Sha256::digest(verifier.as_bytes()))
-    }
-}
-
-/// 32 random bytes (256 bits), base64url-encoded; a guessable `state` is a
-/// session-fixation hole.
-#[must_use]
-pub fn new_state() -> String {
-    CsrfToken::new_random_len(32).secret().clone()
-}
 
 /// Mirrors the gateway's production check rather than importing the binary crate.
 #[must_use]

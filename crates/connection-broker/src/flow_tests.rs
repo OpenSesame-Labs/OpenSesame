@@ -2,6 +2,7 @@ use super::*;
 use crate::catalog;
 use crate::config::ProviderConfig;
 use base64::Engine;
+use sha2::{Digest, Sha256};
 
 fn config() -> BrokerConfig {
     BrokerConfig::in_memory(Some([3u8; 32]), "http://127.0.0.1:8787").with_provider(
