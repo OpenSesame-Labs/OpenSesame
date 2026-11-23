@@ -32,6 +32,14 @@
     "reason": "UUID-shaped value is used as an in-memory cache selector in a test. Exact source Git blob c32049a39a41ce7507ae7ebe62e08bfc8e5b468a."
   },
   {
+    "path": "crates/connection-broker/src/egress_client.rs",
+    "rule": "generic-credential-uri",
+    "line": 100,
+    "fileSha256": "daf6efab32d89a6ad49e12ff1394415cba02d55ea2361cb31fd2c24d09738a80",
+    "matchSha256": "e1c598757b157407778cce75df520a43e5535b77a065a1075c6b90f33a15b8ec",
+    "reason": "credentialed_egress_requires_https_except_loopback asserts that a URL carrying synthetic userinfo (user:pass@) is refused before any credentialed egress; the userinfo is a test literal, not a credential. Exact source Git blob 61ae0f0198e3f0ab4e6107efaf72e127c02c0458."
+  },
+  {
     "path": "crates/env-spec/tests/support/mod.rs",
     "rule": "generic-api-key",
     "line": 137,

@@ -475,6 +475,7 @@ ff102eea2ec4378546c47402a7ed737fb668ff6d:apps/cli/src/github/tests.rs:generic-ap
 62db7ea5f9691c01674c6ffa7f597d65948d1492:crates/redaction/src/lib.rs:generic-credential-uri:112
 8a47abd49b9bbd29eca5c8d0b06f1163fe18a233:apps/daemon/src/duress_receiver/mod.rs:generic-credential-uri:255
 92cebd3d5dfd83367abfadec423aa6e26f101ddd:crates/invoke-through/src/invoke.rs:generic-credential-uri:514
+d3ccfb8d0da2e04b6a966a94dc0a6b7dd3626dda:crates/connection-broker/src/egress_client.rs:generic-credential-uri:100
 # generic-password: UI label and prompt strings (`"Show password"`, `current-password`, ...), not credentials.
 0ca3137fc7ba0051307a0b13c93dc6a214e3b5c7:apps/pages/src/pages/UnlockPage.tsx:generic-password:59
 13592038d14c6f9daa1220de7ecf526d6bd64bd9:apps/pages/src/sections/vault/PasswordFieldRow.tsx:generic-password:45
