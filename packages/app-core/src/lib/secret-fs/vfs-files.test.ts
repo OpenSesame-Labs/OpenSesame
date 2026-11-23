@@ -10,8 +10,8 @@ import {
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import { BODY_PATH, TOMBS_REGISTRY_KEY } from "../vfs.js";
-import { SecretFsUnavailable } from "./errors.js";
 import type { SecretFsError } from "./errors.js";
+import { SecretFsUnavailable } from "./errors.js";
 import type { SecretFiles } from "./files.js";
 import { makeMemorySecretFiles } from "./memory.js";
 import { readProjection } from "./projection-read.js";
@@ -98,11 +98,12 @@ describe("the VFS over a secret file store", () => {
       },
     });
     expect(vfs.seams.readRaw("legacy")).toBe("old");
+    expect(vfs.seams.deleteOwnedFile).toBeUndefined();
     await vfs.seams.deleteRaw("legacy");
     expect(seen).toEqual(["legacy"]);
   });
 
-  it("writes every document again under a new vault key, and the new key alone opens them", async () => {
+  it("refuses a vault-key rotation before changing any committed document", async () => {
     const { files, vfs } = await adapter();
     const first = (await mintVaultKey()).vaultKey;
     const second = (await mintVaultKey()).vaultKey;
@@ -117,16 +118,60 @@ describe("the VFS over a secret file store", () => {
       ),
     );
     const rotated: VaultBody = { ...body, rev: 2 };
-    await vfs.seams.writeRaw(BODY_KEY, await sealed(second, rotated), second);
-    for (const [path, revision] of before) {
-      expect((await run(files.read(path))).revision).not.toBe(revision);
-    }
-    expect(
-      await Effect.runPromiseExit(readProjection(files, "t", first)),
-    ).toMatchObject({ _tag: "Failure" });
-    const reopened = await run(
-      readProjection(files, "t", second).pipe(Effect.orDie),
+    await expect(
+      vfs.seams.writeRaw(BODY_KEY, await sealed(second, rotated), second),
+    ).rejects.toMatchObject({
+      _tag: "SecretFsRejected",
+      kind: "unsupported",
+    });
+    const after = new Map(
+      await Promise.all(
+        (await run(files.list("t/secrets"))).map(
+          async (path) =>
+            [path, (await run(files.read(path))).revision] as const,
+        ),
+      ),
     );
+    expect(after).toEqual(before);
+    const reopened = await run(readProjection(files, "t", first));
+    expect(reopened?.body.items.map((item) => item.name).sort()).toEqual([
+      "a",
+      "b",
+    ]);
+  });
+
+  it("does not write a manifest when file-backed key rotation is unsupported", async () => {
+    const disk = makeMemorySecretFiles();
+    let failManifest = false;
+    let manifestAttempts = 0;
+    const files: SecretFiles = {
+      ...disk,
+      write: (path, data, options) => {
+        if (failManifest && path.endsWith("/vault.json")) {
+          manifestAttempts += 1;
+          return Effect.fail(new SecretFsUnavailable({ path, reason: "down" }));
+        }
+        return disk.write(path, data, options);
+      },
+    };
+    const { vfs } = await adapter(files);
+    const first = (await mintVaultKey()).vaultKey;
+    const second = (await mintVaultKey()).vaultKey;
+    const body = withItems(1, "a", "b");
+    await vfs.seams.writeRaw(BODY_KEY, await sealed(first, body), first);
+    failManifest = true;
+    await expect(
+      vfs.seams.writeRaw(
+        BODY_KEY,
+        await sealed(second, { ...body, rev: 2 }),
+        second,
+      ),
+    ).rejects.toMatchObject({
+      _tag: "SecretFsRejected",
+      kind: "unsupported",
+    });
+    expect(manifestAttempts).toBe(0);
+    const reopened = await run(readProjection(disk, "t", first));
     expect(reopened?.body.items.map((item) => item.name).sort()).toEqual([
       "a",
       "b",
@@ -177,6 +222,7 @@ describe("the VFS over a secret file store", () => {
       key,
     );
     await run(files.write("t/secrets/stray.note.json", new Uint8Array([1])));
+    await run(files.write("t/staging/stray.json", new Uint8Array([1])));
     await vfs.seams.deleteRaw(BODY_KEY);
     expect(await run(files.list("t"))).toEqual([]);
     expect(vfs.seams.readRaw(BODY_KEY)).toBeNull();

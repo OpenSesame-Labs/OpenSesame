@@ -13,6 +13,7 @@ import {
   run,
   secret,
   startProcess,
+  versionedPath,
 } from "./vault-on-files.support.js";
 
 export function tamperCases(
@@ -24,7 +25,11 @@ export function tamperCases(
       const store = newStore();
       await store.create(PASSWORD);
       await store.saveItems([secret("a"), secret("b")]);
-      await run(files.remove("personal/secrets/a.secret.json"));
+      await run(
+        files.remove(
+          await versionedPath(files, "personal/secrets/a.secret.json"),
+        ),
+      );
       await expect(restart()).rejects.toBeInstanceOf(VaultCorruptError);
     }));
 
@@ -34,10 +39,15 @@ export function tamperCases(
       await store.create(PASSWORD);
       const item = secret("a", "v1");
       await store.saveItem(item);
-      const old = (await run(files.read("personal/secrets/a.secret.json")))
-        .bytes;
+      const oldPath = await versionedPath(
+        files,
+        "personal/secrets/a.secret.json",
+      );
+      const old = (await run(files.read(oldPath))).bytes;
       await store.saveItem({ ...item, value: "v2" });
-      await run(files.write("personal/secrets/a.secret.json", old));
+      const [current] = await run(files.list("personal/secrets"));
+      if (!current) throw new Error("missing current secret document");
+      await run(files.write(current, old));
       await expect(restart()).rejects.toBeInstanceOf(VaultCorruptError);
     }));
 
@@ -46,15 +56,23 @@ export function tamperCases(
       const store = newStore();
       await store.create(PASSWORD);
       await store.saveItems([secret("a", "1"), secret("b", "2")]);
-      const a = (await run(files.read("personal/secrets/a.secret.json"))).bytes;
-      const b = (await run(files.read("personal/secrets/b.secret.json"))).bytes;
-      await run(files.write("personal/secrets/a.secret.json", b));
-      await run(files.write("personal/secrets/b.secret.json", a));
+      const aPath = await versionedPath(
+        files,
+        "personal/secrets/a.secret.json",
+      );
+      const bPath = await versionedPath(
+        files,
+        "personal/secrets/b.secret.json",
+      );
+      const a = (await run(files.read(aPath))).bytes;
+      const b = (await run(files.read(bPath))).bytes;
+      await run(files.write(aPath, b));
+      await run(files.write(bPath, a));
       await expect(restart()).rejects.toBeInstanceOf(VaultCorruptError);
-      await run(files.write("personal/secrets/a.secret.json", a));
-      await run(files.write("personal/secrets/b.secret.json", b));
+      await run(files.write(aPath, a));
+      await run(files.write(bPath, b));
       await run(files.write("personal/secrets/moved.secret.json", a));
-      await run(files.remove("personal/secrets/a.secret.json"));
+      await run(files.remove(aPath));
       await expect(restart()).rejects.toBeInstanceOf(VaultCorruptError);
     }));
 
@@ -63,12 +81,25 @@ export function tamperCases(
       const store = newStore();
       await store.create(PASSWORD);
       await store.saveItem(secret("a"));
-      const a = (await run(files.read("personal/secrets/a.secret.json"))).bytes;
+      const a = (
+        await run(
+          files.read(
+            await versionedPath(files, "personal/secrets/a.secret.json"),
+          ),
+        )
+      ).bytes;
       await run(files.write("personal/secrets/stray.secret.json", a));
       const reopened = await restart();
       expect(reopened.getSnapshot().items).toHaveLength(1);
     }));
 
+  foreignVaultTamperCase(inProcess, make);
+}
+
+function foreignVaultTamperCase(
+  inProcess: InProcess,
+  make: () => Promise<FilesHarness>,
+): void {
   it("refuses a secret file from another vault", async () => {
     const foreign = await make();
     const foreignProcess = await startProcess(foreign.files);
@@ -77,8 +108,16 @@ export function tamperCases(
       const other = foreignProcess.newStore();
       await other.create(PASSWORD);
       await other.saveItem(secret("a", "theirs"));
-      theirs = (await run(foreign.files.read("personal/secrets/a.secret.json")))
-        .bytes;
+      theirs = (
+        await run(
+          foreign.files.read(
+            await versionedPath(
+              foreign.files,
+              "personal/secrets/a.secret.json",
+            ),
+          ),
+        )
+      ).bytes;
     } finally {
       foreignProcess.stop();
       await foreign.cleanup?.();
@@ -87,7 +126,12 @@ export function tamperCases(
       const store = newStore();
       await store.create(PASSWORD);
       await store.saveItem(secret("a", "mine"));
-      await run(files.write("personal/secrets/a.secret.json", theirs));
+      await run(
+        files.write(
+          await versionedPath(files, "personal/secrets/a.secret.json"),
+          theirs,
+        ),
+      );
       await expect(restart()).rejects.toBeInstanceOf(VaultCorruptError);
     });
   });

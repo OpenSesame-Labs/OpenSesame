@@ -32,9 +32,24 @@ export type VfsSeams = {
     beforeCommit: () => void,
     vaultKey?: CryptoKey,
   ) => Promise<void>;
+  /** Guarded body projection for an already-open ordinary vault, not preapproval IAM. */
+  writeOwnedBody?: (
+    key: string,
+    value: string,
+    beforeCommit: () => void,
+    vaultKey?: CryptoKey,
+  ) => Promise<void>;
   deleteRaw: (key: string) => Promise<void>;
+  /** Guarded deletion for an already-open ordinary file-backed vault. */
+  deleteOwnedFile?: (key: string, beforeCommit: () => void) => Promise<void>;
+  /** Delete with the original-owner assertion rechecked at the physical unlink. */
+  deleteRawGuarded?: (key: string, beforeCommit: () => void) => Promise<void>;
   /** A file-per-secret store assembles the body here, before it is first read. */
-  openBody?: (tomb: string, vaultKey: CryptoKey) => Promise<void>;
+  openBody?: (
+    tomb: string,
+    vaultKey: CryptoKey,
+    check?: () => void,
+  ) => Promise<void>;
   /** Bounded physical refresh; absence refuses fresh authentication snapshots. */
   refreshRaw?: (
     key: string,

@@ -6,8 +6,8 @@
 import type { Folder, VaultBody, VaultItem } from "@opensesame/vault-core";
 import { Effect } from "effect";
 import type { SecretFsError } from "./errors.js";
-import { checkPath } from "./files.js";
 import type { SecretFiles } from "./files.js";
+import { checkPath } from "./files.js";
 import { SECRETS_DIR } from "./layout.js";
 import {
   CONCURRENCY,
@@ -63,7 +63,7 @@ type Held<T> = Readonly<{ rev: number; value: T }>;
 
 function held<T extends { id: string }>(
   tomb: string,
-  { id, file, rev }: Listing,
+  { id, file, rev, logical }: Listing,
   manifestRev: number,
   stored: Stored,
   document: Held<T>,
@@ -81,6 +81,7 @@ function held<T extends { id: string }>(
     value: document.value,
     entry: {
       file,
+      logical,
       rev,
       json: JSON.stringify(document.value),
       revision: stored.revision,
@@ -140,10 +141,11 @@ const isListing = (entry: Listing | Folder): entry is Listing =>
   "file" in entry;
 
 /** Rebuild the body from its documents, or `null` when the vault has no manifest. */
-export function readProjection(
+function readProjectionOnce(
   files: SecretFiles,
   tomb: string,
   key: CryptoKey,
+  observedManifest?: (revision: string) => void,
 ): Effect.Effect<ReadProjection | null, SecretFsError> {
   return Effect.gen(function* () {
     const manifestPath = `${tomb}/${MANIFEST_FILE}`;
@@ -151,6 +153,7 @@ export function readProjection(
       .read(manifestPath)
       .pipe(Effect.catchTag("SecretFsNotFound", () => Effect.succeed(null)));
     if (manifestFile === null) return null;
+    observedManifest?.(manifestFile.revision);
     const doc = yield* decodeManifestDoc(manifestFile.bytes, manifestPath);
     const manifest = yield* opened<ManifestPayload>(
       key,
@@ -175,9 +178,10 @@ export function readProjection(
       (entry): entry is Folder => !isListing(entry),
     );
     const { items: _items, folders: _folders, ...rest } = manifest;
-    const legacy = yield* files
-      .read(`${tomb}/${LEGACY_BODY_FILE}`)
-      .pipe(Effect.match({ onFailure: () => false, onSuccess: () => true }));
+    const legacy = yield* files.read(`${tomb}/${LEGACY_BODY_FILE}`).pipe(
+      Effect.as(true),
+      Effect.catchTag("SecretFsNotFound", () => Effect.succeed(false)),
+    );
     return {
       body: {
         ...rest,
@@ -187,6 +191,7 @@ export function readProjection(
       },
       state: {
         manifestRevision: manifestFile.revision,
+        manifestBytes: manifestFile.bytes,
         items: new Map(
           [...foundItems, ...foundFolders].map((found) => [
             found.value.id,
@@ -196,5 +201,37 @@ export function readProjection(
         legacyBody: legacy,
       },
     };
+  });
+}
+
+/** A writer may retire the version named by a manifest read just before it. */
+export function readProjection(
+  files: SecretFiles,
+  tomb: string,
+  key: CryptoKey,
+): Effect.Effect<ReadProjection | null, SecretFsError> {
+  return Effect.suspend(() => {
+    let observed: string | null = null;
+    return readProjectionOnce(files, tomb, key, (revision) => {
+      observed = revision;
+    }).pipe(
+      Effect.catch((failure) => {
+        // Documents are immutable, but a successful writer may retire the
+        // generation named by a manifest we read just before its commit. Only
+        // retry when the commit point actually moved; a stable corrupt
+        // generation remains a hard failure. There is deliberately no fixed
+        // retry count: rapid valid commits must not turn into false corruption.
+        if (observed === null) return Effect.fail(failure);
+        return files.read(`${tomb}/${MANIFEST_FILE}`).pipe(
+          Effect.matchEffect({
+            onFailure: (recheckFailure) => Effect.fail(recheckFailure),
+            onSuccess: (current) =>
+              current.revision !== observed
+                ? readProjection(files, tomb, key)
+                : Effect.fail(failure),
+          }),
+        );
+      }),
+    );
   });
 }

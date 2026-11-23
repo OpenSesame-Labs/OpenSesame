@@ -6,6 +6,7 @@ import { writeLastVaultId } from "../last-vault.js";
 import * as vfs from "../vfs.js";
 import { ATTEMPTS_KEY, VaultStore } from "./store.js";
 import { LEGACY_PREFS_KEY } from "./tomb-migration.js";
+
 const PASSWORD = "correct horse battery staple";
 const HEADER_KEY = vfs.tombFileKey(vfs.PERSONAL_TOMB, vfs.HEADER_PATH);
 const BODY_KEY = vfs.tombFileKey(vfs.PERSONAL_TOMB, vfs.BODY_PATH);
@@ -113,7 +114,8 @@ it("does not start an old queued BODY write with the fresh owner's tomb key", as
     expect(installedKey).toBeDefined();
     expect(installedKey).not.toBe(originalKey);
     blocker.release();
-    await blocking;
+    // The blocker was queued by the retired unlock; it must not finish in the fresh one.
+    await expect(blocking).rejects.toMatchObject({ code: "locked" });
     await expect(pending).rejects.toMatchObject({ code: "stale_operation" });
     await freshOpening;
     await vfs.vfsFlush();

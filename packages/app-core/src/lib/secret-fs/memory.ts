@@ -7,10 +7,9 @@
  */
 import { Effect } from "effect";
 import { SecretFsConflict, SecretFsNotFound } from "./errors.js";
-import { checkWriteOwner } from "./files-owner.js";
+import type { RemoveOptions, SecretFiles, WriteOptions } from "./files.js";
 import { checkPath, revisionOf } from "./files.js";
-import type { SecretFiles } from "./files.js";
-import type { WriteOptions } from "./files.js";
+import { checkWriteOwner } from "./files-owner.js";
 
 export type MemorySecretFiles = SecretFiles & {
   /** What is stored now, for a test or a persistence hook to look at. */
@@ -39,6 +38,7 @@ export function makeMemorySecretFiles(
   ) =>
     Effect.gen(function* () {
       yield* checkPath(path);
+      yield* checkWriteOwner(path, check);
       const current = stored.get(path);
       const actual = current === undefined ? null : revisionOf(current);
       if (options?.ifRevision !== undefined && options.ifRevision !== actual) {
@@ -53,9 +53,23 @@ export function makeMemorySecretFiles(
       return revisionOf(bytes);
     });
 
-  const remove: SecretFiles["remove"] = (path) =>
+  const remove = (path: string, options?: RemoveOptions, check?: () => void) =>
     Effect.gen(function* () {
       yield* checkPath(path);
+      yield* checkWriteOwner(path, check);
+      const current = stored.get(path);
+      if (
+        current !== undefined &&
+        options?.ifRevision !== undefined &&
+        revisionOf(current) !== options.ifRevision
+      ) {
+        return yield* new SecretFsConflict({
+          path,
+          expected: options.ifRevision,
+          actual: revisionOf(current),
+        });
+      }
+      yield* checkWriteOwner(path, check);
       stored.delete(path);
     });
 
@@ -76,6 +90,7 @@ export function makeMemorySecretFiles(
     writeGuarded: (path, bytes, check, options) =>
       write(path, bytes, options, check),
     remove,
+    removeGuarded: (path, check, options) => remove(path, options, check),
     list,
     snapshot: () => new Map(stored),
   };

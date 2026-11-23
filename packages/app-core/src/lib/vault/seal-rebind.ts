@@ -37,6 +37,16 @@ import {
 
 export { openJsonForRebind } from "@opensesame/vault-core";
 
+/** A file-backed store cannot publish a root-key change across its files atomically. */
+export class FileBackedRotationUnsupportedError extends Error {
+  constructor() {
+    super(
+      "This file-backed storage cannot atomically rotate the vault key. Move the vault to local browser storage before changing its root credential.",
+    );
+    this.name = "FileBackedRotationUnsupportedError";
+  }
+}
+
 /** Cancellation and original transport identity only; supplies no root or admission verdict. */
 function originalSealIO(check?: () => void) {
   const { readRaw, writeRaw, open, seal, refreshRaw } = vfsSeams;
@@ -266,6 +276,8 @@ export async function rekeyTomb(
   check?: () => void,
   turn?: TombWriteTurn,
 ): Promise<CryptoKey> {
+  if (vfsSeams.authenticationStorage === "file-backed")
+    throw new FileBackedRotationUnsupportedError();
   if (!turn)
     return withTombWriteTurn(tomb, (owned) =>
       rekeyTomb(tomb, from, nextRaw, check, owned),
