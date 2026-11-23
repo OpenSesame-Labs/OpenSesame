@@ -1,11 +1,11 @@
 {
   "version": 1,
   "reviewed_revision": "94260f7078fb3b9a4f42658a2eab702c358c6042",
-  "reviewed_source_state": "Source hashes identify the reviewed source-history integration after this base; they do not prove Rust refinement. 2026-11-23 review (PR #2898): crates/gateway/src/app_state.rs only drops the organization argument from load_wasm_connectors (Wasm connector registry loading); SPIFFE source, peer-domain, SVID profile and service-binding wiring are unchanged. crates/audit/Cargo.toml adds the workspace hex, hkdf and hmac dependencies (receipt commitments) and crates/broker/Cargo.toml adds a sqlx dev-dependency; Cargo.lock gains only those edges, no new package or version, and the gateway lock projection was recomputed for that graph (the workspace projection is unchanged). The peer-domain property is unaffected.",
+  "reviewed_source_state": "Source hashes identify the reviewed source-history integration after this base; they do not prove Rust refinement. 2026-11-23 review (PR #2898): crates/gateway/src/app_state.rs only drops the organization argument from load_wasm_connectors (Wasm connector registry loading); SPIFFE source, peer-domain, SVID profile and service-binding wiring are unchanged. crates/audit/Cargo.toml adds the workspace hex, hkdf and hmac dependencies (receipt commitments) and crates/broker/Cargo.toml adds a sqlx dev-dependency; Cargo.lock gains only those edges, no new package or version, and the gateway lock projection was recomputed for that graph (the workspace projection is unchanged). The peer-domain property is unaffected. 2026-11-23 merge review (main 7ab65ea1 into #2680): crates/gateway/src/app_state.rs is the branch's reviewed file plus only main's two-argument load_wasm_connectors call; Cargo.lock is the union of both sides' edges (main's audit/broker edges plus the branch's storage tempfile dev edge, no new package or version) and the gateway lock projection was recomputed for that merged graph. The peer-domain property is unaffected.",
   "lock_projection": {
     "root": "opensesame-gateway",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "cd2b623d5856c0635fe39872631dbbcbf28af8a3b0d0db42f8406924d850e051"
+    "sha256": "741bd20906113436b45433cf620e5e86ebb7df7776e7e78f4c6c964d6187fe54"
   },
   "sources": [
     {
@@ -242,11 +242,11 @@
     },
     {
       "path": "crates/gateway/src/lib.rs",
-      "sha256": "0e5988eaf0273eda3d1f002a32a671a597e458746dc0ff9514a1e34acdb50dd4"
+      "sha256": "c579b81b75de6f9f7142247af07df116f9df6757044b9abf6e044dd97f878cd0"
     },
     {
       "path": "crates/gateway/src/app_state.rs",
-      "sha256": "1c01679239f09c6011dca0a9c23ab4ed41110de1c12db129229c9c95e64e5bf7"
+      "sha256": "797b409d567994387df750464bd02b6a1c06d66db2cdebc2a8659d1912677941"
     },
     {
       "path": "crates/gateway/src/transport/mod.rs",
@@ -314,7 +314,7 @@
     },
     {
       "path": "crates/storage/src/lib.rs",
-      "sha256": "c4f53cb771ca9aba298fc7fc0f3aa074e73fa4a2f65624efa3030e605a6ad47c"
+      "sha256": "08dc4872ca5a500e09ad9d0f86a30793f3f1b10f662cff4ecd71ba530a15a3ba"
     },
     {
       "path": "crates/storage/src/host_kv.rs",
@@ -526,7 +526,7 @@
     },
     {
       "path": "crates/storage/Cargo.toml",
-      "sha256": "06d3cbf04f778cdafb83c3e9a32d563367c0670a62382fe52a2e530375e03621"
+      "sha256": "7982c5fd4c46e25b95a44c98ad1a925870196662729caadb14f0c8fd2a32bfeb"
     },
     {
       "path": "crates/task-access/Cargo.toml",

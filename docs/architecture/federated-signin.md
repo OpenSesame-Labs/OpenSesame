@@ -1071,10 +1071,14 @@ broker, so the registry owns social), and Better Auth's own `/magic-link/verify`
 
 | Route | Behaviour |
 | --- | --- |
-| `POST /interaction/:uid/federated/email` | Hosted login page, CSRF-protected. Requests a link and re-renders "check your email" — the same answer for a known and an unknown address. Budget: 5 links per address per 10 minutes, keyed by a digest, because the fence protects the person being mailed rather than the person mailing. |
-| `GET /interaction/:uid/federated/email/verify?token=…` | Where a link started from the hosted page lands. A top-level same-site GET, so it carries the interaction cookie. |
-| `POST /v1/auth/sign-in/magic-link` | The first-party client entry (Pages). |
-| `GET /v1/auth/magic-link/complete?token=…` | Where a link started by a first-party client lands; answers `{ principalId, accessToken }`, a first-party `pst_` bearer adopted exactly as in §11.6. |
+| `POST /interaction/:uid/federated/email` | Hosted login page, CSRF-protected. Requests a link and re-renders "check your email" — the same answer for a known and an unknown address. The shared send budget allows five links per address per ten minutes and also caps global volume. |
+| `GET /interaction/:uid/federated/email/verify?token=…` | Inert confirmation page for a hosted link. A scanner's GET does not consume the proof. |
+| `POST /interaction/:uid/federated/email/verify?token=…` | Consumes the hosted proof only after explicit confirmation and requires the initiating interaction cookie. |
+| `POST /v1/auth/magic-link/v1/sign-in` | First-party client entry. The request supplies an allowed callback, random state and an S256 verifier challenge; the verifier stays in the initiating tab. A 404 from an older Identity release sends the person through the existing hosted OAuth/PKCE email interaction instead. |
+| `POST /v1/auth/sign-in/magic-link` | Compatibility entry for earlier clients. Verifier-bound requests use the same checks; requests without them receive a non-cacheable upgrade refusal and send no email. |
+| `GET /v1/auth/magic-link/complete` | The link carries its one-use proof in the fragment, not the request URL. The confirmation page removes the fragment from history and requires a person to continue, so a mail scanner's GET cannot consume the link. |
+| `POST /v1/auth/magic-link/complete` | Consumes the email proof and redirects to the signed callback with a short-lived code bound to the original state, origin and verifier challenge. It never puts a session bearer in the redirect. |
+| `POST /v1/auth/magic-link/exchange` | Atomically consumes the code after checking the initiating tab's verifier and state. Only this POST returns `{ principalId, accessToken }`. A wrong verifier burns the code. |
 
 The token is single-use, stored hashed, consumed atomically inside verification, and
 verification happens **server-side** so the Better Auth user record never crosses the API
@@ -1089,9 +1093,15 @@ deployment: the proof is ours, no upstream vouched for it. Addresses are normali
 and lowercasing and nothing else — local-part rules (dots, `+tags`) differ per provider and
 guessing wrong would either merge two people or split one.
 
-Unlike the redirect legs, this route sets a provisional cookie for a **returning** principal
-too: the browser holding it just proved control of the address, where in a redirect leg a
-returning browser proved nothing (§7.6).
+The hosted interaction sets a provisional cookie for a **returning** principal too: the
+browser holding it just proved control of the address, where in a redirect leg a returning
+browser proved nothing (§7.6). The first-party exchange returns the session in its POST body;
+it does not expose the bearer in browser history. Callback origins must match
+`OPENSESAME_CORS_ORIGINS` and, when `OPENSESAME_CLIENT_APP_URL` is configured, remain under
+that app's base path. The exchange record expires after five minutes and is encrypted and
+single-use across replicas when durable storage is configured. Hosted and first-party email
+requests share the same atomic send windows; recipient keys are HMAC-derived and
+the windows are durable when the deployment has a database.
 
 A magic link is a row in `better_auth_verifications`, reached through `drizzleAdapter` over the
 same Postgres as everything else (ADR 0057 §4), so it survives a deploy and verifies on

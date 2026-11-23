@@ -1,6 +1,10 @@
 //! Durable origin/key binding. All authority transitions are atomic SQL writes.
 use super::{Db, Row};
 
+#[path = "browser_pairing_decision.rs"]
+mod decision;
+pub use decision::decide_browser_pairing_in_transaction;
+
 pub struct NewBrowserPairing<'a> {
     pub id: &'a str,
     pub device_digest: &'a str,
@@ -15,6 +19,9 @@ pub struct NewBrowserPairing<'a> {
 #[derive(Clone)]
 pub struct BrowserGrant {
     pub authentication_json: Option<String>,
+    pub identity_required: bool,
+    pub membership_incarnation: Option<String>,
+    pub authority_revision: Option<String>,
     pub client_id: String,
     pub origin: String,
     pub dpop_jkt: String,
@@ -30,6 +37,9 @@ pub struct BrowserGrant {
 fn grant_row(row: &sqlx::sqlite::SqliteRow) -> anyhow::Result<BrowserGrant> {
     Ok(BrowserGrant {
         authentication_json: row.try_get("authentication_json")?,
+        identity_required: row.try_get::<i64, _>("identity_required")? != 0,
+        membership_incarnation: row.try_get("membership_incarnation")?,
+        authority_revision: row.try_get("authority_revision")?,
         client_id: row.try_get("id")?,
         origin: row.try_get("origin")?,
         dpop_jkt: row.try_get("dpop_jkt")?,
@@ -128,19 +138,18 @@ impl Db {
         approve: bool,
         now: i64,
     ) -> anyhow::Result<bool> {
-        let changed = sqlx::query(
-            "UPDATE browser_pairings SET state=?,principal_id=?,organization_id=?,approved_at=?
-            WHERE user_code_digest=? AND state='pending' AND expires_at>?",
+        let mut tx = self.pool.begin().await?;
+        let changed = decide_browser_pairing_in_transaction(
+            &mut tx,
+            code_digest,
+            principal,
+            org,
+            approve,
+            now,
         )
-        .bind(if approve { "approved" } else { "denied" })
-        .bind(principal)
-        .bind(org)
-        .bind(now)
-        .bind(code_digest)
-        .bind(now)
-        .execute(&self.pool)
         .await?;
-        Ok(changed.rows_affected() == 1)
+        tx.commit().await?;
+        Ok(changed.is_some())
     }
 
     /// Consume approval and create the short-lived grant in one transaction.
@@ -180,11 +189,13 @@ impl Db {
         grant.expires_at = now
             .checked_add(300)
             .ok_or_else(|| anyhow::anyhow!("clock overflow"))?;
-        let inserted = sqlx::query("INSERT INTO browser_clients (id,origin,dpop_jkt,audience,capabilities_json,principal_id,organization_id,approved_at)
-            SELECT ?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM browser_clients)<4096
+        let inserted = sqlx::query("INSERT INTO browser_clients (id,origin,dpop_jkt,audience,capabilities_json,principal_id,organization_id,approved_at,identity_required,membership_incarnation,authority_revision)
+            SELECT ?,?,?,?,?,?,?,?,?,?,? WHERE (SELECT COUNT(*) FROM browser_clients)<4096
             AND (SELECT COUNT(*) FROM browser_clients WHERE principal_id=? AND organization_id=? AND revoked_at IS NULL)<64")
             .bind(&grant.client_id).bind(&grant.origin).bind(&grant.dpop_jkt).bind(&grant.audience)
             .bind(&grant.capabilities_json).bind(&grant.principal_id).bind(&grant.organization_id).bind(grant.approved_at)
+            .bind(i64::from(grant.identity_required))
+            .bind(&grant.membership_incarnation).bind(&grant.authority_revision)
             .bind(&grant.principal_id).bind(&grant.organization_id)
             .execute(&mut *tx).await?;
         anyhow::ensure!(inserted.rows_affected() == 1, "browser client capacity");

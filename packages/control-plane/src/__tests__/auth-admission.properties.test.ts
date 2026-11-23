@@ -47,6 +47,10 @@ function sessionContext(input: SessionContextInput): AppContext {
               }
             : undefined,
       },
+      // No organization withdrawal is pending in these schedules.
+      organizationMemberships: {
+        hasPendingWithdrawalForPrincipal: async () => false,
+      },
     },
     repos: {
       principals: {

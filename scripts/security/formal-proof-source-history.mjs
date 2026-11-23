@@ -128,6 +128,9 @@ const STORAGE_MIGRATIONS = [
   "crates/storage/migrations/0058_bitwarden_attempt_budgets.sql",
   "crates/storage/migrations/0059_est_source_budgets.sql",
   "crates/storage/migrations/0060_invocation_budget_claims.sql",
+  "crates/storage/migrations/0061_host_membership_withdrawals.sql",
+  "crates/storage/migrations/0062_host_native_authority.sql",
+  "crates/storage/migrations/0063_pairing_membership_revision.sql",
 ];
 
 const IMPLEMENTATION = [

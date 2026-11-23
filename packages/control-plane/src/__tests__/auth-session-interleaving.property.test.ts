@@ -77,6 +77,10 @@ async function resolveWithSchedule(schedule: Schedule) {
           };
         },
       },
+      // No organization withdrawal is pending in these schedules.
+      organizationMemberships: {
+        hasPendingWithdrawalForPrincipal: async () => false,
+      },
     },
     repos: {
       principals: {
@@ -288,6 +292,24 @@ describe("fresh guest admission", () => {
     });
     expect((await bearer.json()).id).toBe(guestBody.principalId);
     expect((await cookie.json()).id).toBe(memberBody.principalId);
+  });
+
+  it("sets no bound cookie for a fresh guest that also sends a restore proof", async () => {
+    const origin = "http://127.0.0.1:8788";
+    const { app } = createControlPlane({
+      config: { port: 0, publicUrl: origin, issuer: origin },
+    });
+    const guest = await app.request("/v1/principals/provisional", {
+      method: "POST",
+      headers: {
+        origin,
+        "content-type": "application/json",
+        "x-opensesame-fresh-guest": "1",
+      },
+      body: JSON.stringify({ restoreProofHash: "a".repeat(64) }),
+    });
+    expect(guest.status).toBe(201);
+    expect(guest.headers.get("set-cookie")).toBeNull();
   });
 
   it("rejects a fresh guest request carrying even an invalid credential", async () => {

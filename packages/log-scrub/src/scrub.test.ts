@@ -37,6 +37,15 @@ describe("the shared vectors", () => {
 });
 
 describe("scrubValue", () => {
+  it("redacts the proof used to revoke a browser session", () => {
+    const name = "x-opensesame-revoke-secret";
+    expect(scrubValue({ [name]: "sensitive-proof" })).toEqual({
+      [name]: REDACTED,
+    });
+    expect(scrubText(`${name}: sensitive-proof`)).not.toContain(
+      "sensitive-proof",
+    );
+  });
   it("censors sensitive keys at any depth and scrubs every string", () => {
     const out = scrubValue({
       user: "ada",

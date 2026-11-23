@@ -13,6 +13,7 @@ import {
   type CreateControlPlaneOptions,
   createControlPlane,
 } from "../create-app.js";
+import { changeRoleInStore } from "./host-withdrawal-test-helper.js";
 import { migratedPGlite, warmMigratedPGlite } from "./migrated-pglite.js";
 
 // Each PGlite test here starts its own database. They used to boot one and
@@ -180,6 +181,27 @@ it("uses real UV signatures even with dev defaults, signs the frozen tuple and s
     assurance: "phishing_resistant",
     organization_role: "owner",
   });
+  const membership = await f.ctx.stores.organizationMemberships.findVersioned(
+    f.challenge.organization_id,
+    f.minted.principalId,
+  );
+  expect(payload.membership_incarnation).toBe(membership?.incarnation);
+  expect(payload.authority_revision).toBe(membership?.authorityRevision);
+});
+
+it("rejects a challenge captured before the membership authority changes", async () => {
+  const f = await fixture();
+  const pending = await f.begin();
+  await changeRoleInStore(
+    f.ctx,
+    f.challenge.organization_id,
+    f.minted.principalId,
+    "admin",
+  );
+  expect((await f.verify(f.assertion(pending))).status).toBe(403);
+  const fresh = await f.begin();
+  expect((await f.verify(f.assertion(fresh, true, 2))).status).toBe(200);
+  await f.withdrawalRecovery.stop();
 });
 
 it("refuses caller assurance, unknown audiences, wrong transaction, and removed membership", async () => {

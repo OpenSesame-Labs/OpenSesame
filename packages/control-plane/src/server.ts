@@ -1,5 +1,5 @@
-import http from "node:http";
 import type { OutgoingHttpHeader, OutgoingHttpHeaders } from "node:http";
+import http from "node:http";
 import type { AddressInfo } from "node:net";
 import { pathToFileURL } from "node:url";
 import { getRequestListener } from "@hono/node-server";
@@ -43,7 +43,6 @@ export interface StartedControlPlane {
 
 /** /token is a form exchange; a megabyte is already far beyond any grant. */
 const MAX_TOKEN_BODY_BYTES = 1024 * 1024;
-
 /**
  * Read a request body with a hard cap before buffering it.
  *
@@ -86,7 +85,6 @@ const ORIGIN_ADMISSIONS_GLOBAL = 300;
 const ORIGIN_ADMISSION_MAX_KEYS = 2048;
 const ORIGIN_ADMISSION_GLOBAL_KEY = "__global__";
 let originAdmissionsByContext = new WeakMap<object, Map<string, number[]>>();
-
 function consumeOriginAdmission(
   contextKey: ReturnType<typeof createControlPlane>["ctx"],
   clientId: string,
@@ -388,7 +386,7 @@ function createDispatcher(
 export async function startServer(
   options: Parameters<typeof createControlPlane>[0] = {},
 ): Promise<StartedControlPlane> {
-  const { app, ctx, config } = createControlPlane(options);
+  const { app, ctx, config, withdrawalRecovery } = createControlPlane(options);
   const honoListener = getRequestListener(app.fetch);
   const oidcCallback = ctx.oauth.provider.callback();
   const dispatch = createDispatcher(ctx, honoListener, oidcCallback);
@@ -408,17 +406,19 @@ export async function startServer(
     : undefined;
   const bindings = () => transport?.bindings() ?? EMPTY_BINDINGS;
 
-  const server = http.createServer((req, res) => {
-    // Plain provenance, no peer: a header on this listener can never become
-    // evidence (AT-TLS-FAKECONTEXT).
-    preparePlainRequest(req, bindings());
-    dispatch(req, res);
-  });
+  const server = http
+    .createServer((req, res) => {
+      // Plain provenance, no peer: a header on this listener can never become
+      // evidence (AT-TLS-FAKECONTEXT).
+      preparePlainRequest(req, bindings());
+      dispatch(req, res);
+    })
+    .once("close", () => void withdrawalRecovery.stop());
 
   // The system owner principal row must exist before the first /auth prefetch
   // auto-admits an origin client owned by it (ADR 0050 R-A; the FK is real on
   // Postgres). Fail startup rather than fail the first admission.
-  await ctx.systemPrincipalReady;
+  await Promise.all([ctx.systemPrincipalReady, ctx.securityRecoveryReady]);
 
   await new Promise<void>((resolve, reject) => {
     server.listen(config.port, config.host, () => resolve());

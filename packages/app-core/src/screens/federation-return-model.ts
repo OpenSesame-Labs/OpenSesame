@@ -1,12 +1,12 @@
 import { ambientAuthSeams, isAmbientIntent } from "../lib/ambient-auth-seam.js";
 import { storeAuthOutcome } from "../lib/auth-outcome.js";
-import { assertSafeReturnTo } from "../lib/federation-callback.js";
-import { federationSessionGeneration } from "../lib/federation-native-session.js";
 import {
   adoptBrokeredSession,
-  completeSignIn,
+  completeReturn,
   displayName,
 } from "../lib/federation.js";
+import { assertSafeReturnTo } from "../lib/federation-callback.js";
+import { federationSessionGeneration } from "../lib/federation-native-session.js";
 import {
   adoptFederatedIdentity,
   openVaultAfterSignIn,
@@ -23,8 +23,15 @@ export type ReturnOutcome = { returnTo?: string };
 
 export async function processReturn(): Promise<ReturnOutcome> {
   const generation = federationSessionGeneration();
-  const result = await completeSignIn();
+  const result = await completeReturn();
   if (!result) return {};
+  if ("magicLink" in result) {
+    // The email-link exchange already adopted the member session. Land in the
+    // app like any other finished sign-in; a locked vault gets the banner.
+    if (!(await openVaultAfterSignIn()))
+      storeAuthOutcome({ kind: "authenticated" });
+    return {};
+  }
   if (isAmbientIntent(result.intent)) {
     return ambientAuthSeams.applyAmbientReturn({
       ...result,

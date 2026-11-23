@@ -4,11 +4,9 @@ import {
 } from "@opensesame/auth-upstream";
 import { ClaimEngine } from "@opensesame/claims";
 import {
-  ConflictError,
   type ConsentStore,
   MemoryRepositories,
   PostgresRepositories,
-  type Repositories,
   betterAuthAccounts,
   betterAuthSessions,
   betterAuthUsers,
@@ -18,14 +16,8 @@ import {
   createPostgresAuthenticationServiceStores,
   createPostgresAuthorityMembershipEdgeStore,
   createPostgresAuthorityProjectionStateStore,
-  createPostgresClientClaimChallengeStore,
-  createPostgresClientOriginStore,
-  createPostgresClientRecordStore,
-  createPostgresConsentStore,
-  createPostgresOidcStore,
   createPostgresOrgFederationStores,
   createPostgresOrganizationStores,
-  createPostgresPairwiseStore,
   createPostgresProjectStores,
   createPostgresSamlStores,
   createPostgresScimStores,
@@ -35,7 +27,6 @@ import {
 // this file — one import, one context field below. Email delivery for the
 // magic-link method (D16) lives in services/mailer.ts.
 import {
-  MemoryClientRecordStore,
   createOpenSesameProvider,
   createPostgresAdapterConstructor,
 } from "@opensesame/oauth-provider";
@@ -48,6 +39,7 @@ import { withChainedAudit } from "./chained-audit.js";
 import type { AppContext } from "./context.js";
 import type { CreateControlPlaneOptions } from "./create-app-options.js";
 import { resolveControlPlaneConfig } from "./create-app-options.js";
+import { createOAuthStores } from "./create-oauth-stores.js";
 import { createPasskeys } from "./create-passkeys.js";
 import { resolveWalletNativeMounts } from "./create-wallet-native-mounts.js";
 import {
@@ -68,52 +60,25 @@ import { verifySecurityDatabase } from "./repos/security-readiness.js";
 import { hostAuthorizationAudiences } from "./services/host-authorization.js";
 import { createMailer } from "./services/mailer.js";
 import { createNotificationCallbackAdapters } from "./services/notification-callbacks.js";
+import { startOrganizationWithdrawalRecovery } from "./services/organization-withdrawal-recovery.js";
 import { createSmsBridge } from "./services/sms-bridge.js";
+import { recoverStartupSecurityState } from "./services/startup-security-recovery.js";
 import { createAppStores } from "./state.js";
+import {
+  SYSTEM_OWNER_PRINCIPAL_ID,
+  ensureSystemOwnerPrincipal,
+} from "./system-principal.js";
 import { agentAuthOAuthClient } from "./ui/agent-auth-pages.js";
 import { sharedStyles } from "./ui/interaction-pages.js";
 
 export type { CreateControlPlaneOptions } from "./create-app-options.js";
-
-/**
- * The deployment/system principal (ADR 0050 R-A). Auto-admitted origin
- * clients are born owned by this principal, so every client has an owner and
- * owner-fenced reads keep answering 404 to everyone else (no oracle); the F5
- * claim flow transfers ownership to the claiming verified principal. The id
- * is fixed so the row is ensured idempotently across restarts and replicas.
- */
-export const SYSTEM_OWNER_PRINCIPAL_ID = "prn_opensesame_system";
+export {
+  SYSTEM_OWNER_PRINCIPAL_ID,
+  ensureSystemOwnerPrincipal,
+} from "./system-principal.js";
 
 /** Late-binding slot: the consent store lands here once `stores` exists. */
 type ConsentLookupSlot = { store?: ConsentStore };
-
-/**
- * Ensure the deployment/system principal row exists (idempotent). The
- * `oauth_clients.owner_principal_id` FK makes this a precondition for
- * auto-admitting an owned origin client against Postgres.
- */
-export async function ensureSystemOwnerPrincipal(
-  repos: Pick<Repositories, "principals">,
-  clock: Clock,
-): Promise<void> {
-  const existing = await repos.principals.getById(SYSTEM_OWNER_PRINCIPAL_ID);
-  if (existing) return;
-  const now = clock();
-  try {
-    await repos.principals.create({
-      id: SYSTEM_OWNER_PRINCIPAL_ID,
-      state: "active",
-      assurance: "verified",
-      createdAt: now,
-      updatedAt: now,
-      verifiedAt: now,
-      version: 1,
-    });
-  } catch (error) {
-    // A concurrent replica created it first — that is the desired end state.
-    if (!(error instanceof ConflictError)) throw error;
-  }
-}
 
 export function createControlPlane(options: CreateControlPlaneOptions = {}) {
   const processEnv = options.processEnv ?? process.env;
@@ -153,34 +118,14 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
     store: claimStore,
     clock,
   });
-  // With a database configured the issuer keeps its own models — sessions,
-  // authorization codes, refresh tokens, device flows — in Postgres. On the
-  // in-memory adapter every restart silently invalidates live sessions and a
-  // consumed authorization code stops being remembered as consumed.
-  const oidcStore = drizzleBundle
-    ? createPostgresOidcStore(drizzleBundle.db, eventSealer)
-    : undefined;
-  const pairwiseStore = drizzleBundle
-    ? createPostgresPairwiseStore(drizzleBundle.db)
-    : undefined;
-  // One durable client store shared by the registration API and the OIDC
-  // provider's dynamic client resolution (ADR 0050 R-C): a client registered
-  // through the API is immediately usable in flows, and origin clients
-  // auto-admitted on /auth survive restarts (pairwise sectors stay stable).
-  const clientStore = drizzleBundle
-    ? createPostgresClientRecordStore(drizzleBundle.db)
-    : new MemoryClientRecordStore();
-  const clientClaimChallengeStore = drizzleBundle
-    ? createPostgresClientClaimChallengeStore(drizzleBundle.db)
-    : undefined;
-  const clientOriginStore = drizzleBundle
-    ? createPostgresClientOriginStore(drizzleBundle.db)
-    : undefined;
-  // Durable consent records (ADR 0050 F6): human-given consents survive a
-  // restart exactly like the clients they cover; memory only in tests/dev.
-  const consentStore = drizzleBundle
-    ? createPostgresConsentStore(drizzleBundle.db)
-    : undefined;
+  const {
+    oidcStore,
+    pairwiseStore,
+    clientStore,
+    clientClaimChallengeStore,
+    clientOriginStore,
+    consentStore,
+  } = createOAuthStores(drizzleBundle?.db, eventSealer);
   // Durable projects + memberships (WP-8): the same rows the projects API
   // serves survive a restart; memory only in tests/dev.
   const projectStores =
@@ -243,9 +188,9 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
       );
     }
     await ensureSystemOwnerPrincipal(repos, clock);
-  })();
-  systemPrincipalReady.catch(() => {
+  })().catch((error) => {
     log.error("security_state_initialization_failed");
+    throw error;
   });
   const lateLookups: AccountLookupSlot & ConsentLookupSlot = {};
   const oauth = createOpenSesameProvider({
@@ -335,6 +280,15 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
     eventSealer,
   );
 
+  let resolveSecurityRecovery = () => {};
+  let rejectSecurityRecovery: (error: Error) => void = () => {};
+  const securityRecoveryReady = new Promise<void>((resolve, reject) => {
+    resolveSecurityRecovery = resolve;
+    rejectSecurityRecovery = reject;
+  });
+  // Some embedders inspect the initialization promise without serving a request.
+  // Keep a rejected recovery observable without creating an unhandled rejection.
+  void securityRecoveryReady.catch(() => undefined);
   const ctx: AppContext = {
     hostAuthorizationAudiences: hostAudiences,
     ...passkeyComponents,
@@ -361,9 +315,11 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
     ...(betterAuthDatabase ? { betterAuthDatabase } : undefined),
     systemOwnerPrincipalId: SYSTEM_OWNER_PRINCIPAL_ID,
     systemPrincipalReady,
+    securityRecoveryReady,
     securityStateReady: async () => {
       try {
         await systemPrincipalReady;
+        await securityRecoveryReady;
         // The probe only checks; the one sweep runs at start-up (above), so an
         // unauthenticated request never scans or writes event tables.
         if (drizzleBundle) await verifySecurityDatabase(drizzleBundle.db);
@@ -373,6 +329,12 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
       }
     },
   };
+
+  void recoverStartupSecurityState(ctx).then(
+    resolveSecurityRecovery,
+    rejectSecurityRecovery,
+  );
+  const withdrawalRecovery = startOrganizationWithdrawalRecovery(ctx);
 
   const app = createHonoApp(
     ctx,
@@ -390,7 +352,7 @@ export function createControlPlane(options: CreateControlPlaneOptions = {}) {
         : undefined),
     }),
   );
-  return { app, ctx, config };
+  return { app, ctx, config, withdrawalRecovery };
 }
 
 export type ControlPlane = ReturnType<typeof createControlPlane>;

@@ -6,6 +6,7 @@ describe("hasAuthResponse", () => {
   it("detects code or error query parameters", () => {
     expect(hasAuthResponse("?code=abc&state=xyz")).toBe(true);
     expect(hasAuthResponse("?error=access_denied")).toBe(true);
+    expect(hasAuthResponse("?magic_code=abc&magic_state=xyz")).toBe(true);
     expect(hasAuthResponse("?foo=bar")).toBe(false);
     expect(hasAuthResponse("")).toBe(false);
   });

@@ -1,4 +1,6 @@
 import {
+  MemoryScimGroupMappingStore,
+  MemoryScimGroupStore,
   SCIM_GROUP_ID_MAX,
   type ScimGroupMappingStore,
   type ScimGroupRecord,
@@ -6,7 +8,7 @@ import {
   type ScimStores,
   createMemoryScimStores,
 } from "@opensesame/database";
-import type { OrganizationRole } from "@opensesame/os-domain";
+import { type OrganizationRole, overlapCast } from "@opensesame/os-domain";
 import { expect, it } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import { roleOf } from "../routes/scim-effects.js";
@@ -31,54 +33,140 @@ interface LegacyRows {
   role?: OrganizationRole;
 }
 
-function withLegacyRows(base: ScimStores) {
-  const legacy: LegacyRows = {};
+function legacyGroups(
+  base: ScimGroupStore,
+  legacy: LegacyRows,
+): ScimGroupStore {
   const copy = (group: ScimGroupRecord) => ({
     ...group,
     memberIds: [...group.memberIds],
   });
   const groups: ScimGroupStore = {
     async upsert(group) {
-      if (group.id !== LEGACY) return base.groups.upsert(group);
+      if (group.id !== LEGACY) return base.upsert(group);
       legacy.group = copy(group);
       return copy(group);
     },
     async getById(orgId, id) {
-      if (id !== LEGACY) return base.groups.getById(orgId, id);
+      if (id !== LEGACY) return base.getById(orgId, id);
       return legacy.group?.organizationId === orgId ? copy(legacy.group) : null;
     },
     async listByOrganization(orgId) {
-      const rows = await base.groups.listByOrganization(orgId);
+      const rows = await base.listByOrganization(orgId);
       const row = await groups.getById(orgId, LEGACY);
       return row ? [...rows, row] : rows;
     },
     async listByMember(orgId, memberId) {
-      const rows = await base.groups.listByMember(orgId, memberId);
+      const rows = await base.listByMember(orgId, memberId);
       const row = await groups.getById(orgId, LEGACY);
       return row?.memberIds.includes(memberId) ? [...rows, row] : rows;
     },
   };
-  const mappings: ScimGroupMappingStore = {
-    ...base.mappings,
+  return groups;
+}
+
+function legacyMappings(
+  base: ScimGroupMappingStore,
+  legacy: LegacyRows,
+): ScimGroupMappingStore {
+  return {
+    count: (orgId) => base.count(orgId),
+    listByOrganization: (orgId, page) => base.listByOrganization(orgId, page),
     async put(orgId, groupId, role) {
-      if (groupId !== LEGACY) return base.mappings.put(orgId, groupId, role);
+      if (groupId !== LEGACY) return base.put(orgId, groupId, role);
       legacy.role = role;
       return { organizationId: orgId, groupId, role };
     },
     async get(orgId, groupId) {
-      if (groupId !== LEGACY) return base.mappings.get(orgId, groupId);
+      if (groupId !== LEGACY) return base.get(orgId, groupId);
       return legacy.role;
     },
     async removeIfNeutral(orgId, groupId) {
-      if (groupId !== LEGACY)
-        return base.mappings.removeIfNeutral(orgId, groupId);
+      if (groupId !== LEGACY) return base.removeIfNeutral(orgId, groupId);
       if (!legacy.role) return "not_found";
       if (legacy.role !== "member") return "mapping_not_neutral";
       legacy.role = undefined;
       return "deleted";
     },
   };
-  return { stores: { ...base, groups, mappings }, legacy };
+}
+
+/**
+ * The SCIM organization boundary forks the real memory stores, so the legacy
+ * rows are layered over the root stores and over every transaction fork.
+ */
+function withLegacyRows(base: ScimStores) {
+  const legacy: LegacyRows = {};
+  class LegacyGroupStore extends MemoryScimGroupStore {
+    readonly #view = legacyGroups(
+      {
+        upsert: (group) => super.upsert(group),
+        getById: (orgId, id) => super.getById(orgId, id),
+        listByOrganization: (orgId) => super.listByOrganization(orgId),
+        listByMember: (orgId, id) => super.listByMember(orgId, id),
+      },
+      legacy,
+    );
+    override upsert = (group: ScimGroupRecord) => this.#view.upsert(group);
+    override getById = (orgId: string, id: string) =>
+      this.#view.getById(orgId, id);
+    override listByOrganization = (orgId: string) =>
+      this.#view.listByOrganization(orgId);
+    override listByMember = (orgId: string, id: string) =>
+      this.#view.listByMember(orgId, id);
+    override forkForTransaction(orgId: string) {
+      const fork = super.forkForTransaction(orgId);
+      return {
+        ...fork,
+        store: overlapCast<MemoryScimGroupStore>(
+          legacyGroups(bound(fork.store), legacy),
+        ),
+      };
+    }
+  }
+  class LegacyMappingStore extends MemoryScimGroupMappingStore {
+    readonly #view = legacyMappings(
+      {
+        count: (orgId) => super.count(orgId),
+        listByOrganization: (orgId, page) =>
+          super.listByOrganization(orgId, page),
+        put: (orgId, id, role) => super.put(orgId, id, role),
+        get: (orgId, id) => super.get(orgId, id),
+        removeIfNeutral: (orgId, id) => super.removeIfNeutral(orgId, id),
+      },
+      legacy,
+    );
+    override put = (orgId: string, id: string, role: OrganizationRole) =>
+      this.#view.put(orgId, id, role);
+    override get = (orgId: string, id: string) => this.#view.get(orgId, id);
+    override removeIfNeutral = (orgId: string, id: string) =>
+      this.#view.removeIfNeutral(orgId, id);
+    override forkForTransaction(orgId: string) {
+      const fork = super.forkForTransaction(orgId);
+      return {
+        ...fork,
+        store: overlapCast<MemoryScimGroupMappingStore>(
+          legacyMappings(bound(fork.store), legacy),
+        ),
+      };
+    }
+  }
+  const stores = {
+    ...base,
+    groups: new LegacyGroupStore(),
+    mappings: new LegacyMappingStore(),
+  };
+  return { stores, legacy };
+}
+
+/** Methods of a class instance, bound so private fields stay reachable. */
+function bound<T extends object>(target: T): T {
+  return new Proxy(target, {
+    get(object: T, key: keyof T) {
+      const value = object[key];
+      return value instanceof Function ? value.bind(object) : value;
+    },
+  });
 }
 
 async function fixture() {

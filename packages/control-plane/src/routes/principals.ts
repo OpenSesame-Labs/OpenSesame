@@ -1,4 +1,4 @@
-import { createHash, randomBytes, randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { appendAuditEvent } from "@opensesame/audit";
 import { createProvisionalPrincipal } from "@opensesame/auth-upstream";
 import {
@@ -13,11 +13,18 @@ import type {
   Principal,
   ProvisionalSession,
 } from "@opensesame/os-domain";
-import type { Context } from "hono";
 import { Hono } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
-import { peerAddress } from "../lib/peer-address.js";
-import { cookieAuthAllowed, requirePrincipal } from "../middleware/auth.js";
+import {
+  cookieAuthAllowed,
+  requirePrincipal,
+  resolveProvisionalSession,
+} from "../middleware/auth.js";
+import {
+  boundCookieName,
+  boundCookiePath,
+  boundCookieSameSite,
+} from "../middleware/bound-cookie-name.js";
 import type { Variables } from "../middleware/context.js";
 import { idempotencyMiddleware } from "../middleware/idempotency.js";
 import { deleteSecurityMapEntry } from "../repos/durable-map.js";
@@ -33,71 +40,18 @@ import { ensurePersonalOnAuthenticatedSession } from "./projects.js";
 export const principalRoutes = new Hono<{ Variables: Variables }>();
 
 export const MAX_PROVISIONAL = 1024;
-/** Public anonymous mints are capped so interactive sign-in always has room. */
-const PUBLIC_PROVISIONAL_MAX = 256;
-const PROVISIONAL_MINT_WINDOW_MS = 60_000;
-const PROVISIONAL_MINT_PER_CLIENT = 10;
-const PROVISIONAL_MINT_GLOBAL = 120;
-const PROVISIONAL_MINT_KEYS = 2_048;
-const PROVISIONAL_MINT_CLIENT_PREFIX = "client:";
+const PUBLIC_PROVISIONAL_MAX = 256; // Leave capacity for interactive sign-in.
 
-export type ProvisionalMintScope = "public" | "interaction";
+import {
+  allowsBoundMint,
+  consumeProvisionalMintBudget,
+  parseProvisionalMintBody,
+  provisionalMintFingerprint,
+  provisionalMintPerClient,
+} from "./provisional-mint-budget.js";
 
-/** Separate public and interactive mint budgets protect sign-in capacity. */
-export function consumeProvisionalMintBudget(
-  map: Map<string, number[]>,
-  fingerprint: string,
-  now: number,
-  scope: ProvisionalMintScope = "public",
-  perClientLimit = PROVISIONAL_MINT_PER_CLIENT,
-): boolean {
-  for (const [key, values] of map) {
-    const live = values.filter((at) => now - at < PROVISIONAL_MINT_WINDOW_MS);
-    if (live.length === 0) map.delete(key);
-    else if (live.length !== values.length) map.set(key, live);
-  }
-  const globalKey = `__global__:${scope}`;
-  const clientKey = `${PROVISIONAL_MINT_CLIENT_PREFIX}${scope}:${fingerprint}`;
-  const global = map.get(globalKey) ?? [];
-  const client = map.get(clientKey) ?? [];
-  if (
-    global.length >= PROVISIONAL_MINT_GLOBAL ||
-    client.length >= perClientLimit
-  ) {
-    return false;
-  }
-  global.push(now);
-  client.push(now);
-  map.set(globalKey, global);
-  map.set(clientKey, client);
-  while (map.size > PROVISIONAL_MINT_KEYS) {
-    // Preserve the global ceiling even if a caller rotates fingerprints.
-    const victim = [...map.keys()].find((key) => !key.startsWith("__global__"));
-    if (victim === undefined) break;
-    map.delete(victim);
-  }
-  return true;
-}
-
-/** Prefer the server-observed peer; headers are a test-only fallback. */
-function provisionalMintFingerprint(
-  c: Context<{ Variables: Variables }>,
-): string {
-  const address = peerAddress(c);
-  return createHash("sha256")
-    .update(address ?? "")
-    .update("|")
-    .update(address ? "" : (c.req.header("user-agent") ?? ""))
-    .digest("hex")
-    .slice(0, 16);
-}
-
-/** A shared peer gets a larger per-client budget, still globally bounded. */
-function provisionalMintPerClient(
-  c: Context<{ Variables: Variables }>,
-): number {
-  return peerAddress(c) ? 60 : 10;
-}
+export type { ProvisionalMintScope } from "./provisional-mint-budget.js";
+export { consumeProvisionalMintBudget } from "./provisional-mint-budget.js";
 
 principalRoutes.post(
   "/provisional",
@@ -124,17 +78,38 @@ principalRoutes.post(
   async (c) => {
     const ctx = c.get("ctx");
     const now = ctx.clock();
+    const raw = await c.req.text();
+    const body = parseProvisionalMintBody(raw);
+    if (!body.ok) return c.json({ error: "invalid_request" }, 400);
+    const { restoreProofHash } = body;
+    if (restoreProofHash) {
+      if (!allowsBoundMint(c)) return c.json({ error: "forbidden" }, 403);
+      const cookie = getCookie(c, ctx.config.provisionalCookieName);
+      if (cookie && (await resolveProvisionalSession(ctx, cookie)))
+        return c.json(
+          {
+            error: "session_exists",
+            message: "Sign out before starting another session.",
+          },
+          409,
+        );
+    }
 
     return serializeKeyed(
       ctx.stores.principalMutations,
       "provisional-mint",
       async () => {
+        await resumePendingProvisionalRevocations(ctx);
         // Expiry removes both the live lease and its unclaimed durable identity.
         for (const [
           id,
           session,
         ] of await ctx.stores.provisionalSessions.entries()) {
-          if (session.expiresAt.getTime() > now.getTime()) continue;
+          if (
+            session.revocationCleanupPending ||
+            session.expiresAt.getTime() > now.getTime()
+          )
+            continue;
           await deleteSecurityMapEntry(ctx.stores.provisionalSessions, id);
           const deleted = await ctx.repos.principals.deleteUnlinkedProvisional(
             session.principalId,
@@ -189,6 +164,8 @@ principalRoutes.post(
           createdAt: now,
           expiresAt: new Date(now.getTime() + ctx.config.provisionalTtlMs),
         };
+        if (restoreProofHash)
+          provisionalSession.restoreProofHash = restoreProofHash;
 
         const principal: Principal = {
           id: mapping.principalId,
@@ -220,14 +197,29 @@ principalRoutes.post(
         const accessToken = `pst_${randomBytes(24).toString("base64url")}`;
         await saveProvisional(ctx.stores, provisionalSession, accessToken);
 
+        // A fresh guest is bearer-only: it must not replace a shared cookie.
         if (c.req.header("x-opensesame-fresh-guest") !== "1") {
-          setCookie(c, ctx.config.provisionalCookieName, accessToken, {
-            httpOnly: true,
-            sameSite: "Lax",
-            path: "/",
-            maxAge: Math.floor(ctx.config.provisionalTtlMs / 1000),
-            secure: ctx.config.publicUrl.startsWith("https://"),
-          });
+          setCookie(
+            c,
+            restoreProofHash
+              ? boundCookieName(
+                  ctx.config.provisionalCookieName,
+                  provisionalSession.id,
+                )
+              : ctx.config.provisionalCookieName,
+            accessToken,
+            {
+              httpOnly: true,
+              sameSite: restoreProofHash
+                ? boundCookieSameSite(ctx.config.publicUrl)
+                : "Lax",
+              path: restoreProofHash
+                ? boundCookiePath(ctx.config.publicUrl)
+                : "/",
+              maxAge: Math.floor(ctx.config.provisionalTtlMs / 1000),
+              secure: ctx.config.publicUrl.startsWith("https://"),
+            },
+          );
         }
 
         await appendAuditEvent(ctx.repos.auditEvents, {
@@ -263,7 +255,6 @@ principalRoutes.post(
 /** Revoke server-side: the cookie can authenticate without client memory. */
 principalRoutes.post("/provisional/revoke", async (c) => {
   const ctx = c.get("ctx");
-  const principalId = c.get("principalId");
   const cookie = getCookie(c, ctx.config.provisionalCookieName);
 
   // Sign-out ends both presented sessions, even when their owners differ.
@@ -279,23 +270,7 @@ principalRoutes.post("/provisional/revoke", async (c) => {
   }
 
   for (const sessionId of revoking) {
-    const session = await ctx.stores.provisionalSessions.get(sessionId);
-    if (session) {
-      await ctx.stores.provisionalSessions.set(sessionId, {
-        ...session,
-        revokedAt: ctx.clock(),
-      });
-    }
-    await revokeSessionTokens(ctx.stores, sessionId);
-    // Attribute to whoever owned the session that ended, not to whichever
-    // credential authenticated the request: with two sessions in play those are
-    // different principals, and each trail should show its own session going.
-    const owner = session?.principalId ?? principalId;
-    await appendAuditEvent(ctx.repos.auditEvents, {
-      eventType: "principal.provisional_revoked",
-      outcome: "succeeded",
-      ...(owner !== undefined ? { principalId: owner } : undefined),
-      sessionId,
+    await revokeProvisionalSession(ctx, sessionId, {
       correlationId: c.get("correlationId"),
       actorType: "human",
       metadata: { action: "principal.provisional_revoke" },
@@ -647,7 +622,10 @@ principalRoutes.get("/mapping/resolve", async (c) => {
 });
 
 import {
+  resumePendingProvisionalRevocations,
+  revokeProvisionalSession,
+} from "../repos/provisional-revocation.js";
+import {
   removeOrphanTokens,
-  revokeSessionTokens,
   saveProvisional,
 } from "../repos/session-storage.js";

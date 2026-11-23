@@ -1,27 +1,13 @@
-import { overlapCast } from "@opensesame/os-domain";
-import { and, asc, count, eq } from "drizzle-orm";
-import {
-  type ScimUserRecord,
-  type ScimUserStore,
-  createMemoryScimUserStore,
-  createPostgresScimWithinLimit,
-  mapScimUser,
-  normalizeScimUser,
-} from "./capacity-admission.js";
-import { isUniqueViolation } from "./client-origin-store.js";
-import { ConflictError } from "./repos/interfaces.js";
+import type { ScimUserStore } from "./capacity-admission.js";
 import type { Database } from "./repos/postgres.js";
-import * as schema from "./schema/index.js";
 import type { ScimAdminLimits, ScimListPage } from "./scim-admin-limits.js";
 import {
   createMemoryScimTokenStore,
   createPostgresScimTokenStore,
 } from "./scim-token-store.js";
-import {
-  ScimUserCapacityError,
-  type ScimUserLimits,
-  scimUserLimits,
-} from "./scim-user-limits.js";
+import type { ScimUserLimits } from "./scim-user-limits.js";
+import { MemoryScimUserStore } from "./scim-users-memory.js";
+import { PostgresScimUserStore } from "./scim-users-postgres.js";
 
 /**
  * A SCIM 2.0 provisioned user (ADR 0056).
@@ -31,7 +17,11 @@ import {
  * `raw` keeps the attributes the IdP sent — SCIM's leniency norm is to accept
  * and echo what we do not model.
  */
-export type { ScimUserRecord, ScimUserStore } from "./capacity-admission.js";
+export type {
+  ScimUserRecord,
+  ScimUserStore,
+  VersionedScimUser,
+} from "./capacity-admission.js";
 
 export interface ScimTokenRecord {
   id: string;
@@ -70,7 +60,7 @@ export function createMemoryScimStores(
   adminLimits?: Partial<ScimAdminLimits>,
 ): ScimStores {
   return {
-    users: createMemoryScimUserStore(options),
+    users: new MemoryScimUserStore(options),
     tokens: createMemoryScimTokenStore(adminLimits),
   };
 }
@@ -80,134 +70,8 @@ export function createPostgresScimStores(
   options?: Partial<ScimUserLimits>,
   adminLimits?: Partial<ScimAdminLimits>,
 ): ScimStores {
-  const limits = scimUserLimits(options);
-  const admit = (user: ScimUserRecord, limit: number) =>
-    createPostgresScimWithinLimit(
-      db,
-      user,
-      Math.min(limit, limits.perOrganization),
-      limits.perDeployment,
-    );
   return {
-    users: {
-      async create(user) {
-        const created = await admit(user, limits.perOrganization);
-        if (!created) throw new ScimUserCapacityError();
-        return created;
-      },
-
-      async createWithinLimit(user, limit) {
-        return admit(user, limit);
-      },
-
-      async getById(orgId, id) {
-        const [row] = await db
-          .select()
-          .from(schema.scimUsers)
-          .where(
-            and(
-              eq(schema.scimUsers.organizationId, orgId),
-              eq(schema.scimUsers.id, id),
-            ),
-          )
-          .limit(1);
-        return row ? mapScimUser(row) : null;
-      },
-
-      async findByUserName(orgId, userName) {
-        const [row] = await db
-          .select()
-          .from(schema.scimUsers)
-          .where(
-            and(
-              eq(schema.scimUsers.organizationId, orgId),
-              eq(schema.scimUsers.userName, userName),
-            ),
-          )
-          .limit(1);
-        return row ? mapScimUser(row) : null;
-      },
-
-      async findBySubject(orgId, subject) {
-        const [byExternalId] = await db
-          .select()
-          .from(schema.scimUsers)
-          .where(
-            and(
-              eq(schema.scimUsers.organizationId, orgId),
-              eq(schema.scimUsers.externalId, subject),
-            ),
-          )
-          .orderBy(asc(schema.scimUsers.createdAt), asc(schema.scimUsers.id))
-          .limit(1);
-        if (byExternalId) return mapScimUser(byExternalId);
-        const [byUserName] = await db
-          .select()
-          .from(schema.scimUsers)
-          .where(
-            and(
-              eq(schema.scimUsers.organizationId, orgId),
-              eq(schema.scimUsers.userName, subject),
-            ),
-          )
-          .limit(1);
-        return byUserName ? mapScimUser(byUserName) : null;
-      },
-
-      async update(user) {
-        const row = normalizeScimUser(user);
-        try {
-          const [updated] = await db
-            .update(schema.scimUsers)
-            .set({
-              externalId: row.externalId ?? null,
-              userName: row.userName,
-              active: row.active,
-              displayName: row.displayName ?? null,
-              raw: row.raw,
-              updatedAt: row.updatedAt,
-            })
-            .where(
-              and(
-                eq(schema.scimUsers.organizationId, row.organizationId),
-                eq(schema.scimUsers.id, row.id),
-              ),
-            )
-            .returning();
-          if (!updated)
-            throw new ConflictError(`scim user not found: ${row.id}`);
-          return mapScimUser(updated);
-        } catch (error) {
-          if (isUniqueViolation(overlapCast(error))) {
-            throw new ConflictError(
-              `scim user already exists: ${row.userName}`,
-            );
-          }
-          throw error;
-        }
-      },
-
-      async countByOrganization(orgId) {
-        const [row] = await db
-          .select({ value: count() })
-          .from(schema.scimUsers)
-          .where(eq(schema.scimUsers.organizationId, orgId));
-        return Number(row?.value ?? 0);
-      },
-
-      async listByOrganization(orgId, page) {
-        const base = db
-          .select()
-          .from(schema.scimUsers)
-          .where(eq(schema.scimUsers.organizationId, orgId))
-          .orderBy(asc(schema.scimUsers.createdAt), asc(schema.scimUsers.id));
-        const rows = page
-          ? await base.limit(page.limit).offset(page.offset)
-          : await base;
-        return rows.map(mapScimUser);
-      },
-    },
-
+    users: new PostgresScimUserStore(db, options),
     tokens: createPostgresScimTokenStore(db, adminLimits),
   };
 }

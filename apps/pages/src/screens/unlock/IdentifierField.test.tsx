@@ -87,7 +87,7 @@ describe("IdentifierField", () => {
   });
 
   it("offers the magic link when no organization uses the domain", async () => {
-    const requestEmailMagicLink = vi.fn(async () => undefined);
+    const requestEmailMagicLink = vi.fn(async () => "sent" as const);
     Object.assign(identifierFieldDependencies, {
       lookupOrgByDomain: vi.fn(async () => null),
       requestEmailMagicLink,
@@ -108,6 +108,24 @@ describe("IdentifierField", () => {
       expect(screen.getByText(/Check your inbox/)).toBeTruthy();
     });
     expect(requestEmailMagicLink).toHaveBeenCalledWith("jordan@gmail.com");
+  });
+
+  it("does not say an email was sent when sign-in redirects instead", async () => {
+    const requestEmailMagicLink = vi.fn(async () => "redirecting" as const);
+    Object.assign(identifierFieldDependencies, {
+      lookupOrgByDomain: vi.fn(async () => null),
+      requestEmailMagicLink,
+    });
+    render(<IdentifierField onStartOrgMethod={vi.fn()} />);
+    type("jordan@gmail.com");
+    submit();
+    const send = await screen.findByRole("button", {
+      name: "Email me a sign-in link",
+    });
+    fireEvent.click(send);
+    await waitFor(() => expect(requestEmailMagicLink).toHaveBeenCalledOnce());
+    await waitFor(() => expect(send.hasAttribute("disabled")).toBe(false));
+    expect(screen.queryByText(/Check your inbox/)).toBeNull();
   });
 
   it("offers the hosted-page fallback with only the domain", async () => {

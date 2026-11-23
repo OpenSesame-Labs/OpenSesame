@@ -2,7 +2,7 @@
 use super::*;
 use crate::transport::test_support;
 use opensesame_domain::transport::TransportError;
-use opensesame_time::{Duration, Utc};
+use opensesame_time::Utc;
 use opensesame_transport_security::testkit::DisposableCa;
 use opensesame_transport_security::{GenerationCandidate, TransportGenerations};
 use std::sync::Arc;

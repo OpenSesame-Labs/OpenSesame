@@ -15,14 +15,13 @@ import type { Context } from "hono";
 import { Hono } from "hono";
 import type { AppContext } from "../context.js";
 import type { Variables } from "../middleware/context.js";
-import { serializeKeyed } from "../serialize.js";
+import { withScimOrganizationBoundary } from "../repos/scim-organization-boundary.js";
 import { asActiveOrgOwner } from "./org-owner-gate.js";
 import {
   SCIM_BOOKKEEPING_ATTRIBUTES as BOOKKEEPING,
   deprovision,
+  prepareDeprovision,
   provisionedRoleForSubject,
-  rememberedSubjects,
-  withRememberedSubjects,
 } from "./scim-effects.js";
 import {
   patchScimGroup,
@@ -49,6 +48,11 @@ import {
   scimTokenAdminRoutes,
   scimTokenHash,
 } from "./scim-token-admin.js";
+import {
+  type UserPatch,
+  deleteScimUser,
+  patchScimUser,
+} from "./scim-user-mutations.js";
 
 export { SCIM_TOKEN_PREFIX } from "./scim-token-admin.js";
 export { provisionedRoleForSubject, putGroupRoleMapping, roleForGroupName };
@@ -94,7 +98,9 @@ const NEVER_STORED = new Set(["password", "schemas", "meta", "id"]);
 const MAX_USER_NAME_LENGTH = 320;
 const MAX_DISPLAY_LENGTH = 512;
 const MAX_SCIM_USERS_PER_ORG = 10_000;
-const MAX_REMEMBERED_SUBJECTS = 64;
+
+/** Capacity refusal inside the organization boundary, so its staged work rolls back. */
+class ScimCapacityError extends Error {}
 
 /** Attributes as the directory sent them, minus what we must never keep. */
 function sanitizeRaw(body: JsonObject): JsonObject {
@@ -192,13 +198,6 @@ async function authenticate(
   return budgetScimMutation(c, { ctx, organization });
 }
 
-type UserPatch = {
-  active?: boolean;
-  userName?: string;
-  displayName?: string;
-  externalId?: string;
-};
-
 /** Fold one PATCH body into the fields this service models. */
 function foldUserPatch(operations: ScimPatchOperation[]): UserPatch {
   const patch: UserPatch = {};
@@ -265,22 +264,40 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
     const now = ctx.clock();
     const externalId = boundedScimString(body.externalId, MAX_USER_NAME_LENGTH);
     const displayName = boundedScimString(body.displayName, MAX_DISPLAY_LENGTH);
-    let created: ScimUserRecord | null;
+    let created: ScimUserRecord;
     try {
-      created = await ctx.stores.scim.users.createWithinLimit(
-        {
-          id: randomUUID(),
-          organizationId: organization.id,
-          userName,
-          active: scimActive(body.active) ?? true,
-          raw: sanitizeRaw(body),
-          createdAt: now,
-          updatedAt: now,
-          ...(externalId !== undefined ? { externalId } : undefined),
-          ...(displayName !== undefined ? { displayName } : undefined),
+      created = await withScimOrganizationBoundary(
+        ctx,
+        organization.id,
+        async (tx) => {
+          let user: ScimUserRecord = {
+            id: randomUUID(),
+            organizationId: organization.id,
+            userName,
+            active: scimActive(body.active) ?? true,
+            raw: sanitizeRaw(body),
+            createdAt: now,
+            updatedAt: now,
+            ...(externalId !== undefined ? { externalId } : undefined),
+            ...(displayName !== undefined ? { displayName } : undefined),
+          };
+          if (!user.active)
+            user = await prepareDeprovision(
+              tx,
+              organization,
+              user,
+              c.get("correlationId"),
+            );
+          const admitted = await tx.stores.scim.users.createWithinLimit(
+            user,
+            MAX_SCIM_USERS_PER_ORG,
+          );
+          if (!admitted) throw new ScimCapacityError();
+          return admitted;
         },
-        MAX_SCIM_USERS_PER_ORG,
       );
+      if (!created.active)
+        await deprovision(ctx, organization, created, c.get("correlationId"));
     } catch (error) {
       if (error instanceof ScimUserPayloadError)
         return scimError(c, 413, "User attributes exceed the storage limit.");
@@ -292,11 +309,11 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
           "uniqueness",
         );
       }
+      if (error instanceof ScimCapacityError) {
+        // Tenant or deployment-wide bound: either way the directory must stop.
+        return scimError(c, 409, "Provisioned user capacity reached.");
+      }
       throw error;
-    }
-    if (!created) {
-      // Tenant or deployment-wide bound: either way the directory must stop.
-      return scimError(c, 409, "Provisioned user capacity reached.");
     }
     await appendAuditEvent(ctx.repos.auditEvents, {
       eventType: "organization.scim_user_provisioned",
@@ -306,7 +323,10 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
       ...scimAuditActor(c),
       targetType: "scim_user",
       targetId: created.id,
-      metadata: { action: "organization.scim_user.create", state: "active" },
+      metadata: {
+        action: "organization.scim_user.create",
+        state: created.active ? "active" : "inactive",
+      },
     });
 
     c.header(
@@ -390,90 +410,36 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
     const body = await readScimJsonBody(c);
     if (!body) return scimError(c, 400, "Body is not a SCIM PatchOp.");
 
-    return serializeKeyed(
-      ctx.stores.principalMutations,
-      `scim-user:${organization.id}:${userId}`,
-      async () => {
-        const user = await ctx.stores.scim.users.getById(
-          organization.id,
-          userId,
-        );
-        if (!user) return scimError(c, 404, "User not found.");
-
-        const patch = foldUserPatch(scimPatchOperations(body));
-        if (patch.userName && patch.userName !== user.userName) {
-          const clash = await ctx.stores.scim.users.findByUserName(
-            organization.id,
-            patch.userName,
-          );
-          if (clash && clash.id !== user.id) {
-            return scimError(
-              c,
-              409,
-              "A user with that userName already exists.",
-              "uniqueness",
-            );
-          }
-        }
-
-        const next = {
-          ...user,
-          userName: patch.userName ?? user.userName,
-          active: patch.active ?? user.active,
-          updatedAt: ctx.clock(),
-          ...(patch.displayName !== undefined
-            ? { displayName: patch.displayName }
-            : undefined),
-          ...(patch.externalId !== undefined
-            ? { externalId: patch.externalId }
-            : undefined),
-        };
-        const remembered = withRememberedSubjects(user, next);
-        const previousCount = rememberedSubjects(user).length;
-        const nextCount = rememberedSubjects(remembered).length;
-        if (nextCount > MAX_REMEMBERED_SUBJECTS && nextCount > previousCount) {
-          return scimError(c, 409, "User subject history limit reached.");
-        }
-        let updated: ScimUserRecord;
-        try {
-          updated = await ctx.stores.scim.users.update(remembered);
-        } catch (error) {
-          if (error instanceof ConflictError) {
-            return scimError(
-              c,
-              409,
-              "A user with that userName already exists.",
-              "uniqueness",
-            );
-          }
-          throw error;
-        }
-
-        // Always reconcile an inactive row, not only the first transition:
-        // deprovisioning touches several durable rows and a retry after a
-        // partial failure must finish the job rather than see `active: false`
-        // and do nothing.
-        if (!updated.active) {
-          await deprovision(
-            ctx,
-            organization,
-            updated,
-            c.get("correlationId"),
-            user,
-          );
-        }
-        await appendAuditEvent(ctx.repos.auditEvents, {
-          ...scimUserUpdateAudit(user.active, updated.active),
-          outcome: "succeeded",
-          organizationId: organization.id,
-          correlationId: c.get("correlationId"),
-          ...scimAuditActor(c),
-          targetType: "scim_user",
-          targetId: updated.id,
-        });
-        return scimBody(c, 200, userResource(ctx, updated));
-      },
+    const outcome = await patchScimUser(
+      ctx,
+      organization,
+      userId,
+      foldUserPatch(scimPatchOperations(body)),
+      c.get("correlationId"),
     );
+    if ("error" in outcome) {
+      if (outcome.error === "not_found")
+        return scimError(c, 404, "User not found.");
+      if (outcome.error === "subject_limit")
+        return scimError(c, 409, "User subject history limit reached.");
+      return scimError(
+        c,
+        409,
+        "A user with that userName already exists.",
+        "uniqueness",
+      );
+    }
+    const { user, updated } = outcome;
+    await appendAuditEvent(ctx.repos.auditEvents, {
+      ...scimUserUpdateAudit(user.active, updated.active),
+      outcome: "succeeded",
+      organizationId: organization.id,
+      correlationId: c.get("correlationId"),
+      ...scimAuditActor(c),
+      targetType: "scim_user",
+      targetId: updated.id,
+    });
+    return scimBody(c, 200, userResource(ctx, updated));
   });
 
   /**
@@ -488,45 +454,34 @@ export function createScimRoutes(): Hono<{ Variables: Variables }> {
     const { ctx, organization } = session;
     const userId = c.req.param("id") ?? "";
 
-    return serializeKeyed(
-      ctx.stores.principalMutations,
-      `scim-user:${organization.id}:${userId}`,
-      async () => {
-        const user = await ctx.stores.scim.users.getById(
-          organization.id,
-          userId,
-        );
-        if (!user) return scimError(c, 404, "User not found.");
-        const updated = user.active
-          ? await ctx.stores.scim.users.update({
-              ...user,
-              active: false,
-              updatedAt: ctx.clock(),
-            })
-          : user;
-        // DELETE is the leaver signal, and deprovisioning is a multi-row
-        // operation. Re-run it even when the row already reads inactive so a
-        // retry after a partial failure completes instead of returning 204
-        // over a membership that still exists.
-        await deprovision(ctx, organization, updated, c.get("correlationId"));
-        if (user.active) {
-          await appendAuditEvent(ctx.repos.auditEvents, {
-            eventType: "organization.scim_user_deactivated",
-            outcome: "succeeded",
-            organizationId: organization.id,
-            correlationId: c.get("correlationId"),
-            ...scimAuditActor(c),
-            targetType: "scim_user",
-            targetId: updated.id,
-            metadata: {
-              action: "organization.scim_user.delete",
-              state: "inactive",
-            },
-          });
-        }
-        return c.body(null, 204);
-      },
+    const outcome = await deleteScimUser(
+      ctx,
+      organization,
+      userId,
+      c.get("correlationId"),
     );
+    if ("error" in outcome) {
+      if (outcome.error === "not_found")
+        return scimError(c, 404, "User not found.");
+      return scimError(c, 409, "The user could not be deactivated.");
+    }
+    const { user, updated } = outcome;
+    if (user.active) {
+      await appendAuditEvent(ctx.repos.auditEvents, {
+        eventType: "organization.scim_user_deactivated",
+        outcome: "succeeded",
+        organizationId: organization.id,
+        correlationId: c.get("correlationId"),
+        ...scimAuditActor(c),
+        targetType: "scim_user",
+        targetId: updated.id,
+        metadata: {
+          action: "organization.scim_user.delete",
+          state: "inactive",
+        },
+      });
+    }
+    return c.body(null, 204);
   });
 
   routes.patch("/:organizationId/scim/v2/Groups/:groupId", async (c) => {

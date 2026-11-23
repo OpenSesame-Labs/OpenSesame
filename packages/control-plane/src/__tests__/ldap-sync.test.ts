@@ -10,17 +10,10 @@ import { syncLdapDirectory } from "../interactions/ldap.js";
 import { resetLdapAttemptBudget } from "../routes/interactions-ldap.js";
 import type { startServer } from "../server.js";
 import { onFreePort } from "./free-port.js";
+import { registerLdapSyncRaceCases } from "./ldap-sync-race-cases.js";
 import { hopUrl } from "./upstream-hop.js";
 
-/**
- * Directory sync — the pull twin of SCIM push (D17), against a real directory.
- *
- * The whole point of a sync is what it does to people who are no longer there,
- * so the leaver case is the one that matters: membership gone AND every
- * session that membership authorized gone with it, through the same helper
- * SCIM deprovisioning calls. A test that only asserted the membership row
- * would pass while a deprovisioned employee stayed signed in.
- */
+/** Directory sync against a real directory, including session revocation. */
 
 type Started = Awaited<ReturnType<typeof startServer>>;
 
@@ -171,7 +164,6 @@ describe("LDAP directory sync", () => {
     return res;
   }
 
-  /** A real sign-in: the only way a directory entry becomes a principal. */
   async function signIn(username: string, password: string) {
     const jar = new Jar();
     const verifier = randomBytes(32).toString("base64url");
@@ -404,4 +396,12 @@ describe("LDAP directory sync", () => {
 
     await ctx.stores.orgFederation.ldapConfigs.put(config());
   });
+  registerLdapSyncRaceCases(() => ({
+    ctx: started.ctx,
+    directory,
+    organizationId: ORG_ID,
+    config,
+    carolUuid,
+    danUuid,
+  }));
 });

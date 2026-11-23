@@ -16,6 +16,7 @@ import {
   rsaPair,
 } from "./cc-token-helpers.js";
 import { onFreePort } from "./free-port.js";
+import { mockHostWithdrawal } from "./host-withdrawal-test-helper.js";
 import {
   DEFAULT_IDP_SUBJECT,
   PAGES_ORIGIN,
@@ -220,16 +221,29 @@ describe("J-REPLICA enrollment, SCIM, and client_credentials", () => {
         )
       ).status,
     ).toBe(201);
-    expect(
-      (
+    // Deprovisioning confirms the withdrawal with Host before it completes;
+    // stub only that endpoint so the cross-replica assertion stays real.
+    const host = mockHostWithdrawal(first.ctx);
+    let deactivated: number;
+    try {
+      deactivated = (
         await patchScim(
           first.app,
           usersPath(org.id, `/${user.body.id}`),
           token,
           [{ op: "replace", path: "active", value: false }],
         )
-      ).status,
-    ).toBe(200);
+      ).status;
+    } finally {
+      host.restore();
+    }
+    expect(deactivated).toBe(200);
+    expect(host.requests).toEqual([
+      expect.objectContaining({
+        organization_id: org.id,
+        principal_id: guest.principalId,
+      }),
+    ]);
     expect(
       await second.ctx.stores.organizationMemberships.find(
         org.id,

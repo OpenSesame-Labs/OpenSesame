@@ -2,10 +2,10 @@ import { isString, isTypeofObject, overlapCast } from "@opensesame/os-domain";
 import { Hono } from "hono";
 import { requirePrincipal } from "../middleware/auth.js";
 import type { Variables } from "../middleware/context.js";
+import { hostApiEndpoint } from "../services/host-endpoint.js";
 import {
   authenticatedPrincipalId,
   ensurePersonalOrganization,
-  hostApiEndpoint,
   serializeMembershipMutation,
 } from "./organizations.js";
 
@@ -115,16 +115,19 @@ deviceRoutes.post("/approve", requirePrincipal(), async (c) => {
   )
     return c.json({ error: "rate_limited" }, 429);
   return serializeMembershipMutation(ctx, organizationId, async () => {
-    // Membership changes use the same per-organization fence. Holding it from
-    // this authoritative re-read through Host approval gives a strict order:
-    // either approval lands first and the following mutation revokes it, or the
-    // mutation lands first and this request observes the new authority.
-    const membership = await ctx.stores.organizationMemberships.find(
+    // Host also fences the revision, including a delayed in-flight approval
+    // that arrives after a replica has started a withdrawal.
+    const membership = await ctx.stores.organizationMemberships.findVersioned(
       organizationId,
       principalId,
     );
     const organization = await ctx.stores.organizations.get(organizationId);
-    if (!membership || !organization || organization.state !== "active") {
+    if (
+      !membership ||
+      membership.withdrawal ||
+      !organization ||
+      organization.state !== "active"
+    ) {
       return c.json({ error: "organization_access_denied" }, 403);
     }
     const url = hostApiEndpoint(ctx.config.hostApiUrl, "api/v1/device/approve");
@@ -142,7 +145,9 @@ deviceRoutes.post("/approve", requirePrincipal(), async (c) => {
           user_code: userCode,
           principal: principalId,
           organization_id: organizationId,
-          organization_role: membership.role,
+          organization_role: membership.membership.role,
+          membership_incarnation: membership.incarnation,
+          authority_revision: membership.authorityRevision,
         }),
         redirect: "error",
         signal: AbortSignal.timeout(5_000),

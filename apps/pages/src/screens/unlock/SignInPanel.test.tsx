@@ -1,8 +1,3 @@
-import { cleanup, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-/** @vitest-environment jsdom */
-import { identityHookSeams } from "../../bindings/identity.js";
-
 import type {
   OperatorIdp,
   PagesSettings,
@@ -11,6 +6,16 @@ import {
   defaultSignInMethods,
   settingsSeams,
 } from "@opensesame/app-core/lib/settings.js";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+/** @vitest-environment jsdom */
+import { identityHookSeams } from "../../bindings/identity.js";
 
 /**
  * Setup is the allowlist, and this screen is where that has to be true.
@@ -42,6 +47,7 @@ Object.assign(settingsSeams, {
 import { deviceIdentitySeams } from "@opensesame/app-core/lib/device-identity.js";
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
 import { localStore } from "@opensesame/app-core/ports.js";
+
 Object.assign(identitySeams, {
   identityBase: () => state.identityApi,
 });
@@ -54,6 +60,7 @@ Object.assign(deviceIdentitySeams, {
 
 import type { TrustedUpstream } from "@opensesame/app-core/lib/federation.js";
 import { federationSeams } from "@opensesame/app-core/lib/federation.js";
+
 const beginSignIn = vi.fn((_upstream: TrustedUpstream) => Promise.resolve());
 Object.assign(federationSeams, {
   beginSignIn,
@@ -66,7 +73,9 @@ Object.assign(federationSeams, {
   loadSession: () => null,
 });
 
+import { providersSeams } from "@opensesame/app-core/lib/providers.js";
 import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registry/targets.js";
+import { MagicLinkStage } from "./MagicLinkStage.js";
 import { SignInPanel } from "./SignInPanel.js";
 
 function idp(overrides: Partial<OperatorIdp> = {}): OperatorIdp {
@@ -118,6 +127,22 @@ beforeEach(() => {
 });
 
 afterEach(cleanup);
+
+it("does not claim an email was sent when sign-in redirects", async () => {
+  const request = vi
+    .spyOn(providersSeams, "requestEmailMagicLink")
+    .mockResolvedValue("redirecting");
+  const setBusy = vi.fn();
+  render(<MagicLinkStage busy={false} setBusy={setBusy} back={<span />} />);
+  fireEvent.change(screen.getByLabelText("Email me a sign-in link"), {
+    target: { value: "ada@example.com" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Send link" }));
+  await waitFor(() => expect(request).toHaveBeenCalledOnce());
+  await waitFor(() => expect(setBusy).toHaveBeenLastCalledWith(false));
+  expect(screen.queryByText(/Link sent/)).toBeNull();
+  request.mockRestore();
+});
 
 function renderPanel() {
   return render(

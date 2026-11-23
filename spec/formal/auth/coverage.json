@@ -1,10 +1,10 @@
 {
   "version": 1,
-  "reviewed_revision": "66d79b7cfa4d8304499541ff3794033ea72c5bc6",
+  "reviewed_revision": "8f269718b1db89bd1abc7cc4d4e6218bfddff6b3",
   "sources": [
     {
       "path": "packages/control-plane/src/middleware/auth.ts",
-      "sha256": "260edbc2c467fb0ec3f3cd8cf38968204a797d54af3039a9ac96774a5e5a1a2a"
+      "sha256": "765116ba52061c09b14bdae1d89e3e200dba98d3efdaffb185bfdc1628a1bc55"
     },
     {
       "path": "packages/control-plane/src/proofs/verified-principal.ts",
@@ -20,7 +20,7 @@
     },
     {
       "path": "packages/os-domain/src/types.ts",
-      "sha256": "7dab9fac6425638e62b09fbbc656f2a25e4590d8c7b5ec01bdac717f61c01ec8"
+      "sha256": "ea339ae932aa353c6de1f3a9b94ac6b138d150c34a220a76ec5321aa7f47c31f"
     }
   ]
 }

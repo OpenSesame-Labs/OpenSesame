@@ -40,7 +40,7 @@ pub(crate) async fn state() -> AppState {
 /// not how a bearer is obtained.
 pub(crate) fn actor(st: &AppState, organization: OrganizationId) -> Actor {
     let principal = PrincipalId::new();
-    let opaque = format!("sess_{}", uuid::Uuid::new_v4());
+    let opaque = format!("fixture_{}", uuid::Uuid::new_v4());
     let digest = opensesame_claims::hash_secret(&opaque);
     st.sessions.lock().unwrap().insert(
         digest,

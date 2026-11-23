@@ -1,6 +1,8 @@
 use clap::{Parser, ValueEnum};
 use std::{env, net::SocketAddr};
 
+mod device_app_url;
+
 /// Which route set `opensesame host run` serves (ADR 0181).
 ///
 /// `host` is the full Host API. `relay` serves liveness and vault-relay
@@ -232,6 +234,7 @@ pub struct StartupSecurity {
     pub host_authorization: Option<crate::host_authorization::HostAuthorizationVerifier>,
     pub deployment: Deployment,
     pub identity_mapping: Option<crate::identity_mapping::IdentityMappingClient>,
+    pub client_app_url: Option<url::Url>,
     pub operator_token: String,
     pub claim_pepper: String,
     pub receipt_signer: opensesame_audit::ReceiptSigner,
@@ -268,6 +271,10 @@ impl StartupSecurity {
         let listener_refs = listeners.iter().map(String::as_str).collect::<Vec<_>>();
         let exposure = classify(&listener_refs, &endpoint_refs)?;
         let deployment = from_env(exposure)?;
+        let client_app_url = device_app_url::resolve(
+            env::var("OPENSESAME_CLIENT_APP_URL").ok().as_deref(),
+            deployment.production_safeguards(),
+        )?;
         if deployment.production_safeguards()
             && endpoint_refs.iter().any(|endpoint| {
                 !endpoint.starts_with("https://")
@@ -312,6 +319,7 @@ impl StartupSecurity {
             host_authorization: crate::host_authorization::HostAuthorizationVerifier::from_env()?,
             deployment,
             identity_mapping,
+            client_app_url,
             operator_token,
             claim_pepper,
             receipt_signer,

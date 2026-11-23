@@ -35,6 +35,12 @@ pub struct LaunchArgs {
     pub principal_id: String,
     #[arg(long)]
     pub organization_id: String,
+    /// Identity membership incarnation from the current Host session.
+    #[arg(long, requires = "authority_revision")]
+    pub membership_incarnation: Option<String>,
+    /// Identity authority revision from the current Host session.
+    #[arg(long, requires = "membership_incarnation")]
+    pub authority_revision: Option<String>,
     #[arg(long, value_parser=["mcp-host", "mcp-client"])]
     pub audience: String,
     #[arg(long, required = true, value_delimiter = ',')]
@@ -209,7 +215,8 @@ async fn launch(
     }
     let client_id = uuid::Uuid::new_v4().to_string();
     let audience = format!("urn:opensesame:agent:{}", args.audience);
-    let body = json!({"principal_id":args.principal_id,"organization_id":args.organization_id,"client_id":client_id,"audience":audience,"capabilities":args.capability});
+    let body = json!({"principal_id":args.principal_id,"organization_id":args.organization_id,"client_id":client_id,"audience":audience,"capabilities":args.capability,
+        "membership_incarnation":args.membership_incarnation,"authority_revision":args.authority_revision});
     confirm(&serde_json::to_string_pretty(&body)?)?;
     let bytes = post(client, base, operator, "/api/v1/agent-launches", body).await?;
     let response: LaunchResponse = serde_json::from_slice(&bytes)
@@ -258,6 +265,8 @@ mod tests {
         let args = LaunchArgs {
             principal_id: "p".into(),
             organization_id: "o".into(),
+            membership_incarnation: None,
+            authority_revision: None,
             audience: "mcp-host".into(),
             capability: vec!["host.sync.read".into()],
             socket: "/tmp/test.sock".into(),

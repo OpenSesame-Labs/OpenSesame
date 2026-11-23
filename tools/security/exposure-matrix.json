@@ -2,6 +2,52 @@
   "version": 1,
   "surfaces": [
     {
+      "id": "magic-link-return",
+      "kind": "artifact",
+      "area": "account-totp",
+      "flow": "magic-link-return",
+      "observer": "public",
+      "artifacts": ["authority-api"],
+      "verification": "server",
+      "controls": [
+        "mandatory-proof",
+        "recipient-bound",
+        "cryptographic-random",
+        "trusted-budget-source"
+      ],
+      "guarantees": ["single-use", "expiry"],
+      "enforcement": "authoritative",
+      "entropyBits": 256,
+      "minSecretBytes": 32,
+      "budget": null,
+      "implementation": [
+        "packages/control-plane/src/routes/auth-upstream.ts",
+        "packages/control-plane/src/routes/interactions-email.ts",
+        "packages/control-plane/src/routes/authentication-service.ts",
+        "packages/control-plane/src/services/better-auth-bridge.ts",
+        "packages/control-plane/src/services/magic-link-budget.ts",
+        "packages/control-plane/src/services/magic-link-confirmation.ts",
+        "packages/control-plane/src/services/magic-link-exchange.ts",
+        "packages/control-plane/src/services/magic-link-return.ts",
+        "packages/control-plane/src/repos/durable-map.ts",
+        "packages/control-plane/src/repos/security-maps.ts",
+        "packages/control-plane/src/state.ts",
+        "packages/app-core/src/lib/magic-link-client.ts",
+        "packages/app-core/src/lib/providers.ts",
+        "packages/app-core/src/lib/federation.ts",
+        "packages/app-core/src/lib/federation-response.ts"
+      ],
+      "regressions": [
+        "packages/control-plane/src/__tests__/auth-upstream.test.ts",
+        "packages/control-plane/src/__tests__/magic-link-exchange.test.ts",
+        "packages/control-plane/src/__tests__/magic-link-first-party.test.ts",
+        "packages/app-core/src/lib/federation-response.test.ts",
+        "packages/app-core/src/lib/magic-link-client.test.ts",
+        "packages/app-core/src/lib/providers.test.ts"
+      ],
+      "review": "The emailed proof remains a high-entropy bearer for the mailbox holder, but GET is inert. First-party completion additionally requires the initiating tab's verifier and state; hosted completion requires explicit confirmation plus the initiating interaction cookie. Durable server stores enforce expiry and atomic single use. Send budgets protect availability, not proof secrecy. This classification does not claim protection from a compromised mailbox/browser or a scanner that submits forms. 2026-11-19: refusal regressions compare the complete durable send-budget ledger before and after recipient, source, global, backend-recipient, and backend-application denials; denial now preserves even ledger expiry metadata. Passed all changed magic-link/federation suites (60 tests in 7 files). Cached pre-verifier clients receive a distinct non-cacheable 426 upgrade response before mail or budget effects. New Pages uses a versioned send route: an older Identity returns 404 before mail and Pages uses the existing hosted OAuth/PKCE email interaction, never the legacy first-party bearer route. A composed old-Identity check completes hosted email and OAuth return through first-party session adoption; both Pages entry points avoid a sent confirmation when redirecting. Drain the Pages cache and in-flight links, then switch Identity traffic atomically to avoid routing new links to old replicas. Upgrade telemetry requires an approved callback or the exact historical root callback paired with its allowlisted Origin, and is capped per process with suppressed-event rollup, separately from mail admission. The root callback is never admitted for a modern send. Untrusted traffic and repeated in-window requests are regression-bound. Cached old clients still show their generic 426 error. The legacy bearer exchange remains absent. 2026-11-22: merge review for the session-revocation lineage onto main (#2806, #2891, #2892). security-maps.ts and state.ts are a union: this lineage's maps and stores plus main's durable scimMutationRates SCIM mutation-window map (60 s expiry, 10,000-entry bound), registered in the same way as the existing maps. No existing map's durability, expiry or bound changed. federation.ts takes main's import layout and settingsEpoch fence, and keeps this lineage's magic-link completion before ambient and OIDC handling. magic-link-client.ts now passes the requesting Identity base as restoreSession's expectedBase (main's #2806 added that parameter), so a link can adopt a session only from the Identity API it was sent from. The bearer, verifier and state checks are unchanged. Regressions executed on the merged tree: app-core federation-response, magic-link-client, providers, drop-present, federation* and identity* (504 tests in 41 files); control-plane auth-upstream, claims-drop-code, claims-drop-completion, claims-present, interaction-activation-clock, interaction-totp-budget, magic-link-exchange and magic-link-first-party (64 tests in 8 files); os-domain claim-token and claim-token-extended (23 tests in 2 files). 2026-11-23: reviewed the anti-slop refactor of magic-link-client.ts (da2b60796). readPending now checks sessionEpoch with os-domain isNumber instead of typeof, which is equivalent for the JSON-parsed sessionStorage value it reads, and beginMagicLink returns a named MagicLinkHandoff type with the same request and commit members. Verifier, state, identity base and restoreSession expectedBase handling are byte-for-byte unchanged. Regressions executed: app-core magic-link-client (3 tests); control-plane scim*, organization-withdrawal*, api and magic-link* (120 passed, 1 skipped in 21 files). 2026-11-23: reviewed the Codex P2 fixes to federation.ts and magic-link-client.ts. federation.ts now returns a distinguishable magic-link outcome from completeReturn (completeSignIn still yields null for it), so the return screen opens the vault or records an authenticated banner after an email-link sign-in instead of landing on the front door; no request, credential or check is added. magic-link-client.ts records a random per-page-load marker with the pending link: a return in the same page load keeps the recorded session-epoch fence, while a return after the email link reloads the app fences restoreSession to the epoch captured before the exchange, so a valid exchange is no longer rejected and revoked but a sign-out during the exchange still refuses it. Verifier, state, identity base and expectedBase checks are unchanged. Regressions executed: app-core federation*, magic-link*, identity*, guest*, device-identity, claims, settings, browser-pairing, providers, drop-present, screens/federation-return-model and screens/unlock (913 tests in 76 files, including the new magic-link-client-reload and federation-return-model suites); Pages FederationReturn, IdentityCeremony, ConnectionCeremony, FrontDoor and unlock (309 tests in 37 files); control-plane bound-cookie*, magic-link*, auth-upstream, auth-session-interleaving, auth-admission, principals* and api (120 tests in 11 files)."
+    },
+    {
       "id": "hosted-secret-drop",
       "kind": "online",
       "area": "hosted-drop",
@@ -52,7 +98,7 @@
         "packages/control-plane/src/__tests__/claims-present.test.ts",
         "packages/app-core/src/lib/vault/drop-present.test.ts"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-21: classified dependency-only change to packages/control-plane/package.json for the Dependabot npm-minor-and-patch batch #2855 (hono 4.13.16 to 4.13.18, @hono/node-server 2.1.6 to 2.1.8, jose 6.2.15 to 6.2.17, nodemailer 10.3.1 to 10.5.0, @electric-sql/pglite 0.5.15 to 0.5.16); no route, store or policy code changed. Regressions executed at the bump head: claims-drop-completion.security.test.ts, claims-drop-code.security.test.ts and claims-present.test.ts (20 tests in 3 files), os-domain claim-token.test.ts and claim-token-extended.test.ts (23 tests in 2), app-core drop-present.test.ts within a 12-file targeted run (161 tests); npm run audit:exposure CLEAN after the rotation. The manifest fingerprint is deterministic output of the reviewed byte change, not a blind refresh. 2026-11-21: classified dependency-only change to packages/control-plane/package.json for the Dependabot npm-minor-and-patch batch #2886 (openid-client 6.8.9 to 6.9.0, @playwright/test 1.65.0 to 1.65.1); no route, store or policy code changed. Regressions executed at the bump head: claims-drop-completion.security.test.ts, claims-drop-code.security.test.ts and claims-present.test.ts (20 tests in 3 files), os-domain claim-token.test.ts and claim-token-extended.test.ts (23 tests in 2), app-core drop-present.test.ts within a 12-file targeted run (161 tests); npm run audit:exposure CLEAN after the rotation. The manifest fingerprint is deterministic output of the reviewed byte change, not a blind refresh."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-21: classified dependency-only change to packages/control-plane/package.json for the Dependabot npm-minor-and-patch batch #2855 (hono 4.13.16 to 4.13.18, @hono/node-server 2.1.6 to 2.1.8, jose 6.2.15 to 6.2.17, nodemailer 10.3.1 to 10.5.0, @electric-sql/pglite 0.5.15 to 0.5.16); no route, store or policy code changed. Regressions executed at the bump head: claims-drop-completion.security.test.ts, claims-drop-code.security.test.ts and claims-present.test.ts (20 tests in 3 files), os-domain claim-token.test.ts and claim-token-extended.test.ts (23 tests in 2), app-core drop-present.test.ts within a 12-file targeted run (161 tests); npm run audit:exposure CLEAN after the rotation. The manifest fingerprint is deterministic output of the reviewed byte change, not a blind refresh. 2026-11-21: classified dependency-only change to packages/control-plane/package.json for the Dependabot npm-minor-and-patch batch #2886 (openid-client 6.8.9 to 6.9.0, @playwright/test 1.65.0 to 1.65.1); no route, store or policy code changed. Regressions executed at the bump head: claims-drop-completion.security.test.ts, claims-drop-code.security.test.ts and claims-present.test.ts (20 tests in 3 files), os-domain claim-token.test.ts and claim-token-extended.test.ts (23 tests in 2), app-core drop-present.test.ts within a 12-file targeted run (161 tests); npm run audit:exposure CLEAN after the rotation. The manifest fingerprint is deterministic output of the reviewed byte change, not a blind refresh. 2026-11-22: merge review for the session-revocation lineage onto main (#2806, #2891, #2892). security-maps.ts and state.ts are a union: this lineage's maps and stores plus main's durable scimMutationRates SCIM mutation-window map (60 s expiry, 10,000-entry bound), registered in the same way as the existing maps. No existing map's durability, expiry or bound changed. federation.ts takes main's import layout and settingsEpoch fence, and keeps this lineage's magic-link completion before ambient and OIDC handling. magic-link-client.ts now passes the requesting Identity base as restoreSession's expectedBase (main's #2806 added that parameter), so a link can adopt a session only from the Identity API it was sent from. The bearer, verifier and state checks are unchanged. Regressions executed on the merged tree: app-core federation-response, magic-link-client, providers, drop-present, federation* and identity* (504 tests in 41 files); control-plane auth-upstream, claims-drop-code, claims-drop-completion, claims-present, interaction-activation-clock, interaction-totp-budget, magic-link-exchange and magic-link-first-party (64 tests in 8 files); os-domain claim-token and claim-token-extended (23 tests in 2 files)."
     },
     {
       "id": "portable-secret-drop",
@@ -219,7 +265,7 @@
         "packages/control-plane/src/__tests__/interaction-totp-budget.security.test.ts",
         "packages/control-plane/src/__tests__/interaction-activation-clock.security.test.ts"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. 2026-11-22: merge review for the session-revocation lineage onto main (#2806, #2891, #2892). security-maps.ts and state.ts are a union: this lineage's maps and stores plus main's durable scimMutationRates SCIM mutation-window map (60 s expiry, 10,000-entry bound), registered in the same way as the existing maps. No existing map's durability, expiry or bound changed. federation.ts takes main's import layout and settingsEpoch fence, and keeps this lineage's magic-link completion before ambient and OIDC handling. magic-link-client.ts now passes the requesting Identity base as restoreSession's expectedBase (main's #2806 added that parameter), so a link can adopt a session only from the Identity API it was sent from. The bearer, verifier and state checks are unchanged. Regressions executed on the merged tree: app-core federation-response, magic-link-client, providers, drop-present, federation* and identity* (504 tests in 41 files); control-plane auth-upstream, claims-drop-code, claims-drop-completion, claims-present, interaction-activation-clock, interaction-totp-budget, magic-link-exchange and magic-link-first-party (64 tests in 8 files); os-domain claim-token and claim-token-extended (23 tests in 2 files)."
     },
     {
       "id": "est-password",
@@ -277,7 +323,7 @@
         "crates/storage/tests/est_passphrase_budget.rs",
         "crates/storage/tests/certmgr_pact.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Source-lifetime review: the authenticated request rechecks its transport after the awaited password-budget reservation. Twelve EST certificate, freshness and TLS tests and five budget tests passed; source-lifetime clock and deadline controls passed in the integrated proof suite. 2026-11-21: re-reviewed the pre-issuance trust recheck on the rebased HEAD bytes (e2b69c67a): authenticate now reports its admission basis (Certificate or Passphrase) and enroll re-runs the freshness fence at the mint boundary, after the policy and issuer awaits \u2014 the live-transport check for both bases plus current evidence for the certificate basis \u2014 so a source withdrawn after admission is refused with 401 before the signer runs; withdrawal after admission is denied. record_issued now creates the issuance request unfulfilled and settles it through the new guarded complete_keyfree_certificate_issuance transaction, storing the SAN document as dns_names/ip_addrs. Executed reruns on the reviewed bytes: 36 gateway EST route lib tests (including the new mint-withdrawal control and refusal pair), the 138-test storage lib suite, the est_passphrase_budget (5) and certmgr_pact (9) storage integrations, and the 6-test transport-security source-lifetime suite all passed; the Lean source-lifetime proof suite still cannot run here (pre-existing spiffe-source drift at main, no Lean toolchain), so its finite Rust regressions are the executed evidence. 2026-11-20: council chunk 07 renamed the pact migration test pact_migrations_are_append_only_and_end_with_0040 to _0060 to match the migration 0060 assertion; no assertion, budget or enrollment logic changed. Passed: cargo test -p opensesame-storage --test certmgr_pact (9/9) and the full opensesame-storage suite (403) on the pinned Rust 1.99.0 toolchain. 2026-11-21 (council chunk 08): the bound crates/storage/src/migrations.rs refresh appends migration 0060_invocation_budget_claims to the inventory; the append-only pact still passes (cargo test -p opensesame-storage --test certmgr_pact, 9/9). No enrollment, budget or assertion logic changed. 2026-11-22: rechecked on the PR #2804 merge with main 94683918: migrations.rs and certmgr_pact.rs differ from main only by the 0060_invocation_budget_claims append and the matching pact rename; EST budget and enrollment code is main's."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Source-lifetime review: the authenticated request rechecks its transport after the awaited password-budget reservation. Twelve EST certificate, freshness and TLS tests and five budget tests passed; source-lifetime clock and deadline controls passed in the integrated proof suite. 2026-11-21: re-reviewed the pre-issuance trust recheck on the rebased HEAD bytes (e2b69c67a): authenticate now reports its admission basis (Certificate or Passphrase) and enroll re-runs the freshness fence at the mint boundary, after the policy and issuer awaits \u2014 the live-transport check for both bases plus current evidence for the certificate basis \u2014 so a source withdrawn after admission is refused with 401 before the signer runs; withdrawal after admission is denied. record_issued now creates the issuance request unfulfilled and settles it through the new guarded complete_keyfree_certificate_issuance transaction, storing the SAN document as dns_names/ip_addrs. Executed reruns on the reviewed bytes: 36 gateway EST route lib tests (including the new mint-withdrawal control and refusal pair), the 138-test storage lib suite, the est_passphrase_budget (5) and certmgr_pact (9) storage integrations, and the 6-test transport-security source-lifetime suite all passed; the Lean source-lifetime proof suite still cannot run here (pre-existing spiffe-source drift at main, no Lean toolchain), so its finite Rust regressions are the executed evidence. 2026-11-20: council chunk 07 renamed the pact migration test pact_migrations_are_append_only_and_end_with_0040 to _0060 to match the migration 0060 assertion; no assertion, budget or enrollment logic changed. Passed: cargo test -p opensesame-storage --test certmgr_pact (9/9) and the full opensesame-storage suite (403) on the pinned Rust 1.99.0 toolchain. 2026-11-21 (council chunk 08): the bound crates/storage/src/migrations.rs refresh appends migration 0060_invocation_budget_claims to the inventory; the append-only pact still passes (cargo test -p opensesame-storage --test certmgr_pact, 9/9). No enrollment, budget or assertion logic changed. 2026-11-22: rechecked on the PR #2804 merge with main 94683918: migrations.rs and certmgr_pact.rs differ from main only by the 0060_invocation_budget_claims append and the matching pact rename; EST budget and enrollment code is main's. 2026-11-23: merged main 7ab65ea1 into #2680. migrations.rs and certmgr_pact.rs are the union of both reviewed inventories: main's 0060_invocation_budget_claims stays 0060 and the session-revocation migrations are renumbered 0061_host_membership_withdrawals, 0062_host_native_authority and 0063_pairing_membership_revision with unchanged SQL bytes; the pact asserts that order and last version. No EST enrollment, budget or assertion logic changed. Passed: cargo test -p opensesame-storage --test certmgr_pact (9/9), --test concurrent_migrations (1/1) and the storage lib suite (146)."
     },
     {
       "id": "est-policy",
@@ -419,7 +465,7 @@
         "crates/gateway/tests/host-consumer.test.ts",
         "crates/connection-broker/src/constructor_tests.rs"
       ],
-      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. Relay execution is now disabled and the unused liveness map is removed from production and testkit state; the testkit keeps the same four-route fence. The focused relay and testkit server and integration regressions and the live TypeScript consumer passed before the latest main integration; broker-mode regressions passed again on the updated base. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-20: reviewed the Dependabot #2872 aws-sigv4 pin refresh (1.6.4 -> 1.6.5) in the connection-broker manifest; a dependency-version-only change with no authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file. cargo test -p opensesame-connection-broker --lib --locked passed. Remaining limit: the manifest comment still names the 1.6.4 smithy-rs set while the pin and Cargo.lock now resolve 1.6.5; this records the reviewed source as it stands and claims no new control. 2026-11-20 (council chunk 01): aligned the manifest comment to name the 1.6.5 / 1.3.1 / 1.21.0 smithy-rs set, matching the exact pins and the Cargo.lock resolution. Comment-only change: no dependency, authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file; the remaining limit recorded above is resolved. 2026-11-20: reviewed the credentialed-egress client consolidation \u2014 the duplicate ambient `http_bytes` client is removed from the broker and its test constructor, and catalog-provider credentialed egress again resolves and pins the approved authority per request before the credential is opened; the testkit fence, routes and admission are unchanged. Broker lib tests (351, including the constructor proxy-isolation regression with the testkit feature), invoke-through lib tests (88), gateway testkit server and integration tests, and the live TypeScript consumer test (vitest against the real testkit server) all passed at this head. 2026-11-21: repaired this source fingerprint for crates/storage/src/lib.rs. The e19e283a restack refresh (90dc23a7f) recorded bytes that never matched a committed blob (CI run 44944627312 reported EM-DRIFT on this path before any suite ran); the worktree file is byte-identical to the origin/main reviewed blob (sha256 eafab5f9688d370d, git blob 52382dd55b6e), whose only change from the previously pinned blob is `mod invocations` -> `pub mod invocations` (main #2725, receipt retries bound to authority). Visibility-only widening of an existing module: no route, fence, admission, storage-schema or migration-resolution change, so this listener classification is unchanged and the fingerprint was restored to the reviewed main bytes. Regressions re-run at this head: cargo test -p opensesame-gateway --features testkit (testkit server unit test and tests/testkit.rs integration, 5 run / 4 passed / 1 ignored-needs-Node), cargo test -p opensesame-connection-broker --features testkit --lib (353 passed, including the constructor proxy-isolation regression), and the live TypeScript consumer test against a running HostTestkit fixture (3 passed). Remaining limit: none beyond those already recorded above; no implementation change is claimed. 2026-11-21: reviewed the one-line addition of the cert_completion module to crates/storage/src/lib.rs on the rebased bytes (c4f53cb7) \u2014 the EST key-free issuance completion split out of cert_issuance.rs; no listener, authority, egress or admission change, so this classification is unchanged and the fingerprint was refreshed to the reviewed file. Executed reruns on the reviewed bytes: the feature-gated testkit server lib test (1), the four testkit integration tests, the live TypeScript API-client consumer test, and the connection-broker lib regressions (344 passed; the single failure is a pre-existing GitHub-App conversion error-string expectation on unmodified main, unrelated to this change) all ran; the Rust regressions passed. 2026-11-22 (PR #2804, opaque receipts): per-file review of the ten pins this row carries that the PR changed. crates/audit/src/lib.rs adds HKDF-SHA-256/HMAC-SHA-256 idempotency and intent-opening commitments keyed from the receipt signing seed with per-family salt and purpose; open_receipt_intent re-verifies the receipt under the active key and refuses receipts without an opaque result; no key is exported. crates/connection-broker/src/lib.rs only declares delegation_invoke_budget and re-exports OwnerEgressHttpResult. crates/connector-host/src/constrained_http.rs refuses delegated bindings before credential admission, returns a fixed opaque result instead of upstream headers/body, and hides from the ledger only the invoker's pinned non-443 port for the named host; every other port stays on the default-port fence. crates/connector-host/src/lib.rs moves the Connector trait, mock and registry into modules, pins each connector's component digest at registration and judges destinations with the same pinned-port rule; the synchronous unbound invoke is replaced by invoke_bound. crates/gateway/src/app_state.rs drops the organization argument from Wasm connector loading (owner identity now comes from the durable connection row). middleware/agent_grants.rs and middleware/browser_user_routes.rs give POST /api/v1/tasks/intent-opening no agent capability and no browser-session capability, so both refuse it; routes/mod.rs mounts that route, whose handler authenticates first, checks caller ownership and organization, re-proves the durable root grant, and answers every miss with one uniform no-store 404. None of these adds a testkit route, changes the four-route fence, or widens listener exposure, so the classification is unchanged. Executed on the merged head: cargo test -p opensesame-gateway --features testkit,wasm-connectors lib (1243 passed; the 2 failures below were fixed and the 4 connector_egress owner tests then passed), connection-broker (594), connector-host --all-features (135 passed, 0 failed; that cargo run exited 1 for an unconfirmed reason, likely the shared target being rebuilt by another worktree), storage (403), broker (30), audit (15), domain (468), invoke-through (101); TypeScript api-client 127, mcp-host 133, mcp-client 33, host OpenAPI 6. Two PR regressions (connector_egress owner and owner-wasm) were moved from provider github to mock because main #2740 makes plain-http loopback credentialed egress mock-only; frozen_task_executes_through_the_real_router now records MFA assurance instead of relaxing only the in-memory grant, which freeze correctly refuses."
+      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. Relay execution is now disabled and the unused liveness map is removed from production and testkit state; the testkit keeps the same four-route fence. The focused relay and testkit server and integration regressions and the live TypeScript consumer passed before the latest main integration; broker-mode regressions passed again on the updated base. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-20: reviewed the Dependabot #2872 aws-sigv4 pin refresh (1.6.4 -> 1.6.5) in the connection-broker manifest; a dependency-version-only change with no authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file. cargo test -p opensesame-connection-broker --lib --locked passed. Remaining limit: the manifest comment still names the 1.6.4 smithy-rs set while the pin and Cargo.lock now resolve 1.6.5; this records the reviewed source as it stands and claims no new control. 2026-11-20 (council chunk 01): aligned the manifest comment to name the 1.6.5 / 1.3.1 / 1.21.0 smithy-rs set, matching the exact pins and the Cargo.lock resolution. Comment-only change: no dependency, authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file; the remaining limit recorded above is resolved. 2026-11-20: reviewed the credentialed-egress client consolidation \u2014 the duplicate ambient `http_bytes` client is removed from the broker and its test constructor, and catalog-provider credentialed egress again resolves and pins the approved authority per request before the credential is opened; the testkit fence, routes and admission are unchanged. Broker lib tests (351, including the constructor proxy-isolation regression with the testkit feature), invoke-through lib tests (88), gateway testkit server and integration tests, and the live TypeScript consumer test (vitest against the real testkit server) all passed at this head. 2026-11-21: repaired this source fingerprint for crates/storage/src/lib.rs. The e19e283a restack refresh (90dc23a7f) recorded bytes that never matched a committed blob (CI run 44944627312 reported EM-DRIFT on this path before any suite ran); the worktree file is byte-identical to the origin/main reviewed blob (sha256 eafab5f9688d370d, git blob 52382dd55b6e), whose only change from the previously pinned blob is `mod invocations` -> `pub mod invocations` (main #2725, receipt retries bound to authority). Visibility-only widening of an existing module: no route, fence, admission, storage-schema or migration-resolution change, so this listener classification is unchanged and the fingerprint was restored to the reviewed main bytes. Regressions re-run at this head: cargo test -p opensesame-gateway --features testkit (testkit server unit test and tests/testkit.rs integration, 5 run / 4 passed / 1 ignored-needs-Node), cargo test -p opensesame-connection-broker --features testkit --lib (353 passed, including the constructor proxy-isolation regression), and the live TypeScript consumer test against a running HostTestkit fixture (3 passed). Remaining limit: none beyond those already recorded above; no implementation change is claimed. 2026-11-21: reviewed the one-line addition of the cert_completion module to crates/storage/src/lib.rs on the rebased bytes (c4f53cb7) \u2014 the EST key-free issuance completion split out of cert_issuance.rs; no listener, authority, egress or admission change, so this classification is unchanged and the fingerprint was refreshed to the reviewed file. Executed reruns on the reviewed bytes: the feature-gated testkit server lib test (1), the four testkit integration tests, the live TypeScript API-client consumer test, and the connection-broker lib regressions (344 passed; the single failure is a pre-existing GitHub-App conversion error-string expectation on unmodified main, unrelated to this change) all ran; the Rust regressions passed. 2026-11-22 (PR #2804, opaque receipts): per-file review of the ten pins this row carries that the PR changed. crates/audit/src/lib.rs adds HKDF-SHA-256/HMAC-SHA-256 idempotency and intent-opening commitments keyed from the receipt signing seed with per-family salt and purpose; open_receipt_intent re-verifies the receipt under the active key and refuses receipts without an opaque result; no key is exported. crates/connection-broker/src/lib.rs only declares delegation_invoke_budget and re-exports OwnerEgressHttpResult. crates/connector-host/src/constrained_http.rs refuses delegated bindings before credential admission, returns a fixed opaque result instead of upstream headers/body, and hides from the ledger only the invoker's pinned non-443 port for the named host; every other port stays on the default-port fence. crates/connector-host/src/lib.rs moves the Connector trait, mock and registry into modules, pins each connector's component digest at registration and judges destinations with the same pinned-port rule; the synchronous unbound invoke is replaced by invoke_bound. crates/gateway/src/app_state.rs drops the organization argument from Wasm connector loading (owner identity now comes from the durable connection row). middleware/agent_grants.rs and middleware/browser_user_routes.rs give POST /api/v1/tasks/intent-opening no agent capability and no browser-session capability, so both refuse it; routes/mod.rs mounts that route, whose handler authenticates first, checks caller ownership and organization, re-proves the durable root grant, and answers every miss with one uniform no-store 404. None of these adds a testkit route, changes the four-route fence, or widens listener exposure, so the classification is unchanged. Executed on the merged head: cargo test -p opensesame-gateway --features testkit,wasm-connectors lib (1243 passed; the 2 failures below were fixed and the 4 connector_egress owner tests then passed), connection-broker (594), connector-host --all-features (135 passed, 0 failed; that cargo run exited 1 for an unconfirmed reason, likely the shared target being rebuilt by another worktree), storage (403), broker (30), audit (15), domain (468), invoke-through (101); TypeScript api-client 127, mcp-host 133, mcp-client 33, host OpenAPI 6. Two PR regressions (connector_egress owner and owner-wasm) were moved from provider github to mock because main #2740 makes plain-http loopback credentialed egress mock-only; frozen_task_executes_through_the_real_router now records MFA assurance instead of relaxing only the in-memory grant, which freeze correctly refuses. 2026-11-23: merged main 7ab65ea1 into #2680; app_state.rs is the branch's reviewed bytes plus only main's two-argument load_wasm_connectors call. Testkit routes and admission are unchanged."
     },
     {
       "id": "host-listeners",
@@ -546,7 +592,7 @@
         "crates/gateway/src/transport_lifecycle/trust_tests.rs",
         "crates/spiffe-source/tests/production_sink_policy.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Relay route registrations remain mounted, but heartbeat, submission, executable delivery, approval and result reporting fail closed. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. One listener configuration, 14 transport configuration and 6 listener boot tests passed. This does not add a listener or a fallback. Source-lifetime review: service admission refuses an expired source; status reports quarantined and expired generations unloaded and preserves revocation precedence. The focused admission, status and source-owned trust collision tests and integrated deadline controls passed. The listener wraps its signer and preclaim session cache with generation checks; source-owned listeners disable resumption. Signer, resumption-race and TLS 1.2/1.3 regressions exercise those boundaries. Testkit files support those regressions and add no production authority. An in-flight key operation or a signature released immediately before withdrawal cannot be revoked, and already-admitted work is not cancelled. Standalone client and server configurations are outside the listener fence. Host source-trust selection requires the generation-bound authoritative source bundle with the requested profile and kind. On the fingerprinted source, the pinned Lean 4.24.0 selector model re-emitted the complete 32-vector selector matrix and the correspondence test compared every vector against the production selector; the exact two-bundle return control and the live reconstructed-manager TLS regression also passed. 2026-11-22 coverage re-pin: the selector coverage moved to reviewed main 827648d2, which carries the #2725 storage lib.rs bytes (the invocations module becomes public; no selector behavior change), the #2723 connection-broker manifest bytes, and the #2622 guard.rs, trust_activate.rs, transport-security manifest and spiffe-source bytes, and the pinned Lean 4.24.0 selector model check and the three registered source-trust-selection regressions (32-vector correspondence, exact two-bundle return control, live reconstructed-manager TLS regression) were re-executed and passed on those bytes. The correspondence module is compiled only for tests and adds no production authority. That regression reuses an in-memory store; it is not a process restart or a real Workload API test. Durable source history remains a separate boundary. Peer-domain review: a SPIFFE bundle carries its explicit domain, certificate validation and SVID checks precede peer evidence, and service binding uses exact SPIFFE identity with separate leaf revocation. The configured Host source domain must match the authoritative selected bundle. The peer-domain, live TLS admission, resumption/rotation, forwarded-evidence and wrong-domain controls passed; the correspondence proves only its stated Boolean properties, not Rust refinement. The NATS client opts into a one-use server verifier with TLS resumption disabled; existing host-listener verification remains unchanged. Source-history review: the registered history suite passed 77 Linux tests in 16 groups on the fingerprinted source (reviewed main 827648d2), including SQLite union and cancellation, the cooperative file lease, offline attestation, a real bindings-only Host startup, source supersession, stored-trust quarantine, reconciliation and the focused PEM collision witness; the pinned Lean 4.24.0 history model stages and every named assertion in the formal runner passed on those bytes as ordinary locked Cargo invocations. The Host-process case does not prove secure-listener or request-guard enforcement. The complete attestation, continuous database identity and cooperative trusted filesystem are assumptions; raw writers, older binaries, backup rollback and physical power-loss durability are not proved. Windows-only startup and initializer refusal tests have not been run on Windows. The proof suite separately pins the executed migration inventory; its hashes do not establish implementation refinement. 2026-11-20 restack repair: the pins for guard.rs, identity.rs, tests/source_lifetime.rs, testkit/{mod,ca,leaf}.rs, tests/spiffe_peer_rotation.rs and human-vault/src/lib.rs matched no blob on this branch (stale since their introduction). identity.rs, the testkit helpers and human-vault/src/lib.rs are byte-identical to the reviewed merge-base. The guard.rs branch change is fail-closed: peer credential/trust and listener-provenance generations must equal the current generation, and withdrawal and source-deadline enforcement moved into checked_current. tests/source_lifetime.rs and tests/spiffe_peer_rotation.rs are new branch regressions for source-owned expiry and SPIFFE domain rebinding across rotation. A latent compile break in tests/source_lifetime.rs was fixed (Duration::nanoseconds does not exist in opensesame_time; milliseconds(1) preserves the inclusive-latch intent). The full opensesame-transport-security suite with the testkit feature passed (118 tests) and the opensesame-human-vault suite passed before re-pinning all eight files to the reviewed blobs. 2026-11-22 (PR #2804): reviewed the app_state.rs, routes/mod.rs and storage migrations.rs pins. app_state.rs only drops the organization argument from Wasm connector loading; routes/mod.rs mounts POST /api/v1/tasks/intent-opening on the existing Host router (no new listener, bind or fallback; agent and browser-session middleware refuse it); migrations.rs appends 0060_invocation_budget_claims. Listener configuration, transport and source-lifetime code is unchanged. Gateway lib (testkit, wasm-connectors; 1243 passed plus the 2 fixed connector_egress regressions) and the storage suite (403) were run; gateway integration test binaries were not run (disk exhaustion)."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Relay route registrations remain mounted, but heartbeat, submission, executable delivery, approval and result reporting fail closed. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. One listener configuration, 14 transport configuration and 6 listener boot tests passed. This does not add a listener or a fallback. Source-lifetime review: service admission refuses an expired source; status reports quarantined and expired generations unloaded and preserves revocation precedence. The focused admission, status and source-owned trust collision tests and integrated deadline controls passed. The listener wraps its signer and preclaim session cache with generation checks; source-owned listeners disable resumption. Signer, resumption-race and TLS 1.2/1.3 regressions exercise those boundaries. Testkit files support those regressions and add no production authority. An in-flight key operation or a signature released immediately before withdrawal cannot be revoked, and already-admitted work is not cancelled. Standalone client and server configurations are outside the listener fence. Host source-trust selection requires the generation-bound authoritative source bundle with the requested profile and kind. On the fingerprinted source, the pinned Lean 4.24.0 selector model re-emitted the complete 32-vector selector matrix and the correspondence test compared every vector against the production selector; the exact two-bundle return control and the live reconstructed-manager TLS regression also passed. 2026-11-22 coverage re-pin: the selector coverage moved to reviewed main 827648d2, which carries the #2725 storage lib.rs bytes (the invocations module becomes public; no selector behavior change), the #2723 connection-broker manifest bytes, and the #2622 guard.rs, trust_activate.rs, transport-security manifest and spiffe-source bytes, and the pinned Lean 4.24.0 selector model check and the three registered source-trust-selection regressions (32-vector correspondence, exact two-bundle return control, live reconstructed-manager TLS regression) were re-executed and passed on those bytes. The correspondence module is compiled only for tests and adds no production authority. That regression reuses an in-memory store; it is not a process restart or a real Workload API test. Durable source history remains a separate boundary. Peer-domain review: a SPIFFE bundle carries its explicit domain, certificate validation and SVID checks precede peer evidence, and service binding uses exact SPIFFE identity with separate leaf revocation. The configured Host source domain must match the authoritative selected bundle. The peer-domain, live TLS admission, resumption/rotation, forwarded-evidence and wrong-domain controls passed; the correspondence proves only its stated Boolean properties, not Rust refinement. The NATS client opts into a one-use server verifier with TLS resumption disabled; existing host-listener verification remains unchanged. Source-history review: the registered history suite passed 77 Linux tests in 16 groups on the fingerprinted source (reviewed main 827648d2), including SQLite union and cancellation, the cooperative file lease, offline attestation, a real bindings-only Host startup, source supersession, stored-trust quarantine, reconciliation and the focused PEM collision witness; the pinned Lean 4.24.0 history model stages and every named assertion in the formal runner passed on those bytes as ordinary locked Cargo invocations. The Host-process case does not prove secure-listener or request-guard enforcement. The complete attestation, continuous database identity and cooperative trusted filesystem are assumptions; raw writers, older binaries, backup rollback and physical power-loss durability are not proved. Windows-only startup and initializer refusal tests have not been run on Windows. The proof suite separately pins the executed migration inventory; its hashes do not establish implementation refinement. 2026-11-20 restack repair: the pins for guard.rs, identity.rs, tests/source_lifetime.rs, testkit/{mod,ca,leaf}.rs, tests/spiffe_peer_rotation.rs and human-vault/src/lib.rs matched no blob on this branch (stale since their introduction). identity.rs, the testkit helpers and human-vault/src/lib.rs are byte-identical to the reviewed merge-base. The guard.rs branch change is fail-closed: peer credential/trust and listener-provenance generations must equal the current generation, and withdrawal and source-deadline enforcement moved into checked_current. tests/source_lifetime.rs and tests/spiffe_peer_rotation.rs are new branch regressions for source-owned expiry and SPIFFE domain rebinding across rotation. A latent compile break in tests/source_lifetime.rs was fixed (Duration::nanoseconds does not exist in opensesame_time; milliseconds(1) preserves the inclusive-latch intent). The full opensesame-transport-security suite with the testkit feature passed (118 tests) and the opensesame-human-vault suite passed before re-pinning all eight files to the reviewed blobs. 2026-11-22 (PR #2804): reviewed the app_state.rs, routes/mod.rs and storage migrations.rs pins. app_state.rs only drops the organization argument from Wasm connector loading; routes/mod.rs mounts POST /api/v1/tasks/intent-opening on the existing Host router (no new listener, bind or fallback; agent and browser-session middleware refuse it); migrations.rs appends 0060_invocation_budget_claims. Listener configuration, transport and source-lifetime code is unchanged. Gateway lib (testkit, wasm-connectors; 1243 passed plus the 2 fixed connector_egress regressions) and the storage suite (403) were run; gateway integration test binaries were not run (disk exhaustion). 2026-11-23: merged main 7ab65ea1 into #2680; app_state.rs is the branch's reviewed bytes plus only main's two-argument load_wasm_connectors call, and migrations.rs keeps main's 0060_invocation_budget_claims followed by the branch migrations renumbered 0061-0063 (SQL unchanged). No listener, bind or fallback changed."
     },
     {
       "id": "certificate-binding",
@@ -1281,6 +1327,186 @@
     }
   ],
   "sources": {
+    "packages/app-core/src/lib/federation-response.test.ts": [
+      "f1006f92",
+      "535814e7",
+      "1470070f",
+      "13b7b745",
+      "346c16e6",
+      "93ac9ac8",
+      "2b4f9bee",
+      "73d2be2e"
+    ],
+    "packages/app-core/src/lib/federation-response.ts": [
+      "6c7bd970",
+      "18dd120f",
+      "d99f7019",
+      "26d06a4d",
+      "e7461234",
+      "26b7877c",
+      "e9cc6f92",
+      "ffba675c"
+    ],
+    "packages/app-core/src/lib/federation.ts": [
+      "ebc8ef40",
+      "c58b931e",
+      "4c655f42",
+      "1c1888a5",
+      "a0bd5903",
+      "d08ac7b7",
+      "80dad2df",
+      "3683f817"
+    ],
+    "packages/app-core/src/lib/magic-link-client.test.ts": [
+      "f5ea9b22",
+      "71b08838",
+      "ec7bb2d4",
+      "31b0cb02",
+      "d47213d1",
+      "46c4806c",
+      "2d8b6524",
+      "65e2ff25"
+    ],
+    "packages/app-core/src/lib/magic-link-client.ts": [
+      "327d6669",
+      "78064b8f",
+      "cbf2cf4f",
+      "b0f85c50",
+      "928f8bc7",
+      "604c401c",
+      "9391260d",
+      "0cf58a5e"
+    ],
+    "packages/app-core/src/lib/providers.test.ts": [
+      "76c2bddf",
+      "ef6678e7",
+      "ac128b9b",
+      "b261c100",
+      "dda55256",
+      "0b951a5e",
+      "9530a63e",
+      "a9830a54"
+    ],
+    "packages/app-core/src/lib/providers.ts": [
+      "392ef7cd",
+      "293e707d",
+      "6b50dbbf",
+      "0f76cf0c",
+      "fab4e758",
+      "abf34dcd",
+      "c34cb671",
+      "f1aceb23"
+    ],
+    "packages/control-plane/src/__tests__/auth-upstream.test.ts": [
+      "46692147",
+      "938af94a",
+      "06328376",
+      "7a796a65",
+      "161e0ade",
+      "fe00ca8c",
+      "a075598a",
+      "96f5f928"
+    ],
+    "packages/control-plane/src/__tests__/magic-link-exchange.test.ts": [
+      "1716548a",
+      "91bdde7f",
+      "77732a4e",
+      "6c236a8e",
+      "26327e39",
+      "518231ef",
+      "e6bd8c83",
+      "69f6ff0a"
+    ],
+    "packages/control-plane/src/__tests__/magic-link-first-party.test.ts": [
+      "e5cf3922",
+      "e970fbdd",
+      "186c6b83",
+      "0a2a2378",
+      "48840da4",
+      "3eb09037",
+      "3152e3e4",
+      "f1f43ecc"
+    ],
+    "packages/control-plane/src/routes/auth-upstream.ts": [
+      "8b5b9a1d",
+      "b33b0559",
+      "73501c75",
+      "f8763a8b",
+      "50fb58fc",
+      "dd715cc1",
+      "66a5d9ea",
+      "5e8aca20"
+    ],
+    "packages/control-plane/src/routes/authentication-service.ts": [
+      "910d896d",
+      "a474272d",
+      "7ccf9c1f",
+      "a1964fef",
+      "71f7d2f1",
+      "e9442245",
+      "27dcd921",
+      "449e2fed"
+    ],
+    "packages/control-plane/src/routes/interactions-email.ts": [
+      "de4b957d",
+      "6efce8ce",
+      "253c5b09",
+      "e0cdbb85",
+      "5e26a7e3",
+      "c6ce2b63",
+      "6c2e74d8",
+      "d70e1d43"
+    ],
+    "packages/control-plane/src/services/better-auth-bridge.ts": [
+      "4c4af69e",
+      "5533c915",
+      "2ef2eea8",
+      "05a54f9b",
+      "9da337b4",
+      "725e7988",
+      "8900bb93",
+      "22c085ec"
+    ],
+    "packages/control-plane/src/services/magic-link-budget.ts": [
+      "a6b285cc",
+      "5cd02418",
+      "46e1259c",
+      "9edf8899",
+      "89dd807a",
+      "aefa882e",
+      "d16d9b33",
+      "e06f7e1e"
+    ],
+    "packages/control-plane/src/services/magic-link-confirmation.ts": [
+      "40c049c5",
+      "2700ebd1",
+      "39ce878d",
+      "bbde0010",
+      "3f0e2cf3",
+      "0c0adee1",
+      "9066a4bb",
+      "105f9f13"
+    ],
+    "packages/control-plane/src/services/magic-link-exchange.ts": [
+      "3069627c",
+      "431161b8",
+      "e8216e07",
+      "6013cdb8",
+      "963aed91",
+      "356412ea",
+      "b7443cf6",
+      "84e47426"
+    ],
+    "packages/control-plane/src/services/magic-link-return.ts": [
+      "d28ca825",
+      "86584bbd",
+      "29890bff",
+      "b0a96485",
+      "e9a290d1",
+      "650b5f55",
+      "3fec9434",
+      "5183e4f3"
+    ],
     "crates/bitwarden-server/src/budget_subject.rs": [
       "b67c8d64",
       "7d189880",
@@ -1392,14 +1618,14 @@
       "9861c64a"
     ],
     "crates/storage/tests/certmgr_pact.rs": [
-      "6c6cafbb",
-      "460c5fe3",
-      "655c4771",
-      "a394cc64",
-      "a6265122",
-      "2bde5e9a",
-      "f4bff168",
-      "43624cfe"
+      "177d0d5d",
+      "70e30c63",
+      "737c8217",
+      "5af8e2e4",
+      "568395ca",
+      "ad6e256f",
+      "240efc0c",
+      "23e961cf"
     ],
     "packages/app-core/package.json": [
       "389ad80a",
@@ -2862,14 +3088,14 @@
       "d49fa90d"
     ],
     "crates/gateway/src/config.rs": [
-      "7732beba",
-      "4593fc00",
-      "e2c7cc5f",
-      "c38d87d5",
-      "94771c7a",
-      "98f3de0a",
-      "d2efa186",
-      "0d887a47"
+      "4753d375",
+      "7f9733d3",
+      "6ad261a5",
+      "3788c7f1",
+      "508528ae",
+      "6545e467",
+      "cd84787f",
+      "dbff580d"
     ],
     "crates/gateway/src/config_listener_tests.rs": [
       "af16ae93",
@@ -2882,14 +3108,14 @@
       "b997cc50"
     ],
     "crates/gateway/src/lib.rs": [
-      "0e5988ea",
-      "f0273eda",
-      "3d1f002a",
-      "32a671a5",
-      "97e45874",
-      "6dc0ff95",
-      "14a1e34a",
-      "cdb50dd4"
+      "c579b81b",
+      "75de6f9f",
+      "7142247a",
+      "f07df116",
+      "f9df6757",
+      "044b9abf",
+      "6e044dd9",
+      "7f878cd0"
     ],
     "crates/gateway/src/routes/est_config_policy.rs": [
       "f610fa83",
@@ -3182,14 +3408,14 @@
       "7301dfad"
     ],
     "crates/storage/src/migrations.rs": [
-      "f88231ae",
-      "2e253b1b",
-      "08785ac5",
-      "054710a8",
-      "8175d80e",
-      "834066e2",
-      "a61f6643",
-      "ba76bcd3"
+      "0dfe540a",
+      "dfd0f046",
+      "60ee75c4",
+      "b2fd2492",
+      "a14d95d6",
+      "47909963",
+      "5878a3be",
+      "db502cb7"
     ],
     "crates/storage/tests/est_passphrase_budget.rs": [
       "c4e115a8",
@@ -3402,14 +3628,14 @@
       "fed25c68"
     ],
     "packages/control-plane/src/create-app.ts": [
-      "7a3672a0",
-      "f2f9e736",
-      "d6f2e37b",
-      "67b2f475",
-      "dfba9665",
-      "d33ab951",
-      "6397b170",
-      "4f2ffc8b"
+      "a475d7cc",
+      "83c71fc0",
+      "cc0ca33c",
+      "b39ed488",
+      "2128ee98",
+      "2a3520f9",
+      "75626a7e",
+      "6c007d7f"
     ],
     "packages/control-plane/src/repos/durable-claim-store.ts": [
       "65e86396",
@@ -3422,24 +3648,24 @@
       "e7b4d73c"
     ],
     "packages/control-plane/src/repos/durable-map.ts": [
-      "b95cc885",
-      "1eac9b3f",
-      "c84f3dc4",
-      "84ee5ed6",
-      "101aa32d",
-      "cb39efb1",
-      "3100df65",
-      "ffc3e47c"
+      "0d1143a2",
+      "5d6f025f",
+      "576f6c22",
+      "da354e99",
+      "7403e519",
+      "18649fce",
+      "e3381d1a",
+      "7d9d484c"
     ],
     "packages/control-plane/src/repos/security-maps.ts": [
-      "00a883fd",
-      "4c89f64e",
-      "efad84b0",
-      "c7f040db",
-      "247d1868",
-      "54e1835c",
-      "988a9dc9",
-      "e9f5bffe"
+      "8231e138",
+      "740c7b8c",
+      "e629bad2",
+      "b05c2207",
+      "8b8ba158",
+      "51a40398",
+      "963ae575",
+      "bc8617af"
     ],
     "packages/control-plane/src/routes/claim-presentation.ts": [
       "f8eb3088",
@@ -3602,14 +3828,14 @@
       "8729b44f"
     ],
     "packages/control-plane/src/state.ts": [
-      "eed20634",
-      "e79e3545",
-      "600e6f9f",
-      "892f1939",
-      "c86cba91",
-      "352c7878",
-      "398cf15f",
-      "d0aec4e9"
+      "3f224778",
+      "faaff738",
+      "318134b3",
+      "aa2b459a",
+      "c4edb987",
+      "7c6449db",
+      "5ccd430c",
+      "cda1afc9"
     ],
     "packages/oauth-provider/src/__tests__/signing-keys.test.ts": [
       "9758bdc0",
@@ -6752,14 +6978,14 @@
       "a23325a7"
     ],
     "crates/gateway/src/app_state.rs": [
-      "1c016792",
-      "39f09c60",
-      "11dca0a9",
-      "c23ab4ed",
-      "41110de1",
-      "c12db129",
-      "229c9c95",
-      "e64e5bf7"
+      "797b409d",
+      "56799438",
+      "7df75046",
+      "4bd02b6a",
+      "1c06d66d",
+      "b2cdebc2",
+      "a8659d19",
+      "12677941"
     ],
     "crates/gateway/src/testkit/mod.rs": [
       "18d8967d",
@@ -6772,14 +6998,14 @@
       "b83bd9ed"
     ],
     "crates/gateway/src/testkit/state.rs": [
-      "d9f16459",
-      "e1d76610",
-      "d7d59125",
-      "ba362cea",
-      "3bad673b",
-      "cd276a8e",
-      "019168ca",
-      "4aaf74ff"
+      "e2cd7860",
+      "c464cfa0",
+      "4e53e045",
+      "39acfcb1",
+      "90647f33",
+      "ac9766be",
+      "d997d651",
+      "3aff259a"
     ],
     "crates/gateway/src/testkit/server.rs": [
       "1de97a97",
@@ -6822,14 +7048,14 @@
       "a47984b2"
     ],
     "crates/gateway/src/routes/session.rs": [
-      "6868b567",
-      "4fbc695e",
-      "ac302078",
-      "225d09a8",
-      "f312b320",
-      "b33d0ef7",
-      "6d6509c0",
-      "86c52cfc"
+      "cb296cb3",
+      "069b773a",
+      "25110c12",
+      "39740627",
+      "7281a240",
+      "b93f62fd",
+      "8209ee3d",
+      "efc8c2ee"
     ],
     "crates/gateway/src/routes/connections.rs": [
       "4ab1439a",
@@ -6842,24 +7068,24 @@
       "3bec49e5"
     ],
     "crates/gateway/src/routes/agent_capabilities.rs": [
-      "488be129",
-      "ed31bd51",
-      "d78af310",
-      "ee695241",
-      "1bf4fd9a",
-      "1d8ac157",
-      "3a1b734a",
-      "b191baab"
+      "3a55969d",
+      "d66becbb",
+      "6c7fb567",
+      "c628a987",
+      "2ed6d84c",
+      "d46aa67e",
+      "c068ee1c",
+      "c21f9aee"
     ],
     "crates/gateway/src/routes/browser_pairings.rs": [
-      "244bfdf9",
-      "957aefaf",
-      "63437504",
-      "cae79017",
-      "2214e3a2",
-      "fe81cee5",
-      "08ca38b5",
-      "a273adfa"
+      "96595e78",
+      "6ed3d3ee",
+      "88a8c075",
+      "90e87bb2",
+      "f4568137",
+      "6fa351e8",
+      "97c644cf",
+      "78dff4d9"
     ],
     "crates/gateway/src/browser_pairing_proof.rs": [
       "05ab8d32",
@@ -6872,14 +7098,14 @@
       "2feff855"
     ],
     "crates/gateway/src/middleware/mod.rs": [
-      "2389fc92",
-      "7348d2cb",
-      "472c54f4",
-      "ef02c862",
-      "e09c3705",
-      "8614481e",
-      "e696f27d",
-      "d40676bf"
+      "d9142e05",
+      "7f33f762",
+      "cd3a1968",
+      "a770dd3c",
+      "a79eace3",
+      "faef15af",
+      "7c5a9788",
+      "dc0b4038"
     ],
     "crates/gateway/src/middleware/auth.rs": [
       "79d3114a",
@@ -6902,14 +7128,14 @@
       "f922b405"
     ],
     "crates/gateway/src/middleware/browser_grants.rs": [
-      "cde1d0c9",
-      "b23d4793",
-      "169c886f",
-      "7582bc20",
-      "7722d233",
-      "6f80be3c",
-      "09b988bd",
-      "8e99e5c0"
+      "6fa5c77b",
+      "89789cbf",
+      "29f6e278",
+      "bfb002e8",
+      "ce05ae47",
+      "ade028cd",
+      "e5b60985",
+      "d45d509a"
     ],
     "crates/gateway/src/middleware/browser_user_routes.rs": [
       "361e9a2a",
@@ -6922,14 +7148,14 @@
       "8a496c90"
     ],
     "crates/gateway/src/middleware/public_enrollment.rs": [
-      "148b6c76",
-      "00e4b756",
-      "66c64ba8",
-      "2abac592",
-      "fd2003e8",
-      "96422249",
-      "98f55bef",
-      "9b88dc6f"
+      "dad6bd68",
+      "146d716c",
+      "ffad89ab",
+      "116afaa8",
+      "4bf736b2",
+      "e3635792",
+      "d4fbc16b",
+      "b51f05b5"
     ],
     "crates/host-core/src/operator.rs": [
       "6ff3fa9f",
@@ -7032,14 +7258,14 @@
       "7555a60e"
     ],
     "crates/storage/src/lib.rs": [
-      "c4f53cb7",
-      "71ca9aba",
-      "298fc7fc",
-      "0f3aa074",
-      "e73fa4a2",
-      "f65624ef",
-      "a3030e60",
-      "5a6ad47c"
+      "08dc4872",
+      "ca5a500e",
+      "09ad9d0f",
+      "86a30793",
+      "f3f1b10f",
+      "662cff4e",
+      "cd71ba53",
+      "0a15a3ba"
     ],
     "crates/storage/src/tenancy.rs": [
       "10cd6d36",
@@ -7272,14 +7498,14 @@
       "aada4db2"
     ],
     "crates/gateway/src/transport/status_tests.rs": [
-      "59b1b652",
-      "48d0246a",
-      "e33365a3",
-      "734148dc",
-      "15b6a083",
-      "780b161a",
-      "12d3afb4",
-      "d635702d"
+      "288d375b",
+      "18aa112e",
+      "29956567",
+      "06c7d9c0",
+      "ea785f4a",
+      "e0ebb023",
+      "fa74ae92",
+      "bb6b667e"
     ],
     "crates/transport-security/src/generations.rs": [
       "626e1506",

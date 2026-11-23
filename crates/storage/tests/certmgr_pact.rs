@@ -307,10 +307,13 @@ fn pact_migrations_are_append_only_and_end_with_0060() {
             "0058_bitwarden_attempt_budgets",
             "0059_est_source_budgets",
             "0060_invocation_budget_claims",
+            "0061_host_membership_withdrawals",
+            "0062_host_native_authority",
+            "0063_pairing_membership_revision",
         ]
     );
     assert_eq!(
         versions.last().copied(),
-        Some("0060_invocation_budget_claims")
+        Some("0063_pairing_membership_revision")
     );
 }

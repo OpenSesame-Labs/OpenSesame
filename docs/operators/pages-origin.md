@@ -30,11 +30,11 @@ Every ceremony a link opens is a Pages route
 ([ADR 0140](../adr/0140-pages-hosts-every-ceremony.md)): `/claim`, `/device`,
 `/i/<ref>`, `/approve/<ref>`, `/invoke/<kind>`, and the `/guest` and
 `/delegate` aliases (`spec/config/ceremony-routes.json`). Point the Identity
-API at the deployment that serves them:
+API and Host at the deployment that serves them:
 
 | Variable | Read by | Set to |
 | --- | --- | --- |
-| `OPENSESAME_CLIENT_APP_URL` | Identity API | This deployment's base, path included (`https://opensesame-labs.github.io/OpenSesame/`). The `/i/<ref>` landing launches into it, a claim's `verificationUri` is its `/claim`, and its `verificationUriComplete` is `/claim#token=osc_clm_…` — the link to hand the person: opening it presents the claim, and they type only the user code. Unset, the landing is an address, a claim points at the Identity API's zero-JS `/v1/claims/<id>/verify`, and there is no complete link. HTTPS only in production. |
+| `OPENSESAME_CLIENT_APP_URL` | Identity API and Host | Set the same Pages base on both services, including its path (`https://opensesame-labs.github.io/OpenSesame/`). Device sign-in opens its `/device` ceremony; connect Pages to this Identity API and configure the Identity API's `OPENSESAME_HOST_API` to reach this Host. When unset on Host, new device sign-ins return an error instead of a nonworking link. On Identity, an unset value leaves the landing as an address and a claim points at the zero-JS `/v1/claims/<id>/verify` without a complete link. HTTPS only in production. |
 | `OPENSESAME_CORS_ORIGINS` | Identity API | The same origin (`https://opensesame-labs.github.io`), so the ceremonies can call it. Naming the client app grants nothing by itself. |
 | `OPENSESAME_IOS_APP_IDENTIFIER`, `OPENSESAME_ANDROID_PACKAGE_NAME`, `OPENSESAME_ANDROID_SHA256_CERT_FINGERPRINTS` | Pages build (Vercel only) | All three or none: the `.well-known` associations for `/invoke/*` (ADR 0140 D11). |
 

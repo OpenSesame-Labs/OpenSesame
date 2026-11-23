@@ -523,22 +523,7 @@ export interface Consent {
   version: number;
 }
 
-/**
- * Bounded provisional capability bound to a proof key / browser session.
- * Distinct from ClaimSession and DeviceAuthorizationSession.
- */
-export interface ProvisionalSession {
-  id: string;
-  principalId: PrincipalId;
-  instanceKeyJkt?: string;
-  quotaProfile: string;
-  allowedActions: string[];
-  createdAt: Date;
-  expiresAt: Date;
-  claimedAt?: Date;
-  revokedAt?: Date;
-  lastSeenAt?: Date;
-}
+export type { ProvisionalSession } from "./provisional-session.js";
 
 export type ClaimTargetType =
   | "principal"
