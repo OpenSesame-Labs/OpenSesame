@@ -9,7 +9,16 @@ import {
 // error code came from Pages' directory client; the status-keyed wording is
 // what the retired ceremonies app, console and Mobile MFA asserted verbatim.
 
-function answer(status: number, body?: object): typeof fetch {
+/** The JSON a stubbed approval endpoint answers with. */
+type ApprovalAnswer = {
+  readonly ok?: boolean;
+  readonly status?: number;
+  readonly error?: string;
+  readonly hint?: string;
+  readonly message?: string;
+};
+
+function answer(status: number, body?: ApprovalAnswer): typeof fetch {
   return async () =>
     new Response(body === undefined ? null : JSON.stringify(body), {
       status,
@@ -22,12 +31,20 @@ async function failure(
   fallbackWords?: (status: number, detail: string | null) => string,
 ): Promise<CeremonyRequestError> {
   try {
-    await approveDevice({
-      baseUrl: "http://id.example",
-      userCode: "ABCD-EFGH",
-      fetchImpl,
-      ...(fallbackWords ? { fallbackWords } : {}),
-    });
+    if (fallbackWords) {
+      await approveDevice({
+        baseUrl: "http://id.example",
+        userCode: "ABCD-EFGH",
+        fetchImpl,
+        fallbackWords,
+      });
+    } else {
+      await approveDevice({
+        baseUrl: "http://id.example",
+        userCode: "ABCD-EFGH",
+        fetchImpl,
+      });
+    }
   } catch (error) {
     if (error instanceof CeremonyRequestError) return error;
     throw error;

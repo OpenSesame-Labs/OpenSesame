@@ -28,7 +28,9 @@ import { useOnlineSeams } from "../../lib/use-online.js";
 import { DEVICE_ORGANIZATIONS_NOTICE } from "../../sections/identity/use-approval-organizations.js";
 import { DeviceRoute } from "./DeviceRoute.js";
 
-const session: { current: IdentitySession | null } = { current: null };
+/** The Identity session the route sees; a test sets it before rendering. */
+type SessionSlot = { current: IdentitySession | null };
+const session: SessionSlot = { current: null };
 const approveDevice = vi.fn();
 const originalApprove = directorySeams.approveDevice;
 const originalRemote = deviceIdentitySeams.remoteIdentityApi;

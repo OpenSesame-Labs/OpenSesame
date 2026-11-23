@@ -10,14 +10,16 @@ import type { IdentitySession } from "@opensesame/app-core/lib/identity.js";
 import { vi } from "vitest";
 
 export const online = { value: true };
-export const session: { current: IdentitySession | null } = {
-  current: null,
-};
+/** The Identity session the section sees; a test sets it before rendering. */
+export type SessionSlot = { current: IdentitySession | null };
+export const session: SessionSlot = { current: null };
 export const connect = vi.fn();
 export const beginSignIn = vi.fn();
 export const listFederatedProviders = vi.fn();
 export const registerByoProvider = vi.fn();
-export const registry: { raw: string | null } = { raw: null };
+/** The stored provider registry a test hands the identity section. */
+export type RegistrySlot = { raw: string | null };
+export const registry: RegistrySlot = { raw: null };
 
 import { deviceIdentitySeams } from "@opensesame/app-core/lib/device-identity.js";
 
