@@ -20,6 +20,28 @@ export function parseRegistry(raw: string | null): string[] {
     return [];
   }
 }
+/** Mutations must never replace an unreadable registry with an empty one. */
+export function parseRegistryForWrite(raw: string | null): string[] {
+  if (raw === null) return [];
+  let parsed: BoundaryValue;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    parsed = null;
+  }
+  if (
+    isJsonObject(parsed) &&
+    parsed.v === 1 &&
+    Array.isArray(parsed.tombs) &&
+    parsed.tombs.every(isString)
+  )
+    return parsed.tombs.filter(isString);
+  throw new VfsError(
+    "corrupt",
+    "The vault registry on this device is unreadable, so it was left unchanged.",
+  );
+}
+
 export function parseIndex(value: BoundaryValue): TombIndex {
   if (!isJsonObject(value) || !isJsonObject(value.files))
     return { v: 1, files: {} };
