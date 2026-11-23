@@ -12,6 +12,13 @@ SPEC = importlib.util.spec_from_file_location("spiffe_lock_drift", ROOT / "spec/
 module = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = module
 exec(compile(Path(SPEC.origin).read_bytes(), SPEC.origin, "exec", dont_inherit=True), module.__dict__)
+# The checker loads the lock projection helper inside main() and passes it to
+# verify_lock; load the same helper bytes the same way.
+HELPER = ROOT / "scripts/security/cargo-lock-projection.py"
+HELPER_SPEC = importlib.util.spec_from_file_location("spiffe_lock_drift_projection", HELPER)
+projection = importlib.util.module_from_spec(HELPER_SPEC)
+sys.modules[HELPER_SPEC.name] = projection
+exec(compile(HELPER.read_bytes(), str(HELPER), "exec", dont_inherit=True), projection.__dict__)
 
 
 class SpiffeLockDriftTests(unittest.TestCase):
@@ -21,13 +28,13 @@ class SpiffeLockDriftTests(unittest.TestCase):
             cls.lock = tomllib.load(handle)
         cls.coverage = json.loads((ROOT / "spec/formal/spiffe/coverage.json").read_text())
         cls.sdk_source = (ROOT / "crates/spiffe-source/src/lib.rs").read_text()
-        cls.graph = module.projection.LockGraph(cls.lock)
+        cls.graph = projection.LockGraph(cls.lock)
         cls.root = cls.graph.select(module.ROOT_PACKAGE)
         cls.reachable = {entry[0] for entry in cls.graph.projection(module.ROOT_PACKAGE)}
 
     def verify(self, document, source=None):
-        module.verify_lock(self.coverage, module.projection.LockGraph(document),
-                           self.sdk_source if source is None else source)
+        module.verify_lock(self.coverage, projection.LockGraph(document),
+                           self.sdk_source if source is None else source, projection)
 
     def test_reviewed_graph_matches(self):
         self.verify(self.lock)
@@ -48,14 +55,19 @@ class SpiffeLockDriftTests(unittest.TestCase):
     def test_unrelated_checksum_change_does_not_require_review(self):
         modified = copy.deepcopy(self.lock)
         item = next(pkg for pkg in modified["package"] if pkg.get("checksum") and
-                    module.projection.PackageId(pkg["name"], pkg["version"], pkg.get("source", "")) not in self.reachable)
+                    projection.PackageId(pkg["name"], pkg["version"], pkg.get("source", "")) not in self.reachable)
         item["checksum"] = ("0" if item["checksum"][0] != "0" else "1") + item["checksum"][1:]
         self.verify(modified)
 
     def test_unrelated_other_spiffe_version_does_not_confuse_root_edge(self):
         modified = copy.deepcopy(self.lock)
-        root = next(pkg for pkg in modified["package"] if pkg["name"] == module.ROOT_PACKAGE and "source" not in pkg)
-        root["dependencies"] = ["spiffe 0.19.0" if ref == "spiffe" else ref for ref in root["dependencies"]]
+        version = self.graph.select(module.ROOT_PACKAGE, "spiffe").version
+        # With two versions in the lock, Cargo qualifies every reference to
+        # either one, including those from other workspace members.
+        for pkg in modified["package"]:
+            if "dependencies" in pkg:
+                pkg["dependencies"] = [f"spiffe {version}" if ref == "spiffe" else ref
+                                       for ref in pkg["dependencies"]]
         modified["package"].append({"name": "spiffe", "version": "99.0.0",
                                     "source": "registry+https://github.com/rust-lang/crates.io-index",
                                     "checksum": "f" * 64})
@@ -70,7 +82,7 @@ class SpiffeLockDriftTests(unittest.TestCase):
             changed = copy.deepcopy(self.coverage)
             changed["lock_projection"] = value
             with self.subTest(value=value), self.assertRaises(ValueError):
-                module.verify_lock(changed, self.graph, self.sdk_source)
+                module.verify_lock(changed, self.graph, self.sdk_source, projection)
 
 
 if __name__ == "__main__":

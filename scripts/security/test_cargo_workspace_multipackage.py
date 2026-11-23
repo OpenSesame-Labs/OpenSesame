@@ -232,15 +232,25 @@ class MultipackageProjectionTest(unittest.TestCase):
     def test_real_gateway_local_closure_is_covered(self):
         graph = projection.lock_projection.read_lock(ROOT / "Cargo.lock")
         names = {entry[0].name for entry in graph.projection("opensesame-gateway") if not entry[0].source}
+        workspace = projection.workspace_projection.read_toml(ROOT / "Cargo.toml")
+        # Local packages are the workspace crates plus every path patch (the
+        # vendored sqlx-sqlite under patches/vendor), which Cargo.lock also
+        # records without a source.
+        candidates = list((ROOT / "crates").glob("*/Cargo.toml"))
+        for entries in workspace.get("patch", {}).values():
+            candidates += [ROOT / entry["path"] / "Cargo.toml" for entry in entries.values()
+                           if isinstance(entry, dict) and "path" in entry]
         manifests = {}
-        for path in (ROOT / "crates").glob("*/Cargo.toml"):
+        for path in candidates:
             document = projection.workspace_projection.read_toml(path)
             if document.get("package", {}).get("name") in names:
                 manifests[str(path.relative_to(ROOT))] = document
+        self.assertEqual({document["package"]["name"] for document in manifests.values()}, names)
         self.assertEqual(len(manifests), len(names))
-        manifests["crates/Cargo.toml"] = None
-        value = projection.project(projection.workspace_projection.read_toml(ROOT / "Cargo.toml"),
-                                   manifests, graph, "opensesame-gateway", "crates/gateway/Cargo.toml")
+        for ancestor in projection.manifest_ancestors(manifests):
+            found = ROOT / ancestor
+            manifests.setdefault(ancestor, projection.workspace_projection.read_toml(found) if found.is_file() else None)
+        value = projection.project(workspace, manifests, graph, "opensesame-gateway", "crates/gateway/Cargo.toml")
         self.assertIn("sqlx", value["workspace"]["dependencies"])
         self.assertIn("serde", value["workspace"]["dependencies"])
         self.assertGreaterEqual(len(manifests), 2)
