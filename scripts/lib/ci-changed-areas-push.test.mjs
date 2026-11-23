@@ -144,7 +144,7 @@ describe("the Bundle budgets aggregate", () => {
     expect(job).toContain(
       "npm run verify:device-identity -w @opensesame/pages",
     );
-    expect(job).toContain("needs: changes");
+    expect(job).toContain("needs: [changes, admit]");
     expect(job).toContain(
       "if: needs.changes.outputs.device_identity == 'true'",
     );

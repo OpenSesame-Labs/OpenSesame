@@ -1,7 +1,7 @@
 # Real host execution; successful cross-compilation is not a platform proof.
 # The selected snapshot is checked out only by read-only jobs, which have no token.
-# A checkout ref field whose name contains "sha" is an untrusted pull-request head.
-# Those jobs bind the snapshot to CANDIDATE_REVISION.
+# The source_sha input is admitted first (admission job, admit-candidate-source.mjs):
+# only a full commit already on main; CANDIDATE_REVISION is bound to that output.
 # A job that carries a token checks out the workflow SHA, never that tree.
 name: Native platform validation
 
@@ -22,6 +22,7 @@ concurrency:
 jobs:
   core:
     name: Native vault and store (${{ matrix.platform }})
+    needs: admit
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     permissions:
@@ -38,7 +39,7 @@ jobs:
           - platform: Windows
             runner: windows-2025
     env:
-      CANDIDATE_REVISION: ${{ inputs.source_sha }}
+      CANDIDATE_REVISION: ${{ needs.admit.outputs.revision }}
       EXPECTED_HEAD: ${{ inputs.source_sha }}
       VALIDATION_PHASE: core
       CARGO_BUILD_JOBS: '2'
@@ -153,6 +154,7 @@ jobs:
           if-no-files-found: error
   cli:
     name: Native CLI (${{ matrix.platform }})
+    needs: admit
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     permissions:
@@ -169,7 +171,7 @@ jobs:
           - platform: Windows
             runner: windows-2025
     env:
-      CANDIDATE_REVISION: ${{ inputs.source_sha }}
+      CANDIDATE_REVISION: ${{ needs.admit.outputs.revision }}
       EXPECTED_HEAD: ${{ inputs.source_sha }}
       VALIDATION_PHASE: cli
       CARGO_BUILD_JOBS: '2'
@@ -301,7 +303,7 @@ jobs:
 
   release:
     name: Native default release artifact (${{ matrix.platform }})
-    needs: [core, cli]
+    needs: [core, cli, admit]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 90
     permissions:
@@ -318,7 +320,7 @@ jobs:
           - platform: Windows
             runner: windows-2025
     env:
-      CANDIDATE_REVISION: ${{ inputs.source_sha }}
+      CANDIDATE_REVISION: ${{ needs.admit.outputs.revision }}
       EXPECTED_HEAD: ${{ inputs.source_sha }}
       CARGO_BUILD_JOBS: '2'
       CARGO_INCREMENTAL: '0'
@@ -422,3 +424,33 @@ jobs:
           name: native-release-${{ matrix.platform }}-${{ inputs.source_sha }}
           path: ${{ runner.temp }}/opensesame-native-release/
           if-no-files-found: error
+
+  # The candidate is admitted before any job fetches it: only a full commit
+  # already on the default branch. This job holds the token and checks out
+  # the workflow SHA only; candidate jobs read its output, never the raw input
+  # (scripts/release/admit-candidate-source.mjs, docs/security/actions-security.md).
+  admit:
+    name: Admit candidate source
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      revision: ${{ steps.admitted.outputs.revision }}
+    steps:
+      - name: Check out the trusted candidate admission helper
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          allow-unsafe-pr-checkout: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/release/admit-candidate-source.mjs
+            scripts/lib/json-boundary.mjs
+      - name: Admit only a candidate already on the default branch
+        id: admitted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_SOURCE: ${{ inputs.source_sha }}
+        run: node scripts/release/admit-candidate-source.mjs

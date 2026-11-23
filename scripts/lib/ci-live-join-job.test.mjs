@@ -64,7 +64,7 @@ describe("the live join walk's CI job (ADR 0150)", () => {
   });
 
   it("runs only when the diff reaches it, and Bundle budgets reports it", () => {
-    expect(job).toContain("needs: changes");
+    expect(job).toContain("needs: [changes, admit]");
     expect(job).toContain("if: needs.changes.outputs.live_join == 'true'");
     const check =
       ci.split("  bundle-check:")[1]?.split("  rust-check:")[0] ?? "";

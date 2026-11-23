@@ -45,7 +45,9 @@ describe("delivery authorization qualification", () => {
     const workflow = read("sync-target-security.yml");
     expect(workflow).toContain("workflow_call:");
     expect(workflow).toMatch(/source_sha:\n(?:.*\n)*? {8}required: true/);
-    expect(workflow).toContain("ref: ${{ inputs.source_sha || github.sha }}");
+    expect(workflow).toContain(
+      "ref: ${{ needs.admit.outputs.revision || github.sha }}",
+    );
     expect(workflow).toContain("persist-credentials: false");
     expect(workflow).toContain("inputs.source_sha && github.run_id");
     expect(workflow).toContain("cancel-in-progress: ${{ !inputs.source_sha }}");

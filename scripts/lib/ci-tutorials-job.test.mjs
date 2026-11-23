@@ -22,7 +22,7 @@ describe("the tutorial walk's CI job", () => {
     // that are not a tutorial, so each runs in exactly one leg.
     expect(job).toContain('shard: ["1/3", "2/3", "3/3"]');
     expect(job).toContain("TUTORIALS_SHARD: ${{ matrix.shard }}");
-    expect(job).toContain("needs: changes");
+    expect(job).toContain("needs: [changes, admit]");
     expect(job).toContain("if: needs.changes.outputs.tutorials == 'true'");
     // The trusted helper checkout builds Pages, never the candidate's copy.
     expect(job).toContain("node .ci-control/scripts/lib/ci-pages-build.mjs");

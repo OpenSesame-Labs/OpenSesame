@@ -1,7 +1,7 @@
 /**
  * Candidate release checks check out the selected snapshot only in read-only jobs.
- * Those jobs have no token. A checkout ref field whose name contains "sha" is an
- * untrusted pull-request head, so the snapshot is bound to CANDIDATE_REVISION.
+ * Those jobs have no token. CANDIDATE_REVISION is bound to
+ * the admission job's output: a source already on main.
  * A job that carries github.token checks out the workflow SHA, never that tree.
  */
 import { readFileSync } from "node:fs";
@@ -39,7 +39,9 @@ describe("ci-release-checks untrusted checkout", () => {
       expect(JSON.stringify(job), name).not.toContain("secrets.");
       expect(JSON.stringify(job), name).not.toContain("id-token");
       expect(JSON.stringify(job), name).not.toContain("attestations");
-      expect(job.env.CANDIDATE_REVISION, name).toBe("${{ inputs.source_sha }}");
+      expect(job.env.CANDIDATE_REVISION, name).toBe(
+        "${{ needs.admit-source.outputs.revision }}",
+      );
       const refs = checkouts(job).map((step) => step.with.ref);
       expect(refs, name).toEqual([
         "${{ github.workflow_sha }}",
@@ -64,7 +66,11 @@ describe("ci-release-checks untrusted checkout", () => {
     const tokenJobs = Object.entries(workflow.jobs).filter(([, job]) =>
       JSON.stringify(job).includes("github.token"),
     );
-    expect(tokenJobs.map(([name]) => name).sort()).toEqual(["admit", "record"]);
+    expect(tokenJobs.map(([name]) => name).sort()).toEqual([
+      "admit",
+      "admit-source",
+      "record",
+    ]);
     for (const [name, job] of tokenJobs) {
       const refs = checkouts(job).map((step) => step.with.ref);
       expect(refs, name).toEqual(["${{ github.workflow_sha }}"]);
@@ -84,7 +90,7 @@ describe("ci-release-checks untrusted checkout", () => {
     const checkoutsText = blocks.filter((block) =>
       /uses:\s*actions\/checkout@/.test(block),
     );
-    expect(checkoutsText.length).toBe(6);
+    expect(checkoutsText.length).toBe(7);
     for (const block of checkoutsText) {
       const step = block.split(/\n\s*- /)[0];
       expect(step).toContain("allow-unsafe-pr-checkout: false");
