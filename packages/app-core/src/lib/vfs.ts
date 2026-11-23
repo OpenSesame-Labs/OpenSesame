@@ -11,6 +11,7 @@ import {
   assertTombName,
   parseEnvelope,
   parseRegistry,
+  parseRegistryForWrite,
   parseSealedBlob,
 } from "./vfs-metadata-data.js";
 import { originalVfsCheck } from "./vfs-operation-check.js";
@@ -133,6 +134,13 @@ function readRegistry(): string[] {
   return parseRegistry(vfsSeams.readRaw(TOMBS_REGISTRY_KEY));
 }
 
+/** Under the registry lock: the physical record, so a stale tab erases no vault. */
+async function readRegistryForWrite(check: () => void): Promise<string[]> {
+  await vfsSeams.refreshRaw?.(TOMBS_REGISTRY_KEY, 1024 * 1024, check);
+  check();
+  return parseRegistryForWrite(vfsSeams.readRaw(TOMBS_REGISTRY_KEY));
+}
+
 async function writeRegistry(
   names: string[],
   check: () => void = () => {},
@@ -169,7 +177,8 @@ export async function registerTomb(
   assertTombName(tomb);
   await withVfsCrossTabLock(VFS_REGISTRY_LOCK, async () => {
     check();
-    const names = readRegistry();
+    if (readRegistry().includes(tomb)) return;
+    const names = await readRegistryForWrite(check);
     if (names.includes(tomb)) return;
     await writeRegistry([...names, tomb], check, commit);
   });
@@ -177,7 +186,8 @@ export async function registerTomb(
 
 export async function unregisterTomb(tomb: string): Promise<void> {
   await withVfsCrossTabLock(VFS_REGISTRY_LOCK, async () => {
-    const names = readRegistry();
+    if (!readRegistry().includes(tomb)) return;
+    const names = await readRegistryForWrite(() => {});
     if (!names.includes(tomb)) return;
     await writeRegistry(names.filter((name) => name !== tomb));
   });

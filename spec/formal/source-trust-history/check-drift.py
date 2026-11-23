@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import stat
 import sys
+import tarfile
 import tempfile
 import types
 
@@ -225,25 +226,21 @@ PATHS.extend(MIGRATIONS)
 PATHS.extend(path for path in MANIFESTS if path not in PATHS)
 BUILD_PATHS = [str(Path(path).with_name("build.rs")) for path in MANIFESTS]
 OPTIONAL_PATHS = ["apps/Cargo.toml", "crates/Cargo.toml", *BUILD_PATHS, ".cargo/config", ".cargo/config.toml"]
-# A changed crate root could shadow include_str or redirect the module. Update
-# this trusted pin only with a separate review of migration name resolution.
-# 2026-11-21 review: main #2725 changed `mod invocations` to `pub mod
-# invocations` (visibility only; the module already resolved to
-# src/invocations.rs). Migrations are still the literal MIGRATIONS table in
-# src/migrations.rs with include_str! paths, and this root change cannot
-# shadow or redirect them, so the pin moves to the reviewed current bytes.
-# 2026-11-22 review: main #2885 added one private `mod cert_completion;`
-# declaration (no `#[path]`, resolves to src/cert_completion.rs). That module
-# holds one guarded certificate-issuance transaction: no include_str!, no
-# macro, and no item named after migrations. `mod migrations` and its
-# MIGRATIONS table are unchanged, so the pin moves to the reviewed bytes.
-# 2026-11-22 review (session-revocation lineage, #2680): the crate root adds
-# one `pub mod host_membership;` declaration (no `#[path]`, resolves to
-# src/host_membership.rs; it holds Host withdrawal-fence queries, with no
-# include_str!, no macro and no item named after migrations). The migration
-# runner now checks and applies each version inside one BEGIN IMMEDIATE
-# transaction, so concurrent replicas cannot both apply a version. The
-# MIGRATIONS table still comes only from src/migrations.rs; three appended
+# 2026-11-23: declared keepass/sqlx-sqlite patches are outside the model; their reviewed verifiers pin each tree.
+VENDORED_VERIFIERS = ["scripts/security/verify-vendored-keepass.py", "scripts/security/verify-vendored-sqlx.py"]
+PATHS.extend(VENDORED_VERIFIERS)
+# A changed crate root could shadow include_str or redirect the module. Update this trusted pin only with a separate review of
+# migration name resolution.
+# 2026-11-21 review: main #2725 changed `mod invocations` to `pub mod invocations` (visibility only; the module already resolved
+# to src/invocations.rs). Migrations are still the literal MIGRATIONS table in src/migrations.rs with include_str! paths, and this
+# root change cannot shadow or redirect them, so the pin moves to the reviewed current bytes.
+# 2026-11-22 review: main #2885 added one private `mod cert_completion;` declaration (no `#[path]`, resolves to
+# src/cert_completion.rs). That module holds one guarded certificate-issuance transaction: no include_str!, no macro, and no item
+# named after migrations. `mod migrations` and its MIGRATIONS table are unchanged, so the pin moves to the reviewed bytes.
+# 2026-11-22 review (session-revocation lineage, #2680): the crate root adds one `pub mod host_membership;` declaration (no
+# `#[path]`, resolves to src/host_membership.rs; it holds Host withdrawal-fence queries, with no include_str!, no macro and no
+# item named after migrations). The migration runner now checks and applies each version inside one BEGIN IMMEDIATE transaction,
+# so concurrent replicas cannot both apply a version. The MIGRATIONS table still comes only from src/migrations.rs; three appended
 # entries (0061-0063 since 2026-11-23) are recorded above, and none touches source-trust tables.
 MIGRATION_ROOT_SHA256 = "08dc4872ca5a500e09ad9d0f86a30793f3f1b10f662cff4ecd71ba530a15a3ba"
 CARGO_TARGETS = {
@@ -365,6 +362,8 @@ def main():
             sys.dont_write_bytecode = True
             isolation = load_verified("history_cargo_isolation", isolated / Path(helpers[3]).name, verified[helpers[3]])
             isolation.check_cargo_targets(ROOT, CARGO_TARGETS, set(verified))
+            for name in VENDORED_VERIFIERS:  # re-attest each declared vendored patch
+                load_verified("reviewed_vendored_crate", name, verified[name]).verify(ROOT)
             projection = load_verified("cargo_lock_projection", isolated / Path(helpers[0]).name, verified[helpers[0]])
             recorded = coverage["lock_projection"]
             if (recorded.get("root") != "opensesame-cli" or
@@ -390,7 +389,7 @@ def main():
             }
             if coverage.get("workspace_projection") != expected_workspace:
                 raise ValueError("review CLI workspace inputs drift")
-    except (OSError, ValueError, KeyError, TypeError) as exc:
+    except (OSError, ValueError, KeyError, TypeError, tarfile.TarError) as exc:
         raise SystemExit(f"source-trust-history-formal: {exc}") from exc
     print(f"source-trust-history-formal: reviewed sources and dependencies match base {coverage['reviewed_revision']}")
 

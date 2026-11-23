@@ -33,6 +33,9 @@ class BytecodeIntegrityTest(unittest.TestCase):
         paths = {LOCK, WORKSPACE, MULTI, "Cargo.toml", "Cargo.lock", *CHECKERS}
         for checker in CHECKERS:
             paths |= scratch.coverage_files(ROOT, str(Path(checker).with_name("coverage.json")))
+        # The spiffe checker runs the vendored SQLx verifier, which reads the
+        # vendored tree, its archive, and both workspaces' patch bindings.
+        paths |= scratch.tracked_files(ROOT, "patches/vendor", "tests/fuzz/cargo/Cargo.toml", "tests/fuzz/cargo/Cargo.lock")
         scratch.copy_files(ROOT, cls.root, paths)
         # The checkers resolve reviewed lineage and blobs in their own checkout.
         scratch.init_checkout(cls.root, ROOT)

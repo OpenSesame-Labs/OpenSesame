@@ -36,20 +36,22 @@ import {
   pollSavedGithubBackups,
   putSavedGithubBackup,
 } from "./vault-backup-github.js";
+
 export {
   readSavedGithubBackup,
   restoreSavedGithubBackup,
 } from "./vault-backup-github.js";
-import { backupTargetReceipt } from "./vault-backup-github-owner.js";
-import {
-  confirmedBackupCommit,
-  readBackupWriteConfirmation,
-} from "./vault-backup-sync-confirmation.js";
+
 import {
   buildOfflineBackup,
   serializeOfflineBackup,
 } from "./vault/offline-backup.js";
 import { GUEST_TOMB, vaultStore } from "./vault/store.js";
+import { backupTargetReceipt } from "./vault-backup-github-owner.js";
+import {
+  confirmedBackupCommit,
+  readBackupWriteConfirmation,
+} from "./vault-backup-sync-confirmation.js";
 import {
   BODY_PATH,
   HEADER_PATH,
@@ -65,8 +67,8 @@ function utf8ToBase64(text: string): string {
 }
 
 function sealedEnvelopeJson(): string {
-  const { status, tomb } = vaultStore.getSnapshot();
-  if (tomb === GUEST_TOMB) {
+  const { status, tomb, guest } = vaultStore.getSnapshot();
+  if (guest || tomb === GUEST_TOMB) {
     throw new Error("Guest vaults cannot sync to a backup remote.");
   }
   if (status !== "unlocked" && status !== "locked") {

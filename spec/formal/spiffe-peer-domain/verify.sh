@@ -16,7 +16,8 @@ unset OPENSESAME_FORMAL_RUSTC_LOG
 export RUSTC_WORKSPACE_WRAPPER="$(python3 -I scripts/security/formal-cargo-isolation.py "$root")"
 python3 -I scripts/security/formal-cargo-freshness.py init \
   --repo "$root" --manifest "$root/Cargo.toml" --state "$scratch/cargo-state.json" \
-  --package opensesame-domain --package opensesame-transport-security --package opensesame-ingress-evidence --package opensesame-spiffe-source --package opensesame-gateway
+  --package opensesame-domain --package opensesame-transport-security --package opensesame-ingress-evidence --package opensesame-spiffe-source --package opensesame-gateway \
+  --reviewed-patch sqlx-sqlite=patches/vendor/sqlx-sqlite-0.9.0
 formal_cargo() {
   python3 -I "$root/scripts/security/formal-cargo-freshness.py" run \
     --state "$scratch/cargo-state.json" --input-check "$root/spec/formal/spiffe-peer-domain/check-drift.py" -- "$@"

@@ -241,7 +241,7 @@ it("discards a guest ceremony at lock, at the scratch-decoy actor boundary, and 
   expect(vaultStore.activeTomb()).toBe(DECOY_SCRATCH_TOMB);
   expect(vaultStore.getSnapshot()).toMatchObject({
     status: "unlocked",
-    tomb: GUEST_TOMB,
+    tomb: DECOY_SCRATCH_TOMB,
     guest: true,
     decoy: true,
   });

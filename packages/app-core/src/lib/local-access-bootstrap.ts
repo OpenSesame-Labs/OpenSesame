@@ -9,20 +9,20 @@
  */
 
 import { catalogProvider } from "./connector-catalog.js";
+import { isGuestSessionTomb } from "./duress/store/decoy-scratch.js";
 import { getBundledProviders } from "./embedded-catalog.js";
 import { listAccessAuditEvents } from "./local-access-audit.js";
 import { ensureThisDevice } from "./local-devices.js";
+import { type LocalDirectory, readLocalDirectory } from "./local-directory.js";
 import {
   currentOwnerPersonName,
   ensureOwnerPerson,
 } from "./local-directory-bootstrap.js";
-import { type LocalDirectory, readLocalDirectory } from "./local-directory.js";
 import { guestSessionPersonLocked, isGuestPersonEntry } from "./local-guest.js";
 import { ensureLocalShare } from "./local-share-grants-approvals.js";
 import { loadSettings } from "./settings.js";
 import { standingConnectionRevoked } from "./standing-connection-grants.js";
 import { listDeviceVaults } from "./vaults.js";
-import { GUEST_TOMB } from "./vfs.js";
 
 function providerLabel(providerId: string): string {
   return (
@@ -139,10 +139,9 @@ async function ensureConnectorShares(
  * the owner's standing shares.
  */
 export async function ensureDefaultAccess(tomb: string): Promise<void> {
-  const personName =
-    tomb === GUEST_TOMB
-      ? (await guestSessionPersonLocked()).name
-      : currentOwnerPersonName();
+  const personName = isGuestSessionTomb(tomb)
+    ? (await guestSessionPersonLocked()).name
+    : currentOwnerPersonName();
   await ensureOwnerPerson(tomb, personName);
   await ensureThisDevice(tomb);
   await ensureDefaultShares(tomb);
