@@ -105,3 +105,13 @@ export type CompletedSignIn = {
   policyRevision?: string;
   claims?: VerifiedIdTokenClaims;
 };
+
+/**
+ * A first-party email-link return: the exchange already adopted the member
+ * session, so there is no upstream identity to attach — only the post-sign-in
+ * vault and outcome handling remain.
+ */
+export type MagicLinkSignIn = { magicLink: true };
+
+/** Whatever a sign-in return finished as (`completeReturn`). */
+export type CompletedReturn = CompletedSignIn | MagicLinkSignIn;

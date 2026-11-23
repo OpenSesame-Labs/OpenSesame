@@ -7,6 +7,7 @@ import { parseAuthCallback } from "./federation-callback.js";
 import { configuredIdentitySessionTrusted } from "./federation-configured-token.js";
 import type {
   BeginSignInOptions,
+  CompletedReturn,
   CompletedSignIn,
   OidcDiscovery,
   TrustedUpstream,
@@ -40,7 +41,9 @@ import { settingsEpoch, signInMethods } from "./settings.js";
 
 export type {
   BeginSignInOptions,
+  CompletedReturn,
   CompletedSignIn,
+  MagicLinkSignIn,
   OidcDiscovery,
   TrustedUpstream,
 } from "./federation-contract.js";
@@ -376,7 +379,7 @@ function loadSessionDefault(): UpstreamIdentity | null {
   return identity;
 }
 
-async function completeSignInWired(): Promise<CompletedSignIn | null> {
+async function completeReturnWired(): Promise<CompletedReturn | null> {
   const captured = captureFederationAction();
   if (
     await completeMagicLinkIfPresent(
@@ -385,7 +388,7 @@ async function completeSignInWired(): Promise<CompletedSignIn | null> {
       captured.assertCurrent,
     )
   )
-    return null;
+    return { magicLink: true };
   const ambient = await ambientAuthSeams.completeIfPresent(captured.search);
   if (ambient) {
     captured.scrub();
@@ -397,7 +400,7 @@ async function completeSignInWired(): Promise<CompletedSignIn | null> {
 export const federationSeams = {
   defaultUpstream: defaultUpstreamDefault,
   beginSignIn: beginSignInDefault,
-  completeSignIn: completeSignInWired,
+  completeReturn: completeReturnWired,
   adoptBrokeredSession: adoptBrokeredSessionDefault,
   loadSession: loadSessionDefault,
   clearSession: clearSessionDefault,
@@ -415,8 +418,15 @@ export async function beginSignIn(
   return federationSeams.beginSignIn(upstream, options);
 }
 
+/** Finish whichever sign-in return this page carries (OIDC or email link). */
+export async function completeReturn(): Promise<CompletedReturn | null> {
+  return federationSeams.completeReturn();
+}
+
+/** `completeReturn` for callers that only handle an upstream identity. */
 export async function completeSignIn(): Promise<CompletedSignIn | null> {
-  return federationSeams.completeSignIn();
+  const result = await federationSeams.completeReturn();
+  return result && "magicLink" in result ? null : result;
 }
 
 export async function adoptBrokeredSession(

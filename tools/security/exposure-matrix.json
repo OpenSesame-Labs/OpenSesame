@@ -45,7 +45,7 @@
         "packages/app-core/src/lib/magic-link-client.test.ts",
         "packages/app-core/src/lib/providers.test.ts"
       ],
-      "review": "The emailed proof remains a high-entropy bearer for the mailbox holder, but GET is inert. First-party completion additionally requires the initiating tab's verifier and state; hosted completion requires explicit confirmation plus the initiating interaction cookie. Durable server stores enforce expiry and atomic single use. Send budgets protect availability, not proof secrecy. This classification does not claim protection from a compromised mailbox/browser or a scanner that submits forms. 2026-11-19: refusal regressions compare the complete durable send-budget ledger before and after recipient, source, global, backend-recipient, and backend-application denials; denial now preserves even ledger expiry metadata. Passed all changed magic-link/federation suites (60 tests in 7 files). Cached pre-verifier clients receive a distinct non-cacheable 426 upgrade response before mail or budget effects. New Pages uses a versioned send route: an older Identity returns 404 before mail and Pages uses the existing hosted OAuth/PKCE email interaction, never the legacy first-party bearer route. A composed old-Identity check completes hosted email and OAuth return through first-party session adoption; both Pages entry points avoid a sent confirmation when redirecting. Drain the Pages cache and in-flight links, then switch Identity traffic atomically to avoid routing new links to old replicas. Upgrade telemetry requires an approved callback or the exact historical root callback paired with its allowlisted Origin, and is capped per process with suppressed-event rollup, separately from mail admission. The root callback is never admitted for a modern send. Untrusted traffic and repeated in-window requests are regression-bound. Cached old clients still show their generic 426 error. The legacy bearer exchange remains absent. 2026-11-22: merge review for the session-revocation lineage onto main (#2806, #2891, #2892). security-maps.ts and state.ts are a union: this lineage's maps and stores plus main's durable scimMutationRates SCIM mutation-window map (60 s expiry, 10,000-entry bound), registered in the same way as the existing maps. No existing map's durability, expiry or bound changed. federation.ts takes main's import layout and settingsEpoch fence, and keeps this lineage's magic-link completion before ambient and OIDC handling. magic-link-client.ts now passes the requesting Identity base as restoreSession's expectedBase (main's #2806 added that parameter), so a link can adopt a session only from the Identity API it was sent from. The bearer, verifier and state checks are unchanged. Regressions executed on the merged tree: app-core federation-response, magic-link-client, providers, drop-present, federation* and identity* (504 tests in 41 files); control-plane auth-upstream, claims-drop-code, claims-drop-completion, claims-present, interaction-activation-clock, interaction-totp-budget, magic-link-exchange and magic-link-first-party (64 tests in 8 files); os-domain claim-token and claim-token-extended (23 tests in 2 files). 2026-11-23: reviewed the anti-slop refactor of magic-link-client.ts (da2b60796). readPending now checks sessionEpoch with os-domain isNumber instead of typeof, which is equivalent for the JSON-parsed sessionStorage value it reads, and beginMagicLink returns a named MagicLinkHandoff type with the same request and commit members. Verifier, state, identity base and restoreSession expectedBase handling are byte-for-byte unchanged. Regressions executed: app-core magic-link-client (3 tests); control-plane scim*, organization-withdrawal*, api and magic-link* (120 passed, 1 skipped in 21 files)."
+      "review": "The emailed proof remains a high-entropy bearer for the mailbox holder, but GET is inert. First-party completion additionally requires the initiating tab's verifier and state; hosted completion requires explicit confirmation plus the initiating interaction cookie. Durable server stores enforce expiry and atomic single use. Send budgets protect availability, not proof secrecy. This classification does not claim protection from a compromised mailbox/browser or a scanner that submits forms. 2026-11-19: refusal regressions compare the complete durable send-budget ledger before and after recipient, source, global, backend-recipient, and backend-application denials; denial now preserves even ledger expiry metadata. Passed all changed magic-link/federation suites (60 tests in 7 files). Cached pre-verifier clients receive a distinct non-cacheable 426 upgrade response before mail or budget effects. New Pages uses a versioned send route: an older Identity returns 404 before mail and Pages uses the existing hosted OAuth/PKCE email interaction, never the legacy first-party bearer route. A composed old-Identity check completes hosted email and OAuth return through first-party session adoption; both Pages entry points avoid a sent confirmation when redirecting. Drain the Pages cache and in-flight links, then switch Identity traffic atomically to avoid routing new links to old replicas. Upgrade telemetry requires an approved callback or the exact historical root callback paired with its allowlisted Origin, and is capped per process with suppressed-event rollup, separately from mail admission. The root callback is never admitted for a modern send. Untrusted traffic and repeated in-window requests are regression-bound. Cached old clients still show their generic 426 error. The legacy bearer exchange remains absent. 2026-11-22: merge review for the session-revocation lineage onto main (#2806, #2891, #2892). security-maps.ts and state.ts are a union: this lineage's maps and stores plus main's durable scimMutationRates SCIM mutation-window map (60 s expiry, 10,000-entry bound), registered in the same way as the existing maps. No existing map's durability, expiry or bound changed. federation.ts takes main's import layout and settingsEpoch fence, and keeps this lineage's magic-link completion before ambient and OIDC handling. magic-link-client.ts now passes the requesting Identity base as restoreSession's expectedBase (main's #2806 added that parameter), so a link can adopt a session only from the Identity API it was sent from. The bearer, verifier and state checks are unchanged. Regressions executed on the merged tree: app-core federation-response, magic-link-client, providers, drop-present, federation* and identity* (504 tests in 41 files); control-plane auth-upstream, claims-drop-code, claims-drop-completion, claims-present, interaction-activation-clock, interaction-totp-budget, magic-link-exchange and magic-link-first-party (64 tests in 8 files); os-domain claim-token and claim-token-extended (23 tests in 2 files). 2026-11-23: reviewed the anti-slop refactor of magic-link-client.ts (da2b60796). readPending now checks sessionEpoch with os-domain isNumber instead of typeof, which is equivalent for the JSON-parsed sessionStorage value it reads, and beginMagicLink returns a named MagicLinkHandoff type with the same request and commit members. Verifier, state, identity base and restoreSession expectedBase handling are byte-for-byte unchanged. Regressions executed: app-core magic-link-client (3 tests); control-plane scim*, organization-withdrawal*, api and magic-link* (120 passed, 1 skipped in 21 files). 2026-11-23: reviewed the Codex P2 fixes to federation.ts and magic-link-client.ts. federation.ts now returns a distinguishable magic-link outcome from completeReturn (completeSignIn still yields null for it), so the return screen opens the vault or records an authenticated banner after an email-link sign-in instead of landing on the front door; no request, credential or check is added. magic-link-client.ts records a random per-page-load marker with the pending link: a return in the same page load keeps the recorded session-epoch fence, while a return after the email link reloads the app fences restoreSession to the epoch captured before the exchange, so a valid exchange is no longer rejected and revoked but a sign-out during the exchange still refuses it. Verifier, state, identity base and expectedBase checks are unchanged. Regressions executed: app-core federation*, magic-link*, identity*, guest*, device-identity, claims, settings, browser-pairing, providers, drop-present, screens/federation-return-model and screens/unlock (913 tests in 76 files, including the new magic-link-client-reload and federation-return-model suites); Pages FederationReturn, IdentityCeremony, ConnectionCeremony, FrontDoor and unlock (309 tests in 37 files); control-plane bound-cookie*, magic-link*, auth-upstream, auth-session-interleaving, auth-admission, principals* and api (120 tests in 11 files)."
     },
     {
       "id": "hosted-secret-drop",
@@ -1348,14 +1348,14 @@
       "ffba675c"
     ],
     "packages/app-core/src/lib/federation.ts": [
-      "07052a18",
-      "64779e32",
-      "454681e7",
-      "104c34b2",
-      "11ca5d14",
-      "34a736f9",
-      "664476c3",
-      "1974bfcc"
+      "ebc8ef40",
+      "c58b931e",
+      "4c655f42",
+      "1c1888a5",
+      "a0bd5903",
+      "d08ac7b7",
+      "80dad2df",
+      "3683f817"
     ],
     "packages/app-core/src/lib/magic-link-client.test.ts": [
       "f5ea9b22",
@@ -1368,14 +1368,14 @@
       "65e2ff25"
     ],
     "packages/app-core/src/lib/magic-link-client.ts": [
-      "b4547f00",
-      "284196ae",
-      "2eb880ae",
-      "aa1c5fbd",
-      "bb6a22b6",
-      "b93e5eb9",
-      "b67e0f62",
-      "f7645a10"
+      "327d6669",
+      "78064b8f",
+      "cbf2cf4f",
+      "b0f85c50",
+      "928f8bc7",
+      "604c401c",
+      "9391260d",
+      "0cf58a5e"
     ],
     "packages/app-core/src/lib/providers.test.ts": [
       "76c2bddf",

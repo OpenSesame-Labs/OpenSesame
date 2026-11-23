@@ -15,6 +15,12 @@ import {
 import { localNetworkFetch } from "./local-network-fetch.js";
 
 const PENDING_KEY = "opensesame.magic-link.pending.v1";
+/**
+ * Names this page load. The session epoch is module memory and restarts when
+ * the email link reloads the app, so a recorded epoch fences only a return
+ * that lands in the same page load that asked for the link.
+ */
+const pageLoad = randomString(16);
 
 type PendingMagicLink = {
   verifier: string;
@@ -22,6 +28,7 @@ type PendingMagicLink = {
   identityBase: string;
   callback: string;
   sessionEpoch: number;
+  pageLoad?: string;
 };
 
 function readPending(): PendingMagicLink | undefined {
@@ -67,6 +74,7 @@ export async function beginMagicLink(email: string): Promise<MagicLinkHandoff> {
     identityBase,
     callback: callbackUrl.toString(),
     sessionEpoch: identitySessionEpoch(),
+    pageLoad,
   };
   return {
     request: {
@@ -98,6 +106,12 @@ export async function completeMagicLink(
   )
     throw new Error("This sign-in return did not match the requesting tab.");
   assertCurrent();
+  // After a reload the recorded epoch is meaningless; fence the exchange to
+  // the epoch it starts under, so a sign-out during it still refuses.
+  const fence =
+    pending.pageLoad === pageLoad
+      ? pending.sessionEpoch
+      : identitySessionEpoch();
   const response = await localNetworkFetch(
     `${pending.identityBase}/v1/auth/magic-link/exchange`,
     {
@@ -123,7 +137,7 @@ export async function completeMagicLink(
       accessToken: body.accessToken,
       issuerOrigin: new URL(pending.identityBase).origin,
     },
-    pending.sessionEpoch,
+    fence,
     // Fence the adoption to the Identity API this link was requested from.
     pending.identityBase,
   );
