@@ -97,6 +97,9 @@ export async function identityPlaneRequest(
   const { timeoutMs = IDENTITY_FETCH_MS, ...rest } = init;
   return localNetworkFetch(`${resolveIdentityBase()}${path}`, {
     ...rest,
+    // A redirect could carry a revoke or bearer to a different service and
+    // pass that service's answer off as the configured Identity service's.
+    redirect: "error",
     timeoutMs,
   });
 }
