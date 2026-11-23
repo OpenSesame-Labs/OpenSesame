@@ -1,64 +1,40 @@
-/** Durable origin-wide generation for temporary guest provider returns. */
-import { host } from "../host.js";
-import { localStore } from "../ports.js";
-import { isSealedAtRest } from "./at-rest/cipher.js";
+/**
+ * The guest side of the origin-wide sign-out epoch. A guest captures the
+ * shared sign-out generation (identity-shared-signout.ts) when it opens, and
+ * any later sign-out in any tab ends the work that guest started. Without
+ * durable storage there is no cross-tab epoch: such a guest is local only.
+ */
 import { atRestKeyNow } from "./at-rest/key.js";
-import { GUEST_RETURN_EPOCH_KEY } from "./guest-return-epoch-key.js";
+import {
+  assertSignOutEpoch,
+  captureSignOutEpoch,
+} from "./identity-shared-signout.js";
 
-const VALID_EPOCH =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
-
-/** A missing, corrupt or memory-only record is never mistaken for a saved epoch. */
-export function readGuestReturnEpoch(): string | null {
-  if (atRestKeyNow()?.durable !== true)
-    throw new Error("Guest session storage is not durable.");
-  const physical = host().storage?.local;
-  if (!physical) throw new Error("Guest session storage is unavailable.");
-  const raw = physical.getItem(GUEST_RETURN_EPOCH_KEY);
-  if (raw !== null && !isSealedAtRest(raw))
-    throw new Error("Guest session storage could not be verified.");
-  const value = localStore().getItem(GUEST_RETURN_EPOCH_KEY);
-  if (raw === null && value === null) return null;
-  if (raw === null || !value || !VALID_EPOCH.test(value))
-    throw new Error("Guest session storage could not be verified.");
-  return value;
-}
-
-/** Replace the generation with a fresh random value and verify the physical write. */
-export function advanceGuestReturnEpoch(): string {
-  readGuestReturnEpoch();
-  const next = crypto.randomUUID();
-  localStore().setItem(GUEST_RETURN_EPOCH_KEY, next);
-  if (readGuestReturnEpoch() !== next)
-    throw new Error("Guest sign-out could not be saved. Try again.");
-  return next;
-}
-
-/** Initialize before an issuance; every return requires the same durable value. */
-export function requireGuestReturnEpoch(): string {
-  return readGuestReturnEpoch() ?? advanceGuestReturnEpoch();
-}
-
-/** An unfenced guest may use its local vault, but cannot start remote work. */
+/** The current epoch, or null when it cannot be relied on across tabs. */
 export function captureGuestReturnEpoch(): string | null {
+  if (atRestKeyNow()?.durable !== true) return null;
+  const epoch = captureSignOutEpoch();
+  return epoch === null ? null : String(epoch);
+}
+
+/** Throws once any tab has signed out since `expected` was captured. */
+export function assertGuestReturnEpoch(expected: string): void {
+  const captured = Number(expected);
+  if (!Number.isSafeInteger(captured))
+    throw new Error("The guest session ended. Connect again.");
   try {
-    return requireGuestReturnEpoch();
+    assertSignOutEpoch(captured);
   } catch {
-    return null;
+    throw new Error("The guest session ended. Connect again.");
   }
 }
 
-export function assertGuestReturnEpoch(expected: string): void {
-  if (readGuestReturnEpoch() !== expected)
-    throw new Error("The guest session ended. Connect again.");
-}
-
-/** Capture before guest opening can yield, and recheck through publication. */
 export type GuestEpochGuard = Readonly<{
   epoch: string | null;
   check: () => void;
 }>;
 
+/** Capture before guest opening can yield, and recheck through publication. */
 export function guestEpochGuard(operation: () => void): GuestEpochGuard {
   const epoch = captureGuestReturnEpoch();
   return {

@@ -92,11 +92,12 @@ async function discardIncomplete(
     if (raw !== null) {
       const parsed: BoundaryValue = JSON.parse(raw);
       const prefix = `tomb/${tomb}/`;
-      const keys = Array.isArray(parsed) ? parsed.filter(isString) : null;
+      const keys: string[] = [];
+      for (const entry of Array.isArray(parsed) ? parsed : [null]) {
+        if (!isString(entry)) throw new Error("Invalid guest recovery record.");
+        keys.push(entry);
+      }
       if (
-        !Array.isArray(parsed) ||
-        !keys ||
-        keys.length !== parsed.length ||
         keys.some(
           (key) => !key.startsWith(prefix) || key === header || key === marker,
         )
