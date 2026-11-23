@@ -16,14 +16,19 @@ $OPENSESAME_STATE_DIR/vault/            default: ~/.local/state/opensesame/vault
     header.json                         how the vault is unlocked (no secret in it)
     vault.json                          the manifest: which secret is in which file
     secrets/
-      work/aws/prod-deploy.account.json
-      wifi.secret.json
-      read-me.note.json
+      work/aws/prod-deploy~v1c0e….account.json
+      wifi~v84d2….secret.json
+      read-me~v5b97….note.json
+    staging/                            journals of saves not yet committed
 ```
 
-Folders are directories, a secret is `<name>.<kind>.json`, and every file is
-owner-only (`0600`, directories `0700`). A name that repeats takes the start of
-the secret's id (`wifi~7f3a9c.secret.json`). A vault an earlier CLI kept in
+Folders are directories, a secret is `<name>~v<version>.<kind>.json`, and every
+file is owner-only (`0600`, directories `0700`). A save never overwrites a file
+the committed manifest names: each changed secret is written under a fresh
+32-hex-digit version, the manifest commits it, and the old version is removed
+afterwards, so an interrupted save leaves the last committed vault intact. A
+name that repeats takes the start of the secret's id (`wifi~7f3a9c~v….secret.json`),
+and a folder path too long for a name lands at `secrets/versions/<version>.<kind>.json`. A vault an earlier CLI kept in
 `vault-kv.json` is moved onto files the first time it is opened and the old file
 stays as `vault-kv.json.migrated`.
 

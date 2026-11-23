@@ -1110,7 +1110,11 @@
         "packages/vault-core/src/index.ts",
         "packages/vault-core/src/crypto.ts",
         "packages/vault-core/src/bytes.ts",
-        "packages/vault-core/src/factor-configuration.ts"
+        "packages/vault-core/src/factor-configuration.ts",
+        "packages/app-core/src/lib/secret-fs/vfs-body-crypto.ts",
+        "packages/app-core/src/lib/secret-fs/vfs-body-delete.ts",
+        "packages/app-core/src/lib/secret-fs/vfs-file-keys.ts",
+        "packages/app-core/src/lib/secret-fs/vfs-files-settle.ts"
       ],
       "regressions": [
         "packages/app-core/src/node/secret-files.test.ts",
@@ -1166,9 +1170,13 @@
         "packages/sdk-browser/src/webauthn.test.ts",
         "packages/app-core/src/lib/secret-fs/guarded-removal.test.ts",
         "packages/app-core/src/lib/vault/protection/browser-rotate-keyless.test.ts",
-        "packages/app-core/src/lib/kv.refresh-ephemeral.test.ts"
+        "packages/app-core/src/lib/kv.refresh-ephemeral.test.ts",
+        "packages/app-core/src/lib/secret-fs/projection.test.ts",
+        "packages/app-core/src/lib/secret-fs/projection-conflicts.test.ts",
+        "packages/app-core/src/lib/secret-fs/projection-long-path.test.ts",
+        "packages/app-core/src/lib/secret-fs/s3-vfs-race.test.ts"
       ],
-      "review": "LOCAL device-owner process custody only. Original session/scope and transport-bound completions retain ownership; cancel, expiry and lock synchronously revoke provisional key/body/VFS custody. Before configured factors and trusted quorum complete, a revocable private IAM handle permits only bounded policy/directory/credential reads and genuine WebAuthn assertion-counter advancement, with no ordinary VFS, key export or consumable IAM sign-in evidence. Activation and leases publish once under their original owner; metadata, preferences and device-key reconciliation retain operation checks. Bound regressions use genuine sealed stores, real contact assertions and controlled completion boundaries. Copied vault artifacts with primary unlock material can be decrypted outside this local gate: this is neither offline cryptographic quorum nor global lifecycle enforcement. Source fingerprints require deliberate source-path review and executed relevant regressions after every change; they do not prove crash atomicity or cancel already accepted physical writes. 2026-11-10: classification-cross.ts gains one shared rule, for lib/tailscale-key-prefix. That module holds only the provider's key-prefix strings and a function that joins them; the native Tailscale connector and tailnet devices both import it, and until now it matched no rule, so the classification test failed on main. The rule grants no capability and changes no existing rule, including the private-IAM and WebAuthn helper rules this row binds. Passed: every test under apps/pages/src/lib/capabilities (204 tests in 24 files), classification.test.ts among them. 2026-11-20: classified dependency-only change to packages/auth-upstream/package.json for @simplewebauthn/server 14.1.0; regressions packages/auth-upstream/src/__tests__/webauthn.test.ts, apps/pages/scripts/webauthn-browser-entry.test.mjs, npm run audit:exposure CLEAN. Fingerprints for packages/auth-upstream/package.json bindings are deterministic output, not a blind refresh. 2026-11-20: packages/auth-upstream/package.json gained the verify:simplewebauthn-v14 script, wiring the pinned v14 surface regression (webauthn.test.ts and simplewebauthn-v14-surface.test.ts) into scripts/verify; dependency pins, exports and custody behavior are unchanged from the classified 14.1.0 bump. Regressions executed after the change: npm run verify:simplewebauthn-v14 -w @opensesame/auth-upstream passed (13 tests in 2 files) and npm test -w @opensesame/auth-upstream passed (109 tests in 18 files); the manifest fingerprint was rotated to the reviewed file, deterministic output of the reviewed byte change, and npm run audit:exposure is CLEAN against it. 2026-11-21: PR #2860 rebased onto post-#2859 main; classified dependency-only manifest changes for the @peculiar/x509 3.1.0 hoist — packages/auth-upstream/package.json asn1js 3.1.0 to 4.0.0 (the single hoisted copy the root overrides force) and packages/app-core/package.json @peculiar/x509 1.14.3 to 3.1.0 plus its verify:x509-3 script line. No custody, authority, egress or admission logic changed and the bindings are unchanged. Regressions executed at the rebased head before rotating: pages pin gates saml-peer-ownership.test.mjs and webauthn-browser-entry.test.mjs (2 files, 7 tests), npm test -w @opensesame/auth-upstream (18 files, 109 tests), npm run verify:x509-3 -w @opensesame/app-core (10 files, 229 tests), npm test -w ./tools/mock-upstream-idp (11 files, 68 tests), and npm run audit:exposure CLEAN; fingerprints for both manifests rotated to the reviewed files. 2026-11-21: classified dependency-only manifest changes for the Dependabot npm-minor-and-patch batch #2855: packages/app-core/package.json and packages/auth-upstream/package.json better-auth 1.7.18 to 1.7.22, packages/app-core/package.json jose 6.2.15 to 6.2.17, packages/sdk-browser/package.json jose 6.2.15 to 6.2.17 plus the Biome 2.6.7 formatting of its files array; auth-upstream keeps @simplewebauthn/server 14.1.0 and the v14 surface script from #2859, and no custody, activation or WebAuthn code changed. Regressions executed at the bump head: npm test -w @opensesame/auth-upstream (109 tests in 18 files, including webauthn.test.ts and simplewebauthn-v14-surface.test.ts), npm test -w @opensesame/sdk-browser (118 tests in 13 files, including webauthn.test.ts), app-core store-unlock-activation.test.ts, store-passkey.test.ts and store-second-step.test.ts within a 12-file targeted run (161 tests); npm run audit:exposure CLEAN after the rotation. The manifest fingerprints are deterministic output of the reviewed byte changes, not a blind refresh. 2026-11-21: PR #2855 rebased onto post-#2860 main; packages/app-core/package.json and packages/auth-upstream/package.json now carry both reviewed sets — the #2860 pins (@peculiar/x509 3.1.0 with its verify:x509-3 script, asn1js 4.0.0) and the #2855 batch bumps above — with no other bytes changed; fingerprints rotated to the combined manifests. 2026-11-21: classified dependency-only manifest changes for the Dependabot npm-minor-and-patch batch #2886: packages/app-core/package.json better-auth 1.7.22 to 1.7.25, jsdom 31.0.0 to 31.0.1, @vercel/connect 2.9.2 to 2.9.3, ai 7.0.172 to 7.0.173, and packages/auth-upstream/package.json better-auth 1.7.22 to 1.7.25; auth-upstream keeps @simplewebauthn/server 14.1.0 and the v14 surface script from #2859, and no custody, activation or WebAuthn code changed. Regressions executed at the bump head: npm test -w @opensesame/auth-upstream (109 tests in 18 files, including webauthn.test.ts and simplewebauthn-v14-surface.test.ts), packages/sdk-browser webauthn.test.ts within the full sdk-browser suite (118 tests in 13 files), app-core store-unlock-activation.test.ts, store-passkey.test.ts and store-second-step.test.ts within a 12-file targeted run (161 tests); npm run audit:exposure CLEAN after the rotation. The manifest fingerprints are deterministic output of the reviewed byte changes, not a blind refresh. 2026-11-23: reviewed seal-rebind.ts for the failed-read index fix. On an unbound tomb, rebindTombSeals now loads the index, the body and every indexed file through the installed bounded physical refresh (refreshRaw) when the transport has one, instead of kvHydrate, which swallowed a failed read and left the record absent; a failed index or body read now stops the unlock instead of sealing an empty index over the real one. A file that cannot be refreshed (for example a corrupt record) is skipped and the seal-bound marker is not written, so the next unlock retries it; reads enforce the path binding whether or not the marker is set, so an unmarked tomb accepts no weaker seal. The refresh seam joins the original-transport identity check. No key, owner, binding, lease or admission rule changed; the change only adds a refusal and a retry. Regressions executed: seal-rebind.index.test.ts (two new cases fail on main, pass with the fix); app-core src/lib/vault (1546 passed, 3 skipped in 189 files) and vfs*, secret-fs, kv*, travel and duress (786 tests in 114 files). Remaining limits: a transport without refreshRaw keeps the lenient hydrate, and the refresh is not a cross-process compare-and-swap. 2026-11-23: reviewed vfs.ts, vfs-write-order.ts, vault/store-write-queue.ts, vault/store-preferences.ts and vault/prefs-io.ts for the queued-preferences fix. vfs.ts gains an unlock-lifetime token per tomb, rotated when the tomb is unlocked after a lock or with a different key, and requireTombCheck, which captures that lifetime without exposing the key. StorePreferences.persist captures it when a change is queued and passes it as the original-owner check of the existing guarded writeFile path, so a preferences write still queued when the vault locks no longer lands in a later unlock that reuses the same CryptoKey, and its failure fallback no longer reads or reports from that later unlock. vfs-write-order.ts adds trackVfsWork so vfsFlush also waits for preference writes scheduled behind the store's write queue; store-write-queue.ts registers them. No key, binding, lease or admission rule is relaxed; the change only adds a refusal. Regressions executed: new store-preferences-lifetime.test.ts (fails on main, passes with the fix); app-core vault, vfs*, secret-fs, kv*, projects, travel, duress, guest*, session-exit and local-guest (2563 passed, 3 skipped in 329 files). Remaining limits: a change made just before the vault locks is dropped rather than written, and the lifetime token is per process, not cross-tab. 2026-11-23: reviewed kv.ts for the session-only refresh fix (PR #2912 review). When the at-rest key is ephemeral (IndexedDB refused or timed out while OPFS remains), kvSetDurable keeps writes in memory only, but kvRefresh still read OPFS and deleted the in-memory record on NotFoundError, so a vault created session-only and relocked before its first seal rebind lost its only index and body. kvRefresh now awaits atRestReady() inside the record lock and, when the key is not durable, leaves memory authoritative and consults no file; the original-owner check still runs before and after the wait, and a refusal there still clears memory as before. Durable storage keeps strict physical reads. Regressions executed: kv.refresh-ephemeral.test.ts (fails without the fix, passes with it) and app-core kv*, vault, vfs, at-rest, local-guest, local-credentials, connector-settings, guest and duress (2300 passed, 3 skipped in 303 files). Remaining limit: session-only records die with the document by design. 2026-11-23: reviewed files.ts, errors.ts, memory.ts, filesystem.ts, filesystem-guard.ts, s3.ts, s3.test-support.ts and resilient.ts for guarded removal. SecretFiles gains an optional removeGuarded(path, beforeCommit, { ifRevision }) and remove accepts ifRevision; the memory, directory and S3 backends implement both, and resilient forwards removeGuarded only when the wrapped backend has it, rechecking the original owner before each attempt and after success so a withdrawn owner is a final refusal, never a retry. The directory backend now takes its cross-process lock for every write and removal, verifies it still holds that lock (with a heartbeat) immediately before rename or unlink, and rechecks the owner after each read; S3 removal sends the owner check into request signing, makes a conditional delete with If-Match on a strong ETag only, refuses a bucket without one as unsupported, and reports 409/412 as a conflict naming the current revision. A rejection kind \"unsupported\" is added. No key, binding, lease or admission rule is relaxed; the change only adds refusals. Regressions executed: new guarded-removal.test.ts (10 of 11 cases fail on main, all pass with the fix); app-core secret-fs, vfs* and kv* (279 tests in 25 files). Remaining limits: an unconditional removal has no revision to compare, and a cross-process lock or S3 If-Match does not make several removals one transaction. 2026-11-23: reviewed s3-write.ts and s3.test.ts for conditional S3 writes. A conditional write used to put If-Match only when the bucket returned an ETag, and stripped a weak W/ prefix, so a bucket that hid ETags or returned a weak or wildcard tag let a rival's object be overwritten between the read and the PUT. s3Write now requires one strong entity tag and refuses otherwise as SecretFsRejected \"unsupported\" before any PUT, sending If-Match with the tag exactly as returned. No key, binding, lease or admission rule is relaxed; the change only adds a refusal. Regressions executed: s3.test.ts gains four cases (missing, wildcard, weak and unquoted ETag; all fail on main, pass with the fix); app-core secret-fs (230 tests). Remaining limits: a bucket that returns a strong ETag but ignores If-Match is not detected. 2026-11-23: reviewed vfs-files.ts, install.ts, vault/seal-rebind.ts and vault/protection/browser-lifecycle-ops.ts for file-backed root rotation. A file-backed store has no transaction spanning the body documents, index, settings and header, so a root-key rotation rewrote every document under the new key and could leave the vault split across two keys after an outage. installFileBackedVfs now marks the transport authenticationStorage \"file-backed\" (and restores the previous value); rekeyTomb refuses there with FileBackedRotationUnsupportedError before any write, and rotateCompromisedRoot treats that refusal as already restored, so the session stays unlocked under the old root. The adapter itself also refuses, as SecretFsRejected \"unsupported\", a keyed body write whose key does not open the committed documents, before any document or manifest write. No key, binding, lease or admission rule is relaxed; the change only adds refusals. Regressions executed: vfs-files.test.ts (two rotation cases) and browser-rotate-keyless.test.ts (file-backed refusal) fail on main and pass with the fix; app-core vault, secret-fs, vfs*, kv* and projects (1964 passed, 3 skipped in 231 files). Remaining limits: a file-backed vault cannot rotate its root key until moved to local browser storage. 2026-11-23: reviewed kv.ts, vfs-seams.ts, vfs-seams-state.ts and secret-fs/install.ts for the guarded kv delete. kvDeleteDurable takes an optional beforeCommit: with it, memory is left alone until the origin-file turn ends, the owner is rechecked before the at-rest wait, before and after the unlink, and the in-memory record is dropped only through turn.publish, so a newer value set while the delete ran is kept and the delete is reported as failed. Following the session-only rule of kvRefresh, a guarded delete under an ephemeral at-rest key touches no file and only forgets memory; a restricted OPFS that refuses the unlink is reported, not downgraded to session-only. The ordinary VFS gains deleteRawGuarded over it; the file-backed installer removes that seam so a file store never borrows device KV deletion. The unguarded path is unchanged. No key, binding, lease or admission rule is relaxed. Regressions executed: kv.entry-lifecycle.test.ts and kv.refresh-ephemeral.test.ts each gain one case (both fail on main, pass with the fix); app-core kv*, vfs*, secret-fs, at-rest and device-identity-vault (329 tests). Remaining limits: the guarded delete is not a cross-tab compare-and-swap beyond the origin-file lock."
+      "review": "LOCAL device-owner process custody only. Original session/scope and transport-bound completions retain ownership; cancel, expiry and lock synchronously revoke provisional key/body/VFS custody. Before configured factors and trusted quorum complete, a revocable private IAM handle permits only bounded policy/directory/credential reads and genuine WebAuthn assertion-counter advancement, with no ordinary VFS, key export or consumable IAM sign-in evidence. Activation and leases publish once under their original owner; metadata, preferences and device-key reconciliation retain operation checks. Bound regressions use genuine sealed stores, real contact assertions and controlled completion boundaries. Copied vault artifacts with primary unlock material can be decrypted outside this local gate: this is neither offline cryptographic quorum nor global lifecycle enforcement. Source fingerprints require deliberate source-path review and executed relevant regressions after every change; they do not prove crash atomicity or cancel already accepted physical writes. 2026-11-10: classification-cross.ts gains one shared rule, for lib/tailscale-key-prefix. That module holds only the provider's key-prefix strings and a function that joins them; the native Tailscale connector and tailnet devices both import it, and until now it matched no rule, so the classification test failed on main. The rule grants no capability and changes no existing rule, including the private-IAM and WebAuthn helper rules this row binds. Passed: every test under apps/pages/src/lib/capabilities (204 tests in 24 files), classification.test.ts among them. 2026-11-20: classified dependency-only change to packages/auth-upstream/package.json for @simplewebauthn/server 14.1.0; regressions packages/auth-upstream/src/__tests__/webauthn.test.ts, apps/pages/scripts/webauthn-browser-entry.test.mjs, npm run audit:exposure CLEAN. Fingerprints for packages/auth-upstream/package.json bindings are deterministic output, not a blind refresh. 2026-11-20: packages/auth-upstream/package.json gained the verify:simplewebauthn-v14 script, wiring the pinned v14 surface regression (webauthn.test.ts and simplewebauthn-v14-surface.test.ts) into scripts/verify; dependency pins, exports and custody behavior are unchanged from the classified 14.1.0 bump. Regressions executed after the change: npm run verify:simplewebauthn-v14 -w @opensesame/auth-upstream passed (13 tests in 2 files) and npm test -w @opensesame/auth-upstream passed (109 tests in 18 files); the manifest fingerprint was rotated to the reviewed file, deterministic output of the reviewed byte change, and npm run audit:exposure is CLEAN against it. 2026-11-21: PR #2860 rebased onto post-#2859 main; classified dependency-only manifest changes for the @peculiar/x509 3.1.0 hoist — packages/auth-upstream/package.json asn1js 3.1.0 to 4.0.0 (the single hoisted copy the root overrides force) and packages/app-core/package.json @peculiar/x509 1.14.3 to 3.1.0 plus its verify:x509-3 script line. No custody, authority, egress or admission logic changed and the bindings are unchanged. Regressions executed at the rebased head before rotating: pages pin gates saml-peer-ownership.test.mjs and webauthn-browser-entry.test.mjs (2 files, 7 tests), npm test -w @opensesame/auth-upstream (18 files, 109 tests), npm run verify:x509-3 -w @opensesame/app-core (10 files, 229 tests), npm test -w ./tools/mock-upstream-idp (11 files, 68 tests), and npm run audit:exposure CLEAN; fingerprints for both manifests rotated to the reviewed files. 2026-11-21: classified dependency-only manifest changes for the Dependabot npm-minor-and-patch batch #2855: packages/app-core/package.json and packages/auth-upstream/package.json better-auth 1.7.18 to 1.7.22, packages/app-core/package.json jose 6.2.15 to 6.2.17, packages/sdk-browser/package.json jose 6.2.15 to 6.2.17 plus the Biome 2.6.7 formatting of its files array; auth-upstream keeps @simplewebauthn/server 14.1.0 and the v14 surface script from #2859, and no custody, activation or WebAuthn code changed. Regressions executed at the bump head: npm test -w @opensesame/auth-upstream (109 tests in 18 files, including webauthn.test.ts and simplewebauthn-v14-surface.test.ts), npm test -w @opensesame/sdk-browser (118 tests in 13 files, including webauthn.test.ts), app-core store-unlock-activation.test.ts, store-passkey.test.ts and store-second-step.test.ts within a 12-file targeted run (161 tests); npm run audit:exposure CLEAN after the rotation. The manifest fingerprints are deterministic output of the reviewed byte changes, not a blind refresh. 2026-11-21: PR #2855 rebased onto post-#2860 main; packages/app-core/package.json and packages/auth-upstream/package.json now carry both reviewed sets — the #2860 pins (@peculiar/x509 3.1.0 with its verify:x509-3 script, asn1js 4.0.0) and the #2855 batch bumps above — with no other bytes changed; fingerprints rotated to the combined manifests. 2026-11-21: classified dependency-only manifest changes for the Dependabot npm-minor-and-patch batch #2886: packages/app-core/package.json better-auth 1.7.22 to 1.7.25, jsdom 31.0.0 to 31.0.1, @vercel/connect 2.9.2 to 2.9.3, ai 7.0.172 to 7.0.173, and packages/auth-upstream/package.json better-auth 1.7.22 to 1.7.25; auth-upstream keeps @simplewebauthn/server 14.1.0 and the v14 surface script from #2859, and no custody, activation or WebAuthn code changed. Regressions executed at the bump head: npm test -w @opensesame/auth-upstream (109 tests in 18 files, including webauthn.test.ts and simplewebauthn-v14-surface.test.ts), packages/sdk-browser webauthn.test.ts within the full sdk-browser suite (118 tests in 13 files), app-core store-unlock-activation.test.ts, store-passkey.test.ts and store-second-step.test.ts within a 12-file targeted run (161 tests); npm run audit:exposure CLEAN after the rotation. The manifest fingerprints are deterministic output of the reviewed byte changes, not a blind refresh. 2026-11-23: reviewed seal-rebind.ts for the failed-read index fix. On an unbound tomb, rebindTombSeals now loads the index, the body and every indexed file through the installed bounded physical refresh (refreshRaw) when the transport has one, instead of kvHydrate, which swallowed a failed read and left the record absent; a failed index or body read now stops the unlock instead of sealing an empty index over the real one. A file that cannot be refreshed (for example a corrupt record) is skipped and the seal-bound marker is not written, so the next unlock retries it; reads enforce the path binding whether or not the marker is set, so an unmarked tomb accepts no weaker seal. The refresh seam joins the original-transport identity check. No key, owner, binding, lease or admission rule changed; the change only adds a refusal and a retry. Regressions executed: seal-rebind.index.test.ts (two new cases fail on main, pass with the fix); app-core src/lib/vault (1546 passed, 3 skipped in 189 files) and vfs*, secret-fs, kv*, travel and duress (786 tests in 114 files). Remaining limits: a transport without refreshRaw keeps the lenient hydrate, and the refresh is not a cross-process compare-and-swap. 2026-11-23: reviewed vfs.ts, vfs-write-order.ts, vault/store-write-queue.ts, vault/store-preferences.ts and vault/prefs-io.ts for the queued-preferences fix. vfs.ts gains an unlock-lifetime token per tomb, rotated when the tomb is unlocked after a lock or with a different key, and requireTombCheck, which captures that lifetime without exposing the key. StorePreferences.persist captures it when a change is queued and passes it as the original-owner check of the existing guarded writeFile path, so a preferences write still queued when the vault locks no longer lands in a later unlock that reuses the same CryptoKey, and its failure fallback no longer reads or reports from that later unlock. vfs-write-order.ts adds trackVfsWork so vfsFlush also waits for preference writes scheduled behind the store's write queue; store-write-queue.ts registers them. No key, binding, lease or admission rule is relaxed; the change only adds a refusal. Regressions executed: new store-preferences-lifetime.test.ts (fails on main, passes with the fix); app-core vault, vfs*, secret-fs, kv*, projects, travel, duress, guest*, session-exit and local-guest (2563 passed, 3 skipped in 329 files). Remaining limits: a change made just before the vault locks is dropped rather than written, and the lifetime token is per process, not cross-tab. 2026-11-23: reviewed kv.ts for the session-only refresh fix (PR #2912 review). When the at-rest key is ephemeral (IndexedDB refused or timed out while OPFS remains), kvSetDurable keeps writes in memory only, but kvRefresh still read OPFS and deleted the in-memory record on NotFoundError, so a vault created session-only and relocked before its first seal rebind lost its only index and body. kvRefresh now awaits atRestReady() inside the record lock and, when the key is not durable, leaves memory authoritative and consults no file; the original-owner check still runs before and after the wait, and a refusal there still clears memory as before. Durable storage keeps strict physical reads. Regressions executed: kv.refresh-ephemeral.test.ts (fails without the fix, passes with it) and app-core kv*, vault, vfs, at-rest, local-guest, local-credentials, connector-settings, guest and duress (2300 passed, 3 skipped in 303 files). Remaining limit: session-only records die with the document by design. 2026-11-23: reviewed files.ts, errors.ts, memory.ts, filesystem.ts, filesystem-guard.ts, s3.ts, s3.test-support.ts and resilient.ts for guarded removal. SecretFiles gains an optional removeGuarded(path, beforeCommit, { ifRevision }) and remove accepts ifRevision; the memory, directory and S3 backends implement both, and resilient forwards removeGuarded only when the wrapped backend has it, rechecking the original owner before each attempt and after success so a withdrawn owner is a final refusal, never a retry. The directory backend now takes its cross-process lock for every write and removal, verifies it still holds that lock (with a heartbeat) immediately before rename or unlink, and rechecks the owner after each read; S3 removal sends the owner check into request signing, makes a conditional delete with If-Match on a strong ETag only, refuses a bucket without one as unsupported, and reports 409/412 as a conflict naming the current revision. A rejection kind \"unsupported\" is added. No key, binding, lease or admission rule is relaxed; the change only adds refusals. Regressions executed: new guarded-removal.test.ts (10 of 11 cases fail on main, all pass with the fix); app-core secret-fs, vfs* and kv* (279 tests in 25 files). Remaining limits: an unconditional removal has no revision to compare, and a cross-process lock or S3 If-Match does not make several removals one transaction. 2026-11-23: reviewed s3-write.ts and s3.test.ts for conditional S3 writes. A conditional write used to put If-Match only when the bucket returned an ETag, and stripped a weak W/ prefix, so a bucket that hid ETags or returned a weak or wildcard tag let a rival's object be overwritten between the read and the PUT. s3Write now requires one strong entity tag and refuses otherwise as SecretFsRejected \"unsupported\" before any PUT, sending If-Match with the tag exactly as returned. No key, binding, lease or admission rule is relaxed; the change only adds a refusal. Regressions executed: s3.test.ts gains four cases (missing, wildcard, weak and unquoted ETag; all fail on main, pass with the fix); app-core secret-fs (230 tests). Remaining limits: a bucket that returns a strong ETag but ignores If-Match is not detected. 2026-11-23: reviewed vfs-files.ts, install.ts, vault/seal-rebind.ts and vault/protection/browser-lifecycle-ops.ts for file-backed root rotation. A file-backed store has no transaction spanning the body documents, index, settings and header, so a root-key rotation rewrote every document under the new key and could leave the vault split across two keys after an outage. installFileBackedVfs now marks the transport authenticationStorage \"file-backed\" (and restores the previous value); rekeyTomb refuses there with FileBackedRotationUnsupportedError before any write, and rotateCompromisedRoot treats that refusal as already restored, so the session stays unlocked under the old root. The adapter itself also refuses, as SecretFsRejected \"unsupported\", a keyed body write whose key does not open the committed documents, before any document or manifest write. No key, binding, lease or admission rule is relaxed; the change only adds refusals. Regressions executed: vfs-files.test.ts (two rotation cases) and browser-rotate-keyless.test.ts (file-backed refusal) fail on main and pass with the fix; app-core vault, secret-fs, vfs*, kv* and projects (1964 passed, 3 skipped in 231 files). Remaining limits: a file-backed vault cannot rotate its root key until moved to local browser storage. 2026-11-23: reviewed kv.ts, vfs-seams.ts, vfs-seams-state.ts and secret-fs/install.ts for the guarded kv delete. kvDeleteDurable takes an optional beforeCommit: with it, memory is left alone until the origin-file turn ends, the owner is rechecked before the at-rest wait, before and after the unlink, and the in-memory record is dropped only through turn.publish, so a newer value set while the delete ran is kept and the delete is reported as failed. Following the session-only rule of kvRefresh, a guarded delete under an ephemeral at-rest key touches no file and only forgets memory; a restricted OPFS that refuses the unlink is reported, not downgraded to session-only. The ordinary VFS gains deleteRawGuarded over it; the file-backed installer removes that seam so a file store never borrows device KV deletion. The unguarded path is unchanged. No key, binding, lease or admission rule is relaxed. Regressions executed: kv.entry-lifecycle.test.ts and kv.refresh-ephemeral.test.ts each gain one case (both fail on main, pass with the fix); app-core kv*, vfs*, secret-fs, at-rest and device-identity-vault (329 tests). Remaining limits: the guarded delete is not a cross-tab compare-and-swap beyond the origin-file lock. 2026-11-23: reviewed vfs-files.ts and the four modules split out of it (vfs-body-crypto.ts, vfs-body-delete.ts, vfs-file-keys.ts, vfs-files-settle.ts; moved code, plus the changes below), with the projection writer it drives (projection-write.ts, projection-plan.ts, projection-staging.ts, projection-read.ts, secret-docs.ts) and the conformance suites. A body save no longer overwrites any document the committed manifest names: every changed document gets an immutable, writer-unique ~v<version> name (a compact secrets/versions/ name when the folder path leaves no room), recorded first in a sealed, tomb-bound staging journal; documents named by the manifest are held to the revisions read before staging, before commit and after commit, and a direct edit that crosses the commit restores the prior manifest bytes conditionally and fails as a conflict. After a failed save the adapter keeps the last known revisions and rewrites every document at the next save instead of reinterpreting an existing one as new; a purge removes staged documents from journals that predate its commit only, never a later writer's. A reader retries only when the manifest it read has moved, never on a stable corrupt generation. Destroying a body removes manifest, documents, staging journals and flat body conditionally on the revisions read, and keeps a rival's newer manifest as a conflict. No key, binding, lease or admission rule is relaxed. Regressions executed: projection.test.ts (four new cases), projection-conflicts.test.ts (two new cases), projection-long-path.test.ts and s3-vfs-race.test.ts all fail on main and pass with the fix; vfs-files.test.ts staging removal; app-core secret-fs (239 tests in 22 files). Remaining limits: a crash can leave unreferenced versions or journals as clutter (never loss), cleaned by a later purge only for removed items."
     },
     {
       "id": "native-provider-custody",
@@ -4750,6 +4758,46 @@
       "1769005f",
       "1f40771e"
     ],
+    "packages/app-core/src/lib/secret-fs/vfs-body-crypto.ts": [
+      "04e74ff5",
+      "71bb4cb0",
+      "97a107b3",
+      "ec045784",
+      "6f548be3",
+      "4c6b95a1",
+      "bc83a99d",
+      "9881aa9e"
+    ],
+    "packages/app-core/src/lib/secret-fs/vfs-body-delete.ts": [
+      "4a22ea68",
+      "737ef0eb",
+      "ccd722aa",
+      "61a5421d",
+      "a9e21938",
+      "83347510",
+      "75ece617",
+      "057ba66a"
+    ],
+    "packages/app-core/src/lib/secret-fs/vfs-file-keys.ts": [
+      "22a34753",
+      "5e7299b3",
+      "2cd86044",
+      "afe572b6",
+      "ac374fa2",
+      "bc6660d5",
+      "a32a11f4",
+      "3a28c3d0"
+    ],
+    "packages/app-core/src/lib/secret-fs/vfs-files-settle.ts": [
+      "64f4ad94",
+      "012e8a37",
+      "5fd1c813",
+      "86b56ca0",
+      "b538dbb5",
+      "f2a11fe9",
+      "63398493",
+      "a8b0db14"
+    ],
     "packages/app-core/src/lib/vault/store-unlock-activation.test.ts": [
       "75aed697",
       "ae318f75",
@@ -5029,6 +5077,46 @@
       "6e7a4626",
       "8c166ee4",
       "ea22ddd8"
+    ],
+    "packages/app-core/src/lib/secret-fs/projection.test.ts": [
+      "e36b9f5d",
+      "fbd57612",
+      "b1e14bec",
+      "8fbf6633",
+      "0301681f",
+      "6a630c2f",
+      "89cb8cec",
+      "fb24eb90"
+    ],
+    "packages/app-core/src/lib/secret-fs/projection-conflicts.test.ts": [
+      "32b85bc8",
+      "288345ea",
+      "81ea58f5",
+      "59675492",
+      "597c5eb5",
+      "2e5d9683",
+      "495b1a16",
+      "82f8e1b2"
+    ],
+    "packages/app-core/src/lib/secret-fs/projection-long-path.test.ts": [
+      "5d316611",
+      "78349491",
+      "fd92fdf1",
+      "b22b8f90",
+      "71b47bb5",
+      "675ea755",
+      "07b9a0d9",
+      "16799261"
+    ],
+    "packages/app-core/src/lib/secret-fs/s3-vfs-race.test.ts": [
+      "35793e80",
+      "2a83db4f",
+      "ca0e4e58",
+      "0ec29d7c",
+      "a16cd99b",
+      "42f5ecb9",
+      "a8b6ab8e",
+      "42d596a0"
     ],
     "packages/app-core/src/lib/local-authenticator.fixture.ts": [
       "40c02b9c",
@@ -6811,44 +6899,44 @@
       "8853dc03"
     ],
     "packages/app-core/src/lib/secret-fs/vfs-files.ts": [
-      "7b8c7aca",
-      "58712e9c",
-      "543435e2",
-      "c01b7c73",
-      "44362c46",
-      "82acbae8",
-      "9423705d",
-      "cbcff91e"
+      "5e96e624",
+      "1d942340",
+      "0ac829b3",
+      "7fab6fe4",
+      "db98afc7",
+      "ba82d731",
+      "56113f0b",
+      "d653920c"
     ],
     "packages/app-core/src/lib/secret-fs/vault-on-files.conformance.ts": [
-      "be99b7a5",
-      "517670d1",
-      "40b245a9",
-      "1ba8c4c3",
-      "bccba067",
-      "7a52619f",
-      "74f67a2e",
-      "972cdbf9"
+      "8b017857",
+      "ed884bb2",
+      "bbc1bdaf",
+      "0e13a53b",
+      "247fa420",
+      "982939d8",
+      "77476000",
+      "e0de50ec"
     ],
     "packages/app-core/src/lib/secret-fs/vault-on-files-tamper.conformance.ts": [
-      "ca17cf81",
-      "4bebed9a",
-      "791d1ad5",
-      "b0cfbbd6",
-      "dc96ace8",
-      "c9e57010",
-      "33c6a456",
-      "7c944d95"
+      "d2e30aff",
+      "f736e92b",
+      "7742bbb0",
+      "c32e935f",
+      "9d4b83c8",
+      "b7c3dc73",
+      "efc8cf35",
+      "26417c78"
     ],
     "packages/app-core/src/lib/secret-fs/vault-on-files.support.ts": [
-      "6d8d2437",
-      "7119f8c8",
-      "4e8bebc8",
-      "fb917d9a",
-      "69c76b4f",
-      "b4244d93",
-      "34e41706",
-      "35f2d910"
+      "de3f35d7",
+      "312da875",
+      "18a52ef1",
+      "420cb0fe",
+      "6d0ec49a",
+      "9ee5f38e",
+      "9f0ccaca",
+      "6dffa14d"
     ],
     "packages/app-core/src/node/secret-files.test.ts": [
       "5aa42d3d",
@@ -6961,14 +7049,14 @@
       "f83a2df1"
     ],
     "packages/app-core/src/lib/secret-fs/vfs-files.test.ts": [
-      "7a80bdae",
-      "d69057f5",
-      "82c06c56",
-      "387cfcdd",
-      "d897af8e",
-      "d3ac32a0",
-      "87574681",
-      "98da9a01"
+      "9b6f7a77",
+      "4464e334",
+      "f096c3cd",
+      "688af71f",
+      "93c0c745",
+      "5de699e2",
+      "de5ff247",
+      "50710f3a"
     ],
     "packages/app-core/src/lib/secret-fs/vault-on-files.test.ts": [
       "6ff3a4de",

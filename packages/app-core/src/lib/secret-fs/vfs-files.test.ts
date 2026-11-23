@@ -221,6 +221,7 @@ describe("the VFS over a secret file store", () => {
       key,
     );
     await run(files.write("t/secrets/stray.note.json", new Uint8Array([1])));
+    await run(files.write("t/staging/stray.json", new Uint8Array([1])));
     await vfs.seams.deleteRaw(BODY_KEY);
     expect(await run(files.list("t"))).toEqual([]);
     expect(vfs.seams.readRaw(BODY_KEY)).toBeNull();

@@ -12,7 +12,6 @@ import { BODY_PATH, PERSONAL_TOMB, tombFileKey, vfsSeams } from "../vfs.js";
 import { SecretFsUnavailable } from "./errors.js";
 import type { FilesHarness } from "./files.conformance.js";
 import type { SecretFiles } from "./files.js";
-import { tamperCases } from "./vault-on-files-tamper.conformance.js";
 import {
   type InProcess,
   MARKER,
@@ -24,7 +23,9 @@ import {
   secret,
   text,
   tree,
+  versionedPath,
 } from "./vault-on-files.support.js";
+import { tamperCases } from "./vault-on-files-tamper.conformance.js";
 
 function layoutCases(inProcess: InProcess): void {
   it("keeps each secret in a file of its own, named for it and its folder", () =>
@@ -40,9 +41,15 @@ function layoutCases(inProcess: InProcess): void {
         expect.arrayContaining([
           "personal/header.json",
           "personal/vault.json",
-          "personal/secrets/work/aws/Prod-Deploy.secret.json",
-          "personal/secrets/wifi.secret.json",
-          "personal/secrets/Read-me.note.json",
+          expect.stringMatching(
+            /^personal\/secrets\/work\/aws\/Prod-Deploy~v[0-9a-f]{32}\.secret\.json$/u,
+          ),
+          expect.stringMatching(
+            /^personal\/secrets\/wifi~v[0-9a-f]{32}\.secret\.json$/u,
+          ),
+          expect.stringMatching(
+            /^personal\/secrets\/Read-me~v[0-9a-f]{32}\.note\.json$/u,
+          ),
         ]),
       );
       expect(paths).not.toContain("personal/body.json");
@@ -57,7 +64,13 @@ function layoutCases(inProcess: InProcess): void {
       });
       const doc = JSON.parse(
         text(
-          (await run(files.read("personal/secrets/wifi.secret.json"))).bytes,
+          (
+            await run(
+              files.read(
+                await versionedPath(files, "personal/secrets/wifi.secret.json"),
+              ),
+            )
+          ).bytes,
         ),
       );
       expect(doc).toMatchObject({
@@ -116,9 +129,17 @@ function editCases(inProcess: InProcess): void {
       const first = await touched(store);
       const second = await touched(await restart());
       for (const changed of [first, second]) {
-        expect(changed).toContain("personal/secrets/two.secret.json");
+        expect(
+          changed.some((path) =>
+            /\/two~v[0-9a-f]{32}\.secret\.json$/u.test(path),
+          ),
+        ).toBe(true);
         expect(changed).toContain("personal/vault.json");
-        expect(changed).not.toContain("personal/secrets/one.secret.json");
+        expect(
+          changed.some((path) =>
+            /\/one(?:~v[0-9a-f]{32})?\.secret\.json$/u.test(path),
+          ),
+        ).toBe(false);
       }
     }));
 
@@ -130,7 +151,10 @@ function editCases(inProcess: InProcess): void {
       await store.saveItem(item);
       await store.saveItem({ ...item, name: "new name" });
       let paths = await run(files.list("personal/secrets"));
-      expect(paths).toEqual(["personal/secrets/new-name.secret.json"]);
+      expect(paths).toHaveLength(1);
+      expect(paths[0]).toMatch(
+        /^personal\/secrets\/new-name~v[0-9a-f]{32}\.secret\.json$/u,
+      );
       await store.trashItem(item.id);
       await store.purgeItem(item.id);
       paths = await run(files.list("personal/secrets"));
@@ -164,29 +188,37 @@ function raceAndFailureCases(inProcess: InProcess): void {
       await run(
         files.write("personal/vault.json", new Uint8Array([...manifest, 10])),
       );
-      const rival = (await run(files.read("personal/secrets/a.secret.json")))
-        .bytes;
+      const aPath = await versionedPath(
+        files,
+        "personal/secrets/a.secret.json",
+      );
+      const rival = (await run(files.read(aPath))).bytes;
       await expect(store.saveItem(secret("b", "late"))).rejects.toMatchObject({
         _tag: "SecretFsConflict",
       });
       expect(store.getSnapshot().items.map((item) => item.name)).toEqual(["a"]);
-      expect(
-        text((await run(files.read("personal/secrets/a.secret.json"))).bytes),
-      ).toBe(text(rival));
-      expect(await run(files.list("personal/secrets"))).toEqual([
-        "personal/secrets/a.secret.json",
-      ]);
+      expect(text((await run(files.read(aPath))).bytes)).toBe(text(rival));
+      expect(await run(files.list("personal/secrets"))).toEqual([aPath]);
     }));
 
   it("settles a save that died before its manifest on the next save", () => {
     const outage = { on: false };
-    const flaky = (files: SecretFiles): SecretFiles => ({
-      ...files,
-      write: (path, data, options) =>
-        outage.on && path.endsWith("/vault.json")
-          ? Effect.fail(new SecretFsUnavailable({ path, reason: "down" }))
-          : files.write(path, data, options),
-    });
+    const flaky = (files: SecretFiles): SecretFiles => {
+      const guarded = files.writeGuarded?.bind(files);
+      return {
+        ...files,
+        write: (path, data, options) =>
+          outage.on && path.endsWith("/vault.json")
+            ? Effect.fail(new SecretFsUnavailable({ path, reason: "down" }))
+            : files.write(path, data, options),
+        ...(guarded && {
+          writeGuarded: (path, data, check, options) =>
+            outage.on && path.endsWith("/vault.json")
+              ? Effect.fail(new SecretFsUnavailable({ path, reason: "down" }))
+              : guarded(path, data, check, options),
+        }),
+      };
+    };
     return inProcess(async (_files, restart, newStore) => {
       const store = newStore();
       await store.create(PASSWORD);
@@ -268,9 +300,19 @@ function folderCases(inProcess: InProcess): void {
       const full = await store.addFolder("home");
       await store.saveItem(secret("wifi", "pw", full.id), full);
       const paths = await run(files.list("personal/secrets"));
-      expect(paths).toContain("personal/secrets/clients/acme/folder.dir.json");
-      expect(paths).toContain("personal/secrets/home/folder.dir.json");
-      expect(paths).toContain("personal/secrets/home/wifi.secret.json");
+      expect(paths).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(
+            /^personal\/secrets\/clients\/acme\/folder~v[0-9a-f]{32}\.dir\.json$/u,
+          ),
+          expect.stringMatching(
+            /^personal\/secrets\/home\/folder~v[0-9a-f]{32}\.dir\.json$/u,
+          ),
+          expect.stringMatching(
+            /^personal\/secrets\/home\/wifi~v[0-9a-f]{32}\.secret\.json$/u,
+          ),
+        ]),
+      );
       const reopened = await restart();
       const folders = reopened.getSnapshot().folders;
       expect(folders.map((folder) => folder.name).sort()).toEqual([
@@ -287,10 +329,18 @@ function folderCases(inProcess: InProcess): void {
       const folder = await store.addFolder("old");
       await store.saveItem(secret("wifi", "pw", folder.id), folder);
       await store.renameFolder(folder.id, "new");
-      expect(await run(files.list("personal/secrets"))).toEqual([
-        "personal/secrets/new/folder.dir.json",
-        "personal/secrets/new/wifi.secret.json",
-      ]);
+      const moved = await run(files.list("personal/secrets"));
+      expect(moved).toHaveLength(2);
+      expect(moved).toEqual(
+        expect.arrayContaining([
+          expect.stringMatching(
+            /^personal\/secrets\/new\/folder~v[0-9a-f]{32}\.dir\.json$/u,
+          ),
+          expect.stringMatching(
+            /^personal\/secrets\/new\/wifi~v[0-9a-f]{32}\.secret\.json$/u,
+          ),
+        ]),
+      );
       const reopened = await restart();
       expect(reopened.getSnapshot().items[0]?.folderId).toBe(folder.id);
       await reopened.deleteFolder(folder.id);

@@ -20,28 +20,10 @@
  * - every other file (header, config, index, tomb registry), stored as the
  *   text the VFS gave it at `<tomb>/<path>.json`.
  */
-import {
-  type SealedBlob,
-  type VaultBody,
-  VaultCorruptError,
-  openJson,
-  sealJson,
-  vaultSealBinding,
-} from "@opensesame/vault-core";
-import { Cause, Effect, Exit } from "effect";
-import { BODY_PATH, TOMBS_REGISTRY_KEY } from "../vfs.js";
 import type { VfsSeams } from "../vfs-seams.js";
-import {
-  SETTINGS_DIR,
-  configFileFor,
-  decodeConfig,
-  encodeConfig,
-  isPlainPath,
-} from "./config-docs.js";
-import type { SecretFsError } from "./errors.js";
+import { SETTINGS_DIR, decodeConfig, encodeConfig } from "./config-docs.js";
 import { SecretFsRejected } from "./errors.js";
 import type { SecretFiles } from "./files.js";
-import { SECRETS_DIR } from "./layout.js";
 import { readProjection } from "./projection-read.js";
 import { writeProjection } from "./projection-write.js";
 import {
@@ -50,64 +32,24 @@ import {
   MANIFEST_FILE,
   type TombProjection,
 } from "./secret-docs.js";
-
-const TOMBS_FILE = "tombs.json";
-const TOMB_KEY = /^tomb\/([^/]+)\/(.+)$/;
-
-type Location =
-  | Readonly<{ kind: "file"; file: string; path: string }>
-  | Readonly<{ kind: "body"; tomb: string }>;
-
-/** The file a VFS key is stored in, or why it cannot be. */
-function locate(key: string): Location {
-  if (key === TOMBS_REGISTRY_KEY) {
-    return { kind: "file", file: TOMBS_FILE, path: TOMBS_REGISTRY_KEY };
-  }
-  const match = TOMB_KEY.exec(key);
-  const [, tomb, path] = match ?? [];
-  if (!tomb || !path) throw rejected(key, "is not a vault file");
-  if (path === BODY_PATH) return { kind: "body", tomb };
-  // These names belong to the layout; a vault file may not stand on them.
-  if (
-    path === "vault" ||
-    path === "secrets" ||
-    path.startsWith(`${SECRETS_DIR}/`) ||
-    path.startsWith(`${SETTINGS_DIR}/`)
-  ) {
-    throw rejected(key, "is a name the secret layout keeps for itself");
-  }
-  // Header and markers are read before the vault opens: plain text, plain name.
-  const file = isPlainPath(path) ? `${path}.json` : configFileFor(path);
-  return { kind: "file", file: `${tomb}/${file}`, path };
-}
-
-function locatable(key: string): Location | null {
-  try {
-    return locate(key);
-  } catch {
-    return null;
-  }
-}
-
-const rejected = (path: string, reason: string) =>
-  new SecretFsRejected({ path, kind: "invalid-path", reason });
+import {
+  openBodyBlob,
+  probeFor,
+  sealBodyBlob,
+  sealedUnder,
+} from "./vfs-body-crypto.js";
+import { forgetBodyState, removeBodyFiles } from "./vfs-body-delete.js";
+import {
+  bodyKey,
+  keyOfFile,
+  locatable,
+  locate,
+  rejected,
+} from "./vfs-file-keys.js";
+import { settle } from "./vfs-files-settle.js";
 
 const encode = (text: string) => new TextEncoder().encode(text);
 const decode = (bytes: Uint8Array) => new TextDecoder().decode(bytes);
-
-/** Run a store effect and throw what failed, as the error it is. */
-async function settle<A>(effect: Effect.Effect<A, SecretFsError>): Promise<A> {
-  const exit = await Effect.runPromiseExit(effect);
-  if (Exit.isSuccess(exit)) return exit.value;
-  const failure = Cause.findErrorOption(exit.cause);
-  if (failure._tag === "Some") {
-    const error = failure.value;
-    throw error._tag === "SecretFsRejected" && error.kind === "corrupt"
-      ? new VaultCorruptError(error.message)
-      : error;
-  }
-  throw Cause.squash(exit.cause);
-}
 
 export type FileBackedVfs = Readonly<{
   /** Load every non-secret file into the mirror. Call once, before the VFS is used. */
@@ -123,58 +65,8 @@ type Held = Readonly<{
   files: SecretFiles;
   mirror: Map<string, string>;
   projections: Map<string, TombProjection>;
+  dirty: Set<string>;
 }>;
-
-const bodyKey = (tomb: string) => `tomb/${tomb}/${BODY_PATH}`;
-const bodyBinding = (tomb: string) => vaultSealBinding(tomb, BODY_PATH);
-
-const openBodyBlob = (
-  tomb: string,
-  vaultKey: CryptoKey,
-  blob: SealedBlob,
-): Promise<VaultBody> => openJson<VaultBody>(vaultKey, blob, bodyBinding(tomb));
-
-const PROBE_BINDING = "secret-fs/key-probe";
-
-/** A sealed note that only this key opens, to tell later whether a key is the same one. */
-const probeFor = (vaultKey: CryptoKey): Promise<SealedBlob> =>
-  sealJson(vaultKey, { probe: 1 }, PROBE_BINDING);
-
-/** Whether the documents recorded in `held` were sealed under `vaultKey`. */
-async function sealedUnder(
-  held: TombProjection,
-  vaultKey: CryptoKey,
-): Promise<boolean> {
-  if (held.sealedProbe === undefined) return false;
-  try {
-    await openJson(vaultKey, held.sealedProbe, PROBE_BINDING);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** The VFS key a stored file answers to by its name alone, or `null` for one that is not a vault file. */
-function keyOfFile(
-  path: string,
-): { key: string; flatBody: string | null } | null {
-  if (path === TOMBS_FILE) return { key: TOMBS_REGISTRY_KEY, flatBody: null };
-  const [head, ...rest] = path.split("/");
-  const rel = rest.join("/");
-  if (!head) return null;
-  if (rel === LEGACY_BODY_FILE) return { key: bodyKey(head), flatBody: head };
-  if (
-    rel.endsWith(".json") &&
-    rel !== MANIFEST_FILE &&
-    !rel.startsWith(`${SECRETS_DIR}/`)
-  ) {
-    return {
-      key: `tomb/${head}/${rel.slice(0, -".json".length)}`,
-      flatBody: null,
-    };
-  }
-  return null;
-}
 
 async function hydrateAll({ files, mirror, projections }: Held): Promise<void> {
   for (const path of await settle(files.list(""))) {
@@ -207,33 +99,39 @@ async function writeKeyedBody(
   value: string,
   vaultKey: CryptoKey,
 ): Promise<void> {
-  const { files, mirror, projections } = held;
+  const { files, mirror, projections, dirty } = held;
   const prev = projections.get(tomb) ?? EMPTY_PROJECTION;
   const body = await openBodyBlob(tomb, vaultKey, JSON.parse(value));
   // A multi-file root-key rotation needs a durable two-phase publication
-  // spanning the body, index, settings and header. This adapter does not claim
-  // that guarantee: refusing before the first write is safer than an outage
-  // leaving half the vault under each key.
-  if (prev.manifestRevision !== null && !(await sealedUnder(prev, vaultKey)))
+  // protocol spanning the body, index, settings and header. This adapter does
+  // not claim that guarantee: refusing before the first write is safer than an
+  // outage leaving half the vault under each key.
+  const sameKey =
+    prev.manifestRevision === null || (await sealedUnder(prev, vaultKey));
+  if (!sameKey) {
     throw new SecretFsRejected({
       path: `${tomb}/${MANIFEST_FILE}`,
       kind: "unsupported",
       reason:
         "file-backed vault key rotation requires transactional storage support",
     });
-  const base = prev;
+  }
+  const freshFiles = dirty.has(tomb);
   try {
     const next = await settle(
-      writeProjection(files, tomb, vaultKey, body, base),
+      writeProjection(files, tomb, vaultKey, body, prev, freshFiles),
     );
-    projections.set(tomb, { ...next, sealedProbe: await probeFor(vaultKey) });
+    const sealedProbe = await probeFor(vaultKey);
+    projections.set(tomb, { ...next, sealedProbe });
+    dirty.delete(tomb);
+    mirror.set(bodyKey(tomb), value);
   } catch (error) {
-    // Some documents may have landed though the manifest did not. Forget what
-    // was written, so the next save writes every document again and settles it.
-    projections.set(tomb, { ...base, items: new Map() });
+    // Preserve the last known revisions. A retry must never reinterpret an
+    // existing document as an unconditional new write after partial failure.
+    projections.set(tomb, prev);
+    dirty.add(tomb);
     throw error;
   }
-  mirror.set(bodyKey(tomb), value);
 }
 
 async function writeBody(
@@ -253,23 +151,9 @@ async function writeBody(
   mirror.set(bodyKey(tomb), value);
 }
 
-/** Destroying a vault removes every secret's file, not only the ones this process knows of. */
-async function deleteBody({ files, mirror, projections }: Held, tomb: string) {
-  const leftovers = await settle(files.list(`${tomb}/${SECRETS_DIR}`));
-  for (const path of [
-    ...leftovers,
-    `${tomb}/${MANIFEST_FILE}`,
-    `${tomb}/${LEGACY_BODY_FILE}`,
-  ]) {
-    await settle(files.remove(path));
-  }
-  projections.delete(tomb);
-  mirror.delete(bodyKey(tomb));
-}
-
 /** Put a vault's body together from its documents and hold it as the blob the VFS reads. */
 async function assembleBody(
-  { files, mirror, projections }: Held,
+  { files, mirror, projections, dirty }: Held,
   tomb: string,
   vaultKey: CryptoKey,
 ): Promise<void> {
@@ -286,54 +170,54 @@ async function assembleBody(
         legacyBody: true,
         sealedProbe: await probeFor(vaultKey),
       });
+      dirty.delete(tomb);
       return;
     }
   }
-  const blob = await sealJson(vaultKey, found.body, bodyBinding(tomb));
+  const blob = await sealBodyBlob(tomb, vaultKey, found.body);
   mirror.set(bodyKey(tomb), JSON.stringify(blob));
   projections.set(tomb, {
     ...found.state,
     sealedProbe: await probeFor(vaultKey),
   });
+  dirty.delete(tomb);
 }
 
-export function createFileBackedVfs(
-  files: SecretFiles,
-  fallback: Pick<VfsSeams, "readRaw" | "deleteRaw"> = {
-    readRaw: () => null,
-    deleteRaw: () => Promise.resolve(),
-  },
-): FileBackedVfs {
-  const held: Held = { files, mirror: new Map(), projections: new Map() };
-  const guardedWrite = files.writeGuarded?.bind(files);
-  // The seams may be called from anywhere, so the adapter orders its own writes.
-  let chain: Promise<unknown> = Promise.resolve();
-  const serial = <T>(work: () => Promise<T>): Promise<T> => {
-    const run = chain.then(work, work);
-    chain = run.catch(() => undefined);
-    return run;
-  };
+type Fallback = Pick<VfsSeams, "readRaw" | "deleteRaw">;
+type Serial = <T>(work: () => Promise<T>) => Promise<T>;
 
-  const adapter: FileBackedVfs = {
+function baseFileBackedVfs(
+  held: Held,
+  fallback: Fallback,
+  serial: Serial,
+): FileBackedVfs {
+  const { files } = held;
+  return {
     hydrate: () => serial(() => hydrateAll(held)),
     seams: {
       readRaw: (key) => held.mirror.get(key) ?? fallback.readRaw(key),
       writeRaw: (key, value, vaultKey) =>
         serial(async () => {
           const where = locate(key);
-          if (where.kind === "body") {
+          if (where.kind === "body")
             return writeBody(held, where.tomb, value, vaultKey);
-          }
-          // A sealed value is a declarative document; header and markers are text.
           const doc = encodeConfig(where.path, value);
           await settle(files.write(where.file, doc ?? encode(value)));
           held.mirror.set(key, value);
         }),
       deleteRaw: (key) =>
         serial(async () => {
-          // A key that could never have been stored here has nothing to delete.
           const where = locatable(key);
-          if (where?.kind === "body") await deleteBody(held, where.tomb);
+          if (where?.kind === "body") {
+            await settle(
+              removeBodyFiles(
+                files,
+                where.tomb,
+                held.projections.get(where.tomb)?.manifestRevision ?? null,
+              ),
+            );
+            forgetBodyState(held, where.tomb);
+          }
           if (where?.kind === "file") {
             await settle(files.remove(where.file));
             held.mirror.delete(key);
@@ -344,6 +228,31 @@ export function createFileBackedVfs(
         serial(() => assembleBody(held, tomb, vaultKey)),
     },
   };
+}
+
+export function createFileBackedVfs(
+  files: SecretFiles,
+  fallback: Fallback = {
+    readRaw: () => null,
+    deleteRaw: () => Promise.resolve(),
+  },
+): FileBackedVfs {
+  const held: Held = {
+    files,
+    mirror: new Map(),
+    projections: new Map(),
+    dirty: new Set(),
+  };
+  const guardedWrite = files.writeGuarded?.bind(files);
+  // The seams may be called from anywhere, so the adapter orders its own writes.
+  let chain: Promise<unknown> = Promise.resolve();
+  const serial = <T>(work: () => Promise<T>): Promise<T> => {
+    const run = chain.then(work, work);
+    chain = run.catch(() => undefined);
+    return run;
+  };
+
+  const adapter = baseFileBackedVfs(held, fallback, serial);
   if (guardedWrite)
     return {
       ...adapter,
