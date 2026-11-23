@@ -302,7 +302,8 @@ server memory and never in the URL:
 | Attribute | Value |
 | --- | --- |
 | Name | `os.fed.<uid>` — one per interaction |
-| Contents | `issuer`, `state`, `nonce`, PKCE `code_verifier`, and where they apply `kind`, `providerId`, `byoId`, `orgId` |
+| Contents | `issuer`, `state`, `nonce`, the PKCE `code_verifier` sealed as `verifierEnc` (AES-256-GCM under a key bound to `state` and `nonce`), and where they apply `kind`, `providerId`, `byoId`, `orgId` |
+| Integrity | v4: HMAC-SHA-256 over the exact encoded payload under a key derived from the deployment pepper, checked before the payload is parsed or unsealed. Earlier signed formats are refused and their sign-in restarts. |
 | `HttpOnly` | Yes — script must not read the verifier |
 | `SameSite` | `Lax` — the callback is a top-level cross-site GET redirect, which `Lax` permits and `Strict` would drop |
 | `Path` | `/interaction/<uid>` — one interaction's pending state is never sent with another's request |

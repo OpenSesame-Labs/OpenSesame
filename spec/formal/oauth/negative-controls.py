@@ -17,18 +17,23 @@ subprocess.run(["bash", "spec/formal/oauth/verify.sh"], cwd=root, env=base_env, 
 mutations = {
     "payload not authenticated": (
         pending_source, "OPENSESAME_OAUTH_MUTANT",
-        '${payload}\\0${legacyInput}',
-        '${""}\\0${legacyInput}',
+        ".update(MAC_DOMAIN).update(payload)",
+        ".update(MAC_DOMAIN).update(\"\")",
     ),
-    "legacy provenance allowed": (
-        pending_source, "OPENSESAME_OAUTH_MUTANT", "legacyEligible &&", "true &&",
-    ),
-    "legacy provider absence allowed": (
-        pending_source, "OPENSESAME_OAUTH_MUTANT", "legacyProviderPresent &&", "true &&",
-    ),
-    "legacy MAC not checked": (
+    "MAC not checked": (
         pending_source, "OPENSESAME_OAUTH_MUTANT",
-        "signatureMatches(supplied, pendingSignature(legacyInput, secret))", "true",
+        "if (!timingSafeEqual(supplied, expected)) return undefined;", "",
+    ),
+    "plaintext or mixed verifier admitted": (
+        pending_source, "OPENSESAME_OAUTH_MUTANT",
+        ".extend({ verifierEnc: z.string() })\n  .strict();",
+        ".extend({ verifierEnc: z.string() });",
+    ),
+    "key derived before the MAC": (
+        pending_source, "OPENSESAME_OAUTH_MUTANT",
+        "  if (raw.length > MAX_PENDING_COOKIE_LENGTH) return undefined;",
+        "  keys.verifierSealKey(secret, \"state\", \"nonce\");\n"
+        "  if (raw.length > MAX_PENDING_COOKIE_LENGTH) return undefined;",
     ),
     "organization owner not checked": (
         trust_source, "OPENSESAME_OAUTH_TRUST_MUTANT",

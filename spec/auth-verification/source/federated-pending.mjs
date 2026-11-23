@@ -16,15 +16,26 @@ const snapshot = parseTypeScript(
   "federated-pending-reviewed.ts",
 );
 const names = [
-  "pendingVerifierBinding",
-  "pendingIntegrityPayload",
-  "pendingSignature",
-  "authenticatedPayload",
-  "modernPendingSignature",
-  "signatureMatches",
+  "legBindingMaterial",
+  "verifierSealKey",
+  "sealVerifier",
+  "unsealVerifier",
+  "pendingMac",
+  "pendingFromWire",
+  "base64urlJson",
+  "parseWire",
   "encodePending",
-  "verifiedPendingPayload",
+  "decodeSigned",
   "decodePending",
+];
+const variables = [
+  "pendingFederatedAuthSchema",
+  "unsignedWireSchema",
+  "sealedWireSchema",
+  "MAX_PENDING_COOKIE_LENGTH",
+  "MAC_KEY_LABEL",
+  "MAC_DOMAIN",
+  "defaultKeys",
 ];
 
 export function checkFederatedPending(source) {
@@ -37,13 +48,15 @@ export function checkFederatedPending(source) {
     imports(file).join("\n") === imports(snapshot).join("\n"),
     "federation cookie dependency bindings changed",
   );
-  const schema = namedVariable(file, "pendingFederatedAuthSchema");
-  const reviewedSchema = namedVariable(snapshot, "pendingFederatedAuthSchema");
-  requireSupportedSource(
-    sourceTokens(schema.getText(file)) ===
-      sourceTokens(reviewedSchema.getText(snapshot)),
-    "federation cookie schema changed",
-  );
+  for (const name of variables) {
+    const variable = namedVariable(file, name);
+    const reviewed = namedVariable(snapshot, name);
+    requireSupportedSource(
+      sourceTokens(variable.getText(file)) ===
+        sourceTokens(reviewed.getText(snapshot)),
+      `federation cookie binding ${name} changed`,
+    );
+  }
   for (const name of names) {
     const fn = namedStatement(file, ts.isFunctionDeclaration, name);
     const reviewed = namedStatement(snapshot, ts.isFunctionDeclaration, name);

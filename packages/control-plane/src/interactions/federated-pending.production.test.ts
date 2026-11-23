@@ -14,22 +14,15 @@ const productionEnv = {
 };
 
 describe("production federated pending cookies", () => {
-  it("seals the verifier unless the env flag is an explicit false", () => {
-    expect(loadConfig(productionEnv).federatedPendingSealVerifierOnWire).toBe(
-      true,
-    );
-    expect(
-      loadConfig({
-        ...productionEnv,
-        OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER: "false",
-      }).federatedPendingSealVerifierOnWire,
-    ).toBe(false);
-    expect(
-      loadConfig({
-        ...productionEnv,
-        OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER: "0",
-      }).federatedPendingSealVerifierOnWire,
-    ).toBe(false);
+  it("has no switch that puts a plaintext verifier on the wire", () => {
+    // v4 always seals the verifier; the v3 rollout flag is gone, so setting
+    // the old variable changes nothing.
+    const config = loadConfig({
+      ...productionEnv,
+      OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER: "false",
+    });
+    expect(config).not.toHaveProperty("federatedPendingSealVerifierOnWire");
+    expect(config.claimPepper).toBe(productionEnv.OPENSESAME_CLAIM_PEPPER);
   });
 
   it("always signs encodePending with claimPepper at route call sites", () => {
@@ -40,11 +33,9 @@ describe("production federated pending cookies", () => {
       const source = readFileSync(`${root}/${rel}`, "utf8");
       expect(source).not.toMatch(/encodePending\(\s*pending\s*\)/);
       expect(source).toMatch(
-        /encodePending\([^,]+,\s*ctx\.config\.claimPepper,/,
+        /encodePending\(\s*pending,\s*ctx\.config\.claimPepper\s*\)/,
       );
-      expect(source).toMatch(
-        /sealVerifierOnWire:\s*ctx\.config\.federatedPendingSealVerifierOnWire/,
-      );
+      expect(source).not.toMatch(/sealVerifierOnWire/);
     }
   });
 });

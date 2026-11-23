@@ -37,7 +37,6 @@ function prodBase(): ControlPlaneConfig {
       presentationAgentIntents: false,
     },
     interactionAutoContinue: true,
-    federatedPendingSealVerifierOnWire: false,
     providers: [],
     notifications: {
       availableChannels: ["in_app"],

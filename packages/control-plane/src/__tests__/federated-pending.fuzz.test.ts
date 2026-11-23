@@ -1,4 +1,4 @@
-import { createHash, createHmac, scryptSync } from "node:crypto";
+import { createHash } from "node:crypto";
 import { overlapCast } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -7,6 +7,7 @@ import {
   decodePending,
   encodePending,
 } from "../interactions/federated.js";
+import { legacyCookie } from "./federated-pending-formats.test-support.js";
 
 /**
  * Fuzzing for the pending-leg cookie parser.
@@ -48,7 +49,6 @@ const WIRE_PENDING_KEYS = new Set([
   "state",
   "nonce",
   "verifier",
-  "verifierEnc",
   "kind",
   "providerId",
   "byoId",
@@ -84,40 +84,6 @@ function randomString(rng: () => number, maxLen: number): string {
 
 function randomId(rng: () => number): string {
   return randomString(rng, 12) || "id";
-}
-
-function encodeLegacySigned(
-  pending: PendingFederatedAuth,
-  secret: string,
-): string {
-  const salt = createHash("sha256")
-    .update(secret)
-    .update("\0opensesame:fed-pending-verifier\0")
-    .update(pending.state)
-    .update(pending.nonce)
-    .digest()
-    .subarray(0, 16);
-  const verifierBound = scryptSync(pending.verifier, salt, 32, {
-    N: 32768,
-    r: 8,
-    p: 1,
-    maxmem: 64 * 1024 * 1024,
-  }).toString("base64url");
-  const integrity = [
-    pending.issuer,
-    pending.state,
-    pending.nonce,
-    verifierBound,
-    pending.kind ?? "oidc",
-    pending.providerId ?? "",
-  ].join("\x1f");
-  const signature = createHmac("sha256", secret)
-    .update(integrity)
-    .digest("base64url");
-  const payload = Buffer.from(JSON.stringify(pending), "utf8").toString(
-    "base64url",
-  );
-  return `${payload}.${signature}`;
 }
 
 function isWellFormed(
@@ -290,7 +256,7 @@ describe("FUZZ — decodePending survives arbitrary cookie bytes", () => {
     ).toBeUndefined();
   });
 
-  it("accepts only safe previous-release signatures", () => {
+  it("refuses every previous-release signature before deriving a key", () => {
     const secret = "pending-cookie-test-secret";
     const legacy = {
       issuer: "https://issuer.example",
@@ -298,38 +264,25 @@ describe("FUZZ — decodePending survives arbitrary cookie bytes", () => {
       nonce: "nonce",
       verifier: "verifier",
     };
-    const staticPending = {
-      ...legacy,
-      kind: "oidc" as const,
-      providerId: "static-provider",
+    let derivations = 0;
+    const keys = {
+      verifierSealKey: (s: string, state: string, nonce: string) => {
+        derivations += 1;
+        return createHash("sha256").update(`${s}${state}${nonce}`).digest();
+      },
     };
-    // A v1 cookie carries no signed provenance at all, and an old BYO or org
-    // cookie stripped of its unsigned id is indistinguishable from one — so
-    // only a previous-release cookie with a bound static provider continues,
-    // and everything else restarts.
-    expect(
-      decodePending(encodeLegacySigned(legacy, secret), secret),
-    ).toBeUndefined();
-    expect(
-      decodePending(encodeLegacySigned(staticPending, secret), secret),
-    ).toEqual(staticPending);
-    expect(
-      decodePending(
-        encodeLegacySigned(
-          { ...legacy, kind: "oidc", orgId: "org_original" },
-          secret,
-        ),
-        secret,
-      ),
-    ).toBeUndefined();
-    expect(
-      decodePending(
-        encodeLegacySigned(
-          { ...legacy, kind: "oidc", byoId: "byo_original" },
-          secret,
-        ),
-        secret,
-      ),
-    ).toBeUndefined();
+    // Old tags bound a scrypt digest of the verifier; verifying one would run
+    // scrypt on unauthenticated input. v4 refuses them at the MAC, so every
+    // old cookie restarts its sign-in and none costs a key derivation.
+    for (const value of [
+      legacy,
+      { ...legacy, kind: "oidc" as const, providerId: "static-provider" },
+      { ...legacy, kind: "oidc" as const, orgId: "org_original" },
+      { ...legacy, kind: "oidc" as const, byoId: "byo_original" },
+    ])
+      expect(
+        decodePending(legacyCookie(value, secret), secret, keys),
+      ).toBeUndefined();
+    expect(derivations).toBe(0);
   });
 });

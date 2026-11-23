@@ -187,43 +187,33 @@ test("the source check rejects federation cookie integrity and downgrade changes
     ),
     replaceOnce(
       sources.federatedPending,
-      "const legacyProviderPresent =\n      data.providerId !== undefined && data.providerId.length > 0;",
-      "const legacyProviderPresent = true;",
+      "if (!timingSafeEqual(supplied, expected)) return undefined;",
+      "",
     ),
     replaceOnce(
       sources.federatedPending,
-      "Object.keys(parsed).every((field) => legacyFields.has(field));",
-      "true;",
+      ".update(MAC_DOMAIN).update(payload)",
+      '.update(MAC_DOMAIN).update("")',
     ),
     replaceOnce(
       sources.federatedPending,
-      "legacyEligible =\n      legacyProviderPresent &&\n      Object.keys(parsed).every((field) => legacyFields.has(field));",
-      "legacyEligible = true;",
+      'const MAC_KEY_LABEL = "OpenSesame:federated-pending:v4:key";',
+      'const MAC_KEY_LABEL = "OpenSesame:federated-pending:v3:key";',
     ),
     replaceOnce(
       sources.federatedPending,
-      "return `${payload}.${modernPendingSignature(payload, legacyInput, secret)}`;",
-      "return `${payload}.${pendingSignature(legacyInput, secret)}`;",
+      ".extend({ verifierEnc: z.string() })\n  .strict();",
+      ".extend({ verifierEnc: z.string(), verifier: z.string().optional() });",
     ),
     replaceOnce(
       sources.federatedPending,
-      "const expected = modernPendingSignature(payload, legacyInput, secret);",
-      "const expected = pendingSignature(legacyInput, secret);",
+      "  if (raw.length > MAX_PENDING_COOKIE_LENGTH) return undefined;",
+      "",
     ),
     replaceOnce(
       sources.federatedPending,
-      "authenticatedPayload(payload, legacyInput)",
-      "legacyInput",
-    ),
-    replaceOnce(
-      sources.federatedPending,
-      'update("OpenSesame:federated-pending:v3:key")',
-      'update("OpenSesame:federated-pending:legacy:key")',
-    ),
-    replaceOnce(
-      sources.federatedPending,
-      "if (signatureMatches(supplied, expected)) return payload;",
-      "return payload;",
+      'import { z } from "zod";',
+      'import { scryptSync } from "node:crypto";\nimport { z } from "zod";',
     ),
   ];
   for (const federatedPending of changes)

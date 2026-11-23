@@ -1,7 +1,10 @@
 import {
+  createCipheriv,
+  createDecipheriv,
   createHash,
   createHmac,
-  scryptSync,
+  hkdfSync,
+  randomBytes,
   timingSafeEqual,
 } from "node:crypto";
 import { z } from "zod";
@@ -11,6 +14,19 @@ import { z } from "zod";
  * its shape, its name, and the keyed integrity tag that production routes
  * put on it. Kept apart from the leg itself so the cookie's encoding and its
  * MAC are read in one place; `./federated.ts` re-exports the public names.
+ *
+ * Signed format (v4): `<base64url JSON>.<base64url HMAC-SHA-256>`. The JSON
+ * carries the PKCE verifier only sealed (`verifierEnc`, AES-256-GCM under a
+ * key bound to the leg's state and nonce). The tag covers the exact encoded
+ * payload and is checked before the payload is parsed, unsealed or passed to
+ * any key derivation, so an unauthenticated cookie costs one HMAC. No slow
+ * password hash is involved: the verifier is a random PKCE secret, not a
+ * password, and its confidentiality comes from the seal.
+ *
+ * Earlier signed formats (v3 and the pre-v3 legacy tag) bound a scrypt digest
+ * of the verifier, so checking them meant running scrypt on attacker input
+ * before authentication. They are refused; a sign-in still holding one (the
+ * cookie lives at most `FEDERATED_PENDING_TTL_SECONDS`, ten minutes) restarts.
  */
 
 /**
@@ -22,8 +38,7 @@ import { z } from "zod";
  * verifier is single-use and the cookie is deleted on the callback.
  *
  * Everything past `verifier` is optional by contract. Absent `kind` means
- * `"oidc"`. Legacy signatures can continue only when the payload contains
- * no fields outside the former signed field set; other cookies must restart.
+ * `"oidc"`.
  */
 export type PendingFederatedAuth = {
   issuer: string;
@@ -51,202 +66,206 @@ const pendingFederatedAuthSchema = z.object({
   orgId: z.string().optional(),
 });
 
+/** Unsigned (no pepper) wire shape: the plain leg, no unknown fields. */
+const unsignedWireSchema = pendingFederatedAuthSchema.strict();
+
+/** Signed wire shape: the verifier only sealed; a plaintext one is refused. */
+const sealedWireSchema = pendingFederatedAuthSchema
+  .omit({ verifier: true })
+  .extend({ verifierEnc: z.string() })
+  .strict();
+
+type SealedWire = z.infer<typeof sealedWireSchema>;
+
+/** A browser stores at most ~4 KiB per cookie; anything longer is not ours. */
+const MAX_PENDING_COOKIE_LENGTH = 4096;
+const MAC_KEY_LABEL = "OpenSesame:federated-pending:v4:key";
+const MAC_DOMAIN = "OpenSesame:federated-pending:v4\0";
+
+/**
+ * Key derivations the codec performs. A seam, not configuration: tests pass a
+ * counting wrapper to show that no derivation runs before the MAC verifies.
+ */
+export type PendingCookieKeys = {
+  /** Per-leg AES-256-GCM key that seals the PKCE verifier. */
+  verifierSealKey: (secret: string, state: string, nonce: string) => Buffer;
+};
+
+/** Unambiguous (state, nonce) binding so concatenation cannot collide across legs. */
+function legBindingMaterial(state: string, nonce: string): Buffer {
+  const stateBytes = Buffer.from(state, "utf8");
+  const nonceBytes = Buffer.from(nonce, "utf8");
+  if (stateBytes.length > 255 || nonceBytes.length > 255) {
+    throw new Error(
+      "federated pending leg binding exceeds 255-byte field limit",
+    );
+  }
+  return Buffer.concat([
+    Buffer.from([stateBytes.length]),
+    stateBytes,
+    Buffer.from([nonceBytes.length]),
+    nonceBytes,
+  ]);
+}
+
+function verifierSealKey(secret: string, state: string, nonce: string): Buffer {
+  const salt = createHash("sha256")
+    .update(secret)
+    .update("\0opensesame:fed-pending-verifier-seal\0")
+    .update(legBindingMaterial(state, nonce))
+    .digest()
+    .subarray(0, 16);
+  return Buffer.from(
+    hkdfSync(
+      "sha256",
+      secret,
+      salt,
+      "OpenSesame:federated-pending:verifier-seal",
+      32,
+    ),
+  );
+}
+
+const defaultKeys: PendingCookieKeys = { verifierSealKey };
+
 /** Cookie carrying `PendingFederatedAuth`, scoped to this interaction only. */
 export function pendingCookieName(uid: string): string {
   return `os.fed.${uid}`;
 }
 
-/** PKCE verifier binding via scrypt before the pending cookie MAC (not SHA-256 of raw verifier). */
-function pendingVerifierBinding(
-  verifier: string,
-  state: string,
-  nonce: string,
-  secret: string,
-): string {
-  const salt = createHash("sha256")
-    .update(secret)
-    .update("\0opensesame:fed-pending-verifier\0")
-    .update(state)
-    .update(nonce)
-    .digest()
-    .subarray(0, 16);
-  return scryptSync(verifier, salt, 32, {
-    N: 32768,
-    r: 8,
-    p: 1,
-    maxmem: 64 * 1024 * 1024,
-  }).toString("base64url");
-}
-
-/** Canonical HMAC input: OAuth leg fields with scrypt-bound PKCE verifier. */
-function pendingIntegrityPayload(
-  pending: Pick<
-    PendingFederatedAuth,
-    "issuer" | "state" | "nonce" | "verifier" | "kind" | "providerId"
-  >,
-  secret: string,
-): string {
-  const kind = pending.kind ?? "oidc";
-  const providerId = pending.providerId ?? "";
-  const verifierBound = pendingVerifierBinding(
-    pending.verifier,
-    pending.state,
-    pending.nonce,
-    secret,
-  );
-  return [
-    pending.issuer,
-    pending.state,
-    pending.nonce,
-    verifierBound,
-    kind,
-    providerId,
-  ].join("\x1f");
-}
-
-/** HMAC cookie integrity tag, not a password hash; tests may omit the pepper. */
-function pendingSignature(payload: string, secret: string): string {
-  return createHmac("sha256", secret).update(payload).digest("base64url");
-}
-
-/** Bind the exact encoded payload as well as the existing verifier binding. */
-function authenticatedPayload(payload: string, legacyInput: string): string {
-  return `OpenSesame:federated-pending:v3\0${payload}\0${legacyInput}`;
-}
-
-function modernPendingSignature(
-  payload: string,
-  legacyInput: string,
-  secret: string,
-): string {
-  // A distinct key prevents an old-format field from imitating a v3 message.
-  const key = createHmac("sha256", secret)
-    .update("OpenSesame:federated-pending:v3:key")
-    .digest();
-  return createHmac("sha256", key)
-    .update(authenticatedPayload(payload, legacyInput))
-    .digest("base64url");
-}
-
-function signatureMatches(supplied: Buffer, expected: string): boolean {
-  const bytes = Buffer.from(expected, "base64url");
-  return supplied.length === bytes.length && timingSafeEqual(supplied, bytes);
-}
-
-export function encodePending(
-  pending: PendingFederatedAuth,
-  secret?: string,
-): string {
-  const payload = Buffer.from(JSON.stringify(pending), "utf8").toString(
+/** Seal the PKCE verifier for wire transport under its leg-bound key. */
+function sealVerifier(key: Buffer, verifier: string): string {
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([
+    cipher.update(verifier, "utf8"),
+    cipher.final(),
+  ]);
+  return Buffer.concat([iv, cipher.getAuthTag(), ciphertext]).toString(
     "base64url",
   );
-  if (!secret) return payload;
-  const legacyInput = pendingIntegrityPayload(pending, secret);
-  return `${payload}.${modernPendingSignature(payload, legacyInput, secret)}`;
+}
+
+function unsealVerifier(key: Buffer, sealed: string): string | undefined {
+  try {
+    const raw = Buffer.from(sealed, "base64url");
+    if (raw.length < 28) return undefined;
+    const decipher = createDecipheriv("aes-256-gcm", key, raw.subarray(0, 12));
+    decipher.setAuthTag(raw.subarray(12, 28));
+    return Buffer.concat([
+      decipher.update(raw.subarray(28)),
+      decipher.final(),
+    ]).toString("utf8");
+  } catch {
+    return undefined;
+  }
+}
+
+/** HMAC-SHA-256 over the exact encoded payload, under a v4-only derived key. */
+function pendingMac(payload: string, secret: string): Buffer {
+  // A distinct key keeps a v4 tag from verifying any other message format.
+  const key = createHmac("sha256", secret).update(MAC_KEY_LABEL).digest();
+  return createHmac("sha256", key).update(MAC_DOMAIN).update(payload).digest();
+}
+
+function pendingFromWire(
+  data: Omit<z.infer<typeof pendingFederatedAuthSchema>, "verifier">,
+  verifier: string,
+): PendingFederatedAuth {
+  // Rebuilt field by field rather than handed back whole: an absent field
+  // must stay absent, not become a present `undefined` that re-encodes as
+  // `null` and then fails to parse on the way back.
+  return {
+    issuer: data.issuer,
+    state: data.state,
+    nonce: data.nonce,
+    verifier,
+    ...(data.kind !== undefined ? { kind: data.kind } : undefined),
+    ...(data.providerId !== undefined
+      ? { providerId: data.providerId }
+      : undefined),
+    ...(data.byoId !== undefined ? { byoId: data.byoId } : undefined),
+    ...(data.orgId !== undefined ? { orgId: data.orgId } : undefined),
+  };
+}
+
+function base64urlJson(value: PendingFederatedAuth | SealedWire): string {
+  return Buffer.from(JSON.stringify(value), "utf8").toString("base64url");
+}
+
+/** Parse base64url JSON against `schema`; anything else is `undefined`. */
+function parseWire<T>(schema: z.ZodType<T>, payload: string): T | undefined {
+  let json: unknown;
+  try {
+    json = JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+  } catch {
+    return undefined;
+  }
+  const parsed = schema.safeParse(json);
+  return parsed.success ? parsed.data : undefined;
 }
 
 /**
- * The signed half of `decodePending`: split the cookie at its last dot, then
- * check the supplied tag against the MAC of the payload's own leg fields.
- * Returns the payload half only once that tag verifies.
+ * With a pepper (every production route), the verifier is sealed and the
+ * cookie carries a v4 tag. Without one (unit fixtures only) the leg is plain,
+ * unsigned JSON.
  */
-function verifiedPendingPayload(
+export function encodePending(
+  pending: PendingFederatedAuth,
+  secret?: string,
+  keys: PendingCookieKeys = defaultKeys,
+): string {
+  if (!secret) return base64urlJson(pendingFromWire(pending, pending.verifier));
+  const { verifier, ...rest } = pendingFromWire(pending, pending.verifier);
+  const key = keys.verifierSealKey(secret, pending.state, pending.nonce);
+  const wire: SealedWire = {
+    ...rest,
+    verifierEnc: sealVerifier(key, verifier),
+  };
+  const payload = base64urlJson(wire);
+  return `${payload}.${pendingMac(payload, secret).toString("base64url")}`;
+}
+
+/**
+ * The signed half of `decodePending`. Splits the cookie at its last dot and
+ * checks the tag over the payload's exact bytes first; only an authenticated
+ * payload is parsed, and only then is its verifier unsealed.
+ */
+function decodeSigned(
   raw: string,
   secret: string,
-): string | undefined {
+  keys: PendingCookieKeys,
+): PendingFederatedAuth | undefined {
+  if (raw.length > MAX_PENDING_COOKIE_LENGTH) return undefined;
   const split = raw.lastIndexOf(".");
   if (split <= 0) return undefined;
   const payload = raw.slice(0, split);
   if (!/^[A-Za-z0-9_-]+$/.test(payload)) return undefined;
   const supplied = Buffer.from(raw.slice(split + 1), "base64url");
-  let macPending: Pick<
-    PendingFederatedAuth,
-    "issuer" | "state" | "nonce" | "verifier" | "kind" | "providerId"
-  >;
-  let legacyEligible: boolean;
+  const expected = pendingMac(payload, secret);
+  if (supplied.length !== expected.length) return undefined;
+  if (!timingSafeEqual(supplied, expected)) return undefined;
+  const wire = parseWire(sealedWireSchema, payload);
+  if (wire === undefined) return undefined;
+  const { verifierEnc, ...rest } = wire;
+  let key: Buffer;
   try {
-    const parsed = JSON.parse(
-      Buffer.from(payload, "base64url").toString("utf8"),
-    );
-    const macResult = pendingFederatedAuthSchema.safeParse(parsed);
-    if (!macResult.success) return undefined;
-    const data = macResult.data;
-    // Old signatures did not cover any field outside this set. A future
-    // decoder must not give an unsigned extension security meaning.
-    const legacyFields = new Set([
-      "issuer",
-      "state",
-      "nonce",
-      "verifier",
-      "kind",
-      "providerId",
-    ]);
-    // An absent/empty provider ID is MAC-equivalent and could have belonged
-    // to an organization or BYO flow whose unsigned ID was stripped.
-    const legacyProviderPresent =
-      data.providerId !== undefined && data.providerId.length > 0;
-    legacyEligible =
-      legacyProviderPresent &&
-      Object.keys(parsed).every((field) => legacyFields.has(field));
-    macPending = {
-      issuer: data.issuer,
-      state: data.state,
-      nonce: data.nonce,
-      verifier: data.verifier,
-      ...(data.kind !== undefined ? { kind: data.kind } : undefined),
-      ...(data.providerId !== undefined
-        ? { providerId: data.providerId }
-        : undefined),
-    };
+    key = keys.verifierSealKey(secret, rest.state, rest.nonce);
   } catch {
     return undefined;
   }
-  const legacyInput = pendingIntegrityPayload(macPending, secret);
-  const expected = modernPendingSignature(payload, legacyInput, secret);
-  if (signatureMatches(supplied, expected)) return payload;
-  if (
-    legacyEligible &&
-    signatureMatches(supplied, pendingSignature(legacyInput, secret))
-  )
-    return payload;
-  return undefined;
+  const verifier = unsealVerifier(key, verifierEnc);
+  if (verifier === undefined) return undefined;
+  return pendingFromWire(rest, verifier);
 }
 
 export function decodePending(
   raw: string | undefined,
   secret?: string,
+  keys: PendingCookieKeys = defaultKeys,
 ): PendingFederatedAuth | undefined {
   if (!raw) return undefined;
-  let payload = raw;
-  if (secret) {
-    const verified = verifiedPendingPayload(raw, secret);
-    if (verified === undefined) return undefined;
-    payload = verified;
-  }
-  try {
-    const parsed = JSON.parse(
-      Buffer.from(payload, "base64url").toString("utf8"),
-    );
-    const result = pendingFederatedAuthSchema.safeParse(parsed);
-    if (!result.success) return undefined;
-    // Rebuilt field by field rather than handed back whole: an absent v2 field
-    // must stay absent, not become a present `undefined`. The difference is
-    // visible — `{...pending, kind: undefined}` re-encodes as a cookie
-    // claiming a `kind` of `null`, which then fails to parse on the way back.
-    const data = result.data;
-    return {
-      issuer: data.issuer,
-      state: data.state,
-      nonce: data.nonce,
-      verifier: data.verifier,
-      ...(data.kind !== undefined ? { kind: data.kind } : undefined),
-      ...(data.providerId !== undefined
-        ? { providerId: data.providerId }
-        : undefined),
-      ...(data.byoId !== undefined ? { byoId: data.byoId } : undefined),
-      ...(data.orgId !== undefined ? { orgId: data.orgId } : undefined),
-    };
-  } catch {
-    return undefined;
-  }
+  if (secret) return decodeSigned(raw, secret, keys);
+  const leg = parseWire(unsignedWireSchema, raw);
+  return leg === undefined ? undefined : pendingFromWire(leg, leg.verifier);
 }
