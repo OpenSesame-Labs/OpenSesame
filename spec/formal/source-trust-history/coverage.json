@@ -717,7 +717,7 @@
     },
     {
       "path": "crates/connection-broker/Cargo.toml",
-      "sha256": "4bf1510fde0cd4a54e4cd84ffe76ccb6b5b991c68543f128efaae27b3a9e0ade"
+      "sha256": "d55a434709ccb63517141d588ef99727d532c2e8cfa42fc812eacacf79ca4e4c"
     },
     {
       "path": "crates/connection-detect/Cargo.toml",
@@ -1205,12 +1205,12 @@
   "lock_projection": {
     "root": "opensesame-cli",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "1a1be9ec40a8832b8de66653daa2272001b8757dfe662f35dfce9906f502d765"
+    "sha256": "b6de7873299af5103e628eaecd97c91f92367b186804db1cbe2f9713d2fc8ace"
   },
   "workspace_projection": {
     "root": "opensesame-cli",
     "package": "apps/cli/Cargo.toml",
     "algorithm": "cargo-workspace-projection-v1-sha256",
-    "sha256": "4b3a3d96c62028cd1564cef9c6d797ffc179a626f7ce983d80d897c3841b1a57"
+    "sha256": "aee4c7acca0e03053e28f235c32b74c58de46821549e7d0d07cdd08ded76585f"
   }
 }

@@ -5,7 +5,7 @@
   "lock_projection": {
     "root": "opensesame-spiffe-source",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "e33837fdfbbb0e0913698c1bef836155bc008e30b9e488c8e4ec91119e577acb"
+    "sha256": "88c181ea51fe26d5edba239789f808a22d73328584a03d6dfaf898e3a059f532"
   },
   "sources": [
     {

@@ -5,7 +5,7 @@
   "lock_projection": {
     "root": "opensesame-gateway",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "741bd20906113436b45433cf620e5e86ebb7df7776e7e78f4c6c964d6187fe54"
+    "sha256": "60060650596afe4591c83a328142308f63ff26efaad06b42d3ad5a51868db22d"
   },
   "sources": [
     {
@@ -362,7 +362,7 @@
     },
     {
       "path": "crates/connection-broker/Cargo.toml",
-      "sha256": "4bf1510fde0cd4a54e4cd84ffe76ccb6b5b991c68543f128efaae27b3a9e0ade"
+      "sha256": "d55a434709ccb63517141d588ef99727d532c2e8cfa42fc812eacacf79ca4e4c"
     },
     {
       "path": "crates/connection-detect/Cargo.toml",
@@ -727,16 +727,16 @@
     "root": "opensesame-gateway",
     "package": "crates/gateway/Cargo.toml",
     "algorithm": "cargo-workspace-projection-v1-sha256",
-    "sha256": "961237e1704fcb050fdbb071c92a1e9140fd6d4c8161b4ddf521780b3d3fdc79"
+    "sha256": "30fe156b0129ea52a3dc0d738a9465eeb94edf640c8b6a5f1a53986de351f8c6"
   },
   "nats": {
     "version": 1,
     "reviewed_revision": "94260f7078fb3b9a4f42658a2eab702c358c6042",
-    "reviewed_source_state": "Source hashes identify the reviewed source-history integration after this base; they do not prove Rust refinement.",
+    "reviewed_source_state": "Source hashes identify the reviewed source-history integration after this base; they do not prove Rust refinement. 2026-11-23: the NATS lock projection was re-recorded for url 2.5.9 / form_urlencoded 1.2.3 only; see README review log.",
     "lock_projection": {
       "root": "opensesame-task-bus",
       "algorithm": "cargo-lock-projection-v1-sha256",
-      "sha256": "36f2aafd7ceb69d752f846c700c3c92848ff5a06e360a20761e78b75a59ce5c4"
+      "sha256": "30b3597bdd61a579d903c719e2a0b8addb6399bfb31789ec21c01d783078ebf0"
     },
     "sources": [
       {
