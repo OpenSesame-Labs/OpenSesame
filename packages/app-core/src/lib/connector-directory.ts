@@ -40,6 +40,7 @@ import {
   listDirectory,
   normalizeDirectoryEndpoint,
 } from "./nango-directory.js";
+import { onVaultLock } from "./vault/lock-events.js";
 import {
   VfsError,
   readFile,
@@ -154,13 +155,14 @@ export async function readConnectorDirectory(
 async function writeConnectorDirectory(
   tomb: string,
   record: ConnectorDirectory,
+  check?: () => void,
 ): Promise<void> {
   const bytes = new TextEncoder().encode(JSON.stringify(record));
   if (bytes.length > MAX_BYTES) {
     throw new Error("That directory is too large to keep here.");
   }
   try {
-    await writeFile(tomb, DIRECTORY_PATH, bytes);
+    await writeFile(tomb, DIRECTORY_PATH, bytes, check);
   } finally {
     notifyLocalIamChange();
   }
@@ -169,6 +171,15 @@ async function writeConnectorDirectory(
 /* ------------------------------------------------ the sync, and its parking */
 
 let pending: ConnectorDirectory | null = null;
+/** Bumped on every discard, so a sync or seal that started earlier cannot land. */
+let pendingGeneration = 0;
+const IMPORT_ENDED = "The directory import ended. Try again.";
+
+function generationCheck(generation: number): () => void {
+  return () => {
+    if (generation !== pendingGeneration) throw new Error(IMPORT_ENDED);
+  };
+}
 
 /** What a sync left behind before any vault could seal it. */
 export function pendingConnectorDirectory(): ConnectorDirectory | null {
@@ -178,7 +189,12 @@ export function pendingConnectorDirectory(): ConnectorDirectory | null {
 /** Tests, and a deliberate discard: forget an unsealed sync. */
 export function clearPendingConnectorDirectory(): void {
   pending = null;
+  pendingGeneration += 1;
 }
+
+// An unsealed list (and its environment key) belongs to the session that
+// fetched it: a lock ends it, so the next person's vault never inherits it.
+onVaultLock(clearPendingConnectorDirectory);
 
 export const connectorDirectorySeams = {
   listDirectory,
@@ -195,6 +211,7 @@ export async function syncConnectorDirectory(input: {
   key: string;
   tomb: string | null;
 }): Promise<ConnectorDirectory> {
+  const check = generationCheck(++pendingGeneration);
   const endpoint = normalizeDirectoryEndpoint(input.endpoint);
   if (!endpoint) {
     throw new Error("Use an https address, or http on loopback.");
@@ -203,6 +220,7 @@ export async function syncConnectorDirectory(input: {
     endpoint,
     input.key.trim(),
   );
+  check();
   const record: ConnectorDirectory = {
     version: 1,
     endpoint,
@@ -212,8 +230,10 @@ export async function syncConnectorDirectory(input: {
     connections: listing.connections,
   };
   await writeDirectoryEndpoint(endpoint);
+  check();
   if (input.tomb && tombUnlocked(input.tomb)) {
-    await writeConnectorDirectory(input.tomb, record);
+    await writeConnectorDirectory(input.tomb, record, check);
+    check();
     pending = null;
   } else {
     pending = record;
@@ -224,16 +244,24 @@ export async function syncConnectorDirectory(input: {
 /**
  * Seal a sync that ran before the vault existed. Called once the store
  * reports `unlocked`; a no-op with nothing pending. Says whether it wrote.
+ * The list is consumed by the first vault that seals it, guest or not: it is
+ * never carried on into another vault. A failed write keeps it for a retry
+ * in the same session only.
  */
 export async function sealPendingConnectorDirectory(
   tomb: string,
-  { ephemeral = false }: { ephemeral?: boolean } = {},
 ): Promise<boolean> {
   if (!pending || !tombUnlocked(tomb)) return false;
-  await writeConnectorDirectory(tomb, pending);
-  // A guest tomb is wiped on lock: it gets the list for its session, and the
-  // sync keeps waiting for a vault that lasts.
-  if (!ephemeral) pending = null;
+  const record = pending;
+  clearPendingConnectorDirectory();
+  const generation = pendingGeneration;
+  try {
+    await writeConnectorDirectory(tomb, record, generationCheck(generation));
+  } catch (error) {
+    if (generation === pendingGeneration && tombUnlocked(tomb) && !pending)
+      pending = record;
+    throw error;
+  }
   return true;
 }
 
