@@ -64,7 +64,7 @@ pub enum Exchange {
     Capacity,
     Granted {
         session_id: String,
-        claims: HostSessionClaims,
+        claims: Box<HostSessionClaims>,
     },
 }
 
@@ -135,7 +135,10 @@ pub async fn exchange(st: &AppState, digest: &str, client_id: &str) -> anyhow::R
         .execute(&mut *tx)
         .await?;
     tx.commit().await?;
-    Ok(Exchange::Granted { session_id, claims })
+    Ok(Exchange::Granted {
+        session_id,
+        claims: Box::new(claims),
+    })
 }
 
 #[cfg(test)]

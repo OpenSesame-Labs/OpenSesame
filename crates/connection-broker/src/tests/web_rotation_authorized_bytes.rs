@@ -248,7 +248,7 @@ async fn an_upstream_error_does_not_wait_for_an_unfinished_body() {
     let server = tokio::spawn(async move {
         let (mut stream, _) = listener.accept().await.unwrap();
         let mut request = [0_u8; 4096];
-        stream.read(&mut request).await.unwrap();
+        assert!(stream.read(&mut request).await.unwrap() > 0);
         stream
             .write_all(b"HTTP/1.1 400 Bad Request\r\nTransfer-Encoding: chunked\r\n\r\n")
             .await

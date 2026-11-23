@@ -187,24 +187,27 @@ async fn reparented_receipts_and_invocations_cannot_replay() {
         };
         let a = broker.invoke(input(&first)).await.unwrap();
         let b = broker.invoke(input(&second)).await.unwrap();
-        if swap_receipts {
-            for (receipt, invocation) in [(&a, &b), (&b, &a)] {
-                sqlx::query("UPDATE receipts SET invocation_id = ? WHERE id = ?")
-                    .bind(invocation.invocation_id.to_string())
-                    .bind(receipt.id.to_string())
-                    .execute(broker.db.pool())
-                    .await
-                    .unwrap();
-            }
+        // (statement, new parent, row) pairs, applied in the same order.
+        let swaps = if swap_receipts {
+            let sql = "UPDATE receipts SET invocation_id = ? WHERE id = ?";
+            [
+                (sql, b.invocation_id.to_string(), a.id.to_string()),
+                (sql, a.invocation_id.to_string(), b.id.to_string()),
+            ]
         } else {
-            for (receipt, intent) in [(&a, &second), (&b, &first)] {
-                sqlx::query("UPDATE invocations SET intent_id = ? WHERE id = ?")
-                    .bind(intent.id.to_string())
-                    .bind(receipt.invocation_id.to_string())
-                    .execute(broker.db.pool())
-                    .await
-                    .unwrap();
-            }
+            let sql = "UPDATE invocations SET intent_id = ? WHERE id = ?";
+            [
+                (sql, second.id.to_string(), a.invocation_id.to_string()),
+                (sql, first.id.to_string(), b.invocation_id.to_string()),
+            ]
+        };
+        for (sql, parent, row) in swaps {
+            sqlx::query(sql)
+                .bind(parent)
+                .bind(row)
+                .execute(broker.db.pool())
+                .await
+                .unwrap();
         }
         assert!(broker.replay(input(&first)).await.is_err());
         assert_eq!(

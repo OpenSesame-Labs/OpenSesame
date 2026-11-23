@@ -1,8 +1,8 @@
 pub mod agent_grants;
 pub mod auth;
 pub mod browser_grants;
-mod membership_fence;
 pub(crate) mod browser_user_routes;
+mod membership_fence;
 pub(crate) mod public_enrollment;
 
 /// Every route passes the browser and agent ceilings before its own authenticator.

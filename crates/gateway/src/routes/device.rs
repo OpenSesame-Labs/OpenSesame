@@ -146,7 +146,7 @@ pub async fn token(State(st): State<AppState>, Json(req): Json<DeviceTokenReques
             st.sessions
                 .lock()
                 .unwrap()
-                .insert(hash_secret(&session_id), claims);
+                .insert(hash_secret(&session_id), *claims);
             (
                 StatusCode::OK,
                 [("cache-control", "no-store")],

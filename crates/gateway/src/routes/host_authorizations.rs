@@ -175,8 +175,14 @@ pub async fn authorize(
         || crate::session_claims::parse_principal(&evidence.sub) != Some(claims.principal_id)
         || evidence.organization_id != claims.organization_id.to_string()
         || (pending.operation != "browser.authenticate"
-            && claims.membership_revision.as_ref().map(|revision| (&revision.incarnation, &revision.revision))
-                != evidence.membership_incarnation.as_ref().zip(evidence.authority_revision.as_ref()))
+            && claims
+                .membership_revision
+                .as_ref()
+                .map(|revision| (&revision.incarnation, &revision.revision))
+                != evidence
+                    .membership_incarnation
+                    .as_ref()
+                    .zip(evidence.authority_revision.as_ref()))
     {
         return refusal("invalid_host_authorization");
     }

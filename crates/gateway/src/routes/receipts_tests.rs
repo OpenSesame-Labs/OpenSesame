@@ -2,7 +2,7 @@ use super::*;
 use opensesame_broker::InvokeInput;
 use opensesame_domain::*;
 use opensesame_time::{Duration, Utc};
-use serde_json::{json, Value};
+use serde_json::json;
 
 async fn state_with_receipt() -> (AppState, InvocationReceipt, String, OrganizationId) {
     let state = crate::app_state::test_demo_state().await;

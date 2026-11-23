@@ -72,13 +72,11 @@ async fn claim_survives_reopen_and_refuses_a_conflicting_binding() {
 }
 
 async fn claims_for(db: &Db, organization_id: &str) -> i64 {
-    sqlx::query_scalar(
-        "SELECT COUNT(*) FROM invocation_budget_claims WHERE organization_id = ?",
-    )
-    .bind(organization_id)
-    .fetch_one(db.pool())
-    .await
-    .unwrap()
+    sqlx::query_scalar("SELECT COUNT(*) FROM invocation_budget_claims WHERE organization_id = ?")
+        .bind(organization_id)
+        .fetch_one(db.pool())
+        .await
+        .unwrap()
 }
 
 #[tokio::test]
