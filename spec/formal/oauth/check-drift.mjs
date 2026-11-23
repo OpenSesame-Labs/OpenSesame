@@ -10,6 +10,7 @@ const paths = [
   "packages/control-plane/src/interactions/federated-leg.ts",
   "packages/control-plane/src/interactions/federated-pending.ts",
   "packages/control-plane/src/interactions/federated-trust-binding.ts",
+  "packages/control-plane/src/interactions/federated-upstreams.ts",
   "packages/control-plane/src/interactions/federated.ts",
   "packages/control-plane/src/interactions/oauth2.ts",
   "packages/control-plane/src/interactions/trust.ts",
