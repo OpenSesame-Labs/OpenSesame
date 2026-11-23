@@ -163,10 +163,11 @@ fn if_body_returns(body: &str) -> bool {
             b'}' | b')' | b']' if depth > 0 => depth -= 1,
             b';' if depth == 0 => stmt = index + 1,
             // `|| return` and `|x| return` leave the closure, not the pin.
-            _ if depth == 0 && is_keyword_at(bytes, index, b"return") => {
-                if !closure_owns(&body[stmt..index]) {
-                    return true;
-                }
+            _ if depth == 0
+                && is_keyword_at(bytes, index, b"return")
+                && !closure_owns(&body[stmt..index]) =>
+            {
+                return true;
             }
             _ => {}
         }

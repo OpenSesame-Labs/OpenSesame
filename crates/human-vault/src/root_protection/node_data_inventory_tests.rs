@@ -97,8 +97,8 @@ fn genuine_absent_roots_are_explicit_and_later_creation_invalidates_original_inv
     let state = NativeNodeDataState::capture(Arc::clone(&root)).unwrap();
     let credential = state.credential_writer().unwrap();
     let inventory = credential.capture_device_inventory().unwrap();
-    assert!(inventory.tombs().unwrap().is_empty());
-    assert!(inventory.origin_names().unwrap().is_empty());
+    assert_eq!(inventory.tombs().unwrap(), [] as [String; 0]);
+    assert_eq!(inventory.origin_names().unwrap(), [] as [(String, bool); 0]);
     assert!(inventory.origin_identity().unwrap().is_none());
     assert_eq!(
         inventory
@@ -174,8 +174,8 @@ fn actual_optional_parent_case_alias_is_never_misreported_as_an_absent_catalogue
         let captured = credential.capture_device_inventory();
         if actual_absent {
             let inventory = captured.unwrap();
-            assert!(inventory.tombs().unwrap().is_empty());
-            assert!(inventory.origin_names().unwrap().is_empty());
+            assert_eq!(inventory.tombs().unwrap(), [] as [String; 0]);
+            assert_eq!(inventory.origin_names().unwrap(), [] as [(String, bool); 0]);
         } else {
             assert!(captured.is_err());
         }

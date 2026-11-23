@@ -249,6 +249,17 @@ pub(super) fn strip_compact_turbofish(after: &str) -> Option<&str> {
     None
 }
 
+pub(super) fn ident_before(prefix: &str) -> String {
+    prefix
+        .chars()
+        .rev()
+        .take_while(|c| is_ident_char(*c))
+        .collect::<String>()
+        .chars()
+        .rev()
+        .collect()
+}
+
 #[cfg(test)]
 mod probes {
     use super::response_body_reads;
@@ -373,15 +384,4 @@ mod probes {
             );
         }
     }
-}
-
-pub(super) fn ident_before(prefix: &str) -> String {
-    prefix
-        .chars()
-        .rev()
-        .take_while(|c| is_ident_char(*c))
-        .collect::<String>()
-        .chars()
-        .rev()
-        .collect()
 }

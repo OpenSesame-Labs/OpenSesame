@@ -95,7 +95,7 @@ fn migrate(
         store.remember_key(blake3::keyed_hash(
             key.as_bytes(),
             b"OpenSesame sync store key v2",
-        ));
+        ))?;
     }
     let migrated: Vec<SyncBlob> = store
         .entries

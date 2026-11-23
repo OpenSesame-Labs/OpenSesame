@@ -1249,12 +1249,12 @@ mod tests {
         assert_eq!(json["truncated"], true);
     }
 
-    #[cfg(not(feature = "tailscale"))]
     #[test]
-    fn tailnet_listener_is_compiled_out_by_default() {
-        // The tailnet listener exists only under `--features tailscale`; this
-        // pin documents that a default build carries no tailnet surface.
-        assert!(!cfg!(feature = "tailscale"));
+    fn tailnet_listener_is_not_a_default_feature() {
+        // The tailnet listener exists only under `--features tailscale`.
+        let mut lines = include_str!("../Cargo.toml").lines();
+        let default = lines.find(|line| line.starts_with("default = ")).unwrap();
+        assert!(!default.contains("tailscale"), "{default}");
     }
 
     #[cfg(test)]

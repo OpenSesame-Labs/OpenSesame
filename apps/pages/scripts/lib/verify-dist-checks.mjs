@@ -47,16 +47,45 @@ export function walk(directory) {
   return files.sort();
 }
 
+/**
+ * One lexer import record in a version-neutral shape. es-module-lexer 2.x
+ * reports `d` (-1 static, -2 import.meta, otherwise a dynamic import) with
+ * `n`/`s`/`e`; 3.x reports `type` with `specifier`/`start`/`end`. Reading the
+ * wrong shape would silently yield no edges, so an unknown record throws.
+ */
+export function importRecord(entry) {
+  if (Object.hasOwn(entry, "type")) {
+    const kinds = {
+      static: "static",
+      "reexport-star": "static",
+      dynamic: "dynamic",
+      "import-meta": "meta",
+    };
+    const kind = kinds[entry.type];
+    if (!kind) throw new Error(`unknown import record type ${entry.type}`);
+    return {
+      kind,
+      specifier: entry.specifier ?? undefined,
+      start: entry.start,
+      end: entry.end,
+    };
+  }
+  if (!Number.isInteger(entry.d)) throw new Error("unknown import record");
+  const kind = entry.d === -1 ? "static" : entry.d === -2 ? "meta" : "dynamic";
+  return { kind, specifier: entry.n, start: entry.s, end: entry.e };
+}
+
 /** Static and dynamic (literal) imports of one chunk, dist-relative. */
 export function chunkImports(parse, code, file) {
   const [imports] = parse(code);
   const out = { static: new Set(), dynamic: new Set(), external: new Set() };
   const dir = posix.dirname(file);
-  for (const entry of imports) {
-    if (entry.d === -2) continue; // import.meta
-    let specifier = entry.n;
-    if (specifier === undefined && entry.d >= 0) {
-      const raw = code.slice(entry.s, entry.e).trim();
+  for (const raw of imports) {
+    const entry = importRecord(raw);
+    if (entry.kind === "meta") continue;
+    let specifier = entry.specifier;
+    if (specifier === undefined && entry.kind === "dynamic") {
+      const raw = code.slice(entry.start, entry.end).trim();
       const literal = raw.match(/^["'`]([^"'`]+)["'`]$/);
       specifier = literal ? literal[1] : undefined;
     }
@@ -71,7 +100,7 @@ export function chunkImports(parse, code, file) {
     const resolved = specifier.startsWith("/")
       ? specifier.slice(1)
       : posix.normalize(posix.join(dir, specifier));
-    (entry.d === -1 ? out.static : out.dynamic).add(resolved);
+    (entry.kind === "static" ? out.static : out.dynamic).add(resolved);
   }
   return out;
 }

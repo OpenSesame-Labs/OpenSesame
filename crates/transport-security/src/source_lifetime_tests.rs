@@ -30,7 +30,8 @@ fn use_time_is_sampled_after_waiting_for_the_activation_lock() {
         })
     });
     assert!(clock_rx.recv_timeout(Duration::from_millis(50)).is_err());
-    serial.fence.as_mut().unwrap().deadline = Some(Utc::now() - opensesame_time::Duration::seconds(1));
+    serial.fence.as_mut().unwrap().deadline =
+        Some(Utc::now() - opensesame_time::Duration::seconds(1));
     drop(serial);
     clock_rx.recv_timeout(Duration::from_secs(2)).unwrap();
     assert!(matches!(

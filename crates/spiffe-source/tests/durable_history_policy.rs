@@ -7,11 +7,11 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
-use opensesame_time::Utc;
 use opensesame_domain::{TransportError, TrustProfileKind, TrustProfileRef};
 use opensesame_spiffe_source::fake::{FakeTrustDomain, FakeWorkloadApi, IssuedSvid};
 use opensesame_spiffe_source::sink::{GenerationHistory, HistoryWrite, TransportGenerationsSink};
 use opensesame_spiffe_source::{SourcePhase, SpiffeSource};
+use opensesame_time::Utc;
 use opensesame_transport_security::{GenerationCandidate, TransportGenerations, TrustBundle};
 use policy::{config, snapshot, streaming, withdrawn_promptly, GW, TD};
 use rustls_pki_types::CertificateDer;

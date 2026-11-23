@@ -131,7 +131,7 @@ fn prompt_withdrawal_before_any_generation_is_not_settled() {
     let withdrawn = status_with(SourcePhase::Withdrawn, None);
     assert!(
         conclude_spiffe_first_svid(
-            Err(WaitError::DeadlineElapsed(withdrawn)),
+            Err(WaitError::DeadlineElapsed(Box::new(withdrawn))),
             &live_generations(1),
         )
         .is_err(),
@@ -145,7 +145,7 @@ fn a_deadline_with_no_generation_is_identity_missing() {
     assert!(!spiffe_first_svid_settled(&connecting));
     assert_eq!(
         conclude_spiffe_first_svid(
-            Err(WaitError::DeadlineElapsed(connecting)),
+            Err(WaitError::DeadlineElapsed(Box::new(connecting))),
             &live_generations(1),
         )
         .expect_err("deadline refuses the bind"),

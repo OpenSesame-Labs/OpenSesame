@@ -29,10 +29,10 @@ pub struct SpiffeSourceHandle {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WaitError {
     /// `timeout` elapsed. The status is the last observation.
-    DeadlineElapsed(SourceStatus),
+    DeadlineElapsed(Box<SourceStatus>),
     /// The status sender was dropped because the source task ended or the
     /// channel closed. The status is the last observation.
-    StatusTaskGone(SourceStatus),
+    StatusTaskGone(Box<SourceStatus>),
 }
 
 impl std::fmt::Display for WaitError {
@@ -130,8 +130,8 @@ async fn wait_for_status(
         }
         match tokio::time::timeout_at(deadline, rx.changed()).await {
             Ok(Ok(())) => {}
-            Ok(Err(_)) => return Err(WaitError::StatusTaskGone(rx.borrow().clone())),
-            Err(_) => return Err(WaitError::DeadlineElapsed(rx.borrow().clone())),
+            Ok(Err(_)) => return Err(WaitError::StatusTaskGone(Box::new(rx.borrow().clone()))),
+            Err(_) => return Err(WaitError::DeadlineElapsed(Box::new(rx.borrow().clone()))),
         }
     }
 }

@@ -290,10 +290,9 @@ fn rebind_failure_before_key_commit_leaves_the_old_key_file() {
     root.write_witness(&id, &key, &witness).unwrap();
     let key_path = dir.path().join(crate::KEY_FILE_NAME);
     let before = std::fs::read(&key_path).unwrap();
-    let error = match crate::rotate_store_root(dir.path(), password, crate::RotationEdit::default())
-    {
-        Err(error) => error,
-        Ok(_) => panic!("rebind must fail before the key file is replaced"),
+    let Err(error) = crate::rotate_store_root(dir.path(), password, crate::RotationEdit::default())
+    else {
+        panic!("rebind must fail before the key file is replaced");
     };
     assert!(
         error

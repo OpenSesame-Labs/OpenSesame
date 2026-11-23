@@ -109,13 +109,16 @@ function assertSparseCheckoutCoversInstaller(job, label) {
   }
 }
 
-/** Restoring the cache needs actions: read, on the job or on the workflow. */
+/**
+ * Restoring the cache needs actions: read, on the job or on the workflow. A
+ * job that also dispatches a workflow holds write, which includes read.
+ */
 function assertActionsRead(doc, job, label) {
-  if (job.permissions !== undefined) {
-    assert.equal(job.permissions.actions, "read", label);
-  } else {
-    assert.equal(doc.permissions?.actions, "read", label);
-  }
+  const granted =
+    job.permissions !== undefined
+      ? job.permissions.actions
+      : doc.permissions?.actions;
+  assert.ok(granted === "read" || granted === "write", label);
 }
 
 /** Tools run after the bootstrap, except the resolver that runs on the runner's Node. */
@@ -187,7 +190,11 @@ describe("locked mise bootstrap: PWA CD", () => {
     assert.ok(ci.includes(`key: ${primaryKey}`));
     assert.ok(ci.includes(seedKey));
     assert.ok(ci.includes(legacyKey));
-    const required = ["cd-pwa.yml", "cd-pwa-profile-proof.yml"];
+    const required = [
+      "cd-pwa.yml",
+      "cd-pwa-profile-proof.yml",
+      "cd-pwa-stranded-dispatch.yml",
+    ];
     const present = readdirSync(workflowDir).filter((name) =>
       read(join(".github/workflows", name)).includes(
         "bash scripts/lib/install-mise-locked.sh",

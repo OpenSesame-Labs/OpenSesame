@@ -30,7 +30,7 @@ impl Drop for RestoreDataHome {
 fn with_isolated_store<T>(run: impl FnOnce(StoreRoot) -> T) -> T {
     let _lock = DATA_HOME
         .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let previous = std::env::var_os(XDG_DATA_HOME);
     let data_home = tempfile::tempdir().expect("data home tempdir");
     std::env::set_var(XDG_DATA_HOME, data_home.path());

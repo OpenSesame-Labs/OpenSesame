@@ -33,7 +33,7 @@ pub(super) fn dispatch_url(source: &str, fn_start: usize, at: usize) -> Option<S
     assigned_builder_url(&source[fn_start..at], name)
 }
 
-fn request_expr<'a>(source: &'a str, fn_start: usize, at: usize) -> Option<&'a str> {
+fn request_expr(source: &str, fn_start: usize, at: usize) -> Option<&str> {
     let rest = &source[at..];
     if rest.starts_with(".send") {
         return Some(receiver_expr(source, fn_start, at));
@@ -52,7 +52,7 @@ fn request_expr<'a>(source: &'a str, fn_start: usize, at: usize) -> Option<&'a s
         .then(|| receiver_expr(source, fn_start, at))
 }
 
-fn receiver_expr<'a>(source: &'a str, fn_start: usize, dot: usize) -> &'a str {
+fn receiver_expr(source: &str, fn_start: usize, dot: usize) -> &str {
     let bytes = source.as_bytes();
     let (mut start, mut depth, mut index) = (fn_start + 1, 0i32, fn_start + 1);
     while index < dot {
@@ -76,17 +76,7 @@ fn receiver_expr<'a>(source: &'a str, fn_start: usize, dot: usize) -> &'a str {
             // block-tail receiver.
             b'=' if bytes.get(index + 1) == Some(&b'>') => {
                 start = index + 2;
-                let mut at = start;
-                loop {
-                    while at < bytes.len() && bytes[at].is_ascii_whitespace() {
-                        at += 1;
-                    }
-                    if let Some(len) = non_code_len(bytes, at) {
-                        at += len;
-                        continue;
-                    }
-                    break;
-                }
+                let at = skip_space_and_non_code(bytes, start);
                 if bytes.get(at) == Some(&b'{') {
                     start = at + 1;
                 }
@@ -96,6 +86,18 @@ fn receiver_expr<'a>(source: &'a str, fn_start: usize, dot: usize) -> &'a str {
         index += 1;
     }
     &source[start..dot]
+}
+
+fn skip_space_and_non_code(bytes: &[u8], mut at: usize) -> usize {
+    loop {
+        while at < bytes.len() && bytes[at].is_ascii_whitespace() {
+            at += 1;
+        }
+        match non_code_len(bytes, at) {
+            Some(len) => at += len,
+            None => return at,
+        }
+    }
 }
 
 /// `if decoy { return } request.send` starts a new statement at `}`.
@@ -274,11 +276,11 @@ impl UrlScope {
             let outer = self.depth.saturating_sub(1);
             self.layers
                 .retain(|binding| binding.depth != self.depth || !binding.is_let);
-            for binding in &mut self.layers {
-                if binding.depth == self.depth {
-                    binding.depth = outer;
-                }
-            }
+            let depth = self.depth;
+            self.layers
+                .iter_mut()
+                .filter(|binding| binding.depth == depth)
+                .for_each(|binding| binding.depth = outer);
         }
         if self.depth > 0 {
             self.depth -= 1;

@@ -234,26 +234,27 @@ fn callee_span(bytes: &[u8], paren: usize) -> Option<(usize, usize)> {
         index -= 1;
         match bytes[index] {
             b'>' if brace == 0 => depth += 1,
-            b'<' if brace == 0 => {
-                depth -= 1;
-                if depth == 0 {
-                    if index < 2 || bytes[index - 1] != b':' || bytes[index - 2] != b':' {
-                        return None;
-                    }
-                    let name_end = index - 2;
-                    let mut start = name_end;
-                    while start > 0 && super::super::is_ident_byte(bytes[start - 1]) {
-                        start -= 1;
-                    }
-                    return (start < name_end).then_some((start, name_end));
-                }
-            }
+            b'<' if brace == 0 && depth == 1 => return turbofish_name(bytes, index),
+            b'<' if brace == 0 => depth -= 1,
             b'}' => brace += 1,
             b'{' => brace = brace.saturating_sub(1),
             _ => {}
         }
     }
     None
+}
+
+/// The path segment named by `name::<`, given the index of its `<`.
+fn turbofish_name(bytes: &[u8], open: usize) -> Option<(usize, usize)> {
+    if open < 2 || bytes[open - 1] != b':' || bytes[open - 2] != b':' {
+        return None;
+    }
+    let name_end = open - 2;
+    let mut start = name_end;
+    while start > 0 && super::super::is_ident_byte(bytes[start - 1]) {
+        start -= 1;
+    }
+    (start < name_end).then_some((start, name_end))
 }
 
 pub(crate) fn skip_ascription(bytes: &[u8], start: usize) -> usize {

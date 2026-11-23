@@ -304,7 +304,8 @@ fn kimi_council_r4_non_dominating_scheme_compare_is_not_a_guard() {
 /// token-tree exclusion (Kimi council R6 chunk03).
 #[test]
 fn kimi_council_r6_closure_body_if_is_not_a_guard() {
-    let prefix = r#"{let f = |x| if url.scheme()!="https" { return Err("x".into()); }; client.get(url)."#;
+    let prefix =
+        r#"{let f = |x| if url.scheme()!="https" { return Err("x".into()); }; client.get(url)."#;
     assert!(!super::guarded(prefix, Some("url")), "{prefix}");
     // Shapes: empty params, `move`, a typed param, and a nested `if` whose
     // enclosing closure body is itself the `if` expression.
@@ -327,4 +328,3 @@ fn kimi_council_r6_closure_body_if_is_not_a_guard() {
         assert_eq!(credentialed_send_https_gaps(sample), (1, 0), "{sample}");
     }
 }
-

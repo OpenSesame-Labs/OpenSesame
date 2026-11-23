@@ -1,7 +1,7 @@
 {
   "version": 2,
   "reviewed_revision": "863b64ec3ed5178b7ac7c3fec37b83657c038554",
-  "reviewed_source_state": "Source hashes identify the reviewed ownership fix and evidence after the recorded base revision. 2026-11-23 review (PR #2898): crates/gateway/src/routes/mod.rs adds a private `mod tasks_opening;` (no #[path]; resolves to src/routes/tasks_opening.rs, which imports no transport, EST, generation or source-lifetime item) and mounts POST /api/v1/tasks/intent-opening inside the existing router chain, so it inherits the same layers, state and listeners. No listener, bind, EST route, admission, generation, epoch or deadline check changed, so the source-owned lifetime boundary the model covers is unaffected; reviewed_blob moves to the current bytes and base_blob stays the recorded base.",
+  "reviewed_source_state": "Source hashes identify the reviewed ownership fix and evidence after the recorded base revision. 2026-11-23 review (PR #2898): crates/gateway/src/routes/mod.rs adds a private `mod tasks_opening;` (no #[path]; resolves to src/routes/tasks_opening.rs, which imports no transport, EST, generation or source-lifetime item) and mounts POST /api/v1/tasks/intent-opening inside the existing router chain, so it inherits the same layers, state and listeners. No listener, bind, EST route, admission, generation, epoch or deadline check changed, so the source-owned lifetime boundary the model covers is unaffected; reviewed_blob moves to the current bytes and base_blob stays the recorded base. 2026-11-23: re-pinned after behaviour-preserving lint and format repairs: cargo fmt of files main left unformatted; spiffe-source source.rs drops a test-only import; WaitError boxes its SourceStatus (clippy result_large_err; same variants and observations); xkeys open drops a redundant nonce re-conversion; est_freshness.rs is loaded once. No modeled transition, guard or persistence changed. Lean suites not run here (no Lean toolchain); Rust regressions for spiffe-source, transport-security, gateway routes/transport and xkeys passed, and every check-drift.py matches. 2026-11-23 merge review (main 760292b7 into #2900): crates/gateway/src/routes/mod.rs is the union of two disjoint reviewed hunks, main's private tasks_opening module and POST /api/v1/tasks/intent-opening route (PR #2898) and this branch's test-only est_freshness alias to est_wire::freshness; no listener, bind, layer, admission or other route changed, so the digest is recomputed for the merged bytes. Regression runs on the merged tree are recorded in the follow-up note.",
   "lock_projection": {
     "root": "opensesame-spiffe-source",
     "algorithm": "cargo-lock-projection-v1-sha256",
@@ -64,14 +64,14 @@
     },
     {
       "path": "crates/transport-security/src/source_lifetime.rs",
-      "sha256": "3f6cd17b0ffd8373ef9067f66c30f1a33f2d8570fe9918aa44d804a93deee613",
-      "reviewed_blob": "c5c907743fab139ebc46b92e1a60482775ab008c",
+      "sha256": "e24f5716f8a5f82ea0edc796fa6622413cf5f8ce49b17f15a976fbac164782db",
+      "reviewed_blob": "d349f2037e82bf23e07b839efb8795054b68c140",
       "base_blob": null
     },
     {
       "path": "crates/transport-security/src/source_history_activation.rs",
-      "sha256": "c9059d04ddf349a44d3a291a28c0e3fb0505a551aabfe801db93c3a9af992ff1",
-      "reviewed_blob": "63eea50c8a43afde1b5e4c9dac4c48042b16923f",
+      "sha256": "b37afdb7bb81349e0c724db9d9094f377f096f94bc83b6b67b624132d15478d1",
+      "reviewed_blob": "d5349f75f21dc153c1ab6cf54e7349b3ddb5d5fc",
       "base_blob": null
     },
     {
@@ -166,20 +166,20 @@
     },
     {
       "path": "crates/spiffe-source/src/source.rs",
-      "sha256": "021a25db40801d1e677c8487d7e54d48376001c04896f3f80a36157a7d531871",
-      "reviewed_blob": "5b542a961df0aa2bc007ce105e373e16131e9a7a",
+      "sha256": "1e9f02d6420d7b81b1cb320d11fc52e255091504f73ad39caea6739ff1a908d4",
+      "reviewed_blob": "a4f783925bf6715ee7cb6e3fd45f0b336f8a8b5a",
       "base_blob": "6ff41f704f3262a8d0c3db87e1610fef483047f0"
     },
     {
       "path": "crates/spiffe-source/src/source_history_flow.rs",
-      "sha256": "19b03ad54435eb1c95b382882ec52f19191ec5af75e1139b310e56616dbe05c2",
-      "reviewed_blob": "a7943094838167b816064fad304b5596d53dea7e",
+      "sha256": "fa909584e26db3021de13cc530d50963748afb89a8cae230716c30b0ffb29a8b",
+      "reviewed_blob": "972dcac9da2e49b4076cc9c31723e18b11d0efb3",
       "base_blob": null
     },
     {
       "path": "crates/spiffe-source/src/source_handle.rs",
-      "sha256": "06ac228304b093c32f4c86b1aa5615f39da700b73037d035fe217359ad8f50a8",
-      "reviewed_blob": "f0e9e6b57c77ec31518b2d5fb605d00873b2a427",
+      "sha256": "bfa22fdeabc61acae9dab9cbdf458fa5f02abb576a7e988747fd92916a39d99b",
+      "reviewed_blob": "96f7a550af37885fc87971085919c31a876c8e0b",
       "base_blob": null
     },
     {
@@ -190,8 +190,8 @@
     },
     {
       "path": "crates/spiffe-source/src/sink/transport.rs",
-      "sha256": "7899240d30a93c998074e1ea8a83e31d8c8ec272d210d4df58861c4fab8d7e70",
-      "reviewed_blob": "4640de448253033cbe7fc33e84cde3afb11e1916",
+      "sha256": "a0e096370cb46854a337e99b3b45b259bf78c1771d656a70c631df972740ade5",
+      "reviewed_blob": "caee290316a5be0a6174c0a4fcdb21ecc6c1f79c",
       "base_blob": "2601afdedcc6f77c79490896772ddf47979e53b3"
     },
     {
@@ -262,8 +262,8 @@
     },
     {
       "path": "crates/gateway/src/routes/mod.rs",
-      "sha256": "ea0ba309d0cead9ad30711e027adfa615a6a31841a86968f1d896ef035bdb206",
-      "reviewed_blob": "d14f90d71e54a21cc35e03be08361e788e852551",
+      "sha256": "4cfb2813c8341df08ab3e6cc1d633d0686ad3ef8d29f60abf3955de923916f7c",
+      "reviewed_blob": "108d9d4999ee3c5a79f39ab0e44c105a802db302",
       "base_blob": "8848d46dbe49bb9b65ad6466c88a036858ce5c92"
     },
     {
@@ -310,8 +310,8 @@
     },
     {
       "path": "crates/gateway/src/routes/est_wire.rs",
-      "sha256": "d1912cf092872c46a0c0789f19341e0c4f8f1d08beab8e8f90df9365004d7551",
-      "reviewed_blob": "fc6b9cc03be3978975e83e1167dd8cba64fe1121",
+      "sha256": "d3e8e52d1247e40519be0dc90877fefce5e3a2fed42a961c91df3a030b60639a",
+      "reviewed_blob": "349c1a7fe24275fcd7ce2d5250c40c26e1b15188",
       "base_blob": "5c61917aa6cb88d6a54230489198f82956841b35"
     },
     {
@@ -334,8 +334,8 @@
     },
     {
       "path": "crates/gateway/src/routes/est_freshness.rs",
-      "sha256": "e03f7d56c50cb057e7595b6149a3f22dd7ee714175cb718eab0115d74defbfba",
-      "reviewed_blob": "02301142fef5ea353fc2e3a09c45cd2e4e73fae6",
+      "sha256": "571a13c51d505a2c22f3cee60635a4560b3af81a4dae847da763f73031739e7e",
+      "reviewed_blob": "25c97d2b9b8668a42e4bb413bf95d5c982854c18",
       "base_blob": null
     },
     {
@@ -370,14 +370,14 @@
     },
     {
       "path": "crates/transport-security/src/source_lifetime_tests.rs",
-      "sha256": "b4ae345545dd68d051587ba6650f323acd1a8b7795d7745ebc0a68c951b8353e",
-      "reviewed_blob": "c29f8991a44149afdd2c38b11ae86c795bfc47bd",
+      "sha256": "047ecece4774379c09f733467f51252c74693949b2875d00d331433bbb8fb253",
+      "reviewed_blob": "675375bb1a1006b65bdf3e0c82ef0ee94867e4ae",
       "base_blob": null
     },
     {
       "path": "crates/transport-security/src/signing_fence_tests.rs",
-      "sha256": "388e13ae2da6e4ecd7a9c5b97a21f56615b8c7242906583919c4ae38bd2960ba",
-      "reviewed_blob": "0862dc79f9176d037f7d71b9ad6a6dc39aa062e3",
+      "sha256": "1b54bb12dbf904d4e9b773a84ca416d3b53f0d4b728878b8abf3ca4af253b074",
+      "reviewed_blob": "165252de6da65700276b24185891ac09bc0944bf",
       "base_blob": null
     },
     {
@@ -436,8 +436,8 @@
     },
     {
       "path": "crates/transport-security/tests/source_lifetime_formal.rs",
-      "sha256": "7a129094977555a1e665333dfe79e32e9b1f2ffd331d96ce4ba4abe8bcd497a5",
-      "reviewed_blob": "a23d029509f46d21c1d08b77424292418b4fd06e",
+      "sha256": "dbef3517ec0132ca99513266c8dcdb41f9065a50b22dff4268e267d17f217dbd",
+      "reviewed_blob": "ca332019db9a77599bf2fbcc3d701abdf148edad",
       "base_blob": null
     },
     {
@@ -454,14 +454,14 @@
     },
     {
       "path": "crates/transport-security/tests/source_lifetime.rs",
-      "sha256": "6aa6b6492f0105196ad6c8a65ebd98629461eb0773d4159193430d6885fabf38",
-      "reviewed_blob": "4025294572861439481fdb28f0f40ebcbf6b1a0b",
+      "sha256": "42bc645f2da823bebbef647f558e1c6f373ee9d882ddb38962e3c7b52492e4d1",
+      "reviewed_blob": "6cadd846cdb28b21fa20cd1ebade3481c6cd1754",
       "base_blob": null
     },
     {
       "path": "crates/transport-security/tests/source_lifetime_edges.rs",
-      "sha256": "919e5a39e787cd649bc3e9634d998ce7bbfea6d4d41b4a8a510d6c50ce21a131",
-      "reviewed_blob": "7e8649c6bc8e14a32dcf0e9b38c4194451ce92d1",
+      "sha256": "f46c034a656c7903950f6a4e96107fee4b7735ea69e19916a72e7f1e9c72237d",
+      "reviewed_blob": "0780982c3990f13adf75351d6b72ccfd99a23651",
       "base_blob": null
     },
     {
@@ -472,8 +472,8 @@
     },
     {
       "path": "crates/spiffe-source/src/source_lease_tests.rs",
-      "sha256": "ae807d2e206dfd123afe10c6f561593fc39ce262774bde870c2f2e6aadb7f264",
-      "reviewed_blob": "0409250cf6f13e931aa52795416d3689df5cd56f",
+      "sha256": "7f97066007a3a63c6082affdcac888704473ffbd763f56d611ee9a7eb0137109",
+      "reviewed_blob": "65cc826e8a3b5cf318c0af50d2cc3333b2c3ca7a",
       "base_blob": null
     },
     {

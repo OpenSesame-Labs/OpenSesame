@@ -334,7 +334,3 @@ fn split_args(args: &str) -> Vec<&str> {
     out.push(args[start..].trim());
     out
 }
-
-#[path = "debug_probes.rs"]
-#[cfg(test)]
-mod probes;

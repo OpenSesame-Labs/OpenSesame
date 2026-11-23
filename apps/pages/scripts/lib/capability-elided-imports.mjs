@@ -1,6 +1,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { chunkImports, loadLexer } from "./verify-dist-checks.mjs";
+import {
+  chunkImports,
+  importRecord,
+  loadLexer,
+} from "./verify-dist-checks.mjs";
 
 /**
  * Terser can remove a dynamic import after Rollup recorded its edge. Keep
@@ -17,9 +21,13 @@ export async function recordElidedDynamicImports(graph, dist, repoRoot) {
     const [imports] = parse(code);
     // An expression could still reach a declared target. Keep every edge in
     // that chunk until its dynamic imports can be resolved independently.
-    const unresolved = imports.some((entry) => {
-      if (entry.d < 0 || entry.n !== undefined) return false;
-      return !/^["'`]([^"'`]+)["'`]$/.test(code.slice(entry.s, entry.e).trim());
+    const unresolved = imports.some((raw) => {
+      const entry = importRecord(raw);
+      if (entry.kind !== "dynamic" || entry.specifier !== undefined)
+        return false;
+      return !/^["'`]([^"'`]+)["'`]$/.test(
+        code.slice(entry.start, entry.end).trim(),
+      );
     });
     if (unresolved) continue;
     const actual = chunkImports(parse, code, chunk.file).dynamic;

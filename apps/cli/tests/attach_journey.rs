@@ -3,9 +3,10 @@
 #![cfg(unix)]
 //!
 //! The unit and property suites cover the crypto. What they cannot show is
-//! that a person can put a document in and get the same bytes back out, that
-//! an agent cannot, and that the ciphertext actually reaches git — the three
-//! things the feature exists to do.
+//! that a person can put a document in, that an agent cannot take it out, and
+//! that the ciphertext actually reaches git. While CLI app approvals fail
+//! closed (#2790) a person's reveal is refused too; the byte-exact round trip
+//! is covered by the library suites until a provenance verifier exists.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -103,7 +104,7 @@ fn add_document(f: &Fixture, name: &str) -> Output {
 }
 
 #[cfg(unix)]
-fn assert_revealed_document(f: &Fixture, name: &str) {
+fn assert_reveal_fails_closed(f: &Fixture, name: &str) {
     let out = f.store.parent().unwrap().join("recovered.pdf");
     let got = terminal_person::run(command(
         &f.store,
@@ -117,12 +118,16 @@ fn assert_revealed_document(f: &Fixture, name: &str) {
             out.to_str().unwrap(),
         ],
     ));
-    assert!(got.status.success(), "attach get failed: {got:?}");
-    assert_eq!(
-        std::fs::read(&out).unwrap(),
-        payload(),
-        "the recovered document must be identical to the original"
+    // Every CLI app approval fails closed until authenticator provenance can
+    // be verified (#2790), and a reveal needs one. The person is refused with
+    // the policy's reason, and no plaintext reaches the output path.
+    assert!(!got.status.success(), "reveal must fail closed: {got:?}");
+    let stderr = String::from_utf8_lossy(&got.stderr);
+    assert!(
+        stderr.contains("until authenticator provenance can be verified"),
+        "{stderr}"
     );
+    assert!(!out.exists(), "a refused reveal must write no plaintext");
 }
 
 #[test]
@@ -143,10 +148,10 @@ fn a_document_is_sealed_and_listed_as_metadata() {
 
 #[cfg(unix)]
 #[test]
-fn a_person_can_reveal_the_same_document_bytes() {
+fn a_reveal_fails_closed_until_authenticator_provenance_is_verified() {
     let f = given_a_store_with_a_document();
     add_document(&f, "Taxes/w2");
-    assert_revealed_document(&f, "Taxes/w2");
+    assert_reveal_fails_closed(&f, "Taxes/w2");
 }
 
 #[test]
@@ -262,9 +267,9 @@ fn given_a_gced_dot_document() -> Fixture {
 
 #[cfg(unix)]
 #[test]
-fn a_person_can_reveal_a_dot_named_document_after_gc() {
+fn a_dot_named_reveal_after_gc_also_fails_closed() {
     let f = given_a_gced_dot_document();
-    assert_revealed_document(&f, "Dev/.w2");
+    assert_reveal_fails_closed(&f, "Dev/.w2");
 }
 
 #[test]

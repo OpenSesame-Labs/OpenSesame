@@ -37,7 +37,7 @@ mod auth;
 pub(super) use auth::{authenticate, mint_fence};
 
 #[path = "est_freshness.rs"]
-mod freshness;
+pub(super) mod freshness;
 
 #[cfg(test)]
 #[path = "est_test_pause.rs"]

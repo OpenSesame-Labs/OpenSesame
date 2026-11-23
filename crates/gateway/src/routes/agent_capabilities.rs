@@ -104,8 +104,11 @@ pub async fn create(
     }
     let membership = match (&req.membership_incarnation, &req.authority_revision) {
         (None, None) => None,
-        (Some(incarnation), Some(revision)) if valid_client(incarnation) && valid_client(revision) =>
-            Some((incarnation.as_str(), revision.as_str())),
+        (Some(incarnation), Some(revision))
+            if valid_client(incarnation) && valid_client(revision) =>
+        {
+            Some((incarnation.as_str(), revision.as_str()))
+        }
         _ => return refused(),
     };
     let handle = random_secret();

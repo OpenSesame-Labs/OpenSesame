@@ -15,14 +15,14 @@ use tokio::sync::watch;
 
 use crate::config::SpiffeSourceConfig;
 use crate::sink::{ClaimedSink, GenerationSink, SharedLease};
-use crate::status::{SourcePhase, SourceStatus};
+use crate::status::SourceStatus;
 
-#[path = "source_policy.rs"]
-mod source_policy;
-#[path = "source_loop.rs"]
-mod source_loop;
 #[path = "source_handle.rs"]
 mod source_handle;
+#[path = "source_loop.rs"]
+mod source_loop;
+#[path = "source_policy.rs"]
+mod source_policy;
 
 pub use source_handle::{SpiffeSourceHandle, WaitError};
 

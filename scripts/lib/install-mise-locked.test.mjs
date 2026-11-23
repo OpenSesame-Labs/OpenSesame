@@ -81,6 +81,7 @@ const coveredBy = new Map([
   ["cd-npm-cli.yml", "install-mise-locked.npm-cli.test.mjs"],
   ["cd-pwa.yml", "install-mise-locked.pwa.test.mjs"],
   ["cd-pwa-profile-proof.yml", "install-mise-locked.pwa.test.mjs"],
+  ["cd-pwa-stranded-dispatch.yml", "install-mise-locked.pwa.test.mjs"],
 ]);
 
 function installerWorkflows() {

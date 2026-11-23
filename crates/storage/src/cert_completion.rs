@@ -90,7 +90,7 @@ impl Db {
         .bind(&issued.renewed_by_id)
         .bind(i64::from(issued.auto_renew_enabled))
         .bind(issued.renew_before_seconds)
-        .bind(&issued.revocation_reason)
+        .bind(issued.revocation_reason)
         .bind(&issued.revoked_at)
         .bind(issued.version)
         .bind(&issued.created_at)

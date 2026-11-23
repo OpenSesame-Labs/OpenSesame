@@ -2,7 +2,11 @@
 
 use zeroize::Zeroizing;
 
-use super::*;
+use super::{
+    attach_relative, auto_commit, confined_atomic_write, confined_read, seal_osseal_in,
+    AttachmentManifest, ItemDataKey, StoreError, StoreRoot, COLLECTION_ATTACHMENTS,
+    MANIFEST_FORMAT, MAX_FILENAME_BYTES,
+};
 
 impl StoreRoot {
     /// Reseal the current manifest after its owner independently decides to
@@ -76,9 +80,9 @@ pub(crate) fn parse_attachment_manifest(
     }
     let mut declared = 0u64;
     for chunk in &manifest.chunks {
-        declared = declared.checked_add(chunk.pt_bytes).ok_or_else(|| {
-            StoreError::Crypto("manifest chunk sizes overflow".into())
-        })?;
+        declared = declared
+            .checked_add(chunk.pt_bytes)
+            .ok_or_else(|| StoreError::Crypto("manifest chunk sizes overflow".into()))?;
         super::object_relative(&chunk.digest)?;
     }
     if declared != manifest.total_bytes {

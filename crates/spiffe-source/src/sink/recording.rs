@@ -3,8 +3,8 @@
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
-use opensesame_time::{DateTime, Utc};
 use opensesame_domain::TransportError;
+use opensesame_time::{DateTime, Utc};
 
 use super::{GenerationLease, GenerationSink, PreparationError, PreparedHistory};
 use crate::snapshot::SvidGeneration;
@@ -157,15 +157,11 @@ impl GenerationLease for RecordingLease {
         if self.retired {
             return Err(TransportError::GenerationStale);
         }
-        let wall = self
-            .wall_deadline
-            .map_or(deadline, |cur| cur.min(deadline));
+        let wall = self.wall_deadline.map_or(deadline, |cur| cur.min(deadline));
         let mono = self
             .monotonic_deadline
             .map_or(monotonic_deadline, |cur| cur.min(monotonic_deadline));
-        if self.wall_deadline == Some(wall)
-            && self.monotonic_deadline == Some(mono)
-        {
+        if self.wall_deadline == Some(wall) && self.monotonic_deadline == Some(mono) {
             return Ok(());
         }
         self.wall_deadline = Some(wall);

@@ -165,7 +165,7 @@ impl StoreRoot {
         let candidates = [super::SLOT_ONE, super::SLOT_TWO]
             .into_iter()
             .filter_map(|slot| {
-                self.read_witness_slot(&root, &directory.join(slot), store_id, key)
+                Self::read_witness_slot(&root, &directory.join(slot), store_id, key)
                     .ok()
                     .flatten()
             });

@@ -19,7 +19,6 @@ pub(super) fn evidence_is_current(st: &AppState, verified: &VerifiedPeer) -> boo
 }
 
 /// Recheck the TLS connection that carried the request after every await.
-#[cfg_attr(test, allow(dead_code))]
 pub(crate) fn transport_is_current(st: &AppState, extensions: &axum::http::Extensions) -> bool {
     st.transport.as_ref().is_none_or(|runtime| {
         let Some(opensesame_transport_security::ListenerProvenance::Tls { generation, .. }) =

@@ -176,9 +176,10 @@ impl Db {
                 evidence.auth_time,
             )
             .await?;
-            if let (Some(incarnation), Some(revision)) =
-                (&evidence.membership_incarnation, &evidence.authority_revision)
-            {
+            if let (Some(incarnation), Some(revision)) = (
+                &evidence.membership_incarnation,
+                &evidence.authority_revision,
+            ) {
                 sqlx::query("INSERT INTO host_membership_current
                     (organization_id,principal_id,membership_incarnation,authority_revision)
                     VALUES (?,?,?,?) ON CONFLICT(organization_id,principal_id) DO UPDATE SET

@@ -22,8 +22,8 @@ impl StoreRoot {
     ) -> Result<&'static str, StoreError> {
         let marker = self.read_commit_marker(store_id, key)?;
         let (root, directory) = self.witness_directory(store_id)?;
-        let one = self.read_witness_slot(&root, &directory.join(SLOT_ONE), store_id, key);
-        let two = self.read_witness_slot(&root, &directory.join(SLOT_TWO), store_id, key);
+        let one = Self::read_witness_slot(&root, &directory.join(SLOT_ONE), store_id, key);
+        let two = Self::read_witness_slot(&root, &directory.join(SLOT_TWO), store_id, key);
         let marker = match (marker, legacy) {
             (Some(marker), _) => marker,
             (None, Some(witness)) => CommitMarker::for_witness(witness)?,

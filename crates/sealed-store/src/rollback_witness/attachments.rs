@@ -26,8 +26,13 @@ fn manifest_commitment(plaintext: &[u8]) -> [u8; 32] {
     *blake3::hash(plaintext).as_bytes()
 }
 
-fn manifest_matches(state: &EntryWitness, plaintext: &[u8]) -> bool {
-    state.commitment != [0; 32] && state.commitment == manifest_commitment(plaintext)
+fn require_manifest_match(state: &EntryWitness, plaintext: &[u8]) -> Result<(), StoreError> {
+    if state.commitment != [0; 32] && state.commitment == manifest_commitment(plaintext) {
+        return Ok(());
+    }
+    Err(StoreError::Crypto(
+        "attachment manifest does not match its rollback witness".into(),
+    ))
 }
 
 /// Parse `plaintext` only when those bytes match the witness commitment.
@@ -35,11 +40,7 @@ pub(super) fn manifest_from_commitment(
     state: &EntryWitness,
     plaintext: &[u8],
 ) -> Result<AttachmentManifest, StoreError> {
-    if !manifest_matches(state, plaintext) {
-        return Err(StoreError::Crypto(
-            "attachment manifest does not match its rollback witness".into(),
-        ));
-    }
+    require_manifest_match(state, plaintext)?;
     parse_attachment_manifest(plaintext)
 }
 
@@ -232,24 +233,10 @@ impl StoreRoot {
                 "missing attachment anti-rollback state for {name}"
             )));
         }
-        if !trust_manifest {
-            if let Some(state) = witness.entries.get(&name_key).copied() {
-                // A same-revision fork authenticates under the witnessed revision.
-                // Owner-trusted recovery may replace one; other callers may not.
-                if !state.deleted && path.exists() {
-                    match self.open_manifest_plaintext(name, key, state.revision) {
-                        Ok(plaintext) if !manifest_matches(&state, &plaintext) => {
-                            return Err(StoreError::Crypto(
-                                "attachment manifest does not match its rollback witness".into(),
-                            ));
-                        }
-                        Ok(_) => {}
-                        // An unreadable blob is an interrupted write, not a verified fork.
-                        Err(StoreError::Crypto(_)) => {}
-                        Err(error) => return Err(error),
-                    }
-                }
-            }
+        // A same-revision fork authenticates under the witnessed revision.
+        // Owner-trusted recovery may replace one; other callers may not.
+        if let Some(state) = witness.entries.get(&name_key).filter(|_| !trust_manifest) {
+            self.refuse_forked_manifest(name, path, key, state)?;
         }
         let commitment = match manifest_plaintext {
             Some(plaintext) => {
@@ -279,6 +266,24 @@ impl StoreRoot {
             .ok_or_else(|| StoreError::Crypto("rollback witness epoch exhausted".into()))?;
         self.write_witness(&store_id, key, &witness)?;
         Ok(next)
+    }
+
+    fn refuse_forked_manifest(
+        &self,
+        name: &str,
+        path: &Path,
+        key: &ItemDataKey,
+        state: &EntryWitness,
+    ) -> Result<(), StoreError> {
+        if state.deleted || !path.exists() {
+            return Ok(());
+        }
+        match self.open_manifest_plaintext(name, key, state.revision) {
+            Ok(plaintext) => require_manifest_match(state, &plaintext),
+            // An unreadable blob is an interrupted write, not a verified fork.
+            Err(StoreError::Crypto(_)) => Ok(()),
+            Err(error) => Err(error),
+        }
     }
 
     pub(crate) fn tombstone_attachment_witness(
@@ -318,16 +323,15 @@ impl StoreRoot {
     ) -> Result<(), StoreError> {
         let (_, witness) = self.current_witness(key)?;
         require_marker(&witness)?;
-        for (name, state) in &witness.entries {
-            if let Some(name) = name.strip_prefix(PREFIX) {
-                if !state.deleted && !names.contains(name) {
-                    return Err(StoreError::Crypto(format!(
-                        "witnessed attachment {name} is missing"
-                    )));
-                }
-            }
-        }
-        Ok(())
+        let missing = witness.entries.iter().find_map(|(name, state)| {
+            let name = name.strip_prefix(PREFIX)?;
+            (!state.deleted && !names.contains(name)).then_some(name)
+        });
+        missing.map_or(Ok(()), |name| {
+            Err(StoreError::Crypto(format!(
+                "witnessed attachment {name} is missing"
+            )))
+        })
     }
 
     /// Explicit per-file recovery may run before a separate full-store migration.

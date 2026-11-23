@@ -192,7 +192,10 @@ async fn authenticate(
     }
     if grant.identity_required
         && grant.authentication_json.is_none()
-        && !matches!(path, "/api/v1/host-authorizations" | "/api/v1/host-authorizations/verify")
+        && !matches!(
+            path,
+            "/api/v1/host-authorizations" | "/api/v1/host-authorizations/verify"
+        )
     {
         return Err(refusal("identity_authentication_required"));
     }

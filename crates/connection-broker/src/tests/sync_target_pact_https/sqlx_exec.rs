@@ -109,16 +109,12 @@ fn grouped_query(expr: &str) -> Option<&str> {
         }
         match bytes[index] {
             b'(' => depth += 1,
-            b')' => {
-                depth -= 1;
-                if depth == 0 {
-                    let tail = rest[index + 1..].trim_start();
-                    if tail.is_empty() || tail.starts_with(['.', '?']) {
-                        return Some(rest[..index].trim());
-                    }
-                    return None;
-                }
+            b')' if depth == 1 => {
+                let tail = rest[index + 1..].trim_start();
+                return (tail.is_empty() || tail.starts_with(['.', '?']))
+                    .then(|| rest[..index].trim());
             }
+            b')' => depth -= 1,
             _ => {}
         }
         index += 1;

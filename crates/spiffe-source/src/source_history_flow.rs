@@ -3,8 +3,8 @@
 
 use std::time::{Duration, Instant};
 
-use opensesame_time::{DateTime, Utc};
 use opensesame_domain::TransportError;
+use opensesame_time::{DateTime, Utc};
 use spiffe::X509Context;
 
 use super::{Active, Loop};

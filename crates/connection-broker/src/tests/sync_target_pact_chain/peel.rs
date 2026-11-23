@@ -316,12 +316,8 @@ fn matching_open_brace(bytes: &[u8], code: &[bool], close: usize) -> Option<usiz
         if code[index] {
             match bytes[index] {
                 b'}' => depth += 1,
-                b'{' => {
-                    depth -= 1;
-                    if depth == 0 {
-                        return Some(index);
-                    }
-                }
+                b'{' if depth == 1 => return Some(index),
+                b'{' => depth -= 1,
                 _ => {}
             }
         }

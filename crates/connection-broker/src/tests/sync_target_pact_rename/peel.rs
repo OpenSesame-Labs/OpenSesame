@@ -265,6 +265,18 @@ fn matching_brace_open(source: &str, close: usize) -> Option<usize> {
     None
 }
 
+pub(super) fn trailing_ident(source: &str) -> Option<String> {
+    let mut start = source.len();
+    for (index, ch) in source.char_indices().rev() {
+        if !is_ident_char(ch) {
+            break;
+        }
+        start = index;
+    }
+    let name = &source[start..];
+    (!name.is_empty()).then(|| name.to_string())
+}
+
 #[cfg(test)]
 mod probes {
     use crate::tests::sync_target_pact_scan::response_body_reads;
@@ -366,16 +378,4 @@ mod probes {
             );
         }
     }
-}
-
-pub(super) fn trailing_ident(source: &str) -> Option<String> {
-    let mut start = source.len();
-    for (index, ch) in source.char_indices().rev() {
-        if !is_ident_char(ch) {
-            break;
-        }
-        start = index;
-    }
-    let name = &source[start..];
-    (!name.is_empty()).then(|| name.to_string())
 }

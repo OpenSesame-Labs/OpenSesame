@@ -249,8 +249,7 @@ async fn convert_manifest_at(
     // A conversion answer that embeds the one-time code — raw, percent- or
     // otherwise encoded — would persist a single-use secret inside the sealed
     // credentials (name, html_url). Refuse it rather than parse it.
-    let (body, reflected) =
-        scrub_credential_reflection(bytes::Bytes::copy_from_slice(&body), code);
+    let (body, reflected) = scrub_credential_reflection(bytes::Bytes::copy_from_slice(&body), code);
     if reflected {
         return Err(BrokerError::ExchangeFailed(
             "GitHub App conversion response reflected the one-time code".into(),

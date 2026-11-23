@@ -1,7 +1,7 @@
 {
   "version": 1,
   "reviewed_revision": "827648d2b1b04698d676f2dcd3b4dda8cbc225d0",
-  "reviewed_source_state": "Source hashes identify the reviewed source-history integration after this base; they do not prove Rust refinement. reviewed_revision is main 827648d2, whose tree matches every pinned byte. The binding rationale for the .cargo/config.toml pin is recorded under recorded execution metadata in spec/formal/source-trust-selection/README.md. 2026-11-23 review (PR #2898): crates/gateway/src/app_state.rs only drops the organization argument from load_wasm_connectors (Wasm connector registry loading); transport boot, source-trust selection and listener construction are unchanged. crates/audit/Cargo.toml adds the workspace hex, hkdf and hmac dependencies (receipt commitments) and crates/broker/Cargo.toml adds a sqlx dev-dependency; Cargo.lock gains only those edges, no new package or version, and the gateway lock projection was recomputed for that graph (the workspace projection is unchanged). The selector property is unaffected. 2026-11-23 merge review (main 7ab65ea1 into #2680): crates/gateway/src/app_state.rs is the branch's reviewed file plus only main's two-argument load_wasm_connectors call; Cargo.lock is the union of both sides' edges (main's audit/broker edges plus the branch's storage tempfile dev edge, no new package or version) and the gateway lock projection was recomputed for that merged graph. The selector property is unaffected.",
+  "reviewed_source_state": "Source hashes identify the reviewed source-history integration after this base; they do not prove Rust refinement. reviewed_revision is main 827648d2, whose tree matches every pinned byte. The binding rationale for the .cargo/config.toml pin is recorded under recorded execution metadata in spec/formal/source-trust-selection/README.md. 2026-11-23 review (PR #2898): crates/gateway/src/app_state.rs only drops the organization argument from load_wasm_connectors (Wasm connector registry loading); transport boot, source-trust selection and listener construction are unchanged. crates/audit/Cargo.toml adds the workspace hex, hkdf and hmac dependencies (receipt commitments) and crates/broker/Cargo.toml adds a sqlx dev-dependency; Cargo.lock gains only those edges, no new package or version, and the gateway lock projection was recomputed for that graph (the workspace projection is unchanged). The selector property is unaffected. 2026-11-23 merge review (main 7ab65ea1 into #2680): crates/gateway/src/app_state.rs is the branch's reviewed file plus only main's two-argument load_wasm_connectors call; Cargo.lock is the union of both sides' edges (main's audit/broker edges plus the branch's storage tempfile dev edge, no new package or version) and the gateway lock projection was recomputed for that merged graph. The selector property is unaffected. 2026-11-23: re-pinned after behaviour-preserving lint and format repairs: cargo fmt of files main left unformatted; spiffe-source source.rs drops a test-only import; WaitError boxes its SourceStatus (clippy result_large_err; same variants and observations); xkeys open drops a redundant nonce re-conversion; est_freshness.rs is loaded once. No modeled transition, guard or persistence changed. Lean suites not run here (no Lean toolchain); Rust regressions for spiffe-source, transport-security, gateway routes/transport and xkeys passed, and every check-drift.py matches. 2026-11-23 post-merge lint review (#2900 on main 760292b7): crates/gateway/src/app_state.rs only gains a cfg_attr(not(test), expect(dead_code)) on DevicePending.approved, which #2899 left written as None in production and read only by test helpers now that device approval is persisted in host_device_codes; no field, type, construction or listener changed. Executed on the merged tree: opensesame-gateway lib (1257 passed, 10 ignored), gateway --features testkit --test testkit (4 passed, 1 ignored), opensesame-connection-broker lib (572), opensesame-spiffe-source (104); cargo clippy --workspace --all-targets -D warnings and cargo fmt --check clean. Lean suites not run here (no Lean toolchain).",
   "lock_projection": {
     "root": "opensesame-gateway",
     "algorithm": "cargo-lock-projection-v1-sha256",
@@ -54,11 +54,11 @@
     },
     {
       "path": "crates/transport-security/src/source_lifetime.rs",
-      "sha256": "3f6cd17b0ffd8373ef9067f66c30f1a33f2d8570fe9918aa44d804a93deee613"
+      "sha256": "e24f5716f8a5f82ea0edc796fa6622413cf5f8ce49b17f15a976fbac164782db"
     },
     {
       "path": "crates/transport-security/src/source_history_activation.rs",
-      "sha256": "c9059d04ddf349a44d3a291a28c0e3fb0505a551aabfe801db93c3a9af992ff1"
+      "sha256": "b37afdb7bb81349e0c724db9d9094f377f096f94bc83b6b67b624132d15478d1"
     },
     {
       "path": "crates/transport-security/src/source_trust.rs",
@@ -174,15 +174,15 @@
     },
     {
       "path": "crates/spiffe-source/src/source.rs",
-      "sha256": "021a25db40801d1e677c8487d7e54d48376001c04896f3f80a36157a7d531871"
+      "sha256": "1e9f02d6420d7b81b1cb320d11fc52e255091504f73ad39caea6739ff1a908d4"
     },
     {
       "path": "crates/spiffe-source/src/source_history_flow.rs",
-      "sha256": "19b03ad54435eb1c95b382882ec52f19191ec5af75e1139b310e56616dbe05c2"
+      "sha256": "fa909584e26db3021de13cc530d50963748afb89a8cae230716c30b0ffb29a8b"
     },
     {
       "path": "crates/spiffe-source/src/source_handle.rs",
-      "sha256": "06ac228304b093c32f4c86b1aa5615f39da700b73037d035fe217359ad8f50a8"
+      "sha256": "bfa22fdeabc61acae9dab9cbdf458fa5f02abb576a7e988747fd92916a39d99b"
     },
     {
       "path": "crates/spiffe-source/src/sink.rs",
@@ -190,7 +190,7 @@
     },
     {
       "path": "crates/spiffe-source/src/sink/transport.rs",
-      "sha256": "7899240d30a93c998074e1ea8a83e31d8c8ec272d210d4df58861c4fab8d7e70"
+      "sha256": "a0e096370cb46854a337e99b3b45b259bf78c1771d656a70c631df972740ade5"
     },
     {
       "path": "crates/spiffe-source/src/svid_profile.rs",
@@ -218,7 +218,7 @@
     },
     {
       "path": "crates/gateway/src/app_state.rs",
-      "sha256": "797b409d567994387df750464bd02b6a1c06d66db2cdebc2a8659d1912677941"
+      "sha256": "73fd73b65c87957479b8e7275b0fb5e255da746c85692ffa27790182c727d638"
     },
     {
       "path": "crates/gateway/src/transport/mod.rs",
@@ -917,7 +917,7 @@
       },
       {
         "path": "crates/xkeys/src/lib.rs",
-        "sha256": "28d25a4e6aeca215ebeae9a90b268935bacc12f78e196bbf08443b523e2f1c93"
+        "sha256": "5b6b6f25527f5a3271ccf527cef9a2ba499f0555a1e35e32ab4f777e0b5f190c"
       },
       {
         "path": "rust-toolchain.toml",

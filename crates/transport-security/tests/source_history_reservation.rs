@@ -5,9 +5,9 @@ mod common;
 use std::collections::BTreeSet;
 use std::time::{Duration, Instant};
 
-use opensesame_time::Utc;
 use common::{generations, private_root, profile_ref, CLIENTS};
 use opensesame_domain::transport::TransportError;
+use opensesame_time::Utc;
 use opensesame_transport_security::testkit::DisposableCa;
 use opensesame_transport_security::{GenerationCandidate, TransportGenerations};
 

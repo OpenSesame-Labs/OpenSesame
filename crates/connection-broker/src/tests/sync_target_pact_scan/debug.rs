@@ -136,12 +136,9 @@ fn body_from_aliases(scanned: &str) -> Vec<String> {
         if super::ident_before(&scanned[..index]) == "Body"
             && super::pattern::is_function_item_tail(after)
         {
-            if let Some(name) =
-                super::super::sync_target_pact_let::binding_name_before(&scanned[..index])
-            {
-                if !names.iter().any(|have| have == &name) {
-                    names.push(name);
-                }
+            let name = super::super::sync_target_pact_let::binding_name_before(&scanned[..index]);
+            if let Some(name) = name.filter(|name| !names.contains(name)) {
+                names.push(name);
             }
         }
         offset = index + "::from".len();
