@@ -10,10 +10,17 @@ import {
 } from "./secret-docs.js";
 import { bodyKey } from "./vfs-file-keys.js";
 
+/**
+ * `expected` is the manifest revision this process last saw (`null`: none), or
+ * `undefined` when it never opened the body, so whatever stands is removed.
+ * `manifestGone` runs once no manifest remains, so a retry after a later
+ * failure expects none rather than mistaking this removal for a rival's.
+ */
 export function removeBodyFiles(
   files: SecretFiles,
   tomb: string,
-  expected: Revision | null,
+  expected: Revision | null | undefined,
+  manifestGone: () => void = () => {},
 ) {
   return Effect.gen(function* () {
     const leftovers = yield* files.list(`${tomb}/${SECRETS_DIR}`);
@@ -22,7 +29,7 @@ export function removeBodyFiles(
     const manifest = yield* files
       .read(manifestPath)
       .pipe(Effect.catchTag("SecretFsNotFound", () => Effect.succeed(null)));
-    if ((manifest?.revision ?? null) !== expected)
+    if (expected !== undefined && (manifest?.revision ?? null) !== expected)
       return yield* new SecretFsConflict({
         path: manifestPath,
         expected,
@@ -30,6 +37,7 @@ export function removeBodyFiles(
       });
     if (manifest)
       yield* files.remove(manifestPath, { ifRevision: manifest.revision });
+    manifestGone();
     for (const path of [
       ...leftovers,
       ...staging,
@@ -41,6 +49,35 @@ export function removeBodyFiles(
       if (current) yield* files.remove(path, { ifRevision: current.revision });
     }
   });
+}
+
+type BodyState = {
+  mirror: Map<string, string>;
+  projections: Map<string, TombProjection>;
+  dirty: Set<string>;
+};
+
+/** The manifest revision to hold a destruction to; unknown until opened or written here. */
+export function destroyExpectation(
+  held: BodyState,
+  tomb: string,
+): Revision | null | undefined {
+  const known = held.projections.get(tomb);
+  return known?.sealedProbe === undefined ? undefined : known.manifestRevision;
+}
+
+/** Record that this destruction removed the manifest, before it retires the rest. */
+export function manifestRemoved(held: BodyState, tomb: string) {
+  return () => {
+    const known = held.projections.get(tomb);
+    if (!known) return;
+    const { manifestBytes: _gone, ...rest } = known;
+    held.projections.set(tomb, {
+      ...rest,
+      manifestRevision: null,
+      items: new Map(),
+    });
+  };
 }
 
 export function forgetBodyState(

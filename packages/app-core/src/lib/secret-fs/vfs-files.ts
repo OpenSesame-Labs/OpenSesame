@@ -41,7 +41,12 @@ import {
   sealBodyBlob,
   sealedUnder,
 } from "./vfs-body-crypto.js";
-import { forgetBodyState, removeBodyFiles } from "./vfs-body-delete.js";
+import {
+  destroyExpectation,
+  forgetBodyState,
+  manifestRemoved,
+  removeBodyFiles,
+} from "./vfs-body-delete.js";
 import {
   bodyKey,
   keyOfFile,
@@ -253,7 +258,8 @@ function baseFileBackedVfs(
               removeBodyFiles(
                 files,
                 where.tomb,
-                held.projections.get(where.tomb)?.manifestRevision ?? null,
+                destroyExpectation(held, where.tomb),
+                manifestRemoved(held, where.tomb),
               ),
             );
             forgetBodyState(held, where.tomb);
@@ -349,8 +355,8 @@ export function createFileBackedVfs(
                     ? removeBodyFiles(
                         secured,
                         where.tomb,
-                        held.projections.get(where.tomb)?.manifestRevision ??
-                          null,
+                        destroyExpectation(held, where.tomb),
+                        manifestRemoved(held, where.tomb),
                       )
                     : secured.remove(where.file),
                 );
