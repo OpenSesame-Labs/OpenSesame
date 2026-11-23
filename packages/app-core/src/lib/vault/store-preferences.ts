@@ -1,13 +1,13 @@
 /** Existing preference persistence and idle scheduling; no owner authority issuer. */
 import { overlapCast } from "@opensesame/os-domain";
-import { VfsError } from "../vfs.js";
-import { readPrefsJson, writePrefsJson } from "./prefs-io.js";
+import { VfsError, requireTombCheck } from "../vfs.js";
 import {
   VAULT_PREFS_REVISION,
   type VaultPrefs,
   defaultPrefs,
   normalizeVaultPrefs,
 } from "./prefs.js";
+import { readPrefsJson, writePrefsJson } from "./prefs-io.js";
 
 export class StorePreferences {
   prefs: VaultPrefs = defaultPrefs;
@@ -21,17 +21,38 @@ export class StorePreferences {
     changed: () => void,
   ): Promise<void> {
     const prefs = this.prefs;
-    return chain.then(() =>
-      writePrefsJson(tomb, prefs).catch(async () => {
-        if (this.prefs !== prefs || currentTomb() !== tomb) return;
+    // Bound to this unlock: a write still queued when the vault locks must not
+    // land in a later unlock, even one that opens it with the same key.
+    let owner: () => void;
+    try {
+      owner = requireTombCheck(tomb);
+    } catch (error) {
+      owner = () => {
+        throw error;
+      };
+    }
+    const live = () => {
+      try {
+        owner();
+        return this.prefs === prefs && currentTomb() === tomb;
+      } catch {
+        return false;
+      }
+    };
+    return chain.then(async () => {
+      try {
+        owner();
+        await writePrefsJson(tomb, prefs, owner);
+      } catch {
+        if (!live()) return;
         const durable: Partial<VaultPrefs> = overlapCast(
-          await readPrefsJson(currentTomb()).catch(() => ({})),
+          await readPrefsJson(tomb).catch(() => ({})),
         );
-        if (this.prefs !== prefs || currentTomb() !== tomb) return;
+        if (!live()) return;
         this.prefs = normalizeVaultPrefs(durable);
         changed();
-      }),
-    );
+      }
+    });
   }
 
   async load(
