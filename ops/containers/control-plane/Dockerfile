@@ -30,12 +30,14 @@ FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea
 WORKDIR /src
 COPY --from=manifests /src ./
 # Production runtime only: no dev toolchains or nested lockfiles in node_modules.
+# drizzle-kit is installed only as better-auth's optional peer; nothing here
+# runs it, and it ships an esbuild binary built with an old Go toolchain.
 # The cache mount shares npm's download cache between the two installs.
 RUN --mount=type=cache,target=/root/.npm \
   npm ci --omit=dev --ignore-scripts \
   && npm install --no-save --ignore-scripts tsx@4.23.15 \
   && find node_modules -name '.package-lock.json' -delete \
-  && rm -rf node_modules/@typescript node_modules/typescript
+  && rm -rf node_modules/@typescript node_modules/typescript node_modules/drizzle-kit
 # Sources arrive after the dependency layers: editing them cannot invalidate
 # the install above, and `COPY packages ./packages` merges over the workspace
 # manifests already in place.
@@ -50,7 +52,10 @@ COPY tools/mock-upstream-idp ./tools/mock-upstream-idp
 COPY tools/oxlint/anti-slop ./tools/oxlint/anti-slop
 # Alpine runtime: no Debian dpkg/status for OSV container scans.
 FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5
-RUN adduser -D -u 10001 app
+# The pinned base can predate Alpine security fixes; take them from the
+# release's own repository (docs/security/alert-triage.md, source images).
+RUN apk upgrade --no-cache \
+  && adduser -D -u 10001 app
 WORKDIR /src
 COPY --from=runtime-deps --chown=10001:10001 /src/package.json /src/package-lock.json ./
 COPY --from=runtime-deps --chown=10001:10001 /src/node_modules ./node_modules
