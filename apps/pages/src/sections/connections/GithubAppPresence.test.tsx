@@ -1,13 +1,8 @@
 import { backupSeams } from "@opensesame/app-core/lib/backup.js";
 import { connectionSeams } from "@opensesame/app-core/lib/connections.js";
-import { allowGithub } from "@opensesame/app-core/lib/github-app-authority.test-support.js";
-import {
-  claimGithubAppCode,
-  forgetLocalGithubApp,
-} from "@opensesame/app-core/lib/github-app-manifest.js";
-import { startGithubRegistration } from "@opensesame/app-core/lib/github-app-vault-transport.js";
-import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
-import { localStore, maybePage } from "@opensesame/app-core/ports.js";
+import { rememberLocalGithubApp } from "@opensesame/app-core/lib/github-app-local.js";
+import { forgetLocalGithubApp } from "@opensesame/app-core/lib/github-app-manifest.js";
+import { localStore } from "@opensesame/app-core/ports.js";
 /** @vitest-environment jsdom */
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -202,7 +197,10 @@ describe("GithubAppPresence", () => {
       "real-org",
     );
   });
-  it("shows the registrant when a guest claim finishes after empty mount", async () => {
+  // A guest's App now lives in that guest's own vault, and its claim is
+  // covered by github-app-registration.test.ts. Here the claim's publication
+  // lands after an empty mount.
+  it("shows the registrant when a claim finishes after empty mount", async () => {
     Object.assign(connectionSeams, {
       listIntegrations: vi.fn(async () => []),
     });
@@ -212,66 +210,16 @@ describe("GithubAppPresence", () => {
     });
     render(<GithubAppPresence />);
     expect(screen.queryByTestId("github-app-presence")).toBeNull();
-
-    vi.spyOn(vaultStore, "getSnapshot").mockReturnValue({
-      status: "unlocked",
-      tomb: "guest",
-      guest: true,
-      header: null,
-      items: [],
-      folders: [],
-      prefs: {
-        autoLockMinutes: 0,
-        lockOnHide: false,
-        signOutOnLock: false,
-        clipboardClearSeconds: 30,
-        theme: "system",
-      },
-      lockedOutUntil: null,
-      failedAttempts: 0,
-      awaitingSecondStep: false,
-      durable: true,
+    rememberLocalGithubApp({
+      id: "4997182",
+      key: "github-oauth",
+      displayName: "OpenSesame Local",
+      htmlUrl: "https://github.com/apps/opensesame-local",
+      ownerLogin: "Tyler-R-Kendrick",
+      ownerType: "User",
+      installedByLogin: null,
+      installations: [],
     });
-    allowGithub();
-    startGithubRegistration(
-      "claim-state",
-      maybePage()?.location.href ?? "https://app.example/",
-    );
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: RequestInfo) => {
-        const url = String(input);
-        if (url.includes("/app-manifests/")) {
-          return Response.json({
-            id: 4997182,
-            slug: "opensesame-local",
-            client_id: "Iv1.example",
-            name: "OpenSesame Local",
-            html_url: "https://github.com/apps/opensesame-local",
-            client_secret: "secret",
-            pem: "-----BEGIN RSA PRIVATE KEY-----\nMIIE\n-----END RSA PRIVATE KEY-----",
-            owner: { login: "Tyler-R-Kendrick", type: "User" },
-          });
-        }
-        if (url.includes("/api/github-app/installations")) {
-          return Response.json({
-            owner: { login: "Tyler-R-Kendrick", type: "User" },
-            installations: [
-              {
-                id: "1",
-                accountLogin: "Tyler-R-Kendrick",
-                accountType: "User",
-              },
-            ],
-          });
-        }
-        return Response.json({});
-      }),
-    );
-
-    await expect(claimGithubAppCode("gh-code", "claim-state")).resolves.toBe(
-      "registered",
-    );
     await waitFor(() => {
       expect(screen.getByTestId("github-app-owner").textContent).toContain(
         "Tyler-R-Kendrick",
