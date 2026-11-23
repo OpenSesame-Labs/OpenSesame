@@ -191,8 +191,8 @@ describe("candidate qualification records successful immutable-artifact checks",
   });
   it("checks Agent37 allocation against the candidate source before dev qualification", () => {
     const agent37 = jobs(dev)["agent37-iac"];
-    expect(agent37).toContain("needs: admission");
-    expect(agent37).toContain("ref: ${{ inputs.source_sha }}");
+    expect(agent37).toContain("needs: [admission, admit]");
+    expect(agent37).toContain("ref: ${{ needs.admit.outputs.revision }}");
     expect(agent37).toContain("if [ ! -e ops/agent37 ]; then");
     expect(agent37).toContain("-lockfile=readonly");
     expect(agent37).toContain("python3 ops/agent37/tests/test_terraform.py");
@@ -226,7 +226,9 @@ describe("candidate qualification records successful immutable-artifact checks",
       } else {
         // #2850: the admitted candidate is materialized by the trusted helper
         // at its exact SHA rather than checked out by ref.
-        expect(smoke).toContain("TARGET_SHA: ${{ inputs.source_sha }}");
+        expect(smoke).toContain(
+          "TARGET_SHA: ${{ needs.admit.outputs.revision }}",
+        );
         expect(smoke).toContain("scripts/ci/materialize-git-sha.sh");
       }
     },

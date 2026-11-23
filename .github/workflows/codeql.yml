@@ -25,6 +25,10 @@ concurrency:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
+    # Monitoring runs analyze their own trigger SHA; a candidate run analyzes
+    # only the admitted source.
+    needs: admit
+    if: ${{ !cancelled() && (needs.admit.result == 'success' || (needs.admit.result == 'skipped' && !inputs.source_sha)) }}
     runs-on: ${{ matrix.runner }}
     # Rust extraction of the whole workspace needs more than ten minutes; at
     # ten the job was cancelled on every run and Rust never reported.
@@ -68,7 +72,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-          ref: ${{ inputs.source_sha || github.sha }}
+          ref: ${{ needs.admit.outputs.revision || github.sha }}
           fetch-depth: 1
           filter: blob:none
           sparse-checkout-cone-mode: false
@@ -234,6 +238,10 @@ jobs:
 
   analyze-native-go:
     name: Analyze native Go (${{ matrix.target }})
+    # Monitoring runs analyze their own trigger SHA; a candidate run analyzes
+    # only the admitted source.
+    needs: admit
+    if: ${{ !cancelled() && (needs.admit.result == 'success' || (needs.admit.result == 'skipped' && !inputs.source_sha)) }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -250,7 +258,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-          ref: ${{ inputs.source_sha || github.sha }}
+          ref: ${{ needs.admit.outputs.revision || github.sha }}
           fetch-depth: 1
           filter: blob:none
           sparse-checkout-cone-mode: false
@@ -382,7 +390,7 @@ jobs:
     # Direct events already upload SARIF. Candidate qualification uses a fresh
     # runner and the protected controller's gate, never candidate-owned scripts.
     if: ${{ always() && inputs.source_sha }}
-    needs: [analyze, analyze-native-go]
+    needs: [admit, analyze, analyze-native-go]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -393,6 +401,7 @@ jobs:
       CONTROLLER_SHA: ${{ github.workflow_sha }}
       ANALYZE_RESULT: ${{ needs.analyze.result }}
       NATIVE_GO_RESULT: ${{ needs.analyze-native-go.result }}
+      ADMIT_RESULT: ${{ needs.admit.result }}
     steps:
       - name: Require successful analysis on the trusted release controller
         shell: bash
@@ -401,6 +410,7 @@ jobs:
           CALLER_WORKFLOW_REF: ${{ github.workflow_ref }}
         run: |
           set -euo pipefail
+          test "$ADMIT_RESULT" = success
           test "$ANALYZE_RESULT" = success
           test "$NATIVE_GO_RESULT" = success
           test "$GITHUB_REF" = refs/heads/main
@@ -436,7 +446,7 @@ jobs:
       - name: Check out candidate as data only
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ needs.admit.outputs.revision }}
           path: .candidate
           persist-credentials: false
           sparse-checkout-cone-mode: false
@@ -450,3 +460,33 @@ jobs:
           merge-multiple: false
       - name: Reject missing, extra, malformed or unclean analyses
         run: node scripts/release/check-codeql-artifacts.mjs "$RUNNER_TEMP/codeql-release-evidence" "$SOURCE_SHA" "$GITHUB_WORKSPACE/.candidate"
+
+  # The candidate is admitted before any job fetches it: only a full commit
+  # already on the default branch. This job holds the token and checks out
+  # the workflow SHA only; candidate jobs read its output, never the raw input
+  # (scripts/release/admit-candidate-source.mjs, docs/security/actions-security.md).
+  admit:
+    name: Admit candidate source
+    if: ${{ inputs.source_sha }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      revision: ${{ steps.admitted.outputs.revision }}
+    steps:
+      - name: Check out the trusted candidate admission helper
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/release/admit-candidate-source.mjs
+            scripts/lib/json-boundary.mjs
+      - name: Admit only a candidate already on the default branch
+        id: admitted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_SOURCE: ${{ inputs.source_sha }}
+        run: node scripts/release/admit-candidate-source.mjs

@@ -8,6 +8,7 @@ Release and merge-gate tooling run from a terminal or CI.
 | `check-pr-grok-commits.mjs` | Fails a PR whose introduced commits lack verification or recognised agent attribution (`scripts/lib/pr-agent-attribution.mjs`) |
 | `land-signed-stack.mjs` | Replays a local branch stack as GitHub-verified commits |
 | `candidate.mjs`, `lib/candidate-*.mjs` | Select and admit immutable candidates; verify source, provenance, qualification receipts and existing publication |
+| `admit-candidate-source.mjs` | Admit a qualification workflow's `source_sha` before any checkout: a full commit already on the default branch ([Actions security](../../docs/security/actions-security.md#candidate-checkouts)) |
 | `artifact-transfer.mjs`, `archive-safe.py` | Verify immutable artifact identity and downloaded bytes before safe extraction |
 | `build-manifest.py`, `collect-build.mjs`, `provenance.mjs` | Assemble the complete candidate and bind its payloads to the selected source and original build |
 | `sbom.mjs` | CycloneDX inventory of every package the selected snapshot's `package-lock.json` and `Cargo.lock` pin, read by exact commit and signed against the candidate's artifact digests ([release kit](../../docs/operators/release-kit.md#dependency-inventory)) |

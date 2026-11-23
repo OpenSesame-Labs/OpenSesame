@@ -1,4 +1,8 @@
 import type { BoundaryValue } from "@opensesame/os-domain";
+import {
+  type BitwardenNativeConfiguration,
+  createBitwardenNativeBackend,
+} from "./bitwarden-native.js";
 import type { BitwardenKdfResourceLimits } from "./bitwarden-native-kdf.js";
 import {
   NativeWorkerReply,
@@ -6,10 +10,6 @@ import {
   type NativeWorkerSettings,
   NativeWorkerValue,
 } from "./bitwarden-native-worker-protocol.js";
-import {
-  type BitwardenNativeConfiguration,
-  createBitwardenNativeBackend,
-} from "./bitwarden-native.js";
 import {
   type SecretBackendTransport,
   guardSecretBackendTransport,
@@ -65,13 +65,24 @@ function success(id: number, value: BoundaryValue): NativeWorkerReply {
     throw stale();
   return NativeWorkerReply.parse({ id, ok: true, value: result });
 }
+/** What the worker may do next. Each phase only ever moves forward. */
+type WorkerState =
+  | { readonly phase: "awaiting-initialize" }
+  | { readonly phase: "initializing" }
+  | {
+      readonly phase: "ready";
+      readonly backend: SecretBackend;
+      readonly session: SecretBackendSession;
+    }
+  | { readonly phase: "ended" };
+type ReadyCommand = Exclude<
+  NativeWorkerRequest,
+  { type: "initialize" } | { type: "dispose" }
+>;
 async function invoke(
   backend: SecretBackend,
   session: SecretBackendSession,
-  request: Exclude<
-    NativeWorkerRequest,
-    { type: "initialize" } | { type: "dispose" }
-  >,
+  request: ReadyCommand,
 ) {
   switch (request.type) {
     case "list":
@@ -92,7 +103,28 @@ async function invoke(
       return null;
   }
 }
-/** Install inside a disposable worker. The host passes a captured fetch port, never ambient fetch. */
+/**
+ * A dedicated worker's messages come only from the page that constructed it:
+ * same origin (or the opaque "" a dedicated worker reports), no `source`
+ * window, and no transferred ports. Anything else is not the owner.
+ */
+export function isWorkerOwnerMessage(
+  event: Pick<MessageEvent, "origin" | "source" | "ports">,
+  ownOrigin: string,
+): boolean {
+  return (
+    (event.origin === "" || event.origin === ownOrigin) &&
+    event.source === null &&
+    event.ports.length === 0
+  );
+}
+/**
+ * Install inside a disposable worker. The host passes a captured fetch port,
+ * never ambient fetch, and forwards only messages `isWorkerOwnerMessage`
+ * accepted. The runtime is a one-way state machine: exactly one schema-valid
+ * `initialize` is admitted, only while awaiting it; every other message before
+ * the session is ready, and any second `initialize`, ends the worker.
+ */
 export function createBitwardenNativeWorkerRuntime(
   port: BitwardenNativeWorkerPort,
   transport: SecretBackendTransport,
@@ -104,28 +136,24 @@ export function createBitwardenNativeWorkerRuntime(
     undefined,
     owner.signal,
   );
-  let backend: SecretBackend | undefined;
-  let session: SecretBackendSession | undefined;
-  let ended = false;
-  let initialized = false;
+  let state: WorkerState = { phase: "awaiting-initialize" };
   let active = 0;
   let queue = Promise.resolve();
   let lastId = 0;
+  const phase = (): WorkerState["phase"] => state.phase;
   const check = () => {
-    if (ended) throw stale();
+    if (phase() === "ended") throw stale();
     captured.assertCurrent();
   };
   const dispose = async () => {
-    if (ended) return;
-    ended = true;
+    const prior = state;
+    if (prior.phase === "ended") return;
+    state = { phase: "ended" };
     owner.abort();
     transport.signal.removeEventListener("abort", close);
-    const prior = backend;
-    const handle = session;
-    backend = undefined;
-    session = undefined;
     try {
-      if (prior && handle) await prior.disconnect(handle);
+      if (prior.phase === "ready")
+        await prior.backend.disconnect(prior.session);
     } finally {
       port.close();
     }
@@ -134,59 +162,82 @@ export function createBitwardenNativeWorkerRuntime(
     void dispose().catch(() => undefined);
   };
   transport.signal.addEventListener("abort", close, { once: true });
-  const execute = async (request: NativeWorkerRequest) => {
-    check();
-    if (request.type === "initialize") {
-      if (initialized) throw stale();
-      initialized = true;
-      backend = createBitwardenNativeBackend(captured, limits);
-      try {
-        session = await backend.authenticate(configuration(request.settings));
-      } finally {
-        request.settings.masterPassword = "";
-        request.settings.clientSecret = "";
-      }
-      check();
-      return null;
+  // Runs only from the admitted transition out of "awaiting-initialize".
+  const initialize = async (settings: NativeWorkerSettings) => {
+    if (phase() !== "initializing") throw stale();
+    const backend = createBitwardenNativeBackend(captured, limits);
+    let session: SecretBackendSession;
+    try {
+      session = await backend.authenticate(configuration(settings));
+    } finally {
+      settings.masterPassword = "";
+      settings.clientSecret = "";
     }
-    if (!backend || !session || session.signal?.aborted) throw stale();
-    if (request.type === "dispose") return null;
-    return invoke(backend, session, request);
+    if (phase() !== "initializing") {
+      await backend.disconnect(session).catch(() => undefined);
+      throw stale();
+    }
+    check();
+    state = { phase: "ready", backend, session };
+    return null;
+  };
+  const command = async (request: ReadyCommand) => {
+    const current = state;
+    if (current.phase !== "ready" || current.session.signal?.aborted)
+      throw stale();
+    return invoke(current.backend, current.session, request);
+  };
+  /** The only transitions: each admitted message yields its single operation. */
+  const admit = (
+    request: NativeWorkerRequest,
+  ): (() => Promise<BoundaryValue>) | undefined => {
+    switch (request.type) {
+      case "initialize": {
+        if (phase() !== "awaiting-initialize") return undefined;
+        state = { phase: "initializing" };
+        const { settings } = request;
+        return () => initialize(settings);
+      }
+      case "dispose":
+        return undefined;
+      default:
+        return phase() === "ready" ? () => command(request) : undefined;
+    }
+  };
+  const run = (id: number, operation: () => Promise<BoundaryValue>) => {
+    active++;
+    queue = queue
+      .then(async () => {
+        try {
+          const result = await operation();
+          check();
+          port.send(success(id, result));
+        } catch (error) {
+          if (phase() !== "ended")
+            port.send(failure(id, error instanceof Error ? error : undefined));
+          const current = state;
+          // A failed initialization, or a session the provider ended, is final.
+          if (current.phase !== "ready" || current.session.signal?.aborted)
+            close();
+        } finally {
+          active--;
+        }
+      })
+      .catch(close);
   };
   return {
     dispose,
     receive(value: BoundaryValue): void {
-      if (ended) return;
+      if (phase() === "ended") return;
       const parsed = NativeWorkerRequest.safeParse(value);
       if (!parsed.success || parsed.data.id <= lastId || active >= 4) {
         close();
         return;
       }
-      const request = parsed.data;
-      lastId = request.id;
-      if (request.type === "dispose") {
-        close();
-        return;
-      }
-      active++;
-      queue = queue
-        .then(async () => {
-          try {
-            const result = await execute(request);
-            check();
-            port.send(success(request.id, result));
-          } catch (error) {
-            if (!ended)
-              port.send(
-                failure(request.id, error instanceof Error ? error : undefined),
-              );
-            if (request.type === "initialize" || session?.signal?.aborted)
-              close();
-          } finally {
-            active--;
-          }
-        })
-        .catch(close);
+      lastId = parsed.data.id;
+      const operation = admit(parsed.data);
+      if (operation) run(parsed.data.id, operation);
+      else close();
     },
   };
 }

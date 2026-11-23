@@ -123,7 +123,9 @@ describe("full-suite native preparation", () => {
   it("checks out the exact selected candidate commit for reusable validation", () => {
     expect(fullWorkflow).toContain("workflow_call:");
     expect(fullWorkflow).not.toContain("  schedule:");
-    expect(fullWorkflow).toContain("          ref: ${{ inputs.source_sha }}");
+    expect(fullWorkflow).toContain(
+      "          ref: ${{ needs.admit.outputs.revision }}",
+    );
     expect(fullWorkflow).not.toContain("          ref: main\n");
   });
   it("finishes canonical native asset verification before package tests", () => {
@@ -199,7 +201,7 @@ describe("affected Pages build preparation", () => {
     expect(packages).toContain("BASE_SHA:");
     expect(packages).toContain("HEAD_SHA:");
     expect(changes).toContain(
-      `typescript_runner: \${{ (steps.packages.outputs.scope == 'all' || contains(steps.packages.outputs.packages, '@opensesame/pages')) && '\"ubuntu-latest\"' || steps.runner.outputs.linux }}`,
+      `typescript_runner: \${{ (steps.packages.outputs.scope == 'all' || contains(steps.packages.outputs.packages, '@opensesame/pages')) && '"ubuntu-latest"' || steps.runner.outputs.linux }}`,
     );
     expect(scopedJob).toContain(
       "runs-on: ${{ fromJSON(needs.changes.outputs.typescript_runner) }}",
