@@ -78,10 +78,12 @@ pub async fn claim_step(
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct OutcomeBody {
-    /// The `StepOutcome` (or a custody outcome), checked against the step it
-    /// answers and stored in its canonical encoding (`outcome`).
-    pub outcome: serde_json::Value,
+    /// The `StepOutcome` (or a custody outcome), decoded with the body and
+    /// checked against the step it answers; stored in its canonical encoding
+    /// (`outcome`).
+    pub(super) outcome: outcome::DriverOutcome,
 }
 
 /// `POST /api/v1/agent/runs/{id}/steps/{seq}/outcome` — report what happened.

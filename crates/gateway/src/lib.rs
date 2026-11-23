@@ -135,11 +135,18 @@ mod pact_coverage {
     #[test]
     fn webhook_verifies_then_claims_then_appends() {
         opensesame_host_core::pact::assert_source_order(
-            include_str!("github_webhook.rs"),
+            include_str!("github_webhook_delivery.rs"),
             &[
                 "if !well_formed_hub_signature",
-                "configured_webhook_secret(&st)",
+                "configured_webhook_secret(st)",
                 "if !verify_hub_signature_256",
+                "DeliverySummary::of(&body)",
+            ],
+        );
+        opensesame_host_core::pact::assert_source_order(
+            include_str!("github_webhook.rs"),
+            &[
+                "verified: VerifiedDelivery",
                 "claim_webhook_body(&st",
                 "append_webhook_outbox(&st",
             ],
@@ -232,7 +239,7 @@ mod pact_coverage {
             include_str!("routes/sync_blobs.rs"),
             &[
                 "require_session(&st, &headers)",
-                "assert_opaque_sync_json(&raw)",
+                "wire::opaque_push_body(body)",
             ],
         );
     }

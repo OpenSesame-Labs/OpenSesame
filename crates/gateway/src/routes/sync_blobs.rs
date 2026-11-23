@@ -5,7 +5,7 @@
 //! key as a wrap key for client backups (ADR 0032 / WP-F).
 
 use axum::{
-    extract::State,
+    extract::{rejection::JsonRejection, State},
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
@@ -13,7 +13,7 @@ use axum::{
 use opensesame_client_core::SyncBlob;
 use opensesame_storage::StoredSyncBlob;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::json;
 
 use crate::app_state::AppState;
 use crate::middleware::auth::require_session;
@@ -68,32 +68,12 @@ const FORBIDDEN_PLAINTEXT_KEYS: &[&str] = &[
     "deployment_seal",
 ];
 
-/// Reject JSON objects that smuggle plaintext or deployment-seal fields.
-pub fn assert_opaque_sync_json(value: &Value) -> Result<(), &'static str> {
-    match value {
-        Value::Object(map) => {
-            for key in map.keys() {
-                let lower = key.to_ascii_lowercase();
-                if FORBIDDEN_PLAINTEXT_KEYS
-                    .iter()
-                    .any(|forbidden| lower == *forbidden || lower.contains(forbidden))
-                {
-                    return Err("plaintext_or_seal_field_forbidden");
-                }
-            }
-            for child in map.values() {
-                assert_opaque_sync_json(child)?;
-            }
-            Ok(())
-        }
-        Value::Array(items) => {
-            for item in items {
-                assert_opaque_sync_json(item)?;
-            }
-            Ok(())
-        }
-        _ => Ok(()),
-    }
+/// Whether a JSON field name smuggles plaintext or a deployment-seal value.
+fn smuggles_plaintext(key: &str) -> bool {
+    let lower = key.to_ascii_lowercase();
+    FORBIDDEN_PLAINTEXT_KEYS
+        .iter()
+        .any(|forbidden| lower == *forbidden || lower.contains(forbidden))
 }
 
 /// Validate a single blob is opaque ciphertext with non-empty payload.
@@ -163,23 +143,22 @@ pub(super) fn project_scoped(blob_id: &str, project_id: Option<&str>) -> bool {
 }
 
 /// Push path that additionally rejects plaintext-smuggling JSON envelopes.
+///
+/// The body is decoded straight into the opaque wire shape
+/// (`{"blobs":[{"id","epoch","ciphertext"}]}`) and nothing else: a field
+/// named like plaintext or a seal is refused as such, any other extra field
+/// as an invalid push, and no untyped JSON is ever held.
 pub async fn push_opaque(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
-    Json(raw): Json<Value>,
+    body: Result<Json<wire::SyncPushOpaqueBody>, JsonRejection>,
 ) -> Response {
     if let Err(resp) = require_session(&st, &headers) {
         return resp;
     }
-    if let Err(code) = assert_opaque_sync_json(&raw) {
-        return (StatusCode::BAD_REQUEST, Json(json!({"error": code}))).into_response();
-    }
-    let Ok(body) = serde_json::from_value::<SyncPushOpaqueBody>(raw) else {
-        return (
-            StatusCode::BAD_REQUEST,
-            Json(json!({"error": "invalid_sync_blobs"})),
-        )
-            .into_response();
+    let body = match wire::opaque_push_body(body) {
+        Ok(body) => body,
+        Err((status, code)) => return (status, Json(json!({"error": code}))).into_response(),
     };
     for blob in &body.blobs {
         if let Err(code) = validate_opaque_blob(blob) {
@@ -197,36 +176,27 @@ pub async fn push_opaque(
     .await
 }
 
-#[derive(Deserialize)]
-struct SyncPushOpaqueBody {
-    blobs: Vec<OpaqueSyncBlobDto>,
-}
+#[path = "sync_blobs_wire.rs"]
+mod wire;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_json::json;
 
     #[test]
-    fn rejects_plaintext_fields() {
-        assert!(
-            assert_opaque_sync_json(&json!({"blobs":[{"id":"a","epoch":1,"ciphertext":[1]}]}))
-                .is_ok()
-        );
-        assert_eq!(
-            assert_opaque_sync_json(&json!({"plaintext":"nope"})),
-            Err("plaintext_or_seal_field_forbidden")
-        );
-        assert_eq!(
-            assert_opaque_sync_json(&json!({"deployment_seal":"x"})),
-            Err("plaintext_or_seal_field_forbidden")
-        );
-        assert_eq!(
-            assert_opaque_sync_json(
-                &json!({"blobs":[{"id":"a","epoch":1,"ciphertext":[1],"password":"x"}]})
-            ),
-            Err("plaintext_or_seal_field_forbidden")
-        );
+    fn smuggled_field_names_are_recognised() {
+        for key in [
+            "plaintext",
+            "deployment_seal",
+            "Password",
+            "vaultKey_token",
+            "vrk",
+        ] {
+            assert!(smuggles_plaintext(key), "{key}");
+        }
+        for key in ["id", "epoch", "ciphertext", "blobs"] {
+            assert!(!smuggles_plaintext(key), "{key}");
+        }
     }
 
     #[test]
@@ -277,7 +247,13 @@ mod tests {
         let response = push_opaque(
             State(state),
             axum::http::HeaderMap::new(),
-            Json(json!({"blobs":[{"id":"a","epoch":1,"ciphertext":[1]}]})),
+            Ok(Json(wire::SyncPushOpaqueBody {
+                blobs: vec![OpaqueSyncBlobDto {
+                    id: "a".into(),
+                    epoch: 1,
+                    ciphertext: vec![1],
+                }],
+            })),
         )
         .await;
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
