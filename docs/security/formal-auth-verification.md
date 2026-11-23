@@ -260,6 +260,25 @@ check again after nonzero exits and caught interruptions; a hard kill cannot
 run that final check. The authority harness has its own Cargo workspace and
 uses a private temporary target directory.
 
+A workspace path patch that a selected local package names must be declared
+with `--reviewed-patch NAME=PATH` on the freshness `init`; an undeclared,
+mismatched or unused declaration is refused, and a declared patch is tracked
+as a local artifact that must be rebuilt in the proof. Authority hashes the
+vendored `sqlx-sqlite` sources directly. Since the 2026-11-23 review, the
+SPIFFE, peer-domain, source-trust-selection (both runs) and source-trust-history
+runners declare `sqlx-sqlite` (reached through `opensesame-time`'s default
+`sqlx` feature), and source-trust-history also declares `keepass` (reached by
+the CLI through `kdbx-bridge`). Those crates are not part of these suites'
+properties. Each suite instead covers the reviewed vendored-crate verifier
+(`scripts/security/verify-vendored-sqlx.py`, `verify-vendored-keepass.py`) and
+its drift check executes the verified bytes on every input check: the
+published archive must match its crates.io digest, the vendored tree must
+equal it file for file apart from the reviewed patch, and both workspaces must
+bind the patch only to that directory. Before this review those four runners
+refused at `init` from #2652 onward (narrowed by #2626), because the patches
+added in #2768 were never declared for them. The source-lifetime runner still
+uses plain `cargo` without the freshness session (see its `verify.sh`).
+
 Mutation controls use a stable private scratch checkout for each live checkout
 and hold its exclusive lock through the compiler and descendants. Cleanup only
 removes the registered directory while holding that lock; if an interrupted

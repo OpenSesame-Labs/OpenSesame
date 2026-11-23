@@ -6,6 +6,7 @@ from pathlib import Path
 import re
 import stat
 import sys
+import tarfile
 import tempfile
 import types
 
@@ -174,6 +175,11 @@ PATHS = [
 PATHS.extend(path for path in MANIFESTS if path not in PATHS)
 BUILD_PATHS = [str(Path(path).with_name("build.rs")) for path in MANIFESTS]
 OPTIONAL_PATHS = ["crates/Cargo.toml", *BUILD_PATHS, ".cargo/config", ".cargo/config.toml"]
+# 2026-11-23: opensesame-time's default sqlx feature compiles the declared
+# sqlx-sqlite path patch into this closure. It is outside the modeled property;
+# its tree is pinned by the reviewed vendored-crate verifier, run on each check.
+VENDORED_VERIFIERS = ["scripts/security/verify-vendored-sqlx.py"]
+PATHS.extend(VENDORED_VERIFIERS)
 
 
 def regular_path(name, optional=False):
@@ -234,6 +240,8 @@ def main():
         helper_name = "scripts/security/formal-cargo-isolation.py"
         isolation = load_verified("reviewed_cargo_isolation", helper_name, verified[helper_name])
         isolation.check_cargo_targets(ROOT, TARGETS, set(verified))
+        for name in VENDORED_VERIFIERS:  # re-attest each declared vendored patch
+            load_verified("reviewed_vendored_crate", name, verified[name]).verify(ROOT)
         # Load the exact verified bytes in a new private directory. This also
         # isolates nested helper imports from ignored stale/forged __pycache__.
         helpers = [
@@ -271,7 +279,7 @@ def main():
             }
             if coverage.get("workspace_projection") != expected_workspace:
                 raise ValueError("review gateway workspace inputs drift")
-    except (OSError, ValueError, KeyError, TypeError) as exc:
+    except (OSError, ValueError, KeyError, TypeError, tarfile.TarError) as exc:
         raise SystemExit(f"spiffe-peer-domain-formal: {exc}") from exc
     print(f"spiffe-peer-domain-formal: reviewed sources and dependencies match base {coverage['reviewed_revision']}")
 

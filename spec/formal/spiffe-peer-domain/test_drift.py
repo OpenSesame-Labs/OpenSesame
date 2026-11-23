@@ -21,6 +21,10 @@ def copy_snapshot(target: Path) -> dict:
     coverage = json.loads((ROOT / SUITE / "coverage.json").read_text())
     names = [entry["path"] for entry in coverage["sources"] + coverage["optional_sources"]]
     names += ["Cargo.toml", "Cargo.lock", str(SUITE / "check-drift.py"), str(SUITE / "verify.sh")]
+    # The checker re-runs the vendored SQLx verifier: its tree, archive and both workspaces' bindings.
+    vendored = ROOT / "patches/vendor/sqlx-sqlite-0.9.0"
+    names += [str(path.relative_to(ROOT)) for path in sorted(vendored.rglob("*")) if not path.is_dir()]
+    names += ["patches/vendor/sqlx-sqlite-0.9.0.crate", "tests/fuzz/cargo/Cargo.toml", "tests/fuzz/cargo/Cargo.lock"]
     for name in dict.fromkeys(names):
         source, destination = ROOT / name, target / name
         if source.is_symlink():
@@ -51,6 +55,11 @@ def main() -> None:
         coverage = copy_snapshot(target)
         check = ["python3", "-I", str(SUITE / "check-drift.py")]
         require(invoke(target, check, env), True, "reviewed sources", "reviewed baseline")
+        vendored = target / "patches/vendor/sqlx-sqlite-0.9.0/src/row.rs"
+        original_vendored = vendored.read_bytes()
+        vendored.write_bytes(original_vendored + b"\n// unreviewed vendored edit\n")
+        require(invoke(target, check, env), False, "SQLx source differs beyond the manifest fix", "unreviewed vendored SQLx edit")
+        vendored.write_bytes(original_vendored)
         pyc_marker = target / "forged-bytecode-executed"
         for name in ["cargo-lock-projection.py", "cargo-workspace-projection.py", "cargo-workspace-multipackage.py"]:
             source = target / "scripts/security" / name

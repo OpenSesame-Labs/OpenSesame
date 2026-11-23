@@ -125,7 +125,8 @@
       "scripts/security/formal-cargo-isolation.py",
       "scripts/security/formal-cargo-freshness.py",
       "scripts/security/formal_cargo_packages.py",
-      "scripts/security/cargo-lock-projection.py"
+      "scripts/security/cargo-lock-projection.py",
+      "scripts/security/verify-vendored-sqlx.py"
     ],
     [".cargo"],
     []
@@ -165,7 +166,8 @@
       "scripts/security/formal_cargo_packages.py",
       "scripts/security/cargo-lock-projection.py",
       "scripts/security/cargo-workspace-projection.py",
-      "scripts/security/cargo-workspace-multipackage.py"
+      "scripts/security/cargo-workspace-multipackage.py",
+      "scripts/security/verify-vendored-sqlx.py"
     ],
     [".cargo"],
     []
@@ -186,7 +188,8 @@
       "scripts/security/formal_cargo_packages.py",
       "scripts/security/cargo-lock-projection.py",
       "scripts/security/cargo-workspace-projection.py",
-      "scripts/security/cargo-workspace-multipackage.py"
+      "scripts/security/cargo-workspace-multipackage.py",
+      "scripts/security/verify-vendored-sqlx.py"
     ],
     [".cargo"],
     []
@@ -210,7 +213,8 @@
       "scripts/security/cargo-workspace-projection.py",
       "scripts/security/cargo-workspace-multipackage.py",
       "scripts/mtls/mtls-fixtures.sh",
-      "ops/nats/local-dev.conf"
+      "ops/nats/local-dev.conf",
+      "scripts/security/verify-vendored-sqlx.py"
     ],
     [".cargo"],
     []
@@ -230,7 +234,9 @@
       "scripts/security/formal_cargo_packages.py",
       "scripts/security/cargo-lock-projection.py",
       "scripts/security/cargo-workspace-projection.py",
-      "scripts/security/cargo-workspace-multipackage.py"
+      "scripts/security/cargo-workspace-multipackage.py",
+      "scripts/security/verify-vendored-keepass.py",
+      "scripts/security/verify-vendored-sqlx.py"
     ],
     [".cargo"],
     []
