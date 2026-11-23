@@ -118,7 +118,7 @@ mod tests {
     fn secret_only() {
         let e = Entry::parse("only\n");
         assert_eq!(e.secret, "only");
-        assert!(e.trailer.is_empty());
+        assert_eq!(e.trailer, "");
         assert!(e.otp.is_none());
     }
 

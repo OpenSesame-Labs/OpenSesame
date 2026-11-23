@@ -137,7 +137,10 @@ async fn independent_delegate_executor_is_refused_even_after_policy_allows_it() 
         .is_none());
 }
 
-struct RecordingConnector(Arc<Mutex<Vec<(InvocationId, String, Option<ConnectionId>)>>>);
+/// What the connector observed per call: invocation, action and connection.
+type Seen = Vec<(InvocationId, String, Option<ConnectionId>)>;
+
+struct RecordingConnector(Arc<Mutex<Seen>>);
 impl opensesame_connector_host::Connector for RecordingConnector {
     fn id(&self) -> &str {
         "recording"

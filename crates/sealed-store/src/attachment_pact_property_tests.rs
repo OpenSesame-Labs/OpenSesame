@@ -31,7 +31,10 @@ fn empty_attachment_writes_no_chunks() {
     let (_dir, root, key) = store();
     let summary = add(&root, &key, "Empty/file", b"");
     assert_eq!(summary.chunk_count, 0);
-    assert!(root.object_files().unwrap().is_empty());
+    assert_eq!(
+        root.object_files().unwrap(),
+        [] as [(String, std::path::PathBuf); 0]
+    );
     assert_eq!(get(&root, &key, "Empty/file").unwrap(), Vec::<u8>::new());
 }
 

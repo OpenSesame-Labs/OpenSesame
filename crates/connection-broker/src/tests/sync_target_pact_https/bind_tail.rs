@@ -39,16 +39,10 @@ pub(in super::super) fn call_tail(source: &str, at: usize) -> Option<&str> {
     if tail.starts_with('(') {
         return Some(tail);
     }
-    loop {
-        let Some(stripped) = tail.strip_prefix(')') else {
-            break;
-        };
+    while let Some(stripped) = tail.strip_prefix(')') {
         tail = strip_turbofish(stripped).unwrap_or(stripped).trim_start();
         if tail.starts_with('(') {
             return Some(tail);
-        }
-        if !tail.starts_with(')') {
-            break;
         }
     }
     None

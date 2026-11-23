@@ -283,7 +283,7 @@ fn strip_trailing_mut(before: &str) -> &str {
     if rest
         .chars()
         .next_back()
-        .is_some_and(|ch| super::super::is_ident_char(ch))
+        .is_some_and(super::super::is_ident_char)
     {
         return before;
     }

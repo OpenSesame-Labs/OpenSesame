@@ -46,7 +46,7 @@ fn remove_marker(store: &StoreRoot, id: &str, key: &ItemDataKey) {
 }
 
 fn backfill_v1_entry_commitments(store: &StoreRoot, witness: &mut Witness, key: &ItemDataKey) {
-    for (name, entry) in witness.entries.iter_mut() {
+    for (name, entry) in &mut witness.entries {
         if name.starts_with(".attachments/") || entry.deleted || entry.commitment != [0; 32] {
             continue;
         }

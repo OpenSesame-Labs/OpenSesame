@@ -55,8 +55,11 @@ async fn exercise(policy: TransportPolicy, tls12: bool, source_owned: bool) {
     let authority = DisposableCa::new("clients");
     let identity = Arc::new(server.issue_server("localhost").identity());
     let initial = candidate(&identity, &authority, "old.example");
-    let generations =
-        TransportGenerations::new(initial.into_generation(1, opensesame_time::Utc::now()).unwrap());
+    let generations = TransportGenerations::new(
+        initial
+            .into_generation(1, opensesame_time::Utc::now())
+            .unwrap(),
+    );
     let owner = generations.source_owner();
     let epoch = if source_owned {
         let claim = generations.claim_source(&owner).unwrap();

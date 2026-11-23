@@ -137,7 +137,7 @@ fn first_read_refuses_if_its_revision_cannot_be_persisted() {
     let result = root.attach_get("One/scan", &mut output, &key);
     std::fs::set_permissions(&root.path, std::fs::Permissions::from_mode(0o700)).unwrap();
     assert!(result.is_err());
-    assert!(output.is_empty());
+    assert_eq!(output, [] as [u8; 0]);
     assert!(!revisions.exists());
     assert_eq!(get(&root, &key, "One/scan").unwrap(), b"content");
 }

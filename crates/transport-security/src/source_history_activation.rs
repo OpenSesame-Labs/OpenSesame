@@ -2,8 +2,8 @@
 
 use std::time::Instant;
 
-use opensesame_time::{DateTime, Utc};
 use opensesame_domain::TransportError;
+use opensesame_time::{DateTime, Utc};
 
 use super::{monotonic_bound, Fence, GenerationCandidate, SourceOwner, TransportGenerations};
 

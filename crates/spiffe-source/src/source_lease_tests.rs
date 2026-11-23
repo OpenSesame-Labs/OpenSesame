@@ -3,17 +3,18 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use opensesame_time::Utc;
 use opensesame_domain::TransportError;
+use opensesame_time::Utc;
 use opensesame_transport_security::{GenerationCandidate, TransportGenerations};
 use secrecy::ExposeSecret as _;
 use spiffe::{TrustDomain, X509Bundle, X509BundleSet, X509Context, X509Svid};
 
-use super::{SourcePhase, SpiffeSource, SpiffeSourceHandle};
+use super::{SpiffeSource, SpiffeSourceHandle};
 use crate::config::SpiffeSourceConfig;
 use crate::fake::{FakeTrustDomain, FakeWorkloadApi, IssuedSvid};
 use crate::sink::TransportGenerationsSink;
 use crate::snapshot::SvidGeneration;
+use crate::status::SourcePhase;
 
 const ID: &str = "spiffe://example.test/opensesame/gateway";
 const TD: &str = "example.test";

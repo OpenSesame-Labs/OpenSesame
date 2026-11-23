@@ -87,17 +87,34 @@ async fn a_delayed_withdrawal_does_not_cancel_a_pairing_bound_to_a_new_revision(
     sqlx::query("INSERT INTO config_authorization_roles(organization_id,principal_id,role,revision,evidence_after) VALUES('org','person','member',1,0)")
         .execute(db.pool()).await.unwrap();
     let challenge = HostAuthorization {
-        id: "challenge".into(), client_id: "new".into(), digest: "digest".into(),
-        operation: "browser.authenticate".into(), target_id: "new".into(),
-        transition: None, run_version: None, expires_at: 1200,
+        id: "challenge".into(),
+        client_id: "new".into(),
+        digest: "digest".into(),
+        operation: "browser.authenticate".into(),
+        target_id: "new".into(),
+        transition: None,
+        run_version: None,
+        expires_at: 1200,
     };
-    assert!(db.create_host_authorization(&challenge, 1003).await.unwrap());
-    let evidence = |revision| serde_json::json!({
-        "role":"member", "auth_time":1000,
-        "membership_incarnation":INC, "authority_revision":revision,
-    }).to_string();
-    assert!(!db.authorize_host_challenge(&challenge, "jti-old", Some(&evidence(OLD)), None, 1004).await.unwrap());
-    assert!(db.authorize_host_challenge(&challenge, "jti-new", Some(&evidence(NEW)), None, 1004).await.unwrap());
+    assert!(db
+        .create_host_authorization(&challenge, 1003)
+        .await
+        .unwrap());
+    let evidence = |revision| {
+        serde_json::json!({
+            "role":"member", "auth_time":1000,
+            "membership_incarnation":INC, "authority_revision":revision,
+        })
+        .to_string()
+    };
+    assert!(!db
+        .authorize_host_challenge(&challenge, "jti-old", Some(&evidence(OLD)), None, 1004)
+        .await
+        .unwrap());
+    assert!(db
+        .authorize_host_challenge(&challenge, "jti-new", Some(&evidence(NEW)), None, 1004)
+        .await
+        .unwrap());
     withdraw(&db, "withdraw-new", NEW).await;
     assert!(db.browser_grant("token-new", 1004).await.unwrap().is_none());
 }

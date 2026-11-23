@@ -1,4 +1,8 @@
-use super::*;
+use super::{
+    confined_read, confined_replace, Deserialize, ItemDataKey, Serialize, StoreError, StoreRoot,
+    Witness, COLLECTION, IDENTITY_COLLECTION, IDENTITY_ONE, IDENTITY_TWO, SLOT_ONE, SLOT_TWO,
+    STORE_ID_FILE,
+};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -167,12 +171,15 @@ impl StoreRoot {
         let two = self.read_identity_slot(key, &locator, IDENTITY_TWO);
         match (one, two) {
             (Ok(None), Ok(None)) => Ok(None),
-            (Ok(Some(identity)), Ok(None)) | (Ok(None), Ok(Some(identity))) => Ok(Some(identity)),
+            // One authenticated slot is enough while the other is absent or
+            // unreadable; two authenticated slots must agree.
+            (Ok(Some(identity)), Ok(None) | Err(_)) | (Ok(None) | Err(_), Ok(Some(identity))) => {
+                Ok(Some(identity))
+            }
             (Ok(Some(one)), Ok(Some(two))) if one.store_id == two.store_id => Ok(Some(one)),
             (Ok(Some(_)), Ok(Some(_))) => Err(StoreError::Crypto(
                 "outside store identity slots disagree".into(),
             )),
-            (Ok(Some(identity)), Err(_)) | (Err(_), Ok(Some(identity))) => Ok(Some(identity)),
             (Err(one), Err(two)) => Err(StoreError::Crypto(format!(
                 "outside store identity slots cannot be authenticated: {one}; {two}"
             ))),
@@ -211,7 +218,6 @@ impl StoreRoot {
     }
 
     pub(super) fn read_witness_slot(
-        &self,
         root: &Path,
         relative: &Path,
         store_id: &str,
@@ -246,8 +252,8 @@ impl StoreRoot {
         key: &ItemDataKey,
     ) -> Result<Option<Witness>, StoreError> {
         let (root, directory) = self.witness_directory(store_id)?;
-        let one = self.read_witness_slot(&root, &directory.join(SLOT_ONE), store_id, key);
-        let two = self.read_witness_slot(&root, &directory.join(SLOT_TWO), store_id, key);
+        let one = Self::read_witness_slot(&root, &directory.join(SLOT_ONE), store_id, key);
+        let two = Self::read_witness_slot(&root, &directory.join(SLOT_TWO), store_id, key);
         let Some(marker) = self.read_commit_marker(store_id, key)? else {
             if matches!((&one, &two), (Ok(None), Ok(None))) {
                 return Ok(None);

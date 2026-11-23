@@ -49,15 +49,18 @@ fn deploy_context() -> AgentContext {
     )
 }
 
-async fn emit(approver: InteractionApprover) -> Result<InterceptionRecord, InterceptionRecord> {
+/// A denial is boxed: the record is too large for an `Err` variant.
+async fn emit(
+    approver: InteractionApprover,
+) -> Result<InterceptionRecord, Box<InterceptionRecord>> {
     emitter(approver)
         .emit(&mut deploy_context())
         .await
         .map(|outcome| outcome.record)
-        .map_err(|blocked| blocked.record)
+        .map_err(|blocked| Box::new(blocked.record))
 }
 
-fn denied_with(outcome: &Result<InterceptionRecord, InterceptionRecord>, reason: &str) {
+fn denied_with(outcome: &Result<InterceptionRecord, Box<InterceptionRecord>>, reason: &str) {
     let record = outcome.as_ref().expect_err("the action must stay denied");
     assert_eq!(record.verdict.decision, Decision::Deny);
     assert_eq!(record.verdict.reason.as_deref(), Some(reason));

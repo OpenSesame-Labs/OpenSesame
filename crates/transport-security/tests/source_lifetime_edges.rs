@@ -1,8 +1,8 @@
 //! Runtime tests for source-owned trust and TLS-only connection epochs.
 mod common;
-use opensesame_time::Utc;
 use common::*;
 use opensesame_domain::transport::{TlsVersion, TransportError, TransportPolicy};
+use opensesame_time::Utc;
 use opensesame_transport_security::testkit::DisposableCa;
 use opensesame_transport_security::{
     client_config, ClientProfile, GenerationCandidate, SecureListener, ServerNamePolicy,

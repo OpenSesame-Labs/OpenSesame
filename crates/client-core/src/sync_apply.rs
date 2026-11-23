@@ -54,6 +54,9 @@ impl SyncStore {
             sync_auth::verify_blob(key, blob)?;
         }
         Self::scan_equal_epoch_conflicts(&self.entries, blobs)?;
+        if !blobs.is_empty() {
+            self.remember_key(guard)?;
+        }
         let mut applied = 0;
         for b in blobs {
             let replace = match self.entries.get(&b.id) {
@@ -68,9 +71,6 @@ impl SyncStore {
                 self.cursor.epoch = self.cursor.epoch.max(b.epoch);
                 applied += 1;
             }
-        }
-        if !blobs.is_empty() {
-            self.remember_key(guard);
         }
         Ok(applied)
     }

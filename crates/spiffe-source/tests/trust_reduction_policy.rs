@@ -97,7 +97,11 @@ async fn refused_profile_after_trust_reduction_keeps_withdrawal_reason() {
     // authoritative `trust_reduced` reason and retains nothing.
     sink.reject_activations(Some(TransportError::KeyPairMismatch));
     let reduced_bundle = foreign_a.bundle_der();
-    api.push_snapshot(federated_snapshot(&td, &gateway, Some(reduced_bundle.clone())));
+    api.push_snapshot(federated_snapshot(
+        &td,
+        &gateway,
+        Some(reduced_bundle.clone()),
+    ));
     let status = withdrawn_promptly(&handle).await;
     assert_eq!(status.last_error.as_deref(), Some("trust_reduced"));
     assert_eq!(

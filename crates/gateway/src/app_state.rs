@@ -38,6 +38,15 @@ pub struct DevicePending {
     pub client_id: String,
     pub scope: String,
     pub expires_at: opensesame_time::DateTime<opensesame_time::Utc>,
+    // Approval now lives in host_device_codes (native_device); production
+    // only ever writes None here, and only test helpers read it.
+    #[cfg_attr(
+        not(test),
+        expect(
+            dead_code,
+            reason = "device approval is persisted in host_device_codes"
+        )
+    )]
     pub approved: Option<ApprovedDevice>,
 }
 

@@ -69,14 +69,17 @@ fn actual_ordered_actor_create_compare_replace_delete_ack_and_noop_absence() {
     let stages = root
         .open_child(Path::new("vault-native-stages-v1"))
         .unwrap();
-    assert!(stages
-        .original_bounded_directory_entries(64)
-        .unwrap()
-        .is_empty());
+    assert_eq!(
+        stages.original_bounded_directory_entries(64).unwrap(),
+        [] as [(String, bool); 0]
+    );
     writer
         .compare_publish(scope, leaf, Some(b"second physical ciphertext"), None)
         .unwrap();
-    assert!(writer.inventory(scope, 1).unwrap().is_empty());
+    assert_eq!(
+        writer.inventory(scope, 1).unwrap(),
+        [] as [(String, bool); 0]
+    );
     writer.compare_publish(scope, leaf, None, None).unwrap();
     writer
         .compare_publish(

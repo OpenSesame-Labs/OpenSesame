@@ -4,11 +4,11 @@ mod common;
 
 use std::sync::{Arc, Barrier};
 
-use opensesame_time::{Duration, Utc};
 use common::*;
 use opensesame_domain::transport::{
     PeerIdentitySelector, TlsVersion, TransportError, TransportPolicy,
 };
+use opensesame_time::{Duration, Utc};
 use opensesame_transport_security::testkit::DisposableCa;
 use opensesame_transport_security::{
     client_config, ClientProfile, GenerationCandidate, ServerNamePolicy, SourceOwner,

@@ -35,7 +35,7 @@ fn recovery_add_and_test() {
     let dir = tempfile::tempdir().unwrap();
     init_versioned_key_file(dir.path(), b"pw").unwrap();
     let (recovery, fp) = protect_add_recovery(dir.path(), b"pw").unwrap();
-    assert!(!fp.is_empty());
+    assert_ne!(fp, "");
     protect_test_recovery(dir.path(), &recovery).unwrap();
     let mut bad = recovery;
     bad[0] ^= 1;

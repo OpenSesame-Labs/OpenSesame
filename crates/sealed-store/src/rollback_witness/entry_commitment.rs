@@ -63,6 +63,25 @@ impl StoreRoot {
         Ok(opened.plaintext)
     }
 
+    fn refuse_forked_entry(
+        &self,
+        name: &str,
+        path: &Path,
+        key: &ItemDataKey,
+        state: &EntryWitness,
+    ) -> Result<(), StoreError> {
+        if state.deleted || !path.exists() {
+            return Ok(());
+        }
+        let bytes = self.open_entry_plaintext_at_revision(name, key, state.revision)?;
+        if !commitment_unbound(&state.commitment) && !entry_matches(state, &bytes) {
+            return Err(StoreError::Crypto(
+                "entry plaintext does not match its rollback witness".into(),
+            ));
+        }
+        Ok(())
+    }
+
     pub(crate) fn next_entry_revision_after(
         &self,
         name: &str,
@@ -79,27 +98,10 @@ impl StoreRoot {
                 "missing anti-rollback state for {name}; refusing ciphertext bootstrap"
             )));
         }
-        if !trust_plaintext {
-            if let Some(state) = witness.entries.get(&identity).copied() {
-                if !state.deleted && path.exists() {
-                    match self.open_entry_plaintext_at_revision(name, key, state.revision) {
-                        Ok(bytes)
-                            if !commitment_unbound(&state.commitment)
-                                && !entry_matches(&state, &bytes) =>
-                        {
-                            return Err(StoreError::Crypto(
-                                "entry plaintext does not match its rollback witness".into(),
-                            ));
-                        }
-                        Ok(_) => {}
-                        Err(error) => return Err(error),
-                    }
-                }
-            }
+        if let Some(state) = witness.entries.get(&identity).filter(|_| !trust_plaintext) {
+            self.refuse_forked_entry(name, path, key, state)?;
         }
-        let commitment = plaintext
-            .map(entry_plaintext_commitment)
-            .unwrap_or([0; 32]);
+        let commitment = plaintext.map_or([0; 32], entry_plaintext_commitment);
         let current = witness
             .entries
             .get(&identity)

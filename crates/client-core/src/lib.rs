@@ -265,9 +265,9 @@ impl SyncStore {
             .filter(|value| *value <= i64::MAX as u64)
             .ok_or(ClientCoreError::EpochExhausted)?;
         let blob = sync_auth::seal_blob_deterministic(key, id.clone(), epoch, plaintext)?;
+        self.remember_key(guard)?;
         self.entries.insert(id, (epoch, blob.ciphertext.clone()));
         self.cursor.epoch = epoch;
-        self.remember_key(guard);
         Ok(())
     }
 
@@ -332,7 +332,6 @@ impl SyncStore {
             integrity: None,
         };
         p.integrity = Some(persist_auth::tag(key, &p)?);
-        self.remember_key(guard);
         let json =
             serde_json::to_string(&p).map_err(|e| ClientCoreError::Persist(e.to_string()))?;
         sync_limits::check_json_size(json.len())?;
@@ -356,7 +355,7 @@ impl SyncStore {
         store.remember_key(blake3::keyed_hash(
             key.as_bytes(),
             b"OpenSesame sync store key v2",
-        ));
+        ))?;
         store.apply_remote(key, &p.blobs)?;
         if p.cursor.epoch < store.cursor.epoch || p.cursor.epoch > i64::MAX as u64 {
             return Err(ClientCoreError::Persist(

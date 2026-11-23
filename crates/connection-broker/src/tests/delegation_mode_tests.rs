@@ -165,8 +165,7 @@ async fn new_broker_offer_is_refused_until_mode_is_authenticated() {
     let error = broker
         .mint_delegation_offer(&org, OWNER, request, PEPPER)
         .await
-        .err()
-        .expect("broker offer refused");
+        .expect_err("broker offer refused");
     assert_eq!(error.code(), "delegation_unavailable");
     assert_eq!(error.http_status(), 503);
     let offers: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM connection_delegation_offers")

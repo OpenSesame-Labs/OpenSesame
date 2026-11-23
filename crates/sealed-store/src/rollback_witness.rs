@@ -71,6 +71,8 @@ mod commit_marker;
 #[cfg(test)]
 #[path = "rollback_witness/commit_marker_tests.rs"]
 mod commit_marker_tests;
+#[path = "rollback_witness/entry_commitment.rs"]
+mod entry_commitment;
 #[path = "rollback_witness/migration.rs"]
 mod migration;
 #[path = "rollback_witness/normalize.rs"]
@@ -86,8 +88,6 @@ mod rotation_marker_tests;
 mod slot_selection;
 #[path = "rollback_witness/trusted_recovery.rs"]
 mod trusted_recovery;
-#[path = "rollback_witness/entry_commitment.rs"]
-mod entry_commitment;
 
 #[cfg(test)]
 #[path = "rollback_witness/entry_commitment_tests.rs"]
@@ -247,14 +247,10 @@ impl StoreRoot {
                         "store identity does not match its outside rollback anchor".into(),
                     ));
                 }
-                let witness = match self.load_witness(&identity.store_id, key)? {
-                    Some(witness) => witness,
-                    None => {
-                        return Err(StoreError::Crypto(
-                            "rollback witness is missing; restore its outside-store checkpoint"
-                                .into(),
-                        ));
-                    }
+                let Some(witness) = self.load_witness(&identity.store_id, key)? else {
+                    return Err(StoreError::Crypto(
+                        "rollback witness is missing; restore its outside-store checkpoint".into(),
+                    ));
                 };
                 if inside.is_none() {
                     confined_replace(
@@ -276,6 +272,11 @@ impl StoreRoot {
     }
     /// Explicitly anchors a pre-witness store after the operator has verified
     /// that its current checkout is the intended high-water state.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when the store is locked, already anchored without its
+    /// outside checkpoint, or the witness cannot be built or persisted.
     pub fn migrate_rollback_anchor(&self, key: &ItemDataKey) -> Result<(), StoreError> {
         let _lock = StoreLock::exclusive_for_key(&self.path, key)?;
         if let Some(identity) = self.read_outside_identity(key)? {
@@ -313,15 +314,6 @@ impl StoreRoot {
             self.verify_entry_plaintext(name, key, &state)?;
         }
         Ok(state)
-    }
-
-    pub(crate) fn next_entry_revision(
-        &self,
-        name: &str,
-        path: &Path,
-        key: &ItemDataKey,
-    ) -> Result<u64, StoreError> {
-        self.next_entry_revision_after(name, path, key, 0, None, false)
     }
 
     pub(crate) fn tombstone_entry(&self, name: &str, key: &ItemDataKey) -> Result<(), StoreError> {

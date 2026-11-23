@@ -5,8 +5,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
 use std::time::Instant;
 
-use opensesame_time::{DateTime, Utc};
 use opensesame_domain::transport::{TransportError, TrustProfileRef};
+use opensesame_time::{DateTime, Utc};
 
 use super::{Generation, GenerationCandidate, TransportGenerations};
 use crate::trust::TrustBundle;

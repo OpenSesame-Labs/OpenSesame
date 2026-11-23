@@ -162,8 +162,14 @@ impl HostAuthorizationVerifier {
             || crate::session_claims::parse_principal(&evidence.sub).is_none()
             || opensesame_domain::OrganizationId::parse(&evidence.organization_id).is_err()
             || evidence.membership_incarnation.is_some() != evidence.authority_revision.is_some()
-            || evidence.membership_incarnation.as_ref().is_some_and(|value| !valid_uuid(value))
-            || evidence.authority_revision.as_ref().is_some_and(|value| !valid_uuid(value))
+            || evidence
+                .membership_incarnation
+                .as_ref()
+                .is_some_and(|value| !valid_uuid(value))
+            || evidence
+                .authority_revision
+                .as_ref()
+                .is_some_and(|value| !valid_uuid(value))
         {
             return Err(INVALID);
         }

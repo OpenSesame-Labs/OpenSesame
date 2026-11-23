@@ -30,7 +30,7 @@ fn actual_missing_roots_are_created_under_nested_leases_and_existing_bytes_are_p
     let credential = state.credential_writer().unwrap();
     assert!(credential.capture_existing_writer("first").is_err());
     let before = credential.capture_device_inventory().unwrap();
-    assert!(before.tombs().unwrap().is_empty());
+    assert_eq!(before.tombs().unwrap(), [] as [String; 0]);
     let writer = credential.bootstrap_writer("first").unwrap();
     assert!(before.validate().is_err());
     // This genuine retained catalogue keeps its credential Arc/OS lease until explicitly drained.
