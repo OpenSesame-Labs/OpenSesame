@@ -15,7 +15,9 @@
 #     (`npm run patches:verify`; each must equal upstream plus its patch)
 #   - gitleaks over full history (same engine as `pnpm audit:gitleaks` and
 #     the pre-commit hook; .gitleaks.toml carries the allowlists)
-#   - OSV-Scanner over every layer of each published container image (the
+#   - OSV-Scanner over every layer of each container image built from the
+#     current source, exactly as the image proof workflow builds it, and of
+#     each historical published image while its tag still exists (the
 #     operating-system packages and bundled dependencies the lockfile scan
 #     cannot see; findings go to the code-scanning dashboard)
 #   - Betterleaks over the working tree and full history (`npm run
@@ -256,14 +258,14 @@ jobs:
         run: |
           printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$ACTOR" --password-stdin
           trap 'docker logout ghcr.io' EXIT
-          # `latest` exists only once a release tag has been published. Its
-          # absence, which the registry reports as an unknown manifest, is
-          # stated, not failed; any other error fails. A missing `next` fails
-          # because it is an expected historical tag.
+          # Publication is disabled, so `next` and `latest` are historical and
+          # are removed, not updated (docs/operators/ghcr-images.md). A tag the
+          # registry reports as an unknown manifest no longer exists: there is
+          # nothing to scan, and an empty report closes its earlier findings
+          # below. That applies to either tag. Any other error fails.
           if ! listing="$(docker manifest inspect "$IMAGE:$TAG" 2>&1)"; then
-            if [ "$TAG" = latest ] && grep -Eqi 'manifest unknown|no such manifest' <<<"$listing"; then
+            if grep -Eqi 'manifest unknown|no such manifest' <<<"$listing"; then
               echo "published=false" >> "$GITHUB_OUTPUT"
-              printf 'No release has published `%s` yet: nothing to scan.\n' "$IMAGE:$TAG" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
             printf '%s\n' "$listing" >&2
@@ -295,15 +297,289 @@ jobs:
         # hidden: a base image always carries some, and a permanently red job
         # is one nobody reads. A scanner that did not run fails the next step.
         continue-on-error: true
+      # The artifact is gone, so its findings are gone with it. An empty
+      # OSV-Scanner report in the same category closes them as fixed.
+      - name: Report a deleted tag as carrying no findings
+        if: steps.pull.outputs.published == 'false'
+        run: |
+          node scripts/security/empty-sarif.mjs image.sarif
+          printf '`%s:%s` no longer exists in the registry: an empty report closes its earlier findings.\n\n' "$IMAGE" "$TAG" >> "$GITHUB_STEP_SUMMARY"
       - name: Require a complete report and summarize it
-        if: steps.pull.outputs.published == 'true'
         run: node scripts/security/sarif-summary.mjs image.sarif >> "$GITHUB_STEP_SUMMARY"
       - name: Upload to the code-scanning dashboard
-        if: steps.pull.outputs.published == 'true'
         uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         with:
           sarif_file: image.sarif
           category: container-image-${{ matrix.target.image }}-${{ matrix.tag }}-${{ matrix.target.arch }}
+
+  # The historical tags above are artifacts the repository no longer updates.
+  # These jobs scan what the current source builds instead: every image the
+  # proof workflow (.github/workflows/cd-ghcr-publish.yml) builds, built the
+  # same way, with the same inputs. A test keeps the two in step. Nothing is
+  # pushed and nothing in an image is run.
+  #
+  # The two inputs the proof prepares outside Docker are prepared here by the
+  # same steps, except that the toolchain comes from mise-action like every
+  # other job in this workflow. The proof's caches are read, never written.
+  container-sources-web-pwa-tailscale-wasm:
+    name: Source image input (web-pwa Tailscale WASM)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # check out the source
+      actions: read # restore the proof's caches; none of them is saved
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          # The commit this run reports as scanned; otherwise the proof's checkout.
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github
+            apps
+            tools
+            scripts
+            /package.json
+            /package-lock.json
+            /mise.toml
+            /mise.lock
+            /patches/vendor
+      # The pinned toolchain, installed the way every job here installs it.
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          cache: true
+          install_args: node
+      - run: npm ci --ignore-scripts
+      - name: Prepare pinned Tailscale native distributions
+        run: node --input-type=module -e 'import { loadTailscaleAssets } from "./apps/pages/scripts/tailscale-wasm-assets.mjs"; await loadTailscaleAssets();'
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: web-pwa-tailscale-distributions
+          path: .cache/pwa-tailscale-native-http/distributions
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  container-sources-opensesame-amd64-rust:
+    name: Source image input (opensesame amd64 binary)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read # check out the source
+      actions: read # restore the proof's caches; none of them is saved
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          # The commit this run reports as scanned; otherwise the proof's checkout.
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github
+            apps
+            crates
+            packages
+            examples
+            patches
+            scripts
+            tools
+            ops
+            spec
+            marketplace
+            tests
+            /package.json
+            /package-lock.json
+            /mise.toml
+            /mise.lock
+            /pnpm-workspace.yaml
+            /rust-toolchain.toml
+            /Cargo.toml
+            /Cargo.lock
+            /turbo.json
+            /biome.json
+            /tsconfig.base.json
+            /.env.schema
+            /.dockerignore
+            /.cargo/config.toml
+      - name: Install Linux keychain build dependencies
+        run: bash scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"
+      - name: Install musl toolchain
+        run: bash scripts/ci/prepare-musl.sh "$RUNNER_TEMP/opensesame-musl"
+      # The pinned toolchain, installed the way every job here installs it.
+      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        with:
+          cache: true
+          install_args: rust
+      # The proof's shared target cache, restored only: save-if is false on
+      # every ref, so this run can never replace the blob the proof keeps.
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
+        id: rust-cache-ghcr
+        with:
+          prefix-key: v0-rust
+          shared-key: ghcr-opensesame-amd64-musl
+          cache-all-crates: true
+          cache-on-failure: true
+          save-if: false
+          workspaces: . -> ../../../.cache/packages/cargo-target
+      - name: Log Rust cache hit
+        env:
+          CACHE_NAME: rust-ghcr
+          CACHE_HIT: ${{ steps.rust-cache-ghcr.outputs.cache-hit }}
+          CACHE_MATCHED_KEY: ${{ steps.rust-cache-ghcr.outputs.cache-primary-key }}
+          CACHE_PRIMARY_KEY: v0-rust-ghcr-opensesame-amd64-musl
+          CACHE_PRIMARY_IS_PREFIX: "true"
+          MAIN_SEED_PREFIX: v0-rust-ghcr-opensesame-amd64-musl-
+        run: |
+          export CACHE_PROBE_DIR="${HOME}/.cargo/registry/cache"
+          node scripts/lib/ci-cache-seed.mjs
+      - name: Build opensesame release binary
+        env:
+          CARGO_INCREMENTAL: "0"
+          CARGO_PROFILE_RELEASE_CODEGEN_UNITS: "16"
+          CARGO_PROFILE_RELEASE_DEBUG: "0"
+          CARGO_PROFILE_RELEASE_STRIP: symbols
+        run: |
+          source "$RUNNER_TEMP/opensesame-dbus/env.sh"
+          source "$RUNNER_TEMP/opensesame-musl/env.sh"
+          rustup target add x86_64-unknown-linux-musl
+          cargo build --release --locked -p opensesame-cli --bin opensesame --target x86_64-unknown-linux-musl
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: opensesame-amd64-binary
+          path: ${{ env.CARGO_TARGET_DIR }}/x86_64-unknown-linux-musl/release/opensesame
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+
+  container-sources:
+    name: Source image (${{ matrix.image }}, ${{ matrix.arch }})
+    needs: [container-sources-web-pwa-tailscale-wasm, container-sources-opensesame-amd64-rust]
+    # A failed input fails only the row that needs it (its download step);
+    # every other image is still built and scanned.
+    if: ${{ !cancelled() }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    permissions:
+      contents: read # check out the source
+      actions: read # read the proof's layer cache; the build writes none
+      security-events: write # upload the scan to code scanning
+    strategy:
+      fail-fast: false
+      matrix:
+        # One row per proof build: its id (the layer cache scope), Dockerfile,
+        # target and runner. A test keeps this list equal to the proof's.
+        include:
+          - { id: opensesame-amd64, image: opensesame, file: ops/compose/Dockerfile, target: runtime-from-prebuilt, arch: amd64, runner: ubuntu-latest, extra-paths: "" }
+          - { id: cli-amd64, image: cli, file: ops/containers/cli/Dockerfile, target: "", arch: amd64, runner: ubuntu-latest, extra-paths: "" }
+          - { id: cli-arm64, image: cli, file: ops/containers/cli/Dockerfile, target: "", arch: arm64, runner: ubuntu-24.04-arm, extra-paths: "" }
+          - { id: web-pwa-amd64, image: web-pwa, file: ops/containers/web-pwa/Dockerfile, target: runtime, arch: amd64, runner: ubuntu-latest, extra-paths: /.gitignore }
+          - { id: control-plane-amd64, image: control-plane, file: ops/containers/control-plane/Dockerfile, target: "", arch: amd64, runner: ubuntu-latest, extra-paths: "" }
+          - { id: control-plane-arm64, image: control-plane, file: ops/containers/control-plane/Dockerfile, target: "", arch: arm64, runner: ubuntu-24.04-arm, extra-paths: "" }
+    steps:
+      # The proof's checkout. web-pwa's proof also checks out /.gitignore; the
+      # last line adds it for that row alone (an empty line is dropped).
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          # The commit this run reports as scanned; otherwise the proof's checkout.
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            .github
+            apps
+            crates
+            packages
+            examples
+            patches
+            scripts
+            tools
+            ops
+            spec
+            marketplace
+            tests
+            /package.json
+            /package-lock.json
+            /mise.toml
+            /mise.lock
+            /pnpm-workspace.yaml
+            /rust-toolchain.toml
+            /Cargo.toml
+            /Cargo.lock
+            /turbo.json
+            /biome.json
+            /tsconfig.base.json
+            /.env.schema
+            /.dockerignore
+            ${{ matrix.extra-paths }}
+      - name: Restore prepared Tailscale WASM distributions
+        if: matrix.image == 'web-pwa'
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: web-pwa-tailscale-distributions
+          path: .cache/pwa-tailscale-native-http/distributions
+      - name: Download prebuilt opensesame binary
+        if: matrix.image == 'opensesame'
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        with:
+          name: opensesame-amd64-binary
+          path: ops/compose/prebuilt
+      - name: Check prebuilt opensesame binary
+        if: matrix.image == 'opensesame'
+        run: |
+          set -euo pipefail
+          test -f ops/compose/prebuilt/opensesame
+          chmod 0755 ops/compose/prebuilt/opensesame
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # The proof's build with its own cache scope, read only (no cache-to).
+      - name: Build
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: ${{ matrix.file }}
+          target: ${{ matrix.target }}
+          push: false
+          load: true
+          platforms: linux/${{ matrix.arch }}
+          tags: ${{ matrix.image }}:local
+          build-args: VERSION=0.0.0-local
+          provenance: false
+          sbom: false
+          cache-from: type=gha,scope=${{ matrix.id }}
+      - name: Save the image for the scanner
+        env:
+          IMAGE: ${{ matrix.image }}:local
+          DOCKERFILE: ${{ matrix.file }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          docker save --output image.tar "$IMAGE"
+          printf 'Scanned image: `%s` built from `%s` at `%s` (linux/%s)\n\n' "$IMAGE" "$DOCKERFILE" "$GITHUB_SHA" "$ARCH" >> "$GITHUB_STEP_SUMMARY"
+      - name: Scan every layer against the OSV database
+        uses: google/osv-scanner-action/osv-scanner-action@32d3cd482bdadfb38b186c0ad1b031902d55d932 # v2.7.1
+        with:
+          scan-args: |-
+            scan
+            image
+            --archive
+            --format=sarif
+            --output-file=image.sarif
+            image.tar
+        # As above: findings are reported, a scanner that did not run fails.
+        continue-on-error: true
+      - name: Require a complete report and summarize it
+        run: node scripts/security/sarif-summary.mjs image.sarif >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload to the code-scanning dashboard
+        uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
+        with:
+          sarif_file: image.sarif
+          category: container-source-${{ matrix.image }}-${{ matrix.arch }}
 
   devcontainer-image:
     name: Dev container image

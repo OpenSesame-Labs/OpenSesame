@@ -65,30 +65,56 @@ unchanged.
 
 The weekly security workflow
 ([`security.yml`](../../.github/workflows/security.yml), also runnable by hand)
-pulls each published image, saves it, and scans every layer with
-OSV-Scanner. This covers what the lockfile scans cannot see: the base image's
-operating-system packages and anything a build copies in. The image is never
-run.
+scans container images with OSV-Scanner, layer by layer. This covers what the
+lockfile scans cannot see: the base image's operating-system packages and
+anything a build copies in. No image is ever run. There are two kinds of scan,
+each in its own code-scanning categories.
 
-- Findings go to the code-scanning dashboard under the category
-  `container-image-<image>-<tag>-<platform>`, one category per scanned image,
-  so an advisory that is fixed disappears from that image's list.
-- The job summary names the exact digest that was scanned and counts findings
-  per advisory.
-- Findings do not turn the job red. A base image always carries some, and a
-  permanently red job is one nobody reads. The job fails when an image cannot
-  be pulled or when the scanner did not produce a complete report, so "did not
-  run" never reads as "nothing found".
+| Category | What is scanned | What a finding means |
+|---|---|---|
+| `container-source-<image>-<platform>` | The image the current source builds, from each Dockerfile on the scanned commit | A finding to fix in the repository: a base image digest, a package, or what a build copies in |
+| `container-image-<image>-<tag>-<platform>` | The historical `:next` and `:latest` registry tags, while they exist | A finding in an artifact people can still pull, which the repository cannot change |
 
-It scans each platform covered by the proof workflow (`linux/amd64` for all
-four images and `linux/arm64` for `cli` and `control-plane`) under the
-historical `:next` and `:latest` tags. Each image is pulled by the digest of its
-own platform entry. The absence of `:latest` is reported in the summary; a
-missing `:next` fails its row. Older version tags are not rescanned by this job.
+Both cover each image and platform the proof workflow builds (`linux/amd64`
+for all four images and `linux/arm64` for `cli` and `control-plane`), and a
+test keeps both lists equal to the proof's.
 
-Changes to a base image digest or dependency do not update those historical
-tags while publication is disabled. Delivering a fix to registry consumers
-requires the qualified publication path described below.
+- **Source images.** Each image is built exactly as
+  [`cd-ghcr-publish.yml`](../../.github/workflows/cd-ghcr-publish.yml) builds
+  it: the same checkout, Dockerfile, target, build-arg and runner, the same
+  prepared inputs (the musl `opensesame` binary and the pinned Tailscale
+  WASM distributions), with `push: false`. It reads the proof's layer and Rust
+  caches and never writes them. The summary names the Dockerfile and commit.
+- **Historical tags.** Each image is pulled by the digest of its own platform
+  entry. Older version tags are not rescanned. When the registry reports that
+  `:next` or `:latest` no longer exists (an unknown manifest), the row uploads
+  an empty OSV-Scanner report to that tag's category and says so in the
+  summary, so code scanning closes the deleted artifact's alerts as fixed. Any
+  other registry error fails the row.
+- The job summary counts findings per advisory.
+- Findings do not turn a job red. A base image always carries some, and a
+  permanently red job is one nobody reads. A job fails when an image cannot be
+  built or pulled, or when the scanner did not produce a complete report, so
+  "did not run" never reads as "nothing found".
+
+### Clearing the historical-tag alerts
+
+Changes to a base image digest or dependency do not update the historical tags
+while publication is disabled, so their alerts cannot be fixed from the source.
+Fix what the `container-source-*` categories report. Then remove the stale
+artifacts, by one of:
+
+1. Delete the `next` and `latest` package versions of each image in GHCR
+   (the organization's **Packages** page, then the package's versions).
+   A version carries all of its tags, so deleting it removes each of them.
+   Delete the tagged versions, not the whole package: a package that no longer
+   exists is a registry error, which fails the row instead of closing it.
+2. Ship qualified OCI promotion ([restoring qualified
+   publication](#restoring-qualified-publication)), which republishes those
+   tags from a qualified candidate.
+
+The next scheduled or hand-started run of the security workflow then closes
+the deleted tags' categories, or rescans the republished images.
 
 The dev container image is not published, so the same workflow builds it from
 `.devcontainer/` and scans it the same way, under the category
