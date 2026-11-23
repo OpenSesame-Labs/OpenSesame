@@ -4,7 +4,15 @@ import {
   bytesToB64,
   vaultSealBinding,
 } from "@opensesame/vault-core";
+import { isIsolatedGuestVaultId } from "./guest-vault-id.js";
 import { deleteSealedFile } from "./vfs-delete.js";
+import {
+  GUEST_DELETE_JOURNAL,
+  guestDeletionNeedsAttention,
+  recoverGuestDeletionInTurn,
+  recoverGuestDeletionWithKey,
+  settleGuestDeletionWithKey,
+} from "./vfs-guest-deletion.js";
 import {
   type SealedFileEnvelope,
   assertFilePath,
@@ -13,9 +21,15 @@ import {
   parseSealedBlob,
 } from "./vfs-metadata-data.js";
 import { guardedVfsWrite, originalVfsCheck } from "./vfs-operation-check.js";
+import {
+  HEADER_PATH,
+  MIGRATION_MARKER_PATH,
+  SEAL_BOUND_MARKER_PATH,
+} from "./vfs-plaintext.js";
 import { registerTomb } from "./vfs-registry.js";
 import { INDEX_PATH, readIndex, reviseIndex } from "./vfs-sealed-index.js";
 import { vfsSeams } from "./vfs-seams.js";
+import { tombFileKey } from "./vfs-storage-key.js";
 import { type TombWriteTurn, enqueueTombWrite } from "./vfs-write-order.js";
 
 export { vfsFlush } from "./vfs-write-order.js";
@@ -33,6 +47,7 @@ export const PERSONAL_TOMB = "personal"; // same as the personal project id
 /** Isolated guest session tomb — never a project in the vault list. */
 export const GUEST_TOMB = "guest";
 
+// Guest reservations are imported from ./vfs-registry.js directly.
 export {
   TOMBS_REGISTRY_KEY,
   listTombs,
@@ -40,15 +55,18 @@ export {
   unregisterTomb,
 } from "./vfs-registry.js";
 
-export const HEADER_PATH = "header";
 export const BODY_PATH = "body";
+export {
+  HEADER_PATH,
+  MIGRATION_MARKER_PATH,
+  SEAL_BOUND_MARKER_PATH,
+  deletePlaintextFile,
+  readPlaintextFile,
+  writePlaintextFile,
+} from "./vfs-plaintext.js";
 export { INDEX_PATH } from "./vfs-sealed-index.js";
-/** Idempotent legacy-migration marker (plaintext; names, not contents). */
-export const MIGRATION_MARKER_PATH = "migrated.v1";
-/** Written after unlock rewrites every seal with a path binding. */
-export const SEAL_BOUND_MARKER_PATH = "seal-bound.v1";
-
 export { type VfsSeams, vfsSeams } from "./vfs-seams.js";
+export { tombFileKey } from "./vfs-storage-key.js";
 
 /* ------------------------------------------------------------- tomb keys */
 
@@ -125,17 +143,8 @@ function requireTombKey(tomb: string): CryptoKey {
   return key;
 }
 
-/* ------------------------------------------------------------------ paths */
-
-/** kv transport key for a logical VFS path. */
-export function tombFileKey(tomb: string, path: string): string {
-  assertTombName(tomb);
-  assertFilePath(path);
-  return `tomb/${tomb}/${path}`;
-}
-
 function assertSealedPath(path: string): void {
-  if (path === INDEX_PATH) {
+  if (path === INDEX_PATH || path === GUEST_DELETE_JOURNAL) {
     throw new VfsError(
       "invalid-path",
       "The tomb index is maintained by the VFS itself.",
@@ -153,42 +162,6 @@ function assertSealedPath(path: string): void {
   }
 }
 
-/* ------------------------------------------------------------------ index */
-
-/* ------------------------------------------------------------------ blobs */
-
-/* -------------------------------------------------------------- plaintext */
-
-/**
- * Read a plaintext tomb file (header params, migration marker). Sync: the
- * boot path hydrates these keys before first paint, exactly like the legacy
- * header key. Plaintext here is the documented ADR 0063 boundary — public
- * parameters, never vault content.
- */
-export function readPlaintextFile(tomb: string, path: string): string | null {
-  return vfsSeams.readRaw(tombFileKey(tomb, path));
-}
-
-export async function writePlaintextFile(
-  tomb: string,
-  path: string,
-  text: string,
-  check?: () => void,
-): Promise<void> {
-  const active = originalVfsCheck(check);
-  await vfsSeams.writeRaw(tombFileKey(tomb, path), text);
-  active();
-  await registerTomb(tomb, active);
-  active();
-}
-
-export async function deletePlaintextFile(
-  tomb: string,
-  path: string,
-): Promise<void> {
-  await vfsSeams.deleteRaw(tombFileKey(tomb, path));
-}
-
 /* ------------------------------------------------------------ sealed files */
 
 /**
@@ -200,6 +173,7 @@ export async function writeFile(
   path: string,
   bytes: Uint8Array,
   check?: () => void,
+  turn?: TombWriteTurn,
 ): Promise<void> {
   assertSealedPath(path);
   const operation = originalVfsCheck(check);
@@ -207,8 +181,11 @@ export async function writeFile(
   // rotation within the same unlock, never a lock (even one reusing the key).
   const originalKey = check ? requireTombKey(tomb) : null;
   const owner = check ? requireTombCheck(tomb) : requireTombSession(tomb);
-  const guarded = guardedVfsWrite();
-  if (check && !guarded)
+  // A guest's writes always go through the guarded transport, so an
+  // in-memory guest never reaches durable storage by an unguarded path.
+  const guest = isIsolatedGuestVaultId(tomb);
+  const guarded = guardedVfsWrite(tomb);
+  if ((check || guest) && !guarded)
     throw new VfsError(
       "locked",
       "This storage cannot commit an original-owner write.",
@@ -217,28 +194,34 @@ export async function writeFile(
     operation();
     owner();
   };
-  await enqueueTombWrite(tomb, async () => {
-    active();
-    const key = originalKey ?? requireTombKey(tomb);
-    const commit = (storageKey: string, value: string) =>
-      check && guarded
-        ? guarded(storageKey, value, active, key)
-        : vfsSeams.writeRaw(storageKey, value, key);
-    const envelope: SealedFileEnvelope = { v: 1, dataB64: bytesToB64(bytes) };
-    const blob = await vfsSeams.seal(
-      key,
-      envelope,
-      vaultSealBinding(tomb, path),
-    );
-    active();
-    assertSealed(blob);
-    await commit(tombFileKey(tomb, path), JSON.stringify(blob));
-    active();
-    await reviseIndex(tomb, key, path, true, active, commit);
-    active();
-    await registerTomb(tomb, active, commit);
-    active();
-  });
+  await enqueueTombWrite(
+    tomb,
+    async () => {
+      active();
+      const key = originalKey ?? requireTombKey(tomb);
+      if (guest && guestDeletionNeedsAttention(tomb))
+        await recoverGuestDeletionInTurn(tomb, key, active);
+      const commit = (storageKey: string, value: string) =>
+        (check || guest) && guarded
+          ? guarded(storageKey, value, active, key)
+          : vfsSeams.writeRaw(storageKey, value, key);
+      const envelope: SealedFileEnvelope = { v: 1, dataB64: bytesToB64(bytes) };
+      const blob = await vfsSeams.seal(
+        key,
+        envelope,
+        vaultSealBinding(tomb, path),
+      );
+      active();
+      assertSealed(blob);
+      await commit(tombFileKey(tomb, path), JSON.stringify(blob));
+      active();
+      await reviseIndex(tomb, key, path, true, active, commit);
+      active();
+      await registerTomb(tomb, active, commit);
+      active();
+    },
+    turn,
+  );
 }
 
 /**
@@ -251,6 +234,7 @@ export async function readFile(
 ): Promise<Uint8Array> {
   assertSealedPath(path);
   const key = requireTombKey(tomb);
+  await settleGuestDeletion(tomb, key);
   const raw = vfsSeams.readRaw(tombFileKey(tomb, path));
   if (raw === null) {
     throw new VfsError("not-found", `tomb "${tomb}" has no file at "${path}".`);
@@ -272,6 +256,7 @@ export async function listDir(tomb: string, prefix: string): Promise<string[]> {
   const trimmed = prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;
   if (trimmed) assertFilePath(trimmed);
   const key = requireTombKey(tomb);
+  await settleGuestDeletion(tomb, key);
   const index = await readIndex(tomb, key);
   return Object.keys(index.files)
     .filter(
@@ -299,11 +284,38 @@ export async function deleteFile(tomb: string, path: string): Promise<void> {
   );
 }
 
+/** Drain an interrupted guest deletion before reading this guest's files. */
+function settleGuestDeletion(tomb: string, key: CryptoKey): Promise<void> {
+  const session = requireTombSession(tomb);
+  return settleGuestDeletionWithKey(tomb, key, () => {
+    session();
+    return requireTombKey(tomb);
+  });
+}
+
+/** Recover durable deletion state while the unlock still owns its guest lease. */
+export function recoverGuestDeletion(
+  tomb: string,
+  check: () => void,
+): Promise<void> {
+  const owner = requireTombCheck(tomb);
+  return recoverGuestDeletionWithKey(
+    tomb,
+    () => {
+      check();
+      owner();
+    },
+    () => requireTombKey(tomb),
+  );
+}
+
 /* ------------------------------------------------- verbatim sealed (body) */
 
 /** Read a caller-sealed blob verbatim. The store seals the body; opening it still takes the vault key. */
 export function readSealedFile(tomb: string, path: string): SealedBlob | null {
   assertSealedPath(path);
+  if (isIsolatedGuestVaultId(tomb) && guestDeletionNeedsAttention(tomb))
+    throw new VfsError("locked", "A guest deletion is still being recovered.");
   const raw = vfsSeams.readRaw(tombFileKey(tomb, path));
   if (raw === null) return null;
   return parseSealedBlob(raw, tomb, path);
@@ -325,10 +337,15 @@ export async function writeSealedFile(
   const key = requireTombKey(tomb);
   const owner = requireTombCheck(tomb);
   // A file-backed body is many files; only its owned projection may write it.
+  // A guest's body is one guarded blob, in this document until promotion.
+  const guest = isIsolatedGuestVaultId(tomb);
   const fileBackedBody =
-    vfsSeams.authenticationStorage === "file-backed" && path === BODY_PATH;
+    vfsSeams.authenticationStorage === "file-backed" &&
+    path === BODY_PATH &&
+    !guest;
   const ownedBody = fileBackedBody ? vfsSeams.writeOwnedBody : undefined;
-  if (fileBackedBody && !ownedBody)
+  const guarded = guest ? guardedVfsWrite(tomb) : undefined;
+  if ((fileBackedBody && !ownedBody) || (guest && !guarded))
     throw new VfsError(
       "locked",
       "This storage cannot commit an original-owner write.",
@@ -341,15 +358,21 @@ export async function writeSealedFile(
     tomb,
     async () => {
       active();
+      if (guest && guestDeletionNeedsAttention(tomb))
+        await recoverGuestDeletionInTurn(tomb, key, active);
       assertSealed(blob);
       const storageKey = tombFileKey(tomb, path);
+      const commit = guarded
+        ? (name: string, value: string) => guarded(name, value, active, key)
+        : undefined;
       if (ownedBody)
         await ownedBody(storageKey, JSON.stringify(blob), active, key);
+      else if (commit) await commit(storageKey, JSON.stringify(blob));
       else await vfsSeams.writeRaw(storageKey, JSON.stringify(blob), key);
       active();
-      await reviseIndex(tomb, key, path, true, active);
+      await reviseIndex(tomb, key, path, true, active, commit);
       active();
-      await registerTomb(tomb, active);
+      await registerTomb(tomb, active, commit);
       active();
     },
     turn,
@@ -364,6 +387,8 @@ export async function ensureIndexed(tomb: string, path: string): Promise<void> {
   assertSealedPath(path);
   await enqueueTombWrite(tomb, async () => {
     const key = requireTombKey(tomb);
+    if (isIsolatedGuestVaultId(tomb) && guestDeletionNeedsAttention(tomb))
+      await recoverGuestDeletionInTurn(tomb, key, () => requireTombKey(tomb));
     if (vfsSeams.readRaw(tombFileKey(tomb, path)) === null) return;
     const index = await readIndex(tomb, key);
     if (index.files[path] !== undefined) return;

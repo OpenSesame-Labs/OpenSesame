@@ -22,13 +22,13 @@ import {
 } from "../vfs.js";
 import { sealAuthenticatedManifest } from "./protection/manifest-auth.js";
 import { remoteCodeSeams } from "./remote-code.js";
+import type { VaultStore } from "./store.js";
 import {
   PASSWORD,
   installStoreOperationsFixture,
   newStore,
 } from "./store-ops.fixture.js";
 import { enrollTotp } from "./store-totp.fixture.js";
-import type { VaultStore } from "./store.js";
 import * as sharedLocks from "./vault-shared-locks.js";
 
 export const MARKER_PATH = "settings/unlock-lifetime";
@@ -124,6 +124,29 @@ export function holdLease() {
   vi.spyOn(sharedLocks, "acquireOpenLease").mockImplementationOnce(
     async (tomb) => {
       const release = await acquire(tomb);
+      started.release();
+      await gate.promise;
+      return async () => {
+        await release();
+        released.release();
+      };
+    },
+  );
+  return {
+    started: started.promise,
+    release: gate.release,
+    released: released.promise,
+  };
+}
+
+export function holdGuestLease() {
+  const started = deferred();
+  const gate = deferred();
+  const released = deferred();
+  const acquire = sharedLocks.acquireExclusiveGuestLease;
+  vi.spyOn(sharedLocks, "acquireExclusiveGuestLease").mockImplementationOnce(
+    async (tomb, requireShared) => {
+      const release = await acquire(tomb, requireShared);
       started.release();
       await gate.promise;
       return async () => {

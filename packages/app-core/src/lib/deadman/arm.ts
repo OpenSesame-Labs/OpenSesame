@@ -8,6 +8,7 @@
  */
 
 import type { VaultItem } from "@opensesame/vault-core";
+import { isGuestSessionTomb } from "../duress/store/decoy-scratch.js";
 import { canonicalJson, generateSigningPair, signText } from "./crypto.js";
 import { withDeadmanTurn } from "./fence.js";
 import { DEADMAN_MAX_ITEMS, DEADMAN_MAX_TIMEOUT_DAYS } from "./keys.js";
@@ -142,7 +143,7 @@ async function disarmFor(
 export async function prepareDeadmanSwitch(
   input: PrepareDeadmanInput,
 ): Promise<DeadmanPlan> {
-  if (input.tomb === "guest")
+  if (isGuestSessionTomb(input.tomb))
     throw new Error("A deadman switch is not available in a guest session.");
   if (readDeadmanState(input.tomb))
     throw new Error("Turn off the current deadman switch before replacing it.");

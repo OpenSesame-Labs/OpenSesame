@@ -59,6 +59,9 @@ function harness() {
     setBody: () => {
       throw new Error("Unexpected body publish");
     },
+    setGuestPerson: () => {
+      throw new Error("Unexpected guest person");
+    },
     bodyPort: () => {
       throw new Error("Unexpected body access");
     },

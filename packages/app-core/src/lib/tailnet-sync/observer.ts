@@ -13,9 +13,10 @@ import { isString } from "@opensesame/os-domain";
 import type { ObjectStore } from "@opensesame/vault-core";
 import { maybeEnvironment, maybePage } from "../../ports.js";
 import { addFileStoreSource, localFileStore } from "../file-parts-store.js";
+import { isGuestVaultId } from "../guest-vault-id.js";
 import { targetAddressSpaceFor } from "../local-network-fetch.js";
 import { refreshProjectsView } from "../projects.js";
-import { GUEST_TOMB, vaultStore } from "../vault/store.js";
+import { vaultStore } from "../vault/store.js";
 import { switchVault } from "../vaults.js";
 import { adoptSnapshot, isProjectTomb } from "./adopt.js";
 import { reachDrive } from "./client.js";
@@ -104,7 +105,9 @@ export function subscribeTailnetSync(listener: () => void): () => void {
 
 function syncable(): boolean {
   const snap = vaultStore.getSnapshot();
-  return snap.status === "unlocked" && !snap.guest && snap.tomb !== GUEST_TOMB;
+  return (
+    snap.status === "unlocked" && !snap.guest && !isGuestVaultId(snap.tomb)
+  );
 }
 
 /**

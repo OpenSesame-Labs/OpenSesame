@@ -1,9 +1,9 @@
+import { isGuestVaultId } from "../../guest-vault-id.js";
 /**
  * Guard shared-root project fork/switch when crossing duress compartment boundaries (STORE-A/F).
  * Non-duress / unenrolled devices: no-op so INV-01 preserves existing vault behavior.
  */
 
-import { GUEST_TOMB } from "../../vfs.js";
 import { isString } from "../json-boundary.js";
 import { duressSessionFence } from "../session/fence.js";
 import {
@@ -37,7 +37,7 @@ export function assertCompartmentSwitchAllowed(
       }
     : targetOrRequest;
 
-  if (request.ephemeral || request.targetTomb === GUEST_TOMB) {
+  if (request.ephemeral || isGuestVaultId(request.targetTomb)) {
     throw new Error("A guest session has no key to share.");
   }
   if (request.sourceTomb === request.targetTomb && request.sourceTomb) {

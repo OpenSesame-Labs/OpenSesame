@@ -10,6 +10,7 @@
  */
 
 import type { Account } from "@opensesame/app-core/lib/account.js";
+import { isGuestVaultId } from "@opensesame/app-core/lib/guest-vault-id.js";
 import { guestVaultLabel } from "@opensesame/app-core/lib/local-guest.js";
 import {
   signOut,
@@ -18,6 +19,8 @@ import {
 import type { DeviceVault } from "@opensesame/app-core/lib/vaults.js";
 import { GUEST_TOMB } from "@opensesame/app-core/lib/vfs.js";
 import { useState } from "react";
+import { useAccount } from "../../bindings/account.js";
+import { useDeviceVaults } from "../../bindings/vaults.js";
 import {
   IconCheck,
   IconChevronRight,
@@ -25,9 +28,6 @@ import {
 } from "../../components/Icons.js";
 import { useGuideTarget } from "../../tutorial/registry/react.jsx";
 import { brandFor } from "./ProviderBrand.js";
-
-import { useAccount } from "../../bindings/account.js";
-import { useDeviceVaults } from "../../bindings/vaults.js";
 /** Label for the unlock trigger: follows the vault being unlocked, not a stale claim. */
 export function unlockAccountLabel(
   currentVaultId: string,
@@ -37,6 +37,7 @@ export function unlockAccountLabel(
   if (currentVaultId === GUEST_TOMB) {
     return guestVaultLabel();
   }
+  if (isGuestVaultId(currentVaultId)) return vaultLabel ?? "guest";
   // Federated / brokered identity for this durable vault only — never a
   // provisional guest principal left over from another road.
   if (account && !account.guest) return account.name;
@@ -72,7 +73,7 @@ export function UnlockUserMenu({
   const ref = useGuideTarget<HTMLButtonElement>("unlock.account");
   const label = unlockAccountLabel(currentVaultId, account, current?.label);
   const showAccount =
-    currentVaultId !== GUEST_TOMB && account !== null && !account.guest;
+    !isGuestVaultId(currentVaultId) && account !== null && !account.guest;
   const brand =
     showAccount && account.providerId ? brandFor(account.providerId) : null;
 

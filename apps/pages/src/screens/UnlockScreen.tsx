@@ -6,6 +6,7 @@ import {
   isGuestSessionTomb,
   presentedTomb,
 } from "@opensesame/app-core/lib/duress/store/decoy-scratch.js";
+import { isGuestVaultId } from "@opensesame/app-core/lib/guest-vault-id.js";
 import { currentSession } from "@opensesame/app-core/lib/identity.js";
 import { dismissNotice } from "@opensesame/app-core/lib/notices.js";
 import { PERSONAL_PROJECT_ID } from "@opensesame/app-core/lib/projects.js";
@@ -14,7 +15,6 @@ import { noWayIn } from "@opensesame/app-core/lib/settings.js";
 import { loadSetup } from "@opensesame/app-core/lib/setup.js";
 import type { UnlockTabId } from "@opensesame/app-core/lib/vault/protection/unlock-protector-methods.js";
 import type { SentCode } from "@opensesame/app-core/lib/vault/remote-code.js";
-import { GUEST_TOMB } from "@opensesame/app-core/lib/vault/store.js";
 import {
   MIN_PIN_LENGTH,
   type SecondStepId,
@@ -192,7 +192,8 @@ function UnlockForm({
   // The road on screen: a scratch guest or decoy reads as the guest road.
   const activeTomb = presentedTomb(tomb ?? PERSONAL_PROJECT_ID);
   // A guest may enroll a key for its tomb (ADR 0091).
-  const guestUnlock = activeTomb === GUEST_TOMB && status !== "unlocked";
+  // Every guest vault, the legacy one or an isolated `guest_<uuid>`.
+  const guestUnlock = isGuestVaultId(activeTomb) && status !== "unlocked";
   const firstRun = status === "empty" && !guestUnlock;
   const vaultCrumb =
     unlockScreenDependencies.deviceHasSeveralVaults() ||

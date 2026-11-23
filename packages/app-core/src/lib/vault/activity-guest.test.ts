@@ -9,7 +9,6 @@ import {
   listActivityEvents,
   recordActivityEvent,
 } from "../activity-log.js";
-import { GUEST_TOMB } from "../vfs.js";
 import { vaultStore } from "./store.js";
 
 afterEach(() => {
@@ -19,14 +18,17 @@ afterEach(() => {
 describe("activity for a guest", () => {
   it("is recorded in the guest tomb while the guest vault is open", async () => {
     await vaultStore.createGuest();
-    expect(activitySeams.activeTomb()).toBe(GUEST_TOMB);
+    // Each guest runs in its own isolated tomb.
+    const tomb = vaultStore.activeTomb();
+    expect(tomb).toMatch(/^guest_[0-9a-f-]{36}$/u);
+    expect(activitySeams.activeTomb()).toBe(tomb);
 
-    await recordActivityEvent(GUEST_TOMB, {
+    await recordActivityEvent(tomb, {
       category: "settings",
       type: "settings.updated",
       summary: "Settings updated",
     });
-    const events = await listActivityEvents(GUEST_TOMB);
+    const events = await listActivityEvents(tomb);
     expect(events.map((event) => event.type)).toContain("settings.updated");
   });
 

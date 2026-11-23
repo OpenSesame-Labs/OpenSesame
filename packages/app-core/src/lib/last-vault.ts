@@ -7,8 +7,8 @@
 
 import { isString } from "@opensesame/os-domain";
 import { guestsAllowed } from "./guest-access.js";
+import { isGuestVaultId } from "./guest-vault-id.js";
 import { kvGet, kvSet } from "./kv.js";
-import { GUEST_TOMB } from "./vfs.js";
 
 export const LAST_VAULT_KEY = "opensesame.last-vault.v1";
 
@@ -32,5 +32,10 @@ export function writeLastVaultId(id: string): void {
  * guests back on returns the device to where it was.
  */
 export function lastVaultIsGuest(): boolean {
-  return readLastVaultId() === GUEST_TOMB && guestsAllowed();
+  return lastGuestVaultId() !== null;
+}
+
+export function lastGuestVaultId(): string | null {
+  const id = readLastVaultId();
+  return guestsAllowed() && isGuestVaultId(id) ? id : null;
 }

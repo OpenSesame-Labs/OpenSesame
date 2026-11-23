@@ -8,7 +8,12 @@ import {
 import { type SealedBlob, b64ToBytes } from "@opensesame/vault-core";
 import { VfsError } from "./vfs-error.js";
 
-export type TombsRegistry = { v: 1; tombs: string[] };
+export type TombsRegistry = {
+  v: 1;
+  tombs: string[];
+  /** Guest tombs whose promotion has not finished: tomb → owner's proof. */
+  guestReservations?: Record<string, string>;
+};
 export type TombIndex = { v: 1; files: Record<string, number> };
 export function parseRegistry(raw: string | null): string[] {
   if (!raw) return [];
@@ -20,9 +25,26 @@ export function parseRegistry(raw: string | null): string[] {
     return [];
   }
 }
+const RESERVATION_PROOF = /^[0-9a-f-]{36}$/u;
+
+function parseReservations(
+  value: BoundaryValue | undefined,
+  tombs: readonly string[],
+): Record<string, string> | null {
+  if (value === undefined) return {};
+  if (!isJsonObject(value)) return null;
+  const reservations: Record<string, string> = {};
+  for (const [tomb, proof] of Object.entries(value)) {
+    if (!tombs.includes(tomb) || !isString(proof)) return null;
+    if (!RESERVATION_PROOF.test(proof)) return null;
+    reservations[tomb] = proof;
+  }
+  return reservations;
+}
+
 /** Mutations must never replace an unreadable registry with an empty one. */
-export function parseRegistryForWrite(raw: string | null): string[] {
-  if (raw === null) return [];
+export function parseRegistryForWrite(raw: string | null): TombsRegistry {
+  if (raw === null) return { v: 1, tombs: [] };
   let parsed: BoundaryValue;
   try {
     parsed = JSON.parse(raw);
@@ -34,8 +56,14 @@ export function parseRegistryForWrite(raw: string | null): string[] {
     parsed.v === 1 &&
     Array.isArray(parsed.tombs) &&
     parsed.tombs.every(isString)
-  )
-    return parsed.tombs.filter(isString);
+  ) {
+    const tombs = parsed.tombs.filter(isString);
+    const guestReservations = parseReservations(
+      parsed.guestReservations,
+      tombs,
+    );
+    if (guestReservations) return { v: 1, tombs, guestReservations };
+  }
   throw new VfsError(
     "corrupt",
     "The vault registry on this device is unreadable, so it was left unchanged.",

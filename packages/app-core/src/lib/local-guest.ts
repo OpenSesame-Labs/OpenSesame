@@ -21,12 +21,16 @@ export const GUEST_PERSON_ID = "local_00000000-0000-4000-8000-000000000003";
 export const GUEST_PERSON_NAME = "guest@guest";
 
 const GUEST_SESSION_KEY = "opensesame.guest.session-person";
+const ISOLATED_SESSION_KEY = "opensesame.guest.isolated-person.v1";
 /** Survives full navigations (GitHub App return); hydrated on cold boot. */
 export const GUEST_ORDINAL_KEY = "opensesame.guest.ordinal.v1";
 /** Durable copy of the tab's guest principal (OPFS); sessionStorage is a cache. */
 export const GUEST_PERSON_KEY = "opensesame.guest.person.v1";
 
-export type GuestSessionPerson = { id: string; name: string };
+export type GuestSessionPerson = { id: string; name: string; localOnly?: true };
+let isolatedPerson: GuestSessionPerson | null = null;
+let isolatedActive = false;
+let isolatedOwner: symbol | null = null;
 
 const GUEST_NAME_LEGACY_RE = /^Guest ([1-9]\d*)$/;
 const GUEST_NAME_SLUG_RE = /^guest-[1-9]\d*$/;
@@ -53,7 +57,9 @@ function readStoredGuestPerson(raw: string): GuestSessionPerson | null {
   ) {
     return null;
   }
-  return { id, name: guestNameSlug(name) };
+  const person: GuestSessionPerson = { id, name: guestNameSlug(name) };
+  if (parsed.localOnly === true) person.localOnly = true;
+  return person;
 }
 
 /** Canonical on-screen guest label — slug form, same everywhere. */
@@ -86,6 +92,58 @@ function nextGuestOrdinal(): number {
   const next = n + 1;
   kvSet(GUEST_ORDINAL_KEY, String(next));
   return next;
+}
+
+/** Prepare a fresh actor without replacing another guest's stored identity. */
+export async function prepareIsolatedGuestPerson(): Promise<GuestSessionPerson> {
+  const locks = lockManager();
+  const mint = async () => {
+    try {
+      if (!locks) throw new Error("No shared ordinal lock.");
+      await kvRefresh(GUEST_ORDINAL_KEY, 64);
+      const current = Number.parseInt(kvGet(GUEST_ORDINAL_KEY) ?? "0", 10);
+      const next =
+        Number.isSafeInteger(current) && current >= 0 ? current + 1 : 1;
+      await kvSetDurable(GUEST_ORDINAL_KEY, String(next));
+      return { id: `local_${crypto.randomUUID()}`, name: `guest-${next}` };
+    } catch {
+      // The label is only display metadata. An unreadable disk must not block
+      // an otherwise isolated, memory-only guest.
+      const ordinal = (crypto.getRandomValues(new Uint32Array(1))[0] ?? 0) + 1;
+      return { id: `local_${crypto.randomUUID()}`, name: `guest-${ordinal}` };
+    }
+  };
+  return locks ? locks.request("opensesame-guest-ordinal", mint) : mint();
+}
+
+/** Activate only after the guest's vault has successfully acquired its lease. */
+export function activateIsolatedGuestPerson(
+  person: GuestSessionPerson | null,
+): symbol {
+  const owner = Symbol("guest-person");
+  isolatedOwner = owner;
+  isolatedActive = true;
+  isolatedPerson = person;
+  try {
+    if (person)
+      sessionStore().setItem(ISOLATED_SESSION_KEY, JSON.stringify(person));
+    else sessionStore().removeItem(ISOLATED_SESSION_KEY);
+  } catch {
+    // An offline, memory-only guest remains available for this document.
+  }
+  return owner;
+}
+
+export function clearIsolatedGuestPerson(owner?: symbol): void {
+  if (owner && isolatedOwner !== owner) return;
+  isolatedPerson = null;
+  isolatedActive = false;
+  isolatedOwner = null;
+  try {
+    sessionStore().removeItem(ISOLATED_SESSION_KEY);
+  } catch {
+    // No persisted session was available.
+  }
 }
 
 function persistSessionPerson(person: GuestSessionPerson): void {
@@ -150,6 +208,8 @@ export async function mintGuestSessionPersonLocked(
 export async function guestSessionPersonLocked(): Promise<GuestSessionPerson> {
   const stored = readGuestSessionPerson();
   if (stored) return stored;
+  if (isolatedActive)
+    throw new Error("The guest vault's identity could not be verified.");
   const locks = lockManager();
   if (!locks) return mintGuestSessionPerson();
   return locks.request("opensesame-guest-ordinal", async () => {
@@ -164,7 +224,18 @@ export async function guestSessionPersonLocked(): Promise<GuestSessionPerson> {
 
 /** Read the tab's guest principal without minting one. */
 export function readGuestSessionPerson(): GuestSessionPerson | null {
+  if (isolatedActive) return isolatedPerson;
   try {
+    const isolated = sessionStore().getItem(ISOLATED_SESSION_KEY);
+    if (isolated) {
+      const person = readStoredGuestPerson(isolated);
+      if (person) {
+        isolatedPerson = person;
+        isolatedActive = true;
+        isolatedOwner = Symbol("guest-person");
+        return person;
+      }
+    }
     const cached = sessionStore().getItem(GUEST_SESSION_KEY);
     if (cached) {
       const fromCache = readStoredGuestPerson(cached);
@@ -193,10 +264,13 @@ export function readGuestSessionPerson(): GuestSessionPerson | null {
 export function guestSessionPerson(): GuestSessionPerson {
   const stored = readGuestSessionPerson();
   if (stored) return stored;
+  if (isolatedActive)
+    throw new Error("The guest vault's identity could not be verified.");
   return mintGuestSessionPerson();
 }
 
 export function clearGuestSessionPerson(): void {
+  clearIsolatedGuestPerson();
   kvDelete(GUEST_PERSON_KEY);
   try {
     sessionStore().removeItem(GUEST_SESSION_KEY);

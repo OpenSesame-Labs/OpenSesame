@@ -26,6 +26,7 @@ import { DEVICE_IDENTITY_KEY_PATH } from "@opensesame/vault-core";
  * (`settings.v1`), the vault header, lockout counters, tomb names.
  */
 
+import { isIsolatedGuestVaultId } from "../guest-vault-id.js";
 import {
   IDP_REGISTRY_CONFIG_PATH,
   clearLegacyIdpRegistry,
@@ -58,12 +59,13 @@ import {
   lockTomb,
   readPlaintextFile,
   tombFileKey,
-  vfsFlush,
   vfsSeams,
   writeFile,
   writePlaintextFile,
 } from "../vfs.js";
+import { GUEST_DELETE_JOURNAL } from "../vfs-guest-deletion.js";
 import { enqueueTombWrite } from "../vfs-shared-write.js";
+import { vfsFlushWrites } from "../vfs-write-order.js";
 import { PREFS_CONFIG_PATH, PREFS_SOURCE_CONFIG_PATH } from "./prefs-io.js";
 import { retireUnusedConnectionConfigs } from "./retired-config.js";
 
@@ -120,6 +122,7 @@ export function tombStorageKeys(tomb: string): string[] {
 function tombSessionKeys(tomb: string): string[] {
   return [
     INDEX_PATH,
+    GUEST_DELETE_JOURNAL,
     PREFS_CONFIG_PATH,
     PREFS_SOURCE_CONFIG_PATH,
     IDP_REGISTRY_CONFIG_PATH,
@@ -151,6 +154,9 @@ function tombSessionKeys(tomb: string): string[] {
     "config/device-receipts",
     "config/device-receipts-pending",
     "config/local-notifications",
+    "config/guest-person",
+    "config/guest-github-app",
+    "promotion.v1",
     "config/siop-keys",
     DEVICE_IDENTITY_KEY_PATH,
     "config/tailnet-drive",
@@ -202,7 +208,8 @@ export async function hydrateAndMigrateTombOnUnlock(
   check();
 
   const marker = readMarker(tomb);
-  if (!marker.config) {
+  // A new guest never adopts global legacy configuration from another vault.
+  if (!marker.config && !isIsolatedGuestVaultId(tomb)) {
     const legacyPrefs = vfsSeams.readRaw(scopedKey(LEGACY_PREFS_KEY, tomb));
     if (legacyPrefs !== null) {
       await writeFile(tomb, PREFS_CONFIG_PATH, utf8.encode(legacyPrefs));
@@ -284,7 +291,7 @@ export async function wipeTombOnDestroy(tomb: string): Promise<void> {
   // files go. One that has not taken the key finds the tomb locked and does
   // not seal a fresh index under the key this wipe is retiring.
   lockTomb(tomb);
-  await vfsFlush();
+  await vfsFlushWrites();
   await Promise.all(
     [
       ...tombSessionKeys(tomb),

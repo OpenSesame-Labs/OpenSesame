@@ -1117,6 +1117,11 @@
         "packages/app-core/src/lib/secret-fs/vfs-files-settle.ts",
         "packages/app-core/src/lib/vfs-delete.ts",
         "packages/app-core/src/lib/vfs-registry.ts",
+        "packages/app-core/src/lib/vfs-guest-deletion.ts",
+        "packages/app-core/src/lib/vfs-plaintext.ts",
+        "packages/app-core/src/lib/vfs-storage-key.ts",
+        "packages/app-core/src/lib/vfs-transient-guest.ts",
+        "packages/app-core/src/lib/guest-vault-id.ts",
         "packages/app-core/src/lib/secret-fs/owned-body-files.ts"
       ],
       "regressions": [
@@ -4814,6 +4819,56 @@
       "e950ede3",
       "4935d677",
       "d4420985"
+    ],
+    "packages/app-core/src/lib/vfs-guest-deletion.ts": [
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000"
+    ],
+    "packages/app-core/src/lib/vfs-plaintext.ts": [
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000"
+    ],
+    "packages/app-core/src/lib/vfs-storage-key.ts": [
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000"
+    ],
+    "packages/app-core/src/lib/vfs-transient-guest.ts": [
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000"
+    ],
+    "packages/app-core/src/lib/guest-vault-id.ts": [
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000",
+      "00000000"
     ],
     "packages/app-core/src/lib/vfs-registry.ts": [
       "0f614311",

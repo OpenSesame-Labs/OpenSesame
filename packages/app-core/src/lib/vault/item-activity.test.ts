@@ -145,16 +145,17 @@ describe("item activity", () => {
 
   it("logs a guest secret in the guest tomb", async () => {
     await vaultStore.createGuest();
+    const guestTomb = vaultStore.activeTomb();
     const secret = createItem("secret", "Guest token");
     secret.value = CANARY;
     await vaultStore.saveItem(secret);
     await vi.waitFor(async () => {
-      const summaries = (await eventsOf(GUEST_TOMB)).map(
+      const summaries = (await eventsOf(guestTomb)).map(
         (event) => event.summary,
       );
       expect(summaries).toContain("A new secret was generated: Guest token");
     });
-    expect(JSON.stringify(await eventsOf(GUEST_TOMB))).not.toContain(CANARY);
+    expect(JSON.stringify(await eventsOf(guestTomb))).not.toContain(CANARY);
     const personal = await eventsOf(PERSONAL_TOMB).catch(() => []);
     expect(JSON.stringify(personal)).not.toContain("Guest token");
   });
