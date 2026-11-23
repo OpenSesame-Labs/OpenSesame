@@ -9,7 +9,7 @@ use serde::Deserialize;
 
 use super::{
     authorize, broker_error, caller_organization, caller_subject, owned, parse_body,
-    require_integration_admin,
+    require_integration_admin, Body,
 };
 use crate::app_state::AppState;
 
@@ -51,7 +51,7 @@ pub async fn mint(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
     Path(id): Path<String>,
-    body: String,
+    body: Body<MintBody>,
 ) -> Response {
     let who = match authorize(&st, &headers) {
         Ok(who) => who,
@@ -64,7 +64,7 @@ pub async fn mint(
     if let Err(resp) = require_integration_admin(&who) {
         return resp;
     }
-    let body: MintBody = match parse_body(&body) {
+    let body: MintBody = match parse_body(body) {
         Ok(body) => body,
         Err(resp) => return resp,
     };

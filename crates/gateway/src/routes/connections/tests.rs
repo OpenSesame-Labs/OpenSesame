@@ -73,15 +73,6 @@ async fn operator_can_select_org_but_session_cannot_spoof_it() {
     assert_eq!(error.status(), StatusCode::BAD_REQUEST);
 }
 
-#[test]
-fn connection_json_bodies_are_bounded_before_parsing() {
-    let body = "x".repeat(32 * 1024 + 1);
-    let Err(error) = super::parse_body::<super::CreateIntegrationBody>(&body) else {
-        panic!("oversized body accepted");
-    };
-    assert_eq!(error.status(), StatusCode::PAYLOAD_TOO_LARGE);
-}
-
 #[tokio::test]
 async fn credential_value_limit_applies_to_the_value_not_json_overhead() {
     let (state, _server) = harness().await;
@@ -1685,3 +1676,6 @@ async fn mint_rejects_providers_without_a_derived_path() {
 }
 
 mod mint_security_tests;
+
+#[path = "body_tests.rs"]
+mod body_tests;

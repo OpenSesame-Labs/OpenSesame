@@ -17,6 +17,7 @@ use opensesame_connection_broker::{
     accepts_pasted_access_token, parse_shareability, BindRequest, BindingTargetKind, BrokerError,
     CreateConnection, CreateIntegration, UpdateIntegration,
 };
+use opensesame_host_core::bounded_json::{BodyRejection, BoundedJson};
 use serde::Deserialize;
 use serde_json::json;
 use std::collections::{BTreeMap, HashMap};
@@ -94,27 +95,28 @@ pub(crate) fn broker_error(e: &BrokerError) -> Response {
     (status, Json(json!({"error": e.code(), "hint": e.hint()}))).into_response()
 }
 
-/// Bodies are read as text so an absent one is the same as `{}` — several of
-/// these routes take no required field.
+/// A body of at most 32 KiB, decoded straight into the route's type.
+pub(crate) type Body<T> = Result<BoundedJson<T>, BodyRejection>;
+
+/// An absent body is the same as `{}` — several of these routes take no
+/// required field. Refusals answer a fixed sentence, never serde's message.
 #[allow(clippy::result_large_err)]
-fn parse_body<T: serde::de::DeserializeOwned + Default>(raw: &str) -> Result<T, Response> {
-    if raw.len() > 32 * 1024 {
-        return Err((
-            StatusCode::PAYLOAD_TOO_LARGE,
-            Json(json!({"error":"invalid_request","hint":"request body exceeds 32 KiB"})),
-        )
-            .into_response());
+fn parse_body<T: Default>(body: Body<T>) -> Result<T, Response> {
+    match body {
+        Ok(BoundedJson(value)) => Ok(value),
+        Err(BodyRejection::Empty) => Ok(T::default()),
+        Err(refused) => Err(body_refused(&refused, "request body is not valid JSON")),
     }
-    if raw.trim().is_empty() {
-        return Ok(T::default());
-    }
-    serde_json::from_str(raw).map_err(|_| {
-        (
-            StatusCode::BAD_REQUEST,
-            Json(json!({"error":"invalid_request","hint":"request body is not valid JSON"})),
-        )
-            .into_response()
-    })
+}
+
+/// The house answer to a refused body: 413 past the limit, else 400 `hint`.
+pub(crate) fn body_refused(refused: &BodyRejection, hint: &'static str) -> Response {
+    let (status, hint) = match refused {
+        BodyRejection::TooLarge => (StatusCode::PAYLOAD_TOO_LARGE, "request body exceeds 32 KiB"),
+        _ => (StatusCode::BAD_REQUEST, hint),
+    };
+    let body = json!({"error": "invalid_request", "hint": hint});
+    (status, Json(body)).into_response()
 }
 
 pub async fn list_providers(
@@ -142,7 +144,7 @@ pub async fn list_providers(
 pub async fn create_custom_provider(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
-    body: String,
+    body: Body<opensesame_connection_broker::CreateCustomProvider>,
 ) -> Response {
     let who = match authorize(&st, &headers) {
         Ok(who) => who,
@@ -152,16 +154,13 @@ pub async fn create_custom_provider(
         return resp;
     }
     // No Default fallback: an empty body is not a definable connector.
-    let request: opensesame_connection_broker::CreateCustomProvider = match serde_json::from_str(
-        &body,
-    ) {
-        Ok(request) => request,
-        Err(_) => {
-            return (
-                    StatusCode::BAD_REQUEST,
-                    Json(json!({"error":"invalid_request","hint":"request body is not a valid custom provider definition"})),
-                )
-                    .into_response();
+    let request = match body {
+        Ok(BoundedJson(request)) => request,
+        Err(refused) => {
+            return body_refused(
+                &refused,
+                "request body is not a valid custom provider definition",
+            )
         }
     };
     let organization_id = organization_or_return!(&st, &who, &headers);
@@ -246,7 +245,7 @@ fn require_integration_admin(who: &Caller) -> Result<(), Response> {
 pub async fn create_integration(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
-    body: String,
+    body: Body<CreateIntegrationBody>,
 ) -> Response {
     let who = match authorize(&st, &headers) {
         Ok(who) => who,
@@ -255,7 +254,7 @@ pub async fn create_integration(
     if let Err(resp) = require_integration_admin(&who) {
         return resp;
     }
-    let body: CreateIntegrationBody = match parse_body(&body) {
+    let body: CreateIntegrationBody = match parse_body(body) {
         Ok(body) => body,
         Err(resp) => return resp,
     };
@@ -320,7 +319,7 @@ pub async fn update_integration(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
     Path(id): Path<String>,
-    body: String,
+    body: Body<UpdateIntegrationBody>,
 ) -> Response {
     let who = match authorize(&st, &headers) {
         Ok(who) => who,
@@ -329,7 +328,7 @@ pub async fn update_integration(
     if let Err(resp) = require_integration_admin(&who) {
         return resp;
     }
-    let body: UpdateIntegrationBody = match parse_body(&body) {
+    let body: UpdateIntegrationBody = match parse_body(body) {
         Ok(body) => body,
         Err(resp) => return resp,
     };
@@ -445,13 +444,13 @@ pub struct CreateBody {
 pub async fn create(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
-    body: String,
+    body: Body<CreateBody>,
 ) -> Response {
     let who = match authorize(&st, &headers) {
         Ok(who) => who,
         Err(resp) => return resp,
     };
-    let body: CreateBody = match parse_body(&body) {
+    let body: CreateBody = match parse_body(body) {
         Ok(b) => b,
         Err(resp) => return resp,
     };
@@ -540,7 +539,7 @@ pub async fn update_policy(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
     Path(id): Path<String>,
-    body: String,
+    body: Body<UpdatePolicyBody>,
 ) -> Response {
     let who = match authorize(&st, &headers) {
         Ok(who) => who,
@@ -550,7 +549,7 @@ pub async fn update_policy(
     if let Err(resp) = owned(&st, &who, &organization_id, &id).await {
         return resp;
     }
-    let body: UpdatePolicyBody = match parse_body(&body) {
+    let body: UpdatePolicyBody = match parse_body(body) {
         Ok(body) => body,
         Err(resp) => return resp,
     };
@@ -598,7 +597,7 @@ pub async fn start_authorization(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
     Path(id): Path<String>,
-    body: String,
+    body: Body<AuthorizeBody>,
 ) -> Response {
     let who = match authorize(&st, &headers) {
         Ok(who) => who,
@@ -608,7 +607,7 @@ pub async fn start_authorization(
     if let Err(resp) = owned(&st, &who, &organization_id, &id).await {
         return resp;
     }
-    let body: AuthorizeBody = match parse_body(&body) {
+    let body: AuthorizeBody = match parse_body(body) {
         Ok(b) => b,
         Err(resp) => return resp,
     };
@@ -655,7 +654,7 @@ pub async fn set_credential(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
     Path(id): Path<String>,
-    body: String,
+    body: Body<CredentialBody>,
 ) -> Response {
     let who = match authorize(&st, &headers) {
         Ok(who) => who,
@@ -665,7 +664,7 @@ pub async fn set_credential(
     if let Err(resp) = owned(&st, &who, &organization_id, &id).await {
         return resp;
     }
-    let body: CredentialBody = match parse_body(&body) {
+    let body: CredentialBody = match parse_body(body) {
         Ok(b) => b,
         Err(resp) => return resp,
     };
@@ -745,7 +744,7 @@ pub async fn create_binding(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
     Path(id): Path<String>,
-    body: String,
+    body: Body<BindBody>,
 ) -> Response {
     let who = match authorize(&st, &headers) {
         Ok(who) => who,
@@ -755,7 +754,7 @@ pub async fn create_binding(
     if let Err(resp) = owned(&st, &who, &organization_id, &id).await {
         return resp;
     }
-    let body: BindBody = match parse_body(&body) {
+    let body: BindBody = match parse_body(body) {
         Ok(b) => b,
         Err(resp) => return resp,
     };
@@ -1027,7 +1026,7 @@ pub async fn create_github_repo(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
     Path(id): Path<String>,
-    body: String,
+    body: Body<CreateGithubRepoBody>,
 ) -> Response {
     let who = match authorize(&st, &headers) {
         Ok(who) => who,
@@ -1037,7 +1036,7 @@ pub async fn create_github_repo(
     if let Err(resp) = owned(&st, &who, &organization_id, &id).await {
         return resp;
     }
-    let body: CreateGithubRepoBody = match parse_body(&body) {
+    let body: CreateGithubRepoBody = match parse_body(body) {
         Ok(b) => b,
         Err(resp) => return resp,
     };

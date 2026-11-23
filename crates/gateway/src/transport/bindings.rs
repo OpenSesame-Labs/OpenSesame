@@ -22,6 +22,7 @@ use std::path::Path;
 use std::sync::RwLock;
 
 use opensesame_domain::transport::{ServiceBindingSet, TransportError};
+use opensesame_host_core::bounded_json::{BodyRejection, BoundedJson};
 use opensesame_storage::Db;
 use serde::{Deserialize, Serialize};
 
@@ -70,6 +71,39 @@ pub fn parse_bounded(json: &str) -> Result<ServiceBindingSet, TransportError> {
         )));
     }
     ServiceBindingSet::parse_json(json)
+}
+
+/// A `PUT` body: read no further than [`MAX_BINDINGS_BYTES`] and decoded
+/// straight into the strict [`ServiceBindingSet`].
+pub type PutBody = Result<BoundedJson<ServiceBindingSet, MAX_BINDINGS_BYTES>, BodyRejection>;
+
+/// Accept a `PUT` body as [`parse_bounded`] accepts a document: the same
+/// limit, the same strict type, the same validation and the same errors.
+///
+/// # Errors
+///
+/// `MalformedConfiguration` when the body was refused or fails validation.
+pub fn accept_put(body: PutBody) -> Result<ServiceBindingSet, TransportError> {
+    let set = match body {
+        Ok(BoundedJson(set)) => set,
+        Err(BodyRejection::TooLarge) => {
+            return Err(TransportError::malformed(format!(
+                "service bindings: document exceeds {MAX_BINDINGS_BYTES} bytes"
+            )))
+        }
+        Err(BodyRejection::Malformed(error)) => {
+            return Err(TransportError::malformed(format!(
+                "service bindings: {error}"
+            )))
+        }
+        Err(refused) => {
+            return Err(TransportError::malformed(format!(
+                "service bindings: {refused}"
+            )))
+        }
+    };
+    set.validate()?;
+    Ok(set)
 }
 
 /// Read and validate a bindings file. The error never echoes the content.

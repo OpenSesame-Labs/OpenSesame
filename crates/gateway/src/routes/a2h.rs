@@ -21,6 +21,7 @@ use axum::{
 use opensesame_a2h::{
     authority_for, verify_callback, A2hResponse, ExpectedReply, ResponseAuthority,
 };
+use opensesame_host_core::bounded_json::{BodyRejection, BoundedJsonWithRaw};
 use opensesame_storage::a2h_replies::{ReplyDecision, ReplyOutcome};
 use opensesame_time::Utc;
 use serde_json::json;
@@ -30,6 +31,10 @@ use crate::app_state::AppState;
 /// Header carrying `t=<unix>,v1=<base64>`.
 const SIGNATURE_HEADER: &str = "x-a2h-signature";
 
+/// The largest reply this route reads (the router's `DefaultBodyLimit` on
+/// this route is the same 64 KiB).
+const MAX_CALLBACK_BYTES: usize = 65_536;
+
 /// `POST /api/v1/a2h/callback`
 ///
 /// Unauthenticated by design — the signature *is* the authentication, which is
@@ -37,14 +42,27 @@ const SIGNATURE_HEADER: &str = "x-a2h-signature";
 /// refusal answers the same way for the same reason a claim link does: the
 /// shape of the response must not tell an unsigned caller whether a given
 /// interaction exists.
-pub async fn callback(State(st): State<AppState>, headers: HeaderMap, body: String) -> Response {
-    if body.len() > 65536 {
+pub async fn callback(
+    State(st): State<AppState>,
+    headers: HeaderMap,
+    body: Result<BoundedJsonWithRaw<A2hResponse, MAX_CALLBACK_BYTES>, BodyRejection>,
+) -> Response {
+    if matches!(body, Err(BodyRejection::TooLarge)) {
         return refused();
     }
     let Some(signature) = header(&headers, SIGNATURE_HEADER) else {
         return refused();
     };
-    let Ok(response) = serde_json::from_str::<A2hResponse>(&body) else {
+    // The signature covers the bytes as sent, so they are kept beside the
+    // decoded reply; a JSON body that decoded is UTF-8 throughout.
+    let Ok(BoundedJsonWithRaw {
+        value: response,
+        raw,
+    }) = body
+    else {
+        return refused();
+    };
+    let Ok(body) = std::str::from_utf8(&raw) else {
         return refused();
     };
     let Ok(Some(delivery)) = st.db.get_security_delivery(&response.responds_to).await else {
@@ -65,7 +83,7 @@ pub async fn callback(State(st): State<AppState>, headers: HeaderMap, body: Stri
         already_applied: false, // Outbound delivery status says nothing about a reply.
         now_unix: Utc::now().timestamp(),
     };
-    if verify_callback(&secret, &signature, &body, &response, &expected).is_err() {
+    if verify_callback(&secret, &signature, body, &response, &expected).is_err() {
         return refused();
     }
     let event =
@@ -92,7 +110,7 @@ pub async fn callback(State(st): State<AppState>, headers: HeaderMap, body: Stri
             }
         }
     };
-    let digest = opensesame_claims::hash_secret(&body);
+    let digest = opensesame_claims::hash_secret(body);
     match st
         .db
         .apply_a2h_reply(

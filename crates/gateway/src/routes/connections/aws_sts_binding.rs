@@ -10,31 +10,23 @@ use axum::{
     Json,
 };
 use opensesame_connection_broker::aws_sts::AwsStsBindingInput;
+use opensesame_host_core::bounded_json::BoundedJson;
 use serde_json::json;
 
-use super::{authorize, broker_error, caller_organization, owned, require_integration_admin};
+use super::{
+    authorize, body_refused, broker_error, caller_organization, owned, require_integration_admin,
+    Body,
+};
 use crate::app_state::AppState;
 use crate::middleware::auth::Caller;
 
 /// The binding body. Its fields are required, so an empty body is refused,
-/// and a parse failure answers a fixed sentence: serde's own message can quote
-/// the value it rejected, which here may be the `ExternalId`.
+/// and a refusal answers a fixed sentence: serde's own message can quote the
+/// value it rejected, which here may be the `ExternalId`.
 #[allow(clippy::result_large_err)]
-fn parse_input(raw: &str) -> Result<AwsStsBindingInput, Response> {
-    if raw.len() > 32 * 1024 {
-        return Err((
-            StatusCode::PAYLOAD_TOO_LARGE,
-            Json(json!({"error": "invalid_request", "hint": "request body exceeds 32 KiB"})),
-        )
-            .into_response());
-    }
-    serde_json::from_str(raw).map_err(|_| {
-        (
-            StatusCode::BAD_REQUEST,
-            Json(json!({"error": "invalid_request", "hint": "request body is not an STS binding"})),
-        )
-            .into_response()
-    })
+fn parse_input(body: Body<AwsStsBindingInput>) -> Result<AwsStsBindingInput, Response> {
+    body.map(|BoundedJson(input)| input)
+        .map_err(|refused| body_refused(&refused, "request body is not an STS binding"))
 }
 
 /// Caller, organization, ownership and admin role, in that order.
@@ -55,13 +47,13 @@ pub async fn put_aws_sts_binding(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
     Path(id): Path<String>,
-    body: String,
+    body: Body<AwsStsBindingInput>,
 ) -> Response {
     let (_, organization_id) = match admitted(&st, &headers, &id).await {
         Ok(admitted) => admitted,
         Err(response) => return response,
     };
-    let input: AwsStsBindingInput = match parse_input(&body) {
+    let input: AwsStsBindingInput = match parse_input(body) {
         Ok(input) => input,
         Err(response) => return response,
     };

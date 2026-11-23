@@ -66,6 +66,39 @@ fn unknown_fields_and_oversized_documents_are_refused() {
     assert!(bindings::parse_bounded(&oversized).is_err());
 }
 
+async fn put_body(body: String) -> bindings::PutBody {
+    use axum::extract::FromRequest;
+    let request = axum::http::Request::builder()
+        .method("PUT")
+        .body(axum::body::Body::from(body))
+        .expect("request");
+    let Ok(body) = bindings::PutBody::from_request(request, &()).await;
+    body
+}
+
+#[tokio::test]
+async fn a_put_body_is_bounded_strict_and_validated_like_a_document() {
+    let valid = "{\"revision\":1,\"bindings\":[]}".to_owned();
+    assert_eq!(
+        bindings::accept_put(put_body(valid.clone()).await).expect("valid body"),
+        bindings::parse_bounded(&valid).expect("valid document")
+    );
+    let oversized = format!(
+        "{{\"revision\":1,\"bindings\":[],\"pad\":\"{}\"}}",
+        "p".repeat(MAX_BINDINGS_BYTES)
+    );
+    for body in [
+        oversized,
+        "{\"revision\":1,\"bindings\":[],\"extra\":1}".to_owned(),
+        "{\"revision\":1,\"bindings\":[{}]}".to_owned(),
+        "{\"revision\":1,".to_owned(),
+        String::new(),
+    ] {
+        let error = bindings::accept_put(put_body(body).await).expect_err("refused");
+        assert_eq!(error.code(), "malformed_configuration", "{error}");
+    }
+}
+
 #[test]
 fn a_missing_or_unreadable_file_is_an_error() {
     let dir = tempfile::tempdir().expect("tempdir");
