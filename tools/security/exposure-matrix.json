@@ -277,7 +277,7 @@
         "crates/storage/tests/est_passphrase_budget.rs",
         "crates/storage/tests/certmgr_pact.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Source-lifetime review: the authenticated request rechecks its transport after the awaited password-budget reservation. Twelve EST certificate, freshness and TLS tests and five budget tests passed; source-lifetime clock and deadline controls passed in the integrated proof suite. 2026-11-21: re-reviewed the pre-issuance trust recheck on the rebased HEAD bytes (e2b69c67a): authenticate now reports its admission basis (Certificate or Passphrase) and enroll re-runs the freshness fence at the mint boundary, after the policy and issuer awaits \u2014 the live-transport check for both bases plus current evidence for the certificate basis \u2014 so a source withdrawn after admission is refused with 401 before the signer runs; withdrawal after admission is denied. record_issued now creates the issuance request unfulfilled and settles it through the new guarded complete_keyfree_certificate_issuance transaction, storing the SAN document as dns_names/ip_addrs. Executed reruns on the reviewed bytes: 36 gateway EST route lib tests (including the new mint-withdrawal control and refusal pair), the 138-test storage lib suite, the est_passphrase_budget (5) and certmgr_pact (9) storage integrations, and the 6-test transport-security source-lifetime suite all passed; the Lean source-lifetime proof suite still cannot run here (pre-existing spiffe-source drift at main, no Lean toolchain), so its finite Rust regressions are the executed evidence."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Source-lifetime review: the authenticated request rechecks its transport after the awaited password-budget reservation. Twelve EST certificate, freshness and TLS tests and five budget tests passed; source-lifetime clock and deadline controls passed in the integrated proof suite. 2026-11-21: re-reviewed the pre-issuance trust recheck on the rebased HEAD bytes (e2b69c67a): authenticate now reports its admission basis (Certificate or Passphrase) and enroll re-runs the freshness fence at the mint boundary, after the policy and issuer awaits \u2014 the live-transport check for both bases plus current evidence for the certificate basis \u2014 so a source withdrawn after admission is refused with 401 before the signer runs; withdrawal after admission is denied. record_issued now creates the issuance request unfulfilled and settles it through the new guarded complete_keyfree_certificate_issuance transaction, storing the SAN document as dns_names/ip_addrs. Executed reruns on the reviewed bytes: 36 gateway EST route lib tests (including the new mint-withdrawal control and refusal pair), the 138-test storage lib suite, the est_passphrase_budget (5) and certmgr_pact (9) storage integrations, and the 6-test transport-security source-lifetime suite all passed; the Lean source-lifetime proof suite still cannot run here (pre-existing spiffe-source drift at main, no Lean toolchain), so its finite Rust regressions are the executed evidence. 2026-11-23: re-pinned after behaviour-preserving lint and format repairs only (no route, guard, store or policy logic changed): cargo fmt of files main left unformatted (import order, mod order, line wrapping); est_freshness.rs is now loaded once through est_wire (routes/mod.rs re-uses that module for tests instead of a second #[path] copy, and the test-only dead-code allow on transport_is_current is gone); spiffe-source source.rs drops an import used only by tests; gateway status_tests.rs drops an unused import. Regressions executed: opensesame-gateway lib routes:: and transport:: (705 passed, 7 ignored), the opensesame-transport-security suite, the opensesame-spiffe-source suite and the opensesame-connection-broker lib suite (565 passed); cargo clippy --workspace --all-targets -D warnings clean; npm run audit:exposure CLEAN after the rotation. The fingerprints are deterministic output of the reviewed byte change, not a blind refresh."
     },
     {
       "id": "est-policy",
@@ -342,7 +342,7 @@
         "crates/domain/src/transport/evidence_tests.rs",
         "crates/domain/src/transport/source_contract_tests.rs"
       ],
-      "review": "EST certificate authorization requires usable current direct-client MtlsRequired TLS evidence. A direct TLS proxy leaf, TrustedIngress policy and forwarded assertions are refused. Explicit bootstrap pins require the complete listener anchor set to match because VerifiedPeer does not retain the validated path. Strong-password fallback remains limited to profiles that explicitly permit it. The peer and transport generation are checked again after the awaited inventory lookup; the relevant twelve EST certificate, freshness and TLS tests passed. Source-trust preparation preserves source-owned and reserved names; the source-collision regression passed. 2026-11-21: re-reviewed the pre-issuance trust recheck on the rebased HEAD bytes (e2b69c67a): the live transport and the peer generation are now re-checked a second time at the mint boundary, after the policy and issuer awaits, with current direct-client evidence re-proved for the certificate basis; a source whose trust is withdrawn after admission, or whose evidence lapses during those awaits, is refused with 401 before the signer runs, so withdrawal after admission is denied. Executed reruns on the reviewed bytes: 36 gateway EST route lib tests (including the new mint-withdrawal control and refusal pair), 91 transport-lifecycle tests, the 6-test transport-security source-lifetime suite, and 45 domain transport contract tests all passed."
+      "review": "EST certificate authorization requires usable current direct-client MtlsRequired TLS evidence. A direct TLS proxy leaf, TrustedIngress policy and forwarded assertions are refused. Explicit bootstrap pins require the complete listener anchor set to match because VerifiedPeer does not retain the validated path. Strong-password fallback remains limited to profiles that explicitly permit it. The peer and transport generation are checked again after the awaited inventory lookup; the relevant twelve EST certificate, freshness and TLS tests passed. Source-trust preparation preserves source-owned and reserved names; the source-collision regression passed. 2026-11-21: re-reviewed the pre-issuance trust recheck on the rebased HEAD bytes (e2b69c67a): the live transport and the peer generation are now re-checked a second time at the mint boundary, after the policy and issuer awaits, with current direct-client evidence re-proved for the certificate basis; a source whose trust is withdrawn after admission, or whose evidence lapses during those awaits, is refused with 401 before the signer runs, so withdrawal after admission is denied. Executed reruns on the reviewed bytes: 36 gateway EST route lib tests (including the new mint-withdrawal control and refusal pair), 91 transport-lifecycle tests, the 6-test transport-security source-lifetime suite, and 45 domain transport contract tests all passed. 2026-11-23: re-pinned after behaviour-preserving lint and format repairs only (no route, guard, store or policy logic changed): cargo fmt of files main left unformatted (import order, mod order, line wrapping); est_freshness.rs is now loaded once through est_wire (routes/mod.rs re-uses that module for tests instead of a second #[path] copy, and the test-only dead-code allow on transport_is_current is gone); spiffe-source source.rs drops an import used only by tests; gateway status_tests.rs drops an unused import. Regressions executed: opensesame-gateway lib routes:: and transport:: (705 passed, 7 ignored), the opensesame-transport-security suite, the opensesame-spiffe-source suite and the opensesame-connection-broker lib suite (565 passed); cargo clippy --workspace --all-targets -D warnings clean; npm run audit:exposure CLEAN after the rotation. The fingerprints are deterministic output of the reviewed byte change, not a blind refresh."
     },
     {
       "id": "host-testkit-listener",
@@ -419,7 +419,7 @@
         "crates/gateway/tests/host-consumer.test.ts",
         "crates/connection-broker/src/constructor_tests.rs"
       ],
-      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. Relay execution is now disabled and the unused liveness map is removed from production and testkit state; the testkit keeps the same four-route fence. The focused relay and testkit server and integration regressions and the live TypeScript consumer passed before the latest main integration; broker-mode regressions passed again on the updated base. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-20: reviewed the Dependabot #2872 aws-sigv4 pin refresh (1.6.4 -> 1.6.5) in the connection-broker manifest; a dependency-version-only change with no authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file. cargo test -p opensesame-connection-broker --lib --locked passed. Remaining limit: the manifest comment still names the 1.6.4 smithy-rs set while the pin and Cargo.lock now resolve 1.6.5; this records the reviewed source as it stands and claims no new control. 2026-11-20 (council chunk 01): aligned the manifest comment to name the 1.6.5 / 1.3.1 / 1.21.0 smithy-rs set, matching the exact pins and the Cargo.lock resolution. Comment-only change: no dependency, authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file; the remaining limit recorded above is resolved. 2026-11-20: reviewed the credentialed-egress client consolidation \u2014 the duplicate ambient `http_bytes` client is removed from the broker and its test constructor, and catalog-provider credentialed egress again resolves and pins the approved authority per request before the credential is opened; the testkit fence, routes and admission are unchanged. Broker lib tests (351, including the constructor proxy-isolation regression with the testkit feature), invoke-through lib tests (88), gateway testkit server and integration tests, and the live TypeScript consumer test (vitest against the real testkit server) all passed at this head. 2026-11-21: repaired this source fingerprint for crates/storage/src/lib.rs. The e19e283a restack refresh (90dc23a7f) recorded bytes that never matched a committed blob (CI run 44944627312 reported EM-DRIFT on this path before any suite ran); the worktree file is byte-identical to the origin/main reviewed blob (sha256 eafab5f9688d370d, git blob 52382dd55b6e), whose only change from the previously pinned blob is `mod invocations` -> `pub mod invocations` (main #2725, receipt retries bound to authority). Visibility-only widening of an existing module: no route, fence, admission, storage-schema or migration-resolution change, so this listener classification is unchanged and the fingerprint was restored to the reviewed main bytes. Regressions re-run at this head: cargo test -p opensesame-gateway --features testkit (testkit server unit test and tests/testkit.rs integration, 5 run / 4 passed / 1 ignored-needs-Node), cargo test -p opensesame-connection-broker --features testkit --lib (353 passed, including the constructor proxy-isolation regression), and the live TypeScript consumer test against a running HostTestkit fixture (3 passed). Remaining limit: none beyond those already recorded above; no implementation change is claimed. 2026-11-21: reviewed the one-line addition of the cert_completion module to crates/storage/src/lib.rs on the rebased bytes (c4f53cb7) \u2014 the EST key-free issuance completion split out of cert_issuance.rs; no listener, authority, egress or admission change, so this classification is unchanged and the fingerprint was refreshed to the reviewed file. Executed reruns on the reviewed bytes: the feature-gated testkit server lib test (1), the four testkit integration tests, the live TypeScript API-client consumer test, and the connection-broker lib regressions (344 passed; the single failure is a pre-existing GitHub-App conversion error-string expectation on unmodified main, unrelated to this change) all ran; the Rust regressions passed."
+      "review": "Feature-gated synthetic Host state and an outer fence permit four GET routes through the real router and admission guards. start() binds IPv4 loopback; callers mounting router() control their own exposure. Only a successful close confirms teardown; a timeout leaves shutdown unconfirmed and Drop only signals asynchronously. No production transport, CORS, provider or credential fidelity is claimed. 2026-11-17: reviewed the AppState relay-presence key change from subject to (organization, subject); it does not change testkit routes or admission. Relay tenant-isolation tests, testkit server and integration tests, and the live TypeScript consumer test passed. Relay execution is now disabled and the unused liveness map is removed from production and testkit state; the testkit keeps the same four-route fence. The focused relay and testkit server and integration regressions and the live TypeScript consumer passed before the latest main integration; broker-mode regressions passed again on the updated base. 2026-11-18: reviewed the broker custom-egress policy and moved configuration methods; the synthetic testkit still uses an empty in-memory policy, does not inherit operator grants, and exposes no custom-provider route. The fence change only exposes the validated effective port. Gateway testkit server and integration tests and broker proxy-isolation regression passed; the separately gated live TypeScript consumer test was not run in this environment. 2026-11-20: reviewed the Dependabot #2872 aws-sigv4 pin refresh (1.6.4 -> 1.6.5) in the connection-broker manifest; a dependency-version-only change with no authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file. cargo test -p opensesame-connection-broker --lib --locked passed. Remaining limit: the manifest comment still names the 1.6.4 smithy-rs set while the pin and Cargo.lock now resolve 1.6.5; this records the reviewed source as it stands and claims no new control. 2026-11-20 (council chunk 01): aligned the manifest comment to name the 1.6.5 / 1.3.1 / 1.21.0 smithy-rs set, matching the exact pins and the Cargo.lock resolution. Comment-only change: no dependency, authority, egress or admission logic change, so this listener classification is unchanged and the manifest fingerprint was refreshed to the reviewed file; the remaining limit recorded above is resolved. 2026-11-20: reviewed the credentialed-egress client consolidation \u2014 the duplicate ambient `http_bytes` client is removed from the broker and its test constructor, and catalog-provider credentialed egress again resolves and pins the approved authority per request before the credential is opened; the testkit fence, routes and admission are unchanged. Broker lib tests (351, including the constructor proxy-isolation regression with the testkit feature), invoke-through lib tests (88), gateway testkit server and integration tests, and the live TypeScript consumer test (vitest against the real testkit server) all passed at this head. 2026-11-21: repaired this source fingerprint for crates/storage/src/lib.rs. The e19e283a restack refresh (90dc23a7f) recorded bytes that never matched a committed blob (CI run 44944627312 reported EM-DRIFT on this path before any suite ran); the worktree file is byte-identical to the origin/main reviewed blob (sha256 eafab5f9688d370d, git blob 52382dd55b6e), whose only change from the previously pinned blob is `mod invocations` -> `pub mod invocations` (main #2725, receipt retries bound to authority). Visibility-only widening of an existing module: no route, fence, admission, storage-schema or migration-resolution change, so this listener classification is unchanged and the fingerprint was restored to the reviewed main bytes. Regressions re-run at this head: cargo test -p opensesame-gateway --features testkit (testkit server unit test and tests/testkit.rs integration, 5 run / 4 passed / 1 ignored-needs-Node), cargo test -p opensesame-connection-broker --features testkit --lib (353 passed, including the constructor proxy-isolation regression), and the live TypeScript consumer test against a running HostTestkit fixture (3 passed). Remaining limit: none beyond those already recorded above; no implementation change is claimed. 2026-11-21: reviewed the one-line addition of the cert_completion module to crates/storage/src/lib.rs on the rebased bytes (c4f53cb7) \u2014 the EST key-free issuance completion split out of cert_issuance.rs; no listener, authority, egress or admission change, so this classification is unchanged and the fingerprint was refreshed to the reviewed file. Executed reruns on the reviewed bytes: the feature-gated testkit server lib test (1), the four testkit integration tests, the live TypeScript API-client consumer test, and the connection-broker lib regressions (344 passed; the single failure is a pre-existing GitHub-App conversion error-string expectation on unmodified main, unrelated to this change) all ran; the Rust regressions passed. 2026-11-23: re-pinned after behaviour-preserving lint and format repairs only (no route, guard, store or policy logic changed): cargo fmt of files main left unformatted (import order, mod order, line wrapping); est_freshness.rs is now loaded once through est_wire (routes/mod.rs re-uses that module for tests instead of a second #[path] copy, and the test-only dead-code allow on transport_is_current is gone); spiffe-source source.rs drops an import used only by tests; gateway status_tests.rs drops an unused import. Regressions executed: opensesame-gateway lib routes:: and transport:: (705 passed, 7 ignored), the opensesame-transport-security suite, the opensesame-spiffe-source suite and the opensesame-connection-broker lib suite (565 passed); cargo clippy --workspace --all-targets -D warnings clean; npm run audit:exposure CLEAN after the rotation. The fingerprints are deterministic output of the reviewed byte change, not a blind refresh."
     },
     {
       "id": "host-listeners",
@@ -546,7 +546,7 @@
         "crates/gateway/src/transport_lifecycle/trust_tests.rs",
         "crates/spiffe-source/tests/production_sink_policy.rs"
       ],
-      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Relay route registrations remain mounted, but heartbeat, submission, executable delivery, approval and result reporting fail closed. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. One listener configuration, 14 transport configuration and 6 listener boot tests passed. This does not add a listener or a fallback. Source-lifetime review: service admission refuses an expired source; status reports quarantined and expired generations unloaded and preserves revocation precedence. The focused admission, status and source-owned trust collision tests and integrated deadline controls passed. The listener wraps its signer and preclaim session cache with generation checks; source-owned listeners disable resumption. Signer, resumption-race and TLS 1.2/1.3 regressions exercise those boundaries. Testkit files support those regressions and add no production authority. An in-flight key operation or a signature released immediately before withdrawal cannot be revoked, and already-admitted work is not cancelled. Standalone client and server configurations are outside the listener fence. Host source-trust selection requires the generation-bound authoritative source bundle with the requested profile and kind. On the fingerprinted source, the pinned Lean 4.24.0 selector model re-emitted the complete 32-vector selector matrix and the correspondence test compared every vector against the production selector; the exact two-bundle return control and the live reconstructed-manager TLS regression also passed. 2026-11-22 coverage re-pin: the selector coverage moved to reviewed main 827648d2, which carries the #2725 storage lib.rs bytes (the invocations module becomes public; no selector behavior change), the #2723 connection-broker manifest bytes, and the #2622 guard.rs, trust_activate.rs, transport-security manifest and spiffe-source bytes, and the pinned Lean 4.24.0 selector model check and the three registered source-trust-selection regressions (32-vector correspondence, exact two-bundle return control, live reconstructed-manager TLS regression) were re-executed and passed on those bytes. The correspondence module is compiled only for tests and adds no production authority. That regression reuses an in-memory store; it is not a process restart or a real Workload API test. Durable source history remains a separate boundary. Peer-domain review: a SPIFFE bundle carries its explicit domain, certificate validation and SVID checks precede peer evidence, and service binding uses exact SPIFFE identity with separate leaf revocation. The configured Host source domain must match the authoritative selected bundle. The peer-domain, live TLS admission, resumption/rotation, forwarded-evidence and wrong-domain controls passed; the correspondence proves only its stated Boolean properties, not Rust refinement. The NATS client opts into a one-use server verifier with TLS resumption disabled; existing host-listener verification remains unchanged. Source-history review: the registered history suite passed 77 Linux tests in 16 groups on the fingerprinted source (reviewed main 827648d2), including SQLite union and cancellation, the cooperative file lease, offline attestation, a real bindings-only Host startup, source supersession, stored-trust quarantine, reconciliation and the focused PEM collision witness; the pinned Lean 4.24.0 history model stages and every named assertion in the formal runner passed on those bytes as ordinary locked Cargo invocations. The Host-process case does not prove secure-listener or request-guard enforcement. The complete attestation, continuous database identity and cooperative trusted filesystem are assumptions; raw writers, older binaries, backup rollback and physical power-loss durability are not proved. Windows-only startup and initializer refusal tests have not been run on Windows. The proof suite separately pins the executed migration inventory; its hashes do not establish implementation refinement. 2026-11-20 restack repair: the pins for guard.rs, identity.rs, tests/source_lifetime.rs, testkit/{mod,ca,leaf}.rs, tests/spiffe_peer_rotation.rs and human-vault/src/lib.rs matched no blob on this branch (stale since their introduction). identity.rs, the testkit helpers and human-vault/src/lib.rs are byte-identical to the reviewed merge-base. The guard.rs branch change is fail-closed: peer credential/trust and listener-provenance generations must equal the current generation, and withdrawal and source-deadline enforcement moved into checked_current. tests/source_lifetime.rs and tests/spiffe_peer_rotation.rs are new branch regressions for source-owned expiry and SPIFFE domain rebinding across rotation. A latent compile break in tests/source_lifetime.rs was fixed (Duration::nanoseconds does not exist in opensesame_time; milliseconds(1) preserves the inclusive-latch intent). The full opensesame-transport-security suite with the testkit feature passed (118 tests) and the opensesame-human-vault suite passed before re-pinning all eight files to the reviewed blobs."
+      "review": "Reviewed with the incident remediation; update only with source-path review and executed behavior regressions. Relay route registrations remain mounted, but heartbeat, submission, executable delivery, approval and result reporting fail closed. The private unwired resolver is compiled only in tests; production continues to resolve through the custody bridge. One listener configuration, 14 transport configuration and 6 listener boot tests passed. This does not add a listener or a fallback. Source-lifetime review: service admission refuses an expired source; status reports quarantined and expired generations unloaded and preserves revocation precedence. The focused admission, status and source-owned trust collision tests and integrated deadline controls passed. The listener wraps its signer and preclaim session cache with generation checks; source-owned listeners disable resumption. Signer, resumption-race and TLS 1.2/1.3 regressions exercise those boundaries. Testkit files support those regressions and add no production authority. An in-flight key operation or a signature released immediately before withdrawal cannot be revoked, and already-admitted work is not cancelled. Standalone client and server configurations are outside the listener fence. Host source-trust selection requires the generation-bound authoritative source bundle with the requested profile and kind. On the fingerprinted source, the pinned Lean 4.24.0 selector model re-emitted the complete 32-vector selector matrix and the correspondence test compared every vector against the production selector; the exact two-bundle return control and the live reconstructed-manager TLS regression also passed. 2026-11-22 coverage re-pin: the selector coverage moved to reviewed main 827648d2, which carries the #2725 storage lib.rs bytes (the invocations module becomes public; no selector behavior change), the #2723 connection-broker manifest bytes, and the #2622 guard.rs, trust_activate.rs, transport-security manifest and spiffe-source bytes, and the pinned Lean 4.24.0 selector model check and the three registered source-trust-selection regressions (32-vector correspondence, exact two-bundle return control, live reconstructed-manager TLS regression) were re-executed and passed on those bytes. The correspondence module is compiled only for tests and adds no production authority. That regression reuses an in-memory store; it is not a process restart or a real Workload API test. Durable source history remains a separate boundary. Peer-domain review: a SPIFFE bundle carries its explicit domain, certificate validation and SVID checks precede peer evidence, and service binding uses exact SPIFFE identity with separate leaf revocation. The configured Host source domain must match the authoritative selected bundle. The peer-domain, live TLS admission, resumption/rotation, forwarded-evidence and wrong-domain controls passed; the correspondence proves only its stated Boolean properties, not Rust refinement. The NATS client opts into a one-use server verifier with TLS resumption disabled; existing host-listener verification remains unchanged. Source-history review: the registered history suite passed 77 Linux tests in 16 groups on the fingerprinted source (reviewed main 827648d2), including SQLite union and cancellation, the cooperative file lease, offline attestation, a real bindings-only Host startup, source supersession, stored-trust quarantine, reconciliation and the focused PEM collision witness; the pinned Lean 4.24.0 history model stages and every named assertion in the formal runner passed on those bytes as ordinary locked Cargo invocations. The Host-process case does not prove secure-listener or request-guard enforcement. The complete attestation, continuous database identity and cooperative trusted filesystem are assumptions; raw writers, older binaries, backup rollback and physical power-loss durability are not proved. Windows-only startup and initializer refusal tests have not been run on Windows. The proof suite separately pins the executed migration inventory; its hashes do not establish implementation refinement. 2026-11-20 restack repair: the pins for guard.rs, identity.rs, tests/source_lifetime.rs, testkit/{mod,ca,leaf}.rs, tests/spiffe_peer_rotation.rs and human-vault/src/lib.rs matched no blob on this branch (stale since their introduction). identity.rs, the testkit helpers and human-vault/src/lib.rs are byte-identical to the reviewed merge-base. The guard.rs branch change is fail-closed: peer credential/trust and listener-provenance generations must equal the current generation, and withdrawal and source-deadline enforcement moved into checked_current. tests/source_lifetime.rs and tests/spiffe_peer_rotation.rs are new branch regressions for source-owned expiry and SPIFFE domain rebinding across rotation. A latent compile break in tests/source_lifetime.rs was fixed (Duration::nanoseconds does not exist in opensesame_time; milliseconds(1) preserves the inclusive-latch intent). The full opensesame-transport-security suite with the testkit feature passed (118 tests) and the opensesame-human-vault suite passed before re-pinning all eight files to the reviewed blobs. 2026-11-23: re-pinned after behaviour-preserving lint and format repairs only (no route, guard, store or policy logic changed): cargo fmt of files main left unformatted (import order, mod order, line wrapping); est_freshness.rs is now loaded once through est_wire (routes/mod.rs re-uses that module for tests instead of a second #[path] copy, and the test-only dead-code allow on transport_is_current is gone); spiffe-source source.rs drops an import used only by tests; gateway status_tests.rs drops an unused import. Regressions executed: opensesame-gateway lib routes:: and transport:: (705 passed, 7 ignored), the opensesame-transport-security suite, the opensesame-spiffe-source suite and the opensesame-connection-broker lib suite (565 passed); cargo clippy --workspace --all-targets -D warnings clean; npm run audit:exposure CLEAN after the rotation. The fingerprints are deterministic output of the reviewed byte change, not a blind refresh."
     },
     {
       "id": "certificate-binding",
@@ -2962,24 +2962,24 @@
       "4cdfc600"
     ],
     "crates/gateway/src/routes/est_wire.rs": [
-      "d1912cf0",
-      "92872c46",
-      "a0c0789f",
-      "19341e0c",
-      "4f8f1d08",
-      "beab8e8f",
-      "90df9365",
-      "004d7551"
+      "d3e8e52d",
+      "1247e405",
+      "19be0dc9",
+      "0877fefc",
+      "e5e3a2fe",
+      "d42a961c",
+      "91df3a03",
+      "0b60639a"
     ],
     "crates/gateway/src/routes/mod.rs": [
-      "d7c3af66",
-      "f8de9276",
-      "c38735c6",
-      "f2ca0bb1",
-      "cbf59aa2",
-      "14ac87dd",
-      "4874275d",
-      "143fe740"
+      "51799ec0",
+      "02d091ce",
+      "3ee43b91",
+      "2cba0758",
+      "653c4561",
+      "7ceb92db",
+      "9433ca61",
+      "f5e758fc"
     ],
     "crates/gateway/src/transport/admission.rs": [
       "97ee3c87",
@@ -7232,14 +7232,14 @@
       "af4a065c"
     ],
     "crates/gateway/src/routes/est_freshness.rs": [
-      "e03f7d56",
-      "c50cb057",
-      "e7595b61",
-      "49a3f22d",
-      "d7ee7141",
-      "75cb718e",
-      "ab0115d7",
-      "4defbfba"
+      "571a13c5",
+      "1d505a2c",
+      "22f3cee6",
+      "0635a456",
+      "0b3af81a",
+      "4dae847d",
+      "a763f730",
+      "31739e7e"
     ],
     "crates/gateway/src/routes/est_test_pause.rs": [
       "36c869c8",
@@ -7272,14 +7272,14 @@
       "aada4db2"
     ],
     "crates/gateway/src/transport/status_tests.rs": [
-      "59b1b652",
-      "48d0246a",
-      "e33365a3",
-      "734148dc",
-      "15b6a083",
-      "780b161a",
-      "12d3afb4",
-      "d635702d"
+      "288d375b",
+      "18aa112e",
+      "29956567",
+      "06c7d9c0",
+      "ea785f4a",
+      "e0ebb023",
+      "fa74ae92",
+      "bb6b667e"
     ],
     "crates/transport-security/src/generations.rs": [
       "626e1506",
@@ -7292,24 +7292,24 @@
       "ca31101f"
     ],
     "crates/transport-security/src/source_lifetime.rs": [
-      "3f6cd17b",
-      "0ffd8373",
-      "ef9067f6",
-      "6c30f1a3",
-      "3f2d8570",
-      "fe9918aa",
-      "44d804a9",
-      "3deee613"
+      "e24f5716",
+      "f8a5f82e",
+      "a0edc796",
+      "fa662241",
+      "3cf5f8ce",
+      "49b17f15",
+      "a976fbac",
+      "164782db"
     ],
     "crates/transport-security/src/source_lifetime_tests.rs": [
-      "b4ae3455",
-      "45dd68d0",
-      "51587ba6",
-      "650f323a",
-      "cd1a8b77",
-      "95d7745e",
-      "bc0a68c9",
-      "51b8353e"
+      "047ecece",
+      "4774379c",
+      "09f73346",
+      "7f51252c",
+      "74693949",
+      "b2875d00",
+      "d331433b",
+      "bb8fb253"
     ],
     "crates/transport-security/src/source_trust.rs": [
       "96dacd5d",
@@ -7432,14 +7432,14 @@
       "17a6b8ab"
     ],
     "crates/transport-security/src/signing_fence_tests.rs": [
-      "388e13ae",
-      "2da6e4ec",
-      "d7a9c5b9",
-      "7a21f566",
-      "15b8c724",
-      "29065839",
-      "19c4ae38",
-      "bd2960ba"
+      "1b54bb12",
+      "dbf904d4",
+      "e9b773a8",
+      "4ca416d3",
+      "b53f0d4b",
+      "728878b8",
+      "abf3ca4a",
+      "f253b074"
     ],
     "crates/transport-security/tests/common/mod.rs": [
       "51cfa68b",
@@ -7462,24 +7462,24 @@
       "78bc126b"
     ],
     "crates/transport-security/tests/source_lifetime.rs": [
-      "6aa6b649",
-      "2f010519",
-      "6ad6c8a6",
-      "5ebd9862",
-      "9461eb07",
-      "73d41591",
-      "93430d68",
-      "85fabf38"
+      "42bc645f",
+      "2da823be",
+      "bbef647f",
+      "558e1c6f",
+      "373ee9d8",
+      "82ddb389",
+      "62e3c7b5",
+      "2492e4d1"
     ],
     "crates/transport-security/tests/source_lifetime_edges.rs": [
-      "919e5a39",
-      "e787cd64",
-      "9bc3e963",
-      "4d998ce7",
-      "bbfea6d4",
-      "d41b4a8a",
-      "510d6c50",
-      "ce21a131"
+      "f46c034a",
+      "656c7903",
+      "950f6a4e",
+      "96107fee",
+      "4b7735ea",
+      "69e19916",
+      "a72e7f1e",
+      "9c72237d"
     ],
     "crates/transport-security/tests/source_lifetime_tls12.rs": [
       "64358730",
@@ -7602,14 +7602,14 @@
       "36f9cc68"
     ],
     "crates/spiffe-source/src/sink/transport.rs": [
-      "7899240d",
-      "30a93c99",
-      "8074e1ea",
-      "8a83e31d",
-      "8c8ec272",
-      "d210d4df",
-      "58861c4f",
-      "ab8d7e70"
+      "a0e09637",
+      "0cb46854",
+      "a337e99b",
+      "3b45b259",
+      "bf78c177",
+      "1d656a70",
+      "c631df97",
+      "2740ade5"
     ],
     "crates/spiffe-source/src/svid_profile.rs": [
       "ae5e6c1d",
@@ -7712,24 +7712,24 @@
       "30d7e0ac"
     ],
     "crates/transport-security/tests/spiffe_peer_domain.rs": [
-      "f2ae2cbb",
-      "a589f3e6",
-      "6ae4bb61",
-      "c3d50c31",
-      "5cd49bd0",
-      "b00e3125",
-      "7bce21e6",
-      "aa3f2fc3"
+      "f108b1b1",
+      "eb2e5606",
+      "5279f268",
+      "82034d1c",
+      "8ac0ac8b",
+      "afbec683",
+      "dcb41d4d",
+      "c7fbe607"
     ],
     "crates/transport-security/tests/spiffe_peer_rotation.rs": [
-      "a31b0f0b",
-      "4add6e81",
-      "bd1b7fa4",
-      "8a9a9da8",
-      "221851fa",
-      "4a4d57b4",
-      "c0aca546",
-      "8098b097"
+      "6c7cf191",
+      "e9d2c482",
+      "500b7a6f",
+      "0cf8a66d",
+      "06053dfd",
+      "cc9d257a",
+      "459c983e",
+      "49fa513a"
     ],
     "apps/cli/src/serve.rs": [
       "a1f1c931",
@@ -7932,44 +7932,44 @@
       "0c72191d"
     ],
     "crates/spiffe-source/src/source.rs": [
-      "021a25db",
-      "40801d1e",
-      "677c8487",
-      "d7e54d48",
-      "376001c0",
-      "4896f3f8",
-      "0a36157a",
-      "7d531871"
+      "1e9f02d6",
+      "420d7b81",
+      "b1cb320d",
+      "11fc52e2",
+      "55091504",
+      "f73ad39c",
+      "aea6739f",
+      "f1a908d4"
     ],
     "crates/spiffe-source/src/source_history_flow.rs": [
-      "19b03ad5",
-      "4435eb1c",
-      "95b38288",
-      "2ec52f19",
-      "191ec5af",
-      "75e1139b",
-      "310e5661",
-      "6dbe05c2"
+      "fa909584",
+      "e26db302",
+      "1de13cc5",
+      "30d50963",
+      "748afb89",
+      "a8cae230",
+      "716c30b0",
+      "ffb29a8b"
     ],
     "crates/spiffe-source/tests/durable_history_policy.rs": [
-      "0d8a6603",
-      "1ca9b6cf",
-      "77a25266",
-      "3efd49c3",
-      "ea3ca432",
-      "8ef79b0a",
-      "814f6ff9",
-      "2f81761d"
+      "9f724bd9",
+      "939e6302",
+      "1ee423a4",
+      "11e5a720",
+      "c7b95551",
+      "35926b45",
+      "956ff298",
+      "3ce5ab67"
     ],
     "crates/spiffe-source/tests/durable_history_supersession.rs": [
-      "99594e03",
-      "483bf160",
-      "5d233120",
-      "c0075d2d",
-      "a09c0d50",
-      "a0176422",
-      "4369b6bf",
-      "5e981398"
+      "c204fbda",
+      "fccda20a",
+      "d9ceb854",
+      "e75f6a42",
+      "c02370cc",
+      "19211cf5",
+      "e6f180a8",
+      "f8846cc0"
     ],
     "crates/storage/migrations/0009_host_kv.sql": [
       "89d07686",
@@ -7992,24 +7992,24 @@
       "83a6556d"
     ],
     "crates/transport-security/src/source_history_activation.rs": [
-      "c9059d04",
-      "ddf349a4",
-      "4d3a291a",
-      "28c0e3fb",
-      "0505a551",
-      "aabfe801",
-      "db93c3a9",
-      "af992ff1"
+      "b37afdb7",
+      "bb81349e",
+      "0c724db9",
+      "d9094f37",
+      "7f096f94",
+      "bc83b6b6",
+      "7b624132",
+      "d15478d1"
     ],
     "crates/transport-security/tests/source_history_reservation.rs": [
-      "2fa0c01e",
-      "2617115b",
-      "956de985",
-      "487e2bc9",
-      "f998df19",
-      "6bd1721e",
-      "0e4f42fc",
-      "f3bccb15"
+      "22192f8f",
+      "313c0176",
+      "0d87e325",
+      "99101755",
+      "1ed9c201",
+      "4843b30b",
+      "66c58574",
+      "fff6708f"
     ],
     "crates/gateway/src/routes/est_mint_withdrawal_tests.rs": [
       "104ec402",

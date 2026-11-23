@@ -266,7 +266,10 @@ mod probes {
         // short-circuit in the statement, the comment `;` is the only thing
         // that could wrongly end the closure body.
         let prefix = r#"{if url.scheme()!="https" { |x| x /* ; */ return Err("x".into()); } client.get(url)."#;
-        assert!(!super::super::guard::guarded(prefix, Some("url")), "{prefix}");
+        assert!(
+            !super::super::guard::guarded(prefix, Some("url")),
+            "{prefix}"
+        );
         let kept = r#"{if url.scheme()!="https" { return Err("x".into()); } client.get(url)."#;
         assert!(super::super::guard::guarded(kept, Some("url")), "{kept}");
     }

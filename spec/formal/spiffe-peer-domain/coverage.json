@@ -1,7 +1,7 @@
 {
   "version": 1,
   "reviewed_revision": "94260f7078fb3b9a4f42658a2eab702c358c6042",
-  "reviewed_source_state": "Source hashes identify the reviewed source-history integration after this base; they do not prove Rust refinement.",
+  "reviewed_source_state": "Source hashes identify the reviewed source-history integration after this base; they do not prove Rust refinement. 2026-11-23: re-pinned after behaviour-preserving lint and format repairs: cargo fmt of files main left unformatted; spiffe-source source.rs drops a test-only import; WaitError boxes its SourceStatus (clippy result_large_err; same variants and observations); xkeys open drops a redundant nonce re-conversion; est_freshness.rs is loaded once. No modeled transition, guard or persistence changed. Lean suites not run here (no Lean toolchain); Rust regressions for spiffe-source, transport-security, gateway routes/transport and xkeys passed, and every check-drift.py matches.",
   "lock_projection": {
     "root": "opensesame-gateway",
     "algorithm": "cargo-lock-projection-v1-sha256",
@@ -110,11 +110,11 @@
     },
     {
       "path": "crates/transport-security/src/source_lifetime.rs",
-      "sha256": "3f6cd17b0ffd8373ef9067f66c30f1a33f2d8570fe9918aa44d804a93deee613"
+      "sha256": "e24f5716f8a5f82ea0edc796fa6622413cf5f8ce49b17f15a976fbac164782db"
     },
     {
       "path": "crates/transport-security/src/source_history_activation.rs",
-      "sha256": "c9059d04ddf349a44d3a291a28c0e3fb0505a551aabfe801db93c3a9af992ff1"
+      "sha256": "b37afdb7bb81349e0c724db9d9094f377f096f94bc83b6b67b624132d15478d1"
     },
     {
       "path": "crates/transport-security/src/source_trust.rs",
@@ -154,11 +154,11 @@
     },
     {
       "path": "crates/transport-security/tests/spiffe_peer_domain.rs",
-      "sha256": "f2ae2cbba589f3e66ae4bb61c3d50c315cd49bd0b00e31257bce21e6aa3f2fc3"
+      "sha256": "f108b1b1eb2e56065279f26882034d1c8ac0ac8bafbec683dcb41d4dc7fbe607"
     },
     {
       "path": "crates/transport-security/tests/spiffe_peer_rotation.rs",
-      "sha256": "a31b0f0b4add6e81bd1b7fa48a9a9da8221851fa4a4d57b4c0aca5468098b097"
+      "sha256": "6c7cf191e9d2c482500b7a6f0cf8a66d06053dfdcc9d257a459c983e49fa513a"
     },
     {
       "path": "crates/transport-security/tests/servername.rs",
@@ -166,7 +166,7 @@
     },
     {
       "path": "crates/transport-security/tests/source_lifetime_edges.rs",
-      "sha256": "919e5a39e787cd649bc3e9634d998ce7bbfea6d4d41b4a8a510d6c50ce21a131"
+      "sha256": "f46c034a656c7903950f6a4e96107fee4b7735ea69e19916a72e7f1e9c72237d"
     },
     {
       "path": "crates/spiffe-source/src/lib.rs",
@@ -186,7 +186,7 @@
     },
     {
       "path": "crates/spiffe-source/src/sink/transport.rs",
-      "sha256": "7899240d30a93c998074e1ea8a83e31d8c8ec272d210d4df58861c4fab8d7e70"
+      "sha256": "a0e096370cb46854a337e99b3b45b259bf78c1771d656a70c631df972740ade5"
     },
     {
       "path": "crates/spiffe-source/src/svid_profile.rs",

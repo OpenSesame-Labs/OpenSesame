@@ -2,7 +2,7 @@
   "version": 2,
   "reviewed_revision": "863b64ec3ed5178b7ac7c3fec37b83657c038554",
   "reviewed_attestation": "spec/formal/spiffe/reviewed-sources.json",
-  "reviewed_source_state": "Version 2 binds each source sha256 to reviewed_blob. reviewed_revision remains the main ancestor; base_blob is that revision's blob (null when the path did not exist). The reviewed bytes are the post-base security fix: the reconciled SPIFFE withdrawal stack and the source-owned trust-history persistence, merged and reviewed together. They do not prove Rust refinement.",
+  "reviewed_source_state": "Version 2 binds each source sha256 to reviewed_blob. reviewed_revision remains the main ancestor; base_blob is that revision's blob (null when the path did not exist). The reviewed bytes are the post-base security fix: the reconciled SPIFFE withdrawal stack and the source-owned trust-history persistence, merged and reviewed together. They do not prove Rust refinement. 2026-11-23: re-pinned after behaviour-preserving lint and format repairs: cargo fmt of files main left unformatted; spiffe-source source.rs drops a test-only import; WaitError boxes its SourceStatus (clippy result_large_err; same variants and observations); xkeys open drops a redundant nonce re-conversion; est_freshness.rs is loaded once. No modeled transition, guard or persistence changed. Lean suites not run here (no Lean toolchain); Rust regressions for spiffe-source, transport-security, gateway routes/transport and xkeys passed, and every check-drift.py matches.",
   "sdk_projection": {
     "package": {
       "name": "spiffe",
@@ -172,9 +172,9 @@
     },
     {
       "path": "crates/spiffe-source/src/sink/transport.rs",
-      "sha256": "7899240d30a93c998074e1ea8a83e31d8c8ec272d210d4df58861c4fab8d7e70",
+      "sha256": "a0e096370cb46854a337e99b3b45b259bf78c1771d656a70c631df972740ade5",
       "base_blob": "2601afdedcc6f77c79490896772ddf47979e53b3",
-      "reviewed_blob": "4640de448253033cbe7fc33e84cde3afb11e1916"
+      "reviewed_blob": "caee290316a5be0a6174c0a4fcdb21ecc6c1f79c"
     },
     {
       "path": "crates/spiffe-source/src/snapshot.rs",
@@ -184,9 +184,9 @@
     },
     {
       "path": "crates/spiffe-source/src/source.rs",
-      "sha256": "021a25db40801d1e677c8487d7e54d48376001c04896f3f80a36157a7d531871",
+      "sha256": "1e9f02d6420d7b81b1cb320d11fc52e255091504f73ad39caea6739ff1a908d4",
       "base_blob": "6ff41f704f3262a8d0c3db87e1610fef483047f0",
-      "reviewed_blob": "5b542a961df0aa2bc007ce105e373e16131e9a7a"
+      "reviewed_blob": "a4f783925bf6715ee7cb6e3fd45f0b336f8a8b5a"
     },
     {
       "path": "crates/spiffe-source/src/source_formal_tests.rs",
@@ -196,15 +196,15 @@
     },
     {
       "path": "crates/spiffe-source/src/source_handle.rs",
-      "sha256": "06ac228304b093c32f4c86b1aa5615f39da700b73037d035fe217359ad8f50a8",
+      "sha256": "bfa22fdeabc61acae9dab9cbdf458fa5f02abb576a7e988747fd92916a39d99b",
       "base_blob": null,
-      "reviewed_blob": "f0e9e6b57c77ec31518b2d5fb605d00873b2a427"
+      "reviewed_blob": "96f7a550af37885fc87971085919c31a876c8e0b"
     },
     {
       "path": "crates/spiffe-source/src/source_history_flow.rs",
-      "sha256": "19b03ad54435eb1c95b382882ec52f19191ec5af75e1139b310e56616dbe05c2",
+      "sha256": "fa909584e26db3021de13cc530d50963748afb89a8cae230716c30b0ffb29a8b",
       "base_blob": null,
-      "reviewed_blob": "a7943094838167b816064fad304b5596d53dea7e"
+      "reviewed_blob": "972dcac9da2e49b4076cc9c31723e18b11d0efb3"
     },
     {
       "path": "crates/spiffe-source/src/source_loop.rs",
@@ -232,9 +232,9 @@
     },
     {
       "path": "crates/spiffe-source/tests/outage_policy.rs",
-      "sha256": "0d860f5544fe55dfac8b73993fe37822324d9130ff767b6d18cefb3197890d33",
+      "sha256": "95b626c398463653288651398344207b56ddf59e054fbf4e1c44e7a37bff69cf",
       "base_blob": null,
-      "reviewed_blob": "dee8dfb5c1084a80817eeea5de4680855662b1bf"
+      "reviewed_blob": "e632d5c09f80c6806a028a07f68c0a58e00fd5a1"
     },
     {
       "path": "crates/spiffe-source/tests/production_sink_policy.rs",
@@ -256,9 +256,9 @@
     },
     {
       "path": "crates/spiffe-source/tests/trust_reduction_policy.rs",
-      "sha256": "89595827fe83961ae2a74ab469c68998bb382c923e6f4de7e9b56a66c1c782e3",
+      "sha256": "cbb1cb819aad83ee322dc43d02e9a3f76689b3443242ed210a4488c8c8c8b4b5",
       "base_blob": null,
-      "reviewed_blob": "76137866884f4957169c2a6c5f123b2cdbc8eae9"
+      "reviewed_blob": "6c3c1ce181e70cc1809609d85a70ec1aea308034"
     },
     {
       "path": "crates/spiffe-source/tests/withdrawal_policy.rs",
@@ -286,15 +286,15 @@
     },
     {
       "path": "crates/transport-security/src/source_history_activation.rs",
-      "sha256": "c9059d04ddf349a44d3a291a28c0e3fb0505a551aabfe801db93c3a9af992ff1",
+      "sha256": "b37afdb7bb81349e0c724db9d9094f377f096f94bc83b6b67b624132d15478d1",
       "base_blob": null,
-      "reviewed_blob": "63eea50c8a43afde1b5e4c9dac4c48042b16923f"
+      "reviewed_blob": "d5349f75f21dc153c1ab6cf54e7349b3ddb5d5fc"
     },
     {
       "path": "crates/transport-security/src/source_lifetime.rs",
-      "sha256": "3f6cd17b0ffd8373ef9067f66c30f1a33f2d8570fe9918aa44d804a93deee613",
+      "sha256": "e24f5716f8a5f82ea0edc796fa6622413cf5f8ce49b17f15a976fbac164782db",
       "base_blob": null,
-      "reviewed_blob": "c5c907743fab139ebc46b92e1a60482775ab008c"
+      "reviewed_blob": "d349f2037e82bf23e07b839efb8795054b68c140"
     },
     {
       "path": "crates/transport-security/src/source_trust.rs",

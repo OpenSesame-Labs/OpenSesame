@@ -390,7 +390,10 @@ mod probes {
             "let reply = client.execute(request).await?; sqlx::query(\"select 1\"); reply.into()",
         ];
         for sample in hits {
-            assert!(reads(sample), "the RHS send stays response-rooted: {sample}");
+            assert!(
+                reads(sample),
+                "the RHS send stays response-rooted: {sample}"
+            );
         }
     }
 }

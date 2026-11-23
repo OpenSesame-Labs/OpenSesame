@@ -83,7 +83,8 @@ async fn reconnect_with_rejected_snapshot_keeps_the_original_outage_deadline(pro
             Duration::from_millis(800),
         ),
         sink.clone(),
-    ).unwrap();
+    )
+    .unwrap();
     streaming(&handle, 1).await;
 
     let expected_error = if profile_error {
@@ -155,7 +156,8 @@ async fn stalled_reconnection_cannot_extend_the_outage_deadline() {
             Duration::from_millis(800),
         ),
         sink.clone(),
-    ).unwrap();
+    )
+    .unwrap();
     streaming(&handle, 1).await;
     api.shutdown().await;
     let (since, deadline) = opened_outage(&handle).await;
@@ -198,7 +200,8 @@ async fn stalled_rpc_opening_cannot_extend_the_outage_deadline() {
             Duration::from_millis(800),
         ),
         sink.clone(),
-    ).unwrap();
+    )
+    .unwrap();
     streaming(&handle, 1).await;
     api.close_streams();
     api.stall_on_reconnect();
@@ -236,7 +239,8 @@ async fn a_fresh_generation_after_reconnect_sheds_the_stale_outage_ceiling() {
             Duration::from_millis(800),
         ),
         sink.clone(),
-    ).unwrap();
+    )
+    .unwrap();
     streaming(&handle, 1).await;
 
     // The outage arms a tight freshness bound far inside the certificate.

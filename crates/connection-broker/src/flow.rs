@@ -12,9 +12,9 @@ use opensesame_invoke_through::scrub_credential_reflections;
 use crate::catalog::{AuthMethod, Provider, TokenAuth};
 use crate::config::BrokerConfig;
 use crate::error::{BrokerError, Result};
-use crate::response_guard::{read_bounded_body, safe_oauth_error_detail, transport_detail};
 #[cfg(test)]
 use crate::response_guard::oauth_error_detail;
+use crate::response_guard::{read_bounded_body, safe_oauth_error_detail, transport_detail};
 use crate::token::TokenResponse;
 
 /// A `state` outlives a human deciding whether to consent, and no longer.

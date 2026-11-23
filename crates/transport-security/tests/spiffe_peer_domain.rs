@@ -149,8 +149,11 @@ async fn service_listener(
         own_trust: None,
         identity_required: true,
     };
-    let generations =
-        TransportGenerations::new(candidate.into_generation(1, opensesame_time::Utc::now()).unwrap());
+    let generations = TransportGenerations::new(
+        candidate
+            .into_generation(1, opensesame_time::Utc::now())
+            .unwrap(),
+    );
     let state = LiveAdmission {
         generations: Arc::clone(&generations),
         bindings: Arc::new(RwLock::new(binding(

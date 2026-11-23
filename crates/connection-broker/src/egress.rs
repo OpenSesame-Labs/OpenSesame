@@ -239,9 +239,13 @@ impl ConnectionBroker {
         // opened. The resulting client uses only those addresses and bypasses
         // process proxies, so neither DNS rebinding nor a proxy can redirect
         // the credentialed connection.
-        let client =
-            credentialed_egress_client(&self.config, &row.provider_id, url, Duration::from_secs(20))
-                .await?;
+        let client = credentialed_egress_client(
+            &self.config,
+            &row.provider_id,
+            url,
+            Duration::from_secs(20),
+        )
+        .await?;
 
         let key = *self.sealing_key()?;
         let credential = store::get_credential(&self.pool, &row.id)
@@ -315,9 +319,13 @@ impl ConnectionBroker {
         // opened. The resulting client uses only those addresses and bypasses
         // process proxies, so neither DNS rebinding nor a proxy can redirect
         // the credentialed connection.
-        let client =
-            credentialed_egress_client(&self.config, &row.provider_id, url, Duration::from_secs(60))
-                .await?;
+        let client = credentialed_egress_client(
+            &self.config,
+            &row.provider_id,
+            url,
+            Duration::from_secs(60),
+        )
+        .await?;
 
         let key = *self.sealing_key()?;
         let credential = store::get_credential(&self.pool, &row.id)
