@@ -39,6 +39,14 @@ jobs:
             .github/workflows/cd-pwa.yml
             /mise.toml
             /mise.lock
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
       - name: Install pinned mise and Node 24
         run: bash scripts/lib/install-mise-locked.sh node@24
       - name: Compare live Pages revision to main

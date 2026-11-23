@@ -224,7 +224,10 @@ describe("candidate qualification records successful immutable-artifact checks",
         expect(smoke).toContain("actions/download-artifact@");
         expect(smoke).not.toContain("github.token");
       } else {
-        expect(smoke).toContain("ref: ${{ inputs.source_sha }}");
+        // #2850: the admitted candidate is materialized by the trusted helper
+        // at its exact SHA rather than checked out by ref.
+        expect(smoke).toContain("TARGET_SHA: ${{ inputs.source_sha }}");
+        expect(smoke).toContain("scripts/ci/materialize-git-sha.sh");
       }
     },
   );
