@@ -15,7 +15,7 @@ type Port = {
   key: () => CryptoKey | null;
   pending: () => boolean;
   failed: () => void;
-  lock: (recordLastVault?: boolean) => void;
+  lock: (recordLastVault: boolean) => void;
   mark: (data: RetiredLoginData, origin: VaultScope) => void;
   marked: (origin: VaultScope) => boolean;
   create: (check: () => void) => Promise<void>;
@@ -74,7 +74,7 @@ export async function retiredPasswordLogin(
       },
     );
   } catch (error) {
-    if (port.marked(origin)) port.lock();
+    if (port.marked(origin)) port.lock(true);
     throw error;
   }
   check();

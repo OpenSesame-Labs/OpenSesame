@@ -19,6 +19,7 @@ import {
   subscribeLocalBackupTarget,
   writeLocalBackupTarget,
 } from "./backup-target-local.js";
+import { isGuestSessionTomb } from "./duress/store/decoy-scratch.js";
 import {
   performSavedCategory,
   performSavedConnector,
@@ -42,7 +43,6 @@ export {
   restoreSavedGithubBackup,
 } from "./vault-backup-github.js";
 
-import { isGuestSessionTomb } from "./duress/store/decoy-scratch.js";
 import {
   buildOfflineBackup,
   serializeOfflineBackup,
@@ -69,9 +69,8 @@ function utf8ToBase64(text: string): string {
 
 function sealedEnvelopeJson(): string {
   const { status, tomb, guest } = vaultStore.getSnapshot();
-  if (guest || isGuestSessionTomb(tomb)) {
+  if (guest || isGuestSessionTomb(tomb))
     throw new Error("Guest vaults cannot sync to a backup remote.");
-  }
   if (status !== "unlocked" && status !== "locked") {
     throw new Error("There is no vault to back up.");
   }

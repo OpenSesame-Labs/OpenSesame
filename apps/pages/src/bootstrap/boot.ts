@@ -90,7 +90,8 @@ async function hydrateBootConfiguration(): Promise<ParsedRuntimeConfig> {
   return runtimeConfig;
 }
 
-export async function bootCore(): Promise<CoreBoot> {
+/** Every arrival's bearer leaves the address bar before anything else runs. */
+function captureArrivals(): void {
   // An invite's bearer leaves the address bar before anything else runs or
   // paints: history, a bookmark or a shared screen must never carry it.
   captureInviteFromPage();
@@ -120,6 +121,10 @@ export async function bootCore(): Promise<CoreBoot> {
   // leaves the query here and is held in memory for the hand-off, never
   // fetched (ADR 0140 plan step 10).
   captureInvocationArrivalFromPage();
+}
+
+export async function bootCore(): Promise<CoreBoot> {
+  captureArrivals();
   // Every stored value is sealed under the device's at-rest key (ADR 0149):
   // wait for it, then seal whatever an older build left in the clear, before
   // anything is read or hydrated.

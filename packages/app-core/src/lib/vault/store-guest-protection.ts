@@ -14,7 +14,7 @@ export async function protectGuestTomb(input: {
   person: GuestSessionPerson;
   key: CryptoKey;
   check: () => void;
-  turn?: TombWriteTurn;
+  turn?: TombWriteTurn | undefined;
   persist: () => Promise<void>;
 }): Promise<void> {
   const { tomb, owner, person, key, check, turn, persist } = input;
