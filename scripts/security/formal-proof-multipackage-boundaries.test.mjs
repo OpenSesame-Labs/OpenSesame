@@ -284,9 +284,8 @@ test("custom build paths fail closed during historical projection", (t) => {
   }
 });
 
-test("Rust proof drift checks verify Cargo targets and projection helpers before Cargo", () => {
-  const root = fileURLToPath(new URL("../../", import.meta.url));
-  const driver = String.raw`import hashlib, importlib._bootstrap_external, importlib.util, json, os, pathlib, shutil, subprocess, sys, tempfile
+// Alters one reviewed Cargo target or helper per case; Cargo must never run.
+const targetDriftDriver = String.raw`import hashlib, importlib._bootstrap_external, importlib.util, json, os, pathlib, shutil, subprocess, sys, tempfile
 root = pathlib.Path(sys.argv[1])
 cases = [
     ("authority", "spec/formal/authority/Cargo.toml", "bin", "reviewed Cargo bin target"),
@@ -307,21 +306,30 @@ for suite, helpers in [("authority", ("cargo-lock-projection.py", "cargo-workspa
     for helper in helpers:
         for mode, expected in (("helper-source", "source drift"), ("helper-pyc", None)):
             cases.append((suite, "scripts/security/" + helper, mode, expected))
+# Each target is a git checkout borrowing this repository's objects (hermetic lineage).
+git_env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+def git_out(*args): return subprocess.check_output(["git", *args], env=git_env, text=True).strip()
+objects = pathlib.Path(git_out("-C", str(root), "rev-parse", "--path-format=absolute", "--git-common-dir")) / "objects"
+main = git_out("-C", str(root), "rev-parse", "origin/main")
 with tempfile.TemporaryDirectory(prefix="formal-target-drift-") as temporary:
     for index, (suite, manifest, mode, expected) in enumerate(cases):
         target = pathlib.Path(temporary) / str(index)
         coverage_name = "spec/formal/" + suite + "/coverage.json"
         coverage = json.loads((root / coverage_name).read_text())
         names = [entry["path"] for entry in coverage["sources"] + coverage["optional_sources"]]
+        names += [coverage["reviewed_attestation"]] if "reviewed_attestation" in coverage else []
         names += ["Cargo.toml", "Cargo.lock", coverage_name, "spec/formal/" + suite + "/check-drift.py",
                   "scripts/security/cargo-lock-projection.py", "scripts/security/cargo-workspace-projection.py",
-                  "scripts/security/cargo-workspace-multipackage.py"]
+                  "scripts/security/cargo-workspace-multipackage.py", "scripts/security/formal_coverage_drift.py"]
         for name in dict.fromkeys(names):
             source, destination = root / name, target / name
             if source.exists():
                 assert not source.is_symlink() and source.is_file(), name
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, destination)
+        git_out("init", "-q", str(target))
+        (target / ".git/objects/info/alternates").write_text(str(objects) + "\n")
+        git_out("-C", str(target), "update-ref", "refs/remotes/origin/main", main)
         file = target / manifest
         original = file.read_text()
         if mode == "helper-source":
@@ -354,7 +362,9 @@ with tempfile.TemporaryDirectory(prefix="formal-target-drift-") as temporary:
                 assert original.count(before) == 1, (suite, mode)
                 changed = original.replace(before, after, 1)
             file.write_text(changed)
-            next(entry for entry in coverage["sources"] if entry["path"] == manifest)["sha256"] = hashlib.sha256(file.read_bytes()).hexdigest()
+            entry = next(entry for entry in coverage["sources"] if entry["path"] == manifest)
+            entry["sha256"] = hashlib.sha256(file.read_bytes()).hexdigest()
+            if "reviewed_blob" in entry: entry["reviewed_blob"] = git_out("-C", str(target), "hash-object", "-w", str(file))
         if mode == "build":
             script = file.parent / "build.rs"
             script.write_text('fn main() {}\n')
@@ -366,18 +376,23 @@ with tempfile.TemporaryDirectory(prefix="formal-target-drift-") as temporary:
             alternate.parent.mkdir(parents=True, exist_ok=True)
             alternate.write_text('// alternate\n')
         (target / coverage_name).write_text(json.dumps(coverage))
+        if "reviewed_attestation" in coverage:
+            (attestation := target / coverage["reviewed_attestation"]).write_text(json.dumps(json.loads(attestation.read_text()) | {"sources": coverage["sources"]}))
         fake = target / "fake-bin/cargo"
         fake.parent.mkdir()
         fake.write_text('#!/bin/sh\nprintf invoked > "$CARGO_MARKER"\nexit 0\n')
         fake.chmod(0o700)
         marker = target / "cargo-invoked"
-        env = os.environ.copy() | {"PATH": str(fake.parent) + os.pathsep + os.environ["PATH"], "CARGO_MARKER": str(marker)}
+        env = git_env | {"PATH": str(fake.parent) + os.pathsep + os.environ["PATH"], "CARGO_MARKER": str(marker)}
         result = subprocess.run([sys.executable, "-I", "spec/formal/" + suite + "/check-drift.py"], cwd=target, env=env, text=True, capture_output=True)
         assert not marker.exists(), (suite, mode, "Cargo executed")
         if expected is None: assert result.returncode == 0, (suite, mode, result.stderr)
         else: assert result.returncode != 0 and expected in result.stderr, (suite, mode, result.stdout, result.stderr)
 `;
-  const result = spawnSync("python3", ["-I", "-c", driver, root], {
+
+test("Rust proof drift checks verify Cargo targets and projection helpers before Cargo", () => {
+  const root = fileURLToPath(new URL("../../", import.meta.url));
+  const result = spawnSync("python3", ["-I", "-c", targetDriftDriver, root], {
     encoding: "utf8",
     timeout: 120000,
   });
