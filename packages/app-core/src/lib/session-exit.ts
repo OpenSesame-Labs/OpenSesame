@@ -24,7 +24,7 @@ import { forgetClaim } from "./claims/arrival.js";
 import { clearSession as clearFederationSession } from "./federation.js";
 import { clearPendingSignIn } from "./federation-pending.js";
 import { forgetPendingLink } from "./guest-auth.js";
-import { endSession } from "./identity.js";
+import { endSession, settleSignOut } from "./identity.js";
 import { endJoinAuthority } from "./join/client.js";
 import { clearPendingJoin } from "./join/stash.js";
 import { dismissNotice, setStatusNotice } from "./notices.js";
@@ -73,14 +73,21 @@ function signOutDefault(intent: SignOutIntent = "leave"): void {
         : { kind: "signed_out" },
     ),
   );
-  step(endSession);
+  step(() => endSession({ signOut: true }));
   if (vaultStore.isUnlocked() || vaultStore.getSnapshot().awaitingSecondStep) {
     step(() => vaultStore.lock());
   }
-  if (!incomplete) {
-    dismissNotice(INCOMPLETE_ID);
+  if (incomplete) {
+    reportIncomplete(intent);
     return;
   }
+  dismissNotice(INCOMPLETE_ID);
+  // The Identity cookie stops acting only when the service confirms the
+  // revoke; until then sign-in stays fenced and this says so.
+  void settleSignOut().catch(() => reportIncomplete(intent));
+}
+
+function reportIncomplete(intent: SignOutIntent): void {
   setStatusNotice({
     id: INCOMPLETE_ID,
     tone: "err",

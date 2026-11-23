@@ -34,10 +34,11 @@ const networkEligible = localNetworkFetchSeams.eligible;
 
 beforeEach(async () => {
   stubBasic();
+  // Eligible first, so this cleanup's revoke is not left owed to a later test.
+  localNetworkFetchSeams.eligible = loopbackProfileEligible;
   endSession();
   await settleRevokes();
   sessionStore().removeItem("opensesame.guest.identity-isolated");
-  localNetworkFetchSeams.eligible = loopbackProfileEligible;
   clearSession();
   clearHostSession();
   saveSettings({

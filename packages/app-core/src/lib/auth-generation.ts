@@ -1,6 +1,7 @@
 /** Shared principal-generation fence; all sign-in roads use the same durable counter. */
 import { maybeLocalStore } from "../ports.js";
 import { notifyFederationSessionChanged } from "./federation-session-events.js";
+
 const GENERATION_KEY = "opensesame:ambient-auth:generation";
 function readNumber(key: string): number {
   try {
@@ -24,6 +25,15 @@ function writeNumber(key: string, value: number): void {
 
 export function currentAuthGeneration(): number {
   return readNumber(GENERATION_KEY);
+}
+/** The generation, or null when storage refused the read (unknown, not 0). */
+export function readAuthGeneration(): number | null {
+  try {
+    maybeLocalStore()?.getItem(GENERATION_KEY);
+  } catch {
+    return null;
+  }
+  return currentAuthGeneration();
 }
 /** Advance synchronously before any asynchronous sign-out work; the persisted key is unchanged. */
 export function advanceAuthGeneration(): number {

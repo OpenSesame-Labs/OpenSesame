@@ -7,11 +7,17 @@ import {
 } from "@opensesame/os-domain";
 import { randomString, sha256Base64Url } from "@opensesame/sdk-browser";
 import { page, sessionStore } from "../ports.js";
+import { currentAuthGeneration } from "./auth-generation.js";
 import {
   identitySessionEpoch,
   remoteIdentityApi,
   restoreSession,
 } from "./identity.js";
+import {
+  flushBearerRevokes,
+  queueIdentityRevoke,
+  rememberBearerRevoke,
+} from "./identity-token-proof.js";
 import { localNetworkFetch } from "./local-network-fetch.js";
 
 const PENDING_KEY = "opensesame.magic-link.pending.v1";
@@ -28,6 +34,8 @@ type PendingMagicLink = {
   identityBase: string;
   callback: string;
   sessionEpoch: number;
+  /** The shared sign-out generation; any tab's sign-out moves it. */
+  signOutGeneration: number;
   pageLoad?: string;
 };
 
@@ -42,7 +50,8 @@ function readPending(): PendingMagicLink | undefined {
       !isString(value.state) ||
       !isString(value.identityBase) ||
       !isString(value.callback) ||
-      !isNumber(value.sessionEpoch)
+      !isNumber(value.sessionEpoch) ||
+      !isNumber(value.signOutGeneration)
     )
       return undefined;
     return overlapCast(value);
@@ -74,6 +83,7 @@ export async function beginMagicLink(email: string): Promise<MagicLinkHandoff> {
     identityBase,
     callback: callbackUrl.toString(),
     sessionEpoch: identitySessionEpoch(),
+    signOutGeneration: currentAuthGeneration(),
     pageLoad,
   };
   return {
@@ -105,7 +115,13 @@ export async function completeMagicLink(
     pending.identityBase !== remoteIdentityApi()
   )
     throw new Error("This sign-in return did not match the requesting tab.");
-  assertCurrent();
+  // A sign-out in any tab since the link was asked for ends this request.
+  const assertSignedIn = () => {
+    assertCurrent();
+    if (currentAuthGeneration() !== pending.signOutGeneration)
+      throw new Error("You signed out after asking for this link. Ask again.");
+  };
+  assertSignedIn();
   // After a reload the recorded epoch is meaningless; fence the exchange to
   // the epoch it starts under, so a sign-out during it still refuses.
   const fence =
@@ -130,7 +146,17 @@ export async function completeMagicLink(
     !isString(body.accessToken)
   )
     throw new Error("The sign-in service returned an invalid session.");
-  assertCurrent();
+  try {
+    assertSignedIn();
+  } catch (error) {
+    // The exchange already issued a session: end it rather than strand it.
+    const base = pending.identityBase;
+    rememberBearerRevoke(body.accessToken, base);
+    queueIdentityRevoke(async () => {
+      await flushBearerRevokes(base);
+    });
+    throw error;
+  }
   restoreSession(
     {
       principalId: body.principalId,
