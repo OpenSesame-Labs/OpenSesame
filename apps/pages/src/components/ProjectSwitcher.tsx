@@ -128,6 +128,7 @@ function ProjectSwitcherDefault({ glyphHost }: ProjectSwitcherProps = {}) {
   }
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: Escape forwarding only — focus and actions stay on the button and menu inside
     <div
       className="project-switcher"
       onKeyDown={(event) => {
@@ -173,7 +174,6 @@ function ProjectSwitcherDefault({ glyphHost }: ProjectSwitcherProps = {}) {
 
       {open ? (
         <>
-          {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop mirrors Escape, handled on the menu */}
           <div
             className="project-switcher__backdrop"
             onClick={() => {
@@ -181,7 +181,7 @@ function ProjectSwitcherDefault({ glyphHost }: ProjectSwitcherProps = {}) {
             }}
             aria-hidden="true"
           />
-          <div
+          <section
             className="project-switcher__menu"
             aria-label="Vaults on this device"
           >
@@ -240,7 +240,7 @@ function ProjectSwitcherDefault({ glyphHost }: ProjectSwitcherProps = {}) {
               title="Vault"
               message={error}
             />
-          </div>
+          </section>
         </>
       ) : null}
     </div>
