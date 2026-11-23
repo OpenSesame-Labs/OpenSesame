@@ -3908,14 +3908,14 @@
       "a3da297b"
     ],
     "packages/app-core/src/lib/vfs.ts": [
-      "5c31111b",
-      "af497831",
-      "f33f0c34",
-      "630dee7c",
-      "26af793e",
-      "39388088",
-      "0cf3800a",
-      "34ca18a5"
+      "73fe6a7b",
+      "e090a658",
+      "313251fa",
+      "c72f3f04",
+      "884cd138",
+      "e7761dcb",
+      "fa5d6370",
+      "f5b7034a"
     ],
     "packages/app-core/src/lib/vfs-operation-check.ts": [
       "53d74e57",
