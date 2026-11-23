@@ -277,13 +277,10 @@ export function kvDelete(key: string): void {
 }
 
 /**
- * Remove a key and wait for OPFS to forget it, so a caller can tell the user it
- * is gone rather than that it has been asked to go. Absent already counts as
- * gone; anything else is reported. With `beforeCommit` the original owner is
- * rechecked around the unlink, memory changes only after it, and a record
- * changed meanwhile is kept; a session-only (ephemeral at-rest key) record is
- * memory alone, so no file is touched.
- */
+ * Remove a key and wait for OPFS to forget it (absent counts as gone). With
+ * `beforeCommit` the owner is rechecked around the unlink, memory changes only
+ * after it, a record changed meanwhile is kept, and a session-only record
+ * (ephemeral at-rest key) touches no file. */
 export async function kvDeleteDurable(
   key: string,
   beforeCommit?: () => void,
@@ -295,32 +292,35 @@ export async function kvDeleteDurable(
   if (!beforeCommit) {
     originMemoryChanged(fileName(key), true);
     forget();
+    return withOriginFile(fileName(key), () => unlinkOriginFile(key, false));
   }
   return withOriginFile(fileName(key), async (turn) => {
-    beforeCommit?.();
-    const durable = !beforeCommit || (await atRestReady()).durable;
-    beforeCommit?.();
-    const root = durable ? await opfsRoot(Boolean(beforeCommit)) : null;
-    beforeCommit?.();
-    try {
-      if (root) await root.removeEntry(fileName(key));
-    } catch (error) {
-      // Restricted OPFS (CI Chrome / sandboxed profiles) refuses mutation; an
-      // unguarded delete already dropped memory, so treat it as session-only.
-      const refused =
-        error instanceof DOMException &&
-        (error.name === "NoModificationAllowedError" ||
-          error.name === "SecurityError");
-      const absent =
-        error instanceof DOMException && error.name === "NotFoundError";
-      if (!absent && (!refused || beforeCommit)) throw error;
-      if (refused) durability = "memory";
-    }
-    if (!beforeCommit) return;
+    beforeCommit();
+    const atRest = await atRestReady();
+    beforeCommit();
+    if (atRest.durable) await unlinkOriginFile(key, true);
     beforeCommit();
     if (!turn.publish(forget))
       throw new Error("Storage changed during deletion.");
   });
+}
+
+/** Unlink one origin file; absent is success. A guarded (strict) unlink reports refusals. */
+async function unlinkOriginFile(key: string, strict: boolean): Promise<void> {
+  const root = await opfsRoot(strict);
+  if (!root) return;
+  try {
+    await root.removeEntry(fileName(key));
+  } catch (error) {
+    if (!(error instanceof DOMException)) throw error;
+    if (error.name === "NotFoundError") return;
+    // Restricted OPFS refuses mutation; an unguarded delete is then session-only.
+    const refused =
+      error.name === "NoModificationAllowedError" ||
+      error.name === "SecurityError";
+    if (strict || !refused) throw error;
+    durability = "memory";
+  }
 }
 
 /** Load keys from OPFS into memory before first paint. */
