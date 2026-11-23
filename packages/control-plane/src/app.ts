@@ -140,13 +140,15 @@ export function createHonoApp(
   // The separate namespace cannot exist on a legacy replica, so a failed
   // downgrade cannot execute a write under an unrelated ambient cookie.
   app.get("/v1/bound/status", boundCookieStatus);
+  // Internal dispatch keeps the original bindings, so the routed handler still
+  // sees the Node adapter's socket peer for fingerprints and rate limits.
   app.post("/v1/bound/session-mint", (c) =>
-    boundCookieMint(c, (request) => app.fetch(request)),
+    boundCookieMint(c, (request) => app.fetch(request, c.env)),
   );
   app.post("/v1/bound/sign-out", boundCookieExit);
   app.post("/v1/bound/proof-sign-out", boundCookieProofExit);
   app.all("/v1/bound/*", (c) =>
-    boundCookieProxy(c, (request) => app.fetch(request)),
+    boundCookieProxy(c, (request) => app.fetch(request, c.env)),
   );
 
   app.route("/v1/health", healthRoutes);
