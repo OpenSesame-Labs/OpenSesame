@@ -26,7 +26,10 @@ RUN npm run build -w @opensesame/pages \
   && node scripts/release/prepare-pages-release.mjs
 FROM --platform=linux/amd64 ${PREBUILT_IMAGE} AS prebuilt
 FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS runtime-from-prebuilt
-RUN adduser -D -u 10001 app
+# The pinned base can predate Alpine security fixes; take them from the
+# release's own repository (docs/security/alert-triage.md, source images).
+RUN apk upgrade --no-cache \
+  && adduser -D -u 10001 app
 WORKDIR /opt/opensesame-web-pwa
 COPY --from=prebuilt --chown=10001:10001 /opt/opensesame-web-pwa/ ./
 ARG VERSION=0.0.0-local
@@ -43,7 +46,10 @@ ENTRYPOINT ["node", "bin/serve.mjs"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:5180/').then((response)=>process.exit(response.status===200?0:1)).catch(()=>process.exit(1))"]
 FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS runtime
-RUN adduser -D -u 10001 app
+# The pinned base can predate Alpine security fixes; take them from the
+# release's own repository (docs/security/alert-triage.md, source images).
+RUN apk upgrade --no-cache \
+  && adduser -D -u 10001 app
 WORKDIR /opt/opensesame-web-pwa
 COPY --from=build --chown=10001:10001 /src/apps/pages/release/ ./
 ARG VERSION=0.0.0-local

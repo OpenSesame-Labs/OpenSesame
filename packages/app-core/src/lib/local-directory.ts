@@ -5,7 +5,6 @@ import {
   isNumber,
   isString,
 } from "@opensesame/os-domain";
-import { VaultCorruptError } from "@opensesame/vault-core";
 import { lockManager } from "../ports.js";
 import { kvRefresh } from "./kv.js";
 import {
@@ -22,13 +21,13 @@ import {
 } from "./local-directory-types.js";
 import { type LocalIamAccess, readLocalIamFile } from "./local-iam-access.js";
 import { notifyLocalIamChange } from "./local-iam-events.js";
-import { VfsError, readFile, tombFileKey, vfsSeams, writeFile } from "./vfs.js";
+import { VfsError, readFile, tombFileKey, writeFile } from "./vfs.js";
 
 export const LOCAL_DIRECTORY_PATH = "config/identity-directory";
 export {
-  LocalDirectoryError,
   type LocalDirectory,
   type LocalDirectoryChange,
+  LocalDirectoryError,
   type LocalIdentity,
   type LocalIdentityKind,
   type LocalMembership,
@@ -115,15 +114,9 @@ export async function readLocalDirectory(
     if (error instanceof VfsError && error.code === "not-found") {
       return { version: 2, revision: 0, entries: [], memberships: [] };
     }
-    // Ciphertext sealed under a destroyed guest key, not a parse failure.
-    if (
-      !access &&
-      (error instanceof VaultCorruptError ||
-        (error instanceof VfsError && error.code === "corrupt"))
-    ) {
-      await vfsSeams.deleteRaw(tombFileKey(tomb, LOCAL_DIRECTORY_PATH));
-      return { version: 2, revision: 0, entries: [], memberships: [] };
-    }
+    // A directory this key cannot open is preserved, never read as empty:
+    // an empty one would erase every identity and membership it holds. A
+    // guest's leftovers are wiped with its tomb before the next guest opens.
     throw error;
   }
 }

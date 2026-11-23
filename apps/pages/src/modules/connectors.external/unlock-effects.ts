@@ -28,12 +28,12 @@ export function connectorUnlockEffects(
   return [
     {
       id: "seal-connector-directory",
-      run: ({ tomb, guest, signal }) =>
+      run: ({ tomb, signal }) =>
         runUnlessAborted(anySignal([lease, signal]), async () => {
-          // A guest tomb is wiped on lock, so it gets the list without
-          // taking it: the sync still waits for the vault that lasts.
+          // The first vault to open takes the list, guest or not; it is
+          // never carried on into the next person's vault.
           await connectorUnlockSeams
-            .sealPendingConnectorDirectory(tomb, { ephemeral: guest })
+            .sealPendingConnectorDirectory(tomb)
             .catch(() => {
               // The endpoint is on record; Access › Connectors syncs again.
             });

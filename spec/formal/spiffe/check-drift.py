@@ -21,6 +21,7 @@ import re
 import stat
 import subprocess
 import sys
+import tarfile
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts" / "security"))
@@ -40,6 +41,10 @@ TARGETS = {
         )},
     },
 }
+# 2026-11-23: opensesame-time's default sqlx feature compiles the declared
+# sqlx-sqlite path patch into this closure. It is outside the SPIFFE property;
+# its tree is pinned by the reviewed vendored-crate verifier, run on each check.
+VENDORED_VERIFIERS = ("scripts/security/verify-vendored-sqlx.py",)
 MINIMUM_PATHS = {
     'crates/spiffe-source/Cargo.toml',
     'crates/spiffe-source/src/source.rs',
@@ -78,6 +83,7 @@ MINIMUM_PATHS = {
     'scripts/security/formal-cargo-freshness.py',
     'scripts/security/formal_cargo_packages.py',
     'scripts/security/cargo-lock-projection.py',
+    *VENDORED_VERIFIERS,
 }
 OPTIONAL_PATHS = [
     "crates/domain/build.rs",
@@ -240,6 +246,10 @@ def main():
         scope = {"__name__": "reviewed_cargo_isolation", "__file__": str(ROOT / helper_name)}
         exec(compile(verified[helper_name], scope["__file__"], "exec", dont_inherit=True), scope)
         scope["check_cargo_targets"](ROOT, TARGETS, set(verified))
+        for name in VENDORED_VERIFIERS:
+            scope = {"__name__": "reviewed_vendored_crate", "__file__": str(ROOT / name)}
+            exec(compile(verified[name], scope["__file__"], "exec", dont_inherit=True), scope)
+            scope["verify"](ROOT)
         helper_name = "scripts/security/cargo-lock-projection.py"
         helper = regular_path(helper_name)
         spec = importlib.util.spec_from_file_location("cargo_lock_projection", helper)
@@ -250,7 +260,7 @@ def main():
         exec(compile(verified[helper_name], str(helper), "exec", dont_inherit=True), projection.__dict__)
         graph = projection.read_lock(ROOT / "Cargo.lock")
         verify_lock(coverage, graph, (ROOT / "crates/spiffe-source/src/lib.rs").read_text(), projection)
-    except (OSError, ValueError, KeyError, TypeError, subprocess.CalledProcessError) as exc:
+    except (OSError, ValueError, KeyError, TypeError, subprocess.CalledProcessError, tarfile.TarError) as exc:
         raise SystemExit(f"spiffe-formal: {exc}") from exc
     print("spiffe-formal: reviewed source blobs and resolved dependency graph match")
 

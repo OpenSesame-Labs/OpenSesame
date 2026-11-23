@@ -18,12 +18,13 @@ export type GuestCreationOptions = {
   scratch?: true;
 };
 export function selectGuestScope(options?: GuestCreationOptions) {
-  // Guests run in GUEST_TOMB, apart from member tombs; a decoy never wipes a
-  // guest tomb that holds its own key: it runs in a scratch tomb.
+  // Guests run in GUEST_TOMB, apart from member tombs. Nothing that opens a
+  // guest wipes a guest tomb holding its own key: beside a protected guest,
+  // a decoy or another guest runs in the temporary scratch tomb instead.
   markDecoySession(options?.decoy === true);
   const scratch =
-    options?.decoy === true &&
-    (options.scratch === true || guestTombIsSealed());
+    (options?.decoy === true && options.scratch === true) ||
+    guestTombIsSealed();
   return scratch ? decoyScratchScope() : guestVaultScope();
 }
 export async function prepareGuestMaterial(

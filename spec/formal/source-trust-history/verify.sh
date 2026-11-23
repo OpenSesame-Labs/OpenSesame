@@ -28,7 +28,9 @@ export RUSTC_WORKSPACE_WRAPPER="$(python3 -I scripts/security/formal-cargo-isola
 python3 -I scripts/security/formal-cargo-freshness.py init \
   --repo "$root" --manifest "$root/Cargo.toml" --state "$scratch/cargo-state.json" \
   --package opensesame-transport-security --package opensesame-spiffe-source \
-  --package opensesame-gateway --package opensesame-cli
+  --package opensesame-gateway --package opensesame-cli \
+  --reviewed-patch keepass=patches/vendor/keepass-0.17.0 \
+  --reviewed-patch sqlx-sqlite=patches/vendor/sqlx-sqlite-0.9.0
 formal_cargo() {
   python3 -I "$root/scripts/security/formal-cargo-freshness.py" run \
     --state "$scratch/cargo-state.json" \

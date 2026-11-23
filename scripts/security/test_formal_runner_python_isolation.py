@@ -54,7 +54,6 @@ if "--message-format=json" in args:
         raise SystemExit(0)
 sys.stdout.write({output!r})
 """
-KNOWN_SPIFFE_INIT_REFUSAL = "formal Cargo freshness: local Cargo patches require separately reviewed coverage: sqlx-sqlite"
 
 
 def real_cargo():
@@ -95,6 +94,9 @@ class RunnerIsolationTest(unittest.TestCase):
         # Cargo metadata needs every workspace member and the path patches.
         members = tomllib.loads((ROOT / "Cargo.toml").read_text())["workspace"]["members"]
         paths |= scratch.tracked_files(ROOT, *members, "patches/vendor", ".cargo")
+        # The vendored-crate verifiers the Cargo suites' drift checks run also
+        # check the fuzz workspace's patch bindings.
+        paths |= scratch.tracked_files(ROOT, "tests/fuzz/cargo/Cargo.toml", "tests/fuzz/cargo/Cargo.lock")
         scratch.copy_files(ROOT, cls.root, paths)
         scratch.init_checkout(cls.root, ROOT)
         (cls.root / "spec/formal/check-axioms.sh").write_text("#!/bin/sh\nprintf 'vectors\\n'\n")
@@ -171,17 +173,6 @@ chmod +x "$output"
                                        "dpop": ("dpop-formal: source hashes match", 1),
                                        "spiffe": ("spiffe-formal: reviewed source", 8),
                                        "source-lifetime": ("source-lifetime-formal: reviewed source", 2)}[suite]
-                    if suite == "spiffe" and KNOWN_SPIFFE_INIT_REFUSAL in good.stderr:
-                        # Known gate defect (2026-11-23): spiffe/verify.sh starts its
-                        # freshness session without declaring the vendored sqlx-sqlite
-                        # patch that its crate closure references, and the suite does
-                        # not cover those sources, so the real gate refuses before
-                        # Cargo. The drift check before that refusal must still ignore
-                        # the shadows. Once the gate declares and covers the patch this
-                        # branch stops matching and the full assertions below apply.
-                        self.assertNotEqual(good.returncode, 0)
-                        self.assertEqual(good.stdout.count(expected), 1)
-                        continue
                     self.assertEqual(good.returncode, 0, good.stderr)
                     # Direct drift checks plus three per formal-cargo-freshness run.
                     self.assertEqual(good.stdout.count(expected), count)

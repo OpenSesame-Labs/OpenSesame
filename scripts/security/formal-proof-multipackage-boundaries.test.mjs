@@ -318,9 +318,9 @@ with tempfile.TemporaryDirectory(prefix="formal-target-drift-") as temporary:
         coverage = json.loads((root / coverage_name).read_text())
         names = [entry["path"] for entry in coverage["sources"] + coverage["optional_sources"]]
         names += [coverage["reviewed_attestation"]] if "reviewed_attestation" in coverage else []
-        names += ["Cargo.toml", "Cargo.lock", coverage_name, "spec/formal/" + suite + "/check-drift.py",
-                  "scripts/security/cargo-lock-projection.py", "scripts/security/cargo-workspace-projection.py",
-                  "scripts/security/cargo-workspace-multipackage.py", "scripts/security/formal_coverage_drift.py"]
+        names += ["Cargo.toml", "Cargo.lock", coverage_name, "spec/formal/" + suite + "/check-drift.py", "scripts/security/cargo-lock-projection.py",
+                  "scripts/security/cargo-workspace-projection.py", "scripts/security/cargo-workspace-multipackage.py", "scripts/security/formal_coverage_drift.py",
+                  *git_out("-C", str(root), "ls-files", "patches/vendor/sqlx-sqlite-0.9.0*", "patches/vendor/keepass-0.17.0*", "tests/fuzz/cargo/Cargo.*").splitlines()]
         for name in dict.fromkeys(names):
             source, destination = root / name, target / name
             if source.exists():

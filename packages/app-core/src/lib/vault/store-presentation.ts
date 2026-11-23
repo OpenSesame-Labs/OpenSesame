@@ -4,13 +4,10 @@ import {
   type VaultHeader,
   resolveAccounts,
 } from "@opensesame/vault-core";
-import {
-  isDecoySession,
-  presentedTomb,
-} from "../duress/store/decoy-scratch.js";
+import { isDecoySession } from "../duress/store/decoy-scratch.js";
 import { kvDurability } from "../kv.js";
-import { BODY_PATH, readSealedFile } from "../vfs.js";
 import type { TrustedUnlockView } from "../trusted-unlock.js";
+import { BODY_PATH, readSealedFile } from "../vfs.js";
 import type { VaultPrefs } from "./prefs.js";
 import type { VaultState } from "./store-state.js";
 
@@ -39,7 +36,7 @@ export function buildVaultState({
 }: VaultStateData): VaultState {
   return {
     status: open ? "unlocked" : header ? "locked" : "empty",
-    tomb: presentedTomb(tomb),
+    tomb,
     guest: ephemeral && open,
     decoy: ephemeral && open && isDecoySession(),
     header,

@@ -13,7 +13,13 @@ export type VaultStatus = "empty" | "locked" | "unlocked";
 
 export type VaultState = {
   status: VaultStatus;
-  /** The tomb this session is scoped to — a project id, `personal`, or `guest`. */
+  /**
+   * The tomb this session reads and writes — a project id, `personal`,
+   * `guest`, or the scratch tomb a guest or decoy runs in beside a sealed
+   * guest. Every storage operation keys on this. Display and road identity
+   * read `presentedTomb(tomb)` (the scratch tomb reads as `guest`); that alias
+   * is never a storage key — a scratch session must not reach the sealed guest.
+   */
   tomb: string;
   /** True while a guest session holds the key: never wrapped to disk. */
   guest: boolean;

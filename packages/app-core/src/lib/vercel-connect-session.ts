@@ -10,6 +10,7 @@ import {
   isJsonObject,
   isString,
 } from "@opensesame/os-domain";
+import { onVaultLock } from "./vault/lock-events.js";
 import {
   type VercelConnectAuth,
   setVercelConnectAuth,
@@ -28,6 +29,8 @@ type SealedConnectAuth = {
 };
 
 let pending: VercelConnectAuth | null = null;
+/** Bumped on every discard or new arm, so a late failed write restores nothing. */
+let pendingGeneration = 0;
 
 function text(value: BoundaryValue | undefined, max = 512): string {
   return isString(value) ? value.trim().slice(0, max) : "";
@@ -69,7 +72,15 @@ export function pendingVercelConnectAuth(): VercelConnectAuth | null {
 
 export function clearPendingVercelConnectAuth(): void {
   pending = null;
+  pendingGeneration += 1;
 }
+
+// A staged bearer belongs to the session that armed it: a lock ends it, so
+// the next person's vault never seals or arms it.
+onVaultLock(() => {
+  clearPendingVercelConnectAuth();
+  setVercelConnectAuth(null);
+});
 
 /** Forget the live Connect transport (lock / sign-out). */
 export function disarmVercelConnectAuth(): void {
@@ -107,7 +118,7 @@ export async function writeVercelConnectAuth(
 export async function forgetVercelConnectAuth(
   tomb: string | null,
 ): Promise<void> {
-  pending = null;
+  clearPendingVercelConnectAuth();
   setVercelConnectAuth(null);
   if (!tomb) return;
   try {
@@ -136,6 +147,7 @@ export async function armVercelConnectAuth(
   const record = normalize(auth);
   if (!record) throw new Error("A Vercel token or management key is required.");
   const next = toAuth(record);
+  pendingGeneration += 1;
   setVercelConnectAuth(next);
   if (tomb && !opts.ephemeral) {
     pending = null;
@@ -144,6 +156,22 @@ export async function armVercelConnectAuth(
   }
   if (opts.ephemeral) return;
   pending = next;
+}
+
+/** Seal a staged bearer; a failed write keeps it for a retry in this session only. */
+async function persistStagedCredential(
+  tomb: string,
+  staged: VercelConnectAuth,
+  generation: number,
+  signal?: AbortSignal,
+): Promise<void> {
+  try {
+    await writeVercelConnectAuth(tomb, staged);
+  } catch (error) {
+    if (generation === pendingGeneration && !signal?.aborted && !pending)
+      pending = staged;
+    throw error;
+  }
 }
 
 /**
@@ -157,12 +185,17 @@ export async function hydrateVercelConnectAuth(
   opts: VercelConnectAuthOpts & { signal?: AbortSignal } = {},
 ): Promise<boolean> {
   if (opts.signal?.aborted) return false;
-  if (pending && !opts.ephemeral) {
-    await writeVercelConnectAuth(tomb, pending);
+  if (pending) {
+    // The first vault to open consumes it, guest or not: never carried on.
+    const staged = pending;
     pending = null;
-  } else if (pending && opts.ephemeral) {
-    setVercelConnectAuth(pending);
-    return true;
+    const generation = ++pendingGeneration;
+    if (!opts.ephemeral) {
+      await persistStagedCredential(tomb, staged, generation, opts.signal);
+    } else {
+      setVercelConnectAuth(staged);
+      return true;
+    }
   }
   const sealed = await readVercelConnectAuth(tomb);
   if (opts.signal?.aborted) return false;

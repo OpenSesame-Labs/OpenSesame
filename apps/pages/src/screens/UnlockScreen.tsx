@@ -2,6 +2,10 @@ import {
   outcomeWantsSignIn,
   readAuthOutcome,
 } from "@opensesame/app-core/lib/auth-outcome.js";
+import {
+  isGuestSessionTomb,
+  presentedTomb,
+} from "@opensesame/app-core/lib/duress/store/decoy-scratch.js";
 import { currentSession } from "@opensesame/app-core/lib/identity.js";
 import { dismissNotice } from "@opensesame/app-core/lib/notices.js";
 import { PERSONAL_PROJECT_ID } from "@opensesame/app-core/lib/projects.js";
@@ -112,7 +116,7 @@ export function UnlockScreen() {
   const startsFromFile = useFileWaitingForVault(status);
   const frontDoor =
     status === "empty" &&
-    tomb !== GUEST_TOMB &&
+    !isGuestSessionTomb(tomb ?? null) &&
     unlockScreenDependencies.loadSetup() === null &&
     !startsFromFile;
 
@@ -185,7 +189,8 @@ function UnlockForm({
     trustedUnlock,
   } = useVault();
   const store = useVaultStore();
-  const activeTomb = tomb ?? PERSONAL_PROJECT_ID;
+  // The road on screen: a scratch guest or decoy reads as the guest road.
+  const activeTomb = presentedTomb(tomb ?? PERSONAL_PROJECT_ID);
   // A guest may enroll a key for its tomb (ADR 0091).
   const guestUnlock = activeTomb === GUEST_TOMB && status !== "unlocked";
   const firstRun = status === "empty" && !guestUnlock;
