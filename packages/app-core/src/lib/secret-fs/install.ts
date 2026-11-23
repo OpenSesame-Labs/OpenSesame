@@ -6,6 +6,7 @@
  */
 import { vfsSeams } from "../vfs-seams.js";
 import type { SecretFiles } from "./files.js";
+import { withTransientGuest } from "./transient-guest-seams.js";
 import { createFileBackedVfs } from "./vfs-files.js";
 
 export async function installFileBackedVfs(
@@ -15,7 +16,6 @@ export async function installFileBackedVfs(
   const adapter = createFileBackedVfs(files, previous);
   await adapter.hydrate();
   Object.assign(vfsSeams, adapter.seams);
-  vfsSeams.authenticationStorage = "file-backed";
   // This legacy adapter has no fresh physical refresh yet; never borrow the device KV transport.
   Reflect.deleteProperty(vfsSeams, "refreshRaw");
   Reflect.deleteProperty(vfsSeams, "writeRawGuarded");
@@ -26,6 +26,8 @@ export async function installFileBackedVfs(
     Reflect.deleteProperty(vfsSeams, "writeOwnedBody");
   if (!adapter.seams.deleteOwnedFile)
     Reflect.deleteProperty(vfsSeams, "deleteOwnedFile");
+  // A temporary guest's ciphertext stays in this document, never in the files.
+  Object.assign(vfsSeams, withTransientGuest(adapter.seams));
   return () => {
     vfsSeams.readRaw = previous.readRaw;
     vfsSeams.writeRaw = previous.writeRaw;
@@ -45,6 +47,12 @@ export async function installFileBackedVfs(
     if (previous.deleteRawGuarded)
       vfsSeams.deleteRawGuarded = previous.deleteRawGuarded;
     else Reflect.deleteProperty(vfsSeams, "deleteRawGuarded");
+    if (previous.guestWriteRawGuarded)
+      vfsSeams.guestWriteRawGuarded = previous.guestWriteRawGuarded;
+    else Reflect.deleteProperty(vfsSeams, "guestWriteRawGuarded");
+    if (previous.guestDeleteRawGuarded)
+      vfsSeams.guestDeleteRawGuarded = previous.guestDeleteRawGuarded;
+    else Reflect.deleteProperty(vfsSeams, "guestDeleteRawGuarded");
     if (previous.refreshRaw) vfsSeams.refreshRaw = previous.refreshRaw;
     else Reflect.deleteProperty(vfsSeams, "refreshRaw");
     if (previous.openBody) vfsSeams.openBody = previous.openBody;

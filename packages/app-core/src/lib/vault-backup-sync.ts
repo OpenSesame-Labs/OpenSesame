@@ -19,6 +19,7 @@ import {
   subscribeLocalBackupTarget,
   writeLocalBackupTarget,
 } from "./backup-target-local.js";
+import { isGuestSessionTomb } from "./duress/store/decoy-scratch.js";
 import {
   performSavedCategory,
   performSavedConnector,
@@ -46,7 +47,7 @@ import {
   buildOfflineBackup,
   serializeOfflineBackup,
 } from "./vault/offline-backup.js";
-import { GUEST_TOMB, vaultStore } from "./vault/store.js";
+import { vaultStore } from "./vault/store.js";
 import { backupTargetReceipt } from "./vault-backup-github-owner.js";
 import {
   confirmedBackupCommit,
@@ -68,9 +69,8 @@ function utf8ToBase64(text: string): string {
 
 function sealedEnvelopeJson(): string {
   const { status, tomb, guest } = vaultStore.getSnapshot();
-  if (guest || tomb === GUEST_TOMB) {
+  if (guest || isGuestSessionTomb(tomb))
     throw new Error("Guest vaults cannot sync to a backup remote.");
-  }
   if (status !== "unlocked" && status !== "locked") {
     throw new Error("There is no vault to back up.");
   }
@@ -226,7 +226,7 @@ function resolveForgeCredentialsDefault(
   const { status, items } = vaultStore.getSnapshot();
   if (status !== "unlocked") return null;
   const item = items.find((row) => row.id === remote.secretItemId);
-  if (!item || item.kind !== "secret") return null;
+  if (item?.kind !== "secret") return null;
   const token = readSecretToken(item.value);
   if (!token) return null;
   const forge = resolveForgeId(target, remote.remoteUrl);
@@ -378,7 +378,7 @@ export async function syncVaultBackup(
   performSavedCategory(["backup_recovery"]);
   if (providerId) {
     const target = readLocalBackupTarget(providerId);
-    if (!target || !target.enabled) return target;
+    if (!target?.enabled) return target;
     return syncOneTarget(target);
   }
   const enabled = listLocalBackupTargets().filter((row) => row.enabled);

@@ -15,6 +15,7 @@
  */
 
 import type { VaultItem } from "@opensesame/vault-core";
+import { isGuestSession } from "../../guest-isolation.js";
 import { registerHoneyToken } from "../../honey-tokens.js";
 import { clearIncidentJournalsDurable } from "../incident/intent-journal.js";
 import {
@@ -153,6 +154,7 @@ export async function enableDuressCode(input: {
    */
   requireDurable?: boolean;
 }): Promise<DuressResult> {
+  if (isGuestSession()) return { ok: false, code: "failed" };
   const request = checkRequest(input);
   if (!request.ok) return request;
   const { mode } = request;
@@ -211,6 +213,7 @@ export async function enableDuressCode(input: {
  * forgotten the enrollment, so a reload cannot bring the code back.
  */
 export async function removeDuressCode(): Promise<DuressResult> {
+  if (isGuestSession()) return { ok: false, code: "failed" };
   if (duressSessionFence.readFence().activeIncidentIds.length > 0) {
     return { ok: false, code: "incident_active" };
   }
@@ -239,6 +242,7 @@ export type DuressClearResult =
  * reported cleared, so the owner can try again.
  */
 export async function clearDuressIncidents(): Promise<DuressClearResult> {
+  if (isGuestSession()) return { ok: false, code: "failed" };
   try {
     await clearIncidentJournalsDurable();
   } catch {

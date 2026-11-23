@@ -9,6 +9,7 @@ import {
   operationHeader,
 } from "./store-operation-check.js";
 import { withBodyWriteLockOrBare } from "./vault-shared-locks.js";
+
 type Original = ReturnType<typeof captureStoreOperation>;
 export type BodyWriteState = Readonly<{
   key: CryptoKey | null;
@@ -53,6 +54,7 @@ export async function refreshedStoreBody(
     held.key,
     held,
     held.readHeader,
+    original.active,
   );
   original.active();
   if (operationHeader(fresh.header) !== operationHeader(held.header))

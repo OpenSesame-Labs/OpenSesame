@@ -3,32 +3,31 @@ import {
   VaultCorruptError,
   type VaultHeader,
   WrongPasswordError,
-  createItem,
   emptyBody,
   importVaultKey,
-  manualPassword,
   syncInstalledTypes,
 } from "@opensesame/vault-core";
-import { host } from "../../host.js";
 import {
   noteVaultBodyPersisted,
   recordActivityEvent,
 } from "../activity-log.js";
-import { HONEY_VAULT_ITEMS } from "../duress/settings/modes/honey-vault.js";
 import {
-  endEphemeralTomb,
-  forgetDecoyScratch,
+  DECOY_SCRATCH_TOMB,
   isGuestSessionTomb,
   markDecoySession,
 } from "../duress/store/decoy-scratch.js";
 import { createDuressVaultActivationHost } from "../duress/store/vault-activation-host.js";
 import { sessionRootDigestFromKey } from "../duress/store/vault-session-digest.js";
-import { mintHoneyToken, registerHoneyToken } from "../honey-tokens.js";
+import { guestEpochGuard } from "../guest-return-epoch.js";
+import { activateGuestTomb } from "../guest-session-context.js";
+import { isGuestVaultId, isIsolatedGuestVaultId } from "../guest-vault-id.js";
 /** Vault session store: unlocked body in memory, sealed to OPFS, key dropped on lock (ADR 0063). */
 import { kvDelete } from "../kv.js";
-import { lastVaultIsGuest, writeLastVaultId } from "../last-vault.js";
-import { isRetiredTrapLive } from "../retired-credentials/retention-v2.js";
-import type { TombWriteTurn } from "../vfs-write-order.js";
+import { lastGuestVaultId, writeLastVaultId } from "../last-vault.js";
+import {
+  type GuestSessionPerson,
+  activateIsolatedGuestPerson,
+} from "../local-guest.js";
 import {
   BODY_PATH,
   GUEST_TOMB,
@@ -39,9 +38,10 @@ import {
   readPlaintextFile,
   readSealedFile,
   unlockTomb,
-  writePlaintextFile,
 } from "../vfs.js";
+import { type TombWriteTurn, withTombWriteTurn } from "../vfs-write-order.js";
 import { stampedEdit } from "./body-edits.js";
+import { recoverLiveGuestPromotion } from "./guest-vault-promotion.js";
 import { headerCarriesGate } from "./header-gate.js";
 import { type ItemWriteHost, originalItemWriteHost } from "./item-writes.js";
 import {
@@ -57,10 +57,7 @@ import {
 } from "./master-wrap.js";
 import { bindNewVaultMaterialHeader } from "./new-factor-bound-material-data.js";
 import { withNewVaultScopeGuard } from "./new-vault-scope-guard.js";
-import {
-  frozenAuthenticationRefusal,
-  requireOriginalRawRoot,
-} from "./ordinary-peer-body-refresh.js";
+import * as PeerBodyRefresh from "./ordinary-peer-body-refresh.js";
 import {
   sealNewVaultWithPasskey,
   wrapVaultKeyWithCeremony,
@@ -72,10 +69,7 @@ import { ProtectionSessionGuard } from "./protection/session-guard.js";
 import { spendRecoveryCode } from "./recovery-codes.js";
 import { type SentCode, sendCode, verifyCode } from "./remote-code.js";
 import { RetiredInteractionQueue } from "./retired-interaction-queue.js";
-import {
-  type RetiredLoginData,
-  readRetiredLoginData,
-} from "./retired-login-operation.js";
+import type { RetiredLoginData } from "./retired-login-operation.js";
 import { carryForkUnlockedIntoActiveScope } from "./scope-carry-fork.js";
 import { carryOpenActiveScopeWithCurrentKey } from "./scope-carry-open.js";
 import { rekeyTomb } from "./seal-rebind.js";
@@ -88,27 +82,31 @@ import {
   heldTotpCode,
   withSelfAuthenticatorRegistration,
 } from "./self-authenticator.js";
+import { loadVaultBody } from "./store-body.js";
 import {
   applyStoreBodyChange,
   refreshedStoreBody,
   withFreshStoreBody,
 } from "./store-body-writes.js";
-import { loadVaultBody } from "./store-body.js";
 import { createStoreCredentialApi } from "./store-credential-api.js";
-import {
-  type ApplyChange,
-  type VaultBodyPort,
-  makeBodyPort,
-  registerBodyPort,
-} from "./store-device-key.js";
+import * as StoreDeviceKey from "./store-device-key.js";
 import type { FreshBody } from "./store-fresh.js";
 import * as GuestMaterial from "./store-guest-material.js";
-import * as HeaderPublication from "./store-header-publication.js";
+import {
+  guestProtectionActive,
+  protectGuestTomb,
+} from "./store-guest-protection.js";
+import {
+  guestScopeAfterLock,
+  retireEphemeralStorage,
+} from "./store-guest-scope.js";
 import {
   deviceHoldsSealedVault,
   readTombHeader,
   sharesWrapRecord,
 } from "./store-header.js";
+import * as HeaderPublication from "./store-header-publication.js";
+import { seedHoneyVault } from "./store-honey.js";
 import { bindSealedImport } from "./store-import-entry.js";
 import { createStoreItemOperations } from "./store-item-operations.js";
 import {
@@ -117,23 +115,23 @@ import {
   type SnapshotMerge,
   mergeSnapshotInto,
 } from "./store-merge.js";
+import { initializeNewVaultFiles } from "./store-new-vault-persistence.js";
+import { acquireGuestAwareLease } from "./store-open-lease.js";
 import {
   captureStoreOperation,
   requireExistingUnlock,
 } from "./store-operation-check.js";
-import { createStorePreferencesApi } from "./store-preferences-api.js";
 import { StorePreferences } from "./store-preferences.js";
+import { createStorePreferencesApi } from "./store-preferences-api.js";
 import { buildVaultState, exportStoredVault } from "./store-presentation.js";
 import { createStorePrimaryApi } from "./store-primary-api.js";
+import { retiredPasswordLogin } from "./store-retired-login.js";
 import { writeBody } from "./store-seal.js";
 import { createStoreSecondStepApi } from "./store-second-step-api.js";
-import { destroyStoredTomb } from "./store-tomb-destruction.js";
+import * as TombDestruction from "./store-tomb-destruction.js";
 import { StoreListeners, StoreView } from "./store-view.js";
 import { StoreWriteQueue } from "./store-write-queue.js";
-import {
-  discardTombCaches,
-  hydrateAndMigrateTombOnUnlock,
-} from "./tomb-migration.js";
+import { discardTombCaches } from "./tomb-migration.js";
 import {
   type CodeChannel,
   type TotpGateRecord,
@@ -145,12 +143,12 @@ import {
   openTotpSecret,
   totpCodeMatches,
 } from "./unlock-methods.js";
-import { acquireOpenLease } from "./vault-shared-locks.js";
-export { deviceHoldsSealedVault, readTombHeader, sharesWrapRecord };
-export { PREFS_CONFIG_PATH, PREFS_SOURCE_CONFIG_PATH } from "./prefs-io.js";
+import { withBodyWriteLockOrBare } from "./vault-shared-locks.js";
 
+export { PREFS_CONFIG_PATH, PREFS_SOURCE_CONFIG_PATH } from "./prefs-io.js";
 /** Guest-beside-vault tomb — isolated, throwaway, never a project id. */
-export { GUEST_TOMB };
+export { GUEST_TOMB, deviceHoldsSealedVault, readTombHeader, sharesWrapRecord };
+
 import { PIN_MISS, unwrapPassword, unwrapPin } from "./primary-unwrap.js";
 import {
   ATTEMPTS_KEY,
@@ -163,14 +161,15 @@ import {
   readAttempts,
   recordFailedUnlock,
 } from "./unlock-attempts.js";
-export { ATTEMPTS_KEY };
+
 export {
-  type VaultPrefs,
   VAULT_PREFS_REVISION,
+  type VaultPrefs,
   assertMasterPasswordPolicy,
   defaultPrefs,
   normalizeVaultPrefs,
 } from "./prefs.js";
+export { ATTEMPTS_KEY };
 
 import { installVaultStoreBoot } from "./store-boot.js";
 import { type VaultState, bindGuestSessionStore } from "./store-state.js";
@@ -178,6 +177,7 @@ import {
   StoreUnlockSession,
   type UnlockAttempt,
 } from "./store-unlock-session.js";
+
 export type { VaultState, VaultStatus } from "./store-state.js";
 
 import type {
@@ -204,8 +204,6 @@ import {
   presentRetiredOwnerStarted,
   retireRetiredOwnerTask,
 } from "./retired-owner-presentation.js";
-
-const honeyVaultSeededScopes = new Set<string>();
 
 export class VaultStore {
   readonly #retiredEntries = new RetiredOperationEntries();
@@ -283,11 +281,16 @@ export class VaultStore {
     setKey: (key) => {
       this.#vaultKey = key;
     },
-    loadBody: (tomb, key) => loadVaultBody(tomb, key, this.#header),
+    loadBody: (id, key, check) => loadVaultBody(id, key, this.#header, check),
     setBody: (body, mark) => {
       this.#body = body;
       this.#sealMark = mark;
       syncInstalledTypes(body.itemTypes);
+    },
+    setGuestPerson: (person, epoch) => {
+      this.#guestPerson = person;
+      this.#guestIdentityOwner = activateIsolatedGuestPerson(person);
+      activateGuestTomb(this.#scope.tomb, epoch, !person || !!person.localOnly);
     },
     bodyPort: () => this.#bodyPort(),
     preferences: this.#preferences,
@@ -301,11 +304,9 @@ export class VaultStore {
       this.#emit();
     },
   });
-  /** Per-challenge throttle for email/text code sends. */
   #sendGuard = new CodeSendGuard();
   /** Serializes body writes so overlapping mutations cannot land out of order. */
   #writeQueue = new StoreWriteQueue();
-  /** Shared Web Lock held for as long as this tab has the vault open. */
   #openLease: { tomb: string; release: () => Promise<void> } | null = null;
   #stopDestroyWatch: (() => void) | null = null;
   #itemOperations = createStoreItemOperations({
@@ -320,6 +321,10 @@ export class VaultStore {
   #scope: VaultScope = scopedVaultScope();
   /** Guest/this-tab: key never wrapped; lock must not leave a wrap-less header. */
   #ephemeral = false;
+  #guestPerson: GuestSessionPerson | null = null;
+  #guestIdentityOwner: symbol | null = null;
+  #guestVfsOwner: symbol | null = null;
+  #guestDestroyRetry = new TombDestruction.GuestDestroyRetry();
   #retiredInteractions = new RetiredInteractionQueue();
   #retiredSynthetic: { data: RetiredLoginData; origin: VaultScope } | null =
     null;
@@ -328,10 +333,10 @@ export class VaultStore {
 
   constructor() {
     this.#header = this.#readHeader();
-    registerBodyPort(this, () => this.#bodyPort());
+    StoreDeviceKey.registerBodyPort(this, () => this.#bodyPort());
     this.#protection = new VaultProtectionBrowserService({
       isGuestOrEphemeral: () =>
-        this.#ephemeral || this.#scope.tomb === GUEST_TOMB,
+        this.#ephemeral || isGuestSessionTomb(this.#scope.tomb),
       getHeader: () => this.#header,
       requireRawRoot: () => this.#requireRaw(),
       isUnlocked: () => this.#vaultKey !== null && this.#header !== null,
@@ -361,10 +366,10 @@ export class VaultStore {
     // Reload opens the last authorized account's unlock — guest included. Its
     // header is read like any tomb's; `headerCarriesGate` keeps a wrap-less
     // guest record from posing as a locked vault.
-    this.#scope = lastVaultIsGuest() ? guestVaultScope() : scopedVaultScope();
+    const guest = lastGuestVaultId();
+    this.#scope = guest ? guestVaultScope(guest) : scopedVaultScope();
     const header = this.#readHeader();
-    this.#header =
-      lastVaultIsGuest() && !headerCarriesGate(header) ? null : header;
+    this.#header = guest && !headerCarriesGate(header) ? null : header;
     this.#emit();
   }
 
@@ -408,7 +413,6 @@ export class VaultStore {
     });
   }
 
-  /** The tomb this session is scoped to. */
   activeTomb(): string {
     return this.#scope.tomb;
   }
@@ -520,7 +524,7 @@ export class VaultStore {
 
   #requireRaw = (): Uint8Array => {
     if (this.#retiredSynthetic) this.#requireGenuineSession();
-    return requireOriginalRawRoot(this.#rawVaultKey);
+    return PeerBodyRefresh.requireOriginalRawRoot(this.#rawVaultKey);
   };
 
   /** Captures cancellation and original state only, never owner authority. */
@@ -606,7 +610,7 @@ export class VaultStore {
   }
 
   /** Point unlock at GUEST_TOMB without opening it; lock keeps the last guest. */
-  prepareGuestUnlock(): void {
+  prepareGuestUnlock(tomb: string = GUEST_TOMB): void {
     if (
       this.#vaultKey ||
       this.#pendingVaultKey ||
@@ -618,34 +622,45 @@ export class VaultStore {
       this.#zeroRaw();
       this.#protection.cancelPendingOps();
     }
-    this.#scope = guestVaultScope();
-    this.#header = null;
+    this.#scope = guestVaultScope(tomb);
+    const header = this.#readHeader();
+    this.#header = headerCarriesGate(header) ? header : null;
     this.#vaultKey = null;
     this.#pendingVaultKey = null;
     this.#ephemeral = false;
     this.#body = emptyBody();
-    writeLastVaultId(GUEST_TOMB);
+    if (this.#header) writeLastVaultId(tomb);
     this.#emit();
   }
 
   async createGuest(
     options?: GuestMaterial.GuestCreationOptions,
-    check: () => void = this.#protectionOperation().context,
+    externalCheck?: () => void,
   ): Promise<void> {
+    const operation = this.#protectionOperation(externalCheck);
+    const { epoch: guestEpoch, check } = guestEpochGuard(operation.active);
     if (this.#vaultKey || this.#pendingVaultKey) {
       throw new Error("Lock the open vault before continuing as a guest.");
     }
-    const scope = GuestMaterial.selectGuestScope(options);
-    const { header, vaultKey, rawVaultKey } =
-      await GuestMaterial.prepareGuestMaterial(scope.tomb, options);
+    const opened = await GuestMaterial.prepareGuestOpen(
+      options,
+      check,
+      (tomb) => this.#acquireSessionLease(tomb),
+      (held) => this.#abandonSessionLease(held),
+    );
     try {
       check();
     } catch (error) {
-      rawVaultKey.fill(0);
+      await GuestMaterial.abandonPreparedGuest(opened, (held) =>
+        this.#abandonSessionLease(held),
+      );
       throw error;
     }
-    const lease = await this.#acquireSessionLease(scope.tomb);
+    const { scope, transient, lease, prepared } = opened;
+    const person = GuestMaterial.guestActor(opened.person, guestEpoch, options);
+    const { header, vaultKey, rawVaultKey } = prepared;
     this.#scope = scope;
+    activateGuestTomb(scope.tomb, guestEpoch, person?.localOnly === true);
     this.#header = header;
     this.#commitSessionLease(lease);
     this.#vaultKey = vaultKey;
@@ -653,6 +668,9 @@ export class VaultStore {
     this.#pendingVaultKey = null;
     this.#body = emptyBody();
     this.#ephemeral = true;
+    this.#guestPerson = person;
+    this.#guestVfsOwner = transient;
+    if (person) this.#guestIdentityOwner = activateIsolatedGuestPerson(person);
     unlockTomb(this.#scope.tomb, vaultKey);
     GuestMaterial.recordGuestOrigin(options);
     this.touch();
@@ -688,18 +706,13 @@ export class VaultStore {
     this.#ephemeral = false;
     unlockTomb(this.#scope.tomb, vaultKey);
     try {
-      await writePlaintextFile(
-        this.#scope.tomb,
-        HEADER_PATH,
-        JSON.stringify(boundHeader),
+      await initializeNewVaultFiles(
+        scope.tomb,
+        boundHeader,
         check,
+        () => this.#persist(check),
+        () => this.#preferences.load(() => this.#scope.tomb),
       );
-      await this.#persist(check);
-      // Legacy config (prefs, registry, …) still belongs with this tomb —
-      // seal it in, then read this session's view of it.
-      await hydrateAndMigrateTombOnUnlock(this.#scope.tomb);
-      await this.#preferences.load(() => this.#scope.tomb);
-      check();
       this.#commitSessionLease(lease);
     } catch (error) {
       await this.#abandonSessionLease(lease);
@@ -736,15 +749,15 @@ export class VaultStore {
   }
 
   /** A frozen device refuses even a right credential, counts it, and zeroes the root. */
-  #refuseWhileFrozen = frozenAuthenticationRefusal(
+  #refuseWhileFrozen = PeerBodyRefresh.frozenAuthenticationRefusal(
     () => this.#scope.tomb,
     () => this.#recordFailedUnlock(),
     () => this.#vaultKey !== null,
     () => this.cancelTotpChallenge(),
   );
 
-  async #loadBody(vaultKey: CryptoKey): Promise<VaultBody> {
-    return loadVaultBody(this.#scope.tomb, vaultKey, this.#header);
+  async #loadBody(vaultKey: CryptoKey, check: () => void): Promise<VaultBody> {
+    return loadVaultBody(this.#scope.tomb, vaultKey, this.#header, check);
   }
 
   #requireTrustedUnlock(key: CryptoKey, attempt: UnlockAttempt): Promise<void> {
@@ -759,16 +772,12 @@ export class VaultStore {
     this.#unlockSession.cancelTrusted();
   }
 
-  /**
-   * Acquire the shared open lock before an unlock/create makes the key usable.
-   * The lease itself is what makes `destroyStoredTomb`'s exclusive request
-   * fail closed while any tab still holds this vault.
-   */
+  /** Hold a shared open lock while an unlock or create makes the key usable. */
   async #acquireSessionLease(
     tomb: string,
   ): Promise<{ tomb: string; release: () => Promise<void> } | null> {
     if (this.#openLease?.tomb === tomb) return null;
-    return { tomb, release: await acquireOpenLease(tomb) };
+    return acquireGuestAwareLease(tomb);
   }
 
   #commitSessionLease(
@@ -794,7 +803,9 @@ export class VaultStore {
     this.#openLease = null;
     this.#stopDestroyWatch?.();
     this.#stopDestroyWatch = null;
-    if (lease) void lease.release().catch(() => undefined);
+    if (lease && isIsolatedGuestVaultId(lease.tomb))
+      GuestMaterial.releaseGuestLease(lease, this.#writeQueue.pending());
+    else if (lease) void lease.release().catch(() => undefined);
   }
 
   /** After primary unwrap: either activate or park the key for a second step. */
@@ -810,7 +821,7 @@ export class VaultStore {
       this.#unlockSession.arm(attempt);
       const gate = this.#header?.unlocks?.totp;
       if (gate?.selfItemId) {
-        const body = await this.#loadBody(vaultKey);
+        const body = await this.#loadBody(vaultKey, attempt.check);
         attempt.check();
         const code = await heldTotpCode(gate, body);
         attempt.check();
@@ -860,105 +871,24 @@ export class VaultStore {
     await this.#openWithRaw(raw, PIN_MISS, attempt);
   }
 
-  async #retiredPasswordLogin(password: string): Promise<boolean> {
-    if (!host().physicalDeviceRecords || this.#ephemeral) return false;
-    const origin = this.#scope;
-    let generation = this.#sessionGuard.generation;
-    let scope = origin;
-    let key: CryptoKey | null = null;
-    const check = () => {
-      if (
-        this.#sessionGuard.generation !== generation ||
-        this.#scope !== scope ||
-        this.#vaultKey !== key ||
-        this.#pendingVaultKey
-      )
-        throw new Error("Credential submission ended.");
-    };
-    check();
-    let data: RetiredLoginData | null;
-    try {
-      data = await readRetiredLoginData(
-        origin.tomb,
-        password,
-        check,
-        async (observed) => {
-          if (observed.trap.response === "reject") {
-            this.#recordFailedUnlock();
-            throw new WrongPasswordError(
-              "That password does not open this vault.",
-            );
-          }
-          this.lock({ recordLastVault: false });
-          generation = this.#sessionGuard.generation;
-          this.#retiredSynthetic = { data: observed, origin };
-          await this.createGuest({ decoy: true, scratch: true }, check);
-          if (
-            this.#sessionGuard.generation !== generation ||
-            !isRetiredTrapLive(
-              observed.trap.createdAt,
-              observed.trap.expiresAt,
-              Date.now(),
-            )
-          )
-            throw new Error("Credential submission ended.");
-          await this.#seedHoneyVault(origin.tomb);
-          scope = this.#scope;
-          key = this.#vaultKey;
-        },
-      );
-    } catch (error) {
-      if (this.#retiredSynthetic?.origin === origin) this.lock();
-      throw error;
-    }
-    check();
-    if (!data) return false;
-    this.#noteRetiredInteraction("vault_read");
-    return true;
-  }
-
-  /** Retired-password HoneyVault: convincing credentials, never `hny`-branded. */
-  async #seedHoneyVault(ownerScope: string): Promise<void> {
-    if (honeyVaultSeededScopes.has(ownerScope)) return;
-    honeyVaultSeededScopes.add(ownerScope);
-    const already = new Set(this.getSnapshot().items.map((item) => item.name));
-    const items = HONEY_VAULT_ITEMS.filter((title) => !already.has(title)).map(
-      (title) => {
-        const { token } = mintHoneyToken();
-        return { title, token };
+  #retiredPasswordLogin(password: string): Promise<boolean> {
+    return retiredPasswordLogin(password, {
+      ephemeral: () => this.#ephemeral,
+      scope: () => this.#scope,
+      generation: () => this.#sessionGuard.generation,
+      key: () => this.#vaultKey,
+      pending: () => this.#pendingVaultKey !== null,
+      failed: () => this.#recordFailedUnlock(),
+      lock: (recordLastVault) => this.lock({ recordLastVault }),
+      mark: (data, origin) => {
+        this.#retiredSynthetic = { data, origin };
       },
-    );
-    for (const item of items) {
-      try {
-        await registerHoneyToken(
-          ownerScope,
-          `${item.title} (HoneyVault)`,
-          item.token,
-        );
-      } catch {
-        // A full/corrupt honey store must not change the unlock presentation.
-      }
-    }
-    try {
-      const known = new Set<string>();
-      for (const item of this.getSnapshot().items) {
-        if (!HONEY_VAULT_ITEMS.some((honeyName) => honeyName === item.name))
-          continue;
-        if (known.has(item.name)) await this.purgeItem(item.id);
-        else known.add(item.name);
-      }
-      await this.addItems(
-        items.map(({ title, token }) => {
-          const account = createItem("account", title);
-          account.methods = [
-            manualPassword(`${account.id}:password`, token, account.createdAt),
-          ];
-          return account;
-        }),
-      );
-    } catch {
-      // The synthetic session still opens; the owner record is what alerts.
-    }
+      marked: (origin) => this.#retiredSynthetic?.origin === origin,
+      create: (check) =>
+        this.createGuest({ decoy: true, scratch: true }, check),
+      seed: (tomb) => seedHoneyVault(this, tomb),
+      note: () => this.#noteRetiredInteraction("vault_read"),
+    });
   }
 
   #noteRetiredInteraction(
@@ -977,6 +907,8 @@ export class VaultStore {
 
   #requireEmptyVault(): void {
     if (this.#retiredSynthetic) this.#requireGenuineSession();
+    if (isGuestVaultId(this.#scope.tomb))
+      throw new Error("Start a guest session before protecting its vault.");
     if (this.#header || this.#vaultKey || this.#pendingVaultKey)
       throw new Error("A vault already exists here. Unlock it instead.");
   }
@@ -1152,6 +1084,31 @@ export class VaultStore {
     turn?: TombWriteTurn,
   ): Promise<void> {
     const original = this.#protectionOperation(check);
+    if (guestProtectionActive(this.#ephemeral, original.scope.tomb) && !turn) {
+      return this.#writeQueue.enqueue(() =>
+        withBodyWriteLockOrBare(original.scope.tomb, () =>
+          withTombWriteTurn(original.scope.tomb, (held) => {
+            original.active();
+            return this.#persistHeader(proposed, original.context, held);
+          }),
+        ),
+      );
+    }
+    if (
+      this.#ephemeral &&
+      this.#guestVfsOwner &&
+      (await recoverLiveGuestPromotion(
+        original.scope.tomb,
+        this.#guestVfsOwner,
+        original.active,
+      ))
+    ) {
+      original.active();
+      this.#guestVfsOwner = null;
+      this.#ephemeral = false;
+      writeLastVaultId(original.scope.tomb);
+      this.#emit();
+    }
     const previous = this.#header;
     const bound = await HeaderPublication.bindOriginalHeaderPolicy(
       previous,
@@ -1187,6 +1144,22 @@ export class VaultStore {
         this.#emit();
       },
     );
+    if (guestProtectionActive(this.#ephemeral, original.scope.tomb)) {
+      if (!this.#guestVfsOwner || !this.#guestPerson)
+        throw new Error("This guest session cannot be protected.");
+      const guestKey = this.#vaultKey;
+      if (!guestKey) throw new Error("The guest session has ended.");
+      await protectGuestTomb({
+        tomb: original.scope.tomb,
+        owner: this.#guestVfsOwner,
+        person: this.#guestPerson,
+        key: guestKey,
+        check: original.active,
+        turn,
+        persist: () => this.#persist(original.active, turn),
+      });
+      this.#guestVfsOwner = null;
+    }
     this.#ephemeral = false;
     this.#emit();
     if (!turn && carry) await this.#mutate(change, original.active);
@@ -1302,6 +1275,14 @@ export class VaultStore {
     const wasUnlocked = this.#vaultKey !== null;
     const lockedTombForLog = this.#scope.tomb;
     const wasGuest = this.#ephemeral;
+    const retiredGuestVfs = this.#guestVfsOwner;
+    GuestMaterial.retireGuestSession(
+      lockedTombForLog,
+      this.#guestIdentityOwner,
+    );
+    this.#guestPerson = null;
+    this.#guestIdentityOwner = null;
+    this.#guestVfsOwner = null;
     const wasDecoy = markDecoySession(false);
     this.#clearLockedSessionState();
     // Guest sessions are ephemeral — wipe ciphertext, but keep the unlock screen on the last guest.
@@ -1311,16 +1292,21 @@ export class VaultStore {
     if (this.#ephemeral) {
       this.#header = null;
       this.#ephemeral = false;
-      forgetDecoyScratch(lockedTomb);
     }
     lockTomb(this.#scope.tomb);
     discardTombCaches();
     if (guestBesideVault) {
-      this.#handBackFromGuest(ephemeralTomb, wasDecoy, recordLastVault);
+      const returned = guestScopeAfterLock(
+        ephemeralTomb,
+        wasDecoy,
+        recordLastVault,
+      );
+      this.#scope = returned.scope;
+      this.#header = returned.clearHeader ? null : this.#readHeader();
     } else if (recordLastVault) {
       writeLastVaultId(lockedTomb);
     }
-    if (ephemeralTomb) void endEphemeralTomb(ephemeralTomb);
+    retireEphemeralStorage(ephemeralTomb, retiredGuestVfs);
     if (retiredOrigin) {
       this.#scope = retiredOrigin;
       this.#header = this.#readHeader();
@@ -1339,19 +1325,6 @@ export class VaultStore {
     }
     this.#emit();
   };
-
-  /** Where the unlock screen lands after a guest ends; a decoy returns to the vault it was typed at. */
-  #handBackFromGuest(
-    ephemeralTomb: string | null,
-    wasDecoy: boolean,
-    recordLastVault: boolean,
-  ): void {
-    const toGuest = !wasDecoy || lastVaultIsGuest();
-    if (recordLastVault && toGuest) writeLastVaultId(GUEST_TOMB);
-    this.#scope = toGuest ? guestVaultScope() : scopedVaultScope();
-    this.#header =
-      toGuest && ephemeralTomb === GUEST_TOMB ? null : this.#readHeader();
-  }
 
   isUnlocked(): boolean {
     return this.#vaultKey !== null;
@@ -1441,7 +1414,7 @@ export class VaultStore {
 
   /** The queue precedes the body lease; captured session checks survive every await. */
   #exclusive<T>(
-    act: (apply: ApplyChange) => Promise<T>,
+    act: (apply: StoreDeviceKey.ApplyChange) => Promise<T>,
     check?: () => void,
   ): Promise<T> {
     const original = this.#protectionOperation(check);
@@ -1464,9 +1437,9 @@ export class VaultStore {
     original.active();
   }
 
-  /** A guest or scratch session is never exported or synced, and its tomb has no header of its own. */
+  /** Refresh every durable vault, including a protected guest, before writing. */
   #sharesDisk(): boolean {
-    return !this.#ephemeral && !isGuestSessionTomb(this.#scope.tomb);
+    return !this.#ephemeral && this.#scope.tomb !== DECOY_SCRATCH_TOMB;
   }
 
   async #apply(
@@ -1498,6 +1471,7 @@ export class VaultStore {
   trashItem = this.#itemOperations.trashItem;
   restoreItem = this.#itemOperations.restoreItem;
   purgeItem = this.#itemOperations.purgeItem;
+  purgeItemIfUnchanged = this.#itemOperations.purgeItemIfUnchanged;
   emptyTrash = this.#itemOperations.emptyTrash;
   reconcileTrashedShares = this.#itemOperations.reconcileTrashedShares;
   withdrawItems = this.#itemOperations.withdrawItems;
@@ -1539,8 +1513,8 @@ export class VaultStore {
     },
   );
 
-  #bodyPort(): VaultBodyPort {
-    return makeBodyPort({
+  #bodyPort(): StoreDeviceKey.VaultBodyPort {
+    return StoreDeviceKey.makeBodyPort({
       tomb: () => this.#scope.tomb,
       open: () => this.#vaultKey !== null,
       carries: () => this.#sharesDisk(),
@@ -1552,15 +1526,20 @@ export class VaultStore {
 
   /** Irreversibly remove the vault from this device. */
   async destroy(): Promise<void> {
-    // Capture before lock: destroying a guest removes only its isolated tomb.
-    const scope = this.#scope;
-    // As final as locking: the same teardown (clipboard, Identity, claims).
+    const { scope, transient } = this.#guestDestroyRetry.select(
+      this.#scope,
+      this.#guestVfsOwner !== null,
+      this.isUnlocked(),
+    );
     this.lock();
-    // Keep the in-memory header until the tomb is durably gone. A failed
-    // delete must leave a recoverable vault, not an empty store that the next
-    // create can overwrite.
-    await destroyStoredTomb(this.#writeQueue, scope);
-    announceVaultDestroyed(scope.tomb);
+    const returned = this.#scope;
+    const retry = transient
+      ? this.#guestDestroyRetry.remember(scope, returned)
+      : null;
+    await TombDestruction.destroyStoredTomb(this.#writeQueue, scope, transient);
+    if (retry) this.#guestDestroyRetry.complete(retry);
+    if (!transient) announceVaultDestroyed(scope.tomb);
+    if (this.#scope !== returned || this.isUnlocked()) return;
     if (isGuestSessionTomb(scope.tomb)) {
       this.#scope = scopedVaultScope();
       this.#header = this.#readHeader();
@@ -1578,7 +1557,7 @@ export class VaultStore {
     produce: (input: RetiredOwnerAuthenticationInput<T>) => Promise<T>,
     signal?: AbortSignal,
   ): Promise<LocalVaultStarted<T>> {
-    if (this.#ephemeral || this.#scope.tomb === GUEST_TOMB)
+    if (this.#ephemeral || isGuestSessionTomb(this.#scope.tomb))
       throw new Error("Real owner authentication is required.");
     this.#assertNotLockedOut();
     const selected = copyCapturedOwnerPrimaryRequest(primary);
@@ -1660,6 +1639,7 @@ export class VaultStore {
   readPrefsSource = this.#preferencesApi.readPrefsSource;
 
   touch = this.#preferences.touch.bind(this.#preferences);
+
   #armIdleTimer(): void {
     this.#preferences.arm(this.#vaultKey !== null, () => this.lock());
   }
@@ -1668,4 +1648,4 @@ export class VaultStore {
 export const vaultStore = bindGuestSessionStore(new VaultStore());
 installVaultStoreBoot(vaultStore);
 
-export { WrongPasswordError, VaultCorruptError };
+export { VaultCorruptError, WrongPasswordError };

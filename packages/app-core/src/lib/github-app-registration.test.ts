@@ -63,8 +63,8 @@ function vault(tomb = "owner-A", guest = false) {
     items: [],
   });
 }
-function ceremony() {
-  startGithubRegistration(
+async function ceremony() {
+  await startGithubRegistration(
     "state-once",
     maybePage()?.location.href ??
       "https://app.example/settings/connections/github",
@@ -79,7 +79,7 @@ beforeEach(async () => {
   vault();
 });
 afterEach(async () => {
-  forgetLocalGithubApp();
+  await forgetLocalGithubApp();
   vi.restoreAllMocks();
   await vaultStore.flushPendingWrites();
   vaultStore.lock();
@@ -91,13 +91,13 @@ it("rejects a callback in a different vault, stale transaction, bare legacy stat
     Response.json(conversion),
   );
   vi.stubGlobal("fetch", fetch);
-  ceremony();
+  await ceremony();
   vault("owner-B");
   expect(await claimGithubAppCode("one-time-code", "state-once")).toBe(
-    "ignored",
+    "failed",
   );
   vault();
-  ceremony();
+  await ceremony();
   sessionStore().setItem(
     "opensesame.github-app.registration",
     JSON.stringify({
@@ -109,12 +109,12 @@ it("rejects a callback in a different vault, stale transaction, bare legacy stat
       createdAt: Date.now() - 3600001,
     }),
   );
-  expect(await claimGithubAppCode("code", "state-once")).toBe("ignored");
+  expect(await claimGithubAppCode("code", "state-once")).toBe("failed");
   sessionStore().setItem("opensesame.github-app.state", "state-once");
-  expect(await claimGithubAppCode("code", "state-once")).toBe("ignored");
-  ceremony();
-  expect(await claimGithubAppCode("code", "wrong-state")).toBe("ignored");
-  expect(await claimGithubAppCode("code", "wrong-state")).toBe("ignored");
+  expect(await claimGithubAppCode("code", "state-once")).toBe("failed");
+  await ceremony();
+  expect(await claimGithubAppCode("code", "wrong-state")).toBe("failed");
+  expect(await claimGithubAppCode("code", "wrong-state")).toBe("failed");
   expect(fetch).not.toHaveBeenCalled();
 });
 
@@ -124,12 +124,12 @@ it("converts directly with one-time state and seals only the API secret into the
     Response.json(conversion),
   );
   vi.stubGlobal("fetch", fetch);
-  ceremony();
+  await ceremony();
   expect(await claimGithubAppCode("manifest-code", "state-once")).toBe(
     "registered",
   );
   expect(await claimGithubAppCode("manifest-code", "state-once")).toBe(
-    "ignored",
+    "failed",
   );
   expect(fetch).toHaveBeenCalledTimes(1);
   expect(fetch.mock.calls[0]?.[0]).toBe(
@@ -162,7 +162,7 @@ it.each(["forget", "lease", "vault", "policy"])(
     const policy = allowGithub();
     const fetch = vi.fn(() => pending);
     vi.stubGlobal("fetch", fetch);
-    ceremony();
+    await ceremony();
     const result = claimGithubAppCode("code", "state-once");
     if (change === "forget") forgetLocalGithubApp();
     if (change === "lease") policy.revoke();
@@ -226,7 +226,7 @@ it("invalidates an owned operation on lock even after the same vault is unlocked
   operation.close();
 });
 
-it("binds a guest's pending secret once and never publishes a binding after Remove during sealing", async () => {
+it("never binds a guest's pending secret into a different vault", async () => {
   vault("guest", true);
   stashPendingGithubAppSecret(APP, credentials.privateKey);
   vault("owner-A");
@@ -237,25 +237,9 @@ it("binds a guest's pending secret once and never publishes a binding after Remo
   vault("owner-B");
   await sealPendingGithubAppSecret();
   expect(pemFromVault(APP)).toBeNull();
-  expect(save).toHaveBeenCalledTimes(1);
-  vault("owner-A");
-  let finish = () => {};
-  const queued = new Promise<void>((resolve) => {
-    finish = resolve;
-  });
-  const writes: string[] = [];
-  save.mockImplementation(async (items, _folder, check) => {
-    await queued;
-    check?.();
-    writes.push(...items.map((item) => item.id));
-  });
-  const sealing = sealPendingGithubAppSecret();
-  forgetLocalGithubApp();
-  finish();
-  await sealing;
+  expect(save).not.toHaveBeenCalled();
   expect(localStore().getItem("opensesame.github-app.secret-item")).toBeNull();
   expect(hasPendingGithubAppSecret(APP.id)).toBe(false);
-  expect(writes).toEqual([]);
 });
 
 it.each(["origin", "pathname"])(
@@ -267,19 +251,19 @@ it.each(["origin", "pathname"])(
     );
     if (part === "origin") callback.hostname = "other.example";
     else callback.pathname = "/another-callback";
-    startGithubRegistration("state-once", callback.toString());
+    await startGithubRegistration("state-once", callback.toString());
     const fetch = vi.fn(async () => Response.json(conversion));
     vi.stubGlobal("fetch", fetch);
-    expect(await claimGithubAppCode("code", "state-once")).toBe("ignored");
+    expect(await claimGithubAppCode("code", "state-once")).toBe("failed");
     expect(fetch).not.toHaveBeenCalled();
   },
 );
 
-it("binds an unsealed guest key on its first durable PEM read", () => {
+it("does not expose an unsealed guest key to another vault", () => {
   vault("guest", true);
   stashPendingGithubAppSecret(APP, credentials.privateKey);
   vault("owner-A");
-  expect(pemFromVault(APP)).toBe(credentials.privateKey.trim());
+  expect(pemFromVault(APP)).toBeNull();
   vault("owner-B");
   expect(pemFromVault(APP)).toBeNull();
 });
@@ -304,7 +288,7 @@ it("does not expose a refused conversion response or persist its reflected secre
         }),
     ),
   );
-  ceremony();
+  await ceremony();
   expect(await claimGithubAppCode("code", "state-once")).toBe("failed");
   expect(readLocalGithubApp()).toBeNull();
   expect(hasPendingGithubAppSecret(APP.id)).toBe(false);

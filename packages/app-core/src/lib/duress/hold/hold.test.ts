@@ -185,15 +185,16 @@ describe("the vault store while the device is held", () => {
   it("never holds the guest tomb, whose access is not removed", async () => {
     const store = await lockedStore();
     await store.createGuest();
+    const guestTomb = store.activeTomb();
     await store.enrollPin(PIN);
     store.lock();
     store.rehydrate();
-    expect(store.getSnapshot().tomb).toBe(GUEST_TOMB);
+    expect(store.getSnapshot().tomb).toBe(guestTomb);
 
     await extendHold(72);
     await store.unlockWithPin(PIN);
     expect(store.getSnapshot().status).toBe("unlocked");
-    expect(store.getSnapshot().tomb).toBe(GUEST_TOMB);
+    expect(store.getSnapshot().tomb).toBe(guestTomb);
     store.lock();
     await store.createGuest();
     expect(store.getSnapshot().status).toBe("unlocked");

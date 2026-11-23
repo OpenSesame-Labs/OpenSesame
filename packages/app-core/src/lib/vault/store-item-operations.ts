@@ -31,6 +31,7 @@ import {
   newVaultFolder,
   uninstallDefinition,
 } from "./store-item-types.js";
+
 type ItemOperationsHost = Readonly<{
   body: () => VaultBody;
   items: () => VaultItem[];
@@ -77,6 +78,9 @@ function writes(host: ItemOperationsHost) {
     ) => writeSavedItems(host.writes(check), items, folder),
     trashItem: (id: string) => discard("trash", id),
     purgeItem: (id: string) => discard("purge", id),
+    /** Purge only the revision that was read; a newer edit is kept. */
+    purgeItemIfUnchanged: (id: string, revision: string) =>
+      commitDiscard("purge", host.items(), id, host.mutate, revision),
     emptyTrash: () => discard("empty", ""),
     reconcileTrashedShares: () =>
       revokeTrashedShares(host.items(), host.mutate),

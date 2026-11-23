@@ -35,6 +35,8 @@ export function trackVfsWork(work: Promise<void>): void {
   const settle = () => scheduledWrites.delete(work);
   void work.then(settle, settle);
 }
+/** Teardown (a guest's lease release, a scratch wipe) is waited on the same way. */
+export const trackVfsCleanup = trackVfsWork;
 
 export function enqueueTombWrite<T>(
   tomb: string,
@@ -53,10 +55,25 @@ export function enqueueTombWrite<T>(
   return run;
 }
 
+/** Settle the queued tomb writes only, not scheduled teardown. */
+export async function vfsFlushWrites(): Promise<void> {
+  await Promise.all([...tombWriteChains.values()]);
+}
+
+/** Drain one tomb without waiting on teardown that itself holds its lease. */
+export async function flushTombWrites(tomb: string): Promise<void> {
+  for (;;) {
+    const current = tombWriteChains.get(tomb);
+    if (!current) return;
+    await current;
+    if (tombWriteChains.get(tomb) === current) return;
+  }
+}
+
 /** Settle every queued tomb write — for tests that need a quiet store. */
 export async function vfsFlush(): Promise<void> {
   do {
-    await Promise.all([...tombWriteChains.values()]);
+    await vfsFlushWrites();
     await Promise.allSettled([...scheduledWrites]);
   } while (scheduledWrites.size > 0);
   await Promise.all([...tombWriteChains.values()]);

@@ -73,7 +73,7 @@ beforeEach(async () => {
   const { header } = await createVault("correct horse battery staple");
   sealedHeader = JSON.stringify(header);
   kvSet(GUEST_HEADER, sealedHeader);
-  // An ordinary Continue as guest beside it runs in the scratch tomb.
+  // An ordinary Continue as guest beside it runs in its own isolated tomb.
   vaultStore.prepareGuestUnlock();
   await vaultStore.createGuest();
 });
@@ -101,7 +101,8 @@ function protectedGuestUntouched(): void {
 it("imports connectors into the temporary guest and lists them back", async () => {
   const snap = vaultStore.getSnapshot();
   expect(snap).toMatchObject({ status: "unlocked", guest: true });
-  expect(presentedTomb(snap.tomb)).toBe(GUEST_TOMB);
+  expect(snap.tomb).toMatch(/^guest_[0-9a-f-]{36}$/u);
+  expect(presentedTomb(snap.tomb)).toBe(snap.tomb);
 
   // Connections imports into the open vault, as the page does.
   await syncConnectorDirectory({

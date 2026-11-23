@@ -3,14 +3,15 @@ import {
   isJsonObject,
   isString,
 } from "@opensesame/os-domain";
+
 /**
  * The projects list as data: its shape and the one parser every stored copy
  * (a tomb's sealed view, a legacy plaintext record) goes through. Split from
  * `projects.ts` for the module budget (ADR 0093).
  */
 
+import { isGuestVaultId } from "./guest-vault-id.js";
 import { kvGet } from "./kv.js";
-import { GUEST_TOMB } from "./vfs.js";
 
 export const PERSONAL_PROJECT_ID = "personal";
 
@@ -51,8 +52,8 @@ export function sanitize(raw: BoundaryValue): ProjectsState {
       if (isJsonObject(entry) && isString(entry.id) && isString(entry.name)) {
         const id = entry.id;
         const name = entry.name;
-        // Guest is a session road (GUEST_TOMB), never a project in the list.
-        if (id === GUEST_TOMB) continue;
+        // Guest vaults are listed separately from projects.
+        if (isGuestVaultId(id) || id === "guest-scratch") continue;
         projects.push({
           id,
           name,

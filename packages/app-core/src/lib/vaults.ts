@@ -26,10 +26,13 @@ import {
 import type { VaultHeader } from "@opensesame/vault-core";
 import { deadmanBootKeys } from "./deadman/keys.js";
 import { guestsAllowed } from "./guest-access.js";
+import { isGuestVaultId, newGuestVaultId } from "./guest-vault-id.js";
 import { kvHydrate } from "./kv.js";
+import { readLastVaultId, writeLastVaultId } from "./last-vault.js";
 import { guestVaultLabel } from "./local-guest.js";
 
 export { guestVaultLabel } from "./local-guest.js";
+
 import {
   PERSONAL_PROJECT_ID,
   type PagesProject,
@@ -41,56 +44,30 @@ import {
   setActiveProject,
   subscribeProjects,
 } from "./projects.js";
+import { headerCarriesGate } from "./vault/header-gate.js";
 import { GUEST_TOMB, readTombHeader, vaultStore } from "./vault/store.js";
+import { guestVaultScope } from "./vault/store-scope.js";
+import { destroyStoredTomb } from "./vault/store-tomb-destruction.js";
+import { StoreWriteQueue } from "./vault/store-write-queue.js";
+import {
+  type DeviceVault,
+  NEW_GUEST_ROAD,
+  guestVault,
+  protectedGuests,
+} from "./vaults-guest.js";
+import { listTombs, unregisterTomb } from "./vfs.js";
+
+export type {
+  DeviceVault,
+  DeviceVaultKind,
+  DeviceVaultState,
+} from "./vaults-guest.js";
+export { NEW_GUEST_ROAD, guestVault } from "./vaults-guest.js";
+
 import {
   migrateLegacyVaultStorage,
   tombStorageKeys,
 } from "./vault/tomb-migration.js";
-
-export type DeviceVaultKind = "personal" | "project" | "guest";
-
-export type DeviceVaultState =
-  /** The tomb this session is scoped to, and it is open. */
-  | "open"
-  /** A sealed vault; unlocking is what opening it means. */
-  | "locked"
-  /** Registered but never sealed — it opens by sealing it. */
-  | "empty";
-
-export type DeviceVault = {
-  /** The tomb name — a project id, `personal`, or `guest`. */
-  readonly id: string;
-  readonly kind: DeviceVaultKind;
-  /** What to call it — a sealed name once known, else a label from the id. */
-  readonly label: string;
-  /** True when `label` is a real name rather than derived from the id. */
-  readonly named: boolean;
-  /** When the tomb was sealed, from its plaintext header. */
-  readonly sealedAt: string | null;
-  readonly state: DeviceVaultState;
-  /** Opens with the key this session already holds — no prompt on switch. */
-  readonly sharedKey: boolean;
-  /**
-   * Published `owner/slug` when the tomb header carries one that still
-   * parses. Guest rows leave this unset. The sealed display name stays
-   * `label` once it is known.
-   */
-  readonly address?: OrgVaultRef | null;
-};
-
-/** The guest road as a row: not a vault on disk, but a peer in the list. */
-export function guestVault(state: DeviceVaultState = "empty"): DeviceVault {
-  return {
-    id: GUEST_TOMB,
-    kind: "guest",
-    label: guestVaultLabel(),
-    named: true,
-    sealedAt: null,
-    state,
-    sharedKey: false,
-    address: null,
-  };
-}
 
 /**
  * What a vault is called on screen. Before unlock a project's name is sealed
@@ -111,7 +88,7 @@ export function vaultLabel(project: Pick<PagesProject, "id" | "name">): string {
  */
 export function openVaultLabel(): string {
   const snapshot = vaultStore.getSnapshot();
-  return snapshot.guest && !snapshot.decoy
+  return (snapshot.guest || isGuestVaultId(snapshot.tomb)) && !snapshot.decoy
     ? guestVaultLabel()
     : vaultLabel(activeProject());
 }
@@ -187,22 +164,34 @@ function listDeviceVaultsDefault(): DeviceVault[] {
     snapshot.status === "unlocked" && snapshot.guest && !snapshot.decoy;
   // With guests switched off there is no guest row to open (ADR 0135 §4),
   // unless a guest session is the one open right now.
-  const guestRow = guestOpen
-    ? [guestVault("open")]
-    : guestsAllowed()
-      ? [guestVault()]
+  const protectedRows = guestsAllowed() ? protectedGuests() : [];
+  const road = {
+    ...guestVault(guestOpen ? "open" : "empty"),
+    label: guestOpen ? guestVaultLabel() : "guest",
+  };
+  const guestRow =
+    guestOpen || guestsAllowed()
+      ? [
+          {
+            ...road,
+            id: protectedRows.some((row) => row.id === GUEST_TOMB)
+              ? NEW_GUEST_ROAD
+              : GUEST_TOMB,
+          },
+        ]
       : [];
   return [
     ...listProjects()
-      .filter((project) => project.id !== GUEST_TOMB)
+      .filter((project) => !isGuestVaultId(project.id))
       .map(describeVault),
+    ...protectedRows,
     ...guestRow,
   ];
 }
 
 /** Whether the switcher has anything to offer beyond the one vault. */
 function deviceHasSeveralVaultsDefault(): boolean {
-  return listProjects().length > 1;
+  return listProjects().length > 1 || protectedGuests().length > 0;
 }
 
 /**
@@ -262,7 +251,12 @@ export async function enterActiveProjectScope(
     throw new Error("The active vault changed while switching; try again.");
   }
   // A guest's key was never wrapped to disk: nothing to carry, ever.
-  if (carryKey && vaultStore.isUnlocked() && !vaultStore.getSnapshot().guest) {
+  if (
+    carryKey &&
+    vaultStore.isUnlocked() &&
+    !vaultStore.getSnapshot().guest &&
+    !isGuestVaultId(vaultStore.getSnapshot().tomb)
+  ) {
     if (readTombHeader(tomb)) {
       await vaultStore.openActiveScopeWithCurrentKey();
     } else {
@@ -286,9 +280,18 @@ export type SwitchOutcome =
  */
 async function switchVaultDefault(id: string): Promise<SwitchOutcome> {
   return enqueueVaultMutation(async () => {
-    if (id === GUEST_TOMB) {
+    if (
+      id === NEW_GUEST_ROAD ||
+      (id === GUEST_TOMB && !headerCarriesGate(readTombHeader(id)))
+    ) {
       switchToGuestNow();
       // Guest has no enrolled key — UnlockScreen shows a single Unlock button.
+      return "locked";
+    }
+    if (isGuestVaultId(id)) {
+      await kvHydrate(tombStorageKeys(id));
+      if (vaultStore.isUnlocked()) vaultStore.lock();
+      vaultStore.prepareGuestUnlock(id);
       return "locked";
     }
     const target = listProjects().find((project) => project.id === id);
@@ -305,7 +308,7 @@ async function switchVaultDefault(id: string): Promise<SwitchOutcome> {
 
 function switchToGuestNow(): void {
   if (vaultStore.isUnlocked()) vaultStore.lock();
-  vaultStore.prepareGuestUnlock();
+  vaultStore.prepareGuestUnlock(newGuestVaultId());
 }
 
 /**
@@ -327,6 +330,8 @@ async function sealNewVaultDefault(
   options: { shareKey: boolean },
 ): Promise<PagesProject> {
   return enqueueVaultMutation(async () => {
+    if (options.shareKey && isGuestVaultId(vaultStore.getSnapshot().tomb))
+      throw new Error("A guest vault cannot share its key with another vault.");
     const project = await createProject(name);
     await setActiveProject(project.id);
     await enterActiveProjectScope(options.shareKey);
@@ -343,6 +348,16 @@ async function removeVaultDefault(id: string): Promise<void> {
       (snapshot.tomb === id || (id === GUEST_TOMB && snapshot.guest));
     if (openHere) {
       throw new Error("Lock this vault before deleting it.");
+    }
+    if (isGuestVaultId(id)) {
+      if (!listTombs().includes(id) || !headerCarriesGate(readTombHeader(id)))
+        throw new Error("That protected guest vault no longer exists.");
+      await destroyStoredTomb(new StoreWriteQueue(), guestVaultScope(id));
+      await unregisterTomb(id);
+      if (readLastVaultId() === id) writeLastVaultId(activeProject().id);
+      if (snapshot.tomb === id)
+        vaultStore.prepareGuestUnlock(newGuestVaultId());
+      return;
     }
     await deleteProject(id);
   });

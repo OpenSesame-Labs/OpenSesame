@@ -14,7 +14,6 @@ import {
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
 import { PIN_PBKDF2_ITERATIONS } from "@opensesame/app-core/lib/vault/unlock-methods.js";
 import {
-  GUEST_TOMB,
   HEADER_PATH,
   PERSONAL_TOMB,
   tombFileKey,
@@ -124,7 +123,8 @@ it("keeps the original root dialog and three-step rail when actual guest PIN pub
   const original = vaultStore.getSnapshot();
   expect(original).toMatchObject({
     status: "unlocked",
-    tomb: GUEST_TOMB,
+    // Each guest opens its own isolated tomb.
+    tomb: expect.stringMatching(/^guest_[0-9a-f-]{36}$/u),
     guest: true,
     decoy: false,
   });
@@ -181,7 +181,7 @@ it("keeps the original root dialog and three-step rail when actual guest PIN pub
   expect(promoted.header?.unlocks?.pin?.kdf.iterations).toBeGreaterThanOrEqual(
     PIN_PBKDF2_ITERATIONS,
   );
-  expect(kvGet(tombFileKey(GUEST_TOMB, HEADER_PATH))).toContain('"pin"');
+  expect(kvGet(tombFileKey(original.tomb, HEADER_PATH))).toContain('"pin"');
   await userEvent.click(within(dialog).getByRole("button", { name: "Close" }));
   act(() => vaultStore.lock());
   expect(screen.queryByRole("dialog")).toBeNull();
@@ -191,7 +191,7 @@ it("keeps the original root dialog and three-step rail when actual guest PIN pub
   });
   expect(vaultStore.getSnapshot()).toMatchObject({
     status: "unlocked",
-    tomb: GUEST_TOMB,
+    tomb: original.tomb,
     guest: false,
   });
   expect(screen.queryByRole("dialog")).toBeNull();
@@ -215,7 +215,7 @@ it("keeps invalid PIN input uncommitted in the same guest ceremony", async () =>
   ).toHaveProperty("disabled", true);
   expect(vaultStore.getSnapshot().guest).toBe(true);
   expect(vaultStore.getSnapshot().header?.unlocks?.pin).toBeUndefined();
-  expect(kvGet(tombFileKey(GUEST_TOMB, HEADER_PATH))).toBeNull();
+  expect(kvGet(tombFileKey(vaultStore.activeTomb(), HEADER_PATH))).toBeNull();
   expect(
     screen.queryByRole("img", { name: "Scan to add vault MFA" }),
   ).toBeNull();

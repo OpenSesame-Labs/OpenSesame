@@ -1,3 +1,4 @@
+import { isGuestVaultId } from "../guest-vault-id.js";
 /**
  * The open vault's tailnet admin pairing (ADR 0169 §3), as
  * `plugin-daemon-store.ts` keeps the plugin pairing: read from the tomb once
@@ -6,7 +7,7 @@
  * nothing runs at import or on activation.
  */
 
-import { GUEST_TOMB, vaultStore } from "../vault/store.js";
+import { vaultStore } from "../vault/store.js";
 import { TailnetAdminError } from "./errors.js";
 import {
   type TailnetAdminPairing,
@@ -34,7 +35,9 @@ function notify(): void {
 /** An open vault that is not a guest's: the only place a key can be sealed. */
 export function tailnetPairingPossible(): boolean {
   const snap = vaultStore.getSnapshot();
-  return snap.status === "unlocked" && !snap.guest && snap.tomb !== GUEST_TOMB;
+  return (
+    snap.status === "unlocked" && !snap.guest && !isGuestVaultId(snap.tomb)
+  );
 }
 
 function vaultKey(): string {

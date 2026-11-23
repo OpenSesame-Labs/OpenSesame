@@ -1,25 +1,25 @@
 import * as deviceIdentity from "@opensesame/app-core/lib/device-identity.js";
 import { ensureDefaultAccess } from "@opensesame/app-core/lib/local-access-bootstrap.js";
-import { mintGuestSessionPerson } from "@opensesame/app-core/lib/local-guest.js";
+import { readGuestSessionPerson } from "@opensesame/app-core/lib/local-guest.js";
 import { listLocalShares } from "@opensesame/app-core/lib/local-share-grants.js";
-/** @vitest-environment jsdom */
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
-
+import { IDENTITY_VIEWS } from "@opensesame/app-core/lib/section-view-names.js";
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
-import { GUEST_TOMB, lockAllTombs } from "@opensesame/app-core/lib/vfs.js";
+import { listDeviceVaults } from "@opensesame/app-core/lib/vaults.js";
+import { lockAllTombs } from "@opensesame/app-core/lib/vfs.js";
 import {
   IDENTITY_ROUTES,
   IDENTITY_TARGETS,
 } from "@opensesame/app-core/tutorial/registry/identity-catalog.js";
 import { IDENTITY_GOALS } from "@opensesame/app-core/tutorial/registry/identity-goals.js";
+/** @vitest-environment jsdom */
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { declareTutorialForTest } from "../modules/tutorial-test-realm.js";
+import { testLockManager } from "../test-support/lock-manager.js";
 import { IdentitySection } from "./IdentitySection.js";
 import { contributeIdentityForTests } from "./identity/identity-test-support.js";
 
-import { IDENTITY_VIEWS } from "@opensesame/app-core/lib/section-view-names.js";
-import { testLockManager } from "../test-support/lock-manager.js";
 // The Identity tabs belong to three capabilities (local IAM, federation,
 // directory provisioning), and each contributes its own view. These cases
 // describe a deployment that approved them, so they register the same
@@ -50,17 +50,20 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vaultStore.lock();
   lockAllTombs();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
 });
 
 it("lists this Guest N on People even when a hosted Identity API is configured", async () => {
-  const guest = mintGuestSessionPerson();
   await vaultStore.createGuest();
-  expect(vaultStore.getSnapshot().tomb).toBe(GUEST_TOMB);
+  const guest = readGuestSessionPerson();
+  if (!guest) throw new Error("The guest session has no person.");
+  const tomb = vaultStore.getSnapshot().tomb;
+  expect(tomb).toMatch(/^guest_/);
   expect(vaultStore.getSnapshot().guest).toBe(true);
-  await ensureDefaultAccess(GUEST_TOMB);
+  await ensureDefaultAccess(tomb);
 
   render(
     <MemoryRouter
@@ -75,11 +78,15 @@ it("lists this Guest N on People even when a hosted Identity API is configured",
   });
   expect(document.getElementById(guest.id)).toBeTruthy();
 
-  const shares = await listLocalShares(GUEST_TOMB);
+  const shares = await listLocalShares(tomb);
+  const guestVault = listDeviceVaults().find(
+    (vault) => vault.kind === "guest" && vault.state === "open",
+  );
+  if (!guestVault) throw new Error("The guest vault is not listed.");
   expect(
     shares.some(
       (share) =>
-        share.principalId === guest.id && share.resourceId === GUEST_TOMB,
+        share.principalId === guest.id && share.resourceId === guestVault.id,
     ),
   ).toBe(true);
 });

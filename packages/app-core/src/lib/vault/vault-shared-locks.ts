@@ -59,6 +59,50 @@ export async function acquireOpenLease(
   };
 }
 
+/** A temporary guest's actor and in-memory key may belong to only one tab. */
+export async function acquireExclusiveGuestLease(
+  tomb: string,
+  requireShared: boolean,
+): Promise<() => Promise<void>> {
+  if ((openLeaseCounts.get(tomb) ?? 0) !== 0)
+    throw new VaultStoreConflictError();
+  const locks = lockManager();
+  if (!locks && requireShared)
+    throw new Error(
+      "This browser cannot safely resume the guest session. Start again.",
+    );
+  const generation = leaseGeneration;
+  openLeaseCounts.set(tomb, 1);
+  if (!locks) return async () => releaseCount(tomb, generation);
+  let release = () => {};
+  let held: Promise<void> = Promise.resolve();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      held = locks
+        .request(
+          `opensesame:vault-open:${tomb}`,
+          { mode: "exclusive", ifAvailable: true },
+          async (lock) => {
+            if (!lock) throw new VaultStoreConflictError();
+            await new Promise<void>((done) => {
+              release = done;
+              resolve();
+            });
+          },
+        )
+        .catch(reject);
+    });
+  } catch (error) {
+    releaseCount(tomb, generation);
+    throw error;
+  }
+  return async () => {
+    release();
+    releaseCount(tomb, generation);
+    await held;
+  };
+}
+
 /**
  * Test-only: forget every open lease this realm counts, as a process that
  * ends leaves none behind. The secret-file conformance suites start each next

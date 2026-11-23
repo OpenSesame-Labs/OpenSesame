@@ -144,7 +144,7 @@ describe("VAULT-07 — switching tombs leaks nothing across them", () => {
 
     const guest = new VaultStore();
     await guest.createGuest();
-    expect(guest.activeTomb()).toBe(GUEST_TOMB);
+    expect(guest.activeTomb()).toMatch(/^guest_[0-9a-f-]{36}$/u);
     expect(guest.getSnapshot().guest).toBe(true);
     // Nothing of the personal tomb is visible from here.
     expect(
@@ -215,7 +215,8 @@ describe("VAULT-09 — a malformed import is bounded and starts nothing else", (
     expect(result.warnings.length).toBeLessThan(20);
 
     // Deep nesting is answered by the same bound, not by recursion.
-    let nested: unknown = "leaf";
+    type Nest = string | { accounts: Nest };
+    let nested: Nest = "leaf";
     for (let depth = 0; depth < 5_000; depth += 1)
       nested = { accounts: nested };
     expect(() =>

@@ -15,6 +15,7 @@
  */
 
 import { settingsPath } from "@opensesame/app-core/lib/crumbs.js";
+import { isGuestVaultId } from "@opensesame/app-core/lib/guest-vault-id.js";
 import {
   createProject,
   projectsState,
@@ -29,22 +30,21 @@ import {
   type DeviceVault,
   enterActiveProjectScope,
   guestVaultLabel,
-  switchToGuest,
+  switchVault,
   vaultLabel,
 } from "@opensesame/app-core/lib/vaults.js";
 import { useCallback, useState, useSyncExternalStore } from "react";
 import { useNavigate } from "react-router";
+import { useDeviceVaults } from "../bindings/vaults.js";
 import { isTouchPointer } from "../lib/gestures.js";
 import { useGuideTarget } from "../tutorial/registry/react.jsx";
 import { FailureNotice } from "./FailureNotice.js";
 import { GlyphMark } from "./GlyphMark.js";
 import { IconPlus } from "./Icons.js";
 import { PromptGlyph } from "./PromptGlyph.js";
-import { VaultList } from "./VaultList.js";
 import { glyphStandsForName } from "./prompt-glyph.js";
 import { useHold } from "./use-hold.js";
-
-import { useDeviceVaults } from "../bindings/vaults.js";
+import { VaultList } from "./VaultList.js";
 export type ProjectSwitcherProps = { glyphHost?: HTMLElement | null };
 
 function ProjectSwitcherDefault({ glyphHost }: ProjectSwitcherProps = {}) {
@@ -59,7 +59,9 @@ function ProjectSwitcherDefault({ glyphHost }: ProjectSwitcherProps = {}) {
     state.projects.find((project) => project.id === state.activeId) ??
     state.projects[0];
   const snapshot = vaultStore.getSnapshot();
-  const guestOpen = snapshot.status === "unlocked" && snapshot.guest;
+  const guestOpen =
+    snapshot.status === "unlocked" &&
+    (snapshot.guest || isGuestVaultId(snapshot.tomb));
   const vaults = useDeviceVaults();
 
   function close(): void {
@@ -83,7 +85,8 @@ function ProjectSwitcherDefault({ glyphHost }: ProjectSwitcherProps = {}) {
   // A duress decoy is isolated like a guest but drawn as the vault it was typed at.
   const guestShown = guestOpen && !snapshot.decoy;
   const name = guestShown
-    ? guestVaultLabel()
+    ? (vaults.find((vault) => vault.id === snapshot.tomb)?.label ??
+      guestVaultLabel())
     : active
       ? vaultLabel(active)
       : "personal";
@@ -95,7 +98,8 @@ function ProjectSwitcherDefault({ glyphHost }: ProjectSwitcherProps = {}) {
     }
     try {
       if (vault.kind === "guest") {
-        await switchToGuest();
+        // The guest road or one protected guest vault, by its own id.
+        await switchVault(vault.id);
       } else {
         await setActiveProject(vault.id);
         await afterProjectChange(vault.sharedKey);
@@ -124,6 +128,7 @@ function ProjectSwitcherDefault({ glyphHost }: ProjectSwitcherProps = {}) {
   }
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: Escape forwarding only — focus and actions stay on the button and menu inside
     <div
       className="project-switcher"
       onKeyDown={(event) => {
@@ -169,7 +174,6 @@ function ProjectSwitcherDefault({ glyphHost }: ProjectSwitcherProps = {}) {
 
       {open ? (
         <>
-          {/* biome-ignore lint/a11y/useKeyWithClickEvents: backdrop mirrors Escape, handled on the menu */}
           <div
             className="project-switcher__backdrop"
             onClick={() => {
@@ -177,7 +181,7 @@ function ProjectSwitcherDefault({ glyphHost }: ProjectSwitcherProps = {}) {
             }}
             aria-hidden="true"
           />
-          <div
+          <section
             className="project-switcher__menu"
             aria-label="Vaults on this device"
           >
@@ -236,7 +240,7 @@ function ProjectSwitcherDefault({ glyphHost }: ProjectSwitcherProps = {}) {
               title="Vault"
               message={error}
             />
-          </div>
+          </section>
         </>
       ) : null}
     </div>

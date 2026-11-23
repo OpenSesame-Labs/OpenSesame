@@ -6,6 +6,7 @@ import type {
   VaultHeader,
   VaultItem,
 } from "@opensesame/vault-core";
+import { isGuestVaultId } from "../guest-vault-id.js";
 import type { TrustedUnlockView } from "../trusted-unlock.js";
 import type { VaultPrefs } from "./prefs.js";
 
@@ -15,7 +16,7 @@ export type VaultState = {
   status: VaultStatus;
   /**
    * The tomb this session reads and writes — a project id, `personal`,
-   * `guest`, or the scratch tomb a guest or decoy runs in beside a sealed
+   * `guest`, an isolated `guest_<uuid>`, or the scratch tomb a guest or decoy runs in beside a sealed
    * guest. Every storage operation keys on this. Display and road identity
    * read `presentedTomb(tomb)` (the scratch tomb reads as `guest`); that alias
    * is never a storage key — a scratch session must not reach the sealed guest.
@@ -59,9 +60,18 @@ let readGuestSession: () => boolean = () => false;
 
 /** Bind the session store's guest flag and return the store, for `export const vaultStore = …`. */
 export function bindGuestSessionStore<
-  T extends { getSnapshot(): { guest?: boolean } },
+  T extends {
+    getSnapshot(): { guest?: boolean; status?: string; tomb?: string };
+  },
 >(store: T): T {
-  readGuestSession = () => store.getSnapshot().guest === true;
+  // A protected guest vault is still a guest session once it is unlocked.
+  readGuestSession = () => {
+    const snapshot = store.getSnapshot();
+    return (
+      snapshot.guest === true ||
+      (snapshot.status === "unlocked" && isGuestVaultId(snapshot.tomb ?? null))
+    );
+  };
   return store;
 }
 

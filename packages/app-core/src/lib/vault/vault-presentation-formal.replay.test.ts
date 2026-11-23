@@ -65,6 +65,7 @@ function unlockSessionModel(): SessionModel {
     },
     loadBody: async () => emptyBody(),
     setBody: () => {},
+    setGuestPerson: () => {},
     bodyPort: () => ({
       tomb: () => "personal",
       open: () => true,

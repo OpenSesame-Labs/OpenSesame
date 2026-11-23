@@ -23,16 +23,16 @@ import {
   defaultCapabilityConnectors,
   normalizeCapabilityConnectors,
 } from "./capabilities.js";
+import { activeGuestTomb } from "./guest-session-context.js";
 import { kvGet } from "./kv.js";
-import { lastVaultIsGuest } from "./last-vault.js";
+import { lastGuestVaultId } from "./last-vault.js";
 import { PERSONAL_PROJECT_ID, readBootActiveId } from "./projects-state.js";
-import { GUEST_TOMB } from "./vfs.js";
 
 export const SETTINGS_PERSIST_KEY = "settings.v1";
 
 /** The tomb whose bindings `loadSettings().capabilityConnectors` returns. */
 export function activeCapabilityVaultId(): string {
-  return lastVaultIsGuest() ? GUEST_TOMB : readBootActiveId();
+  return activeGuestTomb() ?? lastGuestVaultId() ?? readBootActiveId();
 }
 
 interface ScopedCapabilityConnectors {

@@ -25,6 +25,13 @@ export type VfsSeams = {
     beforeCommit: () => void,
     vaultKey?: CryptoKey,
   ) => Promise<void>;
+  /** Only for a live in-memory guest; never grants file-backed authentication. */
+  guestWriteRawGuarded?: (
+    key: string,
+    value: string,
+    beforeCommit: () => void,
+    vaultKey?: CryptoKey,
+  ) => Promise<void>;
   /** Guarded metadata for an already-open ordinary VFS key; never pre-unlock IAM support. */
   writeOwnedMetadata?: (
     key: string,
@@ -44,6 +51,11 @@ export type VfsSeams = {
   deleteOwnedFile?: (key: string, beforeCommit: () => void) => Promise<void>;
   /** Delete with the original-owner assertion rechecked at the physical unlink. */
   deleteRawGuarded?: (key: string, beforeCommit: () => void) => Promise<void>;
+  /** Only for a live in-memory guest's deletions. */
+  guestDeleteRawGuarded?: (
+    key: string,
+    beforeCommit: () => void,
+  ) => Promise<void>;
   /** A file-per-secret store assembles the body here, before it is first read. */
   openBody?: (
     tomb: string,

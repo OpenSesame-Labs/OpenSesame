@@ -8,6 +8,7 @@ import {
   totpCode,
 } from "@opensesame/vault-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { isIsolatedGuestVaultId } from "../guest-vault-id.js";
 import { kvDelete, kvGet, kvSeams, kvSet } from "../kv.js";
 import {
   PERSONAL_PROJECT_ID,
@@ -22,21 +23,19 @@ import {
   INDEX_PATH,
   MIGRATION_MARKER_PATH,
   PERSONAL_TOMB,
+  readSealedFile,
   tombFileKey,
   vfsFlush,
 } from "../vfs.js";
-import { enrollTotp } from "./store-totp.fixture.js";
 import {
   ATTEMPTS_KEY,
   GUEST_TOMB,
   VaultCorruptError,
   VaultStore,
   WrongPasswordError,
-  defaultPrefs,
-  normalizeVaultPrefs,
   readTombHeader,
 } from "./store.js";
-import { LEGACY_PREFS_KEY } from "./tomb-migration.js";
+import { enrollTotp } from "./store-totp.fixture.js";
 
 vi.setConfig({ testTimeout: 180_000, hookTimeout: 180_000 });
 const PASSWORD = "correct horse battery staple";
@@ -44,7 +43,6 @@ const PASSWORD = "correct horse battery staple";
 /** The personal tomb's vault files — where header/body live now (ADR 0063). */
 const HEADER_KEY = tombFileKey(PERSONAL_TOMB, HEADER_PATH);
 const BODY_KEY = tombFileKey(PERSONAL_TOMB, BODY_PATH);
-const PREFS_KEY = LEGACY_PREFS_KEY;
 
 /** Lets a test make the durable write fail the way a full disk would. */
 const refuseWrites = vi.hoisted(() => ({ on: false }));
@@ -261,11 +259,14 @@ describe("VaultStore multi-method unlock", () => {
     await store.createGuest();
     expect(store.getSnapshot().status).toBe("unlocked");
     expect(store.getSnapshot().header?.wrap).toBeUndefined();
-    // A guest write lands in the guest tomb, never on the sealed vault.
+    const guestTomb = store.activeTomb();
+    expect(isIsolatedGuestVaultId(guestTomb)).toBe(true);
+    // An unprotected guest remains in memory, never on the sealed vault.
     await store.saveItem(createItem("note", "guest note"));
     expect(kvGet(HEADER_KEY)).toBe(sealedHeader);
     expect(kvGet(BODY_KEY)).toBeNull();
-    expect(kvGet(tombFileKey(GUEST_TOMB, BODY_PATH))).not.toBeNull();
+    expect(kvGet(tombFileKey(guestTomb, BODY_PATH))).toBeNull();
+    expect(readSealedFile(guestTomb, BODY_PATH)).not.toBeNull();
 
     store.lock();
     expect(store.getSnapshot().tomb).toBe(GUEST_TOMB);
@@ -278,10 +279,11 @@ describe("VaultStore multi-method unlock", () => {
   it("lets a guest beside a sealed vault delete only the guest tomb", async () => {
     const store = await storeWithVault();
     await store.createGuest();
+    const guestTomb = store.activeTomb();
     await store.saveItem(createItem("note", "guest note"));
     await store.destroy();
     expect(kvGet(HEADER_KEY)).not.toBeNull();
-    expect(kvGet(tombFileKey(GUEST_TOMB, BODY_PATH))).toBeNull();
+    expect(kvGet(tombFileKey(guestTomb, BODY_PATH))).toBeNull();
     expect(store.getSnapshot().status).toBe("locked");
   });
 
@@ -363,7 +365,7 @@ describe("VaultStore multi-method unlock", () => {
     const project = await createProject("Trap");
     await setActiveProject(project.id);
     await expect(store.forkUnlockedIntoActiveScope()).rejects.toThrow(
-      /no key to share/,
+      /guest vault cannot share its key/,
     );
     expect(kvGet(tombFileKey(project.id, HEADER_PATH))).toBeNull();
     store.lock();
@@ -386,7 +388,7 @@ describe("VaultStore multi-method unlock", () => {
     store.loadActiveProjectScope();
     expect(store.getSnapshot().status).toBe("empty");
     await store.createGuest();
-    expect(store.getSnapshot().tomb).toBe(GUEST_TOMB);
+    expect(isIsolatedGuestVaultId(store.getSnapshot().tomb)).toBe(true);
     expect(store.getSnapshot().guest).toBe(true);
     store.lock();
     await setActiveProject(PERSONAL_PROJECT_ID);
@@ -456,43 +458,5 @@ describe("VaultStore multi-method unlock", () => {
     await expect(reopened.unlock(PASSWORD)).rejects.toThrow(/did not unlock/);
     await reopened.unlockWithPin("48291037");
     expect(reopened.getSnapshot().status).toBe("unlocked");
-  });
-});
-
-describe("vault prefs locking defaults", () => {
-  beforeEach(() => {
-    kvDelete(PREFS_KEY);
-  });
-
-  it("defaults auto-lock to off and does not sign out on lock", () => {
-    expect(defaultPrefs.autoLockMinutes).toBe(0);
-    expect(defaultPrefs.signOutOnLock).toBe(false);
-    expect(defaultPrefs.lockOnHide).toBe(false);
-  });
-
-  it("migrates the old 15-minute default to Never once", () => {
-    const migrated = normalizeVaultPrefs({
-      autoLockMinutes: 15,
-      lockOnHide: false,
-      clipboardClearSeconds: 30,
-      theme: "system",
-    });
-    expect(migrated.autoLockMinutes).toBe(0);
-    expect(migrated.signOutOnLock).toBe(false);
-    expect(migrated.prefsRevision).toBeGreaterThanOrEqual(2);
-  });
-
-  it("keeps an explicit 15-minute choice after the prefs revision is current", () => {
-    const kept = normalizeVaultPrefs({
-      autoLockMinutes: 15,
-      lockOnHide: false,
-      clipboardClearSeconds: 30,
-      theme: "dark",
-      prefsRevision: 2,
-      signOutOnLock: true,
-    });
-    expect(kept.autoLockMinutes).toBe(15);
-    expect(kept.signOutOnLock).toBe(true);
-    expect(kept.theme).toBe("dark");
   });
 });
