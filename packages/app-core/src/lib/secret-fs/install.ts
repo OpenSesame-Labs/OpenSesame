@@ -22,6 +22,10 @@ export async function installFileBackedVfs(
   Reflect.deleteProperty(vfsSeams, "deleteRawGuarded");
   if (!adapter.seams.writeOwnedMetadata)
     Reflect.deleteProperty(vfsSeams, "writeOwnedMetadata");
+  if (!adapter.seams.writeOwnedBody)
+    Reflect.deleteProperty(vfsSeams, "writeOwnedBody");
+  if (!adapter.seams.deleteOwnedFile)
+    Reflect.deleteProperty(vfsSeams, "deleteOwnedFile");
   return () => {
     vfsSeams.readRaw = previous.readRaw;
     vfsSeams.writeRaw = previous.writeRaw;
@@ -31,6 +35,12 @@ export async function installFileBackedVfs(
     if (previous.writeOwnedMetadata)
       vfsSeams.writeOwnedMetadata = previous.writeOwnedMetadata;
     else Reflect.deleteProperty(vfsSeams, "writeOwnedMetadata");
+    if (previous.writeOwnedBody)
+      vfsSeams.writeOwnedBody = previous.writeOwnedBody;
+    else Reflect.deleteProperty(vfsSeams, "writeOwnedBody");
+    if (previous.deleteOwnedFile)
+      vfsSeams.deleteOwnedFile = previous.deleteOwnedFile;
+    else Reflect.deleteProperty(vfsSeams, "deleteOwnedFile");
     vfsSeams.deleteRaw = previous.deleteRaw;
     if (previous.deleteRawGuarded)
       vfsSeams.deleteRawGuarded = previous.deleteRawGuarded;

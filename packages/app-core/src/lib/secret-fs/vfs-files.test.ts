@@ -98,6 +98,7 @@ describe("the VFS over a secret file store", () => {
       },
     });
     expect(vfs.seams.readRaw("legacy")).toBe("old");
+    expect(vfs.seams.deleteOwnedFile).toBeUndefined();
     await vfs.seams.deleteRaw("legacy");
     expect(seen).toEqual(["legacy"]);
   });

@@ -20,10 +20,13 @@
  * - every other file (header, config, index, tomb registry), stored as the
  *   text the VFS gave it at `<tomb>/<path>.json`.
  */
+import { Effect } from "effect";
+import { captureTombEpoch } from "../vfs.js";
 import type { VfsSeams } from "../vfs-seams.js";
 import { SETTINGS_DIR, decodeConfig, encodeConfig } from "./config-docs.js";
 import { SecretFsRejected } from "./errors.js";
 import type { SecretFiles } from "./files.js";
+import { captureOwnedBodyFiles } from "./owned-body-files.js";
 import { readProjection } from "./projection-read.js";
 import { writeProjection } from "./projection-write.js";
 import {
@@ -57,7 +60,7 @@ export type FileBackedVfs = Readonly<{
   seams: Required<
     Pick<VfsSeams, "readRaw" | "writeRaw" | "deleteRaw" | "openBody">
   > &
-    Pick<VfsSeams, "writeOwnedMetadata">;
+    Pick<VfsSeams, "writeOwnedMetadata" | "writeOwnedBody" | "deleteOwnedFile">;
 }>;
 
 /** What one adapter holds: the store, a mirror of its raw files, and what it knows of each vault's documents. */
@@ -98,16 +101,22 @@ async function writeKeyedBody(
   tomb: string,
   value: string,
   vaultKey: CryptoKey,
+  protectedFiles?: SecretFiles,
+  check?: () => void,
 ): Promise<void> {
-  const { files, mirror, projections, dirty } = held;
+  const { mirror, projections, dirty } = held;
+  const files = protectedFiles ?? held.files;
   const prev = projections.get(tomb) ?? EMPTY_PROJECTION;
+  check?.();
   const body = await openBodyBlob(tomb, vaultKey, JSON.parse(value));
+  check?.();
   // A multi-file root-key rotation needs a durable two-phase publication
   // protocol spanning the body, index, settings and header. This adapter does
   // not claim that guarantee: refusing before the first write is safer than an
   // outage leaving half the vault under each key.
   const sameKey =
     prev.manifestRevision === null || (await sealedUnder(prev, vaultKey));
+  check?.();
   if (!sameKey) {
     throw new SecretFsRejected({
       path: `${tomb}/${MANIFEST_FILE}`,
@@ -121,7 +130,9 @@ async function writeKeyedBody(
     const next = await settle(
       writeProjection(files, tomb, vaultKey, body, prev, freshFiles),
     );
+    check?.();
     const sealedProbe = await probeFor(vaultKey);
+    check?.();
     projections.set(tomb, { ...next, sealedProbe });
     dirty.delete(tomb);
     mirror.set(bodyKey(tomb), value);
@@ -151,39 +162,68 @@ async function writeBody(
   mirror.set(bodyKey(tomb), value);
 }
 
+/** Destroying a vault removes every secret's file, not only the ones this process knows of. */
 /** Put a vault's body together from its documents and hold it as the blob the VFS reads. */
 async function assembleBody(
   { files, mirror, projections, dirty }: Held,
   tomb: string,
   vaultKey: CryptoKey,
+  check: () => void,
 ): Promise<void> {
+  check();
   const found = await settle(readProjection(files, tomb, vaultKey));
-  if (found === null) return;
-  const flat = mirror.get(bodyKey(tomb));
-  if (flat !== undefined) {
+  check();
+  if (found === null) {
+    const legacy = await settle(
+      files
+        .read(`${tomb}/${LEGACY_BODY_FILE}`)
+        .pipe(Effect.catchTag("SecretFsNotFound", () => Effect.succeed(null))),
+    );
+    check();
+    if (legacy) {
+      mirror.set(bodyKey(tomb), decode(legacy.bytes));
+      projections.set(tomb, { ...EMPTY_PROJECTION, legacyBody: true });
+    } else {
+      mirror.delete(bodyKey(tomb));
+      projections.delete(tomb);
+    }
+    dirty.delete(tomb);
+    return;
+  }
+  if (found.state.legacyBody) {
     // A flat body is also on disk (a write with no key, never retired):
     // whichever is further on is the vault.
+    const flat = decode(
+      (await settle(files.read(`${tomb}/${LEGACY_BODY_FILE}`))).bytes,
+    );
     const flatBody = await openBodyBlob(tomb, vaultKey, JSON.parse(flat));
+    check();
     if ((flatBody.rev ?? 0) > (found.body.rev ?? 0)) {
+      const sealedProbe = await probeFor(vaultKey);
+      check();
+      mirror.set(bodyKey(tomb), flat);
       projections.set(tomb, {
         ...found.state,
         legacyBody: true,
-        sealedProbe: await probeFor(vaultKey),
+        sealedProbe,
       });
       dirty.delete(tomb);
       return;
     }
   }
   const blob = await sealBodyBlob(tomb, vaultKey, found.body);
+  const sealedProbe = await probeFor(vaultKey);
+  check();
   mirror.set(bodyKey(tomb), JSON.stringify(blob));
   projections.set(tomb, {
     ...found.state,
-    sealedProbe: await probeFor(vaultKey),
+    sealedProbe,
   });
   dirty.delete(tomb);
 }
 
-type Fallback = Pick<VfsSeams, "readRaw" | "deleteRaw">;
+type Fallback = Pick<VfsSeams, "readRaw" | "deleteRaw"> &
+  Partial<Pick<VfsSeams, "deleteRawGuarded" | "deleteOwnedFile">>;
 type Serial = <T>(work: () => Promise<T>) => Promise<T>;
 
 function baseFileBackedVfs(
@@ -224,8 +264,14 @@ function baseFileBackedVfs(
           }
           await fallback.deleteRaw(key);
         }),
-      openBody: (tomb, vaultKey) =>
-        serial(() => assembleBody(held, tomb, vaultKey)),
+      openBody: (tomb, vaultKey, check) => {
+        const owner = captureTombEpoch(tomb);
+        const active = () => {
+          check?.();
+          owner();
+        };
+        return serial(() => assembleBody(held, tomb, vaultKey, active));
+      },
     },
   };
 }
@@ -235,6 +281,7 @@ export function createFileBackedVfs(
   fallback: Fallback = {
     readRaw: () => null,
     deleteRaw: () => Promise.resolve(),
+    deleteRawGuarded: async (_key, check) => check(),
   },
 ): FileBackedVfs {
   const held: Held = {
@@ -244,6 +291,10 @@ export function createFileBackedVfs(
     dirty: new Set(),
   };
   const guardedWrite = files.writeGuarded?.bind(files);
+  const guardedBody = captureOwnedBodyFiles(files);
+  const guardedFallback = (
+    fallback.deleteOwnedFile ?? fallback.deleteRawGuarded
+  )?.bind(fallback);
   // The seams may be called from anywhere, so the adapter orders its own writes.
   let chain: Promise<unknown> = Promise.resolve();
   const serial = <T>(work: () => Promise<T>): Promise<T> => {
@@ -268,6 +319,46 @@ export function createFileBackedVfs(
             await settle(guardedWrite(where.file, doc ?? encode(value), check));
             check();
             held.mirror.set(key, value);
+          }),
+        ...(guardedBody && {
+          writeOwnedBody: (key, value, check, vaultKey) =>
+            serial(() => {
+              check();
+              const where = locate(key);
+              if (where.kind !== "body" || !vaultKey)
+                throw rejected(key, "requires an unlocked vault body");
+              return writeKeyedBody(
+                held,
+                where.tomb,
+                value,
+                vaultKey,
+                guardedBody(check),
+                check,
+              );
+            }),
+        }),
+        ...(guardedBody &&
+          guardedFallback && {
+            deleteOwnedFile: (key, check) =>
+              serial(async () => {
+                check();
+                const where = locate(key);
+                const secured = guardedBody(check);
+                await settle(
+                  where.kind === "body"
+                    ? removeBodyFiles(
+                        secured,
+                        where.tomb,
+                        held.projections.get(where.tomb)?.manifestRevision ??
+                          null,
+                      )
+                    : secured.remove(where.file),
+                );
+                await guardedFallback(key, check);
+                check();
+                if (where.kind === "body") forgetBodyState(held, where.tomb);
+                else held.mirror.delete(key);
+              }),
           }),
       },
     };
