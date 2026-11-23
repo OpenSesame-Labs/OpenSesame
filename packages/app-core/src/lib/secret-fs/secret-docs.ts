@@ -104,7 +104,7 @@ export type Listing = {
   file: string;
   rev: number;
   /** Stable label-derived path; `file` is an immutable physical generation. */
-  logical?: string;
+  logical?: string | undefined;
 };
 /** A folder is listed like an item; a manifest written before folders were files holds them whole. */
 export type ManifestPayload = Omit<VaultBody, "items" | "folders"> & {
@@ -122,7 +122,7 @@ export type StagingPayload = {
 export type Projected = Readonly<{
   file: string;
   /** Stable label-derived path, retained when the physical name is truncated. */
-  logical?: string;
+  logical?: string | undefined;
   rev: number;
   json: string;
   /** The document file's revision as last read or written; the next write must find it so. */
