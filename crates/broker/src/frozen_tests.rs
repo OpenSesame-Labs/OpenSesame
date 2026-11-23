@@ -4,8 +4,8 @@ use opensesame_authz::PolicyEngine;
 use opensesame_connector_host::HostRuntime;
 use opensesame_domain::{
     ActorId, ActorInstanceId, AuthorityContext, AuthorityContextId, AuthorityContextMode,
-    CapabilitySet, CeilingInput, ClientId, ConnectionId, GrantConstraints, GrantId, IntentId,
-    OfflineUse, OrganizationId, PrincipalId, ProjectId, ResourceSelector, TaskRunId,
+    CapabilitySet, CeilingInput, ClientId, ConnectionId, DomainError, GrantConstraints, GrantId,
+    IntentId, OfflineUse, OrganizationId, PrincipalId, ProjectId, ResourceSelector, TaskRunId,
     TaskTemplateId, FROZEN_INTENT_SCHEMA_VERSION,
 };
 use opensesame_storage::Db;
@@ -14,7 +14,7 @@ use opensesame_time::Duration;
 
 type Narrowing = (&'static str, fn(&mut Grant));
 
-fn sample_grant(org: OrganizationId, principal: PrincipalId) -> Grant {
+pub(super) fn sample_grant(org: OrganizationId, principal: PrincipalId) -> Grant {
     Grant {
         id: GrantId::new(),
         version: 1,
@@ -50,7 +50,7 @@ fn sample_grant(org: OrganizationId, principal: PrincipalId) -> Grant {
     }
 }
 
-fn sample_intent(org: OrganizationId, principal: PrincipalId) -> FrozenIntentV2 {
+pub(super) fn sample_intent(org: OrganizationId, principal: PrincipalId) -> FrozenIntentV2 {
     FrozenIntentV2 {
         schema_version: FROZEN_INTENT_SCHEMA_VERSION,
         id: IntentId::new(),
@@ -217,7 +217,15 @@ async fn frozen_receipts_bind_the_organization_across_idempotent_replay() {
     let replay = broker.invoke_frozen(&tasks, invoke()).await.unwrap();
     assert_eq!(first.id, replay.id);
     assert_eq!(first.organization_id, Some(org));
-    assert_eq!(first.receipt_schema_version, 3);
+    assert_eq!(first.receipt_schema_version, 6);
+    assert_ne!(first.intent_digest, intent.intent_digest);
+    assert_eq!(
+        first.intent_digest,
+        broker
+            .signer
+            .intent_commitment(&first.invocation_id, &intent.intent_digest)
+            .unwrap()
+    );
     assert_eq!(replay.organization_id, Some(org));
     let mut changed_actor = invoke();
     changed_actor.intent.actor_id = ActorId::new();
@@ -234,81 +242,50 @@ async fn frozen_receipts_bind_the_organization_across_idempotent_replay() {
         .await
         .unwrap_err();
     assert!(error.to_string().contains("different or missing binding"));
+    let recovered = broker
+        .recover_frozen_receipt(&tasks, invoke())
+        .await
+        .unwrap();
+    assert_eq!(recovered.id, first.id);
+    let mut revoked = invoke();
+    revoked.grant.revoked_at = Some(Utc::now());
+    let error = broker
+        .recover_frozen_receipt(&tasks, revoked)
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        error.downcast_ref::<DomainError>(),
+        Some(DomainError::GrantRevoked)
+    ));
+    let mut mutated = invoke();
+    mutated.intent.canonical_arguments = json!({"changed": true});
+    let error = broker
+        .recover_frozen_receipt(&tasks, mutated)
+        .await
+        .unwrap_err();
+    assert!(matches!(
+        error.downcast_ref::<DomainError>(),
+        Some(DomainError::FrozenIntentDigestMismatch)
+    ));
     broker.policy.relationships = Default::default();
     let error = broker.invoke_frozen(&tasks, invoke()).await.unwrap_err();
     assert!(error.to_string().contains("current authorization denied"));
+    let error = broker
+        .recover_frozen_receipt(&tasks, invoke())
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("current authorization denied"));
+    broker
+        .policy
+        .relationships
+        .write("connection:demo-conn", "user", "user:demo");
+    tasks
+        .terminate_task(intent.task_run_id, intent.task_state_version, Utc::now())
+        .unwrap();
+    let error = broker
+        .recover_frozen_receipt(&tasks, invoke())
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("task run is not active"));
     assert_eq!(broker.db.count_receipts().await.unwrap(), 1);
-}
-
-#[tokio::test]
-async fn mutation_after_freeze_rejected_by_digest() {
-    let caps = CapabilitySet::new(vec![Capability::new(
-        "read",
-        ResourceSelector::exact("doc:1"),
-    )]);
-    let org = OrganizationId::new();
-    let principal = PrincipalId::new();
-    let ctx = AuthorityContext {
-        id: AuthorityContextId::new(),
-        mode: AuthorityContextMode::SinglePrincipal,
-        organization_id: org,
-        project_id: None,
-        principal_ids: vec![principal],
-        capability_ceiling: caps.clone(),
-        compiled_at: Utc::now(),
-    };
-    let engine = TaskAccessEngine::new(InMemoryTaskStore::new());
-    let ceiling = engine
-        .compile_ceiling(
-            vec![CeilingInput {
-                principal_id: principal,
-                capabilities: caps.clone(),
-            }],
-            Utc::now(),
-        )
-        .unwrap();
-    let run = engine
-        .start_task(StartTaskParams {
-            template_id: TaskTemplateId::new(),
-            authority_context: ctx,
-            ceiling,
-            maximum_expires_at: Utc::now() + Duration::hours(1),
-            now: Utc::now(),
-        })
-        .unwrap();
-
-    let mut intent = FrozenIntentV2 {
-        schema_version: FROZEN_INTENT_SCHEMA_VERSION,
-        id: IntentId::new(),
-        task_run_id: run.id,
-        task_state_version: run.state_version,
-        task_state_digest: run.state_digest.clone(),
-        organization_id: org,
-        project_id: None,
-        principal_id: principal,
-        actor_id: ActorId::new(),
-        actor_instance_id: None,
-        client_id: None,
-        operator_id: None,
-        connection_id: None,
-        operation: "read".into(),
-        resource: "doc:1".into(),
-        audience: "https://rs.example".into(),
-        canonical_arguments: json!({"tenant": "A"}),
-        body_hash: None,
-        nonce: "n1".into(),
-        idempotency_key: "idem-mut".into(),
-        issued_at: Utc::now(),
-        expires_at: Utc::now() + Duration::minutes(5),
-        intent_digest: String::new(),
-    }
-    .with_computed_digest()
-    .unwrap();
-
-    let authorized_digest = intent.intent_digest.clone();
-    // Mutate after authorization snapshot — digest must fail.
-    intent.canonical_arguments = json!({"tenant": "B"});
-    assert!(intent.assert_digest().is_err());
-    assert_ne!(intent.compute_digest().unwrap(), authorized_digest);
-    let _ = sample_grant(org, principal);
 }

@@ -6,10 +6,9 @@ use axum::{
 };
 use opensesame_broker::InvokeInput;
 use opensesame_connection_broker::store as broker_store;
-use opensesame_connector_host::{HostError, InvokeResult};
 use opensesame_domain::{
     ConnectionAuthorityBinding, ConnectionId, ConnectionRef, DetachedProof, Grant, GrantId, Intent,
-    IntentId, InvocationReceipt, InvokeLevel, OrganizationId, PrincipalId, ValidatedGrantChain,
+    IntentId, InvokeLevel, OrganizationId, PrincipalId, ValidatedGrantChain,
 };
 #[cfg(test)]
 use opensesame_domain::{EgressBinding, OrganizationRole};
@@ -22,6 +21,7 @@ use crate::middleware::auth::{require_demo_bootstrap, resolve_caller, resolve_ca
 
 #[path = "intents_bootstrap.rs"]
 mod intents_bootstrap;
+pub(crate) use intents_bootstrap::bootstrap_connection_policy_for;
 use intents_bootstrap::bootstrap_invocation;
 
 #[path = "intents_enforcement.rs"]
@@ -30,6 +30,10 @@ use intents_enforcement::authorize_invocation;
 
 #[path = "intents_queue.rs"]
 mod intents_queue;
+
+#[path = "intents_network.rs"]
+mod intents_network;
+use intents_network::execute_invocation;
 
 /// What a submitted `ConnectionRef` resolved to: whose grant will be exercised,
 /// against which connection, through which connector component.
@@ -355,41 +359,6 @@ async fn resolve_invocation(
     }
 }
 
-pub(super) async fn execute_invocation(
-    st: &AppState,
-    organization_id: OrganizationId,
-    resolved: &ResolvedInvocation,
-    input: InvokeInput,
-    constrained_http: Option<ConstrainedHttpInput>,
-) -> anyhow::Result<InvocationReceipt> {
-    let Some(network) = constrained_http else {
-        return st.broker.invoke(input).await;
-    };
-    let broker = st.connection_broker.clone();
-    let connection_id = resolved.connection_id.to_string();
-    let operation = input.intent.operation.clone();
-    st.broker
-        .invoke_with(input, || async move {
-            broker
-                .invoke_network_json(
-                    &organization_id,
-                    &connection_id,
-                    &operation,
-                    &network.method,
-                    &network.url,
-                    network.body,
-                )
-                .await
-                .map(|safe_summary| InvokeResult {
-                    ok: true,
-                    safe_summary,
-                    external_request_digest: None,
-                })
-                .map_err(|error| HostError::Connector(error.to_string()))
-        })
-        .await
-}
-
 pub async fn create(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
@@ -430,7 +399,6 @@ async fn create_checked(
     }
     let parameters = body.parameters.take().unwrap_or_else(|| json!({}));
     let level = body.invoke_level.unwrap_or(1);
-
     if level >= 3
         || body.operation.eq_ignore_ascii_case("credential.resolve")
         || body.operation.to_ascii_lowercase().contains("secret")
@@ -466,21 +434,8 @@ async fn create_checked(
         &body.resource,
     )
     .await?;
-    // Budgets decrement after authorization and before execution, and deny
-    // when the decrement cannot be performed (ADR 0044 decision 10 + INV-BUDGET).
-    let idempotency_key = body
-        .idempotency_key
-        .clone()
-        .unwrap_or_else(|| uuid::Uuid::now_v7().to_string());
+    // Budgets decrement after authorization and before execution (ADR 0044).
     let intent = build_intent(body, &parameters, &boot, &resolved)?;
-    let authority_hold = super::intents_budget::spend_invoke_budgets(
-        &st,
-        &boot.org.to_string(),
-        &resolved,
-        &idempotency_key,
-    )
-    .await?;
-
     let invoke_input = InvokeInput {
         intent,
         grant: resolved.grant.clone(),
@@ -489,6 +444,16 @@ async fn create_checked(
         parameters: parameters.clone(),
         lineage: resolved.lineage.clone(),
     };
+    // Use the key in the built intent: when the caller omitted it, that is
+    // the only generated key shared by the budget and broker idempotency paths.
+    let authority_hold = super::intents_budget::spend_invoke_budgets(
+        &st,
+        &boot.org.to_string(),
+        &resolved,
+        &invoke_input,
+        constrained_http.is_some(),
+    )
+    .await?;
     Ok(intents_queue::dispatch_or_hold(
         &st,
         boot.org,

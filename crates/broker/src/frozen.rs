@@ -1,15 +1,16 @@
 //! Authorize-and-execute path that never accepts a second mutable parameter blob.
 
 use opensesame_authz::{AuthZenAction, AuthZenRequest, AuthZenResource, AuthZenSubject};
-use opensesame_connector_host::InvokeRequest;
+use opensesame_connector_host::{InvocationBinding, InvokeRequest};
 use opensesame_domain::{
     receipt_delegation_chain, AvailabilityClass, Capability, DetachedProof, DomainError,
     FrozenIntentV2, Grant, Intent, Invocation, InvocationReceipt, InvocationState, ReceiptId,
-    ReceiptOutcome, ResourceSelector, ValidatedGrantChain,
+    ReceiptOutcome, ResourceSelector, ValidatedGrantChain, FROZEN_INTENT_SCHEMA_VERSION,
+    OPAQUE_RESULT_RECEIPT_SCHEMA_VERSION,
 };
 use opensesame_task_access::{TaskAccessEngine, TaskStore};
 use opensesame_time::Utc;
-use serde_json::{json, Value};
+use serde_json::json;
 
 use crate::{Broker, FinishReceiptParts};
 
@@ -67,7 +68,7 @@ pub fn assert_grant_covers_frozen_intent(
     Ok(())
 }
 
-fn legacy_intent(intent: &FrozenIntentV2) -> Result<Intent, DomainError> {
+pub(crate) fn legacy_intent(intent: &FrozenIntentV2) -> Result<Intent, DomainError> {
     Ok(Intent {
         id: intent.id,
         organization_id: intent.organization_id,
@@ -97,7 +98,10 @@ fn legacy_intent(intent: &FrozenIntentV2) -> Result<Intent, DomainError> {
     })
 }
 
-fn frozen_authz_request(input: &FrozenInvokeInput, intent: &FrozenIntentV2) -> AuthZenRequest {
+pub(crate) fn frozen_authz_request(
+    input: &FrozenInvokeInput,
+    intent: &FrozenIntentV2,
+) -> AuthZenRequest {
     AuthZenRequest {
         subject: AuthZenSubject {
             type_: "user".into(),
@@ -144,6 +148,12 @@ impl Broker {
         // using it; recomputing in place would accept post-freeze mutation.
         input.intent.assert_digest()?;
         let intent = input.intent.clone();
+        // Same gate as `recover_frozen_receipt`: a well-digest intent of an
+        // unknown schema version is not one this broker froze.
+        anyhow::ensure!(
+            intent.schema_version == FROZEN_INTENT_SCHEMA_VERSION,
+            "unsupported frozen intent"
+        );
 
         assert_grant_covers_frozen_intent(&input.grant, &intent)?;
 
@@ -187,18 +197,32 @@ impl Broker {
             input.lineage.as_ref(),
             AvailabilityClass::A3ExternalSideEffect,
         )?;
-        if let Some(receipt) = self.prior_receipt(&legacy, &fingerprint).await? {
+        if let Some(receipt) = self
+            .prior_receipt(&legacy, &fingerprint, Some(&intent.intent_digest))
+            .await?
+        {
             anyhow::ensure!(
                 decision.decision,
                 "idempotency conflict: current authorization denied"
             );
             return Ok(receipt);
         }
-        self.db.insert_bound_intent(&legacy, &fingerprint).await?;
         let mut inv = Self::begin_invocation(intent.id, now)?;
+        let authority = if decision.decision {
+            Some(InvocationBinding::from_frozen(
+                inv.id,
+                &intent,
+                &input.grant,
+                &input.subject,
+                &input.connection_policy_id,
+                input.lineage.as_ref(),
+            )?)
+        } else {
+            None
+        };
+        self.db.insert_bound_intent(&legacy, &fingerprint).await?;
         if !decision.decision {
             inv.transition(InvocationState::Denied, Utc::now())?;
-            self.db.insert_invocation(&inv).await?;
             let receipt = self.finish_frozen_receipt(
                 &intent,
                 &inv,
@@ -206,8 +230,7 @@ impl Broker {
                     decision_id: &decision.decision_id,
                     policy_digest: &decision.policy_version_digest,
                     outcome: ReceiptOutcome::Denied,
-                    summary: json!({"reason": decision.context}),
-                    ext: None,
+                    binding: fingerprint.digest(),
                     connector_digest: self.host.component_digest(&input.connection_policy_id),
                     delegation_chain: receipt_delegation_chain(
                         &input.grant,
@@ -215,16 +238,22 @@ impl Broker {
                     ),
                 },
             )?;
-            self.db.insert_receipt(&receipt).await?;
+            self.db
+                .insert_denied_invocation_with_receipt(&inv, &receipt)
+                .await?;
             return Ok(receipt);
         }
 
         self.execute_frozen_authorized(
             &input,
             &intent,
-            inv,
+            (
+                inv,
+                authority.ok_or_else(|| anyhow::anyhow!("missing invocation context"))?,
+            ),
             &decision.decision_id,
             &decision.policy_version_digest,
+            fingerprint.digest(),
         )
         .await
     }
@@ -233,10 +262,12 @@ impl Broker {
         &self,
         input: &FrozenInvokeInput,
         intent: &FrozenIntentV2,
-        mut invocation: Invocation,
+        invocation: (Invocation, InvocationBinding),
         decision_id: &str,
         policy_digest: &str,
+        binding: &str,
     ) -> anyhow::Result<InvocationReceipt> {
+        let (mut invocation, authority) = invocation;
         invocation.transition(InvocationState::Authorized, Utc::now())?;
         invocation.transition(InvocationState::Leased, Utc::now())?;
         invocation.lease_owner = Some("worker-local".into());
@@ -245,7 +276,7 @@ impl Broker {
 
         // Execute ONLY from frozen canonical_arguments — never a second parameter map.
         let params_digest = Intent::parameters_hash(&intent.canonical_arguments)?;
-        let result = self.host.invoke(
+        let result = self.host.invoke_bound(
             &input.connection_policy_id,
             &InvokeRequest {
                 operation: intent.operation.clone(),
@@ -257,22 +288,31 @@ impl Broker {
                 invoke_level: Some(1),
                 connection_ref: input.connection_policy_id.clone(),
             },
+            &authority,
         );
 
-        let (outcome, summary, ext) = match result {
+        let outcome = match result {
             Ok(r) => {
-                invocation.transition(InvocationState::Succeeded, Utc::now())?;
-                (
-                    ReceiptOutcome::Succeeded,
-                    r.safe_summary,
-                    r.external_request_digest,
-                )
+                let (state, outcome) = if r.ok {
+                    (InvocationState::Succeeded, ReceiptOutcome::Succeeded)
+                } else {
+                    (InvocationState::Failed, ReceiptOutcome::Failed)
+                };
+                invocation.transition(state, Utc::now())?;
+                outcome
             }
-            Err(e) => {
+            Err(_) => {
                 invocation.transition(InvocationState::Failed, Utc::now())?;
-                let message = opensesame_redaction::redact_text(&e.to_string());
-                (ReceiptOutcome::Failed, json!({"error": message}), None)
+                ReceiptOutcome::Failed
             }
+        };
+        let outcome = if self
+            .host
+            .permits_outcome_disclosure(&input.connection_policy_id)
+        {
+            outcome
+        } else {
+            ReceiptOutcome::Indeterminate
         };
 
         let receipt = self.finish_frozen_receipt(
@@ -282,8 +322,7 @@ impl Broker {
                 decision_id,
                 policy_digest,
                 outcome,
-                summary,
-                ext,
+                binding,
                 connector_digest: self.host.component_digest(&input.connection_policy_id),
                 delegation_chain: receipt_delegation_chain(&input.grant, input.lineage.as_ref()),
             },
@@ -291,7 +330,9 @@ impl Broker {
         if !receipt.assert_no_secret_leak() {
             anyhow::bail!("receipt summary rejected by secret-leak check");
         }
-        self.db.insert_receipt(&receipt).await?;
+        self.db
+            .finish_executing_invocation(&invocation, &receipt)
+            .await?;
         Ok(receipt)
     }
 
@@ -301,10 +342,13 @@ impl Broker {
         inv: &Invocation,
         parts: FinishReceiptParts<'_>,
     ) -> anyhow::Result<InvocationReceipt> {
-        let mut receipt = InvocationReceipt {
-            id: ReceiptId::new(),
+        let receipt = InvocationReceipt {
+            id: ReceiptId::from_uuid(intent.id.as_uuid()),
             invocation_id: inv.id,
-            intent_digest: intent.intent_digest.clone(),
+            intent_digest: self
+                .signer
+                .intent_commitment(&inv.id, &intent.intent_digest)?,
+            idempotency_binding: Some(self.signer.idempotency_commitment(parts.binding)),
             principal_id: intent.principal_id,
             organization_id: Some(intent.organization_id),
             actor_id: intent.actor_id,
@@ -320,31 +364,19 @@ impl Broker {
             approval_id: None,
             credential_handle_id: None,
             connector_component_digest: parts.connector_digest.map(str::to_owned),
-            external_request_digest: parts.ext,
+            external_request_digest: None,
             external_response_digest: None,
             started_at: inv.created_at,
             completed_at: Utc::now(),
             outcome: parts.outcome,
-            safe_result_summary: Some(parts.summary),
+            safe_result_summary: None,
             authority_key_id: String::new(),
             signature: String::new(),
-            receipt_schema_version: 3,
+            receipt_schema_version: OPAQUE_RESULT_RECEIPT_SCHEMA_VERSION,
             task_run_id: Some(intent.task_run_id),
             task_state_version: Some(intent.task_state_version),
             task_state_digest: Some(intent.task_state_digest.clone()),
         };
-        if let Some(summary) = receipt.safe_result_summary.as_mut() {
-            if let Some(obj) = summary.as_object_mut() {
-                obj.insert(
-                    "task_run_id".into(),
-                    Value::String(intent.task_run_id.to_string()),
-                );
-                obj.insert(
-                    "task_state_version".into(),
-                    json!(intent.task_state_version),
-                );
-            }
-        }
         Ok(self.signer.sign_receipt(receipt)?)
     }
 }
@@ -352,3 +384,15 @@ impl Broker {
 #[cfg(test)]
 #[path = "frozen_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "frozen_outcome_tests.rs"]
+mod outcome_tests;
+
+#[cfg(test)]
+#[path = "frozen_schema_tests.rs"]
+mod schema_tests;
+
+#[cfg(test)]
+#[path = "frozen_idempotency_tests.rs"]
+mod idempotency_tests;

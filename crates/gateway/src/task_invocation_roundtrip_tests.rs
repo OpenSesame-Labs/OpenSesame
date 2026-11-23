@@ -31,16 +31,16 @@ async fn post(app: &Router, token: &str, path: &str, body: Value) -> (StatusCode
 
 #[tokio::test]
 async fn frozen_task_executes_through_the_real_router() {
-    let state = crate::app_state::test_demo_state().await;
-    let bootstrap = {
-        let mut guard = state.bootstrap.lock().unwrap();
-        let bootstrap = guard.as_mut().unwrap();
-        // The test fixture's default grant requires MFA that its mock
-        // session cannot establish. This test exercises task binding instead.
-        bootstrap.grant.constraints.required_assurance = None;
-        bootstrap.grant.constraints.authentication_max_age_seconds = None;
-        bootstrap.clone()
-    };
+    let mut state = crate::app_state::test_demo_state().await;
+    let bootstrap = state.bootstrap.lock().unwrap().clone().unwrap();
+    // Freeze now re-proves that the process bootstrap still equals the durable
+    // root grant row, so relaxing only the in-memory grant is refused (503).
+    // Satisfy the fixture grant's MFA requirement for this subject instead.
+    std::sync::Arc::get_mut(&mut state.broker)
+        .unwrap()
+        .policy
+        .assurance
+        .insert(bootstrap.principal.to_string(), "mfa".into());
     let headers = crate::app_state::test_session_headers(
         &state,
         &bootstrap.principal.to_string(),

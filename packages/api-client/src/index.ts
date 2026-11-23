@@ -5,8 +5,10 @@ import {
   pushSyncBlobs,
   readSyncPage,
 } from "./sync-pages.js";
-export { pullSyncPages, readSyncPage } from "./sync-pages.js";
+
 export type { SyncPageCursor } from "./sync-pages.js";
+export { pullSyncPages, readSyncPage } from "./sync-pages.js";
+
 import {
   type AuthorizeRequest,
   type AuthorizeResponse,
@@ -69,7 +71,7 @@ import { certsApi } from "./certs.js";
 import { changelogApi } from "./changelog.js";
 import { delegationsApi } from "./delegations.js";
 import { createDpopKeyPair } from "./dpop.js";
-import type { HostRequestContext } from "./http.js";
+import { type HostRequestContext, jsonRequests } from "./http.js";
 import { receiptsApi } from "./receipts.js";
 import { relayApi } from "./relay.js";
 import { rotationsApi } from "./rotations.js";
@@ -728,17 +730,10 @@ export function createApiClient(options: ApiClientOptions) {
     },
   };
 
-  async function requestJson(
-    op: string,
-    path: string,
-    init: RequestInit = {},
-  ): Promise<BoundaryValue> {
-    const res = await request(path, init);
-    if (!res.ok) throw await requestFailure(op, res);
-    return res.json();
-  }
-
-  const requestContext: HostRequestContext = { request, requestJson };
+  const requestContext: HostRequestContext = {
+    request,
+    ...jsonRequests(request, requestFailure),
+  };
 
   return {
     ...core,
@@ -756,16 +751,17 @@ export function createApiClient(options: ApiClientOptions) {
 
 export type ApiClient = ReturnType<typeof createApiClient>;
 
+export { decodeAgentRun, decodeRunnerStepRequest } from "./agent-run-wire.js";
+export * from "./agent-runs.js";
+export type { IssueCertRequest } from "./certs.js";
+export type { ProjectChangelogQuery } from "./changelog.js";
+export type { NarrowDelegationRequest } from "./delegations.js";
+export { accessTokenHash, createDpopKeyPair } from "./dpop.js";
 export type { HostRequestContext } from "./http.js";
+export type { CreateRotationRequest } from "./rotations.js";
+export { parseLosslessJson, stringifyLosslessJson } from "./safe-json.js";
 export type {
   CreateTaskIntentRequest,
   StartTaskRequest,
   TaskCapability,
 } from "./tasks.js";
-export type { NarrowDelegationRequest } from "./delegations.js";
-export type { IssueCertRequest } from "./certs.js";
-export type { CreateRotationRequest } from "./rotations.js";
-export { accessTokenHash, createDpopKeyPair } from "./dpop.js";
-export type { ProjectChangelogQuery } from "./changelog.js";
-export * from "./agent-runs.js";
-export { decodeAgentRun, decodeRunnerStepRequest } from "./agent-run-wire.js";

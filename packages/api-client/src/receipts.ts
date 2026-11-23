@@ -1,8 +1,11 @@
 import type { BoundaryValue } from "@opensesame/os-domain";
 import type { HostRequestContext } from "./http.js";
+import { verifyReceiptIntentOpening } from "./receipt-opening.js";
 
 export function receiptsApi(ctx: HostRequestContext) {
   return {
+    verifyReceiptIntentOpening,
+
     async getReceipt(id: string): Promise<BoundaryValue> {
       return ctx.requestJson(
         "receipt",

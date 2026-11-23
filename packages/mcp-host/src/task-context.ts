@@ -1,3 +1,5 @@
+import { isHostReceiptId } from "./receipt-outcome.js";
+
 export interface FrozenIntentContext {
   intentId: string;
   intentDigest: string;
@@ -5,12 +7,24 @@ export interface FrozenIntentContext {
   resource: string;
   audience: string;
   canonicalArguments: unknown;
+  reservedReceiptId?: string;
+}
+
+/** Private recovery handles after uncertain delivery; never projected to agents. */
+export interface PendingInvocationRecovery {
+  intentId: string;
+  intentDigest: string;
+  operation: string;
+  resource: string;
+  audience: string;
+  reservedReceiptId?: string;
 }
 
 export interface TaskContext {
   taskRunId: string;
   stateVersion: number;
   frozenIntent?: FrozenIntentContext;
+  pendingInvocationRecovery?: PendingInvocationRecovery;
 }
 
 export interface TaskResponse {
@@ -53,6 +67,43 @@ export function clearFrozenIntent(): void {
   current = rest;
 }
 
+/** Keep recovery material for intent-opening after dispatch begins. */
+export function recordPendingInvocationRecovery(
+  intent: FrozenIntentContext,
+): void {
+  if (!current) return;
+  const pendingInvocationRecovery: PendingInvocationRecovery = {
+    intentId: intent.intentId,
+    intentDigest: intent.intentDigest,
+    operation: intent.operation,
+    resource: intent.resource,
+    audience: intent.audience,
+  };
+  if (intent.reservedReceiptId !== undefined) {
+    pendingInvocationRecovery.reservedReceiptId = intent.reservedReceiptId;
+  }
+  current = {
+    ...current,
+    pendingInvocationRecovery,
+  };
+}
+
+export function noteReservedReceiptId(
+  taskRunId: string,
+  receiptId: string,
+): void {
+  if (!current || current.taskRunId !== taskRunId) return;
+  if (!current.pendingInvocationRecovery) return;
+  if (!isHostReceiptId(receiptId)) return;
+  current = {
+    ...current,
+    pendingInvocationRecovery: {
+      ...current.pendingInvocationRecovery,
+      reservedReceiptId: receiptId,
+    },
+  };
+}
+
 /**
  * Adopt the task a response describes, or merely refresh the one already active.
  *
@@ -75,8 +126,11 @@ export function updateTaskFromResponse(
     taskRunId: body.task_run_id,
     stateVersion: body.state_version,
   };
-  if (current?.taskRunId === body.task_run_id && current.frozenIntent) {
-    next.frozenIntent = current.frozenIntent;
+  if (current?.taskRunId === body.task_run_id) {
+    if (current.frozenIntent) next.frozenIntent = current.frozenIntent;
+    if (current.pendingInvocationRecovery) {
+      next.pendingInvocationRecovery = current.pendingInvocationRecovery;
+    }
   }
   current = next;
 }
