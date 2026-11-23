@@ -126,29 +126,43 @@ declare const Go: new () => {
   run(instance: WebAssembly.Instance): Promise<void>;
 };
 declare function newIPN(config: BrowserNodeConfiguration): BrowserNodeClient;
+/**
+ * Resolve a runtime asset to this deployment. The returned URL is rebuilt on
+ * the worker's own origin, so only the checked path comes from the message.
+ */
+export function ownedAssetURL(href: string): string {
+  const url = new URL(href);
+  if (
+    url.origin !== globalThis.location.origin ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  )
+    throw new Error("Tailscale runtime assets must belong to this deployment.");
+  const owned = new URL(globalThis.location.origin);
+  owned.pathname = url.pathname;
+  return owned.href;
+}
 /** Call in a dedicated Worker after installing its private egress gate. */
 export async function loadBrowserNode(
   config: BrowserNodeConfiguration,
   assets: BrowserNodeAssets,
   panic: () => void,
 ): Promise<BrowserNodeClient> {
-  const ownedAssets = [assets.runtime, assets.wasm];
-  if (assets.nativeHTTP) ownedAssets.push(assets.nativeHTTP);
-  for (const href of ownedAssets) {
-    const url = new URL(href);
-    if (url.origin !== globalThis.location.origin || url.search || url.hash)
-      throw new Error(
-        "Tailscale runtime assets must belong to this deployment.",
-      );
-  }
-  const compressed = await fetch(assets.wasm);
+  const runtimeURL = ownedAssetURL(assets.runtime);
+  const wasmURL = ownedAssetURL(assets.wasm);
+  const nativeHTTPURL = assets.nativeHTTP
+    ? ownedAssetURL(assets.nativeHTTP)
+    : undefined;
+  const compressed = await fetch(wasmURL);
   if (!compressed.ok || !compressed.body)
     throw new Error("Tailscale browser client is unavailable offline.");
   const bytes = await new Response(
     compressed.body.pipeThrough(new DecompressionStream("gzip")),
   ).arrayBuffer();
   // The runtime import is an owned, hash-pinned deployment asset, never a CDN.
-  await import(/* @vite-ignore */ assets.runtime);
+  await import(/* @vite-ignore */ runtimeURL);
   // This executes only in the isolated worker, never in the app document.
   Object.defineProperty(fs, "writeSync", {
     value: (_fd: number, buffer: Uint8Array) => buffer.length,
@@ -157,12 +171,11 @@ export async function loadBrowserNode(
   const wasm = await WebAssembly.instantiate(bytes, go.importObject);
   void go.run(wasm.instance).then(panic, panic);
   const node = newIPN(config);
-  if (assets.nativeHTTP)
-    node.nativePeerGET = await bindNativePeerGET(node, assets.nativeHTTP);
+  if (nativeHTTPURL)
+    node.nativePeerGET = await bindNativePeerGET(node, nativeHTTPURL);
   if (config.nativeHTTP) {
-    if (!assets.nativeHTTP)
-      throw new Error("Native HTTPS asset is unavailable.");
-    node.nativeHTTP = await nativeBinding(node, assets.nativeHTTP);
+    if (!nativeHTTPURL) throw new Error("Native HTTPS asset is unavailable.");
+    node.nativeHTTP = await nativeBinding(node, nativeHTTPURL);
   }
   return node;
 }
