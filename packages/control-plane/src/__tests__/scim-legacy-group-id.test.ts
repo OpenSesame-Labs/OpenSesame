@@ -162,9 +162,9 @@ function withLegacyRows(base: ScimStores) {
 /** Methods of a class instance, bound so private fields stay reachable. */
 function bound<T extends object>(target: T): T {
   return new Proxy(target, {
-    get(object, key) {
-      const value = Reflect.get(object, key, object);
-      return typeof value === "function" ? value.bind(object) : value;
+    get(object: T, key: keyof T) {
+      const value = object[key];
+      return value instanceof Function ? value.bind(object) : value;
     },
   });
 }

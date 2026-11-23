@@ -1368,14 +1368,14 @@
       "65e2ff25"
     ],
     "packages/app-core/src/lib/magic-link-client.ts": [
-      "e2469746",
-      "79576850",
-      "edff56a6",
-      "2605a192",
-      "fe56fc85",
-      "ded558f7",
-      "1b1210e5",
-      "46dd0483"
+      "b4547f00",
+      "284196ae",
+      "2eb880ae",
+      "aa1c5fbd",
+      "bb6a22b6",
+      "b93e5eb9",
+      "b67e0f62",
+      "f7645a10"
     ],
     "packages/app-core/src/lib/providers.test.ts": [
       "76c2bddf",

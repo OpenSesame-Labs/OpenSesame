@@ -9,6 +9,12 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  type BoundaryValue,
+  type JsonObject,
+  isJsonObject,
+  overlapCast,
+} from "@opensesame/os-domain";
 import { sql } from "drizzle-orm";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import { expect, it, vi } from "vitest";
@@ -86,10 +92,12 @@ it.skipIf(!process.env.DATABASE_URL)(
         first,
         "migration-test",
       );
-      const requests: Array<{ path: string; body: Record<string, unknown> }> =
-        [];
+      const requests: Array<{ path: string; body: JsonObject }> = [];
       vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-        const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
+        const body: BoundaryValue = overlapCast(JSON.parse(String(init?.body)));
+        if (!isJsonObject(body)) {
+          throw new Error("Host fetch body is not a JSON object");
+        }
         requests.push({ path: new URL(String(input)).pathname, body });
         return Response.json({ ok: true });
       });
