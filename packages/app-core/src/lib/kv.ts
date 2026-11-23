@@ -279,32 +279,47 @@ export function kvDelete(key: string): void {
 /**
  * Remove a key and wait for OPFS to forget it, so a caller can tell the user it
  * is gone rather than that it has been asked to go. Absent already counts as
- * gone; anything else is reported.
+ * gone; anything else is reported. With `beforeCommit` the original owner is
+ * rechecked around the unlink, memory changes only after it, and a record
+ * changed meanwhile is kept; a session-only (ephemeral at-rest key) record is
+ * memory alone, so no file is touched.
  */
-export async function kvDeleteDurable(key: string): Promise<void> {
-  originMemoryChanged(fileName(key), true);
-  memory.delete(key);
-  unreadable.delete(key);
-  return withOriginFile(fileName(key), async () => {
-    const root = await opfsRoot();
-    if (!root) return;
+export async function kvDeleteDurable(
+  key: string,
+  beforeCommit?: () => void,
+): Promise<void> {
+  const forget = () => {
+    memory.delete(key);
+    unreadable.delete(key);
+  };
+  if (!beforeCommit) {
+    originMemoryChanged(fileName(key), true);
+    forget();
+  }
+  return withOriginFile(fileName(key), async (turn) => {
+    beforeCommit?.();
+    const durable = !beforeCommit || (await atRestReady()).durable;
+    beforeCommit?.();
+    const root = durable ? await opfsRoot(Boolean(beforeCommit)) : null;
+    beforeCommit?.();
     try {
-      await root.removeEntry(fileName(key));
+      if (root) await root.removeEntry(fileName(key));
     } catch (error) {
-      if (error instanceof DOMException && error.name === "NotFoundError")
-        return;
-      // Restricted OPFS (CI Chrome / sandboxed profiles) refuses mutation; memory
-      // already dropped the key, so treat as session-only storage.
-      if (
+      // Restricted OPFS (CI Chrome / sandboxed profiles) refuses mutation; an
+      // unguarded delete already dropped memory, so treat it as session-only.
+      const refused =
         error instanceof DOMException &&
         (error.name === "NoModificationAllowedError" ||
-          error.name === "SecurityError")
-      ) {
-        durability = "memory";
-        return;
-      }
-      throw error;
+          error.name === "SecurityError");
+      const absent =
+        error instanceof DOMException && error.name === "NotFoundError";
+      if (!absent && (!refused || beforeCommit)) throw error;
+      if (refused) durability = "memory";
     }
+    if (!beforeCommit) return;
+    beforeCommit();
+    if (!turn.publish(forget))
+      throw new Error("Storage changed during deletion.");
   });
 }
 
@@ -322,11 +337,8 @@ async function kvHydrateDefault(keys: string[]): Promise<void> {
   await Promise.all(reads);
 }
 
-/** Refresh a security record without treating storage failure as absence.
- * Call under the record's Web Lock before evaluating or changing authority.
- * Browsers without OPFS, and documents whose at-rest key is ephemeral,
- * retain explicitly session-only storage.
- */
+/** Refresh under the record Web Lock; storage errors are not absence. Without
+ * OPFS, or with an ephemeral at-rest key, memory stays the session-only record. */
 export async function kvRefresh(
   key: string,
   maxBytes: number,
