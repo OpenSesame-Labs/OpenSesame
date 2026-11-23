@@ -109,6 +109,7 @@ export async function commitDiscard(
   items: readonly VaultItem[],
   id: string,
   mutate: Mutate,
+  expectedRevision?: string,
 ): Promise<void> {
   const leaving =
     kind === "trash"
@@ -117,6 +118,12 @@ export async function commitDiscard(
         ? itemsRemovedWithPurge(items, id)
         : items.filter((item) => item.deletedAt !== null);
   await mutate((body) => {
+    if (kind === "purge" && expectedRevision !== undefined) {
+      const current = body.items.find((item) => item.id === id);
+      if (!current) return;
+      if (current.updatedAt !== expectedRevision)
+        throw new Error("The item changed. Review it before removing it.");
+    }
     if (kind === "trash") trashItem(body, id);
     else if (kind === "purge") purgeItem(body, id);
     else emptyTrash(body);

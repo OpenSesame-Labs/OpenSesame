@@ -17,6 +17,12 @@ import {
 } from "./backup-target-local.js";
 import { readGithubApp } from "./github-app-direct.js";
 import {
+  forgetGuestGithubCache,
+  loadGuestGithubApp,
+  removeGuestGithubApp,
+  updateGuestGithubAppMetadata,
+} from "./github-app-guest.js";
+import {
   adoptLegacyPendingPem,
   forgetGithubAppSecret,
   pemFromVault as pemFromVaultForOwner,
@@ -26,6 +32,10 @@ import {
   captureGithubAuthority,
   invalidateGithubAppAuthority,
 } from "./github-app-vault-transport.js";
+import { isGuestSession } from "./guest-isolation.js";
+import { captureGuestSessionContext } from "./guest-session-context.js";
+import { readGuestSessionPerson } from "./local-guest.js";
+import { vaultStore } from "./vault/store.js";
 
 export {
   hasPendingGithubAppSecret,
@@ -37,6 +47,8 @@ const PUBLIC_KEY = "opensesame.github-app.public";
 const STATE_KEY = "opensesame.github-app.state";
 
 const localAppListeners = new Set<() => void>();
+const guestApps = new Map<string, LocalGithubApp>();
+const guestAppWatches = new Map<string, () => void>();
 
 /** Subscribe to local GitHub App public-record writes (claim / refresh). */
 export function subscribeLocalGithubApp(listener: () => void): () => void {
@@ -51,9 +63,29 @@ function notifyLocalGithubApp(): void {
 }
 
 /** Drop the local App record (uninstall on GitHub or Remove on this device). */
-export function forgetLocalGithubApp(): void {
-  const app = readLocalGithubApp();
+export async function forgetLocalGithubApp(): Promise<void> {
+  let app = readLocalGithubApp();
   invalidateGithubAppAuthority();
+  if (isGuestSession()) {
+    const current = captureGuestSessionContext();
+    await ensureGuestGithubAppLoaded();
+    if (!current?.()) throw new Error("The guest session ended. Try again.");
+    app = readLocalGithubApp();
+    if (app) await removeGuestGithubApp();
+    const actor = readGuestSessionPerson();
+    const tomb = vaultStore.getSnapshot().tomb;
+    guestLoads.delete(tomb);
+    guestLoaded.delete(tomb);
+    forgetGuestGithubCache(tomb);
+    if (actor) {
+      guestApps.delete(actor.id);
+      guestAppWatches.get(actor.id)?.();
+      guestAppWatches.delete(actor.id);
+    }
+    forgetGithubAppSecret(app ?? undefined);
+    notifyLocalGithubApp();
+    return;
+  }
   if (readLocalBackupTarget("github")?.kind === "github_app") {
     clearLocalBackupTarget("github");
   }
@@ -130,8 +162,66 @@ export function ownerFromPayload(payload: JsonObject): GithubAppOwnerFields {
 
 let cachedPublicRaw: string | null = null;
 let cachedPublicApp: LocalGithubApp | null = null;
+const guestLoads = new Map<string, Promise<void>>();
+const guestLoaded = new Set<string>();
+
+export async function ensureGuestGithubAppLoaded(): Promise<void> {
+  if (!isGuestSession()) return;
+  readLocalGithubApp();
+  const tomb = vaultStore.getSnapshot().tomb;
+  await guestLoads.get(tomb);
+}
 
 export function readLocalGithubApp(): LocalGithubApp | null {
+  if (isGuestSession()) {
+    const actor = readGuestSessionPerson();
+    const tomb = vaultStore.getSnapshot().tomb;
+    if (actor && !guestApps.has(actor.id) && !guestLoaded.has(tomb)) {
+      const owner = captureGuestSessionContext();
+      if (!owner) return null;
+      guestLoaded.add(tomb);
+      let loading: Promise<void>;
+      const clearAttempt = () => {
+        if (guestLoads.get(tomb) !== loading) return;
+        guestLoaded.delete(tomb);
+        guestLoads.delete(tomb);
+      };
+      const stop = vaultStore.onLock(() => {
+        guestLoaded.delete(tomb);
+        clearAttempt();
+        stop();
+      });
+      const check = () => {
+        if (
+          !owner() ||
+          guestLoads.get(tomb) !== loading ||
+          !isGuestSession() ||
+          vaultStore.getSnapshot().tomb !== tomb ||
+          readGuestSessionPerson()?.id !== actor.id
+        )
+          throw new Error("The guest session ended.");
+      };
+      loading = Promise.resolve()
+        .then(() => loadGuestGithubApp(tomb, check))
+        .then((app) => {
+          if (!app) return;
+          check();
+          rememberLocalGithubApp(app);
+        })
+        .catch((error: Error) => {
+          clearAttempt();
+          throw error;
+        })
+        .finally(() => {
+          if (guestLoads.get(tomb) === loading) guestLoads.delete(tomb);
+          if (!guestLoaded.has(tomb) || guestApps.has(actor.id)) stop();
+        });
+      guestLoads.set(tomb, loading);
+      // Synchronous readers may start a load without awaiting it.
+      void loading.catch(() => undefined);
+    }
+    return actor ? (guestApps.get(actor.id) ?? null) : null;
+  }
   const app = readPublicRecord();
   adoptLegacyPendingPem(app);
   return app;
@@ -174,6 +264,28 @@ function readPublicRecord(): LocalGithubApp | null {
 }
 
 export function rememberLocalGithubApp(app: LocalGithubApp): void {
+  if (isGuestSession()) {
+    const actor = readGuestSessionPerson();
+    if (!actor) throw new Error("The guest session could not be verified.");
+    const previous = guestApps.get(actor.id);
+    const tomb = vaultStore.getSnapshot().tomb;
+    guestApps.set(actor.id, app);
+    if (!guestAppWatches.has(actor.id)) {
+      guestAppWatches.set(
+        actor.id,
+        vaultStore.onLock(() => {
+          guestApps.delete(actor.id);
+          forgetGuestGithubCache(tomb);
+          guestLoaded.delete(tomb);
+          guestAppWatches.get(actor.id)?.();
+          guestAppWatches.delete(actor.id);
+          notifyLocalGithubApp();
+        }),
+      );
+    }
+    if (previous !== app) notifyLocalGithubApp();
+    return;
+  }
   const store = maybeLocalStore();
   if (!store) return;
   const raw = JSON.stringify({
@@ -237,6 +349,12 @@ export async function refreshGithubAppOwner(
       ownerLogin: payload.owner.login,
       ownerType: payload.owner.type,
     };
+    if (isGuestSession())
+      await updateGuestGithubAppMetadata(
+        next,
+        operation.transport.assertCurrent,
+      );
+    operation.transport.assertCurrent();
     rememberLocalGithubApp(next);
     return next;
   } catch {

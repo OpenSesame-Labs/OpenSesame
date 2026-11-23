@@ -1471,6 +1471,7 @@ export class VaultStore {
   trashItem = this.#itemOperations.trashItem;
   restoreItem = this.#itemOperations.restoreItem;
   purgeItem = this.#itemOperations.purgeItem;
+  purgeItemIfUnchanged = this.#itemOperations.purgeItemIfUnchanged;
   emptyTrash = this.#itemOperations.emptyTrash;
   reconcileTrashedShares = this.#itemOperations.reconcileTrashedShares;
   withdrawItems = this.#itemOperations.withdrawItems;
