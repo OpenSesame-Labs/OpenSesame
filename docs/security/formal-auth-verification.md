@@ -34,6 +34,18 @@ storage or network implementations.
 | AUTH-Z2 | A member gets no admin proof; only a resolved owner can receive an owner proof. `projectAccess` creates the role-specific proof values. | `member_never_receives_admin`, `nonowner_never_receives_owner` | The same matrix checks the role and the actual proof fields and kinds. |
 | AUTH-Z3 | A project at or after its expiration instant is invisible; a deleted project is invisible. `isVisible` uses an inclusive expiry check. | `not_visible_at_expiry`, `not_visible_after_expiry`, `deleted_project_not_visible` | The matrix includes times before, exactly at, and after expiry for every project state and role. |
 
+The AUTH-S1 token-to-session lookup, the principal session epoch fence and the
+revocation audits read durable secret-keyed maps
+([`durable-map.ts`](../../packages/control-plane/src/repos/durable-map.ts)).
+Since 2026-11-23 a row is stored under a keyed lookup of its key, and rows
+written under the earlier prehashed id are read under both ids and moved in
+one transaction ([`durable-map-legacy.ts`](../../packages/control-plane/src/repos/durable-map-legacy.ts)).
+The Lean model takes the lookup result as given, so this storage migration is
+outside it. Evidence: `durable-map.test.ts` and `durable-map-migration.test.ts`
+(a legacy fence is advanced, never reset; a legacy bearer is deleted, consumed
+once and still occupies its key) and the full control-plane suite, including the
+AUTH-S1 correspondence matrix. Status: **unproved**.
+
 Guest bearer revocations that fail are retained in memory and retried before
 another guest mint against the same Identity API in that tab. Cleanup and
 session work are bound to the original full API base, so a changed service
