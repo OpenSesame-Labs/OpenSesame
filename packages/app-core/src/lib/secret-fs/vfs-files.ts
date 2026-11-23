@@ -29,8 +29,8 @@ import {
   vaultSealBinding,
 } from "@opensesame/vault-core";
 import { Cause, Effect, Exit } from "effect";
-import type { VfsSeams } from "../vfs-seams.js";
 import { BODY_PATH, TOMBS_REGISTRY_KEY } from "../vfs.js";
+import type { VfsSeams } from "../vfs-seams.js";
 import {
   SETTINGS_DIR,
   configFileFor,
@@ -38,8 +38,8 @@ import {
   encodeConfig,
   isPlainPath,
 } from "./config-docs.js";
-import { SecretFsRejected } from "./errors.js";
 import type { SecretFsError } from "./errors.js";
+import { SecretFsRejected } from "./errors.js";
 import type { SecretFiles } from "./files.js";
 import { SECRETS_DIR } from "./layout.js";
 import { readProjection } from "./projection-read.js";
@@ -210,10 +210,18 @@ async function writeKeyedBody(
   const { files, mirror, projections } = held;
   const prev = projections.get(tomb) ?? EMPTY_PROJECTION;
   const body = await openBodyBlob(tomb, vaultKey, JSON.parse(value));
-  // Documents sealed under another key (a rotation) are all written again.
-  const base = (await sealedUnder(prev, vaultKey))
-    ? prev
-    : { ...prev, items: new Map() };
+  // A multi-file root-key rotation needs a durable two-phase publication
+  // spanning the body, index, settings and header. This adapter does not claim
+  // that guarantee: refusing before the first write is safer than an outage
+  // leaving half the vault under each key.
+  if (prev.manifestRevision !== null && !(await sealedUnder(prev, vaultKey)))
+    throw new SecretFsRejected({
+      path: `${tomb}/${MANIFEST_FILE}`,
+      kind: "unsupported",
+      reason:
+        "file-backed vault key rotation requires transactional storage support",
+    });
+  const base = prev;
   try {
     const next = await settle(
       writeProjection(files, tomb, vaultKey, body, base),
