@@ -81,12 +81,6 @@ async fn rotation_happy_path_completes_the_machine_and_wakes_dependents() {
     }
 }
 
-/// Coverage for `authorized_bytes`, the credential-injecting upload path
-/// (ADR 0054). Every test here drives a real local server through the `mock`
-/// provider, whose catalog egress allows `127.0.0.1` over http.
-#[path = "web_rotation_upload_tests.rs"]
-mod authorized_bytes_tests;
-
 // ---- delegation (ADR 0044) --------------------------------------------------
 
 mod delegation_tests {

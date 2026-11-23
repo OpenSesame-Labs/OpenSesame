@@ -57,8 +57,12 @@ for manifest in manifests:
         shutil.copy2(root / rel, dest)
 # Start from origin/main's lock (the scratch worktree). Overlay Cargo.toml
 # and Cargo.lock paths the branch changed relative to the merge-base,
-# including a lock-only diff. Regenerate offline when either differs so the
-# scratch resolution follows that diff instead of keeping main's lock.
+# including a lock-only diff. Reconcile offline when either differs so the
+# scratch resolution follows that diff instead of keeping main's lock. Use the
+# minimal workspace update, not generate-lockfile: regenerating discards every
+# locked version and re-resolves third-party crates to the newest compatible
+# releases, which drifts reviewed dependency projections the branch never
+# changed.
 changed_manifests = [
     rel
     for rel in sorted(branch_paths)
@@ -79,7 +83,7 @@ for rel in changed_manifests:
     shutil.copy2(root / rel, dest)
 if changed_manifests or changed_locks:
     subprocess.run(
-        ["cargo", "generate-lockfile", "--offline"],
+        ["cargo", "update", "--workspace", "--offline"],
         cwd=scratch,
         check=True,
         env={**os.environ, "CARGO_NET_OFFLINE": "true"},

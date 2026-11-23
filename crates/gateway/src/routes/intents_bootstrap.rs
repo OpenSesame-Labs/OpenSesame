@@ -23,8 +23,21 @@ pub(super) fn bootstrap_invocation(
         connection_id: boot.connection,
         principal_id: boot.principal,
         binding: opensesame_authz::github_binding(connection_ref, "github/main"),
-        connection_policy_id: "demo-conn".into(),
+        connection_policy_id: bootstrap_connection_policy_id(),
         spend_budget: None,
         broker_connection: false,
     })
+}
+
+/// Connection policy id for bootstrap task execution (frozen invoke, opening recovery).
+pub(super) fn bootstrap_connection_policy_id() -> String {
+    // Demo bootstrap wires the inert mock connector; delegated paths use broker resolution.
+    "demo-conn".into()
+}
+
+pub(crate) fn bootstrap_connection_policy_for(
+    st: &AppState,
+    boot: &crate::app_state::Bootstrap,
+) -> Result<String, Response> {
+    Ok(bootstrap_invocation(st, boot)?.connection_policy_id)
 }

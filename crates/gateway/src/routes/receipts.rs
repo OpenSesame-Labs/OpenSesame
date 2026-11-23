@@ -5,7 +5,7 @@ use axum::{
     Json,
 };
 use opensesame_domain::{InvocationReceipt, ReceiptId};
-use serde_json::json;
+use serde_json::{json, Value};
 
 use crate::app_state::AppState;
 use crate::middleware::auth::resolve_caller;
@@ -53,9 +53,63 @@ pub async fn get(
     Path(id): Path<String>,
 ) -> Response {
     match load_owned(&st, &headers, &id).await {
-        Ok(r) => (StatusCode::OK, Json(r)).into_response(),
+        Ok(r)
+            if r.has_opaque_result()
+                && r.has_confidential_idempotency_binding()
+                && st.receipt_verifier.verify(&r).is_ok() =>
+        {
+            (StatusCode::OK, Json(r)).into_response()
+        }
+        Ok(_) => (
+            StatusCode::CONFLICT,
+            Json(json!({"error":"receipt_not_safely_disclosable"})),
+        )
+            .into_response(),
         Err(resp) => resp,
     }
+}
+
+/// Attach a private opening only to the authenticated invocation response.
+/// Receipt GET never returns this value. The receipt signature stays over the
+/// original receipt fields; the caller checks the opening against that receipt.
+pub(super) fn private_receipt_body<T: serde::Serialize>(
+    st: &AppState,
+    receipt: &InvocationReceipt,
+    digest: &str,
+    intent: &T,
+) -> Result<Value, Response> {
+    let unavailable = || {
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({"error":"receipt_opening_unavailable"})),
+        )
+            .into_response()
+    };
+    let opening = st
+        .broker
+        .signer
+        .open_receipt_intent(receipt)
+        .map_err(|_| unavailable())?;
+    if !receipt.verifies_intent_opening(&opening, digest) {
+        return Err(unavailable());
+    }
+    let mut body = serde_json::to_value(receipt).map_err(|_| unavailable())?;
+    let intent = serde_json::to_value(intent).map_err(|_| unavailable())?;
+    let object = body.as_object_mut().ok_or_else(unavailable)?;
+    object.insert(
+        "intent_opening".into(),
+        json!({"opening": opening, "intent_digest": digest, "intent": intent}),
+    );
+    Ok(body)
+}
+
+pub(super) fn private_response(status: StatusCode, body: Value) -> Response {
+    let mut response = (status, Json(body)).into_response();
+    response.headers_mut().insert(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("no-store"),
+    );
+    response
 }
 
 /// Public keys that may have signed a receipt.
@@ -98,109 +152,5 @@ pub async fn verify(
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use opensesame_broker::InvokeInput;
-    use opensesame_domain::*;
-    use opensesame_time::{Duration, Utc};
-    use serde_json::json;
-
-    async fn state_with_receipt() -> (AppState, InvocationReceipt, String, OrganizationId) {
-        let state = crate::app_state::test_demo_state().await;
-        let boot = state.bootstrap.lock().unwrap().clone().unwrap();
-        let parameters = json!({});
-        let now = Utc::now();
-        let receipt = state
-            .broker
-            .invoke(InvokeInput {
-                intent: Intent {
-                    id: IntentId::new(),
-                    organization_id: boot.org,
-                    project_id: Some(boot.project),
-                    principal_id: boot.principal,
-                    actor_id: boot.actor,
-                    actor_instance_id: None,
-                    client_id: None,
-                    operator_id: None,
-                    connection_id: Some(boot.connection),
-                    operation: "repository.read".into(),
-                    resource: "repo:acme/catalog".into(),
-                    audience: "https://api.github.com".into(),
-                    normalized_parameters_hash: Intent::parameters_hash(&parameters).unwrap(),
-                    body_hash: None,
-                    nonce: uuid::Uuid::new_v4().to_string(),
-                    idempotency_key: uuid::Uuid::new_v4().to_string(),
-                    issued_at: now,
-                    expires_at: now + Duration::minutes(5),
-                    parent_invocation_id: None,
-                    delegation_chain: vec![boot.grant.id],
-                    proof: DetachedProof {
-                        algorithm: "EdDSA".into(),
-                        key_thumbprint: "test".into(),
-                        signature: "test".into(),
-                    },
-                },
-                grant: boot.grant.clone(),
-                subject: "user:demo".into(),
-                connection_policy_id: "demo-conn".into(),
-                parameters,
-                lineage: None,
-            })
-            .await
-            .unwrap();
-        (
-            state,
-            receipt,
-            format!("prn_{}", boot.principal.as_uuid()),
-            boot.org,
-        )
-    }
-
-    #[tokio::test]
-    async fn same_principal_cannot_get_or_verify_another_organizations_receipt() {
-        let (state, receipt, subject, _) = state_with_receipt().await;
-        let headers = crate::app_state::test_session_headers(
-            &state,
-            &subject,
-            OrganizationId::new(),
-            OrganizationRole::Member,
-        );
-
-        let get_response = get(
-            State(state.clone()),
-            headers.clone(),
-            Path(receipt.id.to_string()),
-        )
-        .await;
-        assert_eq!(get_response.status(), StatusCode::NOT_FOUND);
-        let verify_response = verify(State(state), headers, Path(receipt.id.to_string())).await;
-        assert_eq!(verify_response.status(), StatusCode::NOT_FOUND);
-    }
-
-    #[tokio::test]
-    async fn matching_organization_and_operator_can_read_receipt_evidence() {
-        let (state, receipt, subject, organization_id) = state_with_receipt().await;
-        let session_headers = crate::app_state::test_session_headers(
-            &state,
-            &subject,
-            organization_id,
-            OrganizationRole::Member,
-        );
-        let get_response = get(
-            State(state.clone()),
-            session_headers,
-            Path(receipt.id.to_string()),
-        )
-        .await;
-        assert_eq!(get_response.status(), StatusCode::OK);
-
-        let mut operator_headers = axum::http::HeaderMap::new();
-        operator_headers.insert(
-            "x-opensesame-operator",
-            state.operator_token.parse().unwrap(),
-        );
-        let verify_response =
-            verify(State(state), operator_headers, Path(receipt.id.to_string())).await;
-        assert_eq!(verify_response.status(), StatusCode::OK);
-    }
-}
+#[path = "receipts_tests.rs"]
+mod tests;

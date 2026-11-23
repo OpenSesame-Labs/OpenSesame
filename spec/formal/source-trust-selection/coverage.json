@@ -1,11 +1,11 @@
 {
   "version": 1,
   "reviewed_revision": "827648d2b1b04698d676f2dcd3b4dda8cbc225d0",
-  "reviewed_source_state": "Source hashes identify the reviewed source-history integration after this base; they do not prove Rust refinement. reviewed_revision is main 827648d2, whose tree matches every pinned byte. The binding rationale for the .cargo/config.toml pin is recorded under recorded execution metadata in spec/formal/source-trust-selection/README.md.",
+  "reviewed_source_state": "Source hashes identify the reviewed source-history integration after this base; they do not prove Rust refinement. reviewed_revision is main 827648d2, whose tree matches every pinned byte. The binding rationale for the .cargo/config.toml pin is recorded under recorded execution metadata in spec/formal/source-trust-selection/README.md. 2026-11-23 review (PR #2898): crates/gateway/src/app_state.rs only drops the organization argument from load_wasm_connectors (Wasm connector registry loading); transport boot, source-trust selection and listener construction are unchanged. crates/audit/Cargo.toml adds the workspace hex, hkdf and hmac dependencies (receipt commitments) and crates/broker/Cargo.toml adds a sqlx dev-dependency; Cargo.lock gains only those edges, no new package or version, and the gateway lock projection was recomputed for that graph (the workspace projection is unchanged). The selector property is unaffected.",
   "lock_projection": {
     "root": "opensesame-gateway",
     "algorithm": "cargo-lock-projection-v1-sha256",
-    "sha256": "98f06056caa9816465d7abf92a8e76ebf3603d93397eec1953bf3a77fcb06a7f"
+    "sha256": "cd2b623d5856c0635fe39872631dbbcbf28af8a3b0d0db42f8406924d850e051"
   },
   "sources": [
     {
@@ -218,7 +218,7 @@
     },
     {
       "path": "crates/gateway/src/app_state.rs",
-      "sha256": "05cab6d942fa31d7a812bef83ef026d2abfd1beae05730352739e904348c5911"
+      "sha256": "1c01679239f09c6011dca0a9c23ab4ed41110de1c12db129229c9c95e64e5bf7"
     },
     {
       "path": "crates/gateway/src/transport/mod.rs",
@@ -318,7 +318,7 @@
     },
     {
       "path": "crates/audit/Cargo.toml",
-      "sha256": "d0f4703bb7ec3383c97dee93dd63689d36e24acbca0ab9b85177c15392d78193"
+      "sha256": "45ed9af9e12b2270bc85d245a7ed4f364153a689e01e3193b56286c6d0aca64d"
     },
     {
       "path": "crates/authenticator-core/Cargo.toml",
@@ -342,7 +342,7 @@
     },
     {
       "path": "crates/broker/Cargo.toml",
-      "sha256": "a9759bc70fa0241eee36176584886b79384dae90af00e715661f71fb3cc41810"
+      "sha256": "3a034e73b9489415bc470378be2f97e62e26d942f9fc25c9f49e75fdb4de45b1"
     },
     {
       "path": "crates/ceremony/Cargo.toml",

@@ -1,5 +1,6 @@
-import type { BoundaryValue } from "@opensesame/os-domain";
+import { type BoundaryValue, overlapCast } from "@opensesame/os-domain";
 import type { HostRequestContext } from "./http.js";
+import { stringifyLosslessJson } from "./safe-json.js";
 
 export interface TaskCapability {
   action: string;
@@ -61,18 +62,43 @@ export function tasksApi(ctx: HostRequestContext) {
     async createTaskIntent(
       body: CreateTaskIntentRequest,
     ): Promise<BoundaryValue> {
-      return ctx.requestJson("task_intent_create", "/api/v1/tasks/intents", {
-        method: "POST",
-        body: JSON.stringify(body),
-      });
+      return ctx.requestJsonLossless(
+        "task_intent_create",
+        "/api/v1/tasks/intents",
+        {
+          method: "POST",
+          // The request interface is a JSON boundary value at runtime; the
+          // lossless serializer takes the domain contract.
+          body: stringifyLosslessJson(overlapCast(body)),
+        },
+      );
     },
 
     /** Spend a frozen intent by digest — the server holds the frozen bytes. */
     async invokeTaskIntent(intentDigest: string): Promise<BoundaryValue> {
-      return ctx.requestJson("task_intent_invoke", "/api/v1/tasks/invoke", {
-        method: "POST",
-        body: JSON.stringify({ intent_digest: intentDigest }),
-      });
+      return ctx.requestJsonLossless(
+        "task_intent_invoke",
+        "/api/v1/tasks/invoke",
+        {
+          method: "POST",
+          body: stringifyLosslessJson({ intent_digest: intentDigest }),
+        },
+      );
+    },
+
+    /** Recover the private opening after losing a task invocation response. */
+    async recoverTaskIntentOpening(
+      intent: BoundaryValue,
+      intentDigest: string,
+    ): Promise<BoundaryValue> {
+      return ctx.requestJsonLossless(
+        "task_intent_opening",
+        "/api/v1/tasks/intent-opening",
+        {
+          method: "POST",
+          body: stringifyLosslessJson({ intent, intent_digest: intentDigest }),
+        },
+      );
     },
   };
 }

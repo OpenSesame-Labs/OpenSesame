@@ -1,7 +1,7 @@
 {
   "version": 2,
   "reviewed_revision": "863b64ec3ed5178b7ac7c3fec37b83657c038554",
-  "reviewed_source_state": "Source hashes identify the reviewed ownership fix and evidence after the recorded base revision.",
+  "reviewed_source_state": "Source hashes identify the reviewed ownership fix and evidence after the recorded base revision. 2026-11-23 review (PR #2898): crates/gateway/src/routes/mod.rs adds a private `mod tasks_opening;` (no #[path]; resolves to src/routes/tasks_opening.rs, which imports no transport, EST, generation or source-lifetime item) and mounts POST /api/v1/tasks/intent-opening inside the existing router chain, so it inherits the same layers, state and listeners. No listener, bind, EST route, admission, generation, epoch or deadline check changed, so the source-owned lifetime boundary the model covers is unaffected; reviewed_blob moves to the current bytes and base_blob stays the recorded base.",
   "lock_projection": {
     "root": "opensesame-spiffe-source",
     "algorithm": "cargo-lock-projection-v1-sha256",
@@ -262,8 +262,8 @@
     },
     {
       "path": "crates/gateway/src/routes/mod.rs",
-      "sha256": "d7c3af66f8de9276c38735c6f2ca0bb1cbf59aa214ac87dd4874275d143fe740",
-      "reviewed_blob": "5e7014e760bab0d8edfb215d3868bb36a912a2ad",
+      "sha256": "ea0ba309d0cead9ad30711e027adfa615a6a31841a86968f1d896ef035bdb206",
+      "reviewed_blob": "d14f90d71e54a21cc35e03be08361e788e852551",
       "base_blob": "8848d46dbe49bb9b65ad6466c88a036858ce5c92"
     },
     {

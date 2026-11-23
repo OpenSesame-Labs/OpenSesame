@@ -30,13 +30,14 @@ pub use enabled::load_wasm_connectors;
 mod enabled {
     use super::{ENV_CONNECTOR_DIR, ENV_TOKEN_ORIGINS, ENV_TRUSTED_DIGESTS};
     use anyhow::Context;
-    use opensesame_connection_broker::ConnectionBroker;
+    use opensesame_connection_broker::{egress::OwnerConnectionExpectation, ConnectionBroker};
     use opensesame_connector_host::manifest::ConnectorManifest;
     use opensesame_connector_host::wasm::{
         EgressRequest, EgressResponse, GuestLimits, HostEgress, WasmConnector,
     };
-    use opensesame_connector_host::HostRuntime;
-    use opensesame_domain::OrganizationId;
+    use opensesame_connector_host::{HostRuntime, InvocationBinding};
+    use opensesame_domain::ConnectionId;
+    use opensesame_time::Utc;
     use std::sync::Arc;
 
     /// Bridges guest `host-http` calls onto the connection broker — the one
@@ -50,16 +51,46 @@ mod enabled {
     /// posture, not a stub to quietly widen later.
     struct GatewayEgress {
         broker: Arc<ConnectionBroker>,
-        organization: OrganizationId,
+        registered_provider: String,
         handle: tokio::runtime::Handle,
     }
 
+    pub(super) fn accepts_binding(
+        binding: &InvocationBinding,
+        connection_ref: &str,
+        registered_provider: &str,
+    ) -> Option<ConnectionId> {
+        let connection = binding.connection_id()?;
+        if binding.is_delegated()
+            || binding.connection_policy_id() != connection_ref
+            || registered_provider != connection_ref
+            || binding.grant().connection_id != Some(connection)
+            || binding.grant().assert_active(Utc::now()).is_err()
+        {
+            return None;
+        }
+        Some(connection)
+    }
+
+    #[cfg(test)]
+    pub(super) fn bridge_for_test(
+        broker: Arc<ConnectionBroker>,
+        registered_provider: &str,
+    ) -> impl HostEgress {
+        GatewayEgress {
+            broker,
+            registered_provider: registered_provider.to_owned(),
+            handle: tokio::runtime::Handle::current(),
+        }
+    }
+
     impl GatewayEgress {
-        fn run_json(
+        fn run_egress(
             &self,
             connection_id: &str,
+            binding: &InvocationBinding,
             req: &EgressRequest,
-        ) -> Result<serde_json::Value, String> {
+        ) -> Result<opensesame_connection_broker::OwnerEgressHttpResult, String> {
             let body = if req.body.is_empty() {
                 None
             } else {
@@ -68,58 +99,83 @@ mod enabled {
                         .map_err(|_| "request body must be JSON".to_owned())?,
                 )
             };
-            let broker = Arc::clone(&self.broker);
-            let organization = self.organization;
-            let connection = connection_id.to_owned();
-            let method = req.method.clone();
-            let url = req.url.clone();
+            // Per-invocation tenant. Never the process-startup demo or nil org.
+            let organization = binding.organization_id();
             tokio::task::block_in_place(|| {
-                self.handle.block_on(fetch_json(
-                    broker,
-                    organization,
-                    connection,
-                    method,
-                    url,
+                self.handle.block_on(self.broker.authorized_http_for_owner(
+                    OwnerConnectionExpectation {
+                        organization_id: &organization,
+                        connection_id,
+                        provider_id: &self.registered_provider,
+                        owner_subject: binding.subject(),
+                        grant: binding.grant(),
+                    },
+                    &req.method,
+                    &req.url,
                     body,
                 ))
             })
+            .map_err(|_| "owner egress unavailable".to_owned())
         }
-    }
 
-    async fn fetch_json(
-        broker: Arc<ConnectionBroker>,
-        organization: OrganizationId,
-        connection: String,
-        method: String,
-        url: String,
-        body: Option<serde_json::Value>,
-    ) -> Result<serde_json::Value, String> {
-        broker
-            .authorized_json(&organization, &connection, &method, &url, body)
-            .await
-            .map_err(|e| format!("egress failed: {e}"))
+        /// Headers that never cross from an upstream response into a Wasm
+        /// guest. The broker's egress sink already drops these; this second
+        /// drop is at the one boundary that faces guest memory, so a broker
+        /// regression or a future `OwnerEgressHttpResult` producer cannot
+        /// hand a credential-shaped header to untrusted code.
+        fn guest_safe_headers(headers: Vec<(String, String)>) -> Vec<(String, String)> {
+            headers
+                .into_iter()
+                .filter(|(name, _)| {
+                    !matches!(
+                        name.to_ascii_lowercase().as_str(),
+                        "set-cookie"
+                            | "authorization"
+                            | "www-authenticate"
+                            | "proxy-authenticate"
+                            | "proxy-authorization"
+                            | "cookie"
+                    )
+                })
+                .collect()
+        }
     }
 
     impl HostEgress for GatewayEgress {
         fn authorized_request(
             &self,
+            binding: &InvocationBinding,
             connection_ref: &str,
             req: EgressRequest,
         ) -> Result<EgressResponse, String> {
-            let value = self.run_json(connection_ref, &req)?;
+            // The connector and provider share the registered manifest ID;
+            // the durable connection is a separate, invocation-bound UUID.
+            let connection = accepts_binding(binding, connection_ref, &self.registered_provider)
+                .ok_or_else(|| "invocation binding denied".to_owned())?;
+            let upstream = self.run_egress(&connection.to_string(), binding, &req)?;
+            // A body that cannot be encoded is an error, not an empty body a
+            // guest would read as "no result".
+            let body = serde_json::to_vec(&upstream.json)
+                .map_err(|_| "upstream response could not be encoded".to_owned())?;
             Ok(EgressResponse {
-                status: 200,
-                headers: vec![],
-                body: serde_json::to_vec(&value).unwrap_or_default(),
+                status: upstream.status,
+                headers: Self::guest_safe_headers(upstream.headers),
+                body,
             })
         }
 
-        fn sign(&self, _purpose: &str, _digest: &[u8]) -> Result<Vec<u8>, String> {
+        fn sign(
+            &self,
+            _binding: &InvocationBinding,
+            _purpose: &str,
+            _digest: &[u8],
+        ) -> Result<Vec<u8>, String> {
             Err("host-crypto.sign is not yet open to community connectors (ADR 0065 §8)".into())
         }
 
         fn oauth_acquire(
             &self,
+            _binding: &InvocationBinding,
             _connection_ref: &str,
             _resource: Option<&str>,
             _audience: Option<&str>,
@@ -130,6 +186,7 @@ mod enabled {
 
         fn authenticated_request(
             &self,
+            _binding: &InvocationBinding,
             _connection_ref: &str,
             _token_handle: u32,
             _req: EgressRequest,
@@ -138,6 +195,33 @@ mod enabled {
                 "host-oauth.authenticated-request is not yet open to community connectors (ADR 0065 §8)"
                     .into(),
             )
+        }
+    }
+
+    #[cfg(test)]
+    mod guest_boundary_tests {
+        use super::GatewayEgress;
+
+        #[test]
+        fn credential_shaped_headers_never_reach_the_guest() {
+            let headers = vec![
+                ("X-Request-Id".to_owned(), "req-1".to_owned()),
+                ("Set-Cookie".to_owned(), "sid=1".to_owned()),
+                ("set-cookie".to_owned(), "sid=2".to_owned()),
+                ("Authorization".to_owned(), "Bearer echoed".to_owned()),
+                ("WWW-Authenticate".to_owned(), "Bearer realm=api".to_owned()),
+                (
+                    "Proxy-Authenticate".to_owned(),
+                    "Basic realm=proxy".to_owned(),
+                ),
+                (
+                    "Proxy-Authorization".to_owned(),
+                    "Bearer internal".to_owned(),
+                ),
+                ("Cookie".to_owned(), "theme=dark".to_owned()),
+            ];
+            let kept = GatewayEgress::guest_safe_headers(headers);
+            assert_eq!(kept, vec![("X-Request-Id".to_owned(), "req-1".to_owned())]);
         }
     }
 
@@ -151,7 +235,6 @@ mod enabled {
     pub async fn load_wasm_connectors(
         host: &mut HostRuntime,
         broker: &Arc<ConnectionBroker>,
-        organization: OrganizationId,
     ) -> anyhow::Result<()> {
         let Ok(dir) = std::env::var(ENV_CONNECTOR_DIR) else {
             return Ok(());
@@ -174,12 +257,6 @@ mod enabled {
         )
         .with_context(|| format!("invalid {ENV_TOKEN_ORIGINS}"))?;
 
-        let egress: Arc<dyn HostEgress> = Arc::new(GatewayEgress {
-            broker: Arc::clone(broker),
-            organization,
-            handle: tokio::runtime::Handle::current(),
-        });
-
         let mut loaded = 0usize;
         for entry in std::fs::read_dir(&dir).with_context(|| format!("read {dir}"))? {
             let path = entry?.path();
@@ -194,6 +271,14 @@ mod enabled {
                 .with_context(|| format!("read {}", manifest_path.display()))?;
             let manifest = ConnectorManifest::from_yaml(&manifest_text)
                 .with_context(|| format!("parse {}", manifest_path.display()))?;
+            let registered_provider = manifest.metadata.id.clone();
+            // Organization is taken from each invocation binding. A startup
+            // demo or nil organization must not be captured on the egress bridge.
+            let egress: Arc<dyn HostEgress> = Arc::new(GatewayEgress {
+                broker: Arc::clone(broker),
+                registered_provider: registered_provider.clone(),
+                handle: tokio::runtime::Handle::current(),
+            });
             // A local component file wins (operator override); otherwise the
             // component is pulled from the manifest's digest-addressed OCI
             // reference — the digest check in WasmConnector::load re-verifies
@@ -221,6 +306,10 @@ mod enabled {
             .map_err(|e| anyhow::anyhow!("load {}: {e}", path.display()))?;
 
             let id = opensesame_connector_host::Connector::id(&connector).to_owned();
+            anyhow::ensure!(
+                id == registered_provider,
+                "connector registration identity changed"
+            );
             host.register_connector(Arc::new(connector))
                 .map_err(|e| anyhow::anyhow!("register {id}: {e}"))?;
             host.bind_connection(id.clone(), &id)
@@ -235,6 +324,18 @@ mod enabled {
     }
 }
 
+#[cfg(all(test, feature = "wasm-connectors"))]
+#[path = "connector_egress_binding_tests.rs"]
+mod binding_tests;
+
+#[cfg(all(test, feature = "wasm-connectors"))]
+#[path = "connector_egress_owner_tests.rs"]
+mod owner_tests;
+
+#[cfg(all(test, feature = "wasm-connectors"))]
+#[path = "connector_egress_owner_wasm_tests.rs"]
+mod owner_wasm_tests;
+
 /// Feature-off build: the operator asking for connectors is a hard error —
 /// never a silent no-op.
 ///
@@ -246,7 +347,6 @@ mod enabled {
 pub async fn load_wasm_connectors(
     _host: &mut opensesame_connector_host::HostRuntime,
     _broker: &std::sync::Arc<opensesame_connection_broker::ConnectionBroker>,
-    _organization: opensesame_domain::OrganizationId,
 ) -> anyhow::Result<()> {
     anyhow::ensure!(
         std::env::var(ENV_CONNECTOR_DIR).is_err(),

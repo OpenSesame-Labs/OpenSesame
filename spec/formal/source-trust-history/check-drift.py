@@ -110,6 +110,12 @@ MIGRATIONS = [
     'crates/storage/migrations/0055_agent_hook_approvers.sql', 'crates/storage/migrations/0056_outbox_customer_binding.sql',
     'crates/storage/migrations/0057_est_passphrase_budget.sql', 'crates/storage/migrations/0058_bitwarden_attempt_budgets.sql',
     'crates/storage/migrations/0059_est_source_budgets.sql',
+    # 2026-11-23 review: PR #2898 appends 0060_invocation_budget_claims. It
+    # creates one new invocation_budget_claims table (no ALTER, DROP, index
+    # or trigger on an existing table) and names no source-trust history,
+    # stored-trust or transport table, so the reviewed history schema and its
+    # migration order are unchanged; the executed inventory is extended to it.
+    'crates/storage/migrations/0060_invocation_budget_claims.sql',
 ]
 PATHS = [
     'apps/cli/src/main.rs',

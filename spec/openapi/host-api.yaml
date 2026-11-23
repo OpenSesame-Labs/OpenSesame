@@ -920,13 +920,17 @@ paths:
             schema: { $ref: "#/components/schemas/InvokeRequest" }
       responses:
         "200":
-          description: Signed organization-bound invocation receipt
+          description: Signed receipt and private opening for this authorized invocation caller.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/InvocationReceipt" }
+              schema: { $ref: "#/components/schemas/InvocationResponse" }
         "400": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /tasks:
     get:
       summary: List task runs owned by the caller in the caller's organization
@@ -965,12 +969,16 @@ paths:
       responses:
         "201":
           description: Frozen intent handle
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/FreezeTaskIntentResponse" }
         "400": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
   /tasks/invoke:
@@ -984,11 +992,44 @@ paths:
             schema: { $ref: "#/components/schemas/InvokeTaskRequest" }
       responses:
         "200":
-          description: Signed organization-bound invocation receipt
+          description: Signed receipt and private opening for this authorized invocation caller.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/InvocationReceipt" }
+              schema: { $ref: "#/components/schemas/InvocationResponse" }
         "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /tasks/intent-opening:
+    post:
+      summary: Recover the private opening for a completed frozen task invocation
+      description: >-
+        Submit the exact saved frozen intent and digest from task freeze. The
+        same canonical principal/subject and authority fingerprint must still
+        match; explicit operator authority applies. Native opaque sessions and
+        operators are accepted; agent capabilities and browser grants are not.
+        Authentication precedes body parsing and all authenticated mismatches
+        return the same 404.
+      security: [{ HostBearer: [] }, { HostOperatorHeader: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecoverTaskOpeningRequest" }
+      responses:
+        "200":
+          description: Private opening only; use the saved receipt ID to obtain signed evidence separately.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RecoverTaskOpeningResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "413": { $ref: "#/components/responses/Error" }
   /tasks/{id}:
     parameters:
       - $ref: "#/components/parameters/TaskId"
@@ -4631,18 +4672,37 @@ components:
         idempotency_key: { type: string }
     FreezeTaskIntentResponse:
       type: object
-      required: [intent_id, intent_digest, task_run_id, task_state_version, canonical_arguments]
+      required: [intent_id, intent_digest, task_run_id, task_state_version, canonical_arguments, receipt_id, intent]
       properties:
         intent_id: { type: string }
         intent_digest: { type: string }
         task_run_id: { type: string }
         task_state_version: { type: integer, minimum: 0 }
         canonical_arguments: {}
+        receipt_id:
+          type: string
+          description: Preassigned handle for the resulting signed receipt; save before invoking.
+        intent:
+          type: object
+          description: Private frozen digest input; save exact field values and numeric precision for offline verification and opening recovery.
     InvokeTaskRequest:
       type: object
       required: [intent_digest]
       properties:
         intent_digest: { type: string }
+    RecoverTaskOpeningRequest:
+      type: object
+      required: [intent, intent_digest]
+      additionalProperties: false
+      properties:
+        intent: { type: object }
+        intent_digest: { type: string, pattern: '^sha256:[0-9a-f]{64}$' }
+    RecoverTaskOpeningResponse:
+      type: object
+      required: [opening]
+      additionalProperties: false
+      properties:
+        opening: { type: string, pattern: '^hmac-sha256:v1:[0-9a-f]{64}$' }
     TerminateTaskRequest:
       type: object
       properties:
@@ -4660,7 +4720,10 @@ components:
       properties:
         id: { type: string }
         invocation_id: { type: string }
-        intent_digest: { type: string }
+        intent_digest:
+          type: string
+          pattern: '^sha256:[0-9a-f]{64}$'
+          description: Salted commitment to the authorized intent digest; the private opening is returned only to the invocation caller.
         principal_id: { type: string }
         organization_id:
           type: string
@@ -4682,14 +4745,47 @@ components:
         external_response_digest: { type: [string, "null"] }
         started_at: { type: string, format: date-time }
         completed_at: { type: string, format: date-time }
-        outcome: { type: string, enum: [succeeded, failed, denied, cancelled] }
+        outcome: { type: string, enum: [succeeded, failed, denied, cancelled, indeterminate] }
         safe_result_summary: {}
         authority_key_id: { type: string }
         signature: { type: string }
         receipt_schema_version: { type: integer, minimum: 1 }
+        idempotency_binding:
+          type: string
+          pattern: '^hmac-sha256:v1:[0-9a-f]{64}$'
+          description: Opaque keyed commitment to the request and authority; historical unkeyed bindings are not disclosed.
         task_run_id: { type: string }
         task_state_version: { type: integer, minimum: 0 }
         task_state_digest: { type: string }
+    InvocationResponse:
+      description: >-
+        The receipt fields are signed. The private intent_opening is separate
+        unsigned verification material and must be saved and shared only with
+        parties authorized to learn the original intent. A retry for the same
+        canonical principal/subject and authority can use a different session;
+        explicit operator authority also applies. Verify the receipt signature
+        independently before checking its intent commitment. Receipt GET and
+        the generic KV and MCP responses do not return the opening.
+      allOf:
+        - $ref: "#/components/schemas/InvocationReceipt"
+        - type: object
+          required: [intent_opening]
+          properties:
+            intent_opening:
+              type: object
+              required: [opening, intent_digest, intent]
+              properties:
+                opening:
+                  type: string
+                  pattern: '^hmac-sha256:v1:[0-9a-f]{64}$'
+                  description: Private per-invocation opening; possession permits testing guesses about the intent.
+                intent_digest:
+                  type: string
+                  pattern: '^sha256:[0-9a-f]{64}$'
+                  description: Digest of the original intent, distinct from the signed commitment on the receipt.
+                intent:
+                  type: object
+                  description: Original normal or frozen intent used to calculate the private digest.
     ReceiptKey:
       type: object
       required: [key_id, algorithm, public_key_b64]
