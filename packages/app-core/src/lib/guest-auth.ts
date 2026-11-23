@@ -25,10 +25,12 @@ import {
   connectFreshProvisional,
   connectProvisional,
   currentSession,
+  hostLocalSessionEligible,
   identityJson,
   identitySeams,
   identitySessionEpoch,
   isRemoteIdentityConfigured,
+  orphanSessionActive,
   rebindSession,
 } from "./identity.js";
 import {
@@ -59,6 +61,10 @@ export const guestAuthDependencies = {
   connectFreshProvisional,
   resumeSession: () => identitySeams.resumeSession(),
   currentSession,
+  /** An approved Host grant this device would act under. */
+  hasHostSession: () => hostLocalSessionEligible(),
+  /** A previous tab's Identity cookie that still authenticates, unseen here. */
+  hasHiddenIdentitySession: orphanSessionActive,
   isRemoteIdentityConfigured,
   identityJson,
   createGuest: (options?: { resume?: boolean }) =>
@@ -122,7 +128,9 @@ function assertNoKnownRemoteSession(expectedPrincipalId?: string): void {
   const active = guestAuthDependencies.currentSession();
   if (
     (active && active.principalId !== expectedPrincipalId) ||
-    guestAuthDependencies.loadFederationSession()
+    guestAuthDependencies.loadFederationSession() ||
+    guestAuthDependencies.hasHostSession() ||
+    guestAuthDependencies.hasHiddenIdentitySession()
   ) {
     throw new Error(FRESH_GUEST_SIGN_OUT_MESSAGE);
   }
