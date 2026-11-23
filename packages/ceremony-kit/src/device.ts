@@ -47,6 +47,8 @@ export interface ApproveDeviceInput {
    */
   baseUrl: string;
   userCode: string;
+  /** The organization the person selected, when the account has several. */
+  organizationId?: string | undefined;
   /**
    * The surface's own fetch. Pages passes one that already carries its bearer
    * and its local-network timeouts; a caller with nothing to add passes the
@@ -90,7 +92,9 @@ export function deviceApprovalWords(
     case "invalid_request":
       return "Enter the user code exactly as the device shows it.";
     case "organization_id_required":
-      return "You belong to several organizations — the operator approves devices for those.";
+      return "Choose an organization and try again.";
+    case "organization_membership_required":
+      return "Ask your administrator to add you to an organization.";
     case "organization_access_denied":
       return "You do not have access to the organization that device is joining.";
     default:
@@ -130,6 +134,7 @@ async function readBody(res: Response): Promise<JsonObject | null> {
 export async function approveDevice({
   baseUrl,
   userCode,
+  organizationId,
   fetchImpl,
   credentials = "include",
   fallbackWords = (status) => statusWords(status),
@@ -145,7 +150,11 @@ export async function approveDevice({
   const res = await fetchImpl(`${base}/v1/device/approve`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ user_code: code }),
+    // JSON leaves an unchosen organization out of the body.
+    body: JSON.stringify({
+      user_code: code,
+      organization_id: organizationId || undefined,
+    }),
     credentials,
   });
   const body = await readBody(res);

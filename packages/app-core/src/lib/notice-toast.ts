@@ -53,6 +53,8 @@ export type ToastMessage = Readonly<{
    * pressed, or when whoever showed it takes it back (`hideToast`).
    */
   sticky?: boolean;
+  /** A persistent notice also remains available in the notification tray. */
+  inTray?: boolean;
   /** The person pressed Dismiss. Not called when the card is taken back. */
   onDismiss?: () => void;
 }>;
@@ -80,6 +82,7 @@ export function toastOf(notice: Notice): ToastMessage {
     title: echo.title,
     body: echo.body,
     sticky: true,
+    inTray: true,
     choice: { label: act.label, run: act.run },
   };
   const paired: ToastMessage =

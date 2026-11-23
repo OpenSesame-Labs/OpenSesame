@@ -20,6 +20,8 @@ import {
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { FormCommit } from "../../components/FormCommit.js";
 import { StatusMark } from "../../components/StatusMark.js";
+import { DeviceOrganizationField } from "./DeviceOrganizationField.js";
+import { useApprovalOrganizations } from "./use-approval-organizations.js";
 
 export type DeviceApprovalProps = {
   online: boolean;
@@ -38,23 +40,30 @@ export function DeviceApproval({
 }: DeviceApprovalProps) {
   const [code, setCode] = useState(arrivedCode ?? "");
   const [busy, setBusy] = useState(false);
+  const organizations = useApprovalOrganizations(online);
   const [result, setResult] = useState<DeviceApprovalResult | null>(
     initialResult,
   );
   const codeRef = useRef<HTMLInputElement | null>(null);
   const goRef = useRef<HTMLButtonElement | null>(null);
+  const organizationRef = useRef<HTMLSelectElement | null>(null);
 
+  const { ready, needsChoice } = organizations;
   useEffect(() => {
-    if (arrivedCode && online) goRef.current?.focus();
+    if (arrivedCode && online && needsChoice) organizationRef.current?.focus();
+    else if (arrivedCode && online && ready) goRef.current?.focus();
     else codeRef.current?.focus();
-  }, [arrivedCode, online]);
+  }, [arrivedCode, online, ready, needsChoice]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!code.trim() || busy) return;
+    if (!code.trim() || busy || !ready) return;
     setBusy(true);
     setResult(null);
-    const answer = await approveDeviceEntry(code);
+    const answer = await approveDeviceEntry(
+      code,
+      organizations.chosen || undefined,
+    );
     setBusy(false);
     setResult(answer);
     if (answer.tone === "ok") setCode(answer.userCode);
@@ -100,10 +109,16 @@ export function DeviceApproval({
           </output>
         </div>
       </div>
+      <DeviceOrganizationField
+        id={`${id}-organization`}
+        organizations={organizations}
+        disabled={busy}
+        selectRef={organizationRef}
+      />
       <FormCommit
         label={busy ? "Approving…" : "Approve device"}
         buttonRef={goRef}
-        disabled={busy || !online || !code.trim()}
+        disabled={busy || !online || !code.trim() || !ready}
         busy={busy}
       />
     </form>

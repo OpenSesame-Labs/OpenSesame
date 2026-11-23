@@ -140,10 +140,15 @@ export const SECTION_RULES = [
     "enterprise.directory-provisioning",
     "Identity › Organizations' sign-in panels: upstream, email domains, SCIM tokens (ADR 0140 step 12)",
   ),
-  core(
-    "src/sections/identity/DeviceApproval",
-    "identity.ceremonies",
-    "the device-approval form /device and Identity › Devices share (ADR 0140)",
+  ...each(
+    "src/sections/identity/",
+    ["DeviceApproval", "DeviceOrganizationField", "use-approval-organizations"],
+    (p) =>
+      core(
+        p,
+        "identity.ceremonies",
+        "the device-approval form /device and Identity › Devices share (ADR 0140)",
+      ),
   ),
   core(
     "src/sections/identity/ConnectIdentityNote",

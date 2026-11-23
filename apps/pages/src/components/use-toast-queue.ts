@@ -20,9 +20,11 @@ export function withinLimit(
   {
     reading = new Set<string>(),
     inlineOffers = false,
+    hiddenTrayOffers = false,
   }: {
     reading?: ReadonlySet<string>;
     inlineOffers?: boolean;
+    hiddenTrayOffers?: boolean;
   } = {},
 ): ToastMessage[] {
   const previous = current.findIndex((item) => item.id === arrival.id);
@@ -30,7 +32,10 @@ export function withinLimit(
   if (previous < 0) next.push(arrival);
   else next[previous] = arrival;
   const occupied = () =>
-    inlineOffers ? next.filter((item) => !item.sticky).length : next.length;
+    next.filter(
+      (item) =>
+        !item.sticky || (!inlineOffers && !(hiddenTrayOffers && item.inTray)),
+    ).length;
   while (occupied() > TOAST_LIMIT) {
     const echo = next.findIndex(
       (item) => !item.sticky && !reading.has(item.id),
@@ -54,6 +59,7 @@ export function useToastPlacement() {
   return {
     className: `toasts${besideAdd ? " toasts--vault-list" : ""}${aboveEditor ? " toasts--vault-editor" : ""}`,
     editing: narrow && aboveEditor,
+    narrow,
   };
 }
 
@@ -62,6 +68,8 @@ export function useToastQueue(
   active: boolean,
   inlineOffers: boolean,
   editing: boolean,
+  hiddenTrayOffers: boolean,
+  shouldDefer: () => boolean,
 ) {
   const [shown, setShown] = useState<ToastMessage[]>([]);
   const reading = useRef(
@@ -89,11 +97,12 @@ export function useToastQueue(
       setShown((current) =>
         withinLimit(current, toast, {
           reading: protectedIds,
-          inlineOffers: inlineOffers || editing,
+          inlineOffers: inlineOffers || editing || shouldDefer(),
+          hiddenTrayOffers,
         }),
       );
     },
-    [editing, inlineOffers],
+    [editing, inlineOffers, hiddenTrayOffers, shouldDefer],
   );
   const dismiss = useCallback((id: string) => {
     if (reading.current.get(id)?.focus) handBack.current = true;
@@ -108,10 +117,13 @@ export function useToastQueue(
         ? current
         : current.reduce<ToastMessage[]>(
             (kept, toast) =>
-              withinLimit(kept, toast, { reading: protectedIds }),
+              withinLimit(kept, toast, {
+                reading: protectedIds,
+                hiddenTrayOffers,
+              }),
             [],
           ),
     );
-  }, [editing, inlineOffers]);
+  }, [editing, inlineOffers, hiddenTrayOffers]);
   return { shown, markReading, add, dismiss, handBack };
 }

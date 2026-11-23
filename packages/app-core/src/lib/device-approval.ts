@@ -53,10 +53,13 @@ function refusal(words: string): DeviceApprovalResult {
  */
 export async function approveDeviceEntry(
   entry: string,
+  organizationId?: string,
 ): Promise<DeviceApprovalResult> {
   const userCode = userCodeFromEntry(entry);
   try {
-    const answer = await approveDevice(userCode);
+    const answer = organizationId
+      ? await approveDevice(userCode, organizationId)
+      : await approveDevice(userCode);
     if (!answer.ok) {
       return refusal(
         deviceApprovalWords("host_approval_failed", answer.status) ??
