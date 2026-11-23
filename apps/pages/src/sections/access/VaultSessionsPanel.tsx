@@ -3,18 +3,7 @@
  * Start issues time-boxed grants; stop revokes them; restart reissues.
  */
 
-import { useCallback, useEffect, useState } from "react";
-import { FailureNotice } from "../../components/FailureNotice.js";
-import { FormCommit } from "../../components/FormCommit.js";
-import { IconKey } from "../../components/IconKey.js";
-import {
-  IconArrowRight,
-  IconPlus,
-  IconRefresh,
-  IconX,
-} from "../../components/Icons.js";
-import { StatusMark } from "../../components/StatusMark.js";
-
+import { presentedTomb } from "@opensesame/app-core/lib/duress/store/decoy-scratch.js";
 import { subscribeLocalIamChanges } from "@opensesame/app-core/lib/local-iam-events.js";
 import {
   SHARE_DURATIONS,
@@ -30,6 +19,17 @@ import {
   stopVaultSession,
 } from "@opensesame/app-core/lib/local-vault-sessions.js";
 import { listDeviceVaults } from "@opensesame/app-core/lib/vaults.js";
+import { useCallback, useEffect, useState } from "react";
+import { FailureNotice } from "../../components/FailureNotice.js";
+import { FormCommit } from "../../components/FormCommit.js";
+import { IconKey } from "../../components/IconKey.js";
+import {
+  IconArrowRight,
+  IconPlus,
+  IconRefresh,
+  IconX,
+} from "../../components/Icons.js";
+import { StatusMark } from "../../components/StatusMark.js";
 import { useVaultStore } from "../../lib/vault/hooks.js";
 import {
   AccessDetail,
@@ -229,8 +229,10 @@ function NewVaultSessionForm({
     grants: SessionGrantSpec[];
   }) => void;
 }) {
+  // The vault row is road identity: a scratch guest is the guest row.
+  const shown = presentedTomb(tomb);
   const vault =
-    listDeviceVaults().find((row) => row.id === tomb) ?? listDeviceVaults()[0];
+    listDeviceVaults().find((row) => row.id === shown) ?? listDeviceVaults()[0];
   const [label, setLabel] = useState("Shared session");
   const [duration, setDuration] = useState<number>(SHARE_DURATIONS[0].seconds);
   const [subject, setSubject] = useState<"guest" | "member" | "operator">(

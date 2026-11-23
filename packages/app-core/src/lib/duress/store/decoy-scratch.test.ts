@@ -29,7 +29,7 @@ import {
   armPersistedUnlockEnrollment,
   sealUnlockTriggerFromCeremony,
 } from "../settings/unlock-arming.js";
-import { DECOY_SCRATCH_TOMB } from "./decoy-scratch.js";
+import { DECOY_SCRATCH_TOMB, presentedTomb } from "./decoy-scratch.js";
 import { clearEnrollmentStateForUnlock } from "./unlock-enrollment.js";
 
 const GUEST_PIN = "48291037";
@@ -107,7 +107,9 @@ describe("duress decoy beside a sealed guest", () => {
     const decoy = store.getSnapshot();
     expect(decoy.status).toBe("unlocked");
     expect(decoy.guest).toBe(true);
-    expect(decoy.tomb).toBe(GUEST_TOMB);
+    // Storage runs in the scratch tomb; what is drawn is the guest road.
+    expect(decoy.tomb).toBe(DECOY_SCRATCH_TOMB);
+    expect(presentedTomb(decoy.tomb)).toBe(GUEST_TOMB);
     expect(decoy.items).toHaveLength(0);
     await store.saveItem(createItem("account", "Written under duress"));
     await store.flushPendingWrites();

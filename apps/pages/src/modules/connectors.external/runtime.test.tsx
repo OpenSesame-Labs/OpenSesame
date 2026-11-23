@@ -208,7 +208,7 @@ describe("connectors.external runtime", () => {
         guest: false,
         signal: effectSignal,
       });
-      expect(seal).toHaveBeenCalledWith("personal", { ephemeral: true });
+      expect(seal).toHaveBeenCalledWith("personal");
       // The hydrate carries the unlock's signal, so a read that answers
       // after a lock arms nothing.
       expect(hydrate).toHaveBeenCalledWith("personal", {
