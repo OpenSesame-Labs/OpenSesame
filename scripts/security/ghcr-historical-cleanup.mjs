@@ -18,6 +18,7 @@
 import { appendFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isString } from "../lib/json-boundary.mjs";
 
 export const ORG = "OpenSesame-Labs";
 /** The images security.yml scans as published; a test keeps them equal. */
@@ -64,7 +65,7 @@ export function explainFailure(action, pkg, status, detail) {
 async function failureDetail(response) {
   try {
     const body = await response.json();
-    return typeof body?.message === "string" ? body.message : "";
+    return isString(body?.message) ? body.message : "";
   } catch {
     return "";
   }
@@ -144,9 +145,7 @@ export function githubClient({ token, fetch: fetchImpl = globalThis.fetch }) {
 /** The tags of a package version, as a list of strings. */
 export function versionTags(version) {
   const tags = version?.metadata?.container?.tags;
-  return Array.isArray(tags)
-    ? tags.filter((tag) => typeof tag === "string")
-    : [];
+  return Array.isArray(tags) ? tags.filter(isString) : [];
 }
 
 /** Versions carrying `next` or `latest`, each once. */
