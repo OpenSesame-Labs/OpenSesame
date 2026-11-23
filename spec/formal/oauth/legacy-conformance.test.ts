@@ -80,9 +80,13 @@ it.each(vectors)(
     const tag = createHmac("sha256", valid === "1" ? secret : "wrong-test-key")
       .update(message)
       .digest("base64url");
-    expect(decodePending(`${payload}.${tag}`, secret) !== undefined).toBe(
-      expected === "1",
-    );
+    // v4 refuses every pre-v4 tag: verifying one would run scrypt on
+    // unauthenticated input. The implementation therefore refines the model
+    // conservatively. It never accepts a case the model refuses, and it also
+    // refuses the model's admitted legacy static-provider cases (FED-I2).
+    const accepted = decodePending(`${payload}.${tag}`, secret) !== undefined;
+    expect(accepted && expected !== "1").toBe(false);
+    expect(accepted).toBe(false);
   },
 );
 

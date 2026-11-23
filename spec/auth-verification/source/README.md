@@ -100,16 +100,20 @@ An organization not admitted by its source can fall through to an active
 visitor record; a later revocation does not retroactively erase a decision.
 
 The federation pending-cookie proof checks reviewed token snapshots of the
-schema, verifier binding, modern and legacy signatures, canonical base64url
-encoding, verification and decoding. The Lean abstraction establishes that a
-legacy signature is admitted only for legacy static provenance: a signed,
-nonempty provider identifier and no field outside the former signed field set.
-A valid modern signature admits the exact canonical encoded payload. The real
-implementation
-uses a version-specific derived HMAC key so a modern signature cannot be
-reinterpreted as a legacy signature. HMAC, scrypt, JSON and base64url are
-trusted primitives; this does not prove cookie delivery, expiry, replay
-prevention, issuer trust or the later federation exchange.
+imports, schemas, constants, seal and MAC helpers, encoding, verification and
+decoding. The snapshot is the v4 codec (re-reviewed 2026-11-23): an HMAC over
+the exact canonical base64url payload under a v4-only derived key, compared
+before the payload is parsed or its verifier unsealed, with no scrypt import.
+The Lean abstraction still states that a legacy signature is admitted only for
+legacy static provenance (a signed, nonempty provider identifier and no field
+outside the former signed field set) and that a valid modern signature admits
+the exact canonical encoded payload. The v4 implementation verifies no legacy
+signature at all, so its `legacyValid` input is always false and the
+abstraction over-approximates acceptance. HMAC, AES-GCM, JSON and base64url
+are trusted primitives; the MAC-before-parse ordering is checked by the token
+snapshot and by tests, not by a Lean theorem, and this does not prove cookie
+delivery, expiry, replay prevention, issuer trust or the later federation
+exchange.
 
 The federation trust-binding proof checks reviewed token snapshots of the
 start-time provenance selector and callback-time matching predicate. It also

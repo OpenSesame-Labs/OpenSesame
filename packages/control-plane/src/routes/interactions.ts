@@ -253,10 +253,7 @@ export function createInteractionRoutes(): Hono<
             setCookie(
               c,
               pendingCookieName(details.uid),
-              encodePending(pending, ctx.config.claimPepper, {
-                sealVerifierOnWire:
-                  ctx.config.federatedPendingSealVerifierOnWire,
-              }),
+              encodePending(pending, ctx.config.claimPepper),
               {
                 httpOnly: true,
                 sameSite: "Lax",
@@ -418,9 +415,7 @@ export function createInteractionRoutes(): Hono<
       setCookie(
         c,
         pendingCookieName(uid),
-        encodePending(pending, ctx.config.claimPepper, {
-          sealVerifierOnWire: ctx.config.federatedPendingSealVerifierOnWire,
-        }),
+        encodePending(pending, ctx.config.claimPepper),
         {
           httpOnly: true,
           sameSite: "Lax",

@@ -569,7 +569,7 @@
     },
     {
       "id": "federation-pending-integrity",
-      "claim": "A modern pending federation cookie authenticates its complete encoded payload; a legacy signature is accepted only when no organization or visitor-registration authority is carried.",
+      "claim": "A modern (v4) pending federation cookie authenticates its complete encoded payload, checked before parsing, unsealing or key derivation; no legacy or v3 signature is accepted.",
       "implementation": [
         "packages/control-plane/src/interactions/federated-pending.ts"
       ],
@@ -602,7 +602,7 @@
           "scope": "Focused cases cover organization and visitor provenance insertion, replacement and deletion, legacy compatibility and cross-format downgrade."
         }
       ],
-      "limits": "The source proof trusts its checker and manual abstraction. The model assumes ideal HMACs with separate keys and an injective core encoding; it does not prove scrypt, HMAC, JSON, base64url, replay, expiry, cookie transport, issuer trust, federation exchange or callback single use."
+      "limits": "The source proof trusts its checker and manual abstraction, whose legacy branch is now conservative (the implementation never admits a legacy tag). The model assumes ideal HMACs with separate keys and an injective core encoding; it does not prove HMAC, AES-GCM, JSON, base64url, MAC-before-parse ordering (tested only, 2026-11-23), replay, expiry, cookie transport, issuer trust, federation exchange or callback single use."
     },
     {
       "id": "federated-trust-binding",

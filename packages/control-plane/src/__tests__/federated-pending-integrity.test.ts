@@ -1,10 +1,10 @@
-import { createHash, createHmac, scryptSync } from "node:crypto";
 import { expect, it } from "vitest";
 import {
   type PendingFederatedAuth,
   decodePending,
   encodePending,
 } from "../interactions/federated-pending.js";
+import { legacyCookie } from "./federated-pending-formats.test-support.js";
 
 const secret = "federation-test-only-integrity-secret";
 const pending: PendingFederatedAuth = {
@@ -19,34 +19,6 @@ function replacePayload(signed: string, value: PendingFederatedAuth): string {
   if (!signature) throw new Error("expected signed pending cookie");
   const payload = Buffer.from(JSON.stringify(value)).toString("base64url");
   return `${payload}.${signature}`;
-}
-
-function legacyCookie(value: PendingFederatedAuth): string {
-  const salt = createHash("sha256")
-    .update(secret)
-    .update("\0opensesame:fed-pending-verifier\0")
-    .update(value.state)
-    .update(value.nonce)
-    .digest()
-    .subarray(0, 16);
-  const binding = scryptSync(value.verifier, salt, 32, {
-    N: 32768,
-    r: 8,
-    p: 1,
-    maxmem: 64 * 1024 * 1024,
-  }).toString("base64url");
-  const input = [
-    value.issuer,
-    value.state,
-    value.nonce,
-    binding,
-    value.kind ?? "oidc",
-    value.providerId ?? "",
-  ].join("\x1f");
-  const signature = createHmac("sha256", secret)
-    .update(input)
-    .digest("base64url");
-  return `${Buffer.from(JSON.stringify(value)).toString("base64url")}.${signature}`;
 }
 
 it.each([
@@ -73,46 +45,19 @@ it.each([
   },
 );
 
-it("continues old signed cookies only with bound static-provider provenance", () => {
-  expect(decodePending(legacyCookie(pending), secret)).toBeUndefined();
-  expect(
-    decodePending(legacyCookie({ ...pending, providerId: "provider" }), secret),
-  ).toEqual({ ...pending, providerId: "provider" });
-  expect(
-    decodePending(
-      legacyCookie({ ...pending, providerId: "provider", orgId: "org-a" }),
-      secret,
-    ),
-  ).toBeUndefined();
-  expect(
-    decodePending(
-      legacyCookie({ ...pending, providerId: "provider", byoId: "byo-a" }),
-      secret,
-    ),
-  ).toBeUndefined();
-  expect(
-    decodePending(
-      replacePayload(legacyCookie({ ...pending, providerId: "provider" }), {
-        ...pending,
-        providerId: "provider",
-        orgId: "org-a",
-      }),
-      secret,
-    ),
-  ).toBeUndefined();
-  expect(
-    decodePending(
-      replacePayload(legacyCookie({ ...pending, providerId: "provider" }), {
-        ...pending,
-        providerId: "provider",
-        byoId: "byo-a",
-      }),
-      secret,
-    ),
-  ).toBeUndefined();
+it("refuses every pre-v4 legacy signature, whatever its provenance", () => {
+  // Checking a legacy tag meant running scrypt on attacker input before
+  // authentication, so no legacy cookie continues; its sign-in restarts.
+  for (const value of [
+    pending,
+    { ...pending, providerId: "provider" },
+    { ...pending, providerId: "provider", orgId: "org-a" },
+    { ...pending, providerId: "provider", byoId: "byo-a" },
+  ])
+    expect(decodePending(legacyCookie(value, secret), secret)).toBeUndefined();
 });
 
-it("cannot reinterpret a modern signature as a legacy signature", () => {
+it("cannot reinterpret a v4 signature over a field-smuggled payload", () => {
   const signed = encodePending(pending, secret);
   const pieces = signed.split(".");
   const payload = pieces.at(-2);
@@ -120,7 +65,7 @@ it("cannot reinterpret a modern signature as a legacy signature", () => {
   if (!payload || !tag) throw new Error("expected signed pending cookie");
   // A legacy field can contain the modern input prefix. Different signing
   // keys, rather than a prefix in the message alone, prevent this downgrade.
-  const issuer = `OpenSesame:federated-pending:v3\0${payload}\0${pending.issuer}`;
+  const issuer = `OpenSesame:federated-pending:v4\0${payload}\0${pending.issuer}`;
   const forged = Buffer.from(JSON.stringify({ ...pending, issuer })).toString(
     "base64url",
   );
