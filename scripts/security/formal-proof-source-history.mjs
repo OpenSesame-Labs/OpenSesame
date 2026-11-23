@@ -127,6 +127,7 @@ const STORAGE_MIGRATIONS = [
   "crates/storage/migrations/0057_est_passphrase_budget.sql",
   "crates/storage/migrations/0058_bitwarden_attempt_budgets.sql",
   "crates/storage/migrations/0059_est_source_budgets.sql",
+  "crates/storage/migrations/0060_invocation_budget_claims.sql",
 ];
 
 const IMPLEMENTATION = [
