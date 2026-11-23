@@ -157,26 +157,26 @@ function oauthFixture() {
   );
   const security = [
     "signed federated state integrity round-trips a signed state with its organization and upstream context",
-    "signed federated state integrity preserves the v3 cookie format already emitted by main",
+    "signed federated state integrity seals the verifier on the wire with a fresh GCM IV per cookie",
     ...[
       "issuer",
       "state",
       "nonce",
-      "verifier",
       "kind",
       "providerId",
       "byoId",
       "orgId",
+      "future field",
     ].map(
       (field) => `signed federated state integrity rejects a changed ${field}`,
     ),
-    "signed federated state integrity authenticates new fields even before the decoder uses them",
-    "signed federated state integrity accepts a legacy signature only when no unsigned provenance is present",
-    "signed federated state integrity accepts legacy static provenance only with a signed nonempty provider",
-    ...["orgId", "byoId"].map(
-      (field) =>
-        `signed federated state integrity rejects a legacy ${field} cookie after its unsigned owner is stripped`,
-    ),
+    "signed federated state integrity rejects a tampered or swapped verifier seal",
+    "signed federated state integrity rejects decoding with the wrong pepper",
+    "signed federated state integrity fails closed on a plaintext or mixed verifier even under a valid v4 tag",
+    "signed federated state integrity refuses a v3 cookie that main emitted before v4",
+    "signed federated state integrity refuses v3 plaintext and legacy signatures, so their sign-ins restart",
+    "signed federated state integrity derives no key and runs no slow hash before the MAC verifies",
+    "signed federated state integrity keeps slow password hashing out of the pending cookie codec",
     ...["orgId", "byoId"].map(
       (field) =>
         `refuses a stripped legacy ${field} callback before trust lookup or exchange`,
