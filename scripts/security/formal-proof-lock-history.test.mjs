@@ -380,15 +380,14 @@ test("a committed weakened lock helper cannot skip the mapped proof suites", (t)
   );
   f.commit();
   const result = push(f, "HEAD", "refs/heads/main");
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(f.commands(), ["run verify:spiffe"]);
+  assert.notEqual(result.status, 0, result.stdout);
+  assert.match(result.stderr, /projection\.py changed .*separately/u);
+  assert.deepEqual(f.commands(), []);
 });
 
 test("a committed weakened lock selector cannot skip the mapped proof suites", (t) => {
-  // The trusted controller gate runs against a worktree whose lock-history
-  // selector was rewritten. The selector is an executable gate input, so it
-  // is validated against the incoming trusted main revision; on mismatch
-  // every projection suite is selected instead of trusting the comparison.
+  // A push changing a projection gate input together with Cargo.lock is
+  // refused (#2668) before any projection output is trusted.
   const { f, base } = initialize(t);
   f.write("Cargo.lock", lock({ sdk: "e" }));
   f.write(
@@ -398,8 +397,9 @@ test("a committed weakened lock selector cannot skip the mapped proof suites", (
   f.commit();
   const head = f.git("rev-parse", "HEAD");
   const result = f.run(f.tuple(head, base));
-  assert.equal(result.status, 0, result.stderr);
-  assert.deepEqual(f.commands(), ["run verify:spiffe"]);
+  assert.notEqual(result.status, 0, result.stdout);
+  assert.match(result.stderr, /lock-history\.mjs changed .*separately/u);
+  assert.deepEqual(f.commands(), []);
 });
 
 test("native push executes the verified helper even if its source changes afterward", (t) => {
