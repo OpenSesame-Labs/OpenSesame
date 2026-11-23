@@ -23,7 +23,7 @@ import {
   vfsFlush,
   writeFile,
 } from "../vfs.js";
-import { rebindTombSeals } from "./seal-rebind.js";
+import { rebindTombSeals, rekeyTomb } from "./seal-rebind.js";
 
 let root: ReturnType<typeof makeOpfs>;
 beforeEach(() => {
@@ -118,9 +118,7 @@ describe("seal rebind keeps the sealed index across a reload", () => {
       "corrupt",
     );
     kvForgetAll();
-    await expect(
-      rebindTombSeals(PERSONAL_TOMB, vaultKey),
-    ).resolves.toBeUndefined();
+    await expect(rebindTombSeals(PERSONAL_TOMB, vaultKey)).resolves.toBe(false);
     expect(
       new TextDecoder().decode(await readFile(PERSONAL_TOMB, "config/good")),
     ).toBe("kept");
@@ -146,9 +144,7 @@ describe("seal rebind keeps the sealed index across a reload", () => {
       "corrupt",
     );
     kvForgetAll();
-    await expect(
-      rebindTombSeals(PERSONAL_TOMB, vaultKey),
-    ).resolves.toBeUndefined();
+    await expect(rebindTombSeals(PERSONAL_TOMB, vaultKey)).resolves.toBe(false);
     expect(readPlaintextFile(PERSONAL_TOMB, SEAL_BOUND_MARKER_PATH)).toBeNull();
     expect(await listDir(PERSONAL_TOMB, "config")).toEqual([
       "config/bad",
@@ -157,5 +153,40 @@ describe("seal rebind keeps the sealed index across a reload", () => {
     expect(
       new TextDecoder().decode(await readFile(PERSONAL_TOMB, "config/good")),
     ).toBe("kept");
+  });
+
+  it("stops a key rotation when a file on an unbound tomb cannot be loaded", async () => {
+    const old = await mintVaultKey();
+    const next = await mintVaultKey();
+    unlockTomb(PERSONAL_TOMB, old.vaultKey);
+    await writeFile(
+      PERSONAL_TOMB,
+      "config/good",
+      new TextEncoder().encode("kept"),
+    );
+    await writeFile(
+      PERSONAL_TOMB,
+      "config/bad",
+      new TextEncoder().encode("broken"),
+    );
+    await vfsFlush();
+    const bad = kvFileName(tombFileKey(PERSONAL_TOMB, "config/bad"));
+    const stranded = root.files.get(bad);
+    root.files.set(bad, "unreadable for now");
+    kvForgetAll();
+    await expect(
+      rekeyTomb(PERSONAL_TOMB, old.vaultKey, next.rawVaultKey),
+    ).rejects.toThrow("not rotated");
+    // The tomb still answers to the old key once the read recovers.
+    if (stranded !== undefined) root.files.set(bad, stranded);
+    kvForgetAll();
+    lockAllTombs();
+    unlockTomb(PERSONAL_TOMB, old.vaultKey);
+    await expect(rebindTombSeals(PERSONAL_TOMB, old.vaultKey)).resolves.toBe(
+      true,
+    );
+    expect(
+      new TextDecoder().decode(await readFile(PERSONAL_TOMB, "config/bad")),
+    ).toBe("broken");
   });
 });

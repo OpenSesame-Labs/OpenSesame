@@ -159,15 +159,16 @@ async function rebindIndex(
 
 /**
  * Rewrite every unbound seal in the tomb, then mark the tomb so later opens
- * require the path binding. Safe to call on every unlock.
+ * require the path binding. Safe to call on every unlock. Answers false when
+ * an indexed file could not be loaded, so it was neither rebound nor marked.
  */
 export async function rebindTombSeals(
   tomb: string,
   key: CryptoKey,
   check?: () => void,
-): Promise<void> {
+): Promise<boolean> {
   const io = originalSealIO(check);
-  if (readPlaintextFile(tomb, SEAL_BOUND_MARKER_PATH) === "1") return;
+  if (readPlaintextFile(tomb, SEAL_BOUND_MARKER_PATH) === "1") return true;
   // This runs first on a vault's first unlock, ahead of the unlock's own
   // hydrate: on a fresh page the index and the files it names are on disk but
   // not yet in memory. Reading them as absent would seal an empty index over
@@ -201,9 +202,10 @@ export async function rebindTombSeals(
     io.active();
   }
   io.active();
-  if (!complete) return;
+  if (!complete) return false;
   await writePlaintextFile(tomb, SEAL_BOUND_MARKER_PATH, "1", io.active);
   io.active();
+  return true;
 }
 
 async function publishRekeyedSeals(
@@ -275,8 +277,12 @@ export async function rekeyTomb(
   // Entering the original turn has already drained earlier cooperating writes.
   io.active();
   // Bound first: a seal that predates path binding is rewritten, never carried.
-  await rebindTombSeals(tomb, from, io.active);
+  // A file that could not be loaded is still sealed under `from`; adopting
+  // `to` would strand it, so the rotation stops with the tomb as it was.
+  const rebound = await rebindTombSeals(tomb, from, io.active);
   io.active();
+  if (!rebound)
+    throw new Error("A vault file could not be read; the key was not rotated.");
   const rawIndex = io.readRaw(tombFileKey(tomb, INDEX_PATH));
   const indexBlob = rawIndex ? parseBlob(rawIndex) : null;
   if (!indexBlob) {
