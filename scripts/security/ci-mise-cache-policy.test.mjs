@@ -47,12 +47,14 @@ const rustMiseRestoreKey =
 
 // Workflows that restore the trunk mise tool cache read-only, and the tools
 // each restores. GHCR restores Node and Rust once each; PWA CD and the npm CLI
-// restore Node in every job that needs it.
+// restore Node in every job that needs it; the stranded-deploy dispatcher
+// (push to main only) restores Node once.
 const readOnlyMiseRestore = new Map([
   ["cd-ghcr-publish.yml", { tools: ["node", "rust"], once: true }],
   ["cd-npm-cli.yml", { tools: ["node"], once: false }],
   ["cd-pwa.yml", { tools: ["node"], once: false }],
   ["cd-pwa-profile-proof.yml", { tools: ["node"], once: false }],
+  ["cd-pwa-stranded-dispatch.yml", { tools: ["node"], once: true }],
 ]);
 
 function assertReadOnlyMiseRestore(name, text) {
