@@ -4,7 +4,6 @@ import importlib.util
 import json
 import marshal
 from pathlib import Path
-import shutil
 import struct
 import subprocess
 import sys
@@ -12,6 +11,9 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
+_SCRATCH = importlib.util.spec_from_file_location("formal_scratch_checkout", ROOT / "scripts/security/formal_scratch_checkout.py")
+scratch = importlib.util.module_from_spec(_SCRATCH)
+_SCRATCH.loader.exec_module(scratch)
 LOCK = "scripts/security/cargo-lock-projection.py"
 WORKSPACE = "scripts/security/cargo-workspace-projection.py"
 MULTI = "scripts/security/cargo-workspace-multipackage.py"
@@ -30,20 +32,14 @@ class BytecodeIntegrityTest(unittest.TestCase):
         cls.root = Path(cls.temp.name) / "repo"
         paths = {LOCK, WORKSPACE, MULTI, "Cargo.toml", "Cargo.lock", *CHECKERS}
         for checker in CHECKERS:
-            coverage = str(Path(checker).with_name("coverage.json"))
-            paths.add(coverage)
-            document = json.loads((ROOT / coverage).read_text())
-            for entry in document["sources"] + document.get("optional_sources", []):
-                if (ROOT / entry["path"]).is_file():
-                    paths.add(entry["path"])
-        for name in paths:
-            target = cls.root / name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(ROOT / name, target)
+            paths |= scratch.coverage_files(ROOT, str(Path(checker).with_name("coverage.json")))
+        scratch.copy_files(ROOT, cls.root, paths)
+        # The checkers resolve reviewed lineage and blobs in their own checkout.
+        scratch.init_checkout(cls.root, ROOT)
 
     def run_python(self, *args):
-        return subprocess.run([sys.executable, "-I", "-B", *map(str, args)],
-                              cwd=self.root, text=True, capture_output=True, check=False)
+        return subprocess.run([sys.executable, "-I", "-B", *map(str, args)], cwd=self.root,
+                              env=scratch.scrubbed_env(), text=True, capture_output=True, check=False)
 
     def forge(self, name):
         source = self.root / name

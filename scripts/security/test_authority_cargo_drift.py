@@ -76,13 +76,21 @@ class AuthorityCargoDriftTest(unittest.TestCase):
                     checker.verify(self.manifest)
                 target.write_bytes(previous)
 
+    def projection(self):
+        # verify() loads the projection helpers from their hash-checked bytes.
+        return checker.load_projection({
+            name: (self.root / name).read_bytes() for name in (
+                "scripts/security/cargo-lock-projection.py", "scripts/security/cargo-workspace-projection.py")
+        })
+
     def test_harness_direct_version_and_checksum_must_match_production(self):
-        production = checker.projection.lock_projection.read_lock(self.root / "Cargo.lock")
-        harness = checker.projection.lock_projection.read_lock(self.root / "spec/formal/authority/Cargo.lock")
+        lock_projection = self.projection().lock_projection
+        production = lock_projection.read_lock(self.root / "Cargo.lock")
+        harness = lock_projection.read_lock(self.root / "spec/formal/authority/Cargo.lock")
         checker.verify_harness_dependencies(production, harness)
         dependency = next(dep for dep in harness.edges[harness.select(checker.root_package)] if dep.name == "serde")
         package = harness.packages[dependency]
-        harness.packages[dependency] = checker.projection.lock_projection.Package(
+        harness.packages[dependency] = lock_projection.Package(
             dependency, "f" * 64, package.references)
         with self.assertRaisesRegex(ValueError, "harness direct dependency differs from production: serde"):
             checker.verify_harness_dependencies(production, harness)
@@ -97,7 +105,8 @@ class AuthorityCargoDriftTest(unittest.TestCase):
             checker.verify(self.manifest)
 
     def test_custom_manifest_paths_are_rejected_after_a_hash_update(self):
-        for section in ("[package]\nbuild = \"src/build.rs\"\n", "[lib]\npath = \"src/other.rs\"\n"):
+        for section, refusal in (("[package]\nbuild = \"src/build.rs\"\n", "unreviewed Cargo build script or custom path"),
+                                 ("[lib]\npath = \"src/other.rs\"\n", "reviewed Cargo lib target changed")):
             with self.subTest(section=section):
                 target = self.root / "crates/domain/Cargo.toml"
                 previous = target.read_text()
@@ -107,8 +116,12 @@ class AuthorityCargoDriftTest(unittest.TestCase):
                     target.write_text(previous + "\n" + section)
                 changed = copy.deepcopy(self.manifest)
                 next(item for item in changed["sources"] if item["path"] == "crates/domain/Cargo.toml")["sha256"] = sha256(target.read_bytes()).hexdigest()
-                with self.assertRaisesRegex(ValueError, "unsupported domain"):
+                # The shared Cargo target check refuses first; the domain-specific
+                # path check stays as a second, independent refusal.
+                with self.assertRaisesRegex(ValueError, f"{refusal}: crates/domain/Cargo.toml"):
                     checker.verify(changed)
+                with self.assertRaisesRegex(ValueError, "unsupported domain"):
+                    checker.check_crate_paths(self.projection().read_toml(target))
                 target.write_text(previous)
 
     def test_redirects_and_macro_generated_wiring_fail_after_hash_update(self):

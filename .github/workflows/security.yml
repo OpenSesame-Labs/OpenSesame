@@ -178,6 +178,8 @@ jobs:
           python3 scripts/security/verify-vendored-keepass.py
           python3 scripts/security/test_vendored_keepass.py
           python3 scripts/security/test_cargo_lock_projection.py
+          python3 -I scripts/security/test_cargo_workspace_multipackage.py
+          python3 -I scripts/security/test_spiffe_lock_drift.py
 
   osv-scanner:
     name: OSV-Scanner (lockfiles)
