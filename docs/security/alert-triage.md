@@ -73,7 +73,7 @@ A target that will be missed is said so on the alert, with the reason and a new 
 
 OSV-Scanner reports operating-system and bundled packages per image ([GHCR images](../operators/ghcr-images.md#vulnerability-scanning)). Read the category first.
 
-1. `container-source-<image>-<platform>` is what the current source builds. Fix it in the repository: move the base image digest, bump the package, or stop copying it in. The next run closes the alert.
+1. `container-source-<image>-<platform>` is what the current source builds. Fix it in the repository: move the base image digest, bump the package, or stop copying it in. The next run closes the alert. Each Alpine runtime stage runs `apk upgrade --no-cache`, so a fix already in the Alpine release repository lands before the base image is rebuilt; that layer stays cached until its base digest or command changes, so moving the digest still picks up later fixes.
 2. `container-image-<image>-<tag>-<platform>` is a historical registry tag the repository no longer updates. Fixing the source does not change it. Once the source category is clean, delete that tag's package version (or ship qualified OCI promotion); the next run uploads an empty report and closes the category. Do not dismiss these alerts while the tag can still be pulled.
 
 ### Code scanning finds a vulnerability

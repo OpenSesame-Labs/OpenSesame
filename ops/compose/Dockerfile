@@ -55,7 +55,10 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 # compiled into the binary (dbus crate `vendored` feature, static). Alpine
 # dbus-libs is not installed: this binary does not need it.
 FROM alpine:3.24@sha256:f59abe656b692d901e184be3445e084786602108599d2a51d229c0f5a48c71bf AS alpine-runtime
-RUN apk add --no-cache ca-certificates curl \
+# The pinned base can predate Alpine security fixes; take them from the
+# release's own repository (docs/security/alert-triage.md, source images).
+RUN apk upgrade --no-cache \
+  && apk add --no-cache ca-certificates curl \
   && adduser -D -u 10001 app \
   && mkdir -p /var/lib/opensesame \
   && chown 10001:10001 /var/lib/opensesame

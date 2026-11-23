@@ -17,7 +17,10 @@ RUN npm run build -w @opensesame/cli \
   && node scripts/release/prepare-cli-release.mjs
 # Alpine runtime: no Debian dpkg/status for OSV container scans.
 FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
-RUN adduser -D -u 10001 app
+# The pinned base can predate Alpine security fixes; take them from the
+# release's own repository (docs/security/alert-triage.md, source images).
+RUN apk upgrade --no-cache \
+  && adduser -D -u 10001 app
 WORKDIR /opt/opensesame-cli
 COPY --from=build /src/packages/cli/release/ ./
 # Committed shrinkwrap for the release manifest from prepare-cli-release.mjs.
