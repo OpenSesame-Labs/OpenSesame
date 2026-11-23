@@ -74,7 +74,8 @@ A target that will be missed is said so on the alert, with the reason and a new 
 OSV-Scanner reports operating-system and bundled packages per image ([GHCR images](../operators/ghcr-images.md#vulnerability-scanning)). Read the category first.
 
 1. `container-source-<image>-<platform>` is what the current source builds. Fix it in the repository: move the base image digest, bump the package, or stop copying it in. The next run closes the alert. Each Alpine runtime stage runs `apk upgrade --no-cache`, so a fix already in the Alpine release repository lands before the base image is rebuilt; that layer stays cached until its base digest or command changes, so moving the digest still picks up later fixes.
-2. `container-image-<image>-<tag>-<platform>` is a historical registry tag the repository no longer updates. Fixing the source does not change it. Once the source category is clean, delete that tag's package version (or ship qualified OCI promotion); the next run uploads an empty report and closes the category. Do not dismiss these alerts while the tag can still be pulled.
+2. `container-image-devcontainer` is the dev container built from `.devcontainer/Dockerfile`; it is source too, fixed the same way. That image also runs `apk upgrade --no-cache`, drops Python's `ensurepip` (its bundled pip wheel is older than the advisories' fixes and nothing seeds pip from it) and removes the empty `/var/cache/apk`, whose whited-out base-image indexes otherwise make OSV-Scanner 2.7.1 exit 127 with "failed to read the apk cache".
+3. `container-image-<image>-<tag>-<platform>` is a historical registry tag the repository no longer updates. Fixing the source does not change it. Once the source category is clean, delete that tag's package version (or ship qualified OCI promotion); the next run uploads an empty report and closes the category. Do not dismiss these alerts while the tag can still be pulled.
 
 ### Code scanning finds a vulnerability
 

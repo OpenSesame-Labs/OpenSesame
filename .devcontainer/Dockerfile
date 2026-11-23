@@ -44,7 +44,17 @@ ENV PATH=/opt/mise/shims:/home/vscode/.local/bin:/usr/local/bin:/usr/sbin:/usr/b
 # Node musl pins: official nodejs.org linux-x64-musl, unofficial-builds
 # linux-arm64-musl. Temurin publishes an Alpine JDK for x64 only. Apple
 # Silicon installs openjdk17 from apk and skips mise's java tool.
-RUN apk add --no-cache \
+# The pinned base can predate Alpine security fixes; take them from the
+# release's own repository (docs/security/alert-triage.md, source images).
+# Alpine's python3 ships ensurepip with a bundled pip wheel older than the
+# PyPI advisories' fixes, and no Alpine update moves it. Nothing here seeds
+# pip from it, so the module goes: `python3 -m venv` needs --without-pip.
+# The base image deletes its APKINDEX files in a later layer. OSV-Scanner
+# (osv-scalibr 0.5.3) opens those whiteouts as files and fails with "failed
+# to read the apk cache", exiting 127 even on a clean image. Removing the
+# empty cache directory whites it out whole; apk recreates it when needed.
+RUN apk upgrade --no-cache \
+  && apk add --no-cache \
     build-base \
     ca-certificates \
     curl \
@@ -52,7 +62,8 @@ RUN apk add --no-cache \
     git \
     libstdc++ \
     pkgconf \
-    python3
+    python3 \
+  && rm -rf /usr/lib/python3*/ensurepip /var/cache/apk
 
 # Pinned GitHub release tarball (musl build for Alpine). Same MISE_VERSION as
 # scripts/lib/mise-pins.sh; musl digests differ from glibc used on GitHub-hosted
