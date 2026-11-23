@@ -1,7 +1,5 @@
 //! Unit tests for [`super`].
 
-use std::io::Write as _;
-
 use super::*;
 
 const TEST_TARGET: &str = r#"{"target":{"enabled":true,"replication_version":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}"#;
@@ -49,6 +47,36 @@ fn operator_credential_is_only_sent_to_an_exact_secure_host_origin() {
     }
 }
 
+/// Read one HTTP/1.1 request: its headers, then a `Content-Length` body.
+async fn read_http_request(stream: &mut tokio::net::TcpStream) -> Vec<u8> {
+    use tokio::io::AsyncReadExt;
+    let mut request = Vec::new();
+    let mut buffer = [0; 4096];
+    let header_end = loop {
+        let read = stream.read(&mut buffer).await.unwrap();
+        assert!(read > 0);
+        request.extend_from_slice(&buffer[..read]);
+        if let Some(i) = request.windows(4).position(|window| window == b"\r\n\r\n") {
+            break i + 4;
+        }
+    };
+    let headers = String::from_utf8_lossy(&request[..header_end]);
+    let length: usize = headers
+        .lines()
+        .find_map(|line| {
+            let (name, value) = line.split_once(':')?;
+            name.eq_ignore_ascii_case("content-length")
+                .then(|| value.trim().parse().unwrap())
+        })
+        .unwrap_or(0);
+    while request.len() < header_end + length {
+        let read = stream.read(&mut buffer).await.unwrap();
+        assert!(read > 0);
+        request.extend_from_slice(&buffer[..read]);
+    }
+    request
+}
+
 /// A real loopback HTTP peer records each request and returns the given replies.
 async fn attachment_peer(
     replies: Vec<(&'static str, &'static str)>,
@@ -64,30 +92,7 @@ async fn attachment_peer(
                     .await
                     .unwrap()
                     .unwrap();
-            let mut request = Vec::new();
-            let mut buffer = [0; 4096];
-            let header_end = loop {
-                let read = stream.read(&mut buffer).await.unwrap();
-                assert!(read > 0);
-                request.extend_from_slice(&buffer[..read]);
-                if let Some(i) = request.windows(4).position(|window| window == b"\r\n\r\n") {
-                    break i + 4;
-                }
-            };
-            let headers = String::from_utf8_lossy(&request[..header_end]);
-            let length: usize = headers
-                .lines()
-                .find_map(|line| {
-                    let (name, value) = line.split_once(':')?;
-                    name.eq_ignore_ascii_case("content-length")
-                        .then(|| value.trim().parse().unwrap())
-                })
-                .unwrap_or(0);
-            while request.len() < header_end + length {
-                let read = stream.read(&mut buffer).await.unwrap();
-                assert!(read > 0);
-                request.extend_from_slice(&buffer[..read]);
-            }
+            let request = read_http_request(&mut stream).await;
             let response = format!("HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{response_body}", response_body.len());
             stream.write_all(response.as_bytes()).await.unwrap();
             requests.push(request);

@@ -23,8 +23,7 @@ mod delegations;
 mod device;
 mod est_enrollment;
 #[cfg(test)]
-#[path = "est_freshness.rs"]
-pub(crate) mod est_freshness;
+use est_wire::freshness as est_freshness;
 mod est_records;
 pub(crate) mod est_server;
 mod est_wire;

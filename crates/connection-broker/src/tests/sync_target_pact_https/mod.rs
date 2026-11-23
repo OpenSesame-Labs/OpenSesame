@@ -56,9 +56,7 @@ pub(crate) fn credentialed_send_https_gaps(source: &str) -> (usize, usize) {
         if let Some(len) = dispatch_site(&source, &alias_calls, index) {
             if credentialed_dispatch_site(&source, index) {
                 sends += 1;
-                if !scheme_guarded(&source, &spans, index) {
-                    missing += 1;
-                }
+                missing += usize::from(!scheme_guarded(&source, &spans, index));
             }
             index += len;
             continue;
@@ -219,11 +217,11 @@ mod probes {
             ("::<A, '}'>(req)", "(req)"),
             ("::<{'}'}>(req)", "(req)"),
         ] {
-            assert_eq!(strip_turbofish(after).as_deref(), Some(rest), "{after}");
+            assert_eq!(strip_turbofish(after), Some(rest), "{after}");
         }
         // Controls: comparisons and return arrows still do not close.
-        assert_eq!(strip_turbofish("::<{1 > 0}>(req)").as_deref(), Some("(req)"));
-        assert_eq!(strip_turbofish("::<fn() -> R>(req)").as_deref(), Some("(req)"));
+        assert_eq!(strip_turbofish("::<{1 > 0}>(req)"), Some("(req)"));
+        assert_eq!(strip_turbofish("::<fn() -> R>(req)"), Some("(req)"));
         assert!(strip_turbofish("::<A").is_none());
     }
 }

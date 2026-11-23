@@ -151,7 +151,6 @@ pub fn open(sealed: &[u8], recipient: &XKeyPair) -> Result<Vec<u8>, XkeysError> 
 
     let cipher = XChaCha20Poly1305::new_from_slice(&key).map_err(|_| XkeysError::Kdf)?;
     let ad = associated_data(eph_public.as_bytes(), &recipient_pk);
-    let nonce = <&XNonce>::try_from(nonce).map_err(|_| XkeysError::Truncated)?;
     cipher
         .decrypt(
             nonce,

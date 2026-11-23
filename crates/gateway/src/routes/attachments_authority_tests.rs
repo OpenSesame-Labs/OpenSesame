@@ -40,10 +40,10 @@ async fn a_member_session_cannot_use_the_operators_storage_connection() {
             role,
         );
         for (uri, body) in &requests {
-            let mut request = Request::builder().method("POST").uri(uri);
-            for (name, value) in &headers {
-                request = request.header(name, value);
-            }
+            let request = headers.iter().fold(
+                Request::builder().method("POST").uri(uri),
+                |request, (name, value)| request.header(name, value),
+            );
             let res = app
                 .clone()
                 .oneshot(request.body(Body::from(body.to_vec())).unwrap())

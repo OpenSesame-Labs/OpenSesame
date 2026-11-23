@@ -135,14 +135,14 @@ pub(crate) fn function_spans(bytes: &[u8]) -> Vec<(usize, usize)> {
             index += len;
             continue;
         }
-        if is_keyword_at(bytes, index, b"fn") {
-            if let Some(open) = fn_body_open(bytes, index) {
-                if let Some(close) = match_brace(bytes, open) {
-                    spans.push((open, close));
-                    index = open + 1;
-                    continue;
-                }
-            }
+        let body = is_keyword_at(bytes, index, b"fn")
+            .then(|| fn_body_open(bytes, index))
+            .flatten()
+            .and_then(|open| Some((open, match_brace(bytes, open)?)));
+        if let Some((open, close)) = body {
+            spans.push((open, close));
+            index = open + 1;
+            continue;
         }
         index += 1;
     }

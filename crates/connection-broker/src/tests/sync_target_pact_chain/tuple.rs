@@ -229,6 +229,14 @@ fn code_ends(source: &str) -> (usize, usize) {
     (end, start)
 }
 
+pub(super) fn ends_with_kw(source: &str, keyword: &str) -> bool {
+    source.strip_suffix(keyword).is_some_and(|rest| {
+        rest.chars()
+            .next_back()
+            .is_none_or(|ch| !super::is_ident_char(ch))
+    })
+}
+
 #[cfg(test)]
 mod probes {
     use super::super::super::sync_target_pact_https::credentialed_send_https_gaps;
@@ -389,12 +397,4 @@ mod probes {
         let guarded = "async fn f() { if parsed.scheme() != \"https\" { return Err(\"x\".into()); } let (a, dispatch) = (foo::<A, B>(x) > y, Path::send); dispatch(request).await?; }";
         assert_eq!(credentialed_send_https_gaps(guarded), (1, 0), "{guarded}");
     }
-}
-
-pub(super) fn ends_with_kw(source: &str, keyword: &str) -> bool {
-    source.strip_suffix(keyword).is_some_and(|rest| {
-        rest.chars()
-            .next_back()
-            .is_none_or(|ch| !super::is_ident_char(ch))
-    })
 }
