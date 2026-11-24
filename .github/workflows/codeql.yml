@@ -134,6 +134,20 @@ jobs:
           echo "20f1b1176237254a6fc204d8434196fa11a4cfb387567519c61556e8710aed78  $RUNNER_TEMP/gradle.zip" | sha256sum --check
           unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
           echo "$RUNNER_TEMP/gradle-8.13/bin" >> "$GITHUB_PATH"
+      # The Kotlin build resolves the Android plugin graph from Maven Central,
+      # which rate-limits hosted runners (429). Every run restores the module
+      # cache saved by a monitoring run of main; only that run saves it, below.
+      # The key follows the pinned Gradle and the Android build inputs (today
+      # only build scripts and gradle.properties; a catalog or lockfile joins it).
+      - name: Restore Gradle dependency cache
+        id: gradle-cache
+        if: matrix.language == 'java-kotlin'
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/caches/modules-2
+          key: gradle-modules-v1-${{ runner.os }}-gradle-8.13-${{ hashFiles('apps/android/android/**/*.gradle.kts', 'apps/android/android/**/gradle.properties', 'apps/android/android/**/libs.versions.toml', 'apps/android/android/**/*.lockfile') }}
+          restore-keys: |
+            gradle-modules-v1-${{ runner.os }}-gradle-8.13-
       - name: Build Android native libraries
         if: matrix.language == 'java-kotlin'
         env:
@@ -189,10 +203,23 @@ jobs:
       - name: Compile Android production and test Kotlin
         if: matrix.language == 'java-kotlin'
         run: |
+          # Gradle 8.13 retries a 429 or 5xx per repository request
+          # (ErrorHandlingModuleComponentRepository): five tries, 2s backoff doubling.
           gradle --no-daemon --no-build-cache --rerun-tasks --max-workers=2 \
+            -Dorg.gradle.internal.repository.max.tentatives=5 \
+            -Dorg.gradle.internal.repository.initial.backoff=2000 \
             -p apps/android/android -Pkotlin.compiler.execution.strategy=in-process \
             :app:compileDebugKotlin :app:compileDebugUnitTestKotlin \
             -PopensesameWalletBackendUrl=https://identity.example
+      # Only a scheduled or dispatched monitoring run of main writes the cache.
+      # Branch dispatches restore it; a release candidate (source_sha) never
+      # saves, even when the release controller itself runs on main.
+      - name: Save Gradle dependency cache
+        if: ${{ matrix.language == 'java-kotlin' && !inputs.source_sha && github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.gradle-cache.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/caches/modules-2
+          key: ${{ steps.gradle-cache.outputs.cache-primary-key }}
       - name: Analyze
         uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v4
         with:
