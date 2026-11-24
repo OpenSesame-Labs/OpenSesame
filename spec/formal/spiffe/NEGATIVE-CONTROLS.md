@@ -26,7 +26,8 @@ no live repository source is edited.
 | Keep all old anchors whenever their domain remains present. | Trust-set vectors and the rejected-profile/removed-anchor regression. |
 | Compare incoming trust with itself instead of active trust. | The rejected-profile/removed-anchor integration regression, exercising the source wiring. |
 | Report a credential configured at its exact deadline. | Status correspondence vectors and the explicit status-boundary unit test. |
-| Extend the stored outage deadline on a retry. | Deadline correspondence vectors and the rejected-profile reconnect regression. |
+| Skip the early withdrawal when incoming trust is reduced. | The held-history-write regression, which requires the old generation to be withdrawn while the write waits. |
+| Extend the stored outage deadline on a retry. | Deadline correspondence vectors. The sink deadline and monotonic bound are tightened separately and no integration test reopens an outage, so only the status record changes. |
 | Ignore the outage deadline while opening a stalled RPC. | The stalled-RPC integration regression, exercising the timer wiring. |
 | Rename the required Lean correspondence test so Cargo matches zero tests. | The normal `verify.sh` guard rejects the otherwise successful zero-test result before the source-drift check. |
 
