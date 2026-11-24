@@ -60,7 +60,8 @@ def retry_vector_controls(scratch: Path, env: dict, helper: dict, checker: Path,
     ]
     for label, case, diagnostic in cases:
         vectors.write_text("\n".join(case) + ("\n" if case else ""))
-        result = helper["checked_cargo"](scratch, env, ["opensesame-task-bus"], checker, command)
+        result = helper["checked_cargo"](scratch, env, ["opensesame-task-bus"], checker, command,
+                                         reviewed_patches=("sqlx-sqlite=patches/vendor/sqlx-sqlite-0.9.0",))
         require_failure(result, test, diagnostic, label)
     vectors.write_text("\n".join(rows) + "\n")
 

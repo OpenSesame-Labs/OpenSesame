@@ -208,6 +208,26 @@ class WrapperTests(unittest.TestCase):
                 self.assertEqual(list(lease.path.iterdir()), [])
 
 
+    def test_scratch_witness_declares_the_runners_reviewed_patches(self):
+        # Since #2768 every Cargo suite closure reaches a [patch.crates-io] path patch,
+        # and the freshness init refuses any patch the witness does not declare.
+        root, calls = Path(__file__).resolve().parents[2], []
+
+        def record(command, **_):
+            calls.append(command)
+            return subprocess.CompletedProcess(command, 0, "", "")
+
+        checker = Path("spec/formal/spiffe/check-drift.py")
+        with patch.object(MODULE.subprocess, "run", record):
+            for patches in [(), ("sqlx-sqlite=patches/vendor/sqlx-sqlite-0.9.0",)]:
+                calls.clear()
+                MODULE.checked_cargo(root, {}, ["opensesame-domain"], checker, ["test"], reviewed_patches=patches)
+                init = next(call for call in calls if "init" in call)
+                declared = [init[i + 1] for i, arg in enumerate(init) if arg == "--reviewed-patch"]
+                self.assertEqual(declared, list(patches))
+                self.assertEqual(init[init.index("--package") + 1], "opensesame-domain")
+
+
 class CargoIsolationTests(unittest.TestCase):
     """Compile a failing mutant then live source against the same target."""
 

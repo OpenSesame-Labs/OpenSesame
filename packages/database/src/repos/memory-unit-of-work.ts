@@ -34,6 +34,7 @@ import {
   ConflictError,
   type NewOutboxEvent,
   type PushSubscription,
+  type TransactionFn,
   type UnitOfWork,
 } from "./interfaces.js";
 
@@ -41,6 +42,7 @@ type PendingOp = () => void;
 
 export class MemoryUnitOfWork implements UnitOfWork {
   readonly ops: PendingOp[] = [];
+  private readonly rollbacks: PendingOp[] = [];
   readonly outboxBuffer: OutboxEvent[] = [];
   private readonly webhookAdmissions = new Map<string, number>();
   private readonly admissionChecks: PendingOp[] = [];
@@ -163,6 +165,19 @@ export class MemoryUnitOfWork implements UnitOfWork {
     this.ops.push(op);
   }
 
+  /**
+   * Undo a write that had to be visible before commit (a fencing token
+   * other transactions must see). Runs, newest first, only if the
+   * transaction aborts, so the aborted write is discarded as Postgres would.
+   */
+  onRollback(op: PendingOp): void {
+    this.rollbacks.push(op);
+  }
+
+  rollback(): void {
+    for (const op of this.rollbacks.splice(0).reverse()) op();
+  }
+
   commit(): void {
     for (const check of this.admissionChecks) check();
     for (const check of this.commitChecks) check();
@@ -229,6 +244,30 @@ export function checkAuditInsert(store: MemoryStore, event: AuditEvent): void {
     )
   )
     throw auditPredecessorConflict();
+}
+
+/** Commit `fn`'s writes, or run its rollback undos if it or the commit throws. */
+export async function runMemoryTransaction<T>(
+  store: MemoryStore,
+  fn: TransactionFn<T>,
+): Promise<T> {
+  const uow = new MemoryUnitOfWork(store);
+  try {
+    const result = await fn(uow);
+    uow.commit();
+    return result;
+  } catch (error) {
+    uow.rollback();
+    throw error;
+  }
+}
+
+/** Register `undo` to run only if `uow`'s memory transaction aborts. */
+export function undoOnRollback(
+  uow: UnitOfWork | undefined,
+  undo: () => void,
+): void {
+  if (uow instanceof MemoryUnitOfWork) uow.onRollback(undo);
 }
 
 export function applyNowOrDefer(

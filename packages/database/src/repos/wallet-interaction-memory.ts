@@ -3,6 +3,7 @@
  */
 
 import { ConflictError, NotFoundError, type UnitOfWork } from "./interfaces.js";
+import { undoOnRollback } from "./memory-unit-of-work.js";
 import {
   cloneProofAttempt,
   cloneReservation,
@@ -260,8 +261,16 @@ export class MemoryWalletInteractionRepos {
       const apply = () => {
         this.#reservations.set(row.id, cloneReservation(row));
       };
+      // The held row is visible at once, so a concurrent acquirer takes the
+      // next token and is fenced against this one. If this transaction
+      // aborts, the row is discarded, as Postgres discards the insert.
+      const prior = this.#reservations.get(row.id);
       apply();
       this.#apply(uow, apply);
+      undoOnRollback(uow, () => {
+        if (prior) this.#reservations.set(row.id, prior);
+        else this.#reservations.delete(row.id);
+      });
       return cloneReservation(row);
     },
 

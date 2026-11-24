@@ -70,6 +70,7 @@ import {
   MemoryUnitOfWork,
   applyNowOrDefer,
   checkAuditInsert,
+  runMemoryTransaction,
 } from "./memory-unit-of-work.js";
 import { MemoryOrganizationMembershipStore } from "./organization-membership-memory.js";
 import { MemoryOrganizationStore } from "./organization-store-memory.js";
@@ -1425,10 +1426,7 @@ export class MemoryRepositories implements Repositories {
   readonly executionReservations = this.#wallet.executionReservations;
 
   async transaction<T>(fn: TransactionFn<T>): Promise<T> {
-    const uow = new MemoryUnitOfWork(this.#store);
-    const result = await fn(uow);
-    uow.commit();
-    return result;
+    return runMemoryTransaction(this.#store, fn);
   }
 }
 

@@ -2,6 +2,7 @@
 """Demonstrate that the real SPIFFE checks reject isolated Rust mutants."""
 from dataclasses import dataclass
 import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
@@ -11,6 +12,8 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[3]
 CRATE = Path("crates/spiffe-source")
+# The --reviewed-patch declarations of verify.sh's freshness init.
+REVIEWED_PATCHES = ("sqlx-sqlite=patches/vendor/sqlx-sqlite-0.9.0",)
 FORMAL_TEST = "source::formal_tests::lean_vectors_match_the_sdk_classifier_and_outage_deadlines"
 LIVE_TREES = (CRATE, Path("crates/domain"), Path("crates/transport-security"), Path("spec/formal/spiffe"))
 LIVE_FILES = (
@@ -68,7 +71,7 @@ MUTATIONS = (
     Mutation(
         "unauthenticated-becomes-outage",
         "src/source_policy.rs",
-        'if status.code() == GrpcStatusCode::Unauthenticated =>\n        {\n            ApiAction::Denied("workload_api_denied")\n        }',
+        'if status.code() == GrpcStatusCode::Unauthenticated =>\n        {\n            ApiAction::Denied("workload_api_unauthenticated")\n        }',
         "if status.code() == GrpcStatusCode::Unauthenticated =>\n        {\n            ApiAction::Outage\n        }",
         (
             vector("classify\tunauthenticated\tunauthenticated"),
@@ -107,7 +110,10 @@ MUTATIONS = (
         "src/source_history_flow.rs",
         ".is_some_and(|active| !generation.bundles.contains_all(&active.bundles))",
         ".is_some_and(|_| false)",
-        (integration("trust_reduction_policy", "refused_activation_with_removed_anchor_withdraws", "rejected activation is reported after withdrawal"),),
+        # The refused-activation path also withdraws for a reduced view, so only
+        # a blocked history write shows whether withdrawal came before it.
+        (integration("durable_history_policy", "reduced_snapshot_withdraws_before_history_wait_and_stop_remains_prompt",
+                     "generations.checked_current(None).is_err()"),),
     ),
     Mutation(
         "status-allows-equal-deadline",
@@ -128,17 +134,16 @@ MUTATIONS = (
         "src/source_loop.rs",
         "s.retain_until = Some(s.retain_until.map_or(r, |cur| cur.min(r)));",
         "s.retain_until = Some(s.retain_until.map_or(r, |cur| cur.max(r)));",
-        (
-            vector("source_formal_tests.rs:"),
-            integration("outage_policy", "invalid_profile_after_reconnect_cannot_end_the_outage_or_extend_its_deadline", "assertion failed"),
-        ),
+        # Only the status record changes: the sink deadline and the monotonic bound
+        # are tightened separately, and no integration test reopens an outage.
+        (vector("source_formal_tests.rs:"),),
     ),
     Mutation(
         "stalled-rpc-ignores-outage-deadline",
         "src/source_loop.rs",
         ".map(|active| bounded_deadline(active.not_after, self.status.borrow().retain_until))",
         ".map(|active| active.not_after)",
-        (integration("outage_policy", "stalled_rpc_opening_cannot_extend_the_outage_deadline", "expected prompt withdrawal"),),
+        (integration("outage_policy", "stalled_rpc_opening_cannot_extend_the_outage_deadline", "outage deadline moved past"),),
     ),
     Mutation(
         "correspondence-test-renamed",
@@ -279,6 +284,7 @@ def assert_caught(mutation: Mutation, witness: Witness, *, scratch: Path, env: d
     result = helper["checked_cargo"](
         scratch, env, ["opensesame-spiffe-source"],
         Path("spec/formal/spiffe/check-drift.py"), command[1:],
+        reviewed_patches=REVIEWED_PATCHES,
     )
     output = result.stdout + result.stderr
     if (
@@ -353,8 +359,16 @@ def main() -> None:
                     mutation.before, mutation.after, Path("spec/formal/spiffe/check-drift.py"),
                     env=env,
                 ):
-                    for witness in mutation.witnesses:
-                        assert_caught(mutation, witness, scratch=scratch, env=mutant_env, helper=helper)
+                    # The attestation must list exactly the mutated manifest's sources.
+                    attestation = scratch / "spec/formal/spiffe/reviewed-sources.json"
+                    reviewed = attestation.read_bytes()
+                    sources = json.loads((scratch / "spec/formal/spiffe/coverage.json").read_text())["sources"]
+                    attestation.write_text(json.dumps({**json.loads(reviewed), "sources": sources}, indent=2) + "\n")
+                    try:
+                        for witness in mutation.witnesses:
+                            assert_caught(mutation, witness, scratch=scratch, env=mutant_env, helper=helper)
+                    finally:
+                        attestation.write_bytes(reviewed)
             require_success(["bash", "spec/formal/spiffe/verify.sh"], cwd=scratch, env=env, label="unmodified suite after mutations")
     finally:
         after = live_fingerprint()

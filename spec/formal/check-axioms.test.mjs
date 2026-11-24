@@ -32,8 +32,9 @@ const suites = [
   {
     name: "invocation",
     model: "Invocation.lean",
+    parts: ["InvocationEffects.lean"],
     first: "prior_requires_binding_receipt_and_policy",
-    vectors: 36,
+    vectors: 192,
   },
   {
     name: "dpop",

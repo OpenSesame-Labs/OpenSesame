@@ -71,7 +71,9 @@ trust tombstones are in-memory and do not establish persistence across restart.
 the other Rust suites, declaring the vendored `sqlx-sqlite` path patch with
 `--reviewed-patch`; `check-drift.py` covers and executes the reviewed
 vendored-SQLx verifier and resolves reviewed blobs through the owning checkout
-when run from a scratch tree. `negative-controls.py` still cannot build the
-patched workspace in its scratch tree (`checked_cargo` offers no reviewed-patch
-declaration and the tree omits `patches/vendor`); that shared-helper fix is
-outstanding.
+when run from a scratch tree. A later 2026-11-24 review fixed
+`negative-controls.py`: `checked_cargo` now forwards the runner's reviewed-patch
+declarations, `mutated_coverage` records each mutant's blob, and the runner
+exports `OPENSESAME_FORMAL_GIT_ROOT` for its archived scratch tree (which does
+contain `patches/vendor`). It now rejects all six implementation mutants and
+seven malformed matrices.

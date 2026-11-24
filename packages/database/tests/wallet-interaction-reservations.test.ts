@@ -21,9 +21,10 @@ function executionReservationContract(
   describe(`${label}.executionReservations`, () => {
     let repo: ExecutionReservationRepository;
     let interaction: Interaction;
+    let fx: Fixture;
 
     async function fresh() {
-      const fx = await setup();
+      fx = await setup();
       repo = fx.repos.executionReservations;
       interaction = await fx.newInteraction();
     }
@@ -110,6 +111,23 @@ function executionReservationContract(
       expect((await repo.getById(held.id))?.status).toBe("expired");
     });
 
+    it("discards a reservation its transaction rolled back", async () => {
+      await fresh();
+      const rollback = new Error("rolled back after acquire");
+      await expect(
+        fx.repos.transaction(async (uow) => {
+          await repo.acquire(acquireInput("worker_a"), uow);
+          throw rollback;
+        }),
+      ).rejects.toBe(rollback);
+      // Nothing of the aborted transaction survives: no held lease, and the
+      // next acquirer starts the fence from the first token.
+      expect(await repo.getCurrent(interaction.id)).toBeNull();
+      const next = await repo.acquire(acquireInput("worker_b"));
+      expect(next.fencingToken).toBe(1);
+      expect(await repo.getById(next.id)).toMatchObject({ status: "held" });
+    });
+
     it("reports NotFound for an unknown reservation", async () => {
       await fresh();
       await expect(
@@ -133,6 +151,35 @@ async function memoryFixture(): Promise<Fixture> {
 }
 
 executionReservationContract("MemoryRepositories", memoryFixture);
+
+describe("MemoryRepositories.executionReservations rollback", () => {
+  it("restores a reused id's earlier row instead of deleting it", async () => {
+    const fx = await memoryFixture();
+    const repo = fx.repos.executionReservations;
+    const interaction = await fx.newInteraction();
+    const input = {
+      id: "xrsv_reused",
+      interactionId: interaction.id,
+      requestDigest: "sha256:deadbeef",
+      holderRef: "worker_a",
+      leaseExpiresAt: new Date("2026-03-04T05:10:00.000Z"),
+    };
+    const held = await repo.acquire(input);
+    const rollback = new Error("rolled back after acquire");
+    await expect(
+      fx.repos.transaction(async (uow) => {
+        await repo.acquire({ ...input, holderRef: "worker_b" }, uow);
+        throw rollback;
+      }),
+    ).rejects.toBe(rollback);
+    // The aborted overwrite is undone; the row it replaced is back intact.
+    expect(await repo.getById(input.id)).toMatchObject({
+      holderRef: "worker_a",
+      fencingToken: held.fencingToken,
+      status: "held",
+    });
+  });
+});
 
 const pgOwner = createPgOwner();
 let ctx: PgTestContext;

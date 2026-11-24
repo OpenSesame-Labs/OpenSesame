@@ -32,6 +32,7 @@ class Control:
     diagnostic: str
 
 
+SQLX_PATCH, KEEPASS_PATCH = "sqlx-sqlite=patches/vendor/sqlx-sqlite-0.9.0", "keepass=patches/vendor/keepass-0.17.0"
 GATEWAY = ("-p", "opensesame-gateway", "--lib")
 TRANSPORT = ("-p", "opensesame-transport-security", "--all-features", "--test", "source_history_reservation")
 SPIFFE = ("-p", "opensesame-spiffe-source", "--all-features")
@@ -87,7 +88,7 @@ CONTROLS = (
     ),
     Control(
         "stream stops observing events during a write",
-        "crates/spiffe-source/src/source.rs",
+        "crates/spiffe-source/src/source_loop.rs",
         "item = stream.next() => {", "item = stream.next(), if pending.is_none() => {",
         SPIFFE + ("--test", "durable_history_supersession"),
         "observed_denial_withdraws_before_the_superseded_write_finishes",
@@ -184,10 +185,9 @@ def load_isolation(scratch: Path):
 def verify(control: Control, scratch: Path, env: dict[str, str], isolation, mutant: bool) -> None:
     print(f"{control.label}: starting {'mutant' if mutant else 'baseline'}", flush=True)
     command = ["test", "--locked", *control.cargo, control.test, "--", "--exact", "--nocapture"]
-    result = isolation.checked_cargo(
-        scratch, env, [control.cargo[1]],
-        Path("spec/formal/source-trust-history/check-drift.py"), command,
-    )
+    patches = (KEEPASS_PATCH, SQLX_PATCH) if control.cargo[1] == "opensesame-cli" else (SQLX_PATCH,)  # as verify.sh declares
+    result = isolation.checked_cargo(scratch, env, [control.cargo[1]], Path("spec/formal/source-trust-history/check-drift.py"),
+                                     command, reviewed_patches=patches)
     output = result.stdout + result.stderr
     if mutant:
         valid = (result.returncode == 101 and f"test {control.test} ... FAILED" in output

@@ -32,6 +32,7 @@ mod github_app_minting;
 mod legacy_connections;
 mod minting_changelog;
 mod org_integrations;
+mod owner_egress_vectors;
 mod revocation_cleanup;
 mod rotation_leftover;
 mod sync_target_pact;
