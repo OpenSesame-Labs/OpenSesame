@@ -130,6 +130,47 @@ theorem full_cache_never_accepts_new (now ttl validUntil : Int)
     (record none now ttl validUntil capacity length otherCount).1 ≠ .accepted := by
   by_cases h : length == 0 || length > 256 <;> simp [record, prune, h, hFull]
 
+/-! DPOP-R2: the decoder's age window lies inside the replay window. `ageAdmits` is
+`proof_age_admits` (replay.rs), which `decode_dpop_proof` (jwk.rs) requires; `replayUntil` is
+`proof_replay_until`, which `DpopValidator::validate` passes to the cache as `valid_until`. -/
+def checkedSub (a b : Int) : Option Int :=
+  if intMin ≤ a - b ∧ a - b ≤ intMax then some (a - b) else none
+
+def ageAdmits (now iat maxAge : Int) : Bool :=
+  match checkedSub now iat with
+  | some age => decide (age ≤ maxAge)
+  | none => false
+
+def replayUntil (iat maxAge : Int) : Int := saturatingAdd iat maxAge
+
+theorem fresh_proof_inside_replay_window (now iat maxAge : Int) (hNow : now ≤ intMax)
+    (h : ageAdmits now iat maxAge = true) : now ≤ replayUntil iat maxAge := by
+  unfold ageAdmits checkedSub at h
+  split at h
+  · rename_i age hSub
+    split at hSub
+    · cases hSub
+      simp only [decide_eq_true_eq] at h
+      simp only [replayUntil, saturatingAdd]
+      omega
+    · cases hSub
+  · cases h
+
+-- A replayed proof (same `jti` and `iat`) that the decoder would still admit is refused.
+theorem fresh_replay_refused
+    (times : List Int) (first now ttl iat maxAge : Int)
+    (capacity length firstOthers laterOthers : Nat)
+    (hFirst : (record none first ttl (replayUntil iat maxAge) capacity length firstOthers).1 =
+      .accepted)
+    (hTimes : ∀ t ∈ times, t ≤ replayUntil iat maxAge) (hNow : now ≤ intMax)
+    (hFresh : ageAdmits now iat maxAge = true) (hLength : length > 0) (hLimit : length ≤ 256) :
+    (record (pruneMany times
+        (record none first ttl (replayUntil iat maxAge) capacity length firstOthers).2)
+      now ttl (replayUntil iat maxAge) capacity length laterOthers).1 = .replay :=
+  accepted_then_no_replay_during_window times first now ttl (replayUntil iat maxAge) capacity
+    length firstOthers laterOthers hFirst hTimes
+    (fresh_proof_inside_replay_window now iat maxAge hNow hFresh) hLength hLimit
+
 private def kindCases : List (String × Nat) := [
   ("empty", 0), ("ascii1", 1), ("ascii256", 256), ("ascii257", 257),
   ("utf8_128", 256), ("utf8_129", 258)]
@@ -162,6 +203,12 @@ def main : IO Unit := do
                 let (secondResult, _) := record state second ttl validUntil capacity length othersSecond
                 let prefillBit := if prefill then "1" else "0"
                 IO.println s!"{kind}\t{first}\t{ttl}\t{vOffset}\t{rOffset}\t{capacity}\t{prefillBit}\t{label firstResult}\t{label secondResult}"
+  let instants := [intMin, intMin + 1, -301, -1, 0, 1, 299, 300, 301, intMax - 300, intMax - 1, intMax]
+  for now in instants do
+    for iat in instants do
+      for maxAge in [-1, 0, 1, 300, intMax] do
+        let admits := if ageAdmits now iat maxAge then "1" else "0"
+        IO.println s!"window\t{now}\t{iat}\t{maxAge}\t{admits}\t{replayUntil iat maxAge}"
 
 end OpenSesame.DpopReplay
 

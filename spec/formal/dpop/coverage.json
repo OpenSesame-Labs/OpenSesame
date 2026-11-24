@@ -4,19 +4,19 @@
   "sources": [
     {
       "path": "crates/proof/src/replay.rs",
-      "sha256": "f6da7a1a31cddd450b6c66b13d4c5b89d951fd9e1dab72e7defa836d29bb3920"
+      "sha256": "536750e709a6a9ed1b659d88be85b9f91e5286f35a5c964d2b2ea9df3d2a7dc4"
     },
     {
       "path": "crates/proof/src/validator.rs",
-      "sha256": "967ad727efd4936e834163d882dd1bf79e8ca6efdac99755b5d5cef29525ac8f"
+      "sha256": "03b44649b183a5cd0776259724d03f006c4426ad332f8eb5945cd411396264a4"
     },
     {
       "path": "crates/proof/src/jwk.rs",
-      "sha256": "fd7971be7e10f469cc7db78ea5aaa62f05181536db86d04a182bb27882708b06"
+      "sha256": "a3d8320714647b5eb29c1888b92e9f33f561a37bd6d7a202d58f4356e342525e"
     },
     {
       "path": "spec/formal/dpop/replay_conformance.rs",
-      "sha256": "5c72c00a6c46a0a3b5e99a3c2c2f629ee8735a0fc48eae94e3f6753c50ea20dc"
+      "sha256": "5b2b5ce4f4c232073a7f9449f4d81ed0f19e6ad0ccf5b40b4657ef66bcb981ac"
     }
   ]
 }
