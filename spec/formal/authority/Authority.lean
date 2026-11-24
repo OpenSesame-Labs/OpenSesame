@@ -1,79 +1,61 @@
 import Lean
-
 set_option autoImplicit false
-
 namespace OpenSesame.Authority
 
 def exportNarrows (parent child : Bool) : Bool := !child || parent
-
 theorem export_cannot_escalate (parent child : Bool)
     (valid : exportNarrows parent child = true) (exported : child = true) : parent = true := by
   cases parent <;> cases child <;> simp_all [exportNarrows]
-
 inductive ExportChain : Bool → Bool → Prop where
   | root (value : Bool) : ExportChain value value
   | step {root parent child : Bool} :
       ExportChain root parent → exportNarrows parent child = true → ExportChain root child
-
 theorem no_export_gain_in_chain {root leaf : Bool} (chain : ExportChain root leaf)
     (exported : leaf = true) : root = true := by
   induction chain with
   | root => exact exported
   | step previous edge inductionHypothesis =>
     exact inductionHypothesis (export_cannot_escalate _ _ edge exported)
-
 def replacementNarrows (parent current replacement : Bool) : Bool :=
   exportNarrows parent replacement && exportNarrows current replacement
-
 theorem replacement_cannot_add_export (parent current replacement : Bool)
     (valid : replacementNarrows parent current replacement = true)
     (exported : replacement = true) : parent = true ∧ current = true := by
   cases parent <;> cases current <;> cases replacement <;>
     simp_all [replacementNarrows, exportNarrows]
-
 def issuerAllowed (isHolder isIssuer : Bool) : Bool := isHolder || isIssuer
-
 theorem stranger_cannot_delegate : issuerAllowed false false = false := rfl
-
 def bindingNarrows (parent child : Option Nat) : Bool :=
   match parent, child with
   | none, _ => true
   | some _, none => false
   | some p, some c => Nat.beq p c
-
 theorem bound_scope_cannot_be_dropped (value : Nat) :
     bindingNarrows (some value) none = false := rfl
-
 theorem bound_scope_cannot_move (parent child : Nat) (h : parent ≠ child) :
     bindingNarrows (some parent) (some child) = false := by
   change Nat.beq parent child = false
   cases same : (Nat.beq parent child) with
   | false => rfl
   | true => exact False.elim (h (Nat.eq_of_beq_eq_true same))
-
 def proofKeyAllowed (parent child : Option Nat) (sameHolder : Bool) : Bool :=
   match parent, child with
   | none, _ => true
   | some _, none => false
   | some p, some c => !(Nat.beq p c) || sameHolder
-
 theorem bound_key_cannot_be_dropped (value : Nat) (sameHolder : Bool) :
     proofKeyAllowed (some value) none sameHolder = false := rfl
-
 theorem parent_key_cannot_transfer (value : Nat) :
     proofKeyAllowed (some value) (some value) false = false := by
   change (!(Nat.beq value value) || false) = false
   rw [Nat.beq_refl]
   rfl
-
 def actionsAllowed (pRead pWrite cRead cWrite : Bool) : Bool :=
   (!cRead || pRead) && (!cWrite || pWrite)
-
 theorem child_read_requires_parent (pRead pWrite cRead cWrite : Bool)
     (h : actionsAllowed pRead pWrite cRead cWrite = true) (r : cRead = true) : pRead = true := by
   cases pRead <;> cases pWrite <;> cases cRead <;> cases cWrite <;>
     simp_all [actionsAllowed]
-
 theorem child_write_requires_parent (pRead pWrite cRead cWrite : Bool)
     (h : actionsAllowed pRead pWrite cRead cWrite = true) (w : cWrite = true) : pWrite = true := by
   cases pRead <;> cases pWrite <;> cases cRead <;> cases cWrite <;>
@@ -125,7 +107,7 @@ def limitsNarrow (p c : Limits) : Bool :=
   depthNarrows p c && listNarrows p.audiences c.audiences && constraintsNarrow p c
 /-- The limit checks of `Grant::validate_replacement`. -/
 def replacementLimits (p cur r : Limits) : Bool :=
-  r.depth == cur.depth && limitsNarrow p r && r.audiences.all (cur.audiences.contains ·) &&
+  r.depth == cur.depth && limitsNarrow p r && listNarrows cur.audiences r.audiences &&
     decide (r.maxDepth ≤ cur.maxDepth) && constraintsNarrow cur r
 theorem list_narrows_spec {p c : List Nat} (t : listNarrows p c = true) (ne : p ≠ []) :
     c ≠ [] ∧ ∀ n ∈ c, n ∈ p := by
@@ -209,7 +191,23 @@ theorem replacement_narrows_both {p cur r : Limits} (h : replacementLimits p cur
     limitsNarrow p r = true ∧ constraintsNarrow cur r = true ∧ r.maxDepth ≤ cur.maxDepth := by
   simp only [replacementLimits, Bool.and_eq_true, decide_eq_true_eq] at h
   exact ⟨h.1.1.1.2, h.2, h.1.2⟩
-
+/-! AUTH-D9: a replacement is bound by the current child's own fences (`Grant::validate_replacement`
+re-runs the audience, `validate_scope_containment` and `validate_proof_key_transfer` checks
+against the child it replaces). -/
+theorem replacement_keeps_current_audiences {p cur r : Limits} (h : replacementLimits p cur r = true)
+    (ne : cur.audiences ≠ []) : r.audiences ≠ [] ∧ ∀ n ∈ r.audiences, n ∈ cur.audiences := by
+  simp only [replacementLimits, Bool.and_eq_true] at h
+  exact list_narrows_spec h.1.1.2 ne
+def replacementScope (p cur r : Option Nat) : Bool := bindingNarrows p r && bindingNarrows cur r
+theorem replacement_keeps_current_scope (p r : Option Nat) (v : Nat)
+    (h : replacementScope p (some v) r = true) : r = some v := by
+  cases r with
+  | none => simp [replacementScope, bindingNarrows] at h
+  | some x => simp only [replacementScope, bindingNarrows, Bool.and_eq_true, Nat.beq_eq] at h; rw [h.2]
+/-- The replacement's holder is the current child's, never the parent's. -/
+def replacementKey (p cur r : Option Nat) : Bool := proofKeyAllowed p r false && proofKeyAllowed cur r true
+theorem replacement_keeps_current_key (p : Option Nat) (k : Nat) :
+    replacementKey p (some k) none = false := by cases p <;> rfl
 inductive LimitChain : Limits → Limits → Nat → Prop where
   | root (l : Limits) : LimitChain l l 0
   | step {root p c : Limits} {n : Nat} :
@@ -228,7 +226,6 @@ theorem chain_depth_bounded {root leaf : Limits} {n : Nat} (chain : LimitChain r
     simp only [limitsNarrow, depthNarrows, Bool.and_eq_true, beq_iff_eq, decide_eq_true_eq] at edge
     obtain ⟨⟨⟨⟨d, m⟩, b⟩, _⟩, _⟩ := edge; obtain ⟨id, im, _⟩ := ih
     exact ⟨by omega, by omega, fun _ => by omega⟩
-
 /-! AUTH-D8: resource selectors. `patternMatches` is `resource_pattern_matches` (grant.rs),
 `selectorContains` is `resource_selector_contains` and `resourcesAttenuate` is
 `resources_attenuate` (grant_attenuation.rs). Strings are character lists. -/
@@ -329,7 +326,6 @@ theorem resources_cannot_widen (child parent : List Sel) (h : resourcesAttenuate
 private def bit (value : Bool) : String := if value then "1" else "0"
 private def keys : List (String × Option Nat) := [("none", none), ("one", some 1), ("two", some 2)]
 private def parentKeys : List (String × Option Nat) := [("none", none), ("one", some 1)]
-
 def coreMain : IO Unit := do
   for parent in [false, true] do
     for child in [false, true] do
@@ -349,7 +345,6 @@ def coreMain : IO Unit := do
       for cRead in [false, true] do
         for cWrite in [false, true] do
           IO.println s!"actions\t{bit pRead}\t{bit pWrite}\t{bit cRead}\t{bit cWrite}\t{bit (actionsAllowed pRead pWrite cRead cWrite)}"
-
 private def opt {α : Type} (f : α → String) : Option α → String | none => "none" | some a => f a
 private def nums (l : List Nat) : String := if l.isEmpty then "-" else ",".intercalate (l.map toString)
 private def assuranceName : Assurance → String
@@ -385,6 +380,11 @@ def limitsMain : IO Unit := do
   dimension "budgets" (vary budgetMaps fun l v => { l with budgets := v })
   let depths := [0, 1, 2, 3].flatMap fun d => [0, 1, 2, 3].map fun m => (d, m)
   dimension "depth" (vary depths fun l (d, m) => { l with depth := d, maxDepth := m })
+  for (pl, p) in parentKeys do
+    for (cl, cur) in keys do
+      for (rl, r) in keys do
+        IO.println s!"replace-scope\t{pl}\t{cl}\t{rl}\t{bit (replacementScope p cur r)}"
+        IO.println s!"replace-key\t{pl}\t{cl}\t{rl}\t{bit (replacementKey p cur r)}"
   let selectors := ["*", "a", "a/", "ab", "a/b", "a:b", "a/*", "ab/*", "a/b/*", "a/b:*", "a:*", "a:b/*",
     "a:b:*", "/*", ":*", "a*", "é/*", "é/x", "a/é"]
   for p in selectors do
