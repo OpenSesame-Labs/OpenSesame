@@ -11,6 +11,8 @@ import sys
 import tarfile
 
 ROOT = Path(__file__).resolve().parents[3]
+# The --reviewed-patch declarations of verify.sh's freshness init.
+REVIEWED_PATCHES = ("sqlx-sqlite=patches/vendor/sqlx-sqlite-0.9.0",)
 TEST = "lean_vectors_match_source_owned_generation_manager"
 SIGNER_TEST = "signing_fence::tests::lean_vectors_match_generation_bound_signer"
 ISOLATION: dict = {}
@@ -65,6 +67,7 @@ def test(cwd: Path, vector: Path, env: dict[str, str], label: str, diagnostic: s
     result = ISOLATION["checked_cargo"](
         cwd, test_env, ["opensesame-transport-security"],
         Path("spec/formal/source-lifetime/check-drift.py"), command[1:],
+        reviewed_patches=REVIEWED_PATCHES,
     )
     output = result.stdout + result.stderr
     if diagnostic is None:
@@ -85,6 +88,7 @@ def signer_test(cwd: Path, vector: Path, env: dict[str, str], label: str,
     result = ISOLATION["checked_cargo"](
         cwd, test_env, ["opensesame-transport-security"],
         Path("spec/formal/source-lifetime/check-drift.py"), command[1:],
+        reviewed_patches=REVIEWED_PATCHES,
     )
     output = result.stdout + result.stderr
     if diagnostic is None:

@@ -12,6 +12,8 @@ import sys
 import tarfile
 
 ROOT = Path(__file__).resolve().parents[3]
+# The --reviewed-patch declarations of verify.sh's freshness init.
+REVIEWED_PATCHES = ("sqlx-sqlite=patches/vendor/sqlx-sqlite-0.9.0",)
 FORMAL = "transport::spiffe_domain_formal_tests::lean_vectors_match_real_spiffe_service_admission"
 
 
@@ -194,13 +196,14 @@ def main() -> None:
                 ):
                     result = helper["checked_cargo"](
                         scratch, test_env, [package], Path("spec/formal/spiffe-peer-domain/check-drift.py"),
-                        command[1:],
+                        command[1:], reviewed_patches=REVIEWED_PATCHES,
                     )
                     require_failure(result, name, diagnostic, label)
             vectors.write_text("")
             empty = helper["checked_cargo"](
                 scratch, test_env, ["opensesame-domain"], Path("spec/formal/spiffe-peer-domain/check-drift.py"),
                 ["test", "--locked", "-p", "opensesame-domain", "--lib", FORMAL, "--", "--ignored", "--exact"],
+                reviewed_patches=REVIEWED_PATCHES,
             )
             require_failure(empty, FORMAL, "incomplete formal selector matrix", "empty selector vectors")
             with helper["mutated_coverage"](

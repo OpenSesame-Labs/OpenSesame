@@ -354,9 +354,9 @@ def mutated_coverage(root: Path, coverage_path: Path, source_path: Path,
         coverage_file.write_bytes(original_coverage)
 
 
-def checked_cargo(root: Path, env: dict[str, str], packages: list[str], checker: Path,
-                  args: list[str], timeout: int = 600) -> subprocess.CompletedProcess[str]:
-    """Run one scratch witness with a fresh artifact-approval session."""
+def checked_cargo(root: Path, env: dict[str, str], packages: list[str], checker: Path, args: list[str],
+                  timeout: int = 600, reviewed_patches: tuple[str, ...] = ()) -> subprocess.CompletedProcess[str]:
+    """Run one scratch witness; `reviewed_patches` are the live runner's NAME=PATH patches."""
     root = root.resolve(strict=True)
     env = env.copy() | {"RUSTC_WRAPPER": "", "RUSTC_WORKSPACE_WRAPPER": str(wrapper_for(root))}
     env.pop("OPENSESAME_FORMAL_RUSTC_LOG", None)
@@ -371,8 +371,8 @@ def checked_cargo(root: Path, env: dict[str, str], packages: list[str], checker:
         state = Path(directory) / "state.json"
         init = [sys.executable, "-I", str(validator), "init", "--repo", str(root),
                 "--manifest", str(root / "Cargo.toml"), "--state", str(state)]
-        for package in packages:
-            init.extend(["--package", package])
+        init += [arg for package in packages for arg in ("--package", package)]
+        init += [arg for patch in reviewed_patches for arg in ("--reviewed-patch", patch)]
         result = subprocess.run(init, cwd=root, env=env, text=True, capture_output=True,
                                 timeout=timeout, check=False, pass_fds=fds)
         if result.returncode:

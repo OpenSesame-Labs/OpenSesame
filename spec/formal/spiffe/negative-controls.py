@@ -11,6 +11,8 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[3]
 CRATE = Path("crates/spiffe-source")
+# The --reviewed-patch declarations of verify.sh's freshness init.
+REVIEWED_PATCHES = ("sqlx-sqlite=patches/vendor/sqlx-sqlite-0.9.0",)
 FORMAL_TEST = "source::formal_tests::lean_vectors_match_the_sdk_classifier_and_outage_deadlines"
 LIVE_TREES = (CRATE, Path("crates/domain"), Path("crates/transport-security"), Path("spec/formal/spiffe"))
 LIVE_FILES = (
@@ -279,6 +281,7 @@ def assert_caught(mutation: Mutation, witness: Witness, *, scratch: Path, env: d
     result = helper["checked_cargo"](
         scratch, env, ["opensesame-spiffe-source"],
         Path("spec/formal/spiffe/check-drift.py"), command[1:],
+        reviewed_patches=REVIEWED_PATCHES,
     )
     output = result.stdout + result.stderr
     if (

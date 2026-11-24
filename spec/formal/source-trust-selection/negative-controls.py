@@ -13,6 +13,7 @@ import tarfile
 
 ROOT = Path(__file__).resolve().parents[3]
 SELECTOR = Path("crates/gateway/src/transport/source_trust_selection.rs")
+REVIEWED_PATCHES = ("sqlx-sqlite=patches/vendor/sqlx-sqlite-0.9.0",)  # verify.sh's --reviewed-patch
 CORRESPONDENCE = "transport::boot::source_trust_selection::formal::lean_vectors_match_source_trust_selection"
 EXACT = "transport::boot::source_trust_selection::formal::returns_exact_requested_source_bundle"
 
@@ -113,7 +114,7 @@ def cargo_test(scratch: Path, env: dict[str, str], name: str, helper: dict,
         command.append("--ignored")
     command.append("--exact")
     return helper["checked_cargo"](scratch, env, ["opensesame-gateway"],
-                                   Path("spec/formal/source-trust-selection/check-drift.py"), command[1:])
+                                   Path("spec/formal/source-trust-selection/check-drift.py"), command[1:], reviewed_patches=REVIEWED_PATCHES)
 
 
 def nats_controls() -> None:
@@ -260,10 +261,10 @@ def nats_controls() -> None:
                     if ignored:
                         command.append("--ignored")
                     command.append("--exact")
-                    result = helper["checked_cargo"](scratch, test_env, ["opensesame-task-bus"], checker, command)
+                    result = helper["checked_cargo"](scratch, test_env, ["opensesame-task-bus"], checker, command, reviewed_patches=REVIEWED_PATCHES)
                     require_failure(result, test, diagnostic, label)
                     if label == "wrong profile accepted":
-                        live_result = helper["checked_cargo"](ROOT, test_env, ["opensesame-task-bus"], checker, command)
+                        live_result = helper["checked_cargo"](ROOT, test_env, ["opensesame-task-bus"], checker, command, reviewed_patches=REVIEWED_PATCHES)
                         output = live_result.stdout + live_result.stderr
                         if (live_result.returncode != 0 or f"test {test} ... ok" not in output or
                                 "test result: ok. 1 passed; 0 failed; 0 ignored;" not in output):
@@ -271,7 +272,7 @@ def nats_controls() -> None:
                         print("live correspondence in shared target after scratch mutant: passed", flush=True)
             vectors.write_text("")
             command = ["test", "--locked", "-p", "opensesame-task-bus", "--features", "live-tests", "--lib", correspondence, "--", "--ignored", "--exact"]
-            result = helper["checked_cargo"](scratch, test_env, ["opensesame-task-bus"], checker, command)
+            result = helper["checked_cargo"](scratch, test_env, ["opensesame-task-bus"], checker, command, reviewed_patches=REVIEWED_PATCHES)
             require_failure(result, correspondence, "incomplete selector vector matrix", "empty NATS vectors")
             client_command = ["test", "--locked", "-p", "opensesame-task-bus", "--features", "live-tests", "--lib", client_svid, "--", "--ignored", "--exact"]
             for label, client_case, diagnostic in [
@@ -279,13 +280,13 @@ def nats_controls() -> None:
                 ("duplicate client input", [client_rows[0], *client_rows], "duplicate client SVID input"), ("malformed client output", [client_rows[0].rsplit("\t", 1)[0] + "\tbogus", *client_rows[1:]], "invalid formal vector bit"),
             ]:
                 client_vectors.write_text("\n".join(client_case) + ("\n" if client_case else ""))
-                result = helper["checked_cargo"](scratch, test_env, ["opensesame-task-bus"], checker, client_command)
+                result = helper["checked_cargo"](scratch, test_env, ["opensesame-task-bus"], checker, client_command, reviewed_patches=REVIEWED_PATCHES)
                 require_failure(result, client_svid, diagnostic, label)
             client_vectors.write_text(client_result.stdout)
             handshake_command = ["test", "--locked", "-p", "opensesame-task-bus", "--features", "live-tests", "--lib", reconnect, "--", "--ignored", "--exact"]
             for label, case, diagnostic in [("empty handshake vectors", [], "missing fresh handshake vector"), ("missing handshake vector", handshake_rows[:1], "missing spent handshake vector"), ("duplicate handshake vector", [handshake_rows[0], *handshake_rows], "duplicate handshake vector"), ("malformed handshake vector", ["handshake-fence\t0\tbogus", *handshake_rows[1:]], "invalid handshake vector")]:
                 handshake_vectors.write_text("\n".join(case) + ("\n" if case else ""))
-                result = helper["checked_cargo"](scratch, test_env, ["opensesame-task-bus"], checker, handshake_command)
+                result = helper["checked_cargo"](scratch, test_env, ["opensesame-task-bus"], checker, handshake_command, reviewed_patches=REVIEWED_PATCHES)
                 require_failure(result, reconnect, diagnostic, label)
             handshake_vectors.write_text(handshake_result.stdout)
             drift["retry_vector_controls"](scratch, test_env, helper, checker, retry_rows, retry_vectors, retry_limit, require_failure)
