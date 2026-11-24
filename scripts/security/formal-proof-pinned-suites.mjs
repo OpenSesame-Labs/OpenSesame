@@ -200,7 +200,7 @@ export const PINNED_FORMAL_SUITES = [
     implementation: [
       "crates/broker/src/idempotency.rs",
       "crates/broker/src/lib.rs",
-      "crates/broker/tests/idempotency_binding/mod.rs",
+      "crates/broker/tests/adversarial_broker/invocation_binding.rs",
     ],
     proofs: [
       "spec/formal/invocation/Invocation.lean",

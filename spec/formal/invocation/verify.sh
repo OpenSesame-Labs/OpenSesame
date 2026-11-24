@@ -34,7 +34,7 @@ bash "$root/spec/formal/check-axioms.sh" "$lean_bin" "$root/spec/formal/invocati
 correspond() {
   (cd "$1" && OPENSESAME_INVOCATION_VECTORS="$vectors" CARGO_TARGET_DIR="$2" \
     cargo test --locked -p opensesame-broker --test adversarial_broker -- \
-    --ignored --exact idempotency_binding::lean_retry_vectors_match_the_broker --nocapture)
+    --ignored --exact invocation_binding_tests::lean_retry_vectors_match_the_broker --nocapture)
 }
 correspond "$root" "${CARGO_TARGET_DIR:-$scratch/target}"
 drift "$root"

@@ -12,7 +12,8 @@ open OpenSesame.Invocation
 
 #require_theorem OpenSesame.Invocation.replay_never_starts_an_invocation :
     ∀ (stored : Stored) (receipt : Receipt) (allows : Bool),
-    decide .replay stored receipt allows = .prior ∨ decide .replay stored receipt allows = .conflict
+    decide .replay stored receipt allows = .prior ∨
+      ∃ reason, decide .replay stored receipt allows = .conflict reason
 
 #require_theorem OpenSesame.Invocation.current_denial_withholds_prior :
     ∀ (mode : Mode) (stored : Stored) (receipt : Receipt),
