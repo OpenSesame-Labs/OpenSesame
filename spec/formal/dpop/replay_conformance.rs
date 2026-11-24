@@ -62,7 +62,7 @@ fn check_vectors(path: &str) {
     let vectors = std::fs::read_to_string(path).expect("read Lean vectors");
     let mut count = 0;
     let mut inputs = HashSet::new();
-    for line in vectors.lines() {
+    for line in vectors.lines().filter(|line| !line.starts_with("window\t")) {
         let fields: Vec<_> = line.split('\t').collect();
         assert_eq!(fields.len(), 9, "invalid vector: {line}");
         let jti = identifier(fields[0]);
@@ -101,6 +101,38 @@ fn check_vectors(path: &str) {
     println!("DPoP replay correspondence: {count} cases passed");
 }
 
+/// DPOP-R2: the real age check and replay deadline agree with the model, and
+/// every instant the age check admits lies inside the replay window.
+fn check_windows(path: &str) {
+    let vectors = std::fs::read_to_string(path).expect("read Lean vectors");
+    let mut inputs = HashSet::new();
+    for line in vectors.lines().filter(|line| line.starts_with("window\t")) {
+        let fields: Vec<_> = line.split('\t').collect();
+        assert_eq!(fields.len(), 6, "invalid window vector: {line}");
+        let now: i64 = fields[1].parse().unwrap();
+        let iat: i64 = fields[2].parse().unwrap();
+        let max_age: i64 = fields[3].parse().unwrap();
+        assert!(
+            inputs.insert(fields[1..4].join("/")),
+            "duplicate vector: {line}"
+        );
+        let admits = replay::proof_age_admits(now, iat, max_age);
+        let until = replay::proof_replay_until(iat, max_age);
+        assert_eq!(admits, fields[4] == "1", "window decision mismatch: {line}");
+        assert_eq!(
+            until.to_string(),
+            fields[5],
+            "window deadline decision mismatch: {line}"
+        );
+        assert!(
+            !admits || now <= until,
+            "window containment decision mismatch: {line}"
+        );
+    }
+    assert_eq!(inputs.len(), 720, "incomplete Lean window matrix");
+    println!("DPoP proof window correspondence: 720 cases passed");
+}
+
 fn check_concurrent_duplicate() {
     for _ in 0..40 {
         let cache = Arc::new(InMemoryReplayCache::with_limits(300, 16));
@@ -128,5 +160,6 @@ fn check_concurrent_duplicate() {
 fn main() {
     let path = std::env::args().nth(1).expect("pass the Lean vector file");
     check_vectors(&path);
+    check_windows(&path);
     check_concurrent_duplicate();
 }

@@ -47,8 +47,11 @@ dependency edges, so equality of those graphs is not claimed.
 | AUTH-D4 | A bound project, environment, connection, actor, client, or actor-instance scope cannot be dropped or switched to a different value. | `validate_scope_containment` in `grant_lineage.rs`. | `bound_scope_cannot_be_dropped`, `bound_scope_cannot_move` |
 | AUTH-D5 | A child cannot drop the parent's proof key or reuse that key for a different beneficiary. | `validate_proof_key_transfer` in `grant_lineage.rs`. | `bound_key_cannot_be_dropped`, `parent_key_cannot_transfer` |
 | AUTH-D6 | A child cannot add either of the modeled actions absent from its parent. | `Grant::validate_attenuation` in `grant.rs`. | `child_read_requires_parent`, `child_write_requires_parent` |
+| AUTH-D7 | An accepted delegation or replacement narrows every constraint dimension: an active child window lies inside the parent's (`interval_contains`), a required assurance is kept at no lower known rank, an authentication age is kept at no larger value, a network or audience list that is set is neither cleared nor widened, a parameter-rules digest is kept, offline use never rises, every parent budget meter is kept at a value in `[0, ceiling]` and no unmetered key appears, and re-delegation depth never grows. Over any finite chain of checked hops the leaf window lies in the root's and the leaf depth is bounded by the root's maximum. | `validate_constraint_attenuation` (and `validate_constraint_narrowing`) in `grant_attenuation.rs`, `validate_budget_attenuation` in `grant_budgets.rs`, the depth checks of `validate_lineage_pointers`, and the audience and replacement checks in `grant.rs`. | `window_cannot_widen`, `assurance_cannot_weaken`, `auth_age_cannot_widen`, `networks_cannot_widen`, `parameter_rules_cannot_change`, `offline_cannot_widen`, `budget_meter_cannot_drop_or_rise`, `budget_key_cannot_appear`, `audiences_cannot_widen`, `replacement_narrows_both`, `chain_window_within_root`, `chain_depth_bounded` |
+| AUTH-D8 | Every resource a child's selectors permit is permitted by some parent selector, for all selector and resource strings. | `resource_pattern_matches` and `Grant::permits_resource` in `grant.rs`; `resources_attenuate` in `grant_attenuation.rs`. | `selector_containment_sound`, `resources_cannot_widen` |
+| AUTH-D9 | A replacement is bound by the fences of the child it replaces even where the parent set none: a set audience list is neither cleared nor widened, a scope binding is neither dropped nor moved, and a proof key is not dropped. | `Grant::validate_replacement` in `grant.rs` (fixed 2026-11-24; see below). | `replacement_keeps_current_audiences`, `replacement_keeps_current_scope`, `replacement_keeps_current_key` |
 
-`Authority.lean` checks the theorem statements and emits 50 finite cases.
+`Authority.lean` checks the theorem statements and emits 3,062 finite cases.
 `conformance.rs` feeds those cases to the actual Rust validators, using grants
 that satisfy the other checks those validators invoke. The cases include every
 Boolean export, replacement and issuer combination; representative
@@ -56,7 +59,22 @@ missing/same/different bindings for every scope dimension
 `validate_scope_containment` checks (project, environment, connection, actor,
 client, and actor instance) and for proof keys; and all subsets of the two
 sample actions. Each of the six scope vectors is applied once per dimension.
-A fresh grant ID is used for each fixture. The [Rust lock file](Cargo.lock)
+A fresh grant ID is used for each fixture.
+For AUTH-D7 it emits, per constraint dimension, every parent/child pair over
+that dimension's abstract domain (four not-before and three expiry instants,
+including inverted intervals; absent and all five assurance names, one of them
+unknown; four authentication ages; four audience and network lists; three
+digests; three offline modes; 25 two-key budget maps with negative, zero and
+over-ceiling values; four depths and four maximum depths) with the other
+dimensions fixed, 1,127 pairs in all. Each pair is run through
+`Grant::validate_attenuation` and, as a current child and replacement under a
+wide parent, through `Grant::validate_replacement`. For AUTH-D8 it emits
+19 selector strings (including `a/`, a bare `*`, `/*`, `:*`, mixed separators
+and a multi-byte character) and compares every ordered pair with
+`resources_attenuate`, attenuation of a one-selector grant, `permits_resource`
+and `resource_pattern_matches`. For AUTH-D9 it emits 18 parent, current and
+replacement binding triples, each applied to all six scope dimensions, and 18
+proof-key triples. The [Rust lock file](Cargo.lock)
 pins the harness dependencies separately from the production workspace.
 
 Run with Lean 4.24.0 and the repository Rust toolchain:
@@ -81,12 +99,36 @@ revision only after inspecting the actual source at that revision.
 
 The correspondence check was run against separate scratch mutations that
 removed the export, replacement, issuer, scope, dropped-key, transferred-key,
-and action guards. Each mutation caused a failing Rust assertion. The unchanged
+and action guards, and (2026-11-24) the validity-window, not-before,
+assurance, authentication-age, network, digest, offline, budget-ceiling,
+budget-key, depth, audience, replacement-narrowing, selector-boundary,
+pattern-length, replacement-audience, replacement-scope and replacement-key
+guards. Each mutation caused a failing Rust assertion. The unchanged
 source passed afterward. Repeat those controls with
 `python3 spec/formal/authority/negative-control.py`. It requires an empty Git
 index, archives the committed tree into a locked scratch checkout, overlays the
 current modified and untracked files without following symlinks, and restores
 each mutation. It requires the same Lean and Rust environment as the main check.
+
+Fixed gap (2026-11-24): writing AUTH-D9 showed that `validate_replacement`
+re-checked a replacement against the current child only on actions,
+resources, export, re-delegation depth and the constraint dimensions. Under an
+unrestricted parent a replacement could clear the current child's audiences,
+drop or move its scope bindings, or drop its proof key. The validator now
+re-runs the audience rule, `validate_scope_containment` and
+`validate_proof_key_transfer` against the current child; regressions
+`adversarial_a_replacement_cannot_drop_the_current_childs_fences` and
+`contract_a_replacement_may_name_audiences_under_an_unrestricted_child` in
+`grant_unit_tests.rs` fail before the fix and pass after it. The broker's
+`narrow_delegation` copies those fields from the current grant, so no shipped
+endpoint reached the widening.
+
+AUTH-D8 models strings as character lists; Rust compares UTF-8 bytes. They
+agree because every byte the code inspects at a computed index (`/`, `:`, `*`)
+is ASCII, an ASCII byte never occurs inside a multi-byte sequence, and a
+length comparison after a successful prefix test only asks whether the
+remainder is non-empty. The multi-byte selectors in the matrix exercise this;
+the argument itself is review, not proof.
 
 The Lean chain theorem assumes every hop uses the modeled export check. The
 code test covers one delegation hop and one replacement in a fixed set of grant
@@ -94,6 +136,13 @@ fixtures; it is not a proof that Rust refines Lean for
 all strings, grant fields, or all executions. The check does not establish that
 root grants are legitimately issued, that the caller is authenticated as the
 issuer named in the child, that a newly supplied proof key was cryptographically
-possessed, that resources or other constraint dimensions
-narrow, that revocations are fresh, that budgets are conserved, or that
-concurrent requests cannot race. Those remain separate proof and test targets.
+possessed, that revocations are fresh, that budgets are conserved while
+spent (AUTH-D7 concerns the ceilings a grant names, not what an enforcer
+spends), or that concurrent requests cannot race. The constraint and resource
+correspondence is exhaustive per dimension over the abstract domains above,
+with the other dimensions held fixed; that the Rust conjunction of dimension
+checks matches the model's, and that the matrix's representative strings,
+instants and identifiers stand for all values, rests on review. A parameter
+rules digest is compared for equality only; whether two different digests
+denote a narrowing is not modeled (the code refuses any change). Those remain
+separate proof and test targets.

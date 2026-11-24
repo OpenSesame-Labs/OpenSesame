@@ -62,3 +62,18 @@ open OpenSesame.DpopReplay
     ∀ (now ttl validUntil : Int)
     (capacity length otherCount : Nat) (_hFull : capacity ≤ otherCount),
     (record none now ttl validUntil capacity length otherCount).1 ≠ .accepted
+
+#require_theorem OpenSesame.DpopReplay.fresh_proof_inside_replay_window :
+    ∀ (now iat maxAge : Int) (_hNow : now ≤ intMax)
+    (_h : ageAdmits now iat maxAge = true), now ≤ replayUntil iat maxAge
+
+#require_theorem OpenSesame.DpopReplay.fresh_replay_refused :
+    ∀ (times : List Int) (first now ttl iat maxAge : Int)
+    (capacity length firstOthers laterOthers : Nat)
+    (_hFirst : (record none first ttl (replayUntil iat maxAge) capacity length firstOthers).1 =
+      .accepted)
+    (_hTimes : ∀ t ∈ times, t ≤ replayUntil iat maxAge) (_hNow : now ≤ intMax)
+    (_hFresh : ageAdmits now iat maxAge = true) (_hLength : length > 0) (_hLimit : length ≤ 256),
+    (record (pruneMany times
+        (record none first ttl (replayUntil iat maxAge) capacity length firstOthers).2)
+      now ttl (replayUntil iat maxAge) capacity length laterOthers).1 = .replay

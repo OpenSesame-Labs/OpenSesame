@@ -156,3 +156,49 @@ fn export_denied_by_default_invariant() {
     let g = sample_parent();
     assert!(!g.constraints.raw_credential_export);
 }
+
+/// The current child's own fences bind its replacement even where the parent
+/// set none: empty audiences mean unrestricted, so clearing them, or dropping
+/// the child's scope binding or proof key, re-mints authority by an edit.
+#[test]
+fn adversarial_a_replacement_cannot_drop_the_current_childs_fences() {
+    let mut parent = sample_parent();
+    parent.constraints.audiences.clear();
+    parent.project_id = None;
+    let mut current = parent.clone();
+    current.id = GrantId::new();
+    current.parent_grant_id = Some(parent.id);
+    current.delegation_depth = 1;
+    current.constraints.maximum_delegation_depth = 0;
+    current.constraints.audiences = vec!["https://api.github.com".into()];
+    current.project_id = Some(ProjectId::new());
+    current.proof_key_thumbprint = Some("child-key".into());
+    assert!(Grant::validate_attenuation(&parent, &current).is_ok());
+    let same = |edit: fn(&mut Grant)| {
+        let mut replacement = current.clone();
+        replacement.id = GrantId::new();
+        edit(&mut replacement);
+        Grant::validate_replacement(&parent, &current, &replacement)
+    };
+    assert!(same(|_| {}).is_ok());
+    assert!(same(|r| r.constraints.audiences.clear()).is_err());
+    assert!(same(|r| r.project_id = None).is_err());
+    assert!(same(|r| r.project_id = Some(ProjectId::new())).is_err());
+    assert!(same(|r| r.proof_key_thumbprint = None).is_err());
+}
+
+/// An unrestricted current child may be narrowed to named audiences.
+#[test]
+fn contract_a_replacement_may_name_audiences_under_an_unrestricted_child() {
+    let mut parent = sample_parent();
+    parent.constraints.audiences.clear();
+    let mut current = parent.clone();
+    current.id = GrantId::new();
+    current.parent_grant_id = Some(parent.id);
+    current.delegation_depth = 1;
+    current.constraints.maximum_delegation_depth = 0;
+    let mut replacement = current.clone();
+    replacement.id = GrantId::new();
+    replacement.constraints.audiences = vec!["https://api.github.com".into()];
+    assert!(Grant::validate_replacement(&parent, &current, &replacement).is_ok());
+}
