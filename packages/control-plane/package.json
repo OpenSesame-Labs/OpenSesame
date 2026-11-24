@@ -52,6 +52,7 @@
     "ldapts": "9.2.0",
     "nodemailer": "10.5.0",
     "openid-client": "6.9.0",
+    "tsx": "4.23.15",
     "zod": "4.6.7"
   },
   "devDependencies": {
@@ -63,7 +64,6 @@
     "@playwright/test": "1.65.1",
     "@types/node": "26.6.6",
     "fast-check": "4.10.2",
-    "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vitest": "4.1.12"
   },
