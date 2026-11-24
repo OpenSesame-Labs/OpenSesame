@@ -16,6 +16,7 @@
       "scripts/security/formal-proof-source-selection.mjs",
       "scripts/security/formal-proof-spiffe-peer-domain.mjs",
       "scripts/security/formal-proof-source-history.mjs",
+      "scripts/security/formal-proof-host-cli.mjs",
       "scripts/security/formal-proof-runner-history.mjs",
       "scripts/security/formal-proof-runner-pins.mjs",
       "scripts/security/formal-proof-runner-pins.json",

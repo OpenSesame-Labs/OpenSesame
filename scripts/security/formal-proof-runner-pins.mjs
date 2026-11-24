@@ -33,6 +33,7 @@ export const MINIMUM_SHARED_RUNNERS = Object.freeze([
   "scripts/security/formal-proof-source-selection.mjs",
   "scripts/security/formal-proof-spiffe-peer-domain.mjs",
   "scripts/security/formal-proof-source-history.mjs",
+  "scripts/security/formal-proof-host-cli.mjs",
   "scripts/security/formal-proof-runner-history.mjs",
   "scripts/security/formal-proof-runner-pins.mjs",
   RUNNER_INVENTORY_PATH,
@@ -77,11 +78,9 @@ const suiteMinimums = {
     ...specFiles("oauth", ["hosted-flow-negative-controls.py"]),
   ],
   webauthn: [
-    "spec/formal/webauthn/verify.sh",
-    "spec/formal/webauthn/check-drift.mjs",
+    ...specFiles("webauthn", ["verify.sh", "check-drift.mjs"]),
     "scripts/test/formal-vitest-report.mjs",
-    "spec/formal/webauthn/vitest.config.ts",
-    "spec/formal/webauthn/negative-controls.py",
+    ...specFiles("webauthn", ["vitest.config.ts", "negative-controls.py"]),
   ],
   "interaction-clock": [
     ...specFiles("interaction-clock", ["verify.sh", "check-drift.mjs"]),
