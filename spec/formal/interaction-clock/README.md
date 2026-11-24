@@ -56,3 +56,30 @@ small unmodeled interval between the final application sample and the database
 commit itself. The synchronous Host projection is also not transactionally
 rolled back if a later database commit fails; that pre-existing boundary is
 documented rather than represented as a Lean guarantee.
+
+## Unit of work (2026-11-24)
+
+`uowOutcome` models the consume transaction: the six application samples of
+`consumeAndSettle`, each before the next staged write, and rollback when a
+sample refuses. `uow_commit_requires_every_sample_live`,
+`uow_refusal_persists_nothing` and `uow_crossing_at_any_sample_refuses` hold
+for the model; `uow_crossing_after_last_sample_commits` states the remaining
+window instead of hiding it: a deadline that passes after the last application
+sample and before the database commit is committed. Eight Lean rows (the
+deadline passing just before each sample, after the last one, or never) are
+replayed against the real consume route by
+`interaction-settlement-clock.security.test.ts`, which advances the
+controlled clock just before the k-th sample inside the transaction and
+checks the HTTP status, the stored interaction status, the committed
+execution fences and the number of samples taken. `negative-controls.py`
+drops the dispatch sample or makes the commit or effect sample unchecked; each
+fails the replay.
+
+The replay uses the in-memory repositories. Their unit of work rolls back the
+interaction and fence commit, but a reservation acquisition is applied eagerly
+and survives the rollback as an unfenced held lease; Postgres runs the
+acquisition inside the transaction and discards it. The replay therefore checks
+committed fences, not held leases, and Postgres transaction atomicity remains
+an assumption. Database commit-time admission and clock monotonicity remain
+unproved.
+

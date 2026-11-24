@@ -10,7 +10,7 @@ four additional domain transition graphs. It translates or structurally checks a
 supported subset before deriving Lean definitions, and asks Lean to check them against
 independently stated policies in `Contracts.lean`. The generated definitions
 are not checked in: every run derives them again from the files under review.
-The runner checks the theorem types and audits the axioms of fifty-four named
+The runner checks the theorem types and audits the axioms of fifty-nine named
 theorems. Its negative tests change production source in memory, weaken a
 proof, and require rejection.
 
@@ -120,6 +120,17 @@ are trusted primitives; the MAC-before-parse ordering is checked by the token
 snapshot and by tests, not by a Lean theorem, and this does not prove cookie
 delivery, expiry, replay prevention, issuer trust or the later federation
 exchange.
+
+The FED-I4 order proof (2026-11-24) translates the body of `decodeSigned`
+statement by statement: each `if (...) return undefined` guard, each binding
+that does work (MAC, strict parse, unseal), the key-derivation `try`, and the
+accepting return are recognised by their exact tokens, and any other statement
+is refused. A password-hash call is translated as a `slowHash` step rather than
+refused, so Lean is what rejects it. Lean proves the derived program equal to
+the independent FED-I4 policy for all 256 combinations of its eight guard
+facts. `decodeSigned` therefore left the token snapshot; reordering, dropping a
+guard or adding work reaches Lean. The facts are independent Booleans, so the
+proof also assumes nothing about how one guard's outcome constrains another.
 
 The federation trust-binding proof checks reviewed token snapshots of the
 start-time provenance selector and callback-time matching predicate. It also
