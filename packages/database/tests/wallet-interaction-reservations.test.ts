@@ -21,9 +21,10 @@ function executionReservationContract(
   describe(`${label}.executionReservations`, () => {
     let repo: ExecutionReservationRepository;
     let interaction: Interaction;
+    let fx: Fixture;
 
     async function fresh() {
-      const fx = await setup();
+      fx = await setup();
       repo = fx.repos.executionReservations;
       interaction = await fx.newInteraction();
     }
@@ -108,6 +109,23 @@ function executionReservationContract(
       const swept = await repo.expireDue(new Date("2099-01-01T00:00:00.000Z"));
       expect(swept).toBeGreaterThanOrEqual(1);
       expect((await repo.getById(held.id))?.status).toBe("expired");
+    });
+
+    it("discards a reservation its transaction rolled back", async () => {
+      await fresh();
+      const rollback = new Error("rolled back after acquire");
+      await expect(
+        fx.repos.transaction(async (uow) => {
+          await repo.acquire(acquireInput("worker_a"), uow);
+          throw rollback;
+        }),
+      ).rejects.toBe(rollback);
+      // Nothing of the aborted transaction survives: no held lease, and the
+      // next acquirer starts the fence from the first token.
+      expect(await repo.getCurrent(interaction.id)).toBeNull();
+      const next = await repo.acquire(acquireInput("worker_b"));
+      expect(next.fencingToken).toBe(1);
+      expect(await repo.getById(next.id)).toMatchObject({ status: "held" });
     });
 
     it("reports NotFound for an unknown reservation", async () => {
