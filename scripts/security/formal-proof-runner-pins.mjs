@@ -109,11 +109,7 @@ const suiteMinimums = {
     "spec/formal/dpop/mutate.py",
     "rust-toolchain.toml",
   ],
-  invocation: [
-    "spec/formal/invocation/verify.sh",
-    "scripts/security/formal_coverage_drift.py",
-    "rust-toolchain.toml",
-  ],
+  invocation: ["spec/formal/invocation/verify.sh", ...cargoRunners],
   spiffe: [
     "spec/formal/spiffe/verify.sh",
     "spec/formal/spiffe/check-drift.py",
@@ -148,16 +144,12 @@ const suiteMinimums = {
     ...workspaceRunners,
   ],
 };
-const cargoSuites = new Set([
-  "authority",
-  "spiffe",
-  "source-lifetime",
-  "source-trust-selection",
-  "spiffe-peer-domain",
-  "nats-trust-rotation",
-  "source-history",
-  "invocation",
-]);
+// A suite whose minimum carries the Cargo runners also pins Cargo config.
+const cargoSuites = new Set(
+  Object.keys(suiteMinimums).filter((id) =>
+    suiteMinimums[id].includes("scripts/security/formal-cargo-freshness.py"),
+  ),
+);
 export function hasRunnerMinimum(id) {
   return Object.hasOwn(suiteMinimums, id);
 }

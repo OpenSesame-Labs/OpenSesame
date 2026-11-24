@@ -87,6 +87,15 @@ const names = [
 ];
 const allowedAxioms = new Set(["propext", "Quot.sound"]);
 
+/** FED-I4: `decodeSigned` translated before its snapshot helpers are checked. */
+function pendingDecodeDefinition(source) {
+  return [
+    "def extractedPendingDecode : List PendingInstr :=",
+    `  ${extractPendingDecode(source)}`,
+    "",
+  ];
+}
+
 export function renderProof({
   cookie,
   oidc,
@@ -114,7 +123,6 @@ export function renderProof({
   checkSamlReplay(saml);
   checkPasskeyCustody(passkey);
   checkIssuerTrust(issuerTrust);
-  const pendingDecode = extractPendingDecode(federatedPending);
   checkFederatedPending(federatedPending);
   checkFederatedTrust(federatedTrustBinding, federated);
   checkClaimCompletion(graphs.claim);
@@ -178,9 +186,7 @@ export function renderProof({
     "  pendingOidc && currentOidc && single &&",
     "    (if hasProvenance then sameSource && sameId else currentStatic)",
     "",
-    "def extractedPendingDecode : List PendingInstr :=",
-    `  ${pendingDecode}`,
-    "",
+    ...pendingDecodeDefinition(federatedPending),
     "def extractedTransition (source target : Status) : Bool :=",
     "  match source, target with",
     transitions,

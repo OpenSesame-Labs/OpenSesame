@@ -140,50 +140,57 @@ function slowHashCall(declaration, file) {
   );
 }
 
+function translateGuard(statement, file) {
+  const fact = guards.get(tokens(statement.expression.getText(file)));
+  const then = single(statement.thenStatement);
+  requireSupportedSource(
+    fact && !statement.elseStatement && then && returnsUndefined(then, file),
+    `decodeSigned guard changed: ${statement.getText(file)}`,
+  );
+  return `.guard .${fact}`;
+}
+
+function translateBinding(statement, file) {
+  const [declaration, ...more] = statement.declarationList.declarations;
+  requireSupportedSource(
+    more.length === 0,
+    "decodeSigned declares several bindings",
+  );
+  if (slowHashCall(declaration, file)) return ".work .slowHash";
+  const text = tokens(declaration.getText(file));
+  requireSupportedSource(
+    bindings.has(text),
+    `decodeSigned binding changed: ${declaration.getText(file)}`,
+  );
+  const step = bindings.get(text);
+  return step === null ? null : `.work .${step}`;
+}
+
+function translateDerivation(statement, file) {
+  const body = single(statement.tryBlock);
+  const handler = statement.catchClause;
+  const derivation = tokens(
+    "key = keys.verifierSealKey(secret, rest.state, rest.nonce)",
+  );
+  requireSupportedSource(
+    body &&
+      ts.isExpressionStatement(body) &&
+      tokens(body.expression.getText(file)) === derivation &&
+      handler &&
+      !handler.variableDeclaration &&
+      !statement.finallyBlock &&
+      single(handler.block) &&
+      returnsUndefined(single(handler.block), file),
+    "decodeSigned key derivation changed",
+  );
+  return ".tryWork .deriveKey .legOk";
+}
+
 function translate(statement, file) {
-  if (ts.isIfStatement(statement)) {
-    const fact = guards.get(tokens(statement.expression.getText(file)));
-    const then = single(statement.thenStatement);
-    requireSupportedSource(
-      fact && !statement.elseStatement && then && returnsUndefined(then, file),
-      `decodeSigned guard changed: ${statement.getText(file)}`,
-    );
-    return `.guard .${fact}`;
-  }
-  if (ts.isVariableStatement(statement)) {
-    const [declaration, ...more] = statement.declarationList.declarations;
-    requireSupportedSource(
-      more.length === 0,
-      "decodeSigned declares several bindings",
-    );
-    if (slowHashCall(declaration, file)) return ".work .slowHash";
-    const text = tokens(declaration.getText(file));
-    requireSupportedSource(
-      bindings.has(text),
-      `decodeSigned binding changed: ${declaration.getText(file)}`,
-    );
-    const step = bindings.get(text);
-    return step === null ? null : `.work .${step}`;
-  }
-  if (ts.isTryStatement(statement)) {
-    const body = single(statement.tryBlock);
-    const handler = statement.catchClause;
-    requireSupportedSource(
-      body &&
-        ts.isExpressionStatement(body) &&
-        tokens(body.expression.getText(file)) ===
-          tokens(
-            "key = keys.verifierSealKey(secret, rest.state, rest.nonce)",
-          ) &&
-        handler &&
-        !handler.variableDeclaration &&
-        !statement.finallyBlock &&
-        single(handler.block) &&
-        returnsUndefined(single(handler.block), file),
-      "decodeSigned key derivation changed",
-    );
-    return ".tryWork .deriveKey .legOk";
-  }
+  if (ts.isIfStatement(statement)) return translateGuard(statement, file);
+  if (ts.isVariableStatement(statement))
+    return translateBinding(statement, file);
+  if (ts.isTryStatement(statement)) return translateDerivation(statement, file);
   requireSupportedSource(
     ts.isReturnStatement(statement) &&
       tokens(statement.expression?.getText(file) ?? "") ===

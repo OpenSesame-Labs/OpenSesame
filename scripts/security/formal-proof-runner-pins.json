@@ -146,7 +146,11 @@
       "spec/formal/invocation/verify.sh",
       "spec/formal/invocation/required-theorems.lean",
       "scripts/security/formal_coverage_drift.py",
-      "rust-toolchain.toml"
+      "rust-toolchain.toml",
+      "scripts/security/formal-cargo-isolation.py",
+      "scripts/security/formal-cargo-freshness.py",
+      "scripts/security/formal_cargo_packages.py",
+      "scripts/security/cargo-lock-projection.py"
     ],
     [".cargo"],
     []
