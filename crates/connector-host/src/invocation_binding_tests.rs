@@ -262,3 +262,115 @@ fn frozen_binding_retains_the_verified_task_digest() {
     )
     .is_err());
 }
+
+/// INV-D1: replay the Lean dispatch and capture vectors (spec/formal/invocation).
+fn d1_dispatch(
+    line: &str,
+    call: &str,
+    change: &str,
+    delegated_case: bool,
+    connector: &str,
+) -> String {
+    let (intent, grant, mut request, chain, subject) = if delegated_case {
+        let (intent, grant, request, chain) = delegated();
+        (intent, grant, request, Some(chain), "user:delegate")
+    } else {
+        let (intent, grant, request) = owner();
+        (intent, grant, request, None, "user:owner")
+    };
+    let effects = Arc::new(AtomicUsize::new(0));
+    let mut host = HostRuntime::default();
+    host.policy.trusted_digests.insert("sha256:rogue".into());
+    host.register_connector(Arc::new(RogueConnector(Arc::clone(&effects))))
+        .unwrap();
+    host.bind_connection("other", "rogue").unwrap();
+    let policy = if connector == "registered" {
+        "other"
+    } else {
+        "demo-conn"
+    };
+    request.connection_ref = policy.into();
+    let binding = InvocationBinding::from_intent(
+        InvocationId::new(),
+        &intent,
+        &grant,
+        subject,
+        policy,
+        chain.as_ref(),
+    )
+    .unwrap();
+    let mut target = policy;
+    match change {
+        "exact" => {}
+        "policy-id" => target = "elsewhere",
+        "connection-ref" => request.connection_ref = "elsewhere".into(),
+        "operation" => request.operation = "pull_request.create".into(),
+        "authorized-operation" => request.authorized_operation = "pull_request.create".into(),
+        "resource" => request.resource = "repo:example/two".into(),
+        "audience" => request.audience = "https://other.example".into(),
+        "level" => request.invoke_level = Some(2),
+        "parameters-digest" => request.parameters_digest = "other".into(),
+        "parameters" => request.parameters = json!({"query": "changed"}),
+        _ => panic!("vector: unknown change: {line}"),
+    }
+    let result = match call {
+        "bound" => host.invoke_bound(target, &request, &binding),
+        "unbound" => host.invoke(target, &request),
+        _ => panic!("vector: unknown call: {line}"),
+    };
+    let ran = effects.load(Ordering::SeqCst);
+    match result {
+        Ok(_) if ran == 1 => "connector",
+        Ok(_) if ran == 0 && connector == "host-mock" => "host-mock",
+        Err(HostError::InvocationBindingMismatch) if ran == 0 => "mismatch",
+        Err(HostError::DelegatedExecutionUnavailable) if ran == 0 => "delegated-refused",
+        other => panic!("vector: {line}: unexpected {other:?} after {ran} effects"),
+    }
+    .to_owned()
+}
+
+fn d1_capture(case: &str) -> String {
+    let (mut intent, mut grant, _) = owner();
+    let (mut subject, mut policy) = ("user:owner", "demo-conn");
+    match case {
+        "consistent" => {}
+        "organization" => grant.organization_id = opensesame_domain::OrganizationId::new(),
+        "principal" => intent.principal_id = PrincipalId::new(),
+        "connection" => intent.connection_id = Some(ConnectionId::new()),
+        "subject" => subject = "",
+        "policy-id" => policy = "",
+        // A delegated leaf captured without its validated lineage.
+        "lineage" => (intent, grant, _, _) = delegated(),
+        "chain" => intent.delegation_chain = vec![opensesame_domain::GrantId::new()],
+        _ => panic!("vector: unknown capture: {case}"),
+    }
+    let captured =
+        InvocationBinding::from_intent(InvocationId::new(), &intent, &grant, subject, policy, None);
+    match captured {
+        Ok(_) => "1".into(),
+        Err(HostError::InvocationBindingMismatch) => "0".into(),
+        Err(other) => panic!("vector: {case}: unexpected {other:?}"),
+    }
+}
+
+#[test]
+#[ignore = "run by spec/formal/invocation/verify.sh with Lean vectors"]
+fn lean_dispatch_vectors_match_the_host() {
+    let path = std::env::var("OPENSESAME_INVOCATION_EFFECT_VECTORS").expect("Lean vector file");
+    let mut count = 0;
+    for line in std::fs::read_to_string(path).unwrap().lines() {
+        let fields: Vec<&str> = line.split('\t').collect();
+        let (actual, expected) = match fields[..] {
+            ["d1", call, change, delegated, connector, expected] => (
+                d1_dispatch(line, call, change, delegated == "1", connector),
+                expected,
+            ),
+            ["d1-capture", case, expected] => (d1_capture(case), expected),
+            _ => continue,
+        };
+        assert_eq!(actual, expected, "vector: {line}");
+        count += 1;
+    }
+    assert!(count > 0, "no d1 vectors");
+    println!("invocation-formal: {count} d1 vectors matched");
+}
