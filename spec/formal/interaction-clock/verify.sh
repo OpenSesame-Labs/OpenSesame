@@ -19,13 +19,14 @@ report="$(mktemp "${TMPDIR:-/tmp}/opensesame-clock-report.XXXXXXXX")"
 trap 'rm -f "$vectors" "$report"' EXIT
 cd "$root"
 bash spec/formal/check-axioms.sh "$lean_bin" spec/formal/interaction-clock/InteractionClock.lean > "$vectors"
-if [[ "$(wc -l < "$vectors")" -ne 252 ]]; then
-  echo "interaction-clock-formal: expected 252 Lean vectors" >&2
+if [[ "$(wc -l < "$vectors")" -ne 260 ]]; then
+  echo "interaction-clock-formal: expected 260 Lean vectors" >&2
   exit 1
 fi
 OPENSESAME_INTERACTION_CLOCK_VECTORS="$vectors" \
   "$root/node_modules/.bin/vitest" run --config spec/formal/interaction-clock/vitest.config.ts --maxWorkers=2 \
     --reporter=default --reporter=json --outputFile.json="$report"
 node spec/formal/interaction-clock/check-report.mjs "$report"
-npm run test --workspace=@opensesame/control-plane -- src/__tests__/interaction-settlement-clock.security.test.ts
+OPENSESAME_INTERACTION_CLOCK_UOW_VECTORS="$vectors" \
+  npm run test --workspace=@opensesame/control-plane -- src/__tests__/interaction-settlement-clock.security.test.ts
 node spec/formal/interaction-clock/check-drift.mjs

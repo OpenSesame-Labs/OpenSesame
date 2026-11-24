@@ -45,3 +45,17 @@ open OpenSesame.InteractionClock
       policy deadline identity ∧
       policy deadline committed ∧
       policy deadline effect
+
+#require_theorem OpenSesame.InteractionClock.uow_commit_requires_every_sample_live :
+  ∀ (crossing : Option Nat) (_h : (uowOutcome crossing).2.1 = true),
+    ∀ b ∈ samplesLive crossing, b = true
+
+#require_theorem OpenSesame.InteractionClock.uow_refusal_persists_nothing :
+  ∀ (crossing : Option Nat) (_h : (uowOutcome crossing).1 = 410),
+    (uowOutcome crossing).2 = (false, 0)
+
+#require_theorem OpenSesame.InteractionClock.uow_crossing_at_any_sample_refuses :
+  ∀ (k : Nat) (_hk : k < stageSamples), uowOutcome (some k) = (410, false, 0)
+
+#require_theorem OpenSesame.InteractionClock.uow_crossing_after_last_sample_commits :
+  uowOutcome (some stageSamples) = (200, true, 1)

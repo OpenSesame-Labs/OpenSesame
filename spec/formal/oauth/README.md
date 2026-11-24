@@ -73,7 +73,14 @@ cryptographic assumption or AES-GCM. FED-I4 is proved of the step model
 order is established by source review and the finite correspondence cases
 (acceptance and observed derivations), not by a proof over the TypeScript. The
 `slowHash` step is absent from `decodeTrace` by construction; the evidence that
-the code has no slow hash is the source review and the codec scan test. A
+the code has no slow hash is the source review and the codec scan test. Since
+2026-11-24 the step order is also proved for the code itself: `verify.sh` runs
+the source translator in `spec/auth-verification/source`, which derives the
+guard/work/accept program of the real `decodeSigned` statement by statement
+(one fact per guard; a password-hash call becomes a `slowHash` step) and has
+Lean prove it equal to the independent FED-I4 policy for every combination of
+facts. What stays trusted is the translator's exact-token recognition of each
+statement and its Boolean abstraction of each guard. A
 legacy or v3 tag is modelled as invalid under the v4 key, which again assumes
 HMAC is unforgeable; the legacy refusal itself does not depend on it, since a
 plaintext verifier fails the strict schema. Finite correspondence testing is not a proof of TypeScript

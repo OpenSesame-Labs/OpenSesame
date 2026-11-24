@@ -35,4 +35,6 @@ cd "$root"
     --reporter=default --reporter=json --outputFile.json="$report"
 )
 node spec/formal/oauth/check-hosted-flow-report.mjs "$report"
+# FED-I4 from the code: translate the real decodeSigned and check its order.
+LEAN_BIN="$lean_bin" node spec/auth-verification/source/verify.mjs
 node spec/formal/oauth/check-drift.mjs

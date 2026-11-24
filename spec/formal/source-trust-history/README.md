@@ -24,8 +24,10 @@ The 25 theorem signatures and proposition types are pinned in
 [`SourceTrustHistory.lean`](SourceTrustHistory.lean). On `b1016221`, the
 integrated runner checked 25 theorem signatures, 21 finite correspondence
 cases, and 76 Linux tests in 16 groups, including process-level lease and Host
-startup cases. The added focused PEM witness passed separately; the complete
-suite needs a rerun with it. Windows-only refusal cases remain unrun.
+startup cases. The added focused PEM witness passed separately; on 2026-11-24 the
+complete suite was re-run with it on Linux (25 signatures, the finite
+correspondence and 77 tests in 16 groups). Windows-only refusal cases remain
+unrun.
 Lean proves the stated abstract properties, not refinement of all Rust or
 SQLite executions. A storage receipt is a trusted model input, not a Lean
 proof of disk persistence. The finite tests, a lease, and a theorem are
