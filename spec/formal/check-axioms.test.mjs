@@ -19,8 +19,9 @@ const suites = [
   {
     name: "auth",
     model: "AuthPolicy.lean",
+    parts: ["AuthTransport.lean", "AuthSession.lean"],
     first: "missing_principal_denied",
-    vectors: 408,
+    vectors: 2178,
   },
   {
     name: "authority",
@@ -85,7 +86,7 @@ const suites = [
   {
     name: "guest",
     model: "GuestContract.lean",
-    extra: ["CustodyContract.lean"],
+    parts: ["CustodyContract.lean"],
     first: "admitted_only_if_every_check_clear",
     vectors: 87807,
   },
@@ -109,7 +110,7 @@ function fixture(suite) {
   }
   for (const file of [
     suite.model,
-    ...(suite.extra ?? []),
+    ...(suite.parts ?? []),
     "required-theorems.lean",
   ]) {
     copyFileSync(
@@ -204,7 +205,7 @@ test("the checker rejects missing, duplicate, or empty obligations", () => {
   try {
     const obligations = readFileSync(files.obligations, "utf8");
     writeFileSync(files.obligations, "");
-    expectFailure(runCheck(files), /expected 28 required theorems, checked 0/u);
+    expectFailure(runCheck(files), /expected 53 required theorems, checked 0/u);
     writeFileSync(files.obligations, obligations);
     const first = obligations.indexOf("#require_theorem ");
     const second = obligations.indexOf("#require_theorem ", first + 1);
@@ -215,7 +216,7 @@ test("the checker rejects missing, duplicate, or empty obligations", () => {
     );
     expectFailure(
       runCheck(files),
-      /expected 28 required theorems, checked 27/u,
+      /expected 53 required theorems, checked 52/u,
     );
     writeFileSync(
       files.obligations,

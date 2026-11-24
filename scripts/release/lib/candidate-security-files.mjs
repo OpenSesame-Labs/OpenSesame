@@ -31,6 +31,8 @@ export const REQUIRED_SECURITY_POLICY_FILES = [
   "spec/formal/check-axioms.test.mjs",
   "spec/formal/required-theorem-command.lean",
   "spec/formal/auth/AuthPolicy.lean",
+  "spec/formal/auth/AuthTransport.lean",
+  "spec/formal/auth/AuthSession.lean",
   "spec/formal/auth/required-theorems.lean",
   "scripts/test/auth-formal.sh",
   "scripts/test/auth-formal-drift.mjs",

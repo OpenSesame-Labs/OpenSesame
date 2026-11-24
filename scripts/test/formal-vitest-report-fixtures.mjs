@@ -1,9 +1,11 @@
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { matrices } from "./formal-vitest-report-matrices.mjs";
 
 export const root = fileURLToPath(new URL("../..", import.meta.url));
 const file = {
   auth: "spec/formal/auth/auth-conformance.test.ts",
+  authSessions: "spec/formal/auth/session-conformance.test.ts",
   oauth: "spec/formal/oauth/legacy-conformance.test.ts",
   security:
     "packages/control-plane/src/interactions/federated-pending.security.test.ts",
@@ -80,7 +82,16 @@ function authFixture() {
   const vectors = [
     ...rows([assurance], "principal", ["not_found"]),
     ...rows(
-      [bits, bits, bits, ["past", "equal", "future"], bits, sessionPrincipals],
+      [
+        bits,
+        bits,
+        bits,
+        ["past", "equal", "future"],
+        bits,
+        sessionPrincipals,
+        bits,
+        bits,
+      ],
       "session",
       1,
     ),
@@ -95,6 +106,8 @@ function authFixture() {
       ["denied", "0", "0", "0"],
     ),
   ];
+  const { axes: signAxes, outputs: signOutputs } = matrices.auth.signout;
+  vectors.push(...rows(signAxes, "signout", [signOutputs[0][0]]));
   const ancestor = ["Lean auth policy correspondence"];
   const tests = [
     assertion("contains every declared abstract case exactly once", ancestor),
@@ -103,7 +116,15 @@ function authFixture() {
     ...vectors
       .filter((row) => row[0] === "session")
       .map((row) =>
-        assertion(`session ${row.slice(0, 7).join(" ")}`, ancestor),
+        assertion(`session ${row.slice(0, 9).join(" ")}`, ancestor),
+      ),
+  );
+  tests.push(
+    assertion("the signout runner catches every step", ancestor),
+    ...vectors
+      .filter((row) => row[0] === "signout")
+      .map((row) =>
+        assertion(`signout ${row.slice(0, 2).join(" ")}`, ancestor),
       ),
   );
   tests.push(
@@ -118,7 +139,34 @@ function authFixture() {
         assertion(`project ${row.slice(0, 5).join(" ")}`, ancestor),
       ),
   );
-  return finishFixture(vectors, [fileResult(file.auth, tests)]);
+  const suites = {
+    bound: "Lean session middleware correspondence",
+    credential: "Lean session middleware correspondence",
+    storage: "Lean durable storage correspondence",
+    evidence: "Lean transport evidence correspondence",
+    listener: "Lean transport evidence correspondence",
+  };
+  const sessionTests = [];
+  for (const [group, suite] of Object.entries(suites)) {
+    const { axes, outputs } = matrices.auth[group];
+    const groupRows = rows(
+      axes,
+      group,
+      outputs.map((domain) => domain[0]),
+    );
+    vectors.push(...groupRows);
+    sessionTests.push(
+      ...groupRows.map((row) =>
+        assertion(`${group} ${row.slice(1, 1 + axes.length).join(" ")}`, [
+          suite,
+        ]),
+      ),
+    );
+  }
+  return finishFixture(vectors, [
+    fileResult(file.auth, tests),
+    fileResult(file.authSessions, sessionTests),
+  ]);
 }
 
 function securityCase(fullName) {

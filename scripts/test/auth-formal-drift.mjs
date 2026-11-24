@@ -11,13 +11,10 @@ const coverage = JSON.parse(
 const attestationPath = coverage.reviewed_attestation;
 const attestationPathPattern =
   /^spec\/formal\/auth\/reviewed-sources(?:-[a-z0-9-]+)?\.json$/;
-const paths = [
-  "packages/control-plane/src/middleware/auth.ts",
-  "packages/control-plane/src/proofs/verified-principal.ts",
-  "packages/control-plane/src/proofs/project-role.ts",
-  "packages/control-plane/src/services/project-access.ts",
-  "packages/os-domain/src/types.ts",
-];
+// The covered sources are the auth suite's pinned registry mapping.
+const paths = JSON.parse(
+  readFileSync(`${root}/spec/formal/proof-registry.json`, "utf8"),
+).suites.find((suite) => suite.id === "auth").implementation;
 const authC1Paths = [
   "packages/app-core/src/lib/identity.ts",
   "packages/app-core/src/lib/identity-probe.ts",

@@ -124,9 +124,29 @@ function fileResults(report, root, paths, expectedTotal) {
   return results;
 }
 
+/** session-conformance.test.ts: one test per Lean row of every newer group. */
+function checkAuthSessions(tests, vectors) {
+  const groups = {
+    bound: "Lean session middleware correspondence",
+    credential: "Lean session middleware correspondence",
+    storage: "Lean durable storage correspondence",
+    evidence: "Lean transport evidence correspondence",
+    listener: "Lean transport evidence correspondence",
+  };
+  sameSet(
+    tests.map((test) => `${test.ancestorTitles.join(">")}>${test.title}`),
+    Object.entries(groups).flatMap(([group, suite]) =>
+      vectors[group].map(
+        (value) => `${suite}>${group} ${value.replaceAll("/", " ")}`,
+      ),
+    ),
+    "auth session, storage and transport tests",
+  );
+}
+
 function checkAuth(tests, vectors) {
   if (
-    tests.length !== 409 ||
+    tests.length !== 1141 ||
     tests.some(
       (test) =>
         test.ancestorTitles.length !== 1 ||
@@ -144,9 +164,15 @@ function checkAuth(tests, vectors) {
     test.title.startsWith("principal "),
   );
   const projects = tests.filter((test) => test.title.startsWith("project "));
+  const signouts = tests.filter((test) => test.title.startsWith("signout "));
+  const runner = tests.filter(
+    (test) => test.title === "the signout runner catches every step",
+  );
   if (
     inventory.length !== 1 ||
-    sessions.length !== 240 ||
+    runner.length !== 1 ||
+    signouts.length !== 11 ||
+    sessions.length !== 960 ||
     principals.length !== 8 ||
     projects.length !== 160
   ) {
@@ -158,6 +184,13 @@ function checkAuth(tests, vectors) {
       (value) => `session session ${value.replaceAll("/", " ")}`,
     ),
     "auth session tests",
+  );
+  sameSet(
+    signouts.map((test) => test.title),
+    vectors.signout.map(
+      (value) => `signout signout ${value.replaceAll("/", " ")}`,
+    ),
+    "auth sign-out tests",
   );
   sameSet(
     principals.map((test) => test.title),
@@ -225,7 +258,10 @@ export function verifyFormalVitestReport(suite, report, vectorText, root) {
   const vectors = parseVectors(suite, vectorText);
   if (suite === "auth") {
     const path = "spec/formal/auth/auth-conformance.test.ts";
-    checkAuth(fileResults(report, root, [path], 409).get(path), vectors);
+    const sessions = "spec/formal/auth/session-conformance.test.ts";
+    const files = fileResults(report, root, [path, sessions], 2180);
+    checkAuth(files.get(path), vectors);
+    checkAuthSessions(files.get(sessions), vectors);
   } else if (suite === "oauth") {
     const path = "spec/formal/oauth/legacy-conformance.test.ts";
     const security =

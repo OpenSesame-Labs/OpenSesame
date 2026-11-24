@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "reviewed_revision": "760292b74aa4f7c32b8245f278d96c2b3f75c67a",
+  "reviewed_revision": "960b094543db78a02cbd55e31aadd9ba480f1a8f",
   "sources": [
     {
       "path": "packages/control-plane/src/middleware/auth.ts",
@@ -21,6 +21,46 @@
     {
       "path": "packages/os-domain/src/types.ts",
       "sha256": "ea339ae932aa353c6de1f3a9b94ac6b138d150c34a220a76ec5321aa7f47c31f"
+    },
+    {
+      "path": "packages/control-plane/src/middleware/bound-cookie.ts",
+      "sha256": "6e1e0909f41edccf8dab0d70be9be78a65bfe05f091ec9ba09b0c4209b9a1cf0"
+    },
+    {
+      "path": "packages/control-plane/src/middleware/bound-cookie-name.ts",
+      "sha256": "ce941caaca57fb09ed62446d04f4fa2c9ab5aaf1f8ba51f966ec250e44268329"
+    },
+    {
+      "path": "packages/control-plane/src/repos/durable-map.ts",
+      "sha256": "53a67d280c22905f366b9697b8c1fcf7fbeed7e308e3fb1c12fcaaf244a8bcab"
+    },
+    {
+      "path": "packages/control-plane/src/repos/durable-map-legacy.ts",
+      "sha256": "f81a4d57ce66b116ebef0d1ba296dbfd25ef5bd98e9f6f9a72fff5d7e45f775b"
+    },
+    {
+      "path": "packages/control-plane/src/repos/durable-record.ts",
+      "sha256": "ef0b37fecf351ecb92f098fb92eea1f0966408296718e02d705664440b5b8a5b"
+    },
+    {
+      "path": "packages/control-plane/src/repos/security-map-rekey.ts",
+      "sha256": "d8d9b2389b3370c249f2590285958a5d852570c08dea0f1cf5034e68b3b51a5c"
+    },
+    {
+      "path": "packages/control-plane/src/transport/listener.ts",
+      "sha256": "6bed3ed34a01485ae683b245c62b309229f5cb417e3544a458f337a28549fd7d"
+    },
+    {
+      "path": "packages/control-plane/src/transport/request-evidence.ts",
+      "sha256": "89f5572c83e96be18765d186e06bcd5a98bc9735bfa93d1f862ce1b6c96e9f28"
+    },
+    {
+      "path": "packages/control-plane/src/transport/service-admission.ts",
+      "sha256": "02eb66939e4982228bcace12fd5ec1c2a022a3704248fab60b1be93073813300"
+    },
+    {
+      "path": "packages/app-core/src/lib/session-exit.ts",
+      "sha256": "ba2189610071bcaeddab717378fb052f469684e5946bca8150d8a5bb67cd79aa"
     }
   ]
 }
