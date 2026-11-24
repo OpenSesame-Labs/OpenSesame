@@ -305,10 +305,7 @@
     "suite",
     "guest",
     "verify:guest-formal",
-    [
-      "spec/formal/guest/verify.sh",
-      "spec/formal/guest/required-theorems.lean"
-    ],
+    ["spec/formal/guest/verify.sh", "spec/formal/guest/required-theorems.lean"],
     [],
     []
   ]
