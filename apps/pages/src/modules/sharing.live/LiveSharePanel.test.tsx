@@ -1,47 +1,204 @@
 /** @vitest-environment jsdom */
-/**
- * The share sheet now opens on the session join generator: a name, the
- * scope, who may join and the optional identity audience. A live session
- * shows its link and QR only after that form is submitted.
- */
 import { currentHost } from "@opensesame/app-core/lib/live/session.js";
-import { fireEvent, render, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import {
+  TRANSPORT_PATH,
+  readLiveTransport,
+  storeSeams,
+} from "@opensesame/app-core/lib/live/transport-store.js";
+import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+import { VfsError } from "@opensesame/app-core/lib/vfs.js";
+import { TRANSPORT_FILE } from "@opensesame/app-core/sections/settings/live-transport-files.js";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { vaultHooksSeams } from "../../lib/vault/hooks.js";
 import { LiveSharePanel } from "./LiveSharePanel.js";
 import { installLiveFocusTests, press } from "./live-focus-test-support.js";
+import { transportSeams } from "./live-transport-hooks.js";
 
-describe("the share sheet", () => {
-  installLiveFocusTests();
+describe("LiveSharePanel", () => {
+  /**
+   * The share sheet now opens on the session join generator: a name, the
+   * scope, who may join and the optional identity audience. A live session
+   * shows its link and QR only after that form is submitted.
+   */
 
-  it("opens on the generator and keeps Advanced folded", () => {
-    const { container } = render(<LiveSharePanel />);
-    const panel = within(container);
-    expect(panel.getByLabelText("Session name")).toBeTruthy();
-    expect(
-      panel.getByRole("button", { name: /^Share this vault/ }),
-    ).toBeTruthy();
-    const advanced = container.querySelector<HTMLDetailsElement>(
-      "details.live-advanced",
-    );
-    expect(advanced?.open).toBe(false);
+  describe("the share sheet", () => {
+    installLiveFocusTests();
+
+    it("opens on the generator and keeps Advanced folded", () => {
+      const { container } = render(<LiveSharePanel />);
+      const panel = within(container);
+      expect(panel.getByLabelText("Session name")).toBeTruthy();
+      expect(
+        panel.getByRole("button", { name: /^Share this vault/ }),
+      ).toBeTruthy();
+      const advanced = container.querySelector<HTMLDetailsElement>(
+        "details.live-advanced",
+      );
+      expect(advanced?.open).toBe(false);
+    });
+
+    it("starts a live session after the form is filled and shows its QR", async () => {
+      const { container } = render(<LiveSharePanel />);
+      const panel = within(container);
+      fireEvent.change(panel.getByLabelText("Session name"), {
+        target: { value: "Team" },
+      });
+      const start = await panel.findByRole("button", {
+        name: "Share this vault",
+      });
+      await waitFor(() => expect(start.hasAttribute("disabled")).toBe(false));
+      press(start);
+      await panel.findByRole("img", { name: "Live" });
+      expect(panel.getByRole("button", { name: "Copy the link" })).toBeTruthy();
+      expect(
+        panel.getByRole("img", { name: "Scan to join this live session" }),
+      ).toBeTruthy();
+      expect(currentHost()).not.toBeNull();
+    });
+  });
+});
+
+describe("transport", () => {
+  const original = {
+    store: { ...storeSeams },
+    hooks: { ...vaultHooksSeams },
+    transport: { ...transportSeams },
+  };
+  const stored = new Map<string, Uint8Array>();
+  let tomb = "personal";
+  let unlocked = true;
+  let writes = 0;
+
+  beforeEach(() => {
+    tomb = "personal";
+    unlocked = true;
+    writes = 0;
+    stored.clear();
+    Object.assign(storeSeams, {
+      refresh: async () => undefined,
+      read: async (at: string) => {
+        const text = stored.get(`${at}/${TRANSPORT_PATH}`);
+        if (!text) throw new VfsError("not-found", "none");
+        return text;
+      },
+      write: async (at: string, bytes: Uint8Array) => {
+        writes += 1;
+        stored.set(`${at}/${TRANSPORT_PATH}`, bytes);
+      },
+    });
+    Object.assign(vaultHooksSeams, {
+      useVault: () => ({
+        ...vaultStore.getSnapshot(),
+        tomb,
+        status: unlocked ? "unlocked" : "locked",
+      }),
+    });
+    Object.assign(transportSeams, { tomb: () => tomb });
   });
 
-  it("starts a live session after the form is filled and shows its QR", async () => {
-    const { container } = render(<LiveSharePanel />);
-    const panel = within(container);
-    fireEvent.change(panel.getByLabelText("Session name"), {
-      target: { value: "Team" },
+  afterEach(() => {
+    cleanup();
+    Object.assign(storeSeams, original.store);
+    Object.assign(vaultHooksSeams, original.hooks);
+    Object.assign(transportSeams, original.transport);
+  });
+
+  async function openFile() {
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Open transport.json" }),
+    );
+    const field = screen.getByRole("textbox", { name: TRANSPORT_FILE });
+    await waitFor(() => expect(field.hasAttribute("readonly")).toBe(false));
+    return field;
+  }
+
+  function advanced(container: HTMLElement) {
+    const details = container.querySelector("details");
+    if (!(details instanceof HTMLDetailsElement))
+      throw new Error("no Advanced");
+    details.open = true;
+  }
+
+  const profile = {
+    ice: [
+      {
+        urls: ["turns:turn.example.test:443"],
+        secret: "turn-rest-secret-4417",
+      },
+    ],
+    relay: true,
+  };
+
+  describe("Share Advanced's transport file", () => {
+    it("opens the real provider, saves a TURN REST profile, and reads it after reopening", async () => {
+      const view = render(<LiveSharePanel />);
+      advanced(view.container);
+      const field = await openFile();
+      expect(field).toHaveProperty("value", "{}\n");
+      fireEvent.change(field, { target: { value: JSON.stringify(profile) } });
+      fireEvent.click(
+        screen.getByRole("button", { name: `Save ${TRANSPORT_FILE}` }),
+      );
+      await screen.findByText(`Saved ${TRANSPORT_FILE}.`);
+      expect((await readLiveTransport(tomb)).ice[0]?.secret).toBe(
+        "turn-rest-secret-4417",
+      );
+      fireEvent.click(screen.getByRole("button", { name: "Back to routes" }));
+      await screen.findByText("turns:turn.example.test:443");
+      expect(view.container.textContent).not.toContain("turn-rest-secret-4417");
+      const reopened = await openFile();
+      expect(reopened).toHaveProperty(
+        "value",
+        new TextDecoder().decode(stored.get(`${tomb}/${TRANSPORT_PATH}`)),
+      );
+      expect(writes).toBe(1);
     });
-    const start = await panel.findByRole("button", {
-      name: "Share this vault",
+
+    it("refuses malformed and relay-only-without-TURN drafts without replacing the stored profile", async () => {
+      const view = render(<LiveSharePanel />);
+      advanced(view.container);
+      const field = await openFile();
+      for (const draft of ["{", '{"relay":true}']) {
+        fireEvent.change(field, { target: { value: draft } });
+        expect(field.getAttribute("aria-invalid")).toBe("true");
+        expect(
+          screen
+            .getByRole("button", { name: `Save ${TRANSPORT_FILE}` })
+            .hasAttribute("disabled"),
+        ).toBe(true);
+      }
+      expect(writes).toBe(0);
+      expect(stored.size).toBe(0);
     });
-    await waitFor(() => expect(start.hasAttribute("disabled")).toBe(false));
-    press(start);
-    await panel.findByRole("img", { name: "Live" });
-    expect(panel.getByRole("button", { name: "Copy the link" })).toBeTruthy();
-    expect(
-      panel.getByRole("img", { name: "Scan to join this live session" }),
-    ).toBeTruthy();
-    expect(currentHost()).not.toBeNull();
+
+    it("withdraws the old draft on vault change and removes the editor on lock", async () => {
+      const view = render(<LiveSharePanel />);
+      advanced(view.container);
+      const field = await openFile();
+      fireEvent.change(field, { target: { value: JSON.stringify(profile) } });
+      tomb = "household";
+      view.rerender(<LiveSharePanel />);
+      expect(
+        screen.queryByRole("textbox", { name: TRANSPORT_FILE }),
+      ).toBeNull();
+      expect(await openFile()).toHaveProperty("value", "{}\n");
+      unlocked = false;
+      view.rerender(<LiveSharePanel />);
+      expect(
+        screen.queryByRole("textbox", { name: TRANSPORT_FILE }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: "Open transport.json" }),
+      ).toBeNull();
+      expect(writes).toBe(0);
+    });
   });
 });
