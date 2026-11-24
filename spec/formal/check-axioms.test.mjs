@@ -77,6 +77,12 @@ const suites = [
     vectors: 252,
   },
   {
+    name: "guest",
+    model: "GuestContract.lean",
+    first: "admitted_only_if_every_check_clear",
+    vectors: 12,
+  },
+  {
     name: "oauth",
     model: "PendingIntegrity.lean",
     first: "current_message_binds_payload",
