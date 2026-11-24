@@ -246,7 +246,11 @@ async fn call(t: &Tenancy, route: &str, headers: axum::http::HeaderMap, id: &str
 /// Only the three non-executable fields may ever be disclosed.
 async fn reply(route: &str, id: &str, response: Response) -> String {
     let status = response.status().as_u16();
-    let body = body_json(response).await;
+    // A non-JSON reply is classified, never a harness panic.
+    let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
+        .await
+        .expect("body");
+    let body: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
     let exact_view = body.as_object().is_some_and(|o| o.len() == 3)
         && body["id"] == json!(id)
         && body["outcome"].is_null();
