@@ -171,6 +171,25 @@ it("deletion agrees with `deletionPlan`: journal, unlink, index, idle", async ()
     expect(done.join(",")).toBe(completed ?? "");
   }
 });
+/** The credential sealed in each session's vault, read back with its key. */
+async function sealedRecords(
+  kind: "directory" | "vercel",
+  keys: Map<number, [string, CryptoKey]>,
+  session: number,
+) {
+  const sealed: string[] = [];
+  for (let v = 0; v <= session; v++) {
+    const entry = keys.get(v);
+    if (entry) vfs.unlockTomb(...entry);
+    const read =
+      entry && kind === "directory"
+        ? directory.readConnectorDirectory(entry[0]).then((r) => r?.key)
+        : entry && vercel.readVercelConnectAuth(entry[0]).then((r) => r?.token);
+    sealed.push((await read)?.slice(1) ?? "-");
+    vfs.lockAllTombs();
+  }
+  return sealed;
+}
 /** Drive one staging trace; each step reports pending/live as the model does. */
 async function staging(kind: "directory" | "vercel", ops: string[]) {
   const id = crypto.randomUUID();
@@ -230,67 +249,73 @@ async function staging(kind: "directory" | "vercel", ops: string[]) {
       (resolve) =>
         (listed = () => resolve({ integrations: [], connections: [] })),
     );
+  const seal = async (unlocked: string) => {
+    const staged = directory.pendingConnectorDirectory() !== null;
+    const work = directory.sealPendingConnectorDirectory(unlocked);
+    if (staged) await queue(work);
+    else await work;
+  };
+  const hydrate = async (unlocked: string) => {
+    const staged = vercel.pendingVercelConnectAuth() !== null;
+    const work = vercel.hydrateVercelConnectAuth(unlocked, {
+      signal: unlock.signal,
+    });
+    if (staged) await queue(work);
+    else await work.catch(() => undefined);
+  };
+  const settleWrite = async (ok: boolean) => {
+    const write = writes[head++];
+    write?.decide(ok);
+    await write?.work.catch(() => undefined);
+  };
+  const stage = async () => {
+    sync = directory.syncConnectorDirectory({
+      endpoint: "https://dir.example",
+      key: `k${session}`,
+      tomb: null,
+    });
+    sync.catch(() => undefined);
+  };
+  const staged = async () => {
+    listed();
+    await sync?.catch(() => undefined);
+  };
+  const lock = async () => {
+    unlock.abort();
+    unlock = new AbortController();
+    emitVaultLock();
+    vfs.lockAllTombs();
+    vault = null;
+    session += 1;
+  };
+  const open = async () => {
+    vault = `formal-${id}-${session}`;
+    const { vaultKey } = await mintVaultKey();
+    keys.set(session, [vault, vaultKey]);
+    vfs.unlockTomb(vault, vaultKey);
+  };
+  const arm = () => vercel.armVercelConnectAuth({ token: `t${session}` }, null);
+  const steps = new Map([
+    ["stage", stage],
+    ["staged", staged],
+    ["seal", async () => vault && (await seal(vault))],
+    ["hydrate", async () => vault && (await hydrate(vault))],
+    ["arm", arm],
+    ["ok", () => settleWrite(true)],
+    ["fail", () => settleWrite(false)],
+    ["lock", lock],
+    ["unlock", open],
+  ]);
   const out: string[] = [];
   for (const op of ops) {
-    if (op === "stage") {
-      sync = directory.syncConnectorDirectory({
-        endpoint: "https://dir.example",
-        key: `k${session}`,
-        tomb: null,
-      });
-      sync.catch(() => undefined);
-    } else if (op === "staged") {
-      listed();
-      await sync?.catch(() => undefined);
-    } else if (op === "seal" && vault) {
-      const staged = directory.pendingConnectorDirectory() !== null;
-      const work = directory.sealPendingConnectorDirectory(vault);
-      if (staged) await queue(work);
-      else await work;
-    } else if (op === "arm")
-      await vercel.armVercelConnectAuth({ token: `t${session}` }, null);
-    else if (op === "hydrate" && vault) {
-      const staged = vercel.pendingVercelConnectAuth() !== null;
-      const work = vercel.hydrateVercelConnectAuth(vault, {
-        signal: unlock.signal,
-      });
-      if (staged) await queue(work);
-      else await work.catch(() => undefined);
-    } else if (op === "ok" || op === "fail") {
-      const write = writes[head++];
-      write?.decide(op === "ok");
-      await write?.work.catch(() => undefined);
-    } else if (op === "lock") {
-      unlock.abort();
-      unlock = new AbortController();
-      emitVaultLock();
-      vfs.lockAllTombs();
-      vault = null;
-      session += 1;
-    } else if (op === "unlock") {
-      vault = `formal-${id}-${session}`;
-      const { vaultKey } = await mintVaultKey();
-      keys.set(session, [vault, vaultKey]);
-      vfs.unlockTomb(vault, vaultKey);
-    }
+    await steps.get(op)?.();
     const live = kind === "vercel" ? tag(vercelConnectAuth()?.token) : "-";
     out.push(`${op}:${pending()}/${live}`);
   }
   for (const write of writes) write.decide(false);
   emitVaultLock();
   vfs.lockAllTombs();
-  const sealed: string[] = [];
-  for (let v = 0; v <= session; v++) {
-    const entry = keys.get(v);
-    if (entry) vfs.unlockTomb(...entry);
-    const record = entry
-      ? kind === "directory"
-        ? (await directory.readConnectorDirectory(entry[0]))?.key
-        : (await vercel.readVercelConnectAuth(entry[0]))?.token
-      : undefined;
-    sealed.push(tag(record ?? undefined));
-    vfs.lockAllTombs();
-  }
+  const sealed = await sealedRecords(kind, keys, session);
   kvSeams.kvSetDurable = setDurable;
   return `${out.join(",")}\t${sealed.join("/")}`;
 }

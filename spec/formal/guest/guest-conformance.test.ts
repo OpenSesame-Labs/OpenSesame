@@ -54,6 +54,7 @@ import {
   saveSettings,
 } from "../../../packages/app-core/src/lib/settings.js";
 import * as vfs from "../../../packages/app-core/src/lib/vfs.js";
+import * as transient from "../../../packages/app-core/src/lib/vfs-transient-guest.js";
 import { sessionStore } from "../../../packages/app-core/src/ports.js";
 import { createTestHost } from "../../../packages/app-core/src/test-host.js";
 
@@ -297,57 +298,61 @@ it("epoch: assertSignOutEpoch agrees with `epochHolds`", () => {
     expect(actual).toBe(holds);
   }
 });
+type Owner = { id: symbol };
+/** One transient-store operation as the model names it; the result word. */
+function transientStep(tomb: string, own: Owner, op: string, n: number) {
+  const [t, key, foreign] = [transient, `tomb/${tomb}/k`, Symbol()];
+  const begin = () => {
+    own.id = t.beginTransientGuest(tomb);
+  };
+  const write = () => {
+    const out = t.writeTransientGuest(key, String(n));
+    if (out === false) return "noStore";
+    if (!(out instanceof Promise)) return "ok";
+    out.catch(() => undefined);
+    return "deferred";
+  };
+  const steps = new Map([
+    ["begin", begin],
+    ["write", write],
+    ["freeze", () => void t.freezeTransientGuest(tomb, own.id)],
+    ["freezeForeign", () => void t.freezeTransientGuest(tomb, foreign)],
+    ["thaw", () => t.thawTransientGuest(tomb, own.id)],
+    ["block", () => t.setTransientGuestBlocked(tomb, own.id, true)],
+    ["unblock", () => t.setTransientGuestBlocked(tomb, own.id, false)],
+    ["blockForeign", () => t.setTransientGuestBlocked(tomb, foreign, true)],
+    ["finish", () => t.endTransientGuest(tomb, own.id)],
+    ["release", () => t.releaseTransientGuest(tomb, own.id)],
+    ["releaseForeign", () => t.releaseTransientGuest(tomb, foreign)],
+    ["discard", () => t.discardUnpublishedTransientGuest(tomb, own.id)],
+    ["releaseRetired", () => t.releaseRetiredTransientGuest(tomb)],
+  ]);
+  const step = steps.get(op);
+  if (!step) throw new Error(`unknown op ${op}`);
+  try {
+    return step() ?? "ok";
+  } catch {
+    return "refused";
+  }
+}
+const stored = (tomb: string) =>
+  transient.isTransientGuest(tomb) &&
+  transient.readTransientGuest(`tomb/${tomb}/k`);
 it("transient guest: the store agrees with `tstep` on every three-step trace", async () => {
   const cases = group("transient");
   expect(cases).toHaveLength(13 ** 3);
-  const t = await import(
-    "../../../packages/app-core/src/lib/vfs-transient-guest.js"
-  );
   for (const [ops, expected] of cases) {
     const tomb = newGuestVaultId();
-    const key = `tomb/${tomb}/k`;
-    let own = Symbol("none");
+    const own: Owner = { id: Symbol("none") };
     const results: string[] = [];
     for (const [index, op] of (ops ?? "").split(",").entries()) {
-      const run = (): string => {
-        if (op === "begin") own = t.beginTransientGuest(tomb);
-        else if (op === "write") {
-          const out = t.writeTransientGuest(key, String(index + 1));
-          if (out === false) return "noStore";
-          if (out instanceof Promise) {
-            out.catch(() => undefined);
-            return "deferred";
-          }
-        } else if (op === "freeze") t.freezeTransientGuest(tomb, own);
-        else if (op === "freezeForeign") t.freezeTransientGuest(tomb, Symbol());
-        else if (op === "thaw") t.thawTransientGuest(tomb, own);
-        else if (op === "block") t.setTransientGuestBlocked(tomb, own, true);
-        else if (op === "unblock") t.setTransientGuestBlocked(tomb, own, false);
-        else if (op === "blockForeign")
-          t.setTransientGuestBlocked(tomb, Symbol(), true);
-        else if (op === "finish") t.endTransientGuest(tomb, own);
-        else if (op === "release") t.releaseTransientGuest(tomb, own);
-        else if (op === "releaseForeign")
-          t.releaseTransientGuest(tomb, Symbol());
-        else if (op === "discard")
-          t.discardUnpublishedTransientGuest(tomb, own);
-        else if (op === "releaseRetired") t.releaseRetiredTransientGuest(tomb);
-        else throw new Error(`unknown op ${op}`);
-        return "ok";
-      };
-      let result: string;
-      try {
-        result = run();
-      } catch {
-        result = "refused";
-      }
+      const result = transientStep(tomb, own, op, index + 1);
       await new Promise((resolve) => setTimeout(resolve, 0));
-      const value = t.isTransientGuest(tomb) ? t.readTransientGuest(key) : null;
-      results.push(`${result}:${value ?? "-"}`);
+      results.push(`${result}:${stored(tomb) || "-"}`);
     }
     expect(`${ops}\t${results.join(",")}`).toBe(`${ops}\t${expected}`);
-    if (t.isTransientGuest(tomb)) t.endTransientGuest(tomb, own);
-    t.releaseRetiredTransientGuest(tomb);
+    transient.endTransientGuest(tomb, own.id);
+    transient.releaseRetiredTransientGuest(tomb);
   }
 });
 it("local directory reads agree with `readDir`; a refused read is never rewritten", async () => {
