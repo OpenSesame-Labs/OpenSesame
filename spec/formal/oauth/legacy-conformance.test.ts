@@ -175,7 +175,7 @@ function v4Tag(payload: string, key: string): string {
 
 /** Build the signed cookie for one abstract FED-I4 case (keys seal the verifier). */
 function v4Cookie(row: string[], keys?: PendingCookieKeys): string {
-  const [, oversize, shape, tag, wire, leg, seal] = row;
+  const [, oversize, canonicalEncoding, tag, wire, leg, seal] = row;
   const pending: PendingFederatedAuth = {
     issuer: `https://issuer.example/${oversize === "1" ? "a".repeat(5000) : ""}`,
     state: leg === "1" ? "state-example" : "s".repeat(256),
@@ -207,7 +207,7 @@ function v4Cookie(row: string[], keys?: PendingCookieKeys): string {
   let payload = Buffer.from(
     json === undefined ? "{not json" : JSON.stringify(json),
   ).toString("base64url");
-  if (shape === "0") payload = `${payload}=`;
+  if (canonicalEncoding === "0") payload = `${payload}=`;
   return `${payload}.${v4Tag(payload, tag === "1" ? secret : "wrong-test-key")}`;
 }
 
