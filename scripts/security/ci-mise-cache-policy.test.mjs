@@ -99,14 +99,41 @@ function assertReadOnlyMiseRestore(name, text) {
   assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
 }
 
+// codeql.yml is reusable (release qualification) and also the scheduled
+// monitor. Its one reviewed Actions cache is the Gradle module cache: restored
+// on every java-kotlin run and saved only by a monitoring run of main, never
+// for a candidate. ci-trusted-cache.test.mjs asserts the full step shape.
+const gradleCachePath = "path: ~/.gradle/caches/modules-2\n";
+const gradleSaveGuard =
+  "!inputs.source_sha && github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')";
+
+function withoutReviewedGradleCache(name, text) {
+  if (name !== "codeql.yml") return text;
+  const steps = text.split(/(?=\n {6}- )/u);
+  const gradle = steps.filter((step) => step.includes(gradleCachePath));
+  assert.equal(gradle.length, 2, name);
+  const [restore, save] = gradle;
+  assert.ok(
+    restore.includes(`uses: actions/cache/restore@${cachePin} # v6.1.0\n`),
+    name,
+  );
+  assert.ok(save.includes(`uses: actions/cache/save@${cachePin} # v6.1.0\n`));
+  assert.ok(save.includes(gradleSaveGuard), name);
+  return steps.filter((step) => !gradle.includes(step)).join("");
+}
+
 test("privileged workflows do not save Actions caches", () => {
   const disabled = workflowsWithMiseCacheDisabled();
   assert.ok(disabled.length > 0);
   const ci = readFileSync(join(workflowDir, "ci.yml"), "utf8");
   assert.ok(ci.includes(nodeMiseRestoreKey));
   assert.ok(ci.includes(rustMiseRestoreKey));
+  assert.ok(disabled.includes("codeql.yml"));
   for (const name of disabled) {
-    const text = readFileSync(join(workflowDir, name), "utf8");
+    const text = withoutReviewedGradleCache(
+      name,
+      readFileSync(join(workflowDir, name), "utf8"),
+    );
     assert.equal(text.includes("actions/cache/save@"), false, name);
     assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
     assert.doesNotMatch(text, /^[ \t]+cache:[ \t]+true[ \t]*$/mu, name);
