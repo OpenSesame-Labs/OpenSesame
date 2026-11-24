@@ -309,3 +309,91 @@ async fn receipt_signing_key_rotation_refuses_replay_without_reexecution() {
         1
     );
 }
+
+/// INV-I1: every Lean case from `spec/formal/invocation` against the real broker.
+#[tokio::test]
+#[ignore = "run by verify:invocation-formal with OPENSESAME_INVOCATION_VECTORS"]
+async fn lean_retry_vectors_match_the_broker() {
+    let path = std::env::var("OPENSESAME_INVOCATION_VECTORS").expect("Lean vector file");
+    let mut seen = std::collections::HashSet::new();
+    for line in std::fs::read_to_string(path).unwrap().lines() {
+        assert!(seen.insert(line.to_owned()), "duplicate vector: {line}");
+        let fields: Vec<&str> = line.split('\t').collect();
+        let [mode, stored, kind, allows, expected] = fields[..] else {
+            panic!("invalid vector: {line}")
+        };
+        let (mut broker, org, principal, actor) = setup().await;
+        let grant = sample_grant(org, principal);
+        let parameters = json!({});
+        let intent = sample_intent(org, principal, actor, "repository.read", "lean", &parameters);
+        let request = || input(&intent, &grant, &parameters);
+        let mut first = None;
+        match (stored, kind) {
+            ("none", "none") => {}
+            ("unbound", "none") => broker.db.insert_intent(&intent).await.unwrap(),
+            ("other-binding", "none") => {
+                let mut other = request();
+                other.subject = "user:other".into();
+                broker.invoke(other).await.unwrap();
+            }
+            ("same-binding", "none") => {
+                let binding = opensesame_broker::invocation_fingerprint(&request()).unwrap();
+                broker.db.insert_bound_intent(&intent, &binding).await.unwrap();
+            }
+            ("same-binding", _) => {
+                let receipt = broker.invoke(request()).await.unwrap();
+                first = Some(receipt.id);
+                let mut stored_receipt = receipt.clone();
+                match kind {
+                    "valid" => {}
+                    "bad-signature" => stored_receipt.operation = "forged".into(),
+                    "other-intent" => {
+                        stored_receipt.intent_digest = format!("sha256:{}", "1".repeat(64))
+                    }
+                    "other-binding" => stored_receipt.idempotency_binding = Some("other".into()),
+                    "not-opaque" => {
+                        // Schema 6 cannot be signed with a result; a legacy one can.
+                        stored_receipt.receipt_schema_version = 5;
+                        stored_receipt.safe_result_summary = Some(json!({"n": 1}));
+                    }
+                    _ => panic!("invalid receipt vector: {line}"),
+                }
+                if kind != "valid" {
+                    if kind != "bad-signature" {
+                        stored_receipt = broker.signer.sign_receipt(stored_receipt).unwrap();
+                    }
+                    sqlx::query("DELETE FROM receipts WHERE id = ?")
+                        .bind(receipt.id.to_string())
+                        .execute(broker.db.pool())
+                        .await
+                        .unwrap();
+                    broker.db.insert_receipt(&stored_receipt).await.unwrap();
+                }
+            }
+            _ => panic!("invalid stored vector: {line}"),
+        }
+        if allows == "0" {
+            broker.policy.relationships = Default::default();
+        }
+        let before = broker.db.count_invocations_for_intent(&intent.id).await.unwrap();
+        let result = match mode {
+            "invoke" => broker.invoke(request()).await,
+            "replay" => broker.replay(request()).await,
+            _ => panic!("invalid mode vector: {line}"),
+        };
+        let actual = match result {
+            Err(_) => "conflict",
+            Ok(receipt) if Some(receipt.id) == first => "prior",
+            Ok(receipt) if receipt.outcome == ReceiptOutcome::Succeeded => "executed",
+            Ok(receipt) if receipt.outcome == ReceiptOutcome::Denied => "denied",
+            Ok(receipt) => panic!("unexpected outcome {:?}: {line}", receipt.outcome),
+        };
+        assert_eq!(actual, expected, "vector: {line}");
+        let after = broker.db.count_invocations_for_intent(&intent.id).await.unwrap();
+        if actual == "prior" || actual == "conflict" {
+            assert_eq!(before, after, "a retry started an invocation: {line}");
+        }
+    }
+    assert_eq!(seen.len(), 36, "incomplete Lean retry matrix");
+    println!("invocation retry correspondence: {} cases passed", seen.len());
+}
