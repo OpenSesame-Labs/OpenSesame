@@ -143,7 +143,7 @@ MUTATIONS = (
         "src/source_loop.rs",
         ".map(|active| bounded_deadline(active.not_after, self.status.borrow().retain_until))",
         ".map(|active| active.not_after)",
-        (integration("outage_policy", "stalled_rpc_opening_cannot_extend_the_outage_deadline", "expected prompt withdrawal"),),
+        (integration("outage_policy", "stalled_rpc_opening_cannot_extend_the_outage_deadline", "outage deadline moved past"),),
     ),
     Mutation(
         "correspondence-test-renamed",
