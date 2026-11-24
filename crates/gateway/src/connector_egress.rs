@@ -198,33 +198,6 @@ mod enabled {
         }
     }
 
-    #[cfg(test)]
-    mod guest_boundary_tests {
-        use super::GatewayEgress;
-
-        #[test]
-        fn credential_shaped_headers_never_reach_the_guest() {
-            let headers = vec![
-                ("X-Request-Id".to_owned(), "req-1".to_owned()),
-                ("Set-Cookie".to_owned(), "sid=1".to_owned()),
-                ("set-cookie".to_owned(), "sid=2".to_owned()),
-                ("Authorization".to_owned(), "Bearer echoed".to_owned()),
-                ("WWW-Authenticate".to_owned(), "Bearer realm=api".to_owned()),
-                (
-                    "Proxy-Authenticate".to_owned(),
-                    "Basic realm=proxy".to_owned(),
-                ),
-                (
-                    "Proxy-Authorization".to_owned(),
-                    "Bearer internal".to_owned(),
-                ),
-                ("Cookie".to_owned(), "theme=dark".to_owned()),
-            ];
-            let kept = GatewayEgress::guest_safe_headers(headers);
-            assert_eq!(kept, vec![("X-Request-Id".to_owned(), "req-1".to_owned())]);
-        }
-    }
-
     /// Scan the operator's connector directory and register every entry.
     /// Every failure is a boot refusal.
     ///
@@ -321,6 +294,33 @@ mod enabled {
         }
         tracing::info!(loaded, "wasm connector directory processed");
         Ok(())
+    }
+
+    #[cfg(test)]
+    mod guest_boundary_tests {
+        use super::GatewayEgress;
+
+        #[test]
+        fn credential_shaped_headers_never_reach_the_guest() {
+            let headers = vec![
+                ("X-Request-Id".to_owned(), "req-1".to_owned()),
+                ("Set-Cookie".to_owned(), "sid=1".to_owned()),
+                ("set-cookie".to_owned(), "sid=2".to_owned()),
+                ("Authorization".to_owned(), "Bearer echoed".to_owned()),
+                ("WWW-Authenticate".to_owned(), "Bearer realm=api".to_owned()),
+                (
+                    "Proxy-Authenticate".to_owned(),
+                    "Basic realm=proxy".to_owned(),
+                ),
+                (
+                    "Proxy-Authorization".to_owned(),
+                    "Bearer internal".to_owned(),
+                ),
+                ("Cookie".to_owned(), "theme=dark".to_owned()),
+            ];
+            let kept = GatewayEgress::guest_safe_headers(headers);
+            assert_eq!(kept, vec![("X-Request-Id".to_owned(), "req-1".to_owned())]);
+        }
     }
 }
 

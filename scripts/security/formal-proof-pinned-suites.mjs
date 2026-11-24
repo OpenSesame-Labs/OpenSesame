@@ -1,4 +1,4 @@
-import { HOST_CLI_SUITE } from "./formal-proof-host-cli.mjs";
+import { HOST_CLI_SUITE, INVOCATION_SUITE } from "./formal-proof-host-cli.mjs";
 import { SOURCE_HISTORY_SUITE } from "./formal-proof-source-history.mjs";
 import {
   NATS_TRUST_ROTATION_SUITE,
@@ -179,24 +179,7 @@ export const PINNED_FORMAL_SUITES = [
     ],
     command: ["npm", "run", "verify:dpop-formal"],
   },
-  {
-    id: "invocation",
-    implementation: crates(`
-      broker/src/idempotency.rs broker/src/lib.rs broker/src/frozen.rs audit/src/lib.rs
-      broker/src/independent_executor.rs broker/src/frozen_outcome_tests.rs domain/src/receipt.rs
-      broker/tests/adversarial_broker/invocation_binding.rs gateway/Cargo.toml
-      broker/tests/adversarial_broker/outcome_indeterminate.rs connection-broker/src/egress_json.rs
-      connector-host/src/builtin_connector.rs connector-host/src/invocation_binding.rs
-      connector-host/src/invocation_dispatch.rs connector-host/src/binding_test_fixtures.rs
-      connector-host/src/invocation_binding_tests.rs connection-broker/src/tests/owner_egress_vectors.rs`),
-    ...cargoRoot("gateway", "opensesame-gateway"),
-    proofs: [
-      ...formal("invocation", "Invocation.lean InvocationEffects.lean"),
-      ...formal("invocation", "required-theorems.lean verify.sh coverage.json"),
-      ...AXIOM_PROOFS,
-    ],
-    command: ["npm", "run", "verify:invocation-formal"],
-  },
+  INVOCATION_SUITE,
   {
     id: "spiffe",
     implementation: [

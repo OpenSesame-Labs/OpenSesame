@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "reviewed_revision": "a51165189346f2aa958e9be221d69cd0f9b7f71e",
+  "reviewed_revision": "af124481e51a6ed37c75958735c34c0de10acb05",
   "sources": [
     {
       "path": "crates/broker/src/idempotency.rs",
@@ -12,7 +12,7 @@
     },
     {
       "path": "crates/broker/tests/adversarial_broker/invocation_binding.rs",
-      "sha256": "3ef7dc8c8a574a721497ae2c2e000d65ad2f515e2e822b18b4d24d83bd99b6ca"
+      "sha256": "12b120a13dbde998deeccfb6618a48107b35e1ac3ed8250714588a08e40860da"
     },
     {
       "path": "crates/broker/src/frozen.rs",
@@ -65,6 +65,42 @@
     {
       "path": "crates/connection-broker/src/tests/owner_egress_vectors.rs",
       "sha256": "db73f148a3ca737cbefa0e7f12fe378fc625791c557dfae456e6e4de707918a9"
+    },
+    {
+      "path": "crates/broker/src/frozen_recovery.rs",
+      "sha256": "203bc41cd3613f13737a6f5cede95c2fff1348117be0fb835a7e17298911bf5b"
+    },
+    {
+      "path": "crates/gateway/src/routes/tasks_opening.rs",
+      "sha256": "c419ab91f06c1912f560bcfc5209a32eabecc8f3c17b0cf0b1ee7bd3f0463b38"
+    },
+    {
+      "path": "crates/gateway/src/middleware/auth.rs",
+      "sha256": "79d3114af43df6826c61a04a4c64b044b0e821edd99d657a67b4681bd51aea81"
+    },
+    {
+      "path": "crates/gateway/src/routes/tasks_bootstrap_tests.rs",
+      "sha256": "57f0767c9f2c4cde2e030aab91743a6262e279ab7b5e4287a36ea6963c09fc27"
+    },
+    {
+      "path": "crates/gateway/src/routes/tasks_opening_tests.rs",
+      "sha256": "4161bcdd2c43e99f9f124ccdb23b9819f4e46afcc71b38cd4c199c9e8f6f1a44"
+    },
+    {
+      "path": "crates/gateway/src/routes/intents_budget.rs",
+      "sha256": "68cc888d4a6a1fa22ef2eb1ee5d1c25f64f93fd7efd4526f1f1432b2ad955d88"
+    },
+    {
+      "path": "crates/gateway/src/routes/intents_effect_fence_tests.rs",
+      "sha256": "142d3aba3b162ffbbbd9e27a8597d5e0b18c5957dce456fc32929d95de886c3c"
+    },
+    {
+      "path": "crates/gateway/src/connector_egress.rs",
+      "sha256": "d222c7cf9c3d18bb927158d147d653c52a9ba48a612e15506f9bed49b15705ef"
+    },
+    {
+      "path": "crates/gateway/src/connector_egress_binding_tests.rs",
+      "sha256": "2fcf22f09187bf3a7e69b01777d01f38991ffbb190173c73072ea162e0526b2d"
     }
   ]
 }

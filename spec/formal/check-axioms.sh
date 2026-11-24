@@ -23,7 +23,7 @@ case "${model##*/}" in
   SpiffePeerDomain.lean) suite=spiffe-peer-domain; required_count=12 ;;
   SourceTrustHistory.lean) suite=source-trust-history; required_count=25 ;;
   GuestContract.lean) suite=guest; required_count=27; parts=(CustodyContract.lean) ;;
-  Invocation.lean) suite=invocation; required_count=15; parts=(InvocationEffects.lean) ;;
+  Invocation.lean) suite=invocation; required_count=26; parts=(InvocationEffects.lean InvocationGateway.lean) ;;
   HostCli.lean) suite=host-cli; required_count=22 ;;
   *) echo "unknown formal model: $model" >&2; exit 1 ;;
 esac

@@ -28,14 +28,14 @@ impl Write for Capture {
     }
 }
 
-async fn body(response: Response) -> Value {
+pub(super) async fn body(response: Response) -> Value {
     let bytes = axum::body::to_bytes(response.into_body(), 1 << 20)
         .await
         .unwrap();
     serde_json::from_slice(&bytes).unwrap()
 }
 
-async fn recover(state: &AppState, headers: &HeaderMap, value: &Value) -> Response {
+pub(super) async fn recover(state: &AppState, headers: &HeaderMap, value: &Value) -> Response {
     let router = Router::new()
         .route(
             "/api/v1/tasks/intent-opening",
