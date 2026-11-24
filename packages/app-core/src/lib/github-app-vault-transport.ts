@@ -5,8 +5,10 @@ import { backupOriginAllowed } from "./backup-egress-gate.js";
 import { assertLeaseCurrent } from "./capabilities/lease.js";
 import { compositionStore } from "./capabilities/store.js";
 import type { GithubDirectTransport } from "./github-app-direct.js";
-import { guestGithubSessionGuard } from "./github-app-guest-guard.js";
-import { clearPendingGuestGithubClaim } from "./github-app-guest-pending.js";
+import {
+  clearPendingGuestGithubClaim,
+  guestGithubSessionGuard,
+} from "./github-app-guest.js";
 import { GithubDirectError } from "./github-app-signing.js";
 import {
   captureGuestProviderAttempt,

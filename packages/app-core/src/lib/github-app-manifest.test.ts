@@ -16,8 +16,10 @@ import {
   allowGithub,
   openGithubTestOwner,
 } from "./github-app-authority.test-support.js";
-import { updateGuestGithubAppMetadata } from "./github-app-guest.js";
-import { retryPendingGuestGithubClaim } from "./github-app-guest-pending.js";
+import {
+  retryPendingGuestGithubClaim,
+  updateGuestGithubAppMetadata,
+} from "./github-app-guest.js";
 import {
   ensureGuestGithubAppLoaded,
   rememberLocalGithubApp,
