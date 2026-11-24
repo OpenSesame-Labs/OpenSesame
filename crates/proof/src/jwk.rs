@@ -311,10 +311,7 @@ pub fn decode_dpop_proof(
         return Err(ProofError::InvalidProof("htu mismatch".into()));
     }
 
-    if now
-        .checked_sub(claims.iat)
-        .is_none_or(|age| age > max_age_secs)
-    {
+    if !crate::replay::proof_age_admits(now, claims.iat, max_age_secs) {
         return Err(ProofError::InvalidProof("iat too old".into()));
     }
     if now

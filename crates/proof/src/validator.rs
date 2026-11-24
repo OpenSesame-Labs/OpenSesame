@@ -126,7 +126,7 @@ impl<R: ReplayCache> DpopValidator<R> {
         // Remember the jti for as long as this proof could still be accepted:
         // `iat + max_age`, which for a future-dated proof is later than
         // `now + max_age`. Expiring any sooner re-opens a replay window.
-        let valid_until = claims.iat.saturating_add(self.max_age_secs);
+        let valid_until = crate::replay::proof_replay_until(claims.iat, self.max_age_secs);
         self.replay_cache
             .check_and_record_until(&claims.jti, now, valid_until)?;
 
