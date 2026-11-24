@@ -67,18 +67,19 @@ async fn independent_executor_receives_the_persisted_invocation_and_replay_skips
     assert_eq!(*seen.lock().unwrap(), vec![receipt.invocation_id]);
 }
 
-#[tokio::test]
-async fn independent_delegate_executor_is_refused_even_after_policy_allows_it() {
+/// Run the independent executor (`reject_delegated`) for a root or a child
+/// grant under an allowing or denying policy; return what happened and the
+/// effects the executor ran. A refusal must leave no receipt, invocation or intent.
+async fn independent_outcome(child_grant: bool, allows: bool) -> (&'static str, usize) {
     let (broker, org, principal, actor) = setup().await;
     let parameters = json!({});
-    let mut intent = sample_intent(
-        org,
-        principal,
-        actor,
-        "repository.read",
-        "delegate-bound",
-        &parameters,
-    );
+    // A child grant is its own eligibility, so deny with an ungranted action.
+    let operation = if allows {
+        "repository.read"
+    } else {
+        "repository.delete"
+    };
+    let mut intent = sample_intent(org, principal, actor, operation, "bound", &parameters);
     let connection = ConnectionId::new();
     intent.connection_id = Some(connection);
     let mut root = sample_grant(org, principal);
@@ -89,21 +90,25 @@ async fn independent_delegate_executor_is_refused_even_after_policy_allows_it() 
     child.parent_grant_id = Some(root.id);
     child.delegation_depth = 1;
     child.constraints.maximum_delegation_depth = 0;
-    intent.delegation_chain = vec![root.id, child.id];
-    let lineage = ValidatedGrantChain::try_validate(&[root, child.clone()], Utc::now(), 0).unwrap();
+    let (grant, lineage) = if child_grant {
+        intent.delegation_chain = vec![root.id, child.id];
+        let chain = ValidatedGrantChain::try_validate(&[root, child.clone()], Utc::now(), 0);
+        (child, Some(chain.unwrap()))
+    } else {
+        (root, None)
+    };
     let input = InvokeInput {
         intent,
-        grant: child,
+        grant,
         subject: "user:demo".into(),
         connection_policy_id: "demo-conn".into(),
         parameters,
-        lineage: Some(lineage),
+        lineage,
     };
-    let intent_id = input.intent.id;
-    let idempotency_key = input.intent.idempotency_key.clone();
+    let (intent_id, key) = (input.intent.id, input.intent.idempotency_key.clone());
     let count = Arc::new(AtomicUsize::new(0));
     let effects = Arc::clone(&count);
-    let error = broker
+    let result = broker
         .invoke_with_bound(input, move |_| async move {
             effects.fetch_add(1, Ordering::SeqCst);
             Ok(InvokeResult {
@@ -112,29 +117,55 @@ async fn independent_delegate_executor_is_refused_even_after_policy_allows_it() 
                 external_request_digest: None,
             })
         })
-        .await
-        .unwrap_err();
+        .await;
+    let outcome = match result {
+        Err(error) if error.downcast_ref() == Some(&HostError::DelegatedExecutionUnavailable) => {
+            assert!(!error.to_string().contains("Indeterminate"));
+            assert_eq!(broker.db.count_receipts().await.unwrap(), 0);
+            let invocations = broker.db.count_invocations_for_intent(&intent_id);
+            assert_eq!(invocations.await.unwrap(), 0);
+            let stored = broker.db.find_idempotent_intent(&org, &key).await.unwrap();
+            assert!(stored.is_none());
+            "delegated-refused"
+        }
+        // The independent executor never discloses an outcome (INV-O1).
+        Ok(receipt) if receipt.outcome == ReceiptOutcome::Indeterminate => "executed",
+        Ok(receipt) if receipt.outcome == ReceiptOutcome::Denied => "denied",
+        _ => "other",
+    };
+    (outcome, count.load(Ordering::SeqCst))
+}
+
+#[tokio::test]
+async fn independent_delegate_executor_is_refused_even_after_policy_allows_it() {
     assert_eq!(
-        error.downcast_ref::<HostError>(),
-        Some(&HostError::DelegatedExecutionUnavailable)
+        independent_outcome(true, true).await,
+        ("delegated-refused", 0)
     );
-    assert!(!error.to_string().contains("Indeterminate"));
-    assert_eq!(count.load(Ordering::SeqCst), 0);
-    assert_eq!(broker.db.count_receipts().await.unwrap(), 0);
-    assert_eq!(
-        broker
-            .db
-            .count_invocations_for_intent(&intent_id)
-            .await
-            .unwrap(),
-        0
-    );
-    assert!(broker
-        .db
-        .find_idempotent_intent(&org, &idempotency_key)
-        .await
-        .unwrap()
-        .is_none());
+}
+
+/// INV-D1 `reject_delegated`: every Lean case against `invoke_with_bound`.
+#[tokio::test]
+#[ignore = "run by verify:invocation-formal with OPENSESAME_INVOCATION_EFFECT_VECTORS"]
+async fn lean_reject_delegated_vectors_match_the_broker() {
+    let path = std::env::var("OPENSESAME_INVOCATION_EFFECT_VECTORS").expect("Lean vector file");
+    let mut cases = 0;
+    for line in std::fs::read_to_string(path).unwrap().lines() {
+        let fields: Vec<&str> = line.split('\t').collect();
+        let ["d1-reject", grant, allows, expected] = fields[..] else {
+            continue;
+        };
+        let (outcome, effects) = independent_outcome(grant == "child", allows == "1").await;
+        assert_eq!(outcome, expected, "vector: {line}");
+        assert_eq!(
+            effects,
+            usize::from(outcome == "executed"),
+            "vector: {line}"
+        );
+        cases += 1;
+    }
+    assert_eq!(cases, 4, "vector: reject_delegated case count");
+    println!("invocation-formal: {cases} reject_delegated vectors matched");
 }
 
 /// What the connector observed per call: invocation, action and connection.
@@ -338,7 +369,8 @@ async fn lean_retry_vectors_match_the_broker() {
         let actual = match result {
             Err(error) => conflict_reason(&error.to_string()),
             Ok(receipt) if Some(receipt.id) == first => "prior",
-            Ok(receipt) if receipt.outcome == ReceiptOutcome::Succeeded => "executed",
+            // The independent executor never discloses an outcome (INV-O1).
+            Ok(receipt) if receipt.outcome == ReceiptOutcome::Indeterminate => "executed",
             Ok(receipt) if receipt.outcome == ReceiptOutcome::Denied => "denied",
             // Any other receipt (indeterminate, failed) is a mismatch.
             Ok(_) => "other",

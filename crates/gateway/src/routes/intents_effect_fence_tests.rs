@@ -129,3 +129,75 @@ async fn effectful_delegate_is_refused_before_budget_but_owner_can_invoke() {
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(effects.load(Ordering::SeqCst), 1);
 }
+
+/// INV-D1 gateway: every Lean case of `ensure_effect_allowed`, on the real
+/// host's inert builtin mock and a registered effectful connector.
+#[tokio::test]
+#[ignore = "run by verify:invocation-formal with OPENSESAME_INVOCATION_EFFECT_VECTORS"]
+async fn lean_effect_admission_vectors_match_the_gateway() {
+    let mut state = crate::app_state::test_demo_state().await;
+    install_effectful_connector(&mut state, &Arc::new(AtomicUsize::new(0)), "effect-policy");
+    assert!(state.broker.host.is_inert_builtin_mock("demo-conn"));
+    assert!(!state.broker.host.is_inert_builtin_mock("effect-policy"));
+    let boot = state.bootstrap.lock().unwrap().as_ref().unwrap().clone();
+    let mut root = boot.grant.clone();
+    root.constraints.maximum_delegation_depth = 1;
+    let mut child = root.clone();
+    child.id = GrantId::new();
+    child.parent_grant_id = Some(root.id);
+    child.delegation_depth = 1;
+    child.constraints.maximum_delegation_depth = 0;
+    let chain = ValidatedGrantChain::try_validate(&[root.clone(), child], Utc::now(), 0).unwrap();
+    let connection_ref = ConnectionRef::new(boot.org, None, "github", boot.connection).unwrap();
+    let path = std::env::var("OPENSESAME_INVOCATION_EFFECT_VECTORS").expect("Lean vector file");
+    let mut cases = 0;
+    for line in std::fs::read_to_string(path).unwrap().lines() {
+        let fields: Vec<&str> = line.split('\t').collect();
+        let ["d1-admit", bits, expected] = fields[..] else {
+            continue;
+        };
+        // spend, lineage, parent, depth, broker connection, independent, replay, inert mock
+        let bit = |i: usize| bits.as_bytes()[i] == b'1';
+        let mut grant = root.clone();
+        grant.parent_grant_id = bit(2).then(GrantId::new);
+        grant.delegation_depth = u32::from(bit(3));
+        let resolved = ResolvedInvocation {
+            grant,
+            lineage: bit(1).then(|| chain.clone()),
+            delegation_chain: vec![],
+            connection_id: boot.connection,
+            principal_id: boot.principal,
+            binding: ConnectionAuthorityBinding {
+                connection_ref: connection_ref.clone(),
+                internal_secret: None,
+                credential_handle: None,
+                egress: EgressBinding {
+                    scheme: "https".into(),
+                    authorities: vec!["api.github.com".into()],
+                    path_prefixes: vec![],
+                    allow_redirects_cross_authority: false,
+                },
+                max_invoke_level: InvokeLevel::TypedOperation,
+            },
+            connection_policy_id: if bit(7) { "demo-conn" } else { "effect-policy" }.into(),
+            spend_budget: bit(0).then(|| "delegation".to_owned()),
+            broker_connection: bit(4),
+        };
+        let admitted = crate::routes::intents_budget::ensure_effect_allowed;
+        let actual = match admitted(&state, &resolved, bit(5), bit(6)) {
+            Ok(()) => "allowed",
+            Err(response) => {
+                assert_eq!(
+                    response.status(),
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "vector: {line}"
+                );
+                "refused"
+            }
+        };
+        assert_eq!(actual, expected, "vector: {line}");
+        cases += 1;
+    }
+    assert_eq!(cases, 256, "vector: effect admission case count");
+    println!("invocation-formal: {cases} gateway effect admission vectors matched");
+}
