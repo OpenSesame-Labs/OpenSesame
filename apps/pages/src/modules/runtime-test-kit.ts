@@ -36,18 +36,27 @@ export const NO_SIDE_EFFECTS: ImportSideEffects = Object.freeze({
   storageWrites: 0,
 });
 
-/**
- * Evaluate a module graph for the first time while every side-effect road
- * is spied. The loader must be a dynamic import the test file has not
- * imported statically anywhere, or the graph is already evaluated.
- */
 /** A module evaluated under spies, and what its evaluation touched. */
 export type SpiedImport<T> = Readonly<{
   module: T;
   effects: ImportSideEffects;
 }>;
 
-export async function importUnderSpies<T>(
+/**
+ * What each namespace's one real evaluation touched. A module is evaluated
+ * once per file: Vitest's `retry` re-runs a failed test against the cached
+ * graph, where a second spied import observes nothing and the retry passed
+ * a runtime the first attempt caught. A namespace seen again reports what
+ * its evaluation did, not what the cache hit did.
+ */
+const firstEvaluation = new WeakMap<object, ImportSideEffects>();
+
+/**
+ * Evaluate a module graph for the first time while every side-effect road
+ * is spied. The loader must be a dynamic import the test file has not
+ * imported statically anywhere, or the graph is already evaluated.
+ */
+export async function importUnderSpies<T extends object>(
   load: () => Promise<T>,
 ): Promise<SpiedImport<T>> {
   const serviceWorkerRegister = vi.fn(async () => {
@@ -60,6 +69,13 @@ export async function importUnderSpies<T>(
       value: { register: serviceWorkerRegister, addEventListener: vi.fn() },
     });
   }
+  const registerSpy = hadServiceWorker
+    ? vi
+        .spyOn(navigator.serviceWorker, "register")
+        .mockRejectedValue(
+          new Error("service worker registration during import"),
+        )
+    : undefined;
   const fetchSpy = vi
     .spyOn(globalThis, "fetch")
     .mockImplementation(async () => {
@@ -73,20 +89,24 @@ export async function importUnderSpies<T>(
   const storageSpy = vi.spyOn(Storage.prototype, "setItem");
   try {
     const module = await load();
-    return {
-      module,
-      effects: {
-        fetch: fetchSpy.mock.calls.length,
-        setTimeout: timeoutSpy.mock.calls.length,
-        setInterval: intervalSpy.mock.calls.length,
-        serviceWorkerRegister: serviceWorkerRegister.mock.calls.length,
-        windowListeners: windowSpy.mock.calls.length,
-        documentListeners: documentSpy.mock.calls.length,
-        customElements: defineSpy.mock.calls.length,
-        storageWrites: storageSpy.mock.calls.length,
-      },
-    };
+    const seen = firstEvaluation.get(module);
+    if (seen) return { module, effects: seen };
+    const effects: ImportSideEffects = Object.freeze({
+      fetch: fetchSpy.mock.calls.length,
+      setTimeout: timeoutSpy.mock.calls.length,
+      setInterval: intervalSpy.mock.calls.length,
+      serviceWorkerRegister:
+        serviceWorkerRegister.mock.calls.length +
+        (registerSpy?.mock.calls.length ?? 0),
+      windowListeners: windowSpy.mock.calls.length,
+      documentListeners: documentSpy.mock.calls.length,
+      customElements: defineSpy.mock.calls.length,
+      storageWrites: storageSpy.mock.calls.length,
+    });
+    firstEvaluation.set(module, effects);
+    return { module, effects };
   } finally {
+    registerSpy?.mockRestore();
     fetchSpy.mockRestore();
     timeoutSpy.mockRestore();
     intervalSpy.mockRestore();
