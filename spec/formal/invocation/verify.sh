@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # INV-I1, INV-O1, INV-O2, INV-D1, INV-D2: Lean decides every case; the real
-# broker, connector host and connection broker replay each one.
+# broker, connector host, connection broker and gateway replay each one.
 set -euo pipefail
 root="$(cd "$(dirname "$0")/../../.." && pwd)"
 lean_bin="${OPENSESAME_LEAN_BIN:-lean}"
@@ -36,6 +36,8 @@ bash "$root/spec/formal/check-axioms.sh" "$lean_bin" "$root/spec/formal/invocati
 grep -E $'^(invoke|replay)\t' "$vectors" > "$retries"
 # Each harness is one ignored test that reads the vectors and fails with a
 # `vector:` assertion; `1 passed` rules out a filter that selected nothing.
+# The gateway harnesses share one build, with the Wasm registration capture.
+gateway=(-p opensesame-gateway --features wasm-connectors --lib -- --ignored --exact)
 harness() {
   local test
   case "$1" in
@@ -49,13 +51,21 @@ harness() {
       invocation_binding::tests::lean_dispatch_vectors_match_the_host) ;;
     egress) test=(-p opensesame-connection-broker --lib -- --ignored --exact
       tests::owner_egress_vectors::lean_owner_egress_vectors_match_the_broker) ;;
+    reject) test=(-p opensesame-broker --test adversarial_broker -- --ignored --exact
+      invocation_binding_tests::lean_reject_delegated_vectors_match_the_broker) ;;
+    admission) test=("${gateway[@]}"
+      routes::intents::delegated_invoke_tests::effect_fence_tests::lean_effect_admission_vectors_match_the_gateway) ;;
+    recovery) test=("${gateway[@]}"
+      routes::tasks::bootstrap_tests::lean_recovery_vectors_match_the_gateway) ;;
+    registration) test=("${gateway[@]}"
+      connector_egress::binding_tests::lean_registration_vectors_match_the_gateway) ;;
     *) echo "invocation-formal: unknown harness $1" >&2; return 2 ;;
   esac
   (cd "$2" && OPENSESAME_INVOCATION_VECTORS="$retries" OPENSESAME_INVOCATION_EFFECT_VECTORS="$vectors" \
     CARGO_TARGET_DIR="$3" cargo test --locked "${test[@]}" --nocapture) > "$4" 2>&1 || return 1
   grep -q 'test result: ok. 1 passed' "$4"
 }
-for name in retry receipt frozen dispatch egress; do
+for name in retry receipt frozen dispatch egress reject admission recovery registration; do
   if ! harness "$name" "$root" "${CARGO_TARGET_DIR:-$scratch/target}" "$scratch/$name.log"; then
     tail -40 "$scratch/$name.log" >&2
     echo "invocation-formal: $name correspondence failed" >&2
@@ -73,6 +83,8 @@ if [[ "${1:-}" == "--negative-controls" ]]; then
   git -C "$root" worktree add --quiet --detach "$scratch/tree" HEAD
   b=crates/broker/src c=crates/connector-host/src e=crates/connection-broker/src/egress_json.rs
   r=crates/domain/src/receipt.rs a=crates/audit/src/lib.rs
+  o=crates/gateway/src/routes/tasks_opening.rs f=crates/gateway/src/routes/intents_budget.rs
+  w=crates/gateway/src/connector_egress.rs
   # file@before@after@name@harness[@occurrence]; `\n` in before/after is a newline.
   controls=(
     "$b/idempotency.rs@existing.fingerprint.as_ref() == Some(fingerprint),@true,@fingerprint@retry"
@@ -109,6 +121,26 @@ if [[ "${1:-}" == "--negative-controls" ]]; then
     "$e@        if stored.as_ref() != Some(expected.grant) {@        if false {@d2-json-stored@egress@1"
     "$e@        if stored.as_ref() != Some(expected.grant) {@        if false {@d2-http-stored@egress@2"
     "$e@        if row.status == ConnectionStatus::Revoked {@        if false {@d2-row-revoked@egress"
+    "$b/lib.rs@            if reject_delegated && auth.is_delegated() {@            if false {@d1-reject-delegated@reject"
+    "$b/independent_executor.rs@            false,\n            false,\n            true,@            false,\n            false,\n            false,@d1-reject-independent@reject"
+    "$o@Ok(intent) if intent.intent_digest == request.intent_digest => intent,@Ok(intent) => intent,@o2-recover-digest@recovery"
+    "$o@    if wire.get(\"intent\") != Some(&canonical) {@    if false {@o2-recover-canonical@recovery"
+    "$o@ || !caller.in_organization(&intent.organization_id)@@o2-recover-organization@recovery"
+    "$o@!caller.owns(&intent.principal_id) || @@o2-recover-owner@recovery"
+    "$f@let consistent = delegated == resolved.lineage.is_some()\n        &&@let consistent =@d1-admit-lineage@admission"
+    "$f@        && delegated == child\n@@d1-admit-child@admission"
+    "$f@        && (!delegated || resolved.broker_connection);@;@d1-admit-broker@admission"
+    "$f@ || resolved.grant.delegation_depth > 0;@;@d1-admit-depth@admission"
+    "$f@let inert_mock = !independent_executor\n        && st@let inert_mock = st@d1-admit-independent@admission"
+    "$f@(!delegated || replay_only || inert_mock)@(!delegated || inert_mock)@d1-admit-replay@admission"
+    "$f@(!delegated || replay_only || inert_mock)@(!delegated || replay_only)@d1-admit-mock@admission"
+    "$f@    if consistent && (@    if (@d1-admit-consistent@admission"
+    "$w@        if binding.is_delegated()\n            ||@        if@d2-capture-delegated@registration"
+    "$w@            || binding.connection_policy_id() != connection_ref\n@@d2-capture-policy@registration"
+    "$w@            || registered_provider != connection_ref\n@@d2-capture-provider@registration"
+    "$w@            || binding.grant().connection_id != Some(connection)\n@@d2-capture-grant-connection@registration"
+    "$w@            || binding.grant().assert_active(Utc::now()).is_err()\n@@d2-capture-active@registration"
+    "$w@accepts_binding(binding, connection_ref, &self.registered_provider)@binding.connection_id()@d2-bridge-capture@registration"
   )
   for control in "${controls[@]}"; do
     IFS='@' read -r file before after name runner occurrence <<<"$control"
