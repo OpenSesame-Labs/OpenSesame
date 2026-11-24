@@ -91,10 +91,11 @@ export class DurableMap<T> {
   }
   /**
    * Startup migration only: move `key`'s legacy row to its keyed id in one
-   * locked transaction. A current row for the key, if one exists, wins and the
-   * legacy row is removed; otherwise the successor is written with the legacy
-   * row's expiry before the legacy row is deleted, so a fence or revocation it
-   * holds is never absent. False when `key` has no legacy row.
+   * locked transaction. A live current row for the key wins and the legacy
+   * row is removed; otherwise the successor is written (replacing an expired
+   * current row) with the legacy row's expiry before the legacy row is
+   * deleted, so a fence or revocation it holds is never absent. False when
+   * `key` has no legacy row.
    */
   async adoptLegacyRow(key: string): Promise<boolean> {
     const legacyId = this.legacyIdOf(key);
@@ -108,20 +109,15 @@ export class DurableMap<T> {
       if (!legacy) return false;
       const payload = openOidcRow(this.sealer, legacy);
       if (hasCurrentRowId(payload)) return false;
+      // An expired current row is not the key's value; the live legacy row is.
       const [current] = await tx
         .select({ id: oidcPayloads.id })
         .from(oidcPayloads)
-        .where(this.condition(key));
+        .where(and(this.condition(key), this.live()));
       if (!current) {
-        const sealed = sealOidcRow(
-          this.sealer,
-          this.model,
-          key,
-          encodeRecord(this.model, key, decodeRecord<T>(payload)),
-        );
-        await tx
-          .insert(oidcPayloads)
-          .values({ ...sealed, expiresAt: legacy.expiresAt });
+        const record = encodeRecord(this.model, key, decodeRecord<T>(payload));
+        const sealed = sealOidcRow(this.sealer, this.model, key, record);
+        await this.upsert(overlapCast(tx), sealed, legacy.expiresAt);
       }
       await tx.delete(oidcPayloads).where(this.storedRow(legacyId));
       return true;
@@ -173,22 +169,30 @@ export class DurableMap<T> {
           throw new Error("Security store capacity exceeded");
       }
       const expiresAt = recordExpiry(this.model, this.ttlMs, value);
-      await tx
-        .insert(oidcPayloads)
-        .values({ ...sealed, expiresAt })
-        .onConflictDoUpdate({
-          target: [oidcPayloads.model, oidcPayloads.id],
-          set: {
-            payload: sealed.payload,
-            sealScope: sealed.sealScope,
-            uid: sealed.uid,
-            userCode: sealed.userCode,
-            grantId: sealed.grantId,
-            expiresAt,
-          },
-        });
+      await this.upsert(overlapCast(tx), sealed, expiresAt);
       return true;
     });
+  }
+  /** Insert a sealed row, replacing the row already stored under its id. */
+  private async upsert(
+    tx: Database,
+    sealed: ReturnType<typeof sealOidcRow>,
+    expiresAt: Date | null,
+  ) {
+    await tx
+      .insert(oidcPayloads)
+      .values({ ...sealed, expiresAt })
+      .onConflictDoUpdate({
+        target: [oidcPayloads.model, oidcPayloads.id],
+        set: {
+          payload: sealed.payload,
+          sealScope: sealed.sealScope,
+          uid: sealed.uid,
+          userCode: sealed.userCode,
+          grantId: sealed.grantId,
+          expiresAt,
+        },
+      });
   }
   async set(key: string, value: T): Promise<this> {
     await this.write(key, value, false);

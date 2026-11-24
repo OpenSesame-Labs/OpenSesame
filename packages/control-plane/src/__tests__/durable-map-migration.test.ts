@@ -233,6 +233,32 @@ it("keeps a key's current row over its legacy row when both exist", () =>
     expect(await fences.get("principal-d")).toEqual(current);
   }));
 
+it("adopts a live legacy fence over an expired current row instead of dropping it", () =>
+  withDatabase(async (db) => {
+    const fences = secretMap<PrincipalSessionFence>(db, EPOCHS);
+    const fence = { generation: 7, operations: ["revoke-1"] };
+    await insertLegacy(db, EPOCHS, "principal-e", fence);
+    // A current row that has already expired is not the key's value.
+    await db.insert(schema.oidcPayloads).values({
+      ...sealOidcRow(sealer, EPOCHS, "principal-e", {
+        value: serialize({ generation: 1, operations: [] }).toString("base64"),
+        rowId: "keyed-hmac-v2",
+      }),
+      expiresAt: new Date(Date.now() - 1_000),
+    });
+    expect(await fences.get("principal-e")).toBeUndefined();
+    expect(await fences.adoptLegacyRow("principal-e")).toBe(true);
+    expect(await fences.get("principal-e")).toEqual(fence);
+    expect(await storedIds(db, EPOCHS)).toEqual([
+      oidcLookup(sealer, EPOCHS, "id", "principal-e"),
+    ]);
+    const [row] = await db
+      .select()
+      .from(schema.oidcPayloads)
+      .where(eq(schema.oidcPayloads.model, EPOCHS));
+    expect(row?.expiresAt).toBeNull();
+  }));
+
 it("fails startup closed while a no-expiry record cannot be re-keyed", () =>
   withDatabase(async (db) => {
     const stores = createAppStores();
