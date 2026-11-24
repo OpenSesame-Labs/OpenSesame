@@ -18,10 +18,11 @@ import re
 import stat
 import subprocess
 import sys
+import tarfile
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / "scripts" / "security"))
-from formal_coverage_drift import assert_reviewed_revision_on_main  # noqa: E402
+from formal_coverage_drift import assert_reviewed_revision_on_main, lineage_git_root  # noqa: E402
 TARGETS = {
     "crates/domain/Cargo.toml": {"package": "opensesame-domain", "lib": ("opensesame_domain", "src/lib.rs")},
     "crates/transport-security/Cargo.toml": {
@@ -117,7 +118,13 @@ PATHS = [
     "scripts/security/formal-cargo-freshness.py",
     "scripts/security/formal_cargo_packages.py",
     "scripts/security/cargo-lock-projection.py",
+    "scripts/security/verify-vendored-sqlx.py",
 ]
+# 2026-11-24: the runner now builds through the freshness session, which
+# tracks the declared sqlx-sqlite path patch (reached by opensesame-time's
+# default sqlx feature). It is outside this property; its tree is pinned by
+# the reviewed vendored-crate verifier, executed on every input check.
+VENDORED_VERIFIERS = ("scripts/security/verify-vendored-sqlx.py",)
 OPTIONAL_PATHS = [
     "crates/domain/build.rs",
     "crates/spiffe-source/build.rs",
@@ -130,8 +137,9 @@ SHA_RE = re.compile(r"[0-9a-f]{64}\Z")
 
 
 def git(*args: str) -> subprocess.CompletedProcess[bytes]:
+    # A scratch negative-control tree has no .git; blobs resolve in its owner.
     return subprocess.run(
-        ["git", "-C", str(ROOT), *args],
+        ["git", "-C", str(lineage_git_root(ROOT)), *args],
         capture_output=True,
         env={**os.environ, "GIT_NO_REPLACE_OBJECTS": "1"},
         check=False,
@@ -235,6 +243,10 @@ def main():
         scope = {"__name__": "reviewed_cargo_isolation", "__file__": str(ROOT / helper_name)}
         exec(compile(verified[helper_name], scope["__file__"], "exec", dont_inherit=True), scope)
         scope["check_cargo_targets"](ROOT, TARGETS, set(verified))
+        for name in VENDORED_VERIFIERS:
+            scope = {"__name__": "reviewed_vendored_crate", "__file__": str(ROOT / name)}
+            exec(compile(verified[name], scope["__file__"], "exec", dont_inherit=True), scope)
+            scope["verify"](ROOT)
         helper_name = "scripts/security/cargo-lock-projection.py"
         helper = regular_path(helper_name)
         spec = importlib.util.spec_from_file_location("cargo_lock_projection", helper)
@@ -250,7 +262,7 @@ def main():
         graph = projection.read_lock(ROOT / "Cargo.lock")
         if projection.projection_sha256(graph, recorded["root"]) != recorded["sha256"]:
             raise ValueError("review source-lifetime dependency graph drift")
-    except (OSError, ValueError, KeyError, TypeError) as exc:
+    except (OSError, ValueError, KeyError, TypeError, subprocess.CalledProcessError, tarfile.TarError) as exc:
         raise SystemExit(f"source-lifetime-formal: {exc}") from exc
     print(f"source-lifetime-formal: reviewed source blobs and dependencies match base {coverage['reviewed_revision']}")
 

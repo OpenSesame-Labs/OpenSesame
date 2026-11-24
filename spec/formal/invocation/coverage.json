@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "reviewed_revision": "a0c3f81fea0730e66471df4c11af52d6cf7b77fb",
+  "sources": [
+    {
+      "path": "crates/broker/src/idempotency.rs",
+      "sha256": "4fe9fbb318004a70bf8c7eb18c2f371cee97d250a163a9f6f2cd988a35907b0c"
+    },
+    {
+      "path": "crates/broker/src/lib.rs",
+      "sha256": "dfadaf3a4883b239fce715546b060014d1ecf61d3f1f0d1820475bb6d7ab9e1e"
+    },
+    {
+      "path": "crates/broker/tests/adversarial_broker/invocation_binding.rs",
+      "sha256": "3ef7dc8c8a574a721497ae2c2e000d65ad2f515e2e822b18b4d24d83bd99b6ca"
+    }
+  ]
+}

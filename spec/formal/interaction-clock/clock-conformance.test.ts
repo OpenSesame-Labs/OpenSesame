@@ -8,7 +8,10 @@ import {
 it("matches Lean's finite and invalid date boundary vectors", () => {
   const path = process.env.OPENSESAME_INTERACTION_CLOCK_VECTORS;
   if (!path) throw new Error("Lean vectors are required");
-  const rows = readFileSync(path, "utf8").trim().split("\n");
+  const all = readFileSync(path, "utf8").trim().split("\n");
+  expect(all).toHaveLength(260);
+  // The eight unit-of-work rows are replayed by the control-plane route test.
+  const rows = all.filter((row) => !row.startsWith("uow\t"));
   expect(rows).toHaveLength(252);
   const activationRows = rows.filter((row) => row.startsWith("activation\t"));
   const instantRows = rows.filter((row) => !row.startsWith("activation\t"));

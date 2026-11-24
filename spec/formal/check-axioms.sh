@@ -17,12 +17,13 @@ case "${model##*/}" in
   SpiffePolicy.lean) suite=spiffe; required_count=25 ;;
   PendingIntegrity.lean) suite=oauth; required_count=22 ;;
   ApprovalBinding.lean) suite=webauthn; required_count=12 ;;
-  InteractionClock.lean) suite=interaction-clock; required_count=9 ;;
+  InteractionClock.lean) suite=interaction-clock; required_count=13 ;;
   SourceLifetime.lean) suite=source-lifetime; required_count=13 ;;
   SourceTrustSelection.lean) suite=source-trust-selection; required_count=39 ;;
   SpiffePeerDomain.lean) suite=spiffe-peer-domain; required_count=12 ;;
   SourceTrustHistory.lean) suite=source-trust-history; required_count=25 ;;
   GuestContract.lean) suite=guest; required_count=27; parts=(CustodyContract.lean) ;;
+  Invocation.lean) suite=invocation; required_count=4 ;;
   *) echo "unknown formal model: $model" >&2; exit 1 ;;
 esac
 obligations="$root/spec/formal/$suite/required-theorems.lean"
