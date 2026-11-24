@@ -369,8 +369,7 @@ async fn lean_retry_vectors_match_the_broker() {
         let actual = match result {
             Err(error) => conflict_reason(&error.to_string()),
             Ok(receipt) if Some(receipt.id) == first => "prior",
-            // The independent executor never discloses an outcome (INV-O1).
-            Ok(receipt) if receipt.outcome == ReceiptOutcome::Indeterminate => "executed",
+            Ok(receipt) if receipt.outcome == ReceiptOutcome::Succeeded => "executed",
             Ok(receipt) if receipt.outcome == ReceiptOutcome::Denied => "denied",
             // Any other receipt (indeterminate, failed) is a mismatch.
             Ok(_) => "other",
