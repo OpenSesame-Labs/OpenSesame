@@ -59,96 +59,94 @@ struct FrozenRun {
 
 /// Run one frozen invocation against a registered connector, then replay it.
 async fn run_frozen(provider: &'static str) -> FrozenRun {
-    {
-        let org = OrganizationId::new();
-        let principal = PrincipalId::new();
-        let capabilities = CapabilitySet::new(vec![Capability::new(
-            "read",
-            ResourceSelector::exact("doc:1"),
-        )]);
-        let tasks = TaskAccessEngine::new(InMemoryTaskStore::new());
-        let ceiling = tasks
-            .compile_ceiling(
-                vec![CeilingInput {
-                    principal_id: principal,
-                    capabilities: capabilities.clone(),
-                }],
-                Utc::now(),
-            )
-            .unwrap();
-        let run = tasks
-            .start_task(StartTaskParams {
-                template_id: TaskTemplateId::new(),
-                authority_context: AuthorityContext {
-                    id: AuthorityContextId::new(),
-                    mode: AuthorityContextMode::SinglePrincipal,
-                    organization_id: org,
-                    project_id: None,
-                    principal_ids: vec![principal],
-                    capability_ceiling: capabilities,
-                    compiled_at: Utc::now(),
-                },
-                ceiling,
-                maximum_expires_at: Utc::now() + Duration::hours(1),
-                now: Utc::now(),
-            })
-            .unwrap();
-        let mut intent = sample_intent(org, principal);
-        intent.task_run_id = run.id;
-        intent.task_state_version = run.state_version;
-        intent.task_state_digest = run.state_digest;
-        let intent = intent.with_computed_digest().unwrap();
-
-        let db = Db::connect_memory().await.unwrap();
-        db.create_organization(&org, "frozen-outcome")
-            .await
-            .unwrap();
-        let mut policy = PolicyEngine::default();
-        policy
-            .relationships
-            .write("connection:demo-conn", "user", "user:demo");
-        let calls = Arc::new(AtomicUsize::new(0));
-        let mut host = HostRuntime::default();
-        host.policy
-            .trusted_digests
-            .insert("sha256:outcome-fixture".into());
-        host.register_connector(Arc::new(FixedConnector {
-            provider,
-            calls: Arc::clone(&calls),
-        }))
+    let org = OrganizationId::new();
+    let principal = PrincipalId::new();
+    let capabilities = CapabilitySet::new(vec![Capability::new(
+        "read",
+        ResourceSelector::exact("doc:1"),
+    )]);
+    let tasks = TaskAccessEngine::new(InMemoryTaskStore::new());
+    let ceiling = tasks
+        .compile_ceiling(
+            vec![CeilingInput {
+                principal_id: principal,
+                capabilities: capabilities.clone(),
+            }],
+            Utc::now(),
+        )
         .unwrap();
-        host.bind_connection("demo-conn", "outcome-fixture")
-            .unwrap();
-        let broker = Broker {
-            db,
-            policy,
-            host,
-            signer: ReceiptSigner::generate(),
-        };
-        let grant = sample_grant(org, principal);
-        let input = || FrozenInvokeInput {
-            intent: intent.clone(),
-            grant: grant.clone(),
-            subject: "user:demo".into(),
-            connection_policy_id: "demo-conn".into(),
-            required_capability: Capability::new("read", ResourceSelector::exact("doc:1")),
-            lineage: None,
-        };
+    let run = tasks
+        .start_task(StartTaskParams {
+            template_id: TaskTemplateId::new(),
+            authority_context: AuthorityContext {
+                id: AuthorityContextId::new(),
+                mode: AuthorityContextMode::SinglePrincipal,
+                organization_id: org,
+                project_id: None,
+                principal_ids: vec![principal],
+                capability_ceiling: capabilities,
+                compiled_at: Utc::now(),
+            },
+            ceiling,
+            maximum_expires_at: Utc::now() + Duration::hours(1),
+            now: Utc::now(),
+        })
+        .unwrap();
+    let mut intent = sample_intent(org, principal);
+    intent.task_run_id = run.id;
+    intent.task_state_version = run.state_version;
+    intent.task_state_digest = run.state_digest;
+    let intent = intent.with_computed_digest().unwrap();
 
-        let receipt = broker.invoke_frozen(&tasks, input()).await.unwrap();
-        let state: String = sqlx::query_scalar("SELECT state FROM invocations WHERE id = ?")
-            .bind(receipt.invocation_id.to_string())
-            .fetch_one(broker.db.pool())
-            .await
-            .unwrap();
-        broker.signer.verify_receipt(&receipt).unwrap();
-        let replay = broker.invoke_frozen(&tasks, input()).await.unwrap();
-        FrozenRun {
-            receipt,
-            state,
-            replay,
-            calls: calls.load(Ordering::SeqCst),
-        }
+    let db = Db::connect_memory().await.unwrap();
+    db.create_organization(&org, "frozen-outcome")
+        .await
+        .unwrap();
+    let mut policy = PolicyEngine::default();
+    policy
+        .relationships
+        .write("connection:demo-conn", "user", "user:demo");
+    let calls = Arc::new(AtomicUsize::new(0));
+    let mut host = HostRuntime::default();
+    host.policy
+        .trusted_digests
+        .insert("sha256:outcome-fixture".into());
+    host.register_connector(Arc::new(FixedConnector {
+        provider,
+        calls: Arc::clone(&calls),
+    }))
+    .unwrap();
+    host.bind_connection("demo-conn", "outcome-fixture")
+        .unwrap();
+    let broker = Broker {
+        db,
+        policy,
+        host,
+        signer: ReceiptSigner::generate(),
+    };
+    let grant = sample_grant(org, principal);
+    let input = || FrozenInvokeInput {
+        intent: intent.clone(),
+        grant: grant.clone(),
+        subject: "user:demo".into(),
+        connection_policy_id: "demo-conn".into(),
+        required_capability: Capability::new("read", ResourceSelector::exact("doc:1")),
+        lineage: None,
+    };
+
+    let receipt = broker.invoke_frozen(&tasks, input()).await.unwrap();
+    let state: String = sqlx::query_scalar("SELECT state FROM invocations WHERE id = ?")
+        .bind(receipt.invocation_id.to_string())
+        .fetch_one(broker.db.pool())
+        .await
+        .unwrap();
+    broker.signer.verify_receipt(&receipt).unwrap();
+    let replay = broker.invoke_frozen(&tasks, input()).await.unwrap();
+    FrozenRun {
+        receipt,
+        state,
+        replay,
+        calls: calls.load(Ordering::SeqCst),
     }
 }
 
