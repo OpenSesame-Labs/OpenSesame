@@ -43,11 +43,14 @@ export interface MtlsPeer {
 
 export interface MtlsTransport {
   /**
-   * The verified peer of a Node socket, or none. The Identity plane answers
-   * from its listener registry: a plain socket, an unauthenticated TLS
-   * socket, and anything a header claims all resolve to `undefined`.
+   * The verified client of a request on a Node socket, or none. The Identity
+   * plane answers from its listener's evidence: a plain socket, an
+   * unauthenticated TLS socket, and anything a header claims all resolve to
+   * `undefined`. `request` is the request the socket carried; behind a
+   * trusted ingress the client is that request's originating evidence, never
+   * the ingress hop that owns the socket.
    */
-  peerOf(socket: unknown): MtlsPeer | undefined;
+  peerOf(socket: unknown, request?: unknown): MtlsPeer | undefined;
   /**
    * Public base URL of the TLS listener when it is reachable at a different
    * address than the issuer. Present ⇒ discovery advertises
@@ -63,7 +66,7 @@ function peerFromContext(
   ctx: KoaContext,
 ): MtlsPeer | undefined {
   const scope: SocketContext | undefined = overlapCast(ctx);
-  return transport.peerOf(scope?.req?.socket);
+  return transport.peerOf(scope?.req?.socket, scope?.req);
 }
 
 const DNS_NAME = /^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))*$/;

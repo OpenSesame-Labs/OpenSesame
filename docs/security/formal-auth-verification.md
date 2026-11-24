@@ -636,11 +636,23 @@ by [`listener-rotation.test.ts`](../../packages/control-plane/src/transport/__te
 Unproved: certificate parsing and chain verification, `resolveOriginating`
 (forwarded-header decoding and verification), the TLS handshake and session
 resumption settings, socket lifetimes and concurrent requests during a reload,
-and consumers other than `admit` and `bindingPeerOf`. In particular the OAuth
-issuer's mTLS hook (`identityMtlsTransport`, `oauth-transport.ts`) reads the
-socket registry through `peerOf`, so on a `trusted_ingress` listener it sees the
-ingress leaf, not the originating client; that path is outside this model and
-is recorded as an open finding.
+and consumers other than `admit` and `bindingPeerOf`.
+
+Fixed defect (2026-11-24, found while modelling `bindingPeerOf`): the OAuth
+issuer's mTLS hook (`identityMtlsTransport` in
+[`oauth-transport.ts`](../../packages/control-plane/src/transport/oauth-transport.ts))
+read only the socket registry, so on a `trusted_ingress` listener
+`tls_client_auth` and certificate-bound tokens used the ingress leaf as the
+client certificate, whether or not the ingress forwarded verified originating
+evidence. A token issued through the ingress was bound to the ingress, so any
+client behind it could present it to the issuer's own protected endpoints. The
+hook now receives the request (`MtlsTransport.peerOf(socket, request)`,
+[`feature.ts`](../../packages/oauth-provider/src/mtls/feature.ts)) and, behind a
+trusted ingress, answers with `bindingPeerOf`: the originating client, or none.
+Regressions: `ingress-listener.test.ts` (the issuer sees each pooled request's
+originating client and nothing without forwarded evidence) and
+`mtls-feature.test.ts` (the hook passes the request); both fail before the fix.
+The hook itself is outside the Lean model.
 
 Evidence: Vitest regressions in
 [`listener-rotation.test.ts`](../../packages/control-plane/src/transport/__tests__/listener-rotation.test.ts)
