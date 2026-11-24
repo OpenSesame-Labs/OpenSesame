@@ -36,7 +36,13 @@ correspond() {
     cargo test --locked -p opensesame-broker --test adversarial_broker -- \
     --ignored --exact invocation_binding_tests::lean_retry_vectors_match_the_broker --nocapture)
 }
-correspond "$root" "${CARGO_TARGET_DIR:-$scratch/target}"
+# An exact filter that matches nothing exits 0 with "0 passed", so the report
+# must show that the one named correspondence test ran and passed.
+correspond "$root" "${CARGO_TARGET_DIR:-$scratch/target}" | tee "$scratch/correspondence"
+if ! grep -Eq '^test result: ok\. 1 passed; 0 failed; 0 ignored;' "$scratch/correspondence"; then
+  echo "invocation-formal: required Lean correspondence test did not run and pass" >&2
+  exit 1
+fi
 drift "$root"
 if [[ "${1:-}" == "--negative-controls" ]]; then
   # Mutants are built in a detached worktree of HEAD; the checkout is untouched.
