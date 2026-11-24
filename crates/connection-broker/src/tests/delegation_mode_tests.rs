@@ -217,3 +217,152 @@ async fn relay_offer_rewritten_to_valid_broker_mode_cannot_be_claimed() {
     assert_eq!(error.code(), "delegation_unavailable");
     assert_no_delegations(&db).await;
 }
+
+const STORED_MODES: [(&str, &str); 7] = [
+    ("StoredMode.relay", "relay"),
+    ("StoredMode.broker", "broker"),
+    ("StoredMode.upper", "Relay"),
+    ("StoredMode.shout", "BROKER"),
+    ("StoredMode.padded", " relay"),
+    ("StoredMode.empty", ""),
+    ("StoredMode.unknown", "unknown"),
+];
+
+fn mode_name(mode: Option<ExecutionMode>) -> &'static str {
+    match mode {
+        None => "none",
+        Some(ExecutionMode::Relay) => "some (Mode.relay)",
+        Some(ExecutionMode::Broker) => "some (Mode.broker)",
+    }
+}
+
+async fn delegation_count(db: &Db) -> i64 {
+    sqlx::query_scalar("SELECT COUNT(*) FROM connection_delegations")
+        .fetch_one(db.pool())
+        .await
+        .unwrap()
+}
+
+/// Claim a relay offer whose stored item mode was rewritten to `raw`.
+async fn claim_rewritten_offer(raw: &str) -> String {
+    let (db, broker, org, connection) = fixture().await;
+    let minted = broker
+        .mint_delegation_offer(&org, OWNER, relay_offer(&connection), PEPPER)
+        .await
+        .unwrap();
+    let manifest = broker
+        .present_delegation_offer(&minted.claim_token)
+        .await
+        .unwrap();
+    let item_id = manifest.items[0].id.clone();
+    sqlx::query("UPDATE connection_delegation_offer_items SET execution_mode = ? WHERE id = ?")
+        .bind(raw)
+        .bind(&item_id)
+        .execute(db.pool())
+        .await
+        .unwrap();
+    let claim = ClaimOfferRequest {
+        claim_token: minted.claim_token,
+        user_code: minted.user_code,
+        accepted_item_ids: vec![item_id],
+    };
+    let outcome = match broker.claim_delegation_offer(claim, GUEST, PEPPER).await {
+        Ok(claimed) if claimed.len() == 1 => "ok",
+        Err(error) if error.code() == "delegation_unavailable" => "unavailable",
+        Err(_) => "invalid",
+        Ok(_) => "partial",
+    };
+    let count = delegation_count(&db).await;
+    if (outcome == "ok") == (count == 1) {
+        outcome.to_owned()
+    } else {
+        format!("{outcome}:{count} delegations")
+    }
+}
+
+/// Resolve a claimed relay delegation whose stored mode was rewritten to `raw`.
+async fn resolve_rewritten_delegation(raw: &str) -> &'static str {
+    let (db, broker, org, connection) = fixture().await;
+    let minted = broker
+        .mint_delegation_offer(&org, OWNER, relay_offer(&connection), PEPPER)
+        .await
+        .unwrap();
+    let manifest = broker
+        .present_delegation_offer(&minted.claim_token)
+        .await
+        .unwrap();
+    let claim = ClaimOfferRequest {
+        claim_token: minted.claim_token,
+        user_code: minted.user_code,
+        accepted_item_ids: vec![manifest.items[0].id.clone()],
+    };
+    let delegation = broker
+        .claim_delegation_offer(claim, GUEST, PEPPER)
+        .await
+        .unwrap()
+        .remove(0);
+    sqlx::query("UPDATE connection_delegations SET execution_mode = ? WHERE id = ?")
+        .bind(raw)
+        .bind(&delegation.id)
+        .execute(db.pool())
+        .await
+        .unwrap();
+    let live = broker
+        .find_live_delegation_by_id(GUEST, &delegation.id)
+        .await
+        .unwrap();
+    mode_name(live.map(|live| live.execution_mode))
+}
+
+/// Minting is refused exactly when claiming that parsed mode is.
+async fn mint_outcome(mode: ExecutionMode) -> &'static str {
+    let (_db, broker, org, connection) = fixture().await;
+    let mut request = relay_offer(&connection);
+    request.items[0].execution_mode = mode;
+    match broker
+        .mint_delegation_offer(&org, OWNER, request, PEPPER)
+        .await
+    {
+        Ok(_) => "ok",
+        Err(error) if error.code() == "delegation_unavailable" => "unavailable",
+        Err(_) => "invalid",
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires Lean vectors; run spec/formal/host-cli/verify.sh"]
+async fn lean_mode_vectors_match_parse_claim_and_resolution() {
+    let path = std::env::var("OPENSESAME_HOST_CLI_VECTORS").expect("run the host-cli verifier");
+    let text = std::fs::read_to_string(path).expect("read formal vectors");
+    let cases: Vec<Vec<&str>> = text
+        .lines()
+        .map(|line| line.split('\t').collect::<Vec<_>>())
+        .filter(|fields| fields[0] == "mode")
+        .collect();
+    for f in &cases {
+        let raw = STORED_MODES
+            .iter()
+            .find(|(m, _)| *m == f[1])
+            .expect("mode")
+            .1;
+        let parsed = crate::delegation::parse_execution_mode(raw).ok();
+        let minted = match parsed {
+            Some(mode) => mint_outcome(mode).await,
+            None => "invalid",
+        };
+        let actual = format!(
+            "{}\t{}\t{}\t{minted}",
+            mode_name(parsed),
+            claim_rewritten_offer(raw).await,
+            resolve_rewritten_delegation(raw).await,
+        );
+        let expected = format!("{}\t{}\t{}\t{}", f[2], f[3], f[2], f[3]);
+        assert_eq!(
+            actual,
+            expected,
+            "decision mismatch for mode {}",
+            f.join(" ")
+        );
+    }
+    assert_eq!(cases.len(), 7, "incomplete mode vectors");
+}

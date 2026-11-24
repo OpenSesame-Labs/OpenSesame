@@ -96,6 +96,12 @@ const suites = [
     first: "current_message_binds_payload",
     vectors: 273,
   },
+  {
+    name: "host-cli",
+    model: "HostCli.lean",
+    first: "assertion_requires_exact_origin",
+    vectors: 4599,
+  },
 ];
 
 // Each fixture contains just one suite. This also checks that earlier stacked

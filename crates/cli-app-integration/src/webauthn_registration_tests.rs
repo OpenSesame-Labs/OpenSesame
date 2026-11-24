@@ -10,7 +10,8 @@ use sha2::{Digest, Sha256};
 use crate::device_crypto::{verifying_key_spki_b64, webauthn_register_challenge_digest};
 use crate::test_support::{
     mint_register_passkey_proof, pair_browser_without_webauthn_for_tests,
-    test_approval_public_key_spki_b64, TEST_VAULT_SESSION_ROOT_DIGEST,
+    test_approval_public_key_spki_b64, test_device_public_key_spki_b64,
+    TEST_VAULT_SESSION_ROOT_DIGEST,
 };
 use crate::webauthn_assertion::verify_passkey_assertion;
 use crate::{CliAppIntegrationPairings, PairingError, WebAuthnCredential, WebAuthnRegistration};
@@ -143,4 +144,164 @@ fn valid_proof_cannot_replace_the_registered_key_or_credential_id() {
         credential(&pairings, &fresh).public_key_spki_b64,
         replacement.public_key_spki_b64
     );
+}
+
+/// Two fresh P-256 keys standing for the model's `k1` and `k2`.
+struct Keys([SigningKey; 2], [String; 2]);
+
+impl Keys {
+    fn new() -> Self {
+        let keys = [SigningKey::generate(), SigningKey::generate()];
+        let spki = keys
+            .each_ref()
+            .map(|key| verifying_key_spki_b64(key.verifying_key()));
+        Self(keys, spki)
+    }
+
+    fn name(&self, spki: &str) -> &'static str {
+        match spki {
+            s if s == self.1[0] => "Key.k1",
+            s if s == self.1[1] => "Key.k2",
+            _ => "Key.other",
+        }
+    }
+}
+
+fn formal_registration(
+    token: &str,
+    keys: &Keys,
+    spec: &str,
+) -> (&'static str, WebAuthnRegistration) {
+    use super::high_risk_tests::{auth_data, bit, get_client_data, wire, PAIRED};
+    let p: Vec<&str> = spec.split(':').collect();
+    let origin = if bit(p[0]) {
+        PAIRED
+    } else {
+        "http://localhost:5181"
+    };
+    let digest = if bit(p[1]) {
+        TEST_VAULT_SESSION_ROOT_DIGEST.to_owned()
+    } else {
+        "b".repeat(64)
+    };
+    let id = if p[2] == "CredId.a" {
+        "cred-a"
+    } else {
+        "cred-b"
+    };
+    let (index, spki) = match p[3] {
+        "Key.k1" => (0, keys.1[0].clone()),
+        "Key.k2" => (1, keys.1[1].clone()),
+        _ => (0, test_device_public_key_spki_b64().to_owned()),
+    };
+    // An unverifiable assertion is signed by the other key.
+    let (signer, count) = match p[4] {
+        "-" => (&keys.0[1 - index], 0),
+        n => (&keys.0[index], n.parse().unwrap()),
+    };
+    let challenge = webauthn_register_challenge_digest(token, PAIRED, &digest);
+    let client = get_client_data(PAIRED, &challenge);
+    let proof = wire(
+        signer,
+        id,
+        &auth_data("localhost", 0x05, count, true),
+        &client,
+        true,
+    );
+    let registration = WebAuthnRegistration {
+        vault_session_root_digest: digest,
+        human_proof_passkey: format!("{PREFIX}{proof}"),
+        credential_id_b64: id.into(),
+        public_key_spki_b64: spki,
+        sign_count: 99,
+    };
+    (origin, registration)
+}
+
+fn slot(pairings: &CliAppIntegrationPairings, token: &str, keys: &Keys) -> String {
+    let binding = pairings.binding_for(token, ORIGIN).unwrap();
+    binding.webauthn.map_or_else(
+        || "none".to_owned(),
+        |c| {
+            let id = if c.credential_id_b64 == "cred-a" {
+                "CredId.a"
+            } else {
+                "CredId.b"
+            };
+            format!(
+                "{id}:{}:{}",
+                keys.name(&c.public_key_spki_b64),
+                c.sign_count
+            )
+        },
+    )
+}
+
+fn outcome(result: Result<(), PairingError>) -> String {
+    match result {
+        Ok(()) => "RegResult.ok".into(),
+        Err(PairingError::Unknown) => "RegResult.unknown".into(),
+        Err(PairingError::InvalidProof) => "RegResult.invalid".into(),
+        Err(other) => format!("{other:?}"),
+    }
+}
+
+fn apply(pairings: &mut CliAppIntegrationPairings, token: &str, keys: &Keys, step: &str) -> String {
+    if let Some(count) = step.strip_prefix("adv:") {
+        let advanced = pairings.advance_webauthn_sign_count(token, ORIGIN, count.parse().unwrap());
+        return u8::from(advanced).to_string();
+    }
+    let (origin, registration) = formal_registration(token, keys, &step["reg:".len()..]);
+    outcome(pairings.register_webauthn(token, origin, &registration))
+}
+
+#[test]
+#[ignore = "requires Lean vectors; run spec/formal/host-cli/verify.sh"]
+fn lean_registration_vectors_match_register_webauthn() {
+    let keys = Keys::new();
+    let cases = super::high_risk_tests::vectors("wa2");
+    for f in &cases {
+        let mut pairings = CliAppIntegrationPairings::default();
+        let token = pair_browser_without_webauthn_for_tests(&mut pairings, ORIGIN, 4_000);
+        if let Some(count) = f[0].strip_prefix("CredId.a:Key.k1:") {
+            let count = count.parse().unwrap();
+            pairings
+                .register_webauthn_for_tests(&token, ORIGIN, "cred-a", &keys.1[0], count)
+                .unwrap();
+        }
+        let result = apply(&mut pairings, &token, &keys, &format!("reg:{}", f[1]));
+        let actual = format!("{result}\t{}", slot(&pairings, &token, &keys));
+        let expected = format!("{}\t{}", f[2], f[3]);
+        assert_eq!(
+            actual,
+            expected,
+            "decision mismatch for wa2 {}",
+            f.join(" ")
+        );
+    }
+    assert_eq!(cases.len(), 384, "incomplete wa2 vectors");
+}
+
+#[test]
+#[ignore = "requires Lean vectors; run spec/formal/host-cli/verify.sh"]
+fn lean_registration_histories_match_register_and_advance() {
+    let keys = Keys::new();
+    let cases = super::high_risk_tests::vectors("wa2seq");
+    for f in &cases {
+        let mut pairings = CliAppIntegrationPairings::default();
+        let token = pair_browser_without_webauthn_for_tests(&mut pairings, ORIGIN, 4_000);
+        let results: Vec<String> = f[0]
+            .split(',')
+            .map(|step| apply(&mut pairings, &token, &keys, step))
+            .collect();
+        let actual = format!("{}\t{}", results.join(","), slot(&pairings, &token, &keys));
+        let expected = format!("{}\t{}", f[1], f[2]);
+        assert_eq!(
+            actual,
+            expected,
+            "decision mismatch for wa2seq {}",
+            f.join(" ")
+        );
+    }
+    assert_eq!(cases.len(), 512, "incomplete wa2seq vectors");
 }

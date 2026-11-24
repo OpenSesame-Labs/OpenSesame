@@ -497,14 +497,14 @@ claim of exhaustive inventory or Lean coverage:
 |---|---|---|
 | Federated sign-in. [Contract](../architecture/federated-signin.md). | [`federated-pending.ts`](../../packages/control-plane/src/interactions/federated-pending.ts) and [`interactions.ts`](../../packages/control-plane/src/routes/interactions.ts). | [FED-I1–I3](../../spec/formal/oauth/README.md) model signed pending-cookie binding, legacy provenance (now refused outright, a conservative refinement), and matching current trust. FED-I4, MAC verification before any parsing, unsealing or key derivation with no slow KDF on cookie input, is proved of the decoder step model and checked against `decodePending` on 160 Lean-generated cases, including derivation counts. 2026-11-24: FED-I4 is also **proved for the real `decodeSigned` statement order**: the source translator (`spec/auth-verification/source/federated-pending.mjs`) derives the function's guard/work/accept program from its own statements, one fact per guard, and Lean proves it equals the independent FED-I4 policy for all 256 fact combinations (`pending_decode_refines_policy`, `pending_decode_mac_first`, `pending_decode_bad_tag_no_work`, `pending_decode_accept_requires_tag`, `pending_decode_no_slow_hash`); `verify:oauth-formal` runs it, and dropping a guard, parsing before the MAC or adding scrypt is rejected by Lean. The translator's statement recognition and Boolean abstraction are trusted, and HMAC, AES-GCM, JSON and base64url remain assumptions. They do not prove PKCE, redirects, tokens, or protocol compliance. |
 | Interaction approval binding. [ADR 0084](../adr/0084-external-authorization-notifications.md). | [`interaction.ts`](../../packages/os-domain/src/machines/interaction.ts). | [APR-B1–B5](../../spec/formal/webauthn/README.md) model digest binding, expiry, lifecycle, and sequential consumption. WebAuthn cryptography and concurrent storage are outside the model. |
-| CLI app-integration assertion origin and presence. [CLI-WA1](#cli-wa1-cli-assertion-origin-and-presence). | [`webauthn_assertion.rs`](../../crates/cli-app-integration/src/webauthn_assertion.rs), called for registration and approval. | Unproved; separate from APR-B1–B5. |
+| CLI app-integration assertion origin and presence. [CLI-WA1](#cli-wa1-cli-assertion-origin-and-presence). | [`webauthn_assertion.rs`](../../crates/cli-app-integration/src/webauthn_assertion.rs), called for registration and approval. | **Proved** for the [Lean model](../../spec/formal/host-cli/HostCli.lean), with finite correspondence over 1,224 assertion vectors and the implementation mapped; see [CLI-WA1](#cli-wa1-cli-assertion-origin-and-presence) for the domain and limits. Separate from APR-B1–B5. |
 | Identity listener trust rotation. [Operator mTLS doc](../operators/mtls.md). | [`listener.ts`](../../packages/control-plane/src/transport/listener.ts), [`request-evidence.ts`](../../packages/control-plane/src/transport/request-evidence.ts). | [IDENTITY-TLS1](#identity-tls1-stale-transport-evidence-after-trust-rotation): **proved for the model** (`AuthTransport.lean`), with exhaustive correspondence over the abstract evidence domain and reload sequences; certificate parsing, chain verification, the TLS stack and concurrency unproved. |
-| CLI app-integration credential registration and retries. [CLI-WA2](#cli-wa2-cli-credential-registration-and-retries). | [`register_webauthn`](../../crates/cli-app-integration/src/pairing/binding.rs). | Unproved; separate from APR-B1–B5. |
-| CLI app-integration restricted approvals. [CLI-WA3](#cli-wa3-restricted-cli-approvals). | [`ensure`](../../crates/cli-app-integration/src/lib.rs) and [`human_proof_verify`](../../crates/cli-app-integration/src/human_proof.rs). | Unproved; separate from APR-B1–B5. |
+| CLI app-integration credential registration and retries. [CLI-WA2](#cli-wa2-cli-credential-registration-and-retries). | [`register_webauthn`](../../crates/cli-app-integration/src/pairing/binding.rs). | **Proved** for the model, with finite correspondence over 384 registrations and 512 three-step histories and the implementation mapped; see [CLI-WA2](#cli-wa2-cli-credential-registration-and-retries). Separate from APR-B1–B5. |
+| CLI app-integration restricted approvals. [CLI-WA3](#cli-wa3-restricted-cli-approvals). | [`ensure`](../../crates/cli-app-integration/src/lib.rs) and [`human_proof_verify`](../../crates/cli-app-integration/src/human_proof.rs). | **Proved** for the model, with finite correspondence over 768 `ensure` and 192 proof vectors and the implementation mapped; see [CLI-WA3](#cli-wa3-restricted-cli-approvals). Separate from APR-B1–B5. |
 | Interaction deadline admission. [ADR 0086](../adr/0086-wallet-native-interaction-layer.md). | [`interaction-clock.ts`](../../packages/control-plane/src/services/interaction-clock.ts) and the approval and consumption routes. | [CLOCK-1](../../spec/formal/interaction-clock/README.md) proves the sampled deadline predicate. 2026-11-24: the consume unit of work is **proved for the model and replayed against the real route**: `uowOutcome` (six application samples inside the transaction, rollback on refusal) with `uow_commit_requires_every_sample_live`, `uow_refusal_persists_nothing`, `uow_crossing_at_any_sample_refuses` and `uow_crossing_after_last_sample_commits`; all eight Lean crossings (before each sample, after the last, never) match `POST /v1/interactions/:ref/consume` on the controlled clock (status, stored status, committed fences, sample count), and three sample mutants are caught. Still not proved: database commit-time admission (`uow_crossing_after_last_sample_commits` states that a deadline passing after the last sample is committed), clock monotonicity, Postgres transaction atomicity (the replay uses the in-memory store, whose held lease survives a rollback unlike Postgres), and the approval and activation routes' storage. |
 | DPoP replay cache. RFC 9449. | [`replay.rs`](../../crates/proof/src/replay.rs). | [DPOP-R1](../../spec/formal/dpop/README.md) models the single-process cache under stated clock and atomicity assumptions. 2026-11-24: **DPOP-R2**, the decoder's age window lies inside the replay window (`fresh_proof_inside_replay_window`, `fresh_replay_refused`), is **proved: Lean model + exhaustive correspondence of the real `proof_age_admits` and `proof_replay_until` over 720 `i64` boundary cases; implementation mapped** (`replay.rs`, `jwk.rs`, `validator.rs`); both new guard mutations are detected. That the decoder and validator call those functions rests on review and hashes. JWT and signature validation, key binding, `htm`/`htu`/`ath`, clock monotonicity and multi-instance caches are not proved. |
 | Grant delegation and replacement. [ADR 0036](../adr/0036-coverage-guided-fuzz-and-bounded-proofs.md). | [`grant.rs`](../../crates/domain/src/grant.rs) and its validators. | [AUTH-D1–D9](../../spec/formal/authority/README.md). D1–D6 model selected attenuation checks. 2026-11-24: AUTH-D7 (every constraint dimension: validity window, assurance, authentication age, networks, audiences, parameter-rules digest, offline use, budgets and delegation depth, for a hop, a replacement and any finite chain) and AUTH-D8 (resource-selector containment, proved for all strings) are **proved: Lean model + Lean-generated correspondence against the real Rust validators, exhaustive per dimension over the model's abstract domain (1,127 constraint pairs through both `validate_attenuation` and `validate_replacement`, 361 selector and 361 pattern pairs); implementation mapped** (`grant.rs`, `grant_attenuation.rs`, `grant_budgets.rs`, `grant_lineage.rs`). AUTH-D9 (a replacement keeps the current child's audiences, scope bindings and proof key) is proved on the same terms after a fix: `validate_replacement` let a replacement clear those fences under an unrestricted parent (regressions in `grant_unit_tests.rs` fail before and pass after; no shipped endpoint reached it). 3,062 cases pass; 24 guard mutations are each detected. Outside the model: caller authentication, proof-key possession, budget spending, concurrent behavior, and the review argument that per-dimension cases with the others fixed and representative values cover the Rust conjunction for all inputs. A separate Kani harness checks a bounded interval case. |
-| Host API relay organization tenant isolation. [ADR 0046](../adr/0046-relayed-execution-and-authorization-inbox.md). | [`caller_scope`](../../crates/gateway/src/routes/relay_scope.rs) scopes inspection and denial in [`relay.rs`](../../crates/gateway/src/routes/relay.rs). | **RELAY-T1** is **unproved**. Sessions use their authenticated organization; operators use the bootstrap organization. Cross-organization inspection and denial return `not_found`. Disabled execution and result routes return 501 after authentication without disclosing tenant records. [`relay_tenant_tests.rs`](../../crates/gateway/src/routes/relay_tenant_tests.rs) exercises the boundary; the relay route suite passed before the latest main integration, and there is no Lean suite. |
+| Host API relay organization tenant isolation. [ADR 0046](../adr/0046-relayed-execution-and-authorization-inbox.md). | [`caller_scope`](../../crates/gateway/src/routes/relay_scope.rs) scopes inspection and denial in [`relay.rs`](../../crates/gateway/src/routes/relay.rs). | **RELAY-T1** is **proved** for the [Lean model](../../spec/formal/host-cli/HostCli.lean) (`cross_tenant_refused`, `view_requires_party`, `state_change_requires_holder`, `anonymous_refused`), with finite correspondence and the implementation mapped. Sessions use their authenticated organization; operators use the bootstrap organization. Cross-organization inspection and denial return `not_found`; only the holder in the row's organization can deny a live pending request; inspection discloses only `id`, `state` and `outcome` to the holder or delegate. 1,512 Lean-generated vectors (nine callers: a session in the row's or another organization as holder, delegate or stranger, the operator in each party role, and an anonymous caller; all seven routes; two row organizations; six stored states including an unknown one; expired or live) run through the real axum handlers in [`relay_tenant_tests.rs`](../../crates/gateway/src/routes/relay_tenant_tests.rs) against a migrated in-memory SQLite store, comparing status, the exact body and the stored state afterwards. Not covered: session and operator-token authentication themselves (fixture sessions are used), a missing bootstrap or operator token, concurrent writers, and database engines other than SQLite. |
 | SPIFFE identity and trust withdrawal. [ADR 0132](../adr/0132-optional-mtls-and-workload-identity.md), [ADR 0227](../adr/0227-spiffe-withdrawal-under-ambiguous-snapshots.md). | [`source.rs`](../../crates/spiffe-source/src/source.rs), [`source_policy.rs`](../../crates/spiffe-source/src/source_policy.rs), and [`outage.rs`](../../crates/spiffe-source/src/outage.rs). | The [withdrawal model](../../spec/formal/spiffe/README.md) covers selected denial, trust-reduction, and outage-deadline decisions. It does not prove SDK behavior for arbitrary responses, implementation refinement, certificate verification, or hard real-time sink withdrawal. |
 | Source-owned transport lifetime. [ADR 0227](../adr/0227-spiffe-withdrawal-under-ambiguous-snapshots.md). | [`source_lifetime.rs`](../../crates/transport-security/src/source_lifetime.rs), [`signing_fence.rs`](../../crates/transport-security/src/signing_fence.rs), [`source.rs`](../../crates/spiffe-source/src/source.rs), and the Host admission paths. | The [source-lifetime model](../../spec/formal/source-lifetime/README.md) covers selected owner, epoch, deadline, quarantine, and signer release checks. Dual-clock behavior, actual trust-bundle comparisons, scheduler timing, underlying TLS key operations, and restart persistence remain outside the Lean proof. |
 | Host SPIFFE source trust selection. [ADR 0132](../adr/0132-optional-mtls-and-workload-identity.md). | [`boot.rs`](../../crates/gateway/src/transport/boot.rs), [`source_trust_selection.rs`](../../crates/gateway/src/transport/source_trust_selection.rs). | The [selector model](../../spec/formal/source-trust-selection/README.md) proves a Boolean source-view/presence/kind/profile/domain policy; finite Rust correspondence and live TLS tests exercise the implementation. Restart persistence is addressed separately by the history suite below, under its stated assumptions; arbitrary consumers remain unproved. |
@@ -521,7 +521,7 @@ it does not establish the full Rust module and `include!` closure. Reviewers
 must map any newly introduced implementation source before later edits can
 select its proof; a refreshed source hash alone is insufficient.
 
-**RELAY-F1 — relay execution fails closed (unproved).** Until a holder can
+**RELAY-F1 — relay execution fails closed (proved for the model; implementation mapped).** Until a holder can
 re-authorize at the effect boundary, the Host must not accept new relay work,
 deliver executable bytes, or approve execution. A relay-only or malformed-mode
 delegation must not fall back to broker invocation. Previously approved result
@@ -534,9 +534,25 @@ the broker's `delegation_mode` parser and `delegation_lineage` resolver enforce 
 `relay_authority_tests.rs`, `relay_tenant_tests.rs`,
 `intents_relay_mode_tests.rs`, and `intents_legacy_queue_tests.rs` exercise
 selected boundaries, while
-`delegation_mode_tests.rs` checks malformed stored offers and delegations. The focused relay, delegated-invocation, task, and broker-mode regressions passed
-before the latest main integration; broker-mode regressions passed again on the
-updated base. No formal theorem proves the property.
+`delegation_mode_tests.rs` checks malformed stored offers and delegations.
+The [host-cli suite](#host-cli-suite-cli-wa1wa3-relay-t1-relay-f1) proves
+`execution_routes_unavailable` (after authentication, heartbeat, submission,
+the pending inbox, approval and result reporting return 501 and change
+nothing), `unknown_mode_has_no_authority`, `broker_mode_not_claimable`,
+`delegated_invoke_never_executes` and `relay_only_never_falls_back` of the
+model. The 1,512 relay vectors exercise the five execution routes through the
+real handlers. Seven stored-mode vectors (`relay`, `broker`, `Relay`, `BROKER`,
+` relay`, the empty string and `unknown`) run against the real
+`parse_execution_mode`, offer minting, a claim of an offer item rewritten to
+that value, `find_live_delegation_by_id` on a delegation rewritten to it, and
+the gateway's delegated invoke route, which must answer 501, 503 or 404 with no
+invocation row. Not covered: `intents_queue::reauthorize` at the side-effect
+boundary (on the delegated invoke route `delegate_invocation` refuses first,
+and the existing hold-and-drain regressions remain its evidence), the bootstrap
+child-grant gate (existing regression only), and stored values other than the
+seven classes. The `delegation_lineage` guard that maps an unknown stored mode
+to no delegation is backed by the parser: removing the guard alone still fails
+closed with an error, so no control targets it separately.
 The restriction cannot recall previously disclosed requests or cancel effects
 already started. Restoring relay requires a separate holder-side authority fence.
 
@@ -560,13 +576,26 @@ key material and flags do not establish authenticator provenance or hardware
 attestation. The current registration requests no attestation. A client-supplied
 `passkey` label is not evidence of hardware provenance.
 
-There is no formal theorem for CLI-WA1. The signed-fixture tests in
+Formal status: **proved for the model, with finite correspondence; implementation
+mapped**. The [host-cli suite](#host-cli-suite-cli-wa1wa3-relay-t1-relay-f1)
+models the verifier as the conjunction of its comparisons and proves
+`assertion_requires_exact_origin` (type `webauthn.get`, exact origin, no
+cross-origin ceremony, no foreign `topOrigin`),
+`assertion_requires_rp_and_presence` (pairable stored origin, RP hash, UP, UV,
+37-byte authenticator data), `assertion_binds_challenge_and_key`,
+`assertion_counter_advances` and `exact_present_assertion_accepted`. 1,224
+Lean-generated vectors are signed with a real P-256 key and passed to the real
+`verify_passkey_assertion`: all 1,152 combinations of client type, origin,
+`crossOrigin` (absent, false, true), `topOrigin` (absent, same, foreign),
+pairable stored origin, RP hash, UP, UV and authenticator-data length, and all
+72 combinations of credential id, challenge, signature validity and
+(count, stored count) in {0, 1, 2}². The two families are not crossed with each
+other. The model abstracts base64, JSON and P-256 to comparison results, so
+parser edge cases (duplicate keys, alternative encodings, other flag bits) and
+signature security are outside it. The signed-fixture tests in
 [`webauthn_assertion_tests.rs`](../../crates/cli-app-integration/src/webauthn_assertion_tests.rs)
-exercise accepted and rejected cases through registration and approval. At the
-review based on `24096a75`, a direct Rust test harness passed all 62 crate
-tests using existing dependency artifacts; Cargo, daemon integration and
-real-browser interoperability had not yet been run for this change. Those
-tests do not prove authenticator provenance.
+still cover registration and approval call sites. None of this proves
+authenticator provenance.
 
 ### CLI-WA2: CLI credential registration and retries
 
@@ -588,10 +617,21 @@ for the in-memory pairing and does not authenticate the first key or provide
 hardware attestation; counterless authenticators cannot provide clone detection
 through the counter.
 
-There is no formal theorem for CLI-WA2. Signed cases in
+Formal status: **proved for the model, with finite correspondence; implementation
+mapped**. The model proves `register_never_replaces`,
+`register_attaches_only_verified`, `register_failure_is_inert` and
+`history_keeps_credential`: over any finite history of registrations and
+approval counter advances, an attached credential's id and key never change
+and its highest observed count never falls. 384 single-step vectors (no
+credential or one with count 0, 1 or 2; found or unknown bearer; matching or
+other vault digest; two credential ids; two keys and the pairing device key;
+an unverifiable assertion or counts 0, 1 and 2) and 512 three-step histories
+over five registrations and three counter advances run against the real
+`register_webauthn` and `advance_webauthn_sign_count`. The model assumes the
+root key is enrolled and every shape check passes; it does not model the daemon
+mutex, persistence, or the authenticity of the first key. Signed cases in
 [`webauthn_registration_tests.rs`](../../crates/cli-app-integration/src/webauthn_registration_tests.rs)
-exercise retries, rollback, replacement and re-pairing. The direct Rust harness
-result and remaining integration limits are those recorded for CLI-WA1.
+also exercise re-pairing.
 
 ### IDENTITY-TLS1: stale transport evidence after trust rotation
 
@@ -694,13 +734,24 @@ lifecycle and app-approved CLI process success cases remain as dormant
 requirements and are exercised again only once app approval is safely restored;
 startup-template unit tests remain active. Re-enablement must invalidate
 existing pairings and enroll credentials under the new trust mechanism; it must
-not promote an unattested key registered during the pause. This property is unproved;
-the temporary refusal must not be described as authenticator attestation. In
-the `c7226a37` review, a direct Rust 1.97.1 harness passed 62 tests with one
-unrelated trusted-executable fixture skipped because its executable was under
-`/tmp`. The repository now pins Rust 1.99.0; Cargo and daemon integration tests
-under that toolchain remain to run. The affected TypeScript tests and CLI
-and app-core typechecks passed.
+not promote an unattested key registered during the pause. The temporary
+refusal must not be described as authenticator attestation.
+
+Formal status of the Rust store and verifier: **proved for the model, with
+finite correspondence; implementation mapped**. The
+[host-cli suite](#host-cli-suite-cli-wa1wa3-relay-t1-relay-f1) proves
+`ensure_always_denied`, `ensure_creates_and_reuses_nothing`,
+`human_proof_never_verifies` and `approval_never_granted`. 768 vectors (eight
+verbs including an unknown verb, the empty verb and the pin-probe verb; no,
+fresh, idle-expired or hard-expired approved session; no, live or stale
+pending row; denied or not; reuse; approvable) run against the real
+`CliAppIntegrationStore::ensure`, checking the denial, that no request is
+created or coalesced and that approved and denied state is untouched. 192
+vectors (eight verbs, six proof labels, a valid or invalid signed assertion,
+PIN lockout) run against `human_proof_verify` and `approve` on a pending row;
+each fixture marked valid is first checked to verify on its own. The native and
+TypeScript CLI refusals, the daemon's HTTP routing and the TypeScript session
+model are outside this suite; their tests are listed above.
 
 The session model abstracts token-prefix matching to a Boolean and does not
 prove the security of token generation or storage. The model also omits
@@ -709,6 +760,63 @@ identity, the temporary-project owner fallback, concurrent changes between a
 check and a write, database consistency, malformed runtime values, and the
 correctness of external libraries. Existing browser, integration, adversarial,
 compiler, fuzz, and Kani checks remain necessary in their own scopes.
+
+### host-cli suite (CLI-WA1–WA3, RELAY-T1, RELAY-F1)
+
+[`HostCli.lean`](../../spec/formal/host-cli/HostCli.lean) states the five
+requirements as one Lean 4.24.0 model with 22 independently pinned obligations
+in [`required-theorems.lean`](../../spec/formal/host-cli/required-theorems.lean),
+no `sorry`, and only `propext` and `Quot.sound`. Its `main` emits 4,599
+vectors. [`verify.sh`](../../spec/formal/host-cli/verify.sh)
+(`npm run verify:host-cli-formal`) checks the axioms, the per-family vector
+counts and the reviewed SHA-256 pins of the modeled guards and correspondence
+harnesses, then runs eight ignored Cargo tests by exact name: five in
+`opensesame-cli-app-integration`, two in `opensesame-gateway` and one in
+`opensesame-connection-broker`. Each test replays its family through the real
+Rust code and fails with `decision mismatch` on any divergence or with
+`incomplete` on a short vector file. The runner then reruns the existing
+behavior regressions under `webauthn_assertion::`, `human_proof::`,
+`routes::relay::`, the relay-mode invoke tests and `delegation_mode_tests::`.
+Cargo runs under the private workspace-wrapper namespace from
+`formal-cargo-isolation.py`, so another worktree sharing the Cargo target cannot
+supply these artifacts; the suite does not use the `formal-cargo-freshness.py`
+input check and assumes a trusted toolchain and no concurrent writer to that
+namespace.
+
+`npm run verify:host-cli-formal -- --negative-controls` (or `bash
+spec/formal/host-cli/verify.sh --negative-controls`) then mutates each key
+guard in place, restoring the reviewed bytes on exit, and requires the named
+correspondence test to fail with `decision mismatch`. The 16 controls drop the
+UV flag, ignore `crossOrigin`, ignore `topOrigin`, skip the RP hash, accept an
+equal counter (CLI-WA1); let a different credential id replace the attached one
+and let a retry lower the count (CLI-WA2); unblock `is_approval_blocked` and
+skip the blocked check in `human_proof_verify` (CLI-WA3); drop the organization
+filter from inspection, the holder filter from denial, and move the operator
+out of the bootstrap organization (RELAY-T1); accept a submission, let a
+relay-only delegation fall through to the broker refusal, give the mode parser
+a broker fallback, and make broker mode claimable (RELAY-F1). An empty vector
+file and a nonexistent test name must also fail. Controls are selected
+mutations, not a proof that every mutant is caught.
+
+The implementation sources, the Cargo manifests and build scripts of the
+`opensesame-gateway` closure, and the conformance policy are mapped in
+`proof-registry.json`, so a change selects this suite on push. The pins in
+`verify.sh` cover the modeled guard files and the correspondence harnesses;
+`intents.rs`, `delegation.rs`, `middleware/auth.rs` and the route table are
+mapped but not pinned. A proof of the model and finite correspondence do not
+prove the whole implementation: the vectors are exhaustive only over the
+abstract domains stated for each requirement, and parsing, cryptography,
+concurrency, persistence and the callers outside these functions remain
+outside the proof.
+
+2026-11-24 review (branch `claude/proofs-rust`, base `960b0945`, Lean 4.24.0,
+Rust 1.99.0): `npm run verify:host-cli-formal -- --negative-controls` passed:
+22 obligations with only the allowed axioms, all 4,599 vectors matched, the
+boundary regressions passed, and all 16 mutation controls and both runner
+controls were detected. The first control run found that the relay harness
+panicked on a non-JSON reply instead of reporting a mismatch; the harness now
+classifies such replies. No implementation defect was found while writing the
+model.
 
 ## Invocation receipt and dispatch properties
 

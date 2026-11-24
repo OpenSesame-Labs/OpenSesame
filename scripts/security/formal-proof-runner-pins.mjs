@@ -33,6 +33,7 @@ export const MINIMUM_SHARED_RUNNERS = Object.freeze([
   "scripts/security/formal-proof-source-selection.mjs",
   "scripts/security/formal-proof-spiffe-peer-domain.mjs",
   "scripts/security/formal-proof-source-history.mjs",
+  "scripts/security/formal-proof-host-cli.mjs",
   "scripts/security/formal-proof-runner-history.mjs",
   "scripts/security/formal-proof-runner-pins.mjs",
   RUNNER_INVENTORY_PATH,
@@ -60,6 +61,7 @@ const sourceSelectionRunners = [
   ...cargoRunners,
   ...workspaceRunners,
 ];
+const specFiles = (dir, names) => names.map((n) => `spec/formal/${dir}/${n}`);
 const suiteMinimums = {
   auth: [
     "scripts/test/auth-formal.sh",
@@ -69,25 +71,20 @@ const suiteMinimums = {
     "spec/formal/auth/negative-controls.py",
   ],
   oauth: [
-    "spec/formal/oauth/verify.sh",
-    "spec/formal/oauth/check-drift.mjs",
-    "spec/formal/oauth/check-hosted-flow-report.mjs",
+    ...specFiles("oauth", ["verify.sh", "check-drift.mjs"]),
+    ...specFiles("oauth", ["check-hosted-flow-report.mjs"]),
     "scripts/test/formal-vitest-report.mjs",
-    "spec/formal/oauth/vitest.config.ts",
-    "spec/formal/oauth/negative-controls.py",
-    "spec/formal/oauth/hosted-flow-negative-controls.py",
+    ...specFiles("oauth", ["vitest.config.ts", "negative-controls.py"]),
+    ...specFiles("oauth", ["hosted-flow-negative-controls.py"]),
   ],
   webauthn: [
-    "spec/formal/webauthn/verify.sh",
-    "spec/formal/webauthn/check-drift.mjs",
+    ...specFiles("webauthn", ["verify.sh", "check-drift.mjs"]),
     "scripts/test/formal-vitest-report.mjs",
-    "spec/formal/webauthn/vitest.config.ts",
-    "spec/formal/webauthn/negative-controls.py",
+    ...specFiles("webauthn", ["vitest.config.ts", "negative-controls.py"]),
   ],
   "interaction-clock": [
-    "spec/formal/interaction-clock/verify.sh",
-    "spec/formal/interaction-clock/check-drift.mjs",
-    "spec/formal/interaction-clock/check-report.mjs",
+    ...specFiles("interaction-clock", ["verify.sh", "check-drift.mjs"]),
+    ...specFiles("interaction-clock", ["check-report.mjs"]),
     "scripts/test/formal-vitest-report.mjs",
     "spec/formal/interaction-clock/vitest.config.ts",
     "spec/formal/interaction-clock/negative-controls.py",
@@ -136,6 +133,7 @@ const suiteMinimums = {
     "scripts/mtls/mtls-fixtures.sh",
     "ops/nats/local-dev.conf",
   ],
+  "host-cli": ["spec/formal/host-cli/verify.sh", ...cargoRunners.slice(0, 2)],
   "source-history": [
     "spec/formal/source-trust-history/verify.sh",
     "spec/formal/source-trust-history/check-drift.py",
@@ -144,10 +142,10 @@ const suiteMinimums = {
     ...workspaceRunners,
   ],
 };
-// A suite whose minimum carries the Cargo runners also pins Cargo config.
+// A suite whose minimum builds through Cargo isolation also pins Cargo config.
 const cargoSuites = new Set(
   Object.keys(suiteMinimums).filter((id) =>
-    suiteMinimums[id].includes("scripts/security/formal-cargo-freshness.py"),
+    suiteMinimums[id].includes("scripts/security/formal-cargo-isolation.py"),
   ),
 );
 export function hasRunnerMinimum(id) {

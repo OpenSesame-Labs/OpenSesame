@@ -16,6 +16,7 @@
       "scripts/security/formal-proof-source-selection.mjs",
       "scripts/security/formal-proof-spiffe-peer-domain.mjs",
       "scripts/security/formal-proof-source-history.mjs",
+      "scripts/security/formal-proof-host-cli.mjs",
       "scripts/security/formal-proof-runner-history.mjs",
       "scripts/security/formal-proof-runner-pins.mjs",
       "scripts/security/formal-proof-runner-pins.json",
@@ -307,6 +308,19 @@
     "verify:guest-formal",
     ["spec/formal/guest/verify.sh", "spec/formal/guest/required-theorems.lean"],
     [],
+    []
+  ],
+  [
+    "suite",
+    "host-cli",
+    "verify:host-cli-formal",
+    [
+      "spec/formal/host-cli/verify.sh",
+      "spec/formal/host-cli/required-theorems.lean",
+      "rust-toolchain.toml",
+      "scripts/security/formal-cargo-isolation.py"
+    ],
+    [".cargo"],
     []
   ]
 ]
