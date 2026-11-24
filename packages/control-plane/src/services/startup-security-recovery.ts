@@ -11,9 +11,14 @@ export async function recoverStartupSecurityState(
   ctx: AppContext,
 ): Promise<void> {
   await ctx.systemPrincipalReady;
+  // Throws, failing startup closed, if a no-expiry security record remains
+  // under its legacy id; the counts are expired-by-TTL bearers only.
   const legacyRows = await rekeyLegacySecurityRows(ctx.stores);
   if (Object.values(legacyRows).some((count) => count > 0))
-    ctx.log.info({ legacyRows }, "Legacy security row ids remain");
+    ctx.log.info(
+      { legacyRows },
+      "Bearers issued before the keyed row id are refused until their TTL ends",
+    );
   await prepareLegacyScimRecovery(ctx);
   await resumePendingUpstreamLogouts(ctx);
   await resumePendingProvisionalRevocations(ctx);

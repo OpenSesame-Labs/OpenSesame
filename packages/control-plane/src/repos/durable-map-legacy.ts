@@ -5,32 +5,32 @@ import type { JsonObject } from "@opensesame/os-domain";
 /**
  * Row-id scheme for secret-keyed durable maps.
  *
- * Current rows (`ROW_ID_SCHEME`): the stored id is one keyed lookup of the
- * logical key, `HMAC-SHA-256(K_lookup, key)`, where `K_lookup` is the
- * HKDF-derived token-lookup key of the deployment's event-sealing secret. No
- * unkeyed digest of the key is ever computed for a new row, and every sealed
- * payload records the scheme so a sweep can tell current rows from legacy ones
- * without knowing any key.
+ * Every row is stored under one keyed lookup of its logical key,
+ * `HMAC-SHA-256(K_lookup, key)`, where `K_lookup` is the HKDF-derived
+ * token-lookup key of the deployment's event-sealing secret, and every sealed
+ * payload records the scheme (`ROW_ID_SCHEME`). A request addresses a key only
+ * by that id: no request path computes an unkeyed digest of a key.
  *
- * Legacy rows (written before 2026-11-23) were keyed by
- * `HMAC(K_lookup, SHA-256(key))`. They stay findable until they are gone:
- * every key-addressed read, write, take and delete also addresses the legacy
- * id, and a row found there is re-keyed to the current id inside the same
- * transaction. Revocation state is never dropped by the migration.
+ * Rows written before 2026-11-23 were stored under `HMAC(K_lookup,
+ * SHA-256(key))`. This module is the startup migration for them; its legacy
+ * id (`legacyPrehashedRowId`, through `DurableMap.legacyIdOf`) is computed
+ * only there, from keys the server recovers from its own storage:
  *
- * Removal plan for `legacyPrehashedRowId` (the only remaining SHA-256 of a
- * key): startup re-keys every legacy row whose key it can recover (audit
- * intents and logout operations carry their key; principal session epochs are
- * keyed by principal id) and logs the per-model count of legacy rows that
- * remain. The rest are bearer-keyed rows with a TTL (provisional tokens and
- * proofs, magic-link exchanges, enrollment tickets, passkey challenges), which
- * are gone once their TTL passes (at most the provisional TTL plus one day).
- * When every deployment reports zero remaining legacy rows, delete this
- * function and the fallback id in `DurableMap`.
+ * - No-expiry security records (upstream logout operations, organization
+ *   revocation and withdrawal audits, principal session epochs) have keys the
+ *   server can recover from storage: an audit or logout row names its own key,
+ *   and an epoch is keyed by a principal id from the principals table. Startup
+ *   moves each to its keyed id before the API serves a request, and refuses to
+ *   start while any such row remains (security-map-rekey.ts).
+ * - Bearer-keyed TTL rows (provisional tokens and proofs, magic-link
+ *   exchanges, enrollment tickets, passkey challenges, OpenID4VCI codes,
+ *   nonces and access tokens) are keyed by a secret the server never stored.
+ *   They are not migrated: a bearer issued before the upgrade is refused like
+ *   an unknown one, and its row expires with its TTL.
  */
 export const ROW_ID_SCHEME = "keyed-hmac-v2";
 
-/** Stored id of a pre-2026-11-23 secret-keyed row; migration reads only. */
+/** Stored id of a pre-2026-11-23 secret-keyed row; startup migration only. */
 export function legacyPrehashedRowId(
   sealer: EventSealer,
   model: string,
@@ -56,12 +56,13 @@ export type LegacyRow<T> = { readonly id: string; readonly value: T };
 export interface LegacyRekeyable<T> {
   legacyIdOf(key: string): string | undefined;
   legacyRows(): Promise<LegacyRow<T>[]>;
-  rekey(key: string): Promise<boolean>;
+  adoptLegacyRow(key: string): Promise<boolean>;
 }
 
 /**
- * Re-key every live legacy row whose key `recover` names from its own value,
- * after checking the row really is that key's. Returns the rows that remain.
+ * Re-key every live legacy row whose key `recover` names from its own value.
+ * A row moves only from the legacy id of the recovered key, so a value that
+ * names another key leaves its row in place. Returns the rows that remain.
  */
 export async function rekeyRecoverable<T>(
   store: LegacyRekeyable<T>,
@@ -71,7 +72,7 @@ export async function rekeyRecoverable<T>(
   for (const row of await store.legacyRows()) {
     const key = recover(row.value);
     const owned = key !== undefined && store.legacyIdOf(key) === row.id;
-    if (!owned || !(await store.rekey(key))) remaining++;
+    if (!owned || !(await store.adoptLegacyRow(key))) remaining++;
   }
   return remaining;
 }
@@ -88,7 +89,7 @@ export async function rekeyKeys<T>(
     const id = store.legacyIdOf(key);
     if (id === undefined || !legacy.has(id)) continue;
     legacy.delete(id);
-    if (await store.rekey(key)) moved++;
+    if (await store.adoptLegacyRow(key)) moved++;
     if (legacy.size === 0) break;
   }
   return moved;
