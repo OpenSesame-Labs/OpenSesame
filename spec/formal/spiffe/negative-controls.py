@@ -2,6 +2,7 @@
 """Demonstrate that the real SPIFFE checks reject isolated Rust mutants."""
 from dataclasses import dataclass
 import hashlib
+import json
 import os
 from pathlib import Path
 import shutil
@@ -356,8 +357,16 @@ def main() -> None:
                     mutation.before, mutation.after, Path("spec/formal/spiffe/check-drift.py"),
                     env=env,
                 ):
-                    for witness in mutation.witnesses:
-                        assert_caught(mutation, witness, scratch=scratch, env=mutant_env, helper=helper)
+                    # The attestation must list exactly the mutated manifest's sources.
+                    attestation = scratch / "spec/formal/spiffe/reviewed-sources.json"
+                    reviewed = attestation.read_bytes()
+                    sources = json.loads((scratch / "spec/formal/spiffe/coverage.json").read_text())["sources"]
+                    attestation.write_text(json.dumps({**json.loads(reviewed), "sources": sources}, indent=2) + "\n")
+                    try:
+                        for witness in mutation.witnesses:
+                            assert_caught(mutation, witness, scratch=scratch, env=mutant_env, helper=helper)
+                    finally:
+                        attestation.write_bytes(reviewed)
             require_success(["bash", "spec/formal/spiffe/verify.sh"], cwd=scratch, env=env, label="unmodified suite after mutations")
     finally:
         after = live_fingerprint()

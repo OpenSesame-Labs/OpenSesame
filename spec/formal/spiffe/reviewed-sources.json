@@ -219,9 +219,9 @@
     },
     {
       "path": "scripts/security/formal-cargo-isolation.py",
-      "sha256": "85c99c6f3986129f66de5791217efcb4fd054c665285f089c1660b82cec25412",
+      "sha256": "fdd830a46c6f911caf21a3ab2dd4032fb0f836a3a769d83fcc469340c0f07604",
       "base_blob": null,
-      "reviewed_blob": "02c46bdd0c8e3382784626fcd1c7693d723cad0b"
+      "reviewed_blob": "cdea12e24d771cfd561ea044b6b5e9c7f35c9ba4"
     },
     {
       "path": "scripts/security/verify-vendored-sqlx.py",

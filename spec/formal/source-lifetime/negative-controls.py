@@ -121,6 +121,8 @@ def main() -> None:
         with lifecycle["scratch_checkout"](ROOT) as lease:
             scratch = lease.path
             env["OPENSESAME_FORMAL_SCRATCH_LOCK_FD"] = str(lease.lock_fd)
+            # The archive has no .git: resolve reviewed lineage in this checkout.
+            env["OPENSESAME_FORMAL_GIT_ROOT"] = str(ROOT)
             archive(scratch, (lease.lock_fd,))
             baseline = run([sys.executable, "-I", "spec/formal/source-lifetime/check-drift.py"], scratch, env)
             if baseline.returncode:

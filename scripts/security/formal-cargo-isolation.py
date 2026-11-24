@@ -318,12 +318,8 @@ def check_cargo_targets(root: Path, inventory: dict, covered_paths: set[str]) ->
 def mutated_coverage(root: Path, coverage_path: Path, source_path: Path,
                      before: str, after: str, checker: Path, section: str | None = None,
                      env: dict[str, str] | None = None):
-    """Temporarily bind one declared scratch mutation to the reviewed inventory.
-
-    The baseline checker runs before any mutation. Inside the context callers
-    must run that same checker before and after the build; restoration is local
-    to the scratch checkout, even when the witness raises an exception.
-    """
+    """Bind one declared scratch mutation to the reviewed inventory; the baseline checker runs first.
+    Callers rerun that checker around the build; the scratch is restored even when the witness raises."""
     root = root.resolve(strict=True)
     coverage_file, _ = reviewed_file(root, coverage_path)
     source_file, source_name = reviewed_file(root, source_path)
@@ -345,6 +341,10 @@ def mutated_coverage(root: Path, coverage_path: Path, source_path: Path,
         raise ValueError("scratch mutation source is not uniquely covered by the baseline")
     changed = original_source.replace(old, new, 1)
     matches[0]["sha256"] = hashlib.sha256(changed).hexdigest()
+    if "reviewed_blob" in matches[0]:  # a blob-checking checker must find the mutant's bytes
+        git_root = root if (root / ".git").exists() else Path(active_env["OPENSESAME_FORMAL_GIT_ROOT"])
+        matches[0]["reviewed_blob"] = subprocess.run(["git", "-C", str(git_root), "hash-object", "-w", "--stdin"],
+                                                     input=changed, capture_output=True, check=True).stdout.decode().strip()
     try:
         source_file.write_bytes(changed)
         coverage_file.write_text(json.dumps(coverage, indent=2) + "\n")
