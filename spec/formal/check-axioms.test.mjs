@@ -80,8 +80,9 @@ const suites = [
   {
     name: "guest",
     model: "GuestContract.lean",
+    parts: ["CustodyContract.lean"],
     first: "admitted_only_if_every_check_clear",
-    vectors: 12,
+    vectors: 87807,
   },
   {
     name: "oauth",

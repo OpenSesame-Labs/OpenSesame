@@ -141,7 +141,7 @@ it("denies detached-document fields and non-HTMLElement submission without retur
   expect(pfFill("#field", "other", ORIGIN)).toBe("no_such_field");
   expect(pfPresence("#field", "public-fixture", ORIGIN)).toBe("absent");
   expect(pfSubmit("#field", ORIGIN)).toBe("no_such_element");
-  expect(pfLayout(ORIGIN).split("|")[1]).toBe("0x0");
+  expect(() => pfLayout(ORIGIN)).toThrow("off_origin");
 });
 
 it("dispatches real click and form submission exactly once, retaining invalid-selector refusals", () => {

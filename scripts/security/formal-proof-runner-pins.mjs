@@ -92,6 +92,7 @@ const suiteMinimums = {
     "spec/formal/interaction-clock/vitest.config.ts",
     "spec/formal/interaction-clock/negative-controls.py",
   ],
+  guest: ["spec/formal/guest/verify.sh"],
   authority: [
     "spec/formal/authority/check.sh",
     "spec/formal/authority/check-drift.py",
@@ -151,7 +152,6 @@ const cargoSuites = new Set([
   "nats-trust-rotation",
   "source-history",
 ]);
-
 export function hasRunnerMinimum(id) {
   return Object.hasOwn(suiteMinimums, id);
 }
