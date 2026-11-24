@@ -63,7 +63,16 @@ for (const suite of ["auth", "oauth", "webauthn"]) {
     const { report, vectors } = fixture(suite);
     const positions =
       suite === "auth"
-        ? { principal: [2], session: [7], project: [5, 6, 7, 8] }
+        ? {
+            principal: [2],
+            session: [9],
+            project: [5, 6, 7, 8],
+            storage: [4, 5, 6, 7, 8, 9],
+            bound: [10],
+            credential: [5],
+            evidence: [7, 8, 9, 10],
+            listener: [2, 3, 4, 5],
+          }
         : suite === "oauth"
           ? { legacy: [6], provenance: [5], v4: [7, 8] }
           : { approval: [7] };
@@ -121,11 +130,12 @@ test("oauth: a skipped security test cannot hide behind passing counts", () => {
 });
 
 test("auth: every generated comparison group is required", () => {
-  for (const prefix of ["session ", "principal ", "project "]) {
+  const prefixes = ["session ", "principal ", "project ", "storage "];
+  for (const prefix of [...prefixes, "bound ", "credential ", "evidence "]) {
     const { report, vectors } = fixture("auth");
-    const target = report.testResults[0].assertionResults.find((item) =>
-      item.title.startsWith(prefix),
-    );
+    const target = report.testResults
+      .flatMap((file) => file.assertionResults)
+      .find((item) => item.title.startsWith(prefix));
     target.status = "pending";
     assert.throws(() =>
       verifyFormalVitestReport("auth", report, vectors, root),
