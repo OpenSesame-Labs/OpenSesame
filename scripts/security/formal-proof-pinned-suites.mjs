@@ -220,6 +220,24 @@ export const PINNED_FORMAL_SUITES = [
     command: ["npm", "run", "verify:dpop-formal"],
   },
   {
+    id: "invocation",
+    implementation: [
+      "crates/broker/src/idempotency.rs",
+      "crates/broker/src/lib.rs",
+      "crates/broker/tests/idempotency_binding/mod.rs",
+    ],
+    proofs: [
+      "spec/formal/invocation/Invocation.lean",
+      "spec/formal/invocation/required-theorems.lean",
+      "spec/formal/invocation/verify.sh",
+      "spec/formal/invocation/coverage.json",
+      "spec/formal/required-theorem-command.lean",
+      "spec/formal/check-axioms.sh",
+      "spec/formal/check-axioms.test.mjs",
+    ],
+    command: ["npm", "run", "verify:invocation-formal"],
+  },
+  {
     id: "spiffe",
     implementation: [
       "crates/domain/Cargo.toml",

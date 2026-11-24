@@ -141,6 +141,19 @@
   ],
   [
     "suite",
+    "invocation",
+    "verify:invocation-formal",
+    [
+      "spec/formal/invocation/verify.sh",
+      "spec/formal/invocation/required-theorems.lean",
+      "scripts/security/formal_coverage_drift.py",
+      "rust-toolchain.toml"
+    ],
+    [".cargo"],
+    []
+  ],
+  [
+    "suite",
     "spiffe",
     "verify:spiffe-formal",
     [

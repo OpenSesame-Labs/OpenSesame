@@ -108,6 +108,11 @@ const suiteMinimums = {
     "spec/formal/dpop/mutate.py",
     "rust-toolchain.toml",
   ],
+  invocation: [
+    "spec/formal/invocation/verify.sh",
+    "scripts/security/formal_coverage_drift.py",
+    "rust-toolchain.toml",
+  ],
   spiffe: [
     "spec/formal/spiffe/verify.sh",
     "spec/formal/spiffe/check-drift.py",
@@ -150,6 +155,7 @@ const cargoSuites = new Set([
   "spiffe-peer-domain",
   "nats-trust-rotation",
   "source-history",
+  "invocation",
 ]);
 
 export function hasRunnerMinimum(id) {

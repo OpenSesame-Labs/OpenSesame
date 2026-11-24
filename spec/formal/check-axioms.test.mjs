@@ -29,6 +29,12 @@ const suites = [
     vectors: 50,
   },
   {
+    name: "invocation",
+    model: "Invocation.lean",
+    first: "prior_requires_binding_receipt_and_policy",
+    vectors: 36,
+  },
+  {
     name: "dpop",
     model: "ReplayPolicy.lean",
     first: "insertion_retains_until_valid_end",
