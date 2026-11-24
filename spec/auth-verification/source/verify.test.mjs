@@ -32,11 +32,23 @@ test("Lean rejects a source change that admits a missing cookie origin", async (
 test("Lean rejects a principal check that no longer denies suspended principals", async () => {
   const cookie = replaceOnce(
     sources.cookie,
-    '    principal.state !== "suspended" &&\n    principal.state !== "closed"\n  );',
-    '    true &&\n    principal.state !== "closed"\n  );',
+    '    principal.state !== "suspended" &&\n    principal.state !== "closed" &&',
+    '    true &&\n    principal.state !== "closed" &&',
   );
   await assert.rejects(
     verifyProof(renderProof({ ...sources, cookie })),
+    /Lean rejected source proof/,
+  );
+});
+
+test("Lean rejects a principal check that no longer denies a pending withdrawal", async () => {
+  const dropped = replaceOnce(
+    sources.cookie,
+    "    !(await ctx.stores.organizationMemberships.hasPendingWithdrawalForPrincipal(\n      principalId,\n    ))",
+    "    true",
+  );
+  await assert.rejects(
+    verifyProof(renderProof({ ...sources, cookie: dropped })),
     /Lean rejected source proof/,
   );
 });
@@ -255,6 +267,11 @@ test("the source translator refuses a redirected principal lookup or shadowed un
       sources.cookie,
       "ctx.repos.principals.getById(principalId)",
       'ctx.repos.principals.getById("different")',
+    ),
+    replaceOnce(
+      sources.cookie,
+      "hasPendingWithdrawalForPrincipal(\n      principalId,\n    )",
+      'hasPendingWithdrawalForPrincipal(\n      "different",\n    )',
     ),
     `const undefined = null;\n${sources.cookie}`,
     `${sources.cookie}\nprincipalStillAuthenticates = async () => true;\n`,

@@ -4,69 +4,196 @@ set_option autoImplicit false
 
 namespace OpenSesame.PendingIntegrity
 
-/-- Abstracts the unambiguous, domain-separated current MAC input. -/
-structure CurrentMessage where
-  encodedPayload : String
-  verifierBinding : String
+/-! ## FED-I1: the v4 MAC input binds the payload and its sealed verifier
+
+`federated-pending.ts` (`pendingMac`) tags `MAC_DOMAIN ‖ payload`, where
+`payload` is the exact base64url JSON of the signed wire shape
+(`sealedWireSchema`): the leg's issuer, state, nonce, optional kind, provider,
+bring-your-own and organization IDs, and the AES-GCM-sealed `verifierEnc`.
+The structure below abstracts that encoding as unambiguous; that the actual
+JSON/base64url encoding is injective and that HMAC-SHA-256 is unforgeable are
+assumptions, not proved here. -/
+
+/-- The fields of the strict signed v4 wire shape. -/
+structure SealedPayload where
+  issuer : String
+  state : String
+  nonce : String
+  kind : Option String
+  providerId : Option String
+  byoId : Option String
+  orgId : Option String
+  verifierEnc : String
   deriving DecidableEq
 
-def currentMessage (payload binding : String) : CurrentMessage := ⟨payload, binding⟩
+/-- Abstracts the domain-separated v4 MAC input `MAC_DOMAIN ‖ payload`. -/
+structure CurrentMessage where
+  domain : String
+  encodedPayload : SealedPayload
+  deriving DecidableEq
 
-theorem current_message_binds_payload (a b x y : String)
-    (h : currentMessage a x = currentMessage b y) : a = b := by
+def macDomain : String := "OpenSesame:federated-pending:v4"
+
+def currentMessage (payload : SealedPayload) : CurrentMessage := ⟨macDomain, payload⟩
+
+theorem current_message_binds_payload (a b : SealedPayload)
+    (h : currentMessage a = currentMessage b) : a = b := by
   cases h
   rfl
 
-theorem current_message_binds_verifier (a b x y : String)
-    (h : currentMessage a x = currentMessage b y) : x = y := by
+theorem current_message_binds_verifier (a b : SealedPayload)
+    (h : currentMessage a = currentMessage b) : a.verifierEnc = b.verifierEnc := by
   cases h
   rfl
 
-/-- Wire JSON may carry a plaintext verifier or a sealed `verifierEnc`; the MAC input always uses the scrypt-bound verifier. -/
-inductive WireVerifier where
-  | plaintext
+/-! ## FED-I4: the v4 decoder authenticates before any other work
+
+`decodeSigned` (federated-pending.ts) runs, in order: the 4096-byte length
+cap, the last-dot split and base64url shape check (cheap string checks, not
+recorded as steps), the HMAC comparison (`mac`), the strict wire parse
+(`parse`), the per-leg HKDF key derivation through the `PendingCookieKeys`
+seam (`deriveKey`, which throws when the state or nonce exceeds 255 bytes),
+and AES-GCM unsealing (`unseal`). `slowHash` names a password hash such as
+the scrypt the retired v3 decoder ran; the v4 codec has none. -/
+
+/-- The wire JSON shapes the decoder can meet after a valid tag. -/
+inductive Wire where
+  /-- Exactly the strict sealed shape: `verifierEnc`, no plaintext verifier. -/
   | sealed
+  /-- A plaintext `verifier` (every legacy and unsigned shape). -/
+  | plaintext
+  /-- Both `verifier` and `verifierEnc`. -/
+  | mixed
+  /-- The sealed shape plus a field the strict schema does not declare. -/
+  | unknownField
+  /-- Not base64url JSON at all. -/
+  | malformed
+  deriving DecidableEq, Repr
 
-def wireField (w : WireVerifier) : String :=
-  match w with
-  | .plaintext => "verifier"
-  | .sealed => "verifierEnc"
+/-- The abstract facts about one signed cookie that decide its decode path. -/
+structure Cookie where
+  oversize : Bool
+  shapeOk : Bool
+  tagValid : Bool
+  wire : Wire
+  legOk : Bool
+  sealOk : Bool
+  deriving DecidableEq, Repr
 
-def macVerifierBinding (w : WireVerifier) (scryptDigest : String) : String :=
-  scryptDigest
+inductive Step where
+  | mac
+  | parse
+  | deriveKey
+  | unseal
+  | slowHash
+  deriving DecidableEq, Repr
 
-theorem wire_fields_differ_implies_distinct (a b : WireVerifier) (h : a ≠ b) :
-    wireField a ≠ wireField b := by
-  cases a <;> cases b <;> first | rfl | exact absurd rfl h
+/-- The work `decodeSigned` performs, in order. -/
+def decodeTrace (c : Cookie) : List Step :=
+  if c.oversize || !c.shapeOk then []
+  else
+    .mac :: (if !c.tagValid then []
+      else .parse :: (if c.wire != .sealed then []
+        else .deriveKey :: (if !c.legOk then [] else [.unseal])))
 
-theorem wire_encoding_does_not_change_mac_binding (a b : WireVerifier)
-    (scryptDigest : String) :
-    macVerifierBinding a scryptDigest = macVerifierBinding b scryptDigest := by
-  rfl
+/-- Whether `decodeSigned` returns a pending leg. -/
+def decodeAccepts (c : Cookie) : Bool :=
+  !c.oversize && c.shapeOk && c.tagValid && c.wire == .sealed && c.legOk && c.sealOk
 
-/-- Legacy tags require a signed nonempty static-provider ID and no unsigned fields. -/
-def acceptsLegacy (validTag hasProvider hasOrg hasByo hasUnknown : Bool) : Bool :=
-  validTag && hasProvider && !hasOrg && !hasByo && !hasUnknown
+/-- Key derivations observed through the `PendingCookieKeys` seam. -/
+def derivations (c : Cookie) : Nat := (decodeTrace c).count .deriveKey
+
+theorem mac_first (c : Cookie) :
+    decodeTrace c = [] ∨ ∃ rest, decodeTrace c = .mac :: rest ∧ .mac ∉ rest := by
+  rcases c with ⟨oversize, shapeOk, tagValid, wire, legOk, sealOk⟩
+  cases oversize <;> cases shapeOk <;> cases tagValid <;> cases wire <;>
+    cases legOk <;> simp [decodeTrace]
+
+theorem invalid_tag_no_work (c : Cookie) (h : c.tagValid = false) :
+    ∀ s ∈ decodeTrace c, s = .mac := by
+  rcases c with ⟨oversize, shapeOk, tagValid, wire, legOk, sealOk⟩
+  simp only at h
+  subst h
+  cases oversize <;> cases shapeOk <;> simp [decodeTrace]
+
+theorem accepted_requires_valid_tag (c : Cookie) (h : decodeAccepts c = true) :
+    c.tagValid = true := by
+  rcases c with ⟨oversize, shapeOk, tagValid, wire, legOk, sealOk⟩
+  revert h
+  cases oversize <;> cases shapeOk <;> cases tagValid <;> cases wire <;>
+    cases legOk <;> cases sealOk <;> decide
+
+theorem accepted_requires_sealed_only (c : Cookie) (h : decodeAccepts c = true) :
+    c.wire = .sealed := by
+  rcases c with ⟨oversize, shapeOk, tagValid, wire, legOk, sealOk⟩
+  revert h
+  cases oversize <;> cases shapeOk <;> cases tagValid <;> cases wire <;>
+    cases legOk <;> cases sealOk <;> decide
+
+theorem accepted_derives_once (c : Cookie) (h : decodeAccepts c = true) :
+    derivations c = 1 := by
+  rcases c with ⟨oversize, shapeOk, tagValid, wire, legOk, sealOk⟩
+  revert h
+  cases oversize <;> cases shapeOk <;> cases tagValid <;> cases wire <;>
+    cases legOk <;> cases sealOk <;> decide
+
+theorem derivations_at_most_one (c : Cookie) : derivations c ≤ 1 := by
+  rcases c with ⟨oversize, shapeOk, tagValid, wire, legOk, sealOk⟩
+  cases oversize <;> cases shapeOk <;> cases tagValid <;> cases wire <;>
+    cases legOk <;> cases sealOk <;> decide
+
+theorem no_slow_hash (c : Cookie) : Step.slowHash ∉ decodeTrace c := by
+  rcases c with ⟨oversize, shapeOk, tagValid, wire, legOk, sealOk⟩
+  cases oversize <;> cases shapeOk <;> cases tagValid <;> cases wire <;>
+    cases legOk <;> simp [decodeTrace]
+
+/-- The retired v3 decoder, for contrast: it ran scrypt over the cookie's
+verifier to rebuild the MAC input before it could compare the tag. -/
+def decodeTraceV3 (c : Cookie) : List Step :=
+  if c.oversize || !c.shapeOk then [] else [.parse, .slowHash, .mac]
+
+theorem v3_slow_hash_before_mac :
+    ∃ c : Cookie, c.tagValid = false ∧ decodeTraceV3 c = [.parse, .slowHash, .mac] :=
+  ⟨⟨false, true, false, .plaintext, true, true⟩, rfl, rfl⟩
+
+/-! ## FED-I2: every legacy cookie is refused
+
+Legacy (pre-v3) payloads carry a plaintext `verifier`, so under the v4
+decoder they meet the strict sealed schema as `Wire.plaintext` and are
+refused even if their tag were valid. (Their tag is HMAC over a different
+message and key, so it is invalid unless HMAC is forged.) The provenance
+arguments are kept so the earlier refusal obligations still read as stated;
+v4 refuses regardless of them. -/
+
+def legacyAsV4 (validTag : Bool) : Cookie :=
+  ⟨false, true, validTag, .plaintext, true, true⟩
+
+def acceptsLegacy (validTag _hasProvider _hasOrg _hasByo _hasUnknown : Bool) : Bool :=
+  decodeAccepts (legacyAsV4 validTag)
+
+theorem legacy_never_accepted (validTag hasProvider hasOrg hasByo hasUnknown : Bool) :
+    acceptsLegacy validTag hasProvider hasOrg hasByo hasUnknown = false := by
+  cases validTag <;> rfl
 
 theorem legacy_rejects_missing_provider (validTag hasOrg hasByo hasUnknown : Bool) :
-    acceptsLegacy validTag false hasOrg hasByo hasUnknown = false := by
-  simp [acceptsLegacy]
+    acceptsLegacy validTag false hasOrg hasByo hasUnknown = false :=
+  legacy_never_accepted validTag false hasOrg hasByo hasUnknown
 
 theorem legacy_rejects_organization (validTag hasProvider hasByo hasUnknown : Bool) :
-    acceptsLegacy validTag hasProvider true hasByo hasUnknown = false := by
-  simp [acceptsLegacy]
+    acceptsLegacy validTag hasProvider true hasByo hasUnknown = false :=
+  legacy_never_accepted validTag hasProvider true hasByo hasUnknown
 
 theorem legacy_rejects_byo (validTag hasProvider hasOrg hasUnknown : Bool) :
-    acceptsLegacy validTag hasProvider hasOrg true hasUnknown = false := by
-  simp [acceptsLegacy]
+    acceptsLegacy validTag hasProvider hasOrg true hasUnknown = false :=
+  legacy_never_accepted validTag hasProvider hasOrg true hasUnknown
 
 theorem legacy_rejects_unknown (validTag hasProvider hasOrg hasByo : Bool) :
-    acceptsLegacy validTag hasProvider hasOrg hasByo true = false := by
-  simp [acceptsLegacy]
+    acceptsLegacy validTag hasProvider hasOrg hasByo true = false :=
+  legacy_never_accepted validTag hasProvider hasOrg hasByo true
 
 theorem legacy_rejects_invalid_tag (hasProvider hasOrg hasByo hasUnknown : Bool) :
-    acceptsLegacy false hasProvider hasOrg hasByo hasUnknown = false := by
-  simp [acceptsLegacy]
+    acceptsLegacy false hasProvider hasOrg hasByo hasUnknown = false :=
+  legacy_never_accepted false hasProvider hasOrg hasByo hasUnknown
 
 /-- The issuing version placed a signed provider ID only on static flows. -/
 inductive LegacyOrigin where
@@ -79,7 +206,7 @@ def issuedLegacyProvider : LegacyOrigin → Bool
   | .byo => false
   | .organization => false
 
-/-- Model stripping unsigned owner fields while the signed provider bit is bound. -/
+/-- A legacy cookie whose unsigned owner fields were stripped in transit. -/
 def acceptsAfterOwnerStripped
     (origin : LegacyOrigin) (validTag signedProvider : Bool) : Bool :=
   (signedProvider == issuedLegacyProvider origin) &&
@@ -87,15 +214,17 @@ def acceptsAfterOwnerStripped
 
 theorem legacy_byo_strip_rejected (validTag signedProvider : Bool) :
     acceptsAfterOwnerStripped .byo validTag signedProvider = false := by
-  cases signedProvider <;> simp [acceptsAfterOwnerStripped, issuedLegacyProvider, acceptsLegacy]
+  cases validTag <;> cases signedProvider <;> decide
 
 theorem legacy_organization_strip_rejected (validTag signedProvider : Bool) :
     acceptsAfterOwnerStripped .organization validTag signedProvider = false := by
-  cases signedProvider <;> simp [acceptsAfterOwnerStripped, issuedLegacyProvider, acceptsLegacy]
+  cases validTag <;> cases signedProvider <;> decide
 
-theorem legacy_static_signed_provider_accepted :
-    acceptsAfterOwnerStripped .staticProvider true true = true := by
+theorem legacy_static_signed_provider_refused :
+    acceptsAfterOwnerStripped .staticProvider true true = false := by
   decide
+
+/-! ## FED-I3: current trust must match supplied provenance -/
 
 /-- A supplied provenance ID must match both the current source and ID. -/
 def fieldMatches (field : Option Nat) (source expected : Nat) : Bool :=
@@ -144,6 +273,12 @@ private def field (value : Option Nat) : String :=
   match value with
   | none => "-"
   | some id => toString id
+private def wireName : Wire → String
+  | .sealed => "sealed"
+  | .plaintext => "plaintext"
+  | .mixed => "mixed"
+  | .unknownField => "unknown"
+  | .malformed => "malformed"
 
 def main : IO Unit := do
   for validTag in [false, true] do
@@ -157,6 +292,14 @@ def main : IO Unit := do
       for byo in [none, some 1, some 2] do
         for org in [none, some 1, some 2] do
           IO.println s!"provenance\t{source}\t{field provider}\t{field byo}\t{field org}\t{bit (acceptsProvenance provider byo org source)}"
+  for oversize in [false, true] do
+    for shapeOk in [false, true] do
+      for tagValid in [false, true] do
+        for wire in [Wire.sealed, .plaintext, .mixed, .unknownField, .malformed] do
+          for legOk in [false, true] do
+            for sealOk in [false, true] do
+              let c : Cookie := ⟨oversize, shapeOk, tagValid, wire, legOk, sealOk⟩
+              IO.println s!"v4\t{bit oversize}\t{bit shapeOk}\t{bit tagValid}\t{wireName wire}\t{bit legOk}\t{bit sealOk}\t{derivations c}\t{bit (decodeAccepts c)}"
 
 end OpenSesame.PendingIntegrity
 

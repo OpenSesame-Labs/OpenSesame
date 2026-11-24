@@ -21,10 +21,16 @@ public URL either fails or yields an origin that does or does not match. The
 proof establishes that the translated decision accepts exactly a safe method
 or a nonempty origin that is listed or matches the parsed service origin.
 
-The principal proof covers the completed repository lookup and the two state
-comparisons in `principalStillAuthenticates`. It proves that the translated
-check accepts exactly when the result is neither null nor undefined and its
-state is neither suspended nor closed. The implementation does not itself
+The principal proof covers the completed repository lookup, the two state
+comparisons and the final awaited
+`organizationMemberships.hasPendingWithdrawalForPrincipal(principalId)` lookup
+in `principalStillAuthenticates`. It proves that the translated check accepts
+exactly when the result is neither null nor undefined, its state is neither
+suspended nor closed, and no organization withdrawal is pending for the
+principal. The withdrawal lookup is represented by its completed Boolean
+result; the translator requires the exact store method and the `principalId`
+argument, and `jsAnd` models that the lookup is not made after an earlier
+denial. A rejected or throwing withdrawal lookup is not modeled. The implementation does not itself
 reject an unexpected state outside the domain enum; the database constraint
 and typed repository are separate assumptions, not consequences of this proof.
 The translation models short-circuiting and a null or undefined property read,

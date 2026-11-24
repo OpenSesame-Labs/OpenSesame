@@ -28,6 +28,7 @@ rather than sealed.
 | A Host with `OPENSESAME_CONNECTION_KEY` finds a Host event value (see "What is sealed, and under what") that is not a current `osev2.` envelope, and `OPENSESAME_ALLOW_LEGACY_SECRET_MIGRATION` is not `true` | `host run` refuses (see "One-time trusted legacy import") |
 | A sealed event does not open (wrong key, altered row) | a read is an error naming the column, never an empty event or ciphertext; in a queue claim the one row is quarantined (below) and the rest go on |
 | The audit trail's newest row does not open | appends fail until it can be read; the chain is never restarted at genesis |
+| A no-expiry Identity security record (upstream logout operation, organization revocation or withdrawal audit, principal session epoch) is still stored under its pre-2026-11-23 row id after the startup re-key | the control plane refuses to serve: every request but `/v1/health/live` gets 503 (see "Secret-keyed security rows") |
 
 ## Keys
 
@@ -110,6 +111,26 @@ one and the import refuses it as unreadable.
 
 Rolling back to a build before this change reads a sealed log or event as
 corrupt data.
+
+### Secret-keyed security rows
+
+Identity security maps keyed by a secret or a principal store each row under
+one keyed lookup of its key. Rows written before 2026-11-23 used an older id.
+At startup, before it serves a request, the control plane moves every
+no-expiry security record (upstream logout operations, organization revocation
+and withdrawal audits, principal session epochs) to its keyed id, and refuses
+to serve if any remains. Older bearer rows are not moved, because the server
+never stored the bearer: a provisional token or restore proof, magic-link
+exchange, enrollment ticket, passkey challenge or OpenID4VCI code, nonce or
+access token issued before the upgrade is refused like an unknown one, and its
+row expires with its TTL (at most the provisional session TTL plus one day).
+People holding one sign in again, request a new link or restart the ceremony;
+an operator mints a new enrollment ticket.
+
+Upgrading from a release before 2026-11-23 (#2923), stop the old replicas
+before the new ones start, or roll out a release from 2026-11-23 or later
+first. An old replica writes security records under the older id, which a new
+replica never reads.
 
 ### One-time trusted legacy import
 

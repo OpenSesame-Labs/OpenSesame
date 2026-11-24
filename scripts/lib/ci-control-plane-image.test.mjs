@@ -16,9 +16,10 @@ function resolveRoot() {
 describe("control-plane runtime image", () => {
   it("installs production dependencies only in the runtime-deps stage", () => {
     expect(dockerfile).toMatch(/AS runtime-deps/);
-    expect(dockerfile).toMatch(
-      /npm ci --omit=dev --ignore-scripts[\s\S]*tsx@4\.23\.15/,
-    );
+    expect(dockerfile).toMatch(/npm ci --omit=dev --ignore-scripts/);
+    // Every package comes from package-lock.json with its integrity hash:
+    // `npm install <pkg>` bypasses the lockfile (Scorecard Pinned-Dependencies).
+    expect(dockerfile).not.toMatch(/npm (install|i|add)\b/);
     expect(dockerfile).toMatch(
       /find node_modules -name '\.package-lock\.json' -delete/,
     );
@@ -72,6 +73,27 @@ describe("control-plane runtime image", () => {
   it("still starts from TypeScript sources with tsx", () => {
     expect(dockerfile).toMatch(
       /ENTRYPOINT \["node", "--import", "tsx", "packages\/control-plane\/src\/server\.ts"\]/,
+    );
+    // The ENTRYPOINT loads tsx at runtime, so `npm ci --omit=dev` must install
+    // it from the lockfile: it is a production dependency of the package.
+    const manifest = JSON.parse(
+      readFileSync(join(root, "packages/control-plane/package.json"), "utf8"),
+    );
+    expect(manifest.dependencies?.tsx).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(manifest.devDependencies?.tsx).toBeUndefined();
+  });
+
+  it("ships the spec data the server imports at module load", () => {
+    // packages/log-scrub/src/scrub.ts imports spec/log-scrub/log-scrub.json;
+    // the image exited with ERR_MODULE_NOT_FOUND before it listened without it.
+    const scrub = readFileSync(
+      join(root, "packages/log-scrub/src/scrub.ts"),
+      "utf8",
+    );
+    expect(scrub).toMatch(/spec\/log-scrub\/log-scrub\.json/);
+    expect(dockerfile).toMatch(/^COPY spec\/log-scrub \.\/spec\/log-scrub$/m);
+    expect(dockerfile).toMatch(
+      /^COPY --from=runtime-deps --chown=10001:10001 \/src\/spec\/log-scrub \.\/spec\/log-scrub$/m,
     );
   });
 });

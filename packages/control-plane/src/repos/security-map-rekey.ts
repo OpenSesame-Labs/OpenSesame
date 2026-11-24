@@ -24,22 +24,59 @@ async function* principalIds<T>(store: DurableMap<T>): AsyncGenerator<string> {
   }
 }
 
-const SECRET_KEYED_STORES = [
-  "provisionalProofs",
+/** Secret-keyed stores whose records never expire: revocation state. */
+const NO_EXPIRY_STORES = [
   "upstreamLogoutOperations",
   "organizationRevocationAudits",
   "organizationWithdrawalAudits",
   "principalSessionEpochs",
+] as const;
+
+/** Secret-keyed stores of bearers the server never stored, all TTL-bounded. */
+const BEARER_TTL_STORES = [
+  "provisionalProofs",
   "provisionalTokens",
   "magicLinkExchanges",
   "enrollmentTickets",
 ] as const;
 
+type StoreName =
+  | (typeof NO_EXPIRY_STORES)[number]
+  | (typeof BEARER_TTL_STORES)[number];
+
+/** Legacy rows still present, per named secret-keyed store. */
+async function remainingLegacyRows(
+  stores: AppStores,
+  names: readonly StoreName[],
+) {
+  const counts = await Promise.all(
+    names.map(async (name) => {
+      const store = stores[name];
+      const count =
+        store instanceof DurableMap ? (await store.legacyRows()).length : 0;
+      return [name, count] as const;
+    }),
+  );
+  return Object.fromEntries(counts);
+}
+
+/** A no-expiry security record could not be moved; startup must not serve. */
+export class LegacySecurityRowsRemainError extends Error {
+  constructor(readonly remaining: Readonly<Record<string, number>>) {
+    super(
+      `Legacy security rows could not be re-keyed: ${JSON.stringify(remaining)}`,
+    );
+    this.name = "LegacySecurityRowsRemainError";
+  }
+}
+
 /**
- * Move the no-expiry security records written under the legacy row id to the
- * keyed id (durable-map-legacy.ts), then report how many legacy rows remain
- * per store. Every record stays readable throughout: until a row is moved,
- * reads and writes address it under its legacy id as well.
+ * Move every no-expiry security record written under the legacy row id to the
+ * keyed id (durable-map-legacy.ts), before the API serves a request. Requests
+ * address only the keyed id, so a revocation, fence or audit left behind would
+ * be unfindable: if any remains, this throws and startup fails closed.
+ * Returns the legacy bearer rows that remain: they are never migrated, are
+ * refused like unknown bearers, and expire with their TTL.
  */
 export async function rekeyLegacySecurityRows(stores: AppStores) {
   const {
@@ -62,13 +99,8 @@ export async function rekeyLegacySecurityRows(stores: AppStores) {
       principalSessionEpochs,
       principalIds(principalSessionEpochs),
     );
-  const remaining = await Promise.all(
-    SECRET_KEYED_STORES.map(async (name) => {
-      const store = stores[name];
-      const count =
-        store instanceof DurableMap ? (await store.legacyRows()).length : 0;
-      return [name, count] as const;
-    }),
-  );
-  return Object.fromEntries(remaining);
+  const unmigrated = await remainingLegacyRows(stores, NO_EXPIRY_STORES);
+  if (Object.values(unmigrated).some((count) => count > 0))
+    throw new LegacySecurityRowsRemainError(unmigrated);
+  return remainingLegacyRows(stores, BEARER_TTL_STORES);
 }

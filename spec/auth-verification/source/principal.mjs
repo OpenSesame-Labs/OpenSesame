@@ -48,10 +48,46 @@ function comparison(node) {
     : `(some ${value})`;
 }
 
+function unwrap(node) {
+  return ts.isParenthesizedExpression(node) ? unwrap(node.expression) : node;
+}
+
+/**
+ * `!(await ctx.stores.organizationMemberships.hasPendingWithdrawalForPrincipal(principalId))`.
+ * The awaited lookup reads no property of `principal`, so it never produces
+ * `none`; `jsAnd` discards it (the call is not made) after an earlier denial.
+ */
+function pendingWithdrawal(node) {
+  if (
+    !ts.isPrefixUnaryExpression(node) ||
+    node.operator !== ts.SyntaxKind.ExclamationToken
+  )
+    return undefined;
+  const awaited = unwrap(node.operand);
+  if (!ts.isAwaitExpression(awaited)) return undefined;
+  const call = unwrap(awaited.expression);
+  requireSupportedSource(
+    callIs(
+      call,
+      [
+        "ctx",
+        "stores",
+        "organizationMemberships",
+        "hasPendingWithdrawalForPrincipal",
+      ],
+      1,
+    ) && pathIs(call.arguments[0], "principalId"),
+    "pending-withdrawal lookup target changed",
+  );
+  return "(some (!withdrawalPending))";
+}
+
 function expression(node) {
   if (ts.isParenthesizedExpression(node)) return expression(node.expression);
   if (node.kind === ts.SyntaxKind.TrueKeyword) return "(some true)";
   if (node.kind === ts.SyntaxKind.FalseKeyword) return "(some false)";
+  const withdrawal = pendingWithdrawal(node);
+  if (withdrawal) return withdrawal;
   requireSupportedSource(
     ts.isBinaryExpression(node),
     "unsupported principal expression",
@@ -63,7 +99,10 @@ function expression(node) {
   return comparison(node);
 }
 
-/** Translate the completed principal lookup and its Boolean eligibility check. */
+/**
+ * Translate the completed principal lookup, its Boolean eligibility check and
+ * the awaited pending-withdrawal lookup that the check consults last.
+ */
 export function extractPrincipal(source) {
   const file = parseTypeScript(source, "auth.ts");
   requireSupportedSource(

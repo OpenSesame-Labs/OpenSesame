@@ -26,7 +26,7 @@ storage or network implementations.
 
 | ID | Requirement and implementation | Lean property | Executable correspondence |
 |---|---|---|---|
-| AUTH-S1 | A provisional session authenticates only for a `pst_` token mapped to a present, unexpired, unrevoked session and a present principal that is neither suspended nor closed. [`resolveProvisionalSession`](../../packages/control-plane/src/middleware/auth.ts) performs those checks. | `bad_session_prefix_denied`, `unmapped_session_denied`, `missing_session_denied`, `revoked_session_denied`, `expired_session_denied`, `missing_principal_session_denied`, `suspended_principal_session_denied`, `closed_principal_session_denied` | The actual resolver is compared with 240 combinations of the abstract guards, expiry boundary, and principal state. |
+| AUTH-S1 | A provisional session authenticates only for a `pst_` token mapped to a present, unexpired, unrevoked session (the mapping is the live provisional-token row stored at the token's keyed id, `HMAC-SHA-256(K_lookup, token)`; no other stored id is consulted) and a present principal that is neither suspended nor closed. [`resolveProvisionalSession`](../../packages/control-plane/src/middleware/auth.ts) performs those checks. | `bad_session_prefix_denied`, `unmapped_session_denied`, `missing_session_denied`, `revoked_session_denied`, `expired_session_denied`, `missing_principal_session_denied`, `suspended_principal_session_denied`, `closed_principal_session_denied` | The actual resolver is compared with 240 combinations of the abstract guards, expiry boundary, and principal state. |
 | AUTH-S2 | A session that AUTH-S1 admits is still refused while its revocation cleanup is pending (`revocationCleanupPending`) or while its principal has a pending organization withdrawal (`hasPendingWithdrawalForPrincipal`). The `prn_` principal bearer uses the same principal check. A bound-cookie request (`X-OpenSesame-Session-Id`, `-Session-Proof`, `-Principal-Id`) authenticates only when the named cookie resolves through AUTH-S1 and these guards, to that session and principal, with a matching proof hash, and it never falls back to another credential. A client that sends `X-OpenSesame-Require-Bearer` gets no cookie fallback. [`resolveProvisionalSession` and `authMiddleware`](../../packages/control-plane/src/middleware/auth.ts). | **Unproved.** None of these guards or paths is in `AuthPolicy.lean`. They only add refusals or narrow an AUTH-S1 admission, so every success still satisfies the AUTH-S1 guards, but no Lean theorem states this. | The correspondence test re-runs every one of the 240 session cases with cleanup pending and with a pending withdrawal, and expects a refusal each time. Negative controls `session-cleanup-pending` and `session-pending-withdrawal` disable each guard and require a failing session assertion. Bound-cookie and require-bearer behavior is covered only by control-plane regressions (`bound-cookie*.test.ts`, `auth-session-interleaving.property.test.ts`). Status: **unproved**. |
 | AUTH-C1 | A fresh guest must require sign-out when an existing Identity or federation session is detected, and must not reuse, replace, or act under a session installed concurrently. [`connectFreshProvisional`](../../packages/app-core/src/lib/identity.ts) checks the remote cookie before and after minting. The guarded [`POST /v1/principals/provisional`](../../packages/control-plane/src/routes/principals.ts) rejects presented credentials and returns a bearer without setting a cookie. Guest requests and bearer cleanup omit ambient cookies; a tab-persistent isolation marker prevents cookie adoption after expiry or reload. A member cookie arriving after the last check can coexist with the guest, but cannot replace or authenticate that guest. [`continueAsGuest`](../../packages/app-core/src/lib/guest-auth.ts), claim guest continuation, and the Identity ceremony use this admission path. Assumptions: configured remote deployments share the authoritative cookie plane; device-native Identity has no cookie plane; browser session storage and the at-rest key are available for remote guest admission. | **Unproved.** Browser concurrency, cookie delivery, UI state, and the Identity transaction boundary are outside the current Lean models. | Client regressions cover present, absent, unknown, held cross-tab responses, cookie-free requests, revocation retry, storage failure, bearer loss, established-guest resume, claim, device roads, and held federation responses after a settings change or sign-out. Control-plane tests cover credential rejection and a bearer-only response; FrontDoor and locked-vault tests cover sign-out and retry. The non-mechanized AUTH-C1 review snapshot records the exact implementation blobs below. Status: **unproved**. |
 | AUTH-P1 | An absent principal is refused and a principal with `provisional` assurance is refused. [`verifiedPrincipal`](../../packages/control-plane/src/proofs/verified-principal.ts) makes both checks. | `missing_principal_denied`, `provisional_principal_denied`, `admitted_principal_not_provisional` | The actual function is compared with all eight abstract lookup/assurance cases. |
@@ -37,14 +37,67 @@ storage or network implementations.
 The AUTH-S1 token-to-session lookup, the principal session epoch fence and the
 revocation audits read durable secret-keyed maps
 ([`durable-map.ts`](../../packages/control-plane/src/repos/durable-map.ts)).
-Since 2026-11-23 a row is stored under a keyed lookup of its key, and rows
-written under the earlier prehashed id are read under both ids and moved in
-one transaction ([`durable-map-legacy.ts`](../../packages/control-plane/src/repos/durable-map-legacy.ts)).
-The Lean model takes the lookup result as given, so this storage migration is
-outside it. Evidence: `durable-map.test.ts` and `durable-map-migration.test.ts`
-(a legacy fence is advanced, never reset; a legacy bearer is deleted, consumed
-once and still occupies its key) and the full control-plane suite, including the
-AUTH-S1 correspondence matrix. Status: **unproved**.
+Storage contract since 2026-11-24, stated so it can be modelled:
+
+- **Keyed lookup only.** Every key-addressed read, write, claim, take and
+  delete addresses exactly one stored id, `HMAC-SHA-256(K_lookup, key)`. No
+  request path computes an unkeyed digest of a key, and no request reads a row
+  stored under any other id.
+- **No-expiry records are migrated before serving.** Rows written before
+  2026-11-23 were stored under `HMAC(K_lookup, SHA-256(key))`. At startup,
+  before the listener opens and before any request passes the readiness gate
+  in `app.ts`, every such row in the four no-expiry stores (upstream logout
+  operations, organization revocation and withdrawal audits, principal session
+  epochs) is moved to its keyed id in one locked transaction that writes the
+  successor with the same expiry before deleting the legacy row; a key's
+  existing current row is kept. If any no-expiry legacy row remains, startup
+  fails closed and every request but the liveness probe gets 503
+  ([`security-map-rekey.ts`](../../packages/control-plane/src/repos/security-map-rekey.ts),
+  [`durable-map-legacy.ts`](../../packages/control-plane/src/repos/durable-map-legacy.ts)).
+- **Pre-upgrade bearers are refused.** Bearer-keyed rows the server cannot
+  re-key, because it never stored the bearer (provisional tokens and proofs,
+  magic-link exchanges, enrollment tickets, passkey challenges, OpenID4VCI
+  codes, nonces and access tokens), are not migrated. Each is TTL-bounded. A
+  bearer issued before the upgrade resolves to nothing, exactly like an unknown
+  bearer, so AUTH-S1 refuses it; its row expires with its TTL, and revocation
+  by session still deletes it through the stored entry.
+
+The session-admission model takes the lookup result as given. A separate,
+abstract storage model (`OpenSesame.AuthPolicy.Storage` in `AuthPolicy.lean`,
+2026-11-24) states this contract and Lean 4.24.0 checks it with the auth
+suite's axiom audit. A row id is only a keyed lookup of the key or of its
+legacy digest (`RowId`). Keyed lookup only: with the legacy fallback removed
+every address is the keyed id (`legacy_free_addresses_keyed_only`), a read
+depends only on that address (`lookup_reads_only_addresses`), and a write
+stores only at the keyed id (`write_stores_only_keyed`, `write_then_lookup`).
+Migration before serving: `rekey` models `adoptLegacyRow` (the successor is
+written only when no keyed row exists, then the legacy row is deleted); it
+touches no other key (`rekey_other_ids`) and preserves the value read when the
+keyed row is absent or live (`rekey_preserves_lookup`); migrating the recovered
+keys leaves every no-expiry legacy row findable by the keyed id alone
+(`migration_keeps_no_expiry_rows`); and once no legacy row remains, which is
+startup's condition for serving, dropping the fallback changes no read
+(`served_store_needs_no_fallback`). Pre-upgrade bearers: a key held only under
+its legacy id is refused (`legacy_only_row_refused`).
+
+Recorded gap: `adoptLegacyRow` keeps a key's existing keyed row without checking
+that it is live, so an expired keyed row beside a live no-expiry legacy row
+loses the legacy value; `rekey_drops_live_legacy_behind_expired_keyed` is the
+Lean witness, and a scratch PGlite run of the pre-#2927 `DurableMap.rekey`,
+which had the same rule, returned the legacy fence on the first `get` and
+`undefined` on the second. No-expiry stores do not write an expiring keyed row
+on their own, so reaching it needs an unusual prior state; the fix is to select
+the current row with `live()` and upsert the successor. The storage model is
+not mapped to `durable-map.ts` in the registry and has no Lean-generated
+correspondence: it proves the contract of the model, not the TypeScript.
+Evidence for the implementation: `durable-map.test.ts` and
+`durable-map-migration.test.ts` (no request path computes an unkeyed digest; a
+legacy TTL bearer is refused after the upgrade and `GET /v1/principals/me` with
+it returns 401; no-expiry rows are found after startup migration and a fence is
+advanced, never reset; an unmigratable no-expiry row fails startup and requests
+get 503) and the full control-plane suite, including the AUTH-S1
+correspondence matrix. Status: storage contract **proved for the model**;
+implementation refinement **unproved**.
 
 Guest bearer revocations that fail are retained in memory and retried before
 another guest mint against the same Identity API in that tab. Cleanup and
@@ -117,6 +170,8 @@ independent review and snapshot update:
 2026-11-23 re-review of `browser-pairing.ts` for the local-only guest. Requirement affected: AUTH-C1 (a guest must not act under another account's authority). A guest whose sign-out epoch cannot be relied on across tabs (no durable at-rest key) or that was opened local only is a local-only guest ([`guest-session-context.ts`](../../packages/app-core/src/lib/guest-session-context.ts)). Browser pairing now refuses for such a guest at every await boundary (before and after key creation, after the pairing response, after a poll, after the DPoP proof and after each Host response, whose body is cancelled), and `currentBrowserGrant` reports no grant while one is open, so a Host grant obtained by an earlier session is never sent on its behalf. The change only adds refusals; pairing for every other session is unchanged. Evidence: [`browser-pairing.test.ts`](../../packages/app-core/src/lib/browser-pairing.test.ts) case "does not send a Host grant when a local-only guest opens during proof creation" (fails on main, passes with the change). Formal status: unproved. The snapshot row for `browser-pairing.ts` is updated to the reviewed blob.
 
 2026-11-23 re-review of `federated-pending.ts` (unauthenticated CPU and memory denial of service). Requirement affected: FED-I4, with FED-I1 and FED-I2 re-mapped; AUTH-S1/S2, AUTH-C1 and the other Lean models are untouched. Defect: since #2823, the `/interaction/:uid/federated/callback` decoder ran a blocking `scryptSync` (N=32768, r=8, about 32 MiB) twice per request before checking the cookie MAC, and plaintext-verifier cookies were still accepted. Any caller who started an interaction could block the Identity API event loop with forged cookies (about 146 ms per forged decode, measured locally, against 0.12 ms now). Implementation: the cookie is now v4. It carries an HMAC-SHA-256 over the exact base64url payload under a v4-only key derived from the pepper. That tag is compared, after a 4096-byte length cap, before the payload is parsed, the AES-GCM-sealed verifier is unsealed or any key is derived. scrypt is removed from the codec. The signed wire schema requires `verifierEnc` and is strict, so a plaintext or mixed verifier is refused even under a valid tag. v3 and pre-v3 legacy cookies are no longer verified, since each would need scrypt before authentication. Sign-ins holding one restart; the cookie max-age is ten minutes. The `OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER` rollout flag existed only for v3 mixed-version rollouts and is removed. Evidence: `federated-pending.security.test.ts`, `federated-pending-integrity.test.ts`, `federated-pending.fuzz.test.ts` and `federated-pending.production.test.ts`. Nine new or changed cases fail against main's sources and pass here, including a key-derivation counter on the `PendingCookieKeys` seam: forged, oversize, wrong-pepper, v3 and plaintext cookies cause no derivation, and a valid one causes exactly one. The control-plane federated, BYO, interaction and config suites pass (33 files, 364 tests). The oauth correspondence suite and its report check pass against vectors from a Python mirror of `PendingIntegrity.lean`, and four new pending-cookie negative controls plus the organization control were each detected in a local simulation of `negative-controls.py`. `check-drift.mjs` and coverage hashes were refreshed. `formal-vitest-report.mjs`, whose oauth test inventory had not matched main's security test since #2823, now lists the v4 tests. The `verify:auth-source` federation snapshot, stale since #2823, is re-reviewed against the v4 source. That gate still fails earlier, on the unrelated `principalStillAuthenticates` extraction, a pre-existing failure outside this change. Lean was not available, so `npm run verify:oauth-formal`, `negative-controls.py` and the theorem check were not re-run. Explicitly unproved: FED-I4 ordering and the absence of slow hashing (tests and source snapshot only), HMAC and AES-GCM security, and refinement of the v4 codec for all inputs. Status: **unproved**.
+
+2026-11-24 Lean re-run and completion of the proofs recorded above as not re-run. Lean 4.24.0 was installed through elan (no Mathlib or Lake packages are used). Requirements affected: FED-I1, FED-I2, FED-I4 (oauth suite), the AUTH-S1 storage contract (auth suite), and the `verify:auth-source` principal check. No implementation file changed. FED-I1: the model's `SealedPayload` now has exactly the fields of the strict v4 `sealedWireSchema`, including `verifierEnc`, and `currentMessage` is `MAC_DOMAIN ‖ payload` (`pendingMac`); **proved**. FED-I2: `acceptsLegacy` is the v4 decoder applied to a plaintext-verifier payload, so the model now refuses every legacy cookie like the implementation (`legacy_never_accepted`, `legacy_static_signed_provider_refused` replaces the retired acceptance theorem), and the 32 legacy cases require exact agreement; **proved**. FED-I4: `decodeTrace` models `decodeSigned` (federated-pending.ts lines 234–260) step by step; `mac_first`, `invalid_tag_no_work`, `accepted_requires_valid_tag`, `accepted_requires_sealed_only`, `accepted_derives_once`, `derivations_at_most_one` and `no_slow_hash`; 160 Lean-generated `v4` cases build real cookies and compare acceptance with real keys and derivation counts through a counting `PendingCookieKeys` seam; **proved for the model**; that the TypeScript performs exactly these steps rests on review and the finite cases, and `no_slow_hash` holds of the model by construction (the code evidence is the codec scan test). Results: `npm run verify:oauth-formal` passed (22 obligations, axioms audited; 297 correspondence and security tests; both hosted-flow tests; source hashes match); `negative-controls.py` detected all five mutants and the gate refused a mutant override; `hosted-flow-negative-controls.py` detected all five controls (it needs `MISE_TRUSTED_CONFIG_PATHS` for its scratch checkout in this sandbox); `npm run verify:auth-formal` passed (29 obligations, 409 correspondence tests, AUTH-C1 snapshot, drift tests, after repairing the drift fixture's pre-#2915 AUTH-C1 inventory); `check-axioms.test.mjs` 14/14. `verify:auth-source` failed on main because #2899 added an awaited `hasPendingWithdrawalForPrincipal` operand; the translator now accepts exactly that call on `principalId`, the policy requires no pending withdrawal, and Lean checks 54 source-derived theorems (25/25 tests, including a new control that drops the operand). AUTH-C1 and GUEST-V1 remain **unproved** and conformance-only: no registry suite maps any `app-core` or Pages source, and their properties concern browser concurrency, cookie delivery, Web Locks, origin storage, OPFS and transaction boundaries that none of the Lean models represent; modelling them would need a new suite with its own implementation mapping and correspondence harness.
 
 The Lean theorems quantify over their declared model inputs. Time in the model
 is an arbitrary integer. The correspondence test exercises 8 principal cases,
@@ -380,7 +435,7 @@ claim of exhaustive inventory or Lean coverage:
 
 | Area and source | Implementation starting point | Formal status in this register |
 |---|---|---|
-| Federated sign-in. [Contract](../architecture/federated-signin.md). | [`federated-pending.ts`](../../packages/control-plane/src/interactions/federated-pending.ts) and [`interactions.ts`](../../packages/control-plane/src/routes/interactions.ts). | [FED-I1–I3](../../spec/formal/oauth/README.md) model signed pending-cookie binding, legacy provenance (now refused outright, a conservative refinement), and matching current trust. FED-I4, MAC verification before any parsing, unsealing or key derivation with no slow KDF on cookie input, is **unproved** and covered by tests. They do not prove PKCE, redirects, tokens, or protocol compliance. |
+| Federated sign-in. [Contract](../architecture/federated-signin.md). | [`federated-pending.ts`](../../packages/control-plane/src/interactions/federated-pending.ts) and [`interactions.ts`](../../packages/control-plane/src/routes/interactions.ts). | [FED-I1–I3](../../spec/formal/oauth/README.md) model signed pending-cookie binding, legacy provenance (now refused outright, a conservative refinement), and matching current trust. FED-I4, MAC verification before any parsing, unsealing or key derivation with no slow KDF on cookie input, is proved of the decoder step model and checked against `decodePending` on 160 Lean-generated cases, including derivation counts. They do not prove PKCE, redirects, tokens, or protocol compliance. |
 | Interaction approval binding. [ADR 0084](../adr/0084-external-authorization-notifications.md). | [`interaction.ts`](../../packages/os-domain/src/machines/interaction.ts). | [APR-B1–B5](../../spec/formal/webauthn/README.md) model digest binding, expiry, lifecycle, and sequential consumption. WebAuthn cryptography and concurrent storage are outside the model. |
 | CLI app-integration assertion origin and presence. [CLI-WA1](#cli-wa1-cli-assertion-origin-and-presence). | [`webauthn_assertion.rs`](../../crates/cli-app-integration/src/webauthn_assertion.rs), called for registration and approval. | Unproved; separate from APR-B1–B5. |
 | Identity listener trust rotation. [Operator mTLS doc](../operators/mtls.md). | [`listener.ts`](../../packages/control-plane/src/transport/listener.ts), [`request-evidence.ts`](../../packages/control-plane/src/transport/request-evidence.ts). | [IDENTITY-TLS1](#identity-tls1-stale-transport-evidence-after-trust-rotation): **unproved**; Vitest regressions only. |
