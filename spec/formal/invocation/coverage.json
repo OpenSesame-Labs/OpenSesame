@@ -96,7 +96,7 @@
     },
     {
       "path": "crates/gateway/src/connector_egress.rs",
-      "sha256": "b7bd9f7974cf53872f07584028d6e5402267db01ef32c64b172b9fa6d49e6b63"
+      "sha256": "d222c7cf9c3d18bb927158d147d653c52a9ba48a612e15506f9bed49b15705ef"
     },
     {
       "path": "crates/gateway/src/connector_egress_binding_tests.rs",
