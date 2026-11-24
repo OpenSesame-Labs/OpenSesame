@@ -32,7 +32,7 @@ const suites = [
     name: "dpop",
     model: "ReplayPolicy.lean",
     first: "insertion_retains_until_valid_end",
-    vectors: 9216,
+    vectors: 9936,
   },
   {
     name: "source-lifetime",
