@@ -104,3 +104,13 @@ open OpenSesame.Authority
 #require_theorem OpenSesame.Authority.resources_cannot_widen :
     ∀ (child parent : List Sel) (_h : resourcesAttenuate child parent = true) (r : Sel)
     (_m : permits child r = true), permits parent r = true
+
+#require_theorem OpenSesame.Authority.replacement_keeps_current_audiences :
+    ∀ {p cur r : Limits} (_h : replacementLimits p cur r = true) (_ne : cur.audiences ≠ []),
+    r.audiences ≠ [] ∧ ∀ n ∈ r.audiences, n ∈ cur.audiences
+
+#require_theorem OpenSesame.Authority.replacement_keeps_current_scope :
+    ∀ (p r : Option Nat) (v : Nat) (_h : replacementScope p (some v) r = true), r = some v
+
+#require_theorem OpenSesame.Authority.replacement_keeps_current_key :
+    ∀ (p : Option Nat) (k : Nat), replacementKey p (some k) none = false

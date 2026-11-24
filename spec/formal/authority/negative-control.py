@@ -65,6 +65,12 @@ mutations = [
     ("pattern-length", "crates/domain/src/grant.rs",
      'return resource.len() > prefix.len() && resource.starts_with(prefix);',
      'return resource.starts_with(prefix);'),
+    ("replacement-audiences", "crates/domain/src/grant.rs",
+     'if !current.constraints.audiences.is_empty()', 'if false && !current.constraints.audiences.is_empty()'),
+    ("replacement-scope", "crates/domain/src/grant.rs",
+     'crate::grant_lineage::validate_scope_containment(current, replacement)?;', ''),
+    ("replacement-key", "crates/domain/src/grant.rs",
+     'crate::grant_lineage::validate_proof_key_transfer(current, replacement)?;', ''),
 ]
 
 
