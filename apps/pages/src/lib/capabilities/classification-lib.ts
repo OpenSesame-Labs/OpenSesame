@@ -68,6 +68,7 @@ const SIGNIN_FILES = [
   "federated-signin",
   "federated-pending-link",
   "guest-login",
+  "magic-link-client",
   "orgs",
 ];
 const GIT_FILES = [
