@@ -201,6 +201,7 @@ test("the independently pinned suite contracts survive coordinated JSON weakenin
       "spiffe-peer-domain",
       "nats-trust-rotation",
       "source-history",
+      "guest",
     ],
   );
   for (const id of [
@@ -216,6 +217,7 @@ test("the independently pinned suite contracts survive coordinated JSON weakenin
     "spiffe-peer-domain",
     "nats-trust-rotation",
     "source-history",
+    "guest",
   ]) {
     for (const kind of ["suite", "mapping", "proof", "command"]) {
       const f = fixture(t);
