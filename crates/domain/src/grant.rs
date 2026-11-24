@@ -157,14 +157,23 @@ impl Grant {
                 "replacement widens actions".into(),
             ));
         }
-        if !is_subset(
-            &replacement.constraints.audiences,
-            &current.constraints.audiences,
-        ) {
+        // The child being replaced may carry fences its parent never set: an
+        // audience list (empty means unrestricted, so it may be introduced but
+        // never cleared), a scope binding or a proof key. Each binds the
+        // replacement exactly as a parent's binds a delegation.
+        if !current.constraints.audiences.is_empty()
+            && (replacement.constraints.audiences.is_empty()
+                || !is_subset(
+                    &replacement.constraints.audiences,
+                    &current.constraints.audiences,
+                ))
+        {
             return Err(DomainError::GrantAttenuation(
                 "replacement widens audiences".into(),
             ));
         }
+        crate::grant_lineage::validate_scope_containment(current, replacement)?;
+        crate::grant_lineage::validate_proof_key_transfer(current, replacement)?;
         if !crate::grant_attenuation::resources_attenuate(
             &replacement.resources,
             &current.resources,

@@ -30,6 +30,14 @@ cases = {
         "if jti.len() > MAX_JTI_LEN {",
         "if false && jti.len() > MAX_JTI_LEN {",
     ),
+    "age-boundary": (
+        "is_some_and(|age| age <= max_age_secs)",
+        "is_some_and(|age| age < max_age_secs)",
+    ),
+    "short-replay-deadline": (
+        "iat.saturating_add(max_age_secs)",
+        "iat.saturating_add(max_age_secs).saturating_sub(1)",
+    ),
 }
 for name, (before, after) in cases.items():
     if source.count(before) != 1:
