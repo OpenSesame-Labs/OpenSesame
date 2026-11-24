@@ -49,6 +49,22 @@ pub const DEFAULT_REPLAY_CAPACITY: usize = 100_000;
 /// `jti` values longer than this are rejected rather than stored.
 pub const MAX_JTI_LEN: usize = 256;
 
+/// The age half of proof decoding: `now - iat` is representable and at most
+/// `max_age_secs`. [`crate::jwk::decode_dpop_proof`] refuses a proof this
+/// rejects.
+#[must_use]
+pub fn proof_age_admits(now: i64, iat: i64, max_age_secs: i64) -> bool {
+    now.checked_sub(iat).is_some_and(|age| age <= max_age_secs)
+}
+
+/// The last second a proof issued at `iat` can pass [`proof_age_admits`], so
+/// the last second its `jti` must be remembered. Saturation keeps it at least
+/// that late when `iat + max_age_secs` overflows.
+#[must_use]
+pub fn proof_replay_until(iat: i64, max_age_secs: i64) -> i64 {
+    iat.saturating_add(max_age_secs)
+}
+
 /// In-memory replay cache suitable for single-process validators.
 ///
 /// Bounded two ways: entries expire after `ttl_secs` (or later, at the

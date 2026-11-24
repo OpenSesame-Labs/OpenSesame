@@ -26,7 +26,7 @@ const suites = [
     name: "authority",
     model: "Authority.lean",
     first: "export_cannot_escalate",
-    vectors: 50,
+    vectors: 3062,
   },
   {
     name: "invocation",
@@ -38,7 +38,7 @@ const suites = [
     name: "dpop",
     model: "ReplayPolicy.lean",
     first: "insertion_retains_until_valid_end",
-    vectors: 9216,
+    vectors: 9936,
   },
   {
     name: "source-lifetime",
@@ -85,8 +85,9 @@ const suites = [
   {
     name: "guest",
     model: "GuestContract.lean",
+    extra: ["CustodyContract.lean"],
     first: "admitted_only_if_every_check_clear",
-    vectors: 12,
+    vectors: 87807,
   },
   {
     name: "oauth",
@@ -106,7 +107,11 @@ function fixture(suite) {
   for (const file of ["check-axioms.sh", "required-theorem-command.lean"]) {
     copyFileSync(join(root, "spec/formal", file), join(formal, file));
   }
-  for (const file of [suite.model, "required-theorems.lean"]) {
+  for (const file of [
+    suite.model,
+    ...(suite.extra ?? []),
+    "required-theorems.lean",
+  ]) {
     copyFileSync(
       join(root, "spec/formal", suite.name, file),
       join(suiteDir, file),

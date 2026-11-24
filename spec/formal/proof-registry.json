@@ -1426,6 +1426,42 @@
         "spec/formal/check-axioms.test.mjs"
       ],
       "command": ["npm", "run", "verify:source-history-formal"]
+    },
+    {
+      "id": "guest",
+      "implementation": [
+        "packages/app-core/src/lib/guest-auth.ts",
+        "packages/app-core/src/lib/local-guest.ts",
+        "packages/app-core/src/lib/identity.ts",
+        "packages/app-core/src/lib/identity-cookie-inspection.ts",
+        "packages/app-core/src/lib/identity-probe.ts",
+        "packages/app-core/src/lib/browser-pairing.ts",
+        "packages/app-core/src/lib/guest-session-context.ts",
+        "packages/app-core/src/lib/identity-shared-signout.ts",
+        "packages/app-core/src/lib/auth-generation.ts",
+        "packages/app-core/src/lib/vfs-transient-guest.ts",
+        "packages/app-core/src/lib/vault/store-guest-material.ts",
+        "packages/app-core/src/lib/vault/store-header-publication.ts",
+        "packages/app-core/src/lib/vault/guest-vault-promotion.ts",
+        "packages/app-core/src/lib/vfs-guest-deletion.ts",
+        "packages/app-core/src/lib/connector-directory.ts",
+        "packages/app-core/src/lib/vercel-connect-session.ts",
+        "packages/app-core/src/lib/local-directory.ts",
+        "apps/browser-extension/runner/page-fns.ts"
+      ],
+      "proofs": [
+        "spec/formal/guest/GuestContract.lean",
+        "spec/formal/guest/CustodyContract.lean",
+        "spec/formal/guest/required-theorems.lean",
+        "spec/formal/guest/guest-conformance.test.ts",
+        "spec/formal/guest/custody-conformance.test.ts",
+        "spec/formal/guest/verify.sh",
+        "spec/formal/guest/README.md",
+        "spec/formal/required-theorem-command.lean",
+        "spec/formal/check-axioms.sh",
+        "spec/formal/check-axioms.test.mjs"
+      ],
+      "command": ["npm", "run", "verify:guest-formal"]
     }
   ]
 }

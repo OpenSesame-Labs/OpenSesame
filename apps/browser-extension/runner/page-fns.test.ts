@@ -260,6 +260,22 @@ describe("pfLayout", () => {
     });
     expect(call(pfLayout, RP)).not.toBe(before);
   });
+
+  it("refuses a document with no window instead of reading its layout", () => {
+    const { dom, doc } = inPage(FORM);
+    const detached = doc.implementation.createHTMLDocument("");
+    let read = false;
+    detached.querySelectorAll = () => {
+      read = true;
+      return doc.querySelectorAll("#none");
+    };
+    // SAFETY: the evaluated source is pfLayout's own text, so its type matches that signature.
+    const layout = dom.window.eval(`(document) => (${pfLayout.toString()})`)(
+      detached,
+    ) as typeof pfLayout;
+    expect(() => layout(RP)).toThrow("off_origin");
+    expect(read).toBe(false);
+  });
 });
 
 describe("pfWaitFor", () => {

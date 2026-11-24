@@ -37,7 +37,8 @@ python3 -I "$root/spec/formal/dpop/check_drift.py"
 
 if [[ "${1:-}" == "--negative-controls" ]]; then
   python3 -I "$root/spec/formal/dpop/mutate.py" "$source" "$tmp"
-  for mutation in expiry-boundary proof-window duplicate-check capacity-check empty-jti oversized-jti; do
+  for mutation in expiry-boundary proof-window duplicate-check capacity-check empty-jti oversized-jti \
+      age-boundary short-replay-deadline; do
     DPOP_REPLAY_SOURCE="$tmp/$mutation.rs" "$rustc_bin" --edition=2021 "$harness" -o "$tmp/mutant"
     if "$tmp/mutant" "$tmp/vectors.tsv" > "$tmp/$mutation.log" 2>&1; then
       echo "dpop-formal: negative control was not detected: $mutation" >&2
