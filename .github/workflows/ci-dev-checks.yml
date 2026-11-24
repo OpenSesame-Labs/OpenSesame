@@ -86,7 +86,7 @@ jobs:
 
   agent37-iac:
     name: Agent37 allocation contract
-    needs: admission
+    needs: [admission, admit]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -94,7 +94,7 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ needs.admit.outputs.revision }}
           persist-credentials: false
       - name: Validate Terraform against the local Agent37 API fixture
         env:
@@ -118,7 +118,7 @@ jobs:
 
   artifact-smoke:
     name: Dev artifact smoke (${{ matrix.target }})
-    needs: admission
+    needs: [admission, admit]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
     strategy:
@@ -152,7 +152,7 @@ jobs:
       - name: Materialize the admitted candidate source
         env:
           GITHUB_TOKEN: ${{ github.token }}
-          TARGET_SHA: ${{ inputs.source_sha }}
+          TARGET_SHA: ${{ needs.admit.outputs.revision }}
         run: bash "$RUNNER_TEMP/ci-control/scripts/ci/materialize-git-sha.sh" "$GITHUB_WORKSPACE"
       - name: Restore trusted helpers beside the candidate tree
         run: |
@@ -210,7 +210,7 @@ jobs:
 
   gate:
     name: Dev gate
-    needs: [admission, source-tests, agent37-iac, artifact-smoke]
+    needs: [admission, admit, source-tests, agent37-iac, artifact-smoke]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -284,3 +284,32 @@ jobs:
           node scripts/release/candidate.mjs receipt-envelope --stage dev
           --artifact-id "$RECEIPT_ARTIFACT_ID" --artifact-digest "$RECEIPT_ARTIFACT_DIGEST"
           --output "$GITHUB_OUTPUT"
+
+  # The candidate is admitted before any job fetches it: only a full commit
+  # already on the default branch. This job holds the token and checks out
+  # the workflow SHA only; candidate jobs read its output, never the raw input
+  # (scripts/release/admit-candidate-source.mjs, docs/security/actions-security.md).
+  admit:
+    name: Admit candidate source
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      revision: ${{ steps.admitted.outputs.revision }}
+    steps:
+      - name: Check out the trusted candidate admission helper
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/release/admit-candidate-source.mjs
+            scripts/lib/json-boundary.mjs
+      - name: Admit only a candidate already on the default branch
+        id: admitted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_SOURCE: ${{ inputs.source_sha }}
+        run: node scripts/release/admit-candidate-source.mjs

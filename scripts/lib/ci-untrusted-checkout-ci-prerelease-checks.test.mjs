@@ -1,7 +1,7 @@
 /**
  * Prerelease checks check out the selected snapshot only in read-only jobs.
- * Those jobs have no token. A checkout ref field whose name contains "sha" is an
- * untrusted pull-request head, so the snapshot is bound to CANDIDATE_REVISION.
+ * Those jobs have no token. CANDIDATE_REVISION is bound to
+ * the admission job's output: a source already on main.
  * A job that carries github.token checks out the workflow SHA, never that tree.
  * The privileged materialize job uploads verified archives. Smoke downloads them.
  */
@@ -67,7 +67,9 @@ describe("ci-prerelease-checks untrusted checkout", () => {
       expect(JSON.stringify(job), name).not.toContain("secrets.");
       expect(JSON.stringify(job), name).not.toContain("id-token");
       expect(JSON.stringify(job), name).not.toContain("attestations");
-      expect(job.env.CANDIDATE_REVISION, name).toBe("${{ inputs.source_sha }}");
+      expect(job.env.CANDIDATE_REVISION, name).toBe(
+        "${{ needs.admit.outputs.revision }}",
+      );
       const refs = checkouts(job).map((step) => step.with.ref);
       expect(refs, name).toEqual([
         "${{ github.workflow_sha }}",
@@ -87,6 +89,7 @@ describe("ci-prerelease-checks untrusted checkout", () => {
     );
     expect(tokenJobs.map(([name]) => name).sort()).toEqual([
       "admission",
+      "admit",
       "artifact-materialize",
       "receipt",
     ]);
@@ -101,7 +104,7 @@ describe("ci-prerelease-checks untrusted checkout", () => {
       "${{ steps.layout.outputs.pages_archive }}",
     );
     const smoke = workflow.jobs["artifact-smoke"];
-    expect(smoke.needs).toEqual(["admission", "artifact-materialize"]);
+    expect(smoke.needs).toEqual(["admission", "artifact-materialize", "admit"]);
     expect(JSON.stringify(smoke)).toContain("actions/download-artifact@");
     expect(JSON.stringify(smoke)).toContain(
       "needs.artifact-materialize.outputs.pages_archive",
@@ -114,7 +117,7 @@ describe("ci-prerelease-checks untrusted checkout", () => {
     const checkoutsText = blocks.filter((block) =>
       /uses:\s*actions\/checkout@/.test(block),
     );
-    expect(checkoutsText.length).toBe(36);
+    expect(checkoutsText.length).toBe(37);
     for (const block of checkoutsText) {
       const step = block.split(/\n\s*- /)[0];
       expect(step).toContain("allow-unsafe-pr-checkout: false");

@@ -126,9 +126,11 @@ describe("finite UI model runner", () => {
 describe("UI behavior qualifies each candidate", () => {
   it("runs the paired models, generated browser interactions and negative control before receipt", () => {
     const job = workflow.jobs["behavior-verification"];
-    expect(job.needs).toBe("admission");
+    expect(job.needs).toEqual(["admission", "admit"]);
     expect(job.if).toBeUndefined();
-    expect(job.env.CANDIDATE_REVISION).toBe("${{ inputs.source_sha }}");
+    expect(job.env.CANDIDATE_REVISION).toBe(
+      "${{ needs.admit.outputs.revision }}",
+    );
     expect(workflow.jobs.gate.needs).toContain("behavior-verification");
     const steps = job.steps.map((step) => step.run ?? "").join("\n");
     expect(steps).toContain("npm ci --ignore-scripts");

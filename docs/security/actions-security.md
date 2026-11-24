@@ -45,6 +45,14 @@ To add an action: resolve the commit SHA of a tagged release from the action's o
 
 A pull-request-triggered workflow must also be added to the trunk inventory in [`scripts/lib/ci-container-build-pr.test.mjs`](../../scripts/lib/ci-container-build-pr.test.mjs). That list is deliberately short ([ADR 0215](../adr/0215-trunk-builds-only.md)).
 
+## Candidate checkouts
+
+Reusable qualification workflows receive the candidate to test as the `source_sha` input. CodeQL's `actions/untrusted-checkout` query treats a checkout of such an input from a `workflow_call` as a pull-request head, and it is right to: a `workflow_run` on `main` can be raised by a fork branch named `main`, and GitHub serves fork commits through the base repository, so a SHA alone proves nothing about review.
+
+So no job fetches the raw input. Each such workflow has an admission job (`admit`; `admit-source` in `ci-release-checks`, whose `admit` job verifies the candidate artifact) that holds the read-only token, checks out only the workflow SHA, and runs [`admit-candidate-source.mjs`](../../scripts/release/admit-candidate-source.mjs): the input must be a full 40-hex commit that is the merge base of itself and the default branch, with the default branch not behind it, i.e. already merged. Candidate jobs `need` that job and check out or materialize its `revision` output, directly or through a job-level `CANDIDATE_REVISION` bound to it; the candidate jobs themselves still carry no token. Binding the raw input to another name is not admission. Workflows that can also be dispatched (`codeql`, `autofill-browser`, `sync-target-security`) skip admission when no candidate is given and use their own trigger SHA. `candidate-build` admits its source in its `resolve` job (ancestor of `main` with a successful push CI run) and checks out only that job's output.
+
+[`ci-candidate-admission.test.mjs`](../../scripts/lib/ci-candidate-admission.test.mjs) enforces this for every candidate job and fails if any `workflow_call` workflow checks out a ref built from its inputs. The manually dispatched PR evidence workflows (`pr-rust-security-evidence`, `pr-visual-evidence`) deliberately fetch an unmerged pull-request head; they are not reusable and run it without credentials, as their own headers describe.
+
 ## How the recommendations map
 
 | Recommendation | Here |

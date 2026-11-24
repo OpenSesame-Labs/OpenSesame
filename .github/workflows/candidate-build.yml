@@ -1,8 +1,8 @@
 # Build selected successful main snapshots once; no publishing or independent schedule.
 # Candidate source is checked out only by read-only jobs that have no token.
 # Privileged signing checks out the workflow SHA and consumes uploaded artifacts.
-# Those read-only jobs bind the resolved source SHA to CANDIDATE_REVISION.
-# A checkout ref field whose name contains "sha" is an untrusted pull-request head.
+# Those read-only jobs bind CANDIDATE_REVISION to the source the resolve job admitted
+# (an ancestor of main with a successful push CI run).
 name: Candidate build
 'on':
   workflow_call:

@@ -30,7 +30,9 @@ function checkouts(job) {
 
 describe("native-platform-validation untrusted checkout", () => {
   it("checks out the selected snapshot only from read-only jobs", () => {
-    expect(Object.keys(workflow.jobs).sort()).toEqual([...UNTRUSTED].sort());
+    expect(Object.keys(workflow.jobs).sort()).toEqual(
+      ["admit", ...UNTRUSTED].sort(),
+    );
     for (const name of UNTRUSTED) {
       const job = workflow.jobs[name];
       expect(job.permissions, name).toEqual({
@@ -41,7 +43,9 @@ describe("native-platform-validation untrusted checkout", () => {
       expect(JSON.stringify(job), name).not.toContain("secrets.");
       expect(JSON.stringify(job), name).not.toContain("id-token");
       expect(JSON.stringify(job), name).not.toContain("attestations");
-      expect(job.env.CANDIDATE_REVISION, name).toBe("${{ inputs.source_sha }}");
+      expect(job.env.CANDIDATE_REVISION, name).toBe(
+        "${{ needs.admit.outputs.revision }}",
+      );
       expect(job.env.EXPECTED_HEAD, name).toBe("${{ inputs.source_sha }}");
       const refs = checkouts(job).map((step) => step.with.ref);
       expect(refs, name).toEqual([
@@ -60,7 +64,14 @@ describe("native-platform-validation untrusted checkout", () => {
     const tokenJobs = Object.entries(workflow.jobs).filter(([, job]) =>
       JSON.stringify(job).includes("github.token"),
     );
-    expect(tokenJobs).toEqual([]);
+    // Only the admission job holds the token, and it checks out the workflow SHA.
+    expect(tokenJobs.map(([name]) => name)).toEqual(["admit"]);
+    expect(checkouts(workflow.jobs.admit).map((step) => step.with.ref)).toEqual(
+      ["${{ github.workflow_sha }}"],
+    );
+    expect(JSON.stringify(workflow.jobs.admit)).not.toContain(
+      "CANDIDATE_REVISION",
+    );
   });
 
   it("refuses an unsafe pull-request checkout on every actions/checkout step", () => {
@@ -68,7 +79,7 @@ describe("native-platform-validation untrusted checkout", () => {
     const checkoutsText = blocks.filter((block) =>
       /uses:\s*actions\/checkout@/.test(block),
     );
-    expect(checkoutsText.length).toBe(6);
+    expect(checkoutsText.length).toBe(7);
     for (const block of checkoutsText) {
       const step = block.split(/\n\s*- /)[0];
       expect(step).toContain("allow-unsafe-pr-checkout: false");

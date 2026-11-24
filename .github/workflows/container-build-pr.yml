@@ -17,6 +17,7 @@ concurrency:
 jobs:
   build:
     name: Build opensesame image
+    needs: admit
     runs-on: ubuntu-latest
     timeout-minutes: 45
     permissions:
@@ -25,7 +26,7 @@ jobs:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           persist-credentials: false
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ needs.admit.outputs.revision }}
       - name: Build
         uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
@@ -33,3 +34,32 @@ jobs:
           file: ops/compose/Dockerfile
           push: false
           tags: opensesame:candidate-${{ inputs.source_sha }}
+
+  # The candidate is admitted before any job fetches it: only a full commit
+  # already on the default branch. This job holds the token and checks out
+  # the workflow SHA only; candidate jobs read its output, never the raw input
+  # (scripts/release/admit-candidate-source.mjs, docs/security/actions-security.md).
+  admit:
+    name: Admit candidate source
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      revision: ${{ steps.admitted.outputs.revision }}
+    steps:
+      - name: Check out the trusted candidate admission helper
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/release/admit-candidate-source.mjs
+            scripts/lib/json-boundary.mjs
+      - name: Admit only a candidate already on the default branch
+        id: admitted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_SOURCE: ${{ inputs.source_sha }}
+        run: node scripts/release/admit-candidate-source.mjs

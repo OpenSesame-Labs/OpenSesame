@@ -1,7 +1,10 @@
 import type { BoundaryValue } from "@opensesame/os-domain";
 import type { BitwardenKdfResourceLimits } from "./bitwarden-native-kdf.js";
 import { createBitwardenNativeWorkerFetch } from "./bitwarden-native-worker-fetch.js";
-import { createBitwardenNativeWorkerRuntime } from "./bitwarden-native-worker-runtime.js";
+import {
+  createBitwardenNativeWorkerRuntime,
+  isWorkerOwnerMessage,
+} from "./bitwarden-native-worker-runtime.js";
 
 // Browser allocation/work policy. Server KDF parameters are validated, never reduced or substituted.
 const limits: BitwardenKdfResourceLimits = {
@@ -34,7 +37,8 @@ if ("importScripts" in globalThis) {
     limits,
   );
   self.onmessage = (event: MessageEvent<BoundaryValue>) => {
-    if (event.origin !== "" && event.origin !== self.location.origin) return;
+    // Only the constructing page can reach a dedicated worker; refuse anything else.
+    if (!isWorkerOwnerMessage(event, self.location.origin)) return;
     if (!network.receive(event.data)) runtime.receive(event.data);
   };
   self.onmessageerror = () => {

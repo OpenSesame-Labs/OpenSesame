@@ -18,6 +18,8 @@ concurrency:
 
 jobs:
   browser:
+    needs: admit
+    if: ${{ !cancelled() && (needs.admit.result == 'success' || (needs.admit.result == 'skipped' && !inputs.source_sha)) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -25,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          ref: ${{ inputs.source_sha || github.sha }}
+          ref: ${{ needs.admit.outputs.revision || github.sha }}
           persist-credentials: false
       - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
@@ -51,3 +53,34 @@ jobs:
           path: ${{ runner.temp }}/autofill-review/*.png
           if-no-files-found: ignore
           retention-days: 7
+
+  # The candidate is admitted before any job fetches it: only a full commit
+  # already on the default branch. This job holds the token and checks out
+  # the workflow SHA only; candidate jobs read its output, never the raw input
+  # (scripts/release/admit-candidate-source.mjs, docs/security/actions-security.md).
+  admit:
+    name: Admit candidate source
+    if: ${{ inputs.source_sha }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      revision: ${{ steps.admitted.outputs.revision }}
+    steps:
+      - name: Check out the trusted candidate admission helper
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+          allow-unsafe-pr-checkout: false
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/release/admit-candidate-source.mjs
+            scripts/lib/json-boundary.mjs
+      - name: Admit only a candidate already on the default branch
+        id: admitted
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REQUESTED_SOURCE: ${{ inputs.source_sha }}
+        run: node scripts/release/admit-candidate-source.mjs

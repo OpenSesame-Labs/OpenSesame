@@ -82,7 +82,8 @@ describe("candidate-bound container validation", () => {
   it("builds the compose image and does not push", () => {
     expect(yaml).toContain("  workflow_call:");
     expect(yaml).not.toMatch(/^ {2}(?:pull_request|push|schedule):/m);
-    expect(yaml).toContain("ref: ${{ inputs.source_sha }}");
+    expect(yaml).toContain("ref: ${{ needs.admit.outputs.revision }}");
+    expect(yaml).not.toContain("ref: ${{ inputs.source_sha }}");
     expect(yaml).toContain("contents: read");
     expect(yaml).not.toMatch(/packages:\s*write/);
     expect(yaml).not.toContain("push: true");
@@ -234,7 +235,10 @@ describe("heavy auxiliary suites are CD concerns", () => {
     expect(workflow).not.toMatch(
       /^ {2}(?:pull_request|pull_request_target|push|merge_group):/m,
     );
-    expect(workflow).toContain("ref: ${{ inputs.source_sha");
+    expect(workflow).toContain(
+      "ref: ${{ needs.admit.outputs.revision || github.sha }}",
+    );
+    expect(workflow).toContain("REQUESTED_SOURCE: ${{ inputs.source_sha }}");
   });
 
   it("keeps drafts failing all three required CI reporters", () => {
