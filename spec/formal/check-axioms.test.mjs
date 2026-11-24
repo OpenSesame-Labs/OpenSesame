@@ -26,7 +26,7 @@ const suites = [
     name: "authority",
     model: "Authority.lean",
     first: "export_cannot_escalate",
-    vectors: 50,
+    vectors: 3026,
   },
   {
     name: "dpop",

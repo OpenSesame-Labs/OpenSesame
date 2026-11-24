@@ -10,7 +10,7 @@ model="$2"
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 case "${model##*/}" in
   AuthPolicy.lean) suite=auth; required_count=28 ;;
-  Authority.lean) suite=authority; required_count=10 ;;
+  Authority.lean) suite=authority; required_count=24 ;;
   ReplayPolicy.lean) suite=dpop; required_count=10 ;;
   SpiffePolicy.lean) suite=spiffe; required_count=25 ;;
   PendingIntegrity.lean) suite=oauth; required_count=22 ;;
