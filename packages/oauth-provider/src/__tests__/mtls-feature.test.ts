@@ -58,7 +58,7 @@ describe("RFC 8705 feature (unit)", () => {
       },
     }).mTLS;
     const getCertificate = feature.getCertificate;
-    if (typeof getCertificate !== "function") throw new Error("no hook");
+    if (!(getCertificate instanceof Function)) throw new Error("no hook");
     expect(getCertificate({ req })).toBe("PEM");
     // Behind a trusted ingress the socket belongs to the ingress hop; only
     // the request carries the originating client's evidence.

@@ -50,7 +50,7 @@ export interface MtlsTransport {
    * trusted ingress the client is that request's originating evidence, never
    * the ingress hop that owns the socket.
    */
-  peerOf(socket: unknown, request?: unknown): MtlsPeer | undefined;
+  peerOf(socket: unknown, request?: IssuerRequest): MtlsPeer | undefined;
   /**
    * Public base URL of the TLS listener when it is reachable at a different
    * address than the issuer. Present ⇒ discovery advertises
@@ -59,7 +59,10 @@ export interface MtlsTransport {
   endpointAliasBase?: string;
 }
 
-type SocketContext = { req?: { socket?: unknown } };
+/** The request oidc-provider hands a hook: Node's `IncomingMessage`, unparsed. */
+export type IssuerRequest = { socket?: unknown };
+
+type SocketContext = { req?: IssuerRequest };
 
 function peerFromContext(
   transport: MtlsTransport,
