@@ -214,11 +214,27 @@ test("Lean rejects a decodeSigned that drops, reorders or adds work around the M
   const parse = "  const wire = parseWire(sealedWireSchema, payload);\n";
   const mac = "  const expected = pendingMac(payload, secret);\n";
   const changes = [
-    ["the alphabet guard", "if (!/^[A-Za-z0-9_-]+$/.test(payload)) return undefined;", ""],
-    ["the tag comparison", "if (!timingSafeEqual(supplied, expected)) return undefined;", ""],
-    ["the length cap", "  if (raw.length > MAX_PENDING_COOKIE_LENGTH) return undefined;", ""],
+    [
+      "the alphabet guard",
+      "if (!/^[A-Za-z0-9_-]+$/.test(payload)) return undefined;",
+      "",
+    ],
+    [
+      "the tag comparison",
+      "if (!timingSafeEqual(supplied, expected)) return undefined;",
+      "",
+    ],
+    [
+      "the length cap",
+      "  if (raw.length > MAX_PENDING_COOKIE_LENGTH) return undefined;",
+      "",
+    ],
     ["parse before the MAC", mac, parse + mac],
-    ["a password hash", mac, `${mac}  const slow = scryptSync(payload, secret, 64);\n`],
+    [
+      "a password hash",
+      mac,
+      `${mac}  const slow = scryptSync(payload, secret, 64);\n`,
+    ],
   ];
   for (const [name, before, after] of changes) {
     let federatedPending = replaceOnce(sources.federatedPending, before, after);

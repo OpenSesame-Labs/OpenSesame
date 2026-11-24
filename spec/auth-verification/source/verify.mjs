@@ -5,8 +5,10 @@ import { fileURLToPath } from "node:url";
 import { checkClaimCompletion } from "./claim-completion.mjs";
 import { extractCookie } from "./cookie.mjs";
 import { checkEvidence } from "./evidence.mjs";
-import { checkFederatedPending } from "./federated-pending.mjs";
-import { extractPendingDecode } from "./pending-order.mjs";
+import {
+  checkFederatedPending,
+  extractPendingDecode,
+} from "./federated-pending.mjs";
 import { checkFederatedTrust } from "./federated-trust.mjs";
 import { checkIssuerTrust } from "./issuer-trust.mjs";
 import { extractMapGraph, graphSpecs } from "./map-graphs.mjs";

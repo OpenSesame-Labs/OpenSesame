@@ -72,7 +72,6 @@
       "spec/auth-verification/source/oidc.mjs",
       "spec/auth-verification/source/passkey-custody-reviewed.txt",
       "spec/auth-verification/source/passkey-custody.mjs",
-      "spec/auth-verification/source/pending-order.mjs",
       "spec/auth-verification/source/principal.mjs",
       "spec/auth-verification/source/saml-replay.mjs",
       "spec/auth-verification/source/transitions.mjs",

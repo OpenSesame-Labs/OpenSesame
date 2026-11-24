@@ -67,7 +67,7 @@ inductive TrustChoice where
   deriving DecidableEq, Repr
 
 /- FED-I4 from the code: `decodeSigned` (federated-pending.ts) as the
-   instruction list the translator in pending-order.mjs derives from it. Every
+   instruction list the translator in federated-pending.mjs derives from it. Every
    guard is its own fact, so dropping or moving one changes the program. -/
 inductive PendingFact where
   | withinCap | hasDot | alphabet | sameLength | macEqual | sealedWire | legOk | sealOk
