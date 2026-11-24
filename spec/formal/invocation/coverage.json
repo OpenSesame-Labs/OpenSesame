@@ -24,7 +24,7 @@
     },
     {
       "path": "crates/broker/src/frozen_outcome_tests.rs",
-      "sha256": "c06703a2fa2b5b55c54eaede431e8b94ea43d2953996fa833ea9a1a8e0c6ab88"
+      "sha256": "34d1388af930a4bc620cf8036ba1cf85367a046c334735aa16f72531a7f15c0f"
     },
     {
       "path": "crates/broker/tests/adversarial_broker/outcome_indeterminate.rs",
