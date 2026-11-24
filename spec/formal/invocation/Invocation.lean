@@ -96,5 +96,3 @@ def main : IO Unit := do
           IO.println s!"{modeName mode}\t{storedName stored}\t{receiptName receipt}\t{if allows then 1 else 0}\t{outcomeName (decide mode stored receipt allows)}"
 
 end OpenSesame.Invocation
-
-def main : IO Unit := OpenSesame.Invocation.main
