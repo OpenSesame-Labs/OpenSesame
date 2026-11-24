@@ -42,6 +42,29 @@ describe("RFC 8705 feature (unit)", () => {
     });
   });
 
+  it("asks the transport about the request, not only its socket", () => {
+    const socket = {};
+    const req = { socket };
+    const seen: unknown[][] = [];
+    const peer: MtlsPeer = {
+      certificatePem: () => "PEM",
+      dnsNames: () => [],
+      uris: () => [],
+    };
+    const feature = buildMtlsFeature({
+      peerOf: (...args) => {
+        seen.push(args);
+        return peer;
+      },
+    }).mTLS;
+    const getCertificate = feature.getCertificate;
+    if (!(getCertificate instanceof Function)) throw new Error("no hook");
+    expect(getCertificate({ req })).toBe("PEM");
+    // Behind a trusted ingress the socket belongs to the ingress hop; only
+    // the request carries the originating client's evidence.
+    expect(seen).toEqual([[socket, req]]);
+  });
+
   it("advertises endpoint aliases only with a distinct public base", () => {
     expect(mtlsDiscovery({ peerOf: () => undefined })).toBeUndefined();
     expect(

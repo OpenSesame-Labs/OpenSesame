@@ -14,6 +14,10 @@ const appCore = (names) =>
   names.map((name) => `packages/app-core/src/lib/${name}.ts`);
 const sqlx = (dir, names) =>
   names.map((name) => `patches/vendor/sqlx-sqlite-0.9.0/src/${dir}/${name}.rs`);
+const cp = (dir, names) =>
+  names.map((name) => `packages/control-plane/src/${dir}/${name}.ts`);
+const spiffeSource = (names) =>
+  names.map((name) => `crates/spiffe-source/src/${name}.rs`);
 const guest = (names) => names.map((name) => `spec/formal/guest/${name}`);
 
 // Independently reviewed minimum. Extend with each new formal suite or mapping.
@@ -21,14 +25,19 @@ export const PINNED_FORMAL_SUITES = [
   {
     id: "auth",
     implementation: [
-      "packages/control-plane/src/middleware/auth.ts",
-      "packages/control-plane/src/proofs/verified-principal.ts",
-      "packages/control-plane/src/proofs/project-role.ts",
-      "packages/control-plane/src/services/project-access.ts",
+      ...cp("middleware", ["auth", "bound-cookie", "bound-cookie-name"]),
+      ...cp("proofs", ["verified-principal", "project-role"]),
+      ...cp("services", ["project-access"]),
       "packages/os-domain/src/types.ts",
+      ...cp("repos", ["durable-map", "durable-map-legacy", "durable-record"]),
+      ...cp("repos", ["security-map-rekey"]),
+      ...cp("transport", ["listener", "request-evidence", "service-admission"]),
+      ...appCore(["session-exit"]),
     ],
     proofs: [
       "spec/formal/auth/AuthPolicy.lean",
+      "spec/formal/auth/AuthTransport.lean",
+      "spec/formal/auth/AuthSession.lean",
       "spec/formal/auth/required-theorems.lean",
       ...AXIOM_PROOFS,
     ],
@@ -37,13 +46,9 @@ export const PINNED_FORMAL_SUITES = [
   {
     id: "oauth",
     implementation: [
-      "packages/control-plane/src/interactions/federated-leg.ts",
-      "packages/control-plane/src/interactions/federated-pending.ts",
-      "packages/control-plane/src/interactions/federated-trust-binding.ts",
-      "packages/control-plane/src/interactions/federated-upstreams.ts",
-      "packages/control-plane/src/interactions/federated.ts",
-      "packages/control-plane/src/interactions/oauth2.ts",
-      "packages/control-plane/src/interactions/trust.ts",
+      ...cp("interactions", ["federated-leg", "federated-pending"]),
+      ...cp("interactions", ["federated-trust-binding", "federated-upstreams"]),
+      ...cp("interactions", ["federated", "oauth2", "trust"]),
       "packages/control-plane/src/routes/interactions.ts",
     ],
     proofs: [
@@ -71,13 +76,12 @@ export const PINNED_FORMAL_SUITES = [
   {
     id: "interaction-clock",
     implementation: [
-      "packages/control-plane/src/services/interaction-clock.ts",
-      "packages/control-plane/src/routes/interaction-activation-spend.ts",
-      "packages/control-plane/src/routes/interaction-activation-deadline.ts",
-      "packages/control-plane/src/routes/interaction-activation.ts",
-      "packages/control-plane/src/routes/interaction-activation-totp.ts",
-      "packages/control-plane/src/routes/interaction-handoff.ts",
-      "packages/control-plane/src/services/interaction-settlement.ts",
+      ...cp("services", ["interaction-clock"]),
+      ...cp("routes", ["interaction-activation-spend"]),
+      ...cp("routes", ["interaction-activation-deadline"]),
+      ...cp("routes", ["interaction-activation", "interaction-handoff"]),
+      ...cp("routes", ["interaction-activation-totp"]),
+      ...cp("services", ["interaction-settlement"]),
       "packages/control-plane/src/__tests__/interaction-settlement-clock.security.test.ts",
       "packages/os-domain/src/machines/interaction.ts",
       "packages/os-domain/src/errors.ts",
@@ -204,20 +208,15 @@ export const PINNED_FORMAL_SUITES = [
       "crates/spiffe-source/build.rs",
       "crates/transport-security/build.rs",
       "crates/spiffe-source/Cargo.toml",
-      "crates/spiffe-source/src/lib.rs",
-      "crates/spiffe-source/src/source.rs",
-      "crates/spiffe-source/src/source_history_flow.rs",
-      "crates/spiffe-source/src/source_handle.rs",
-      "crates/spiffe-source/src/source_policy.rs",
-      "crates/spiffe-source/src/bundles.rs",
-      "crates/spiffe-source/src/outage.rs",
-      "crates/spiffe-source/src/status.rs",
-      "crates/spiffe-source/src/snapshot.rs",
-      "crates/spiffe-source/src/error.rs",
-      "crates/spiffe-source/src/config.rs",
-      "crates/spiffe-source/src/svid_profile.rs",
-      "crates/spiffe-source/src/sink.rs",
-      "crates/spiffe-source/src/sink/transport.rs",
+      ...spiffeSource([
+        "lib",
+        "source",
+        "source_history_flow",
+        "source_handle",
+      ]),
+      ...spiffeSource(["source_policy", "bundles", "outage", "status"]),
+      ...spiffeSource(["snapshot", "error", "config", "svid_profile", "sink"]),
+      ...spiffeSource(["sink/transport"]),
       "crates/transport-security/src/generations.rs",
       "crates/transport-security/src/source_lifetime.rs",
       "crates/transport-security/src/source_history_activation.rs",

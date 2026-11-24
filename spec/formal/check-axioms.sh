@@ -8,9 +8,10 @@ fi
 lean_bin="$1"
 model="$2"
 root="$(cd "$(dirname "$0")/../.." && pwd)"
-extra=""
+# A suite whose model spans files lists the rest, appended in order, beside the model.
+parts=()
 case "${model##*/}" in
-  AuthPolicy.lean) suite=auth; required_count=28 ;;
+  AuthPolicy.lean) suite=auth; required_count=53; parts=(AuthTransport.lean AuthSession.lean) ;;
   Authority.lean) suite=authority; required_count=27 ;;
   ReplayPolicy.lean) suite=dpop; required_count=12 ;;
   SpiffePolicy.lean) suite=spiffe; required_count=25 ;;
@@ -21,15 +22,18 @@ case "${model##*/}" in
   SourceTrustSelection.lean) suite=source-trust-selection; required_count=39 ;;
   SpiffePeerDomain.lean) suite=spiffe-peer-domain; required_count=12 ;;
   SourceTrustHistory.lean) suite=source-trust-history; required_count=25 ;;
-  GuestContract.lean) suite=guest; required_count=27; extra=CustodyContract.lean ;;
+  GuestContract.lean) suite=guest; required_count=27; parts=(CustodyContract.lean) ;;
   *) echo "unknown formal model: $model" >&2; exit 1 ;;
 esac
 obligations="$root/spec/formal/$suite/required-theorems.lean"
 tmp="$(mktemp "${TMPDIR:-/tmp}/opensesame-axioms.XXXXXXXX.lean")"
 output="$(mktemp "${TMPDIR:-/tmp}/opensesame-axioms.XXXXXXXX.out")"
 trap 'rm -f "$tmp" "$output"' EXIT
-# A suite may continue its model in one sibling file, checked as one model.
-cat "$model" ${extra:+"${model%/*}/$extra"} "$root/spec/formal/required-theorem-command.lean" "$obligations" > "$tmp"
+{
+  cat "$model"
+  for part in "${parts[@]}"; do cat "$(dirname "$model")/$part"; done
+  cat "$root/spec/formal/required-theorem-command.lean" "$obligations"
+} > "$tmp"
 printf '\n#require_theorem_count %s\n' "$required_count" >> "$tmp"
 cat >> "$tmp" <<'LEAN'
 

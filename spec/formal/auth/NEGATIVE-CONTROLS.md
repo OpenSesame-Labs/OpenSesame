@@ -21,12 +21,32 @@ baseline. No product source file in the active checkout is mutated. The command
 fails if a mutation point is absent or ambiguous, a baseline fails, or an
 expected assertion is not observed.
 
-The twelve controls disable or alter the session token prefix, session mapping,
-expiry boundary, revocation, revocation-cleanup-pending, pending organization
-withdrawal, suspended-principal and closed-principal checks;
-the provisional-principal guard; the project role proof; and project state and
-expiry checks. A changed guard should prompt review and an update to its control,
-not removal of the failure check.
+The thirty-five controls disable or alter:
+
+- AUTH-S1 and AUTH-S2 resolution (session group): the session token prefix,
+  session mapping, expiry boundary, revocation, revocation-cleanup-pending,
+  pending organization withdrawal, suspended-principal and closed-principal
+  checks;
+- AUTH-P1 and AUTH-Z1 to AUTH-Z3: the provisional-principal guard, the project
+  role proof, and project state and expiry checks;
+- AUTH-S2 middleware (`bound` and `credential` groups): bound-request
+  fallback to another credential, the bound proof and principal checks, the
+  require-bearer refusal, the `prn_` principal check and the ambient cookie's
+  origin check;
+- AUTH-S1 storage refinement (`storage` group, real `DurableMap` on PGlite):
+  the live filter on reads, `take` and `legacyRows`, the live-row check and
+  expiry copy in `adoptLegacyRow`, `claim`'s refusal and the expired-row purge;
+- IDENTITY-TLS1 (`evidence` and `listener` groups): the generation check in
+  `admit`, the trusted-ingress refusals in `admit` and `bindingPeerOf`, the
+  trust-generation bump on reload, the socket registry's generation check and
+  the per-request `isCurrent` capture;
+- sign-out (`signout` group, app-core `session-exit.ts`): the catching runner,
+  the `endSession` step, a step run outside the runner and the lock guard.
+
+The scratch copy links the database package so PGlite can apply the real
+migrations, and copies the translator helpers (`spec/auth-verification/source/ast.mjs`)
+the sign-out check parses `session-exit.ts` with. A changed guard should prompt
+review and an update to its control, not removal of the failure check.
 
 These controls show that the finite correspondence suite detects these specific
 broken variants. They do not establish general refinement of the TypeScript

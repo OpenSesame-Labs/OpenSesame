@@ -47,6 +47,115 @@ const approvalStates = [
 const digestCases = ["absent", "empty", "a", "b"];
 const proofCases = ["empty", "a", "b", "other"];
 
+// AUTH-S1 storage refinement, AUTH-S2 middleware and IDENTITY-TLS1 groups.
+const slots = ["absent", "past", "future", "forever"];
+const slotsAfter = [
+  "-",
+  ...["K", "L", "W"].flatMap((v) =>
+    ["past", "future", "forever"].map((e) => `${v}:${e}`),
+  ),
+];
+const outcomes = [
+  "reject",
+  "anonymous",
+  "bound",
+  "bearer",
+  "principal",
+  "cookie",
+];
+const peers = ["absent", "usable", "expired"];
+const reloads = ["-", "c", "t", "cc", "ct", "tc", "tt"];
+const sessionMatrices = {
+  storage: {
+    axes: [
+      ["get", "set", "claim", "delete", "take", "adopt", "migrate"],
+      slots,
+      slots,
+    ],
+    outputs: [
+      ["-", "K", "L", "W", "ok", "0", "1"],
+      slotsAfter,
+      slotsAfter,
+      ["-", "K", "L", "W"],
+      bits,
+      bits,
+    ],
+  },
+  bound: {
+    axes: [bits, bits, bits, bits, bits, ["ok", "revoked"], bits, bits, bits],
+    outputs: [outcomes],
+  },
+  credential: {
+    axes: [
+      [
+        "none",
+        "pst_ok",
+        "pst_revoked",
+        "prn_ok",
+        "prn_suspended",
+        "prn_withdrawn",
+        "other",
+      ],
+      bits,
+      bits,
+      ["absent", "cross_origin", "ok", "revoked"],
+    ],
+    outputs: [outcomes],
+  },
+  evidence: {
+    axes: [
+      ["plain", "server_tls", "mtls_required", "trusted_ingress"],
+      bits,
+      peers,
+      peers,
+      bits,
+      bits,
+    ],
+    outputs: [
+      bits,
+      bits,
+      [
+        "ok",
+        "evidence_expired",
+        "peer_not_bound",
+        "forwarded_evidence_unverified",
+        "listener_policy_mismatch",
+      ],
+      ["none", "peer", "originating"],
+    ],
+  },
+  signout: {
+    axes: [Array.from({ length: 11 }, (_, index) => String(index))],
+    outputs: [
+      [
+        ...["fenceLocalSignOut", "cancelAllTransactions"].map(
+          (name) => `ambientAuthSeams.${name}`,
+        ),
+        "clearFederationSession",
+        "clearPendingSignIn",
+        "forgetPendingLink",
+        "clearPendingJoin",
+        "endJoinAuthority",
+        "forgetClaim",
+        "storeAuthOutcome",
+        "endSession",
+        "vaultStore.lock",
+      ],
+    ],
+  },
+  listener: {
+    axes: [
+      [
+        ...reloads,
+        ...["c", "t"].flatMap((a) =>
+          ["c", "t"].flatMap((b) => ["c", "t"].map((c) => a + b + c)),
+        ),
+      ],
+    ],
+    outputs: [["2", "3", "4", "1"], ["1", "2", "3", "4"], bits, bits],
+  },
+};
+
 export const matrices = {
   auth: {
     principal: {
@@ -61,6 +170,8 @@ export const matrices = {
         ["past", "equal", "future"],
         bits,
         sessionPrincipals,
+        bits,
+        bits,
       ],
       outputs: [bits],
     },
@@ -73,6 +184,7 @@ export const matrices = {
       ],
       outputs: [["denied", "member", "admin", "owner"], bits, bits, bits],
     },
+    ...sessionMatrices,
   },
   oauth: {
     legacy: { axes: [bits, bits, bits, bits, bits], outputs: [bits] },
