@@ -7,7 +7,7 @@ import {
   sealOidcRow,
 } from "@opensesame/database";
 import { overlapCast } from "@opensesame/os-domain";
-import { and, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, lte, or, sql } from "drizzle-orm";
 import {
   type LegacyRow,
   hasCurrentRowId,
@@ -45,20 +45,18 @@ export class DurableMap<T> {
     return this.db.transaction((tx) => run(overlapCast(tx)));
   }
 
-  /** Current stored id: one keyed lookup of the key (see durable-map-legacy.ts). */
+  /**
+   * The only stored id a key occupies: one keyed lookup of the key (see
+   * durable-map-legacy.ts). Every key-addressed operation uses this id alone.
+   */
   private id(key: string) {
     return oidcLookup(this.sealer, this.model, "id", key);
   }
-  /** Every stored id a key may still occupy, current first. */
-  private ids(key: string): string[] {
-    const legacy = this.legacyIdOf(key);
-    return legacy === undefined ? [this.id(key)] : [this.id(key), legacy];
-  }
   private condition(key: string) {
-    return and(
-      eq(oidcPayloads.model, this.model),
-      inArray(oidcPayloads.id, this.ids(key)),
-    );
+    return this.storedRow(this.id(key));
+  }
+  private storedRow(id: string) {
+    return and(eq(oidcPayloads.model, this.model), eq(oidcPayloads.id, id));
   }
   private live() {
     return or(
@@ -71,69 +69,63 @@ export class DurableMap<T> {
       sql`SELECT pg_advisory_xact_lock(hashtext('OpenSesame:Capacity'), hashtext(${this.model}))`,
     );
   }
-  /** The row a key addresses, preferring the current id over a legacy one. */
-  private current<R extends { id: string }>(key: string, rows: R[]) {
-    const id = this.id(key);
-    return rows.find((row) => row.id === id) ?? rows[0];
-  }
   async get(key: string): Promise<T | undefined> {
-    const rows = await this.db
+    const [row] = await this.db
       .select()
       .from(oidcPayloads)
       .where(and(this.condition(key), this.live()))
-      .limit(2);
-    const row = this.current(key, rows);
-    if (!row) return undefined;
-    const value = decodeRecord<T>(openOidcRow(this.sealer, row));
-    if (row.id !== this.id(key)) await this.rekey(key);
-    return value;
+      .limit(1);
+    return row ? decodeRecord<T>(openOidcRow(this.sealer, row)) : undefined;
   }
   async has(key: string): Promise<boolean> {
     return (await this.get(key)) !== undefined;
   }
   /**
-   * Move a key's legacy row to its current id in one transaction. The legacy
-   * row is deleted only together with writing its successor, so a fence or
-   * revocation it holds is never absent.
+   * Startup migration only: the legacy stored id `key` would occupy. No
+   * request path calls this; a request addresses only the keyed id.
    */
-  async rekey(key: string): Promise<boolean> {
-    if (!this.secretKeys) return false;
+  legacyIdOf(key: string): string | undefined {
+    return this.secretKeys
+      ? legacyPrehashedRowId(this.sealer, this.model, key)
+      : undefined;
+  }
+  /**
+   * Startup migration only: move `key`'s legacy row to its keyed id in one
+   * locked transaction. A current row for the key, if one exists, wins and the
+   * legacy row is removed; otherwise the successor is written with the legacy
+   * row's expiry before the legacy row is deleted, so a fence or revocation it
+   * holds is never absent. False when `key` has no legacy row.
+   */
+  async adoptLegacyRow(key: string): Promise<boolean> {
+    const legacyId = this.legacyIdOf(key);
+    if (legacyId === undefined) return false;
     return this.db.transaction(async (tx) => {
       await this.lock(overlapCast(tx));
-      const rows = await tx
+      const [legacy] = await tx
         .select()
         .from(oidcPayloads)
-        .where(this.condition(key));
-      const legacy = rows.find((row) => row.id !== this.id(key));
+        .where(this.storedRow(legacyId));
       if (!legacy) return false;
-      if (!rows.some((row) => row.id === this.id(key))) {
-        const value = decodeRecord<T>(openOidcRow(this.sealer, legacy));
+      const payload = openOidcRow(this.sealer, legacy);
+      if (hasCurrentRowId(payload)) return false;
+      const [current] = await tx
+        .select({ id: oidcPayloads.id })
+        .from(oidcPayloads)
+        .where(this.condition(key));
+      if (!current) {
         const sealed = sealOidcRow(
           this.sealer,
           this.model,
           key,
-          encodeRecord(this.model, key, value),
+          encodeRecord(this.model, key, decodeRecord<T>(payload)),
         );
         await tx
           .insert(oidcPayloads)
           .values({ ...sealed, expiresAt: legacy.expiresAt });
       }
-      await tx
-        .delete(oidcPayloads)
-        .where(
-          and(
-            eq(oidcPayloads.model, this.model),
-            eq(oidcPayloads.id, legacy.id),
-          ),
-        );
+      await tx.delete(oidcPayloads).where(this.storedRow(legacyId));
       return true;
     });
-  }
-  /** The legacy stored id `key` would occupy; undefined for plain-keyed maps. */
-  legacyIdOf(key: string): string | undefined {
-    return this.secretKeys
-      ? legacyPrehashedRowId(this.sealer, this.model, key)
-      : undefined;
   }
   /** Live rows still stored under a legacy id, with their values. */
   async legacyRows(): Promise<LegacyRow<T>[]> {
@@ -167,24 +159,12 @@ export class DurableMap<T> {
             lte(oidcPayloads.expiresAt, new Date()),
           ),
         );
-      const existing = await tx
+      const [existing] = await tx
         .select({ id: oidcPayloads.id })
         .from(oidcPayloads)
         .where(this.condition(key));
-      if (existing.length && onlyIfAbsent) return false;
-      // The new row supersedes a legacy one in the same transaction.
-      const legacy = existing.filter((row) => row.id !== sealed.id);
-      if (legacy.length)
-        await tx.delete(oidcPayloads).where(
-          and(
-            eq(oidcPayloads.model, this.model),
-            inArray(
-              oidcPayloads.id,
-              legacy.map((row) => row.id),
-            ),
-          ),
-        );
-      if (!existing.some((row) => row.id === sealed.id)) {
+      if (existing && onlyIfAbsent) return false;
+      if (!existing) {
         const [size] = await tx
           .select({ count: sql<number>`count(*)::integer` })
           .from(oidcPayloads)
@@ -217,7 +197,7 @@ export class DurableMap<T> {
   async claim(key: string, value: T): Promise<boolean> {
     return this.write(key, value, true);
   }
-  /** Removes the key under its current and any legacy id. */
+  /** Removes the key's row. */
   async delete(key: string): Promise<boolean> {
     return this.db.transaction(async (tx) => {
       await this.lock(overlapCast(tx));
@@ -234,25 +214,19 @@ export class DurableMap<T> {
       await this.lock(overlapCast(tx));
       const rows = await tx
         .delete(oidcPayloads)
-        .where(
-          and(
-            eq(oidcPayloads.model, this.model),
-            eq(oidcPayloads.id, storedKey),
-          ),
-        )
+        .where(this.storedRow(storedKey))
         .returning({ id: oidcPayloads.id });
       return rows.length === 1;
     });
   }
-  /** Atomic single-use consumption, shared by every replica, under either id. */
+  /** Atomic single-use consumption, shared by every replica. */
   async take(key: string): Promise<T | undefined> {
     return this.db.transaction(async (tx) => {
       await this.lock(overlapCast(tx));
-      const rows = await tx
+      const [row] = await tx
         .delete(oidcPayloads)
         .where(and(this.condition(key), this.live()))
         .returning();
-      const row = this.current(key, rows);
       return row ? decodeRecord<T>(openOidcRow(this.sealer, row)) : undefined;
     });
   }

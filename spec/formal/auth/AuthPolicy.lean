@@ -209,8 +209,8 @@ namespace OpenSesame.AuthPolicy.Storage
 /-! AUTH-S1 storage contract: `DurableMap` (repos/durable-map.ts) with `secretKeys`.
 A row id is only an `oidcLookup` (keyed HMAC) of the key (`keyed`) or, before
 2026-11-23, of its SHA-256 digest (`legacyDigest`, durable-map-legacy.ts).
-`legacy = true`: key-addressed reads also address the legacy id (main);
-`false`: that fallback is removed. Sealing, capacity, the purge of expired
+`legacy = true`: reads also address the legacy id (before #2927);
+`false`: requests address only the keyed id (#2927). Sealing, capacity, the purge of expired
 rows, concurrency and the database are outside the model. -/
 
 inductive RowId where | keyed (key : String) | legacyDigest (key : String)
@@ -243,8 +243,8 @@ def put {V : Type} (s : Store V) (id : RowId) (v : Option (Row V)) : Store V :=
 def write {V : Type} (s : Store V) (key : String) (r : Row V) : Store V :=
   put (put s (.legacyDigest key) none) (.keyed key) (some r)
 
-/-- `rekey`: copy the legacy row unless the keyed id holds any row (live or not),
-then delete the legacy row, in one transaction. -/
+/-- `rekey` (`adoptLegacyRow`): copy the legacy row unless the keyed id holds any
+row (live or not), then delete the legacy row, in one transaction. -/
 def rekey {V : Type} (s : Store V) (key : String) : Store V :=
   match s (.legacyDigest key) with
   | none => s

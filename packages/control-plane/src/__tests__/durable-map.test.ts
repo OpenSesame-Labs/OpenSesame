@@ -190,7 +190,7 @@ it("preserves numeric expiry and refuses non-string persisted envelopes", async 
   }
 });
 
-it("migrates legacy TOTP and prehashed provisional tokens into owner-bound envelopes", async () => {
+it("seals legacy TOTP and prehashed provisional tokens; a pre-upgrade bearer is refused", async () => {
   const client = await migratedPGlite();
   try {
     const db = drizzle(client, { schema });
@@ -235,7 +235,10 @@ it("migrates legacy TOTP and prehashed provisional tokens into owner-bound envel
       sealer,
     );
     expect(await secrets.get(principalId)).toBe(totp);
-    expect(await tokens.get(token)).toBe(sessionId);
+    // The sealed bearer row keeps its prehashed id: requests address only the
+    // keyed id, so the bearer is refused and the row is left to its TTL.
+    expect(await tokens.legacyRows()).toHaveLength(1);
+    expect(await tokens.get(token)).toBeUndefined();
     const [row] = await db
       .select()
       .from(schema.oidcPayloads)
@@ -244,8 +247,7 @@ it("migrates legacy TOTP and prehashed provisional tokens into owner-bound envel
     const dump = JSON.stringify(await db.select().from(schema.oidcPayloads));
     for (const secret of [totp, token, sessionId])
       expect(dump).not.toContain(secret);
-    const claimed = await Promise.all([tokens.take(token), tokens.take(token)]);
-    expect(claimed.filter(Boolean)).toEqual([sessionId]);
+    expect(await tokens.take(token)).toBeUndefined();
     if (!row) throw new Error("Missing TOTP envelope");
     await db.insert(schema.oidcPayloads).values({
       ...row,
