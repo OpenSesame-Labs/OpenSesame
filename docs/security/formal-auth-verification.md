@@ -71,23 +71,24 @@ every address is the keyed id (`legacy_free_addresses_keyed_only`), a read
 depends only on that address (`lookup_reads_only_addresses`), and a write
 stores only at the keyed id (`write_stores_only_keyed`, `write_then_lookup`).
 Migration before serving: `rekey` models `adoptLegacyRow` (the successor is
-written only when no keyed row exists, then the legacy row is deleted); it
-touches no other key (`rekey_other_ids`) and preserves the value read when the
-keyed row is absent or live (`rekey_preserves_lookup`); migrating the recovered
-keys leaves every no-expiry legacy row findable by the keyed id alone
-(`migration_keeps_no_expiry_rows`); and once no legacy row remains, which is
+written unless the keyed id holds a row live at the migration instant, then the
+legacy row is deleted); it touches no other key (`rekey_other_ids`) and never
+changes what the key reads at that instant (`rekey_preserves_lookup`);
+migrating the recovered keys leaves every no-expiry legacy row findable by the
+keyed id alone at every later time, unless a live keyed row with an expiry
+already held the key (`migration_keeps_no_expiry_rows`); and once no legacy row remains, which is
 startup's condition for serving, dropping the fallback changes no read
 (`served_store_needs_no_fallback`). Pre-upgrade bearers: a key held only under
 its legacy id is refused (`legacy_only_row_refused`).
 
-Recorded gap: `adoptLegacyRow` keeps a key's existing keyed row without checking
-that it is live, so an expired keyed row beside a live no-expiry legacy row
-loses the legacy value; `rekey_drops_live_legacy_behind_expired_keyed` is the
-Lean witness, and a scratch PGlite run of the pre-#2927 `DurableMap.rekey`,
-which had the same rule, returned the legacy fence on the first `get` and
-`undefined` on the second. No-expiry stores do not write an expiring keyed row
-on their own, so reaching it needs an unusual prior state; the fix is to select
-the current row with `live()` and upsert the successor. The storage model is
+Fixed gap (2026-11-24): `adoptLegacyRow` used to keep a key's existing keyed
+row without checking that it was live, so an expired keyed row beside a live
+no-expiry legacy row lost the legacy value (a session-epoch fence read back as
+`undefined`). It now selects the current row with `live()` and upserts the
+successor over an expired one; regression `adopts a live legacy fence over an
+expired current row instead of dropping it` in `durable-map-migration.test.ts`
+fails before the fix and passes after, and the model's `rekey` follows the
+fixed rule, so `rekey_preserves_lookup` no longer needs a liveness hypothesis. The storage model is
 not mapped to `durable-map.ts` in the registry and has no Lean-generated
 correspondence: it proves the contract of the model, not the TypeScript.
 Evidence for the implementation: `durable-map.test.ts` and
