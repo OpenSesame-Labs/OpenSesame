@@ -260,5 +260,18 @@
     ],
     [],
     []
+  ],
+  [
+    "suite",
+    "host-cli",
+    "verify:host-cli-formal",
+    [
+      "spec/formal/host-cli/verify.sh",
+      "spec/formal/host-cli/required-theorems.lean",
+      "rust-toolchain.toml",
+      "scripts/security/formal-cargo-isolation.py"
+    ],
+    [".cargo"],
+    []
   ]
 ]

@@ -134,6 +134,11 @@ const suiteMinimums = {
     "scripts/mtls/mtls-fixtures.sh",
     "ops/nats/local-dev.conf",
   ],
+  "host-cli": [
+    "spec/formal/host-cli/verify.sh",
+    "rust-toolchain.toml",
+    "scripts/security/formal-cargo-isolation.py",
+  ],
   "source-history": [
     "spec/formal/source-trust-history/verify.sh",
     "spec/formal/source-trust-history/check-drift.py",
@@ -150,6 +155,7 @@ const cargoSuites = new Set([
   "spiffe-peer-domain",
   "nats-trust-rotation",
   "source-history",
+  "host-cli",
 ]);
 
 export function hasRunnerMinimum(id) {
