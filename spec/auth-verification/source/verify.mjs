@@ -87,6 +87,12 @@ const names = [
 ];
 const allowedAxioms = new Set(["propext", "Quot.sound"]);
 
+function requireAudit(audit) {
+  if (!audit?.trim())
+    throw new Error("The independent source-proof audit is missing");
+  return audit;
+}
+
 /** FED-I4: `decodeSigned` translated before its snapshot helpers are checked. */
 function pendingDecodeDefinition(source) {
   return [
@@ -193,9 +199,7 @@ export function renderProof({
     "",
     ...mapGraphs,
   ].join("\n");
-  if (!audit?.trim())
-    throw new Error("The independent source-proof audit is missing");
-  return `${contract.replace(marker, generated)}\n${audit}`;
+  return `${contract.replace(marker, generated)}\n${requireAudit(audit)}`;
 }
 
 async function leanRun(args, input) {
