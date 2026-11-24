@@ -67,7 +67,7 @@
     "verify:simplewebauthn-v14": "npm run verify:simplewebauthn-v14 -w @opensesame/auth-upstream",
     "verify:deps-2855-npm-batch": "npm ci && npm run audit:exposure && node --test scripts/security/patched-dependencies.test.mjs",
     "verify:interaction-clock-formal": "bash spec/formal/interaction-clock/verify.sh",
-    "verify:guest-contract-formal": "bash spec/formal/guest/verify.sh",
+    "verify:guest-formal": "bash spec/formal/guest/verify.sh",
     "test:redteam": "npm run redteam -w @opensesame/redteam",
     "test:visual": "npm run test:visual -w @opensesame/visual-contract",
     "test:anti-slop": "diff -ru --exclude=.turbo --exclude=MANIFEST.sha256 --exclude=node_modules --exclude=package.json --exclude=verify.mjs --exclude=vitest.config.ts skills/install-anti-slop/assets/anti-slop tools/oxlint/anti-slop && node skills/install-anti-slop/scripts/manifest.mjs --check && npm run typecheck:anti-slop && vitest run --root tools/oxlint/anti-slop",
