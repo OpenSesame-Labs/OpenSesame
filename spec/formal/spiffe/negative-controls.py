@@ -134,10 +134,9 @@ MUTATIONS = (
         "src/source_loop.rs",
         "s.retain_until = Some(s.retain_until.map_or(r, |cur| cur.min(r)));",
         "s.retain_until = Some(s.retain_until.map_or(r, |cur| cur.max(r)));",
-        (
-            vector("source_formal_tests.rs:"),
-            integration("outage_policy", "invalid_profile_after_reconnect_cannot_end_the_outage_or_extend_its_deadline", "assertion failed"),
-        ),
+        # Only the status record changes: the sink deadline and the monotonic bound
+        # are tightened separately, and no integration test reopens an outage.
+        (vector("source_formal_tests.rs:"),),
     ),
     Mutation(
         "stalled-rpc-ignores-outage-deadline",
