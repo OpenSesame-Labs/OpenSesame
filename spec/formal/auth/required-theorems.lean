@@ -110,28 +110,21 @@ open OpenSesame.AuthPolicy.Storage in
 
 open OpenSesame.AuthPolicy.Storage in
 #require_theorem OpenSesame.AuthPolicy.Storage.rekey_other_ids :
-    ∀ {V : Type} (s : Store V) (key : String) (id : RowId)
-    (_h : id ∉ addresses true key), rekey s key id = s id
+    ∀ {V : Type} (s : Store V) (now : Int) (key : String) (id : RowId)
+    (_h : id ∉ addresses true key), rekey s now key id = s id
 
 open OpenSesame.AuthPolicy.Storage in
 #require_theorem OpenSesame.AuthPolicy.Storage.rekey_preserves_lookup :
-    ∀ {V : Type} (s : Store V) (key : String) (now : Int)
-    (_h : ∀ c, s (.keyed key) = some c → c.live now = true),
-    lookup true (rekey s key) now key = lookup true s now key
+    ∀ {V : Type} (s : Store V) (now : Int) (key : String),
+    lookup true (rekey s now key) now key = lookup true s now key
 
 open OpenSesame.AuthPolicy.Storage in
 #require_theorem OpenSesame.AuthPolicy.Storage.migration_keeps_no_expiry_rows :
-    ∀ {V : Type} (s : Store V) (keys : List String) (key : String) (r : Row V)
+    ∀ {V : Type} (s : Store V) (now : Int) (keys : List String) (key : String) (r : Row V)
     (_hl : s (.legacyDigest key) = some r) (_he : r.expiresAt = none)
-    (_hk : s (.keyed key) = none ∨ ∃ c, s (.keyed key) = some c ∧ c.expiresAt = none)
-    (_hmem : key ∈ keys) (now : Int),
-    (lookup false (migrate s keys) now key).isSome = true
-
-open OpenSesame.AuthPolicy.Storage in
-#require_theorem OpenSesame.AuthPolicy.Storage.rekey_drops_live_legacy_behind_expired_keyed :
-    ∃ (s : Store Nat) (key : String) (now : Int),
-      lookup true s now key = some 1 ∧ lookup true (rekey s key) now key = none
-
+    (_hk : liveAt s now (.keyed key) = none ∨ ∃ c, s (.keyed key) = some c ∧ c.expiresAt = none)
+    (_hmem : key ∈ keys) (later : Int),
+    (lookup false (migrate s now keys) later key).isSome = true
 open OpenSesame.AuthPolicy.Storage in
 #require_theorem OpenSesame.AuthPolicy.Storage.legacy_only_row_refused :
     ∀ {V : Type} (s : Store V) (now : Int) (key : String)
