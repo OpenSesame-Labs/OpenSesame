@@ -26,7 +26,7 @@ storage or network implementations.
 
 | ID | Requirement and implementation | Lean property | Executable correspondence |
 |---|---|---|---|
-| AUTH-S1 | A provisional session authenticates only for a `pst_` token mapped to a present, unexpired, unrevoked session and a present principal that is neither suspended nor closed. [`resolveProvisionalSession`](../../packages/control-plane/src/middleware/auth.ts) performs those checks. | `bad_session_prefix_denied`, `unmapped_session_denied`, `missing_session_denied`, `revoked_session_denied`, `expired_session_denied`, `missing_principal_session_denied`, `suspended_principal_session_denied`, `closed_principal_session_denied` | The actual resolver is compared with 240 combinations of the abstract guards, expiry boundary, and principal state. |
+| AUTH-S1 | A provisional session authenticates only for a `pst_` token mapped to a present, unexpired, unrevoked session (the mapping is the live provisional-token row stored at the token's keyed id, `HMAC-SHA-256(K_lookup, token)`; no other stored id is consulted) and a present principal that is neither suspended nor closed. [`resolveProvisionalSession`](../../packages/control-plane/src/middleware/auth.ts) performs those checks. | `bad_session_prefix_denied`, `unmapped_session_denied`, `missing_session_denied`, `revoked_session_denied`, `expired_session_denied`, `missing_principal_session_denied`, `suspended_principal_session_denied`, `closed_principal_session_denied` | The actual resolver is compared with 240 combinations of the abstract guards, expiry boundary, and principal state. |
 | AUTH-S2 | A session that AUTH-S1 admits is still refused while its revocation cleanup is pending (`revocationCleanupPending`) or while its principal has a pending organization withdrawal (`hasPendingWithdrawalForPrincipal`). The `prn_` principal bearer uses the same principal check. A bound-cookie request (`X-OpenSesame-Session-Id`, `-Session-Proof`, `-Principal-Id`) authenticates only when the named cookie resolves through AUTH-S1 and these guards, to that session and principal, with a matching proof hash, and it never falls back to another credential. A client that sends `X-OpenSesame-Require-Bearer` gets no cookie fallback. [`resolveProvisionalSession` and `authMiddleware`](../../packages/control-plane/src/middleware/auth.ts). | **Unproved.** None of these guards or paths is in `AuthPolicy.lean`. They only add refusals or narrow an AUTH-S1 admission, so every success still satisfies the AUTH-S1 guards, but no Lean theorem states this. | The correspondence test re-runs every one of the 240 session cases with cleanup pending and with a pending withdrawal, and expects a refusal each time. Negative controls `session-cleanup-pending` and `session-pending-withdrawal` disable each guard and require a failing session assertion. Bound-cookie and require-bearer behavior is covered only by control-plane regressions (`bound-cookie*.test.ts`, `auth-session-interleaving.property.test.ts`). Status: **unproved**. |
 | AUTH-C1 | A fresh guest must require sign-out when an existing Identity or federation session is detected, and must not reuse, replace, or act under a session installed concurrently. [`connectFreshProvisional`](../../packages/app-core/src/lib/identity.ts) checks the remote cookie before and after minting. The guarded [`POST /v1/principals/provisional`](../../packages/control-plane/src/routes/principals.ts) rejects presented credentials and returns a bearer without setting a cookie. Guest requests and bearer cleanup omit ambient cookies; a tab-persistent isolation marker prevents cookie adoption after expiry or reload. A member cookie arriving after the last check can coexist with the guest, but cannot replace or authenticate that guest. [`continueAsGuest`](../../packages/app-core/src/lib/guest-auth.ts), claim guest continuation, and the Identity ceremony use this admission path. Assumptions: configured remote deployments share the authoritative cookie plane; device-native Identity has no cookie plane; browser session storage and the at-rest key are available for remote guest admission. | **Unproved.** Browser concurrency, cookie delivery, UI state, and the Identity transaction boundary are outside the current Lean models. | Client regressions cover present, absent, unknown, held cross-tab responses, cookie-free requests, revocation retry, storage failure, bearer loss, established-guest resume, claim, device roads, and held federation responses after a settings change or sign-out. Control-plane tests cover credential rejection and a bearer-only response; FrontDoor and locked-vault tests cover sign-out and retry. The non-mechanized AUTH-C1 review snapshot records the exact implementation blobs below. Status: **unproved**. |
 | AUTH-P1 | An absent principal is refused and a principal with `provisional` assurance is refused. [`verifiedPrincipal`](../../packages/control-plane/src/proofs/verified-principal.ts) makes both checks. | `missing_principal_denied`, `provisional_principal_denied`, `admitted_principal_not_provisional` | The actual function is compared with all eight abstract lookup/assurance cases. |
@@ -37,14 +37,41 @@ storage or network implementations.
 The AUTH-S1 token-to-session lookup, the principal session epoch fence and the
 revocation audits read durable secret-keyed maps
 ([`durable-map.ts`](../../packages/control-plane/src/repos/durable-map.ts)).
-Since 2026-11-23 a row is stored under a keyed lookup of its key, and rows
-written under the earlier prehashed id are read under both ids and moved in
-one transaction ([`durable-map-legacy.ts`](../../packages/control-plane/src/repos/durable-map-legacy.ts)).
-The Lean model takes the lookup result as given, so this storage migration is
-outside it. Evidence: `durable-map.test.ts` and `durable-map-migration.test.ts`
-(a legacy fence is advanced, never reset; a legacy bearer is deleted, consumed
-once and still occupies its key) and the full control-plane suite, including the
-AUTH-S1 correspondence matrix. Status: **unproved**.
+Storage contract since 2026-11-24, stated so it can be modelled:
+
+- **Keyed lookup only.** Every key-addressed read, write, claim, take and
+  delete addresses exactly one stored id, `HMAC-SHA-256(K_lookup, key)`. No
+  request path computes an unkeyed digest of a key, and no request reads a row
+  stored under any other id.
+- **No-expiry records are migrated before serving.** Rows written before
+  2026-11-23 were stored under `HMAC(K_lookup, SHA-256(key))`. At startup,
+  before the listener opens and before any request passes the readiness gate
+  in `app.ts`, every such row in the four no-expiry stores (upstream logout
+  operations, organization revocation and withdrawal audits, principal session
+  epochs) is moved to its keyed id in one locked transaction that writes the
+  successor with the same expiry before deleting the legacy row; a key's
+  existing current row is kept. If any no-expiry legacy row remains, startup
+  fails closed and every request but the liveness probe gets 503
+  ([`security-map-rekey.ts`](../../packages/control-plane/src/repos/security-map-rekey.ts),
+  [`durable-map-legacy.ts`](../../packages/control-plane/src/repos/durable-map-legacy.ts)).
+- **Pre-upgrade bearers are refused.** Bearer-keyed rows the server cannot
+  re-key, because it never stored the bearer (provisional tokens and proofs,
+  magic-link exchanges, enrollment tickets, passkey challenges, OpenID4VCI
+  codes, nonces and access tokens), are not migrated. Each is TTL-bounded. A
+  bearer issued before the upgrade resolves to nothing, exactly like an unknown
+  bearer, so AUTH-S1 refuses it; its row expires with its TTL, and revocation
+  by session still deletes it through the stored entry.
+
+The Lean model takes the lookup result as given, so this storage contract is
+outside it; a model of AUTH-S1 storage would treat the lookup as a partial map
+from keyed ids and the startup migration as a precondition on serving.
+Evidence: `durable-map.test.ts` and `durable-map-migration.test.ts` (no request
+path computes an unkeyed digest; a legacy TTL bearer is refused after the
+upgrade and `GET /v1/principals/me` with it returns 401; no-expiry rows are
+found after startup migration and a fence is advanced, never reset; an
+unmigratable no-expiry row fails startup and requests get 503) and the full
+control-plane suite, including the AUTH-S1 correspondence matrix. Status:
+**unproved**.
 
 Guest bearer revocations that fail are retained in memory and retried before
 another guest mint against the same Identity API in that tab. Cleanup and
