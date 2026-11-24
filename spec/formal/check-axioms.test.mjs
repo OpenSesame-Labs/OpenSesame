@@ -27,13 +27,13 @@ const suites = [
     name: "authority",
     model: "Authority.lean",
     first: "export_cannot_escalate",
-    vectors: 50,
+    vectors: 3062,
   },
   {
     name: "dpop",
     model: "ReplayPolicy.lean",
     first: "insertion_retains_until_valid_end",
-    vectors: 9216,
+    vectors: 9936,
   },
   {
     name: "source-lifetime",

@@ -1,10 +1,24 @@
 use opensesame_domain::{
+    grant::resource_pattern_matches,
+    grant_attenuation::resources_attenuate,
     grant_lineage::{validate_delegator, validate_proof_key_transfer, validate_scope_containment},
     ActorId, ActorInstanceId, ClientId, ConnectionId, EnvironmentId, Grant, GrantConstraints,
     GrantId, OfflineUse, OrganizationId, PrincipalId, ProjectId,
 };
-use opensesame_time::{TimeZone, Utc};
-use std::{collections::HashSet, env, fs};
+use opensesame_time::{DateTime, TimeZone, Utc};
+use std::{
+    collections::{BTreeMap, HashSet},
+    env, fs,
+};
+
+const SCOPE_DIMENSIONS: [&str; 6] = [
+    "project",
+    "environment",
+    "connection",
+    "actor",
+    "client",
+    "actor_instance",
+];
 
 fn fixture() -> (Grant, Grant) {
     let now = Utc
@@ -147,11 +161,93 @@ fn bind_scope_dimension(parent: &mut Grant, child: &mut Grant, dimension: &str, 
     }
 }
 
+/// Bind one scope dimension on a parent, the current child and its replacement.
+fn bind_replacement_scope(grants: [&mut Grant; 3], dimension: &str, labels: [&str; 3]) {
+    let [parent, current, replacement] = grants;
+    for grant in [&mut *parent, &mut *current, &mut *replacement] {
+        clear_scope_bindings(grant);
+    }
+    macro_rules! bind {
+        ($field:ident, $id:ty) => {{
+            let (one, two) = (<$id>::new(), <$id>::new());
+            assert_ne!(one, two);
+            parent.$field = option_id(labels[0], one, two);
+            current.$field = option_id(labels[1], one, two);
+            replacement.$field = option_id(labels[2], one, two);
+        }};
+    }
+    match dimension {
+        "project" => bind!(project_id, ProjectId),
+        "environment" => bind!(environment_id, EnvironmentId),
+        "connection" => bind!(connection_id, ConnectionId),
+        "actor" => bind!(actor_id, ActorId),
+        "client" => bind!(client_id, ClientId),
+        "actor_instance" => bind!(actor_instance_id, ActorInstanceId),
+        _ => panic!("unknown scope dimension {dimension}"),
+    }
+}
+
+fn at(offset: &str) -> DateTime<Utc> {
+    let seconds: i64 = offset.parse().expect("time vector");
+    Utc.timestamp_opt(1_000 + seconds, 0)
+        .single()
+        .expect("valid timestamp")
+}
+
+fn names(field: &str, prefix: &str) -> Vec<String> {
+    if field == "-" {
+        return Vec::new();
+    }
+    field.split(',').map(|n| format!("{prefix}-{n}")).collect()
+}
+
+fn optional<T>(field: &str, parse: impl Fn(&str) -> T) -> Option<T> {
+    (field != "none").then(|| parse(field))
+}
+
+/// Apply one Lean `Limits` record (11 columns, see `limitsText`) to a grant.
+fn apply_limits(grant: &mut Grant, fields: &[&str]) {
+    assert_eq!(fields.len(), 11, "invalid limits vector {fields:?}");
+    let limits = &mut grant.constraints;
+    limits.audiences = names(fields[0], "aud");
+    limits.not_before = optional(fields[1], at);
+    limits.expires_at = at(fields[2]);
+    // `fido` is a name `assurance_rank` does not know.
+    limits.required_assurance = optional(fields[3], str::to_string);
+    limits.authentication_max_age_seconds = optional(fields[4], |v| v.parse().expect("age"));
+    limits.allowed_networks = names(fields[5], "net");
+    limits.parameter_rules_digest = optional(fields[6], |v| format!("digest-{v}"));
+    limits.offline_use = match fields[7] {
+        "0" => OfflineUse::Forbidden,
+        "1" => OfflineUse::ReadOnly,
+        "2" => OfflineUse::PreAuthorized,
+        other => panic!("invalid offline vector {other}"),
+    };
+    limits.budgets = if fields[8] == "-" {
+        BTreeMap::new()
+    } else {
+        fields[8]
+            .split(',')
+            .map(|entry| {
+                let (key, value) = entry.split_once('=').expect("budget entry");
+                let key = match key {
+                    "0" => "calls",
+                    "1" => "bytes",
+                    other => panic!("invalid budget key {other}"),
+                };
+                (key.to_string(), value.parse().expect("budget value"))
+            })
+            .collect()
+    };
+    grant.delegation_depth = fields[9].parse().expect("depth");
+    limits.maximum_delegation_depth = fields[10].parse().expect("maximum depth");
+}
+
 fn main() {
     let path = env::args().nth(1).expect("Lean vector path required");
     let contents = fs::read_to_string(path).expect("read Lean vectors");
     let mut seen = HashSet::new();
-    let mut counts = [0; 6];
+    let mut counts = [0; 12];
     let mut scope_checks = 0;
     for line in contents.lines() {
         let columns: Vec<_> = line.split('\t').collect();
@@ -194,14 +290,7 @@ fn main() {
             ["scope", p, c, _] => {
                 counts[3] += 1;
                 let expected = bit(columns[3]);
-                for dimension in [
-                    "project",
-                    "environment",
-                    "connection",
-                    "actor",
-                    "client",
-                    "actor_instance",
-                ] {
+                for dimension in SCOPE_DIMENSIONS {
                     bind_scope_dimension(&mut parent, &mut child, dimension, p, c);
                     let actual = validate_scope_containment(&parent, &child).is_ok();
                     assert_eq!(actual, expected, "vector: {line} dimension: {dimension}");
@@ -228,6 +317,65 @@ fn main() {
                 child.actions = actions(bit(cr), bit(cw));
                 Grant::validate_attenuation(&parent, &child).is_ok()
             }
+            ["attenuate", _dimension, rest @ ..] if rest.len() == 23 => {
+                counts[6] += 1;
+                apply_limits(&mut parent, &rest[..11]);
+                apply_limits(&mut child, &rest[11..22]);
+                Grant::validate_attenuation(&parent, &child).is_ok()
+            }
+            ["replace", _dimension, rest @ ..] if rest.len() == 34 => {
+                counts[7] += 1;
+                apply_limits(&mut parent, &rest[..11]);
+                apply_limits(&mut child, &rest[11..22]);
+                let mut replacement = child.clone();
+                replacement.id = GrantId::new();
+                apply_limits(&mut replacement, &rest[22..33]);
+                Grant::validate_replacement(&parent, &child, &replacement).is_ok()
+            }
+            ["replace-scope", p, c, r, _] => {
+                counts[10] += 1;
+                let expected = bit(columns[4]);
+                for dimension in SCOPE_DIMENSIONS {
+                    let mut replacement = child.clone();
+                    replacement.id = GrantId::new();
+                    bind_replacement_scope(
+                        [&mut parent, &mut child, &mut replacement],
+                        dimension,
+                        [p, c, r],
+                    );
+                    let actual = Grant::validate_replacement(&parent, &child, &replacement).is_ok();
+                    assert_eq!(actual, expected, "vector: {line} dimension: {dimension}");
+                    scope_checks += 1;
+                }
+                expected
+            }
+            ["replace-key", p, c, r, _] => {
+                counts[11] += 1;
+                // The holder delegates to a new beneficiary, whose grant is replaced.
+                child.beneficiary_principal_id = PrincipalId::new();
+                parent.proof_key_thumbprint = key(p);
+                child.proof_key_thumbprint = key(c);
+                let mut replacement = child.clone();
+                replacement.id = GrantId::new();
+                replacement.proof_key_thumbprint = key(r);
+                Grant::validate_replacement(&parent, &child, &replacement).is_ok()
+            }
+            ["selector", p, c, _] => {
+                counts[8] += 1;
+                let contained = resources_attenuate(&[c.to_string()], &[p.to_string()]);
+                parent.resources = vec![p.to_string()];
+                child.resources = vec![c.to_string()];
+                let attenuates = Grant::validate_attenuation(&parent, &child).is_ok();
+                assert_eq!(contained, attenuates, "vector: {line}");
+                contained
+            }
+            ["pattern", p, r, _] => {
+                counts[9] += 1;
+                parent.resources = vec![p.to_string()];
+                let permits = parent.permits_resource(r);
+                assert_eq!(permits, resource_pattern_matches(p, r), "vector: {line}");
+                permits
+            }
             _ => panic!("invalid vector: {line}"),
         };
         assert_eq!(
@@ -236,7 +384,11 @@ fn main() {
             "vector: {line}"
         );
     }
-    assert_eq!(counts, [4, 8, 4, 6, 12, 16], "incomplete matrix");
-    assert_eq!(scope_checks, 36, "incomplete scope binding matrix");
+    assert_eq!(
+        counts,
+        [4, 8, 4, 6, 12, 16, 1127, 1127, 361, 361, 18, 18],
+        "incomplete matrix"
+    );
+    assert_eq!(scope_checks, 144, "incomplete scope binding matrix");
     println!("authority correspondence: {} cases passed", seen.len());
 }
