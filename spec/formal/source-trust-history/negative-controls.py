@@ -88,7 +88,7 @@ CONTROLS = (
     ),
     Control(
         "stream stops observing events during a write",
-        "crates/spiffe-source/src/source.rs",
+        "crates/spiffe-source/src/source_loop.rs",
         "item = stream.next() => {", "item = stream.next(), if pending.is_none() => {",
         SPIFFE + ("--test", "durable_history_supersession"),
         "observed_denial_withdraws_before_the_superseded_write_finishes",

@@ -159,6 +159,7 @@ const IMPLEMENTATION = [
   "crates/spiffe-source/src/lib.rs",
   "crates/spiffe-source/src/source.rs",
   "crates/spiffe-source/src/source_history_flow.rs",
+  "crates/spiffe-source/src/source_loop.rs",
   "crates/spiffe-source/src/source_handle.rs",
   "crates/spiffe-source/src/source_policy.rs",
   "crates/spiffe-source/src/svid_profile.rs",
