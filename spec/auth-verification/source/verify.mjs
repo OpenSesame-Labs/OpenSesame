@@ -6,6 +6,7 @@ import { checkClaimCompletion } from "./claim-completion.mjs";
 import { extractCookie } from "./cookie.mjs";
 import { checkEvidence } from "./evidence.mjs";
 import { checkFederatedPending } from "./federated-pending.mjs";
+import { extractPendingDecode } from "./pending-order.mjs";
 import { checkFederatedTrust } from "./federated-trust.mjs";
 import { checkIssuerTrust } from "./issuer-trust.mjs";
 import { extractMapGraph, graphSpecs } from "./map-graphs.mjs";
@@ -76,6 +77,11 @@ const names = [
   "SourceAuth.trust_oauth2_pending_denied",
   "SourceAuth.trust_ambiguous_provenance_denied",
   "SourceAuth.trust_non_oidc_authority_denied",
+  "SourceAuth.pending_decode_refines_policy",
+  "SourceAuth.pending_decode_mac_first",
+  "SourceAuth.pending_decode_bad_tag_no_work",
+  "SourceAuth.pending_decode_accept_requires_tag",
+  "SourceAuth.pending_decode_no_slow_hash",
 ];
 const allowedAxioms = new Set(["propext", "Quot.sound"]);
 
@@ -106,6 +112,7 @@ export function renderProof({
   checkSamlReplay(saml);
   checkPasskeyCustody(passkey);
   checkIssuerTrust(issuerTrust);
+  const pendingDecode = extractPendingDecode(federatedPending);
   checkFederatedPending(federatedPending);
   checkFederatedTrust(federatedTrustBinding, federated);
   checkClaimCompletion(graphs.claim);
@@ -168,6 +175,9 @@ export function renderProof({
     "def extractedFederatedTrust (pendingOidc currentOidc single hasProvenance sameSource sameId currentStatic : Bool) : Bool :=",
     "  pendingOidc && currentOidc && single &&",
     "    (if hasProvenance then sameSource && sameId else currentStatic)",
+    "",
+    "def extractedPendingDecode : List PendingInstr :=",
+    `  ${pendingDecode}`,
     "",
     "def extractedTransition (source target : Status) : Bool :=",
     "  match source, target with",
@@ -320,7 +330,7 @@ export async function readSources() {
 async function main() {
   await verifyProof(renderProof(await readSources()));
   console.log(
-    "Lean checked 54 source-derived authentication theorems and their axioms",
+    "Lean checked 59 source-derived authentication theorems and their axioms",
   );
 }
 

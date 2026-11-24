@@ -25,7 +25,6 @@ const names = [
   "base64urlJson",
   "parseWire",
   "encodePending",
-  "decodeSigned",
   "decodePending",
 ];
 const variables = [

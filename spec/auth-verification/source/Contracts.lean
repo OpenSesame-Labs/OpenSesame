@@ -66,6 +66,62 @@ inductive TrustChoice where
   | untrusted | static | org | byo
   deriving DecidableEq, Repr
 
+/- FED-I4 from the code: `decodeSigned` (federated-pending.ts) as the
+   instruction list the translator in pending-order.mjs derives from it. Every
+   guard is its own fact, so dropping or moving one changes the program. -/
+inductive PendingFact where
+  | withinCap | hasDot | alphabet | sameLength | macEqual | sealedWire | legOk | sealOk
+  deriving DecidableEq, Repr
+
+inductive PendingStep where
+  | mac | parse | deriveKey | unseal | slowHash
+  deriving DecidableEq, Repr
+
+inductive PendingInstr where
+  | guard (fact : PendingFact)
+  | work (step : PendingStep)
+  | tryWork (step : PendingStep) (fact : PendingFact)
+  | accept
+
+structure PendingFacts where
+  withinCap : Bool
+  hasDot : Bool
+  alphabet : Bool
+  sameLength : Bool
+  macEqual : Bool
+  sealedWire : Bool
+  legOk : Bool
+  sealOk : Bool
+
+def PendingFacts.holds (c : PendingFacts) : PendingFact → Bool
+  | .withinCap => c.withinCap | .hasDot => c.hasDot | .alphabet => c.alphabet
+  | .sameLength => c.sameLength | .macEqual => c.macEqual
+  | .sealedWire => c.sealedWire | .legOk => c.legOk | .sealOk => c.sealOk
+
+/- The work a program performs, in order, and whether it accepts. `guard`
+   returns undefined when its fact fails; `tryWork` performs its step and
+   returns undefined when the step throws (its fact fails). -/
+def runPending : List PendingInstr → PendingFacts → List PendingStep × Bool
+  | [], _ => ([], false)
+  | .guard f :: rest, c => if c.holds f then runPending rest c else ([], false)
+  | .work s :: rest, c => let r := runPending rest c; (s :: r.1, r.2)
+  | .tryWork s f :: rest, c =>
+    if c.holds f then (let r := runPending rest c; (s :: r.1, r.2)) else ([s], false)
+  | .accept :: _, _ => ([], true)
+
+/- FED-I4, stated independently: the cheap checks first; then the MAC and
+   nothing else until the tag matches; parse; derive the key once; unseal. -/
+def pendingPolicy (c : PendingFacts) : List PendingStep × Bool :=
+  if !(c.withinCap && c.hasDot && c.alphabet) then ([], false)
+  else if !(c.sameLength && c.macEqual) then ([.mac], false)
+  else if !c.sealedWire then ([.mac, .parse], false)
+  else if !c.legOk then ([.mac, .parse, .deriveKey], false)
+  else ([.mac, .parse, .deriveKey, .unseal], c.sealOk)
+
+def macFirst : List PendingStep → Bool
+  | [] => true
+  | s :: rest => s == .mac && !rest.contains .mac
+
 -- SOURCE_DEFINITIONS
 
 def cookiePolicy (safe present listed : Bool) (sameOrigin : Option Bool) : Prop :=
@@ -404,5 +460,42 @@ def resourcePolicy (source target : Resource) : Bool :=
 theorem resource_graph_refines_policy (source target : Resource) :
     extractedResource source target = resourcePolicy source target := by
   cases source <;> cases target <;> rfl
+
+theorem pending_decode_refines_policy (c : PendingFacts) :
+    runPending extractedPendingDecode c = pendingPolicy c := by
+  rcases c with ⟨a, b, d, e, f, g, h, i⟩
+  cases a <;> cases b <;> cases d <;> cases e <;> cases f <;> cases g <;> cases h <;>
+    cases i <;> rfl
+
+theorem pending_decode_mac_first (c : PendingFacts) :
+    macFirst (runPending extractedPendingDecode c).1 = true := by
+  rw [pending_decode_refines_policy]
+  rcases c with ⟨a, b, d, e, f, g, h, i⟩
+  cases a <;> cases b <;> cases d <;> cases e <;> cases f <;> cases g <;> cases h <;>
+    cases i <;> rfl
+
+theorem pending_decode_bad_tag_no_work (c : PendingFacts) (bad : c.macEqual = false) :
+    ∀ s ∈ (runPending extractedPendingDecode c).1, s = .mac := by
+  rw [pending_decode_refines_policy]
+  rcases c with ⟨a, b, d, e, f, g, h, i⟩
+  simp only at bad
+  subst bad
+  cases a <;> cases b <;> cases d <;> cases e <;> cases g <;> cases h <;> cases i <;> decide
+
+theorem pending_decode_accept_requires_tag (c : PendingFacts)
+    (h : (runPending extractedPendingDecode c).2 = true) :
+    c.sameLength = true ∧ c.macEqual = true ∧ c.sealedWire = true := by
+  rw [pending_decode_refines_policy] at h
+  revert h
+  rcases c with ⟨a, b, d, e, f, g, h, i⟩
+  cases a <;> cases b <;> cases d <;> cases e <;> cases f <;> cases g <;> cases h <;>
+    cases i <;> decide
+
+theorem pending_decode_no_slow_hash (c : PendingFacts) :
+    PendingStep.slowHash ∉ (runPending extractedPendingDecode c).1 := by
+  rw [pending_decode_refines_policy]
+  rcases c with ⟨a, b, d, e, f, g, h, i⟩
+  cases a <;> cases b <;> cases d <;> cases e <;> cases f <;> cases g <;> cases h <;>
+    cases i <;> decide
 
 end SourceAuth

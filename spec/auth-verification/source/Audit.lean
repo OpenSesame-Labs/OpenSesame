@@ -285,6 +285,39 @@ example (source target : Resource) :
     | _, _ => false) :=
   resource_graph_refines_policy source target
 
+-- FED-I4 from the code: the policy is restated, not referenced.
+example (c : PendingFacts) :
+    runPending extractedPendingDecode c =
+      (if !(c.withinCap && c.hasDot && c.alphabet) then ([], false)
+       else if !(c.sameLength && c.macEqual) then ([.mac], false)
+       else if !c.sealedWire then ([.mac, .parse], false)
+       else if !c.legOk then ([.mac, .parse, .deriveKey], false)
+       else ([.mac, .parse, .deriveKey, .unseal], c.sealOk)) :=
+  pending_decode_refines_policy c
+
+/-- The MAC is the first step and is not repeated. -/
+def auditMacFirst : List PendingStep → Bool
+  | [] => true
+  | .mac :: rest => !rest.contains .mac
+  | _ :: _ => false
+
+example (c : PendingFacts) : auditMacFirst (runPending extractedPendingDecode c).1 = true := by
+  rw [pending_decode_refines_policy]
+  rcases c with ⟨a, b, d, e, f, g, h, i⟩
+  cases a <;> cases b <;> cases d <;> cases e <;> cases f <;> cases g <;> cases h <;>
+    cases i <;> rfl
+
+example (c : PendingFacts) (bad : c.macEqual = false) :
+    ∀ s ∈ (runPending extractedPendingDecode c).1, s = .mac :=
+  pending_decode_bad_tag_no_work c bad
+
+example (c : PendingFacts) (h : (runPending extractedPendingDecode c).2 = true) :
+    c.sameLength = true ∧ c.macEqual = true ∧ c.sealedWire = true :=
+  pending_decode_accept_requires_tag c h
+
+example (c : PendingFacts) : PendingStep.slowHash ∉ (runPending extractedPendingDecode c).1 :=
+  pending_decode_no_slow_hash c
+
 end SourceAuth.Audit
 
 #print axioms SourceAuth.cookie_refines_policy
@@ -343,3 +376,8 @@ end SourceAuth.Audit
 #print axioms SourceAuth.trust_oauth2_pending_denied
 #print axioms SourceAuth.trust_ambiguous_provenance_denied
 #print axioms SourceAuth.trust_non_oidc_authority_denied
+#print axioms SourceAuth.pending_decode_refines_policy
+#print axioms SourceAuth.pending_decode_mac_first
+#print axioms SourceAuth.pending_decode_bad_tag_no_work
+#print axioms SourceAuth.pending_decode_accept_requires_tag
+#print axioms SourceAuth.pending_decode_no_slow_hash

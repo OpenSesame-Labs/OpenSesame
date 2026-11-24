@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { readSources, renderProof } from "./verify.mjs";
+import { readSources, renderProof, verifyProof } from "./verify.mjs";
 
 const sources = await readSources();
 
@@ -182,16 +182,6 @@ test("the source check rejects federation cookie integrity and downgrade changes
   const changes = [
     replaceOnce(
       sources.federatedPending,
-      "if (!/^[A-Za-z0-9_-]+$/.test(payload)) return undefined;",
-      "",
-    ),
-    replaceOnce(
-      sources.federatedPending,
-      "if (!timingSafeEqual(supplied, expected)) return undefined;",
-      "",
-    ),
-    replaceOnce(
-      sources.federatedPending,
       ".update(MAC_DOMAIN).update(payload)",
       '.update(MAC_DOMAIN).update("")',
     ),
@@ -207,11 +197,6 @@ test("the source check rejects federation cookie integrity and downgrade changes
     ),
     replaceOnce(
       sources.federatedPending,
-      "  if (raw.length > MAX_PENDING_COOKIE_LENGTH) return undefined;",
-      "",
-    ),
-    replaceOnce(
-      sources.federatedPending,
       'import { z } from "zod";',
       'import { scryptSync } from "node:crypto";\nimport { z } from "zod";',
     ),
@@ -221,6 +206,33 @@ test("the source check rejects federation cookie integrity and downgrade changes
       () => renderProof({ ...sources, federatedPending }),
       /Unsupported authentication source/,
     );
+});
+
+// FED-I4 from the code: these edits to `decodeSigned` translate, and Lean
+// rejects the resulting statement order or the missing guard.
+test("Lean rejects a decodeSigned that drops, reorders or adds work around the MAC", async () => {
+  const parse = "  const wire = parseWire(sealedWireSchema, payload);\n";
+  const mac = "  const expected = pendingMac(payload, secret);\n";
+  const changes = [
+    ["the alphabet guard", "if (!/^[A-Za-z0-9_-]+$/.test(payload)) return undefined;", ""],
+    ["the tag comparison", "if (!timingSafeEqual(supplied, expected)) return undefined;", ""],
+    ["the length cap", "  if (raw.length > MAX_PENDING_COOKIE_LENGTH) return undefined;", ""],
+    ["parse before the MAC", mac, parse + mac],
+    ["a password hash", mac, `${mac}  const slow = scryptSync(payload, secret, 64);\n`],
+  ];
+  for (const [name, before, after] of changes) {
+    let federatedPending = replaceOnce(sources.federatedPending, before, after);
+    if (name === "parse before the MAC")
+      federatedPending = federatedPending.replace(
+        `${parse}  if (wire === undefined) return undefined;`,
+        "  if (wire === undefined) return undefined;",
+      );
+    await assert.rejects(
+      verifyProof(renderProof({ ...sources, federatedPending })),
+      /Lean rejected source proof/,
+      name,
+    );
+  }
 });
 
 test("the source check rejects federated authority rebinding", () => {
