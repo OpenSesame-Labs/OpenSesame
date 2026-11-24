@@ -152,6 +152,35 @@ async function memoryFixture(): Promise<Fixture> {
 
 executionReservationContract("MemoryRepositories", memoryFixture);
 
+describe("MemoryRepositories.executionReservations rollback", () => {
+  it("restores a reused id's earlier row instead of deleting it", async () => {
+    const fx = await memoryFixture();
+    const repo = fx.repos.executionReservations;
+    const interaction = await fx.newInteraction();
+    const input = {
+      id: "xrsv_reused",
+      interactionId: interaction.id,
+      requestDigest: "sha256:deadbeef",
+      holderRef: "worker_a",
+      leaseExpiresAt: new Date("2026-03-04T05:10:00.000Z"),
+    };
+    const held = await repo.acquire(input);
+    const rollback = new Error("rolled back after acquire");
+    await expect(
+      fx.repos.transaction(async (uow) => {
+        await repo.acquire({ ...input, holderRef: "worker_b" }, uow);
+        throw rollback;
+      }),
+    ).rejects.toBe(rollback);
+    // The aborted overwrite is undone; the row it replaced is back intact.
+    expect(await repo.getById(input.id)).toMatchObject({
+      holderRef: "worker_a",
+      fencingToken: held.fencingToken,
+      status: "held",
+    });
+  });
+});
+
 const pgOwner = createPgOwner();
 let ctx: PgTestContext;
 

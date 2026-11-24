@@ -264,9 +264,13 @@ export class MemoryWalletInteractionRepos {
       // The held row is visible at once, so a concurrent acquirer takes the
       // next token and is fenced against this one. If this transaction
       // aborts, the row is discarded, as Postgres discards the insert.
+      const prior = this.#reservations.get(row.id);
       apply();
       this.#apply(uow, apply);
-      undoOnRollback(uow, () => this.#reservations.delete(row.id));
+      undoOnRollback(uow, () => {
+        if (prior) this.#reservations.set(row.id, prior);
+        else this.#reservations.delete(row.id);
+      });
       return cloneReservation(row);
     },
 
