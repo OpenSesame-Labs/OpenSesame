@@ -14,6 +14,33 @@ CASES = {
     "ignore-interaction-deadline": ("!isLiveAt(interactionDeadline, now)", "false"),
     "ignore-activation-deadline": ("!isLiveAt(activationDeadline, now)", "false"),
 }
+SETTLEMENT = ROOT / "packages/control-plane/src/services/interaction-settlement.ts"
+# Unit-of-work samples: each mutant must fail the Lean-driven route replay.
+UOW_CASES = {
+    "uow-drop-dispatch-sample": ("  liveNow(ctx, updated);\n  const settlement", "  const settlement"),
+    "uow-unchecked-commit-sample": ("const committedAt = liveNow(ctx, updated);", "const committedAt = ctx.clock();"),
+    "uow-unchecked-effect-sample": ("const effectAt = liveNow(ctx, updated);", "const effectAt = ctx.clock();"),
+}
+
+
+def uow_controls(env: dict, vectors: Path) -> None:
+    original = SETTLEMENT.read_text()
+    try:
+        for name, (before, after) in UOW_CASES.items():
+            if original.count(before) != 1:
+                raise RuntimeError(f"{name}: mutation point is not unique")
+            SETTLEMENT.write_text(original.replace(before, after, 1))
+            result = subprocess.run(
+                ["npm", "run", "test", "--workspace=@opensesame/control-plane", "--",
+                 "src/__tests__/interaction-settlement-clock.security.test.ts"],
+                cwd=ROOT, env=env | {"OPENSESAME_INTERACTION_CLOCK_UOW_VECTORS": str(vectors)},
+                capture_output=True, text=True,
+            )
+            if result.returncode == 0 or "AssertionError" not in result.stdout + result.stderr:
+                raise RuntimeError(f"{name}: no unit-of-work assertion failed")
+            print(f"{name}: caught by unit-of-work replay", flush=True)
+    finally:
+        SETTLEMENT.write_text(original)
 
 
 def main() -> None:
@@ -49,6 +76,7 @@ def main() -> None:
             if result.returncode == 0 or "AssertionError" not in result.stdout + result.stderr:
                 raise RuntimeError(f"{name}: no correspondence assertion failed")
             print(f"{name}: caught by correspondence assertion", flush=True)
+        uow_controls(env, vectors)
         refused = subprocess.run(runner, cwd=ROOT, env=trial, capture_output=True, text=True)
         if refused.returncode == 0:
             raise RuntimeError("verification command accepted a mutation override")

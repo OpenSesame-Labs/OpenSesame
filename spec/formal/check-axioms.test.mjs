@@ -80,7 +80,7 @@ const suites = [
     name: "interaction-clock",
     model: "InteractionClock.lean",
     first: "live_refines_policy",
-    vectors: 252,
+    vectors: 260,
   },
   {
     name: "guest",
