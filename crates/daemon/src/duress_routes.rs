@@ -2,7 +2,6 @@
 //! after the operator / UDS gate (`require_operator`).
 
 use axum::{
-    body::Bytes,
     extract::State,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
@@ -26,13 +25,13 @@ pub(crate) async fn duress_peer_envelope(
     State(st): State<App>,
     uds: UdsPeer,
     headers: HeaderMap,
-    body: Bytes,
+    body: duress_receiver::EnvelopeBody,
 ) -> Response {
     if let Err(resp) = require_operator(&st, &headers, &uds) {
         return resp;
     }
     match st.duress_peer.as_ref() {
-        Some(peer) => duress_receiver::receive_envelope_response(peer, &headers, &body),
+        Some(peer) => duress_receiver::receive_envelope_response(peer, &headers, body),
         None => StatusCode::NOT_FOUND.into_response(),
     }
 }

@@ -4100,6 +4100,8 @@ name = "opensesame-host-core"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "futures",
+ "http-body-util",
  "opensesame-audit",
  "opensesame-authn",
  "opensesame-authz",

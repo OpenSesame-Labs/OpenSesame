@@ -27,6 +27,7 @@ use axum::{
     Json,
 };
 use opensesame_rotation_web::StepOutcome;
+use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize};
 use serde_json::{json, Value};
 
 use crate::web_login::custody::{CustodyOutcome, GENERATE_STEP, PROMOTE_STEP, SEAL_STEP};
@@ -91,266 +92,70 @@ fn is_custody(step: &str) -> bool {
     matches!(step, GENERATE_STEP | SEAL_STEP | PROMOTE_STEP)
 }
 
+/// A driver's outcome, decoded once where the settle body is decoded.
+///
+/// The untyped JSON never reaches the route: what is kept is its tag and, for
+/// each of the two closed outcome sets, its canonical encoding — present only
+/// when the driver's JSON *is* that encoding (an unknown field at any depth, a
+/// non-canonical shape, or a missing field leaves it absent). Which set
+/// applies is decided later, against the pending step.
+#[derive(Debug, Clone, PartialEq)]
+pub(super) struct DriverOutcome {
+    tag: Option<String>,
+    step: Option<Value>,
+    custody: Option<Value>,
+}
+
+impl DriverOutcome {
+    pub(super) fn of(raw: &Value) -> Self {
+        Self {
+            tag: raw
+                .get("outcome")
+                .and_then(Value::as_str)
+                .map(str::to_owned),
+            step: canonical_as::<StepOutcome>(raw),
+            custody: canonical_as::<CustodyOutcome>(raw),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for DriverOutcome {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Value::deserialize(deserializer).map(|raw| Self::of(&raw))
+    }
+}
+
+/// `raw` decoded as a `T` and re-encoded, when that is exactly `raw`.
+fn canonical_as<T: DeserializeOwned + Serialize>(raw: &Value) -> Option<Value> {
+    let typed = T::deserialize(raw).ok()?;
+    let encoded = serde_json::to_value(typed).ok()?;
+    // What is stored is what was decoded. Anything the driver added, anywhere,
+    // is the difference.
+    (encoded == *raw).then_some(encoded)
+}
+
 /// The canonical outcome for the step whose request is `request_json`.
 ///
 /// # Errors
 ///
 /// A [`Refusal`] when the outcome is not what that step may be answered with.
-pub(super) fn canonical(request_json: &str, outcome: &Value) -> Result<Value, Refusal> {
+pub(super) fn canonical(request_json: &str, outcome: &DriverOutcome) -> Result<Value, Refusal> {
     let request: Value = serde_json::from_str(request_json).map_err(|_| Refusal::UnknownStep)?;
     let step = request["step"].as_str().ok_or(Refusal::UnknownStep)?;
     let expected = answers(step).ok_or(Refusal::UnknownStep)?;
-    match outcome["outcome"].as_str() {
+    match outcome.tag.as_deref() {
         Some(tag) if tag == expected || tag == "failed" => {}
         Some(_) => return Err(Refusal::WrongOutcome),
         None => return Err(Refusal::Malformed),
     }
     let decoded = if is_custody(step) {
-        serde_json::from_value::<CustodyOutcome>(outcome.clone())
-            .map_err(|_| Refusal::Malformed)
-            .and_then(|typed| serde_json::to_value(typed).map_err(|_| Refusal::Malformed))?
+        &outcome.custody
     } else {
-        serde_json::from_value::<StepOutcome>(outcome.clone())
-            .map_err(|_| Refusal::Malformed)
-            .and_then(|typed| serde_json::to_value(typed).map_err(|_| Refusal::Malformed))?
+        &outcome.step
     };
-    // What is stored is what was decoded. Anything the driver added, anywhere,
-    // is the difference.
-    if decoded == *outcome {
-        Ok(decoded)
-    } else {
-        Err(Refusal::Malformed)
-    }
+    decoded.clone().ok_or(Refusal::Malformed)
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    fn step(tag: &str) -> String {
-        json!({"step": tag}).to_string()
-    }
-
-    #[test]
-    fn each_step_accepts_its_own_outcome_canonically() {
-        let cases = [
-            ("navigate", json!({"outcome": "done"})),
-            ("wait_for", json!({"outcome": "done"})),
-            ("submit", json!({"outcome": "done"})),
-            (
-                "fill_credential",
-                json!({"outcome": "filled", "filled": "Ok"}),
-            ),
-            (
-                "assert_present",
-                json!({"outcome": "presence", "presence": "Present"}),
-            ),
-            (
-                "verify_login",
-                json!({"outcome": "verified", "verified": "Works"}),
-            ),
-            (
-                "read_dom_redacted",
-                json!({"outcome": "dom", "text": "hi", "epoch": 3}),
-            ),
-            (
-                "screenshot_redacted",
-                json!({"outcome": "frame", "image": [1, 2], "epoch": 3, "masked_boxes": 1}),
-            ),
-            (
-                "capture_credential",
-                json!({"outcome": "captured", "sealed": {"recipient": "r", "envelope": "e"}}),
-            ),
-            (
-                "capture_download",
-                json!({"outcome": "captured", "sealed": {"recipient": "r", "envelope": "e"}}),
-            ),
-            ("generate_candidate", json!({"outcome": "done"})),
-            (
-                "seal_candidate",
-                json!({"outcome": "sealed", "backed_up": true}),
-            ),
-            ("promote_candidate", json!({"outcome": "done"})),
-        ];
-        for (tag, outcome) in cases {
-            assert_eq!(
-                canonical(&step(tag), &outcome),
-                Ok(outcome.clone()),
-                "{tag}"
-            );
-        }
-    }
-
-    /// Every request the executor can queue has an answer in the table, so a
-    /// new `StepRequest` variant cannot ship with a settle route that refuses
-    /// every outcome for it.
-    #[test]
-    fn every_queueable_step_has_an_expected_outcome() {
-        use opensesame_rotation_web::StepRequest as R;
-        let requests = [
-            R::Navigate { url: String::new() },
-            R::WaitFor {
-                selector: String::new(),
-            },
-            R::FillCredential {
-                reference: String::new(),
-                selector: String::new(),
-            },
-            R::AssertPresent {
-                reference: String::new(),
-                selector: String::new(),
-            },
-            R::Submit {
-                selector: String::new(),
-            },
-            R::ReadDomRedacted { strip: vec![] },
-            R::ScreenshotRedacted {
-                epoch: 0,
-                mask_selectors: vec![],
-            },
-            R::VerifyLogin {
-                reference: String::new(),
-            },
-            R::CaptureCredential {
-                slot: String::new(),
-                selector: String::new(),
-                recipient: String::new(),
-            },
-            R::CaptureDownload {
-                slot: String::new(),
-                content_type: String::new(),
-                recipient: String::new(),
-            },
-        ];
-        for request in requests {
-            let tag = serde_json::to_value(&request).unwrap()["step"]
-                .as_str()
-                .unwrap()
-                .to_owned();
-            assert!(answers(&tag).is_some(), "{tag}");
-        }
-        for tag in [GENERATE_STEP, SEAL_STEP, PROMOTE_STEP] {
-            assert!(answers(tag).is_some() && is_custody(tag), "{tag}");
-        }
-    }
-
-    #[test]
-    fn a_failure_answers_any_step() {
-        let failed = json!({"outcome": "failed", "error": "timeout"});
-        for tag in [
-            "navigate",
-            "read_dom_redacted",
-            "seal_candidate",
-            "capture_credential",
-        ] {
-            assert_eq!(canonical(&step(tag), &failed), Ok(failed.clone()), "{tag}");
-        }
-    }
-
-    #[test]
-    fn a_field_the_outcome_does_not_have_is_refused_at_any_depth() {
-        let extra = [
-            ("navigate", json!({"outcome": "done", "password": "x"})),
-            (
-                "generate_candidate",
-                json!({"outcome": "done", "candidate": "x"}),
-            ),
-            (
-                "read_dom_redacted",
-                json!({"outcome": "dom", "text": "t", "epoch": 1, "note": "x"}),
-            ),
-            (
-                "seal_candidate",
-                json!({"outcome": "sealed", "backed_up": true, "value": "x"}),
-            ),
-            (
-                "navigate",
-                json!({"outcome": "failed", "error": "timeout", "detail": "x"}),
-            ),
-            (
-                "capture_credential",
-                json!({"outcome": "captured", "sealed": {"recipient": "r", "envelope": "e", "plaintext": "x"}}),
-            ),
-        ];
-        for (tag, outcome) in extra {
-            assert_eq!(
-                canonical(&step(tag), &outcome),
-                Err(Refusal::Malformed),
-                "{outcome}"
-            );
-        }
-    }
-
-    #[test]
-    fn an_outcome_that_does_not_answer_the_step_is_refused() {
-        assert_eq!(
-            canonical(
-                &step("navigate"),
-                &json!({"outcome": "dom", "text": "t", "epoch": 1})
-            ),
-            Err(Refusal::WrongOutcome)
-        );
-        assert_eq!(
-            canonical(&step("assert_present"), &json!({"outcome": "done"})),
-            Err(Refusal::WrongOutcome),
-            "a bare done is not a presence check passing"
-        );
-        assert_eq!(
-            canonical(
-                &step("capture_credential"),
-                &json!({"outcome": "filled", "filled": "Ok"})
-            ),
-            Err(Refusal::WrongOutcome)
-        );
-        // A custody outcome never answers a browser step, and the reverse.
-        assert_eq!(
-            canonical(
-                &step("submit"),
-                &json!({"outcome": "sealed", "backed_up": true})
-            ),
-            Err(Refusal::WrongOutcome)
-        );
-        assert_eq!(
-            canonical(&step("seal_candidate"), &json!({"outcome": "done"})),
-            Err(Refusal::WrongOutcome)
-        );
-    }
-
-    #[test]
-    fn what_is_not_an_outcome_at_all_is_refused() {
-        for outcome in [
-            json!(null),
-            json!("done"),
-            json!([]),
-            json!({}),
-            json!({"outcome": 3}),
-            json!({"outcome": "done", "outcome2": 1}),
-        ] {
-            assert!(canonical(&step("navigate"), &outcome).is_err(), "{outcome}");
-        }
-        assert_eq!(
-            canonical(
-                &step("read_dom_redacted"),
-                &json!({"outcome": "dom", "text": "t"})
-            ),
-            Err(Refusal::Malformed),
-            "a missing field is not an outcome either"
-        );
-    }
-
-    #[test]
-    fn a_request_the_table_does_not_know_has_no_acceptable_outcome() {
-        for request in [
-            "not json",
-            "{}",
-            r#"{"step": 3}"#,
-            r#"{"step": "teleport"}"#,
-        ] {
-            assert_eq!(
-                canonical(request, &json!({"outcome": "done"})),
-                Err(Refusal::UnknownStep),
-                "{request}"
-            );
-        }
-    }
-}
+#[path = "outcome_tests.rs"]
+mod tests;

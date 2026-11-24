@@ -17,6 +17,7 @@ use opensesame_cli_app_integration::{
     RootEnrollError, RootEnrollFinish, RootEnrollRequest, ROOT_ENROLL_BEGIN_PATH,
     ROOT_ENROLL_FINISH_PATH,
 };
+use opensesame_host_core::bounded_json::{BodyRejection, BoundedJson};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -63,7 +64,14 @@ pub(crate) async fn begin(
     }
 }
 
-pub(crate) async fn finish(State(st): State<App>, headers: HeaderMap, body: Bytes) -> Response {
+pub(crate) async fn finish(
+    State(st): State<App>,
+    headers: HeaderMap,
+    body: Result<BoundedJson<FinishBody, MAX_BODY>, BodyRejection>,
+) -> Response {
+    if matches!(body, Err(BodyRejection::TooLarge)) {
+        return pairing_error(StatusCode::PAYLOAD_TOO_LARGE, "body_too_large");
+    }
     if headers.contains_key(header::ORIGIN) {
         return pairing_error(StatusCode::FORBIDDEN, "origin_forbidden");
     }
@@ -76,7 +84,7 @@ pub(crate) async fn finish(State(st): State<App>, headers: HeaderMap, body: Byte
             "root_trust_store_unavailable",
         );
     };
-    let Ok(parsed) = serde_json::from_slice::<FinishBody>(&body) else {
+    let Ok(BoundedJson(parsed)) = body else {
         return pairing_error(StatusCode::FORBIDDEN, "root_enroll_refused");
     };
     let decoded = match decode_finish(&parsed) {
@@ -107,8 +115,8 @@ fn enroll_entry_from_headers(headers: &HeaderMap) -> Option<&'static str> {
 }
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct FinishBody {
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct FinishBody {
     session_id: String,
     message_b64: String,
     confirm_b64: String,

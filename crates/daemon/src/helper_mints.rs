@@ -32,6 +32,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
+use opensesame_host_core::bounded_json::{BodyRejection, BoundedJson};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -282,11 +283,15 @@ pub(crate) async fn list(State(st): State<App>, uds: UdsPeer, headers: HeaderMap
     .into_response()
 }
 
+/// The most `PUT /v1/helper-mints/{connection_id}` reads: its one field is an
+/// installation id of at most 20 digits.
+const MAX_ALLOW_BODY: usize = 4096;
+
 /// What `PUT /v1/helper-mints/{connection_id}` may say: the installation the
 /// grant is bound to, for a GitHub App connection.
 #[derive(Default, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct AllowBody {
+pub(crate) struct AllowBody {
     installation_id: Option<String>,
 }
 
@@ -297,18 +302,15 @@ pub(crate) async fn allow(
     uds: UdsPeer,
     headers: HeaderMap,
     UrlPath(connection_id): UrlPath<String>,
-    body: String,
+    body: Result<BoundedJson<AllowBody, MAX_ALLOW_BODY>, BodyRejection>,
 ) -> Response {
     if let Err(resp) = admitted(&st, &uds, &headers, &connection_id) {
         return resp;
     }
-    let body = if body.trim().is_empty() {
-        AllowBody::default()
-    } else {
-        match serde_json::from_str::<AllowBody>(&body) {
-            Ok(body) => body,
-            Err(_) => return bad_request("invalid_body"),
-        }
+    let body = match body {
+        Ok(BoundedJson(body)) => body,
+        Err(BodyRejection::Empty) => AllowBody::default(),
+        Err(_) => return bad_request("invalid_body"),
     };
     let installation = body.installation_id.as_deref();
     if installation

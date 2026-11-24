@@ -24,7 +24,7 @@ use axum::{
 use opensesame_pki_core::{policy, PolicyRules};
 use opensesame_storage::StoredCertificatePolicy;
 use serde::Deserialize;
-use serde_json::{json, Map, Value};
+use serde_json::{json, Value};
 
 use crate::app_state::AppState;
 use crate::middleware::auth::{resolve_caller, resolve_caller_organization, Caller};
@@ -192,7 +192,7 @@ pub struct CreatePolicyBody {
     #[serde(default)]
     pub max_validity_seconds: Option<u64>,
     #[serde(default)]
-    pub rules: Option<Value>,
+    pub rules: Option<PolicyRulesOverlay>,
 }
 
 /// `PATCH /api/v1/certmgr/policies/{id}`.
@@ -212,7 +212,7 @@ pub struct UpdatePolicyBody {
     #[serde(default)]
     pub max_validity_seconds: Option<u64>,
     #[serde(default)]
-    pub rules: Option<Value>,
+    pub rules: Option<PolicyRulesOverlay>,
     #[serde(default)]
     pub version: Option<i64>,
 }
@@ -240,33 +240,24 @@ pub(crate) fn policy_view(row: &StoredCertificatePolicy) -> Result<Value, Respon
 
 // —— rules assembly ————————————————————————————————————————————————
 
-/// Shallow-merge `overlay`'s top-level keys over `base`.
-fn merge_top_level(base: &mut Map<String, Value>, overlay: Map<String, Value>) {
-    for (key, value) in overlay {
-        base.insert(key, value);
-    }
-}
-
 /// Build the effective rules document from a seed (a preset, the stored
-/// document, or the permissive default) and the caller's partial overlay.
-fn resolve_rules(seed: PolicyRules, overlay: Option<Value>) -> Result<PolicyRules, Response> {
-    let seeded = serde_json::to_value(&seed)
-        .map_err(|error| internal(error, "serialize seeded policy rules"))?;
-    let merged = match (seeded, overlay) {
-        (_, None) => return Ok(seed),
-        (Value::Object(mut base), Some(Value::Object(overlay))) => {
-            merge_top_level(&mut base, overlay);
-            Value::Object(base)
-        }
-        // A non-object `rules` is a caller error; let the typed deserialize
-        // below produce the message rather than guessing at intent.
-        (_, Some(other)) => other,
+/// document, or the permissive default) and the caller's typed overlay.
+#[allow(clippy::result_large_err)]
+fn resolve_rules(
+    seed: PolicyRules,
+    overlay: Option<PolicyRulesOverlay>,
+) -> Result<PolicyRules, Response> {
+    let Some(overlay) = overlay else {
+        return Ok(seed);
     };
-    let rules: PolicyRules = serde_json::from_value(merged)
-        .map_err(|error| bad_request("invalid_request", format!("rules: {error}")))?;
+    let rules = overlay.over(seed);
     check_rule_bounds(&rules)?;
     Ok(rules)
 }
+
+#[path = "certmgr_policy_overlay.rs"]
+mod overlay;
+use overlay::PolicyRulesOverlay;
 
 /// Refuse a rules document whose value lists are implausibly long.
 fn check_rule_bounds(rules: &PolicyRules) -> Result<(), Response> {

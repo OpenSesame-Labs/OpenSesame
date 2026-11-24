@@ -11,6 +11,7 @@ use axum::{
 use opensesame_connection_broker::{
     build_manifest, convert_manifest_code, GithubAppCredentials, GITHUB_APP_REGISTER_URL,
 };
+use opensesame_host_core::bounded_json::{BodyRejection, BoundedJson};
 use rand::Rng;
 use serde::Deserialize;
 use serde_json::json;
@@ -53,24 +54,27 @@ pub struct RegisterBody {
     pub display_name: Option<String>,
 }
 
-fn parse_register_body(body: &str) -> Result<RegisterBody, Response> {
-    if body.trim().is_empty() {
-        return Ok(RegisterBody::default());
+/// An absent body registers with the defaults; anything else must be a
+/// [`RegisterBody`] of at most 32 KiB.
+#[allow(clippy::result_large_err)]
+fn parse_register_body(
+    body: super::connections::Body<RegisterBody>,
+) -> Result<RegisterBody, Response> {
+    match body {
+        Ok(BoundedJson(body)) => Ok(body),
+        Err(BodyRejection::Empty) => Ok(RegisterBody::default()),
+        Err(refused) => Err(super::connections::body_refused(
+            &refused,
+            "request body is not valid JSON",
+        )),
     }
-    serde_json::from_str(body).map_err(|_| {
-        (
-            StatusCode::BAD_REQUEST,
-            Json(json!({"error":"invalid_request","hint":"request body is not valid JSON"})),
-        )
-            .into_response()
-    })
 }
 
 /// Start the GitHub App Manifest flow for this organization.
 pub async fn register_start(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
-    body: String,
+    body: super::connections::Body<RegisterBody>,
 ) -> Response {
     let who = match resolve_caller(&st, &headers) {
         Ok(who) => who,
@@ -83,7 +87,7 @@ pub async fn register_start(
         )
             .into_response();
     }
-    let body = match parse_register_body(&body) {
+    let body = match parse_register_body(body) {
         Ok(body) => body,
         Err(response) => return response,
     };

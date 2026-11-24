@@ -1,18 +1,20 @@
 //! Verified GitHub App webhooks → durable outbox → `TaskBus` wake.
 
 use axum::{
-    body::Bytes,
     extract::State,
-    http::{HeaderMap, StatusCode},
+    http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
-use opensesame_connection_broker::github_webhook_hmac::verify_hub_signature_256;
 use opensesame_task_bus::BusEvent;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
 use crate::app_state::AppState;
+
+#[path = "github_webhook_delivery.rs"]
+mod delivery;
+use delivery::VerifiedDelivery;
 
 const WEBHOOK_EVENT: &str = "github.webhook";
 const WAKE_TYPE: &str = "system.github.webhook.wake";
@@ -102,39 +104,16 @@ async fn append_webhook_outbox(
 }
 
 /// `POST /api/v1/webhooks/github` — verify, enqueue, wake. Fast 2xx after durable write.
-pub async fn webhook(State(st): State<AppState>, headers: HeaderMap, body: Bytes) -> Response {
-    let signature = headers
-        .get("x-hub-signature-256")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
-    // Fail closed on a missing/malformed MAC before any DB or secret lookup.
-    if !well_formed_hub_signature(signature) {
-        return webhook_error(StatusCode::UNAUTHORIZED, "invalid_signature");
-    }
-
-    let delivery = headers
-        .get("x-github-delivery")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-    let event_name = headers
-        .get("x-github-event")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
-
-    let secret = match configured_webhook_secret(&st).await {
-        Ok(secret) => secret,
-        Err(response) => return response,
-    };
-
-    if !verify_hub_signature_256(&secret, &body, signature) {
-        return webhook_error(StatusCode::UNAUTHORIZED, "invalid_signature");
-    }
-
-    if delivery.is_empty() {
-        return webhook_error(StatusCode::BAD_REQUEST, "missing_delivery_id");
-    }
+///
+/// [`VerifiedDelivery`] has already checked the signature, the secret, the MAC
+/// over the exact bytes and the delivery id, and decoded only what is read.
+pub async fn webhook(State(st): State<AppState>, verified: VerifiedDelivery) -> Response {
+    let VerifiedDelivery {
+        delivery,
+        event_name,
+        body,
+        summary,
+    } = verified;
 
     // HMAC covers the body, not x-github-delivery. Dedup on the verified body
     // so an attacker cannot replay the same payload under a fresh delivery id.
@@ -144,16 +123,8 @@ pub async fn webhook(State(st): State<AppState>, headers: HeaderMap, body: Bytes
         Err(response) => return response,
     };
 
-    let payload: Value = serde_json::from_slice(&body).unwrap_or(json!({}));
-    let action = payload
-        .get("action")
-        .and_then(|v| v.as_str())
-        .unwrap_or("")
-        .to_string();
-    let installation_id = payload
-        .pointer("/installation/id")
-        .and_then(serde_json::Value::as_u64)
-        .map(|n| n.to_string());
+    let action = summary.action.clone().unwrap_or_default();
+    let installation_id = summary.installation_id();
 
     let organization = st.connection_organization.to_string();
     let mut outbox_payload = json!({

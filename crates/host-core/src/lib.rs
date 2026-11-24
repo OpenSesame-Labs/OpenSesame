@@ -14,6 +14,10 @@ pub mod wit_contract {
     pub const PACKAGE: &str = "opensesame:host@1.0.0";
 }
 
+/// One bounded, typed decode for a JSON request body (size limit before
+/// buffering, typed `T`, closed refusals).
+pub mod bounded_json;
+
 /// Daemon bind policy helpers (its addresses are in [`endpoints`]).
 pub mod daemon;
 pub mod deployment_mode;

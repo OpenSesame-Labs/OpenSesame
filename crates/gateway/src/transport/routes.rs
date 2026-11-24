@@ -149,7 +149,7 @@ pub async fn get_bindings(State(st): State<AppState>, headers: axum::http::Heade
 pub async fn put_bindings(
     State(st): State<AppState>,
     headers: axum::http::HeaderMap,
-    body: String,
+    body: bindings::PutBody,
 ) -> Response {
     if let Err(resp) = require_deployment_operator(&st, &headers) {
         return resp;
@@ -157,7 +157,7 @@ pub async fn put_bindings(
     let Some(runtime) = st.transport.as_ref() else {
         return unconfigured();
     };
-    let proposed = match bindings::parse_bounded(&body) {
+    let proposed = match bindings::accept_put(body) {
         Ok(set) => set,
         Err(error) => {
             return (
