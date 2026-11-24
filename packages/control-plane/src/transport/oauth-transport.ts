@@ -5,11 +5,13 @@
  * header claim all resolve to nothing — and the endpoint-alias base is the
  * listener's own public URL when it has one.
  */
+import { IncomingMessage } from "node:http";
 import { Socket } from "node:net";
 import type { MtlsPeer, MtlsTransport } from "@opensesame/oauth-provider";
 import type { TransportConfig } from "./config.js";
 import { peerOf } from "./listener.js";
 import type { VerifiedPeer } from "./peer-evidence.js";
+import { bindingPeerOf } from "./request-evidence.js";
 
 /** The issuer's view of a verified peer: PEM plus exact SAN selectors. */
 export function mtlsPeerOf(peer: VerifiedPeer): MtlsPeer {
@@ -34,7 +36,17 @@ export function identityMtlsTransport(
   const listener = transport?.listener;
   if (!listener) return undefined;
   const result: MtlsTransport = {
-    peerOf(socket) {
+    peerOf(socket, request) {
+      // Behind a trusted ingress the socket peer is the ingress hop. The
+      // client is the request's originating evidence, or nobody when the
+      // ingress forwarded none we could verify (AT-OAUTH-PROXY).
+      if (listener.policy === "trusted_ingress") {
+        const client =
+          request instanceof IncomingMessage
+            ? bindingPeerOf(request)
+            : undefined;
+        return client ? mtlsPeerOf(client) : undefined;
+      }
       // The issuer hands over an unparsed request socket. Only a Node Socket is registered.
       if (!(socket instanceof Socket)) return undefined;
       const peer = peerOf(socket);

@@ -20,14 +20,17 @@ the source files actually reviewed. Principal and project proof design is in
 The provisional token-prefix requirement is recorded in the
 [session ID audit](audits/2026-08-07-provisional-session-id.md). The model and
 theorem names below are in
-[`AuthPolicy.lean`](../../spec/formal/auth/AuthPolicy.lean). The model represents
-a lookup result and a role result as already obtained; it does not model their
-storage or network implementations.
+[`AuthPolicy.lean`](../../spec/formal/auth/AuthPolicy.lean),
+[`AuthTransport.lean`](../../spec/formal/auth/AuthTransport.lean) and
+[`AuthSession.lean`](../../spec/formal/auth/AuthSession.lean), which
+`check-axioms.sh` checks as one model. The admission model represents a lookup
+result and a role result as already obtained; the storage it reads is modelled
+separately below.
 
 | ID | Requirement and implementation | Lean property | Executable correspondence |
 |---|---|---|---|
-| AUTH-S1 | A provisional session authenticates only for a `pst_` token mapped to a present, unexpired, unrevoked session (the mapping is the live provisional-token row stored at the token's keyed id, `HMAC-SHA-256(K_lookup, token)`; no other stored id is consulted) and a present principal that is neither suspended nor closed. [`resolveProvisionalSession`](../../packages/control-plane/src/middleware/auth.ts) performs those checks. | `bad_session_prefix_denied`, `unmapped_session_denied`, `missing_session_denied`, `revoked_session_denied`, `expired_session_denied`, `missing_principal_session_denied`, `suspended_principal_session_denied`, `closed_principal_session_denied` | The actual resolver is compared with 240 combinations of the abstract guards, expiry boundary, and principal state. |
-| AUTH-S2 | A session that AUTH-S1 admits is still refused while its revocation cleanup is pending (`revocationCleanupPending`) or while its principal has a pending organization withdrawal (`hasPendingWithdrawalForPrincipal`). The `prn_` principal bearer uses the same principal check. A bound-cookie request (`X-OpenSesame-Session-Id`, `-Session-Proof`, `-Principal-Id`) authenticates only when the named cookie resolves through AUTH-S1 and these guards, to that session and principal, with a matching proof hash, and it never falls back to another credential. A client that sends `X-OpenSesame-Require-Bearer` gets no cookie fallback. [`resolveProvisionalSession` and `authMiddleware`](../../packages/control-plane/src/middleware/auth.ts). | **Unproved.** None of these guards or paths is in `AuthPolicy.lean`. They only add refusals or narrow an AUTH-S1 admission, so every success still satisfies the AUTH-S1 guards, but no Lean theorem states this. | The correspondence test re-runs every one of the 240 session cases with cleanup pending and with a pending withdrawal, and expects a refusal each time. Negative controls `session-cleanup-pending` and `session-pending-withdrawal` disable each guard and require a failing session assertion. Bound-cookie and require-bearer behavior is covered only by control-plane regressions (`bound-cookie*.test.ts`, `auth-session-interleaving.property.test.ts`). Status: **unproved**. |
+| AUTH-S1 | A provisional session authenticates only for a `pst_` token mapped to a present, unexpired, unrevoked session (the mapping is the live provisional-token row stored at the token's keyed id, `HMAC-SHA-256(K_lookup, token)`; no other stored id is consulted) and a present principal that is neither suspended nor closed. [`resolveProvisionalSession`](../../packages/control-plane/src/middleware/auth.ts) performs those checks. | `bad_session_prefix_denied`, `unmapped_session_denied`, `missing_session_denied`, `revoked_session_denied`, `expired_session_denied`, `missing_principal_session_denied`, `suspended_principal_session_denied`, `closed_principal_session_denied` | The actual resolver is compared with 960 Lean-generated combinations of the abstract guards, expiry boundary, principal state and the two AUTH-S2 resolver guards. |
+| AUTH-S2 | A session that AUTH-S1 admits is still refused while its revocation cleanup is pending (`revocationCleanupPending`) or while its principal has a pending organization withdrawal (`hasPendingWithdrawalForPrincipal`). The `prn_` principal bearer (only with `allowPrincipalBearer`) uses the same principal check. A bound-cookie request (`X-OpenSesame-Session-Id`, `-Session-Proof`, `-Principal-Id`) authenticates only when the named cookie resolves through AUTH-S1 and these guards, to that session and principal, with a matching proof hash and an allowed origin, and it never falls back to another credential. A client that sends `X-OpenSesame-Require-Bearer: 1` with an `Authorization: Bearer` that does not authenticate gets 401, never the ambient cookie; the header has no effect on a request without a bearer. [`resolveProvisionalSession` and `authMiddleware`](../../packages/control-plane/src/middleware/auth.ts), [`boundCookieMatches`](../../packages/control-plane/src/middleware/bound-cookie.ts). | `Session` in `AuthSession.lean`: `resolves_requires_session_admitted`, `cleanup_pending_session_denied`, `pending_withdrawal_session_denied`, `bound_never_falls_back`, `bound_admission_requires`, `required_bearer_never_uses_cookie`, `bearer_requires_resolution`, `principal_bearer_requires`, `cookie_requires`, `admitted_session_satisfies_auth_s1` (every session the middleware admits passed the AUTH-S1 checks and both guards). | The resolver vectors include both guards (960 cases above). The real `authMiddleware`, mounted in Hono with stores answering each token, is compared with 512 Lean-generated bound-request cases (nine facts, with a valid bait bearer and ambient cookie on every request) and 112 credential cases (seven bearer kinds, `allowPrincipalBearer`, require-bearer, four cookie states). Negative controls: `session-cleanup-pending`, `session-pending-withdrawal`, `bound-fallback`, `bound-proof`, `bound-principal`, `require-bearer`, `principal-bearer`, `cookie-origin`. Status: **proved for the model, with exhaustive correspondence over the abstract domain**; sources mapped in the `auth` registry suite. Outside: Hono header and cookie parsing, the `boundCookieMatches` SHA-256 and `timingSafeEqual` comparison (abstracted to one fact), store and repository implementations, the separate session reads by the resolver and `boundCookieMatches` (no concurrency or interleaving is modelled), and what `boundCookieProxy` does after admission. |
 | AUTH-C1 | A fresh guest must require sign-out when an existing Identity or federation session is detected, and must not reuse, replace, or act under a session installed concurrently. [`connectFreshProvisional`](../../packages/app-core/src/lib/identity.ts) checks the remote cookie before and after minting. The guarded [`POST /v1/principals/provisional`](../../packages/control-plane/src/routes/principals.ts) rejects presented credentials and returns a bearer without setting a cookie. Guest requests and bearer cleanup omit ambient cookies; a tab-persistent isolation marker prevents cookie adoption after expiry or reload. A member cookie arriving after the last check can coexist with the guest, but cannot replace or authenticate that guest. [`continueAsGuest`](../../packages/app-core/src/lib/guest-auth.ts), claim guest continuation, and the Identity ceremony use this admission path. Assumptions: configured remote deployments share the authoritative cookie plane; device-native Identity has no cookie plane; browser session storage and the at-rest key are available for remote guest admission. | Browser decision logic **proved for the model, with exhaustive Lean-generated correspondence; implementation mapped** ([`spec/formal/guest`](../../spec/formal/guest/README.md), registry suite `guest`): admission `admitted_only_if_every_check_clear`, `session_seen_anywhere_refuses`; fresh mint `fresh_adopts_only_clear`, `minted_unadopted_is_revoked`, `unknown_status_refuses`; local-only guest `local_only_guest_never_sends_grant`, `send_requires_last_boundary_clear`, `no_grant_reported_to_local_only_guest`; sign-out epoch `commit_requires_same_generation`, `signout_during_operation_refuses`, `unreadable_generation_refuses`. **Unproved**: the Identity route and its transaction boundary, cookie delivery, the isolation marker, UI state, and real browser concurrency (Web Locks, cross-tab timing). | Client regressions cover present, absent, unknown, held cross-tab responses, cookie-free requests, revocation retry, storage failure, bearer loss, established-guest resume, claim, device roads, and held federation responses after a settings change or sign-out. Control-plane tests cover credential rejection and a bearer-only response; FrontDoor and locked-vault tests cover sign-out and retry. The non-mechanized AUTH-C1 review snapshot records the exact implementation blobs below. Lean-generated correspondence (`npm run verify:guest-formal`) drives the real `continueAsGuest` (82,944 cases: three checks × 24 observations each, local or remote Identity, every mint outcome; the in-lock check runs inside the real `mintGuestSessionPersonLocked`), `connectFreshProvisional` over stubbed HTTP (18 cases, including another tab's sign-out during the mint), `pairedHostFetch`/`currentBrowserGrant` (40 boundary traces) and `captureSignOutEpoch`/`assertSignOutEpoch` (12 store cases); eleven negative controls are each detected. Status: modelled browser logic **proved for the model and checked on every model case**; AUTH-C1 as a whole **unproved**. |
 | AUTH-P1 | An absent principal is refused and a principal with `provisional` assurance is refused. [`verifiedPrincipal`](../../packages/control-plane/src/proofs/verified-principal.ts) makes both checks. | `missing_principal_denied`, `provisional_principal_denied`, `admitted_principal_not_provisional` | The actual function is compared with all eight abstract lookup/assurance cases. |
 | AUTH-Z1 | A missing project, an invisible project, or a caller without a resolved role gets no project proof. [`projectAccess`](../../packages/control-plane/src/proofs/project-role.ts) calls [`isVisible` and `roleFor`](../../packages/control-plane/src/services/project-access.ts). | `absent_project_denied`, `hidden_project_denied`, `no_role_denied` | The actual functions are compared with the model across project presence, every declared state, four expiry classes, and four role results. |
@@ -62,21 +65,28 @@ Storage contract since 2026-11-24, stated so it can be modelled:
   bearer, so AUTH-S1 refuses it; its row expires with its TTL, and revocation
   by session still deletes it through the stored entry.
 
-The session-admission model takes the lookup result as given. A separate,
-abstract storage model (`OpenSesame.AuthPolicy.Storage` in `AuthPolicy.lean`,
-2026-11-24) states this contract and Lean 4.24.0 checks it with the auth
+The session-admission model takes the lookup result as given. A separate
+storage model (`OpenSesame.AuthPolicy.Storage` in `AuthPolicy.lean`) states
+this contract for one `DurableMap` and Lean 4.24.0 checks it with the auth
 suite's axiom audit. A row id is only a keyed lookup of the key or of its
-legacy digest (`RowId`). Keyed lookup only: with the legacy fallback removed
+legacy digest (`RowId`); `liveAt` is the `live()` filter and, as a store, the
+purge of expired rows. Keyed lookup only: with the legacy fallback removed
 every address is the keyed id (`legacy_free_addresses_keyed_only`), a read
-depends only on that address (`lookup_reads_only_addresses`), and a write
-stores only at the keyed id (`write_stores_only_keyed`, `write_then_lookup`).
+depends only on that address (`lookup_reads_only_addresses`), `set` purges
+expired rows and stores only at the keyed id, leaving a legacy row in place
+(`write_stores_only_keyed`, `write_then_lookup`), and changes no other key's
+read (`write_other_keys`); `claim` never replaces a live row
+(`claim_never_replaces_live`), `delete` leaves nothing to read
+(`delete_then_lookup`) and `take` is single-use (`take_single_use`).
 Migration before serving: `rekey` models `adoptLegacyRow` (the successor is
 written unless the keyed id holds a row live at the migration instant, then the
 legacy row is deleted); it touches no other key (`rekey_other_ids`) and never
 changes what the key reads at that instant (`rekey_preserves_lookup`);
-migrating the recovered keys leaves every no-expiry legacy row findable by the
-keyed id alone at every later time, unless a live keyed row with an expiry
-already held the key (`migration_keeps_no_expiry_rows`); and once no legacy row remains, which is
+`migrate` adopts only the rows `legacyRows()` lists (live ones, as `rekeyKeys`
+and `rekeyRecoverable` do), and migrating the recovered keys leaves every
+no-expiry legacy row findable by the keyed id alone at every later time, unless
+a live keyed row with an expiry already held the key
+(`migration_keeps_no_expiry_rows`); once no live legacy row remains, which is
 startup's condition for serving, dropping the fallback changes no read
 (`served_store_needs_no_fallback`). Pre-upgrade bearers: a key held only under
 its legacy id is refused (`legacy_only_row_refused`).
@@ -88,17 +98,33 @@ no-expiry legacy row lost the legacy value (a session-epoch fence read back as
 successor over an expired one; regression `adopts a live legacy fence over an
 expired current row instead of dropping it` in `durable-map-migration.test.ts`
 fails before the fix and passes after, and the model's `rekey` follows the
-fixed rule, so `rekey_preserves_lookup` no longer needs a liveness hypothesis. The storage model is
-not mapped to `durable-map.ts` in the registry and has no Lean-generated
-correspondence: it proves the contract of the model, not the TypeScript.
-Evidence for the implementation: `durable-map.test.ts` and
-`durable-map-migration.test.ts` (no request path computes an unkeyed digest; a
-legacy TTL bearer is refused after the upgrade and `GET /v1/principals/me` with
-it returns 401; no-expiry rows are found after startup migration and a fence is
-advanced, never reset; an unmigratable no-expiry row fails startup and requests
-get 503) and the full control-plane suite, including the AUTH-S1
-correspondence matrix. Status: storage contract **proved for the model**;
-implementation refinement **unproved**.
+fixed rule, so `rekey_preserves_lookup` no longer needs a liveness hypothesis.
+
+Implementation refinement (2026-11-24). Writing the refinement showed that the
+previous model's `write` deleted the key's legacy row, as the pre-#2927 map
+did; the current `set` leaves it and only purges expired rows, and the model
+now says so. `durable-map.ts`, `durable-map-legacy.ts`, `durable-record.ts` and
+`security-map-rekey.ts` are mapped in the `auth` registry suite and its
+`coverage.json`, so a change to them requires `npm run verify:auth-formal`.
+The correspondence (`session-conformance.test.ts`) runs the real `DurableMap`
+(secret keys, no TTL) on a PGlite database migrated with the repository's
+migrations: for each of 112 Lean-generated cases, sixteen states of the key's
+keyed and legacy rows (absent, expired, live with an expiry, no expiry) times
+`get`, `set`, `claim`, `delete`, `take`, `adoptLegacyRow` and `rekeyKeys`, it
+seeds sealed rows exactly as the current and pre-2026-11-23 maps wrote them,
+and compares the result, both stored rows (value and expiry class), the
+following read, the `legacyRows()` count and another key's untouched rows with
+the model. Negative controls `storage-live-read`, `storage-take-live`,
+`storage-legacy-live`, `storage-adopt-live`, `storage-adopt-expiry`,
+`storage-claim` and `storage-purge` are each detected. Status: **proved for the
+model, with exhaustive correspondence over one key's sixteen row states and
+seven operations**. Outside, and unproved: concurrency, transactions and the
+advisory lock, crash durability, capacity, sealing and HMAC (the disjointness
+of keyed and legacy ids is an assumption), interactions among more than two
+keys, Postgres beyond PGlite, the operation clock (`new Date()` per statement),
+`rekeyRecoverable`'s ownership check and the startup orchestration in
+`security-map-rekey.ts` (mapped and covered by `durable-map-migration.test.ts`,
+not by the correspondence).
 
 Guest bearer revocations that fail are retained in memory and retried before
 another guest mint against the same Identity API in that tab. Cleanup and
@@ -119,8 +145,27 @@ Sign-out on the client ([`signOut`](../../packages/app-core/src/lib/session-exit
 runs each local clearing step independently, so blocked browser storage cannot
 stop the Identity session being ended or the vault being locked; a failed step
 leaves a transient "Sign-out incomplete" notice with a retry. This is outside
-AUTH-C1's reviewed sources and the Lean models. Evidence: `session-exit.test.ts`
-(blocked session storage). Status: **unproved**.
+AUTH-C1's reviewed sources. Model (`OpenSesame.AuthPolicy.SignOut` in
+`AuthSession.lean`, 2026-11-24): every step runs inside a runner that turns a
+throw into "incomplete", so for any set of failing steps every step is
+attempted (`exit_attempts_every_step`), the Identity session is ended
+(`exit_ends_session`), an open vault or one awaiting a second step is locked
+(`exit_locks_open_vault`), the exit is incomplete exactly when some attempted
+step threw (`exit_incomplete_iff_failure`), and `settleSignOut` runs only for a
+complete exit (`exit_settles_only_when_complete`). Correspondence is
+source-structural: `auth-conformance.test.ts` parses the real
+`session-exit.ts` with the `verify:auth-source` helpers and requires the exact
+runner (`try { run(); } catch { incomplete = true; }`), the lock guard, the
+incomplete branch and, at each of the eleven Lean-generated positions, a step
+wrapped in the runner calling the step the model names. `session-exit.ts` is
+mapped in the `auth` registry suite. Negative controls `signout-catch`,
+`signout-end-session`, `signout-unwrapped` and `signout-lock-guard` are
+detected. Status: **proved for the model, with source-structure
+correspondence**. Unproved: that JavaScript `try`/`catch` and the browser
+behave as assumed (the property is executed only by `session-exit.test.ts`'s
+blocked-storage case), what each step clears, the notice UI, a throw from
+`reportIncomplete` or `dismissNotice` themselves, and `settleSignOut`'s network
+outcome.
 
 AUTH-C1 was independently reviewed against these exact Git blobs. A squash
 commit that contains the reviewed implementation retains these content-addressed
@@ -173,6 +218,8 @@ independent review and snapshot update:
 2026-11-23 re-review of `federated-pending.ts` (unauthenticated CPU and memory denial of service). Requirement affected: FED-I4, with FED-I1 and FED-I2 re-mapped; AUTH-S1/S2, AUTH-C1 and the other Lean models are untouched. Defect: since #2823, the `/interaction/:uid/federated/callback` decoder ran a blocking `scryptSync` (N=32768, r=8, about 32 MiB) twice per request before checking the cookie MAC, and plaintext-verifier cookies were still accepted. Any caller who started an interaction could block the Identity API event loop with forged cookies (about 146 ms per forged decode, measured locally, against 0.12 ms now). Implementation: the cookie is now v4. It carries an HMAC-SHA-256 over the exact base64url payload under a v4-only key derived from the pepper. That tag is compared, after a 4096-byte length cap, before the payload is parsed, the AES-GCM-sealed verifier is unsealed or any key is derived. scrypt is removed from the codec. The signed wire schema requires `verifierEnc` and is strict, so a plaintext or mixed verifier is refused even under a valid tag. v3 and pre-v3 legacy cookies are no longer verified, since each would need scrypt before authentication. Sign-ins holding one restart; the cookie max-age is ten minutes. The `OPENSESAME_FEDERATED_PENDING_SEAL_VERIFIER` rollout flag existed only for v3 mixed-version rollouts and is removed. Evidence: `federated-pending.security.test.ts`, `federated-pending-integrity.test.ts`, `federated-pending.fuzz.test.ts` and `federated-pending.production.test.ts`. Nine new or changed cases fail against main's sources and pass here, including a key-derivation counter on the `PendingCookieKeys` seam: forged, oversize, wrong-pepper, v3 and plaintext cookies cause no derivation, and a valid one causes exactly one. The control-plane federated, BYO, interaction and config suites pass (33 files, 364 tests). The oauth correspondence suite and its report check pass against vectors from a Python mirror of `PendingIntegrity.lean`, and four new pending-cookie negative controls plus the organization control were each detected in a local simulation of `negative-controls.py`. `check-drift.mjs` and coverage hashes were refreshed. `formal-vitest-report.mjs`, whose oauth test inventory had not matched main's security test since #2823, now lists the v4 tests. The `verify:auth-source` federation snapshot, stale since #2823, is re-reviewed against the v4 source. That gate still fails earlier, on the unrelated `principalStillAuthenticates` extraction, a pre-existing failure outside this change. Lean was not available, so `npm run verify:oauth-formal`, `negative-controls.py` and the theorem check were not re-run. Explicitly unproved: FED-I4 ordering and the absence of slow hashing (tests and source snapshot only), HMAC and AES-GCM security, and refinement of the v4 codec for all inputs. Status: **unproved**.
 
 2026-11-24 Lean re-run and completion of the proofs recorded above as not re-run. Lean 4.24.0 was installed through elan (no Mathlib or Lake packages are used). Requirements affected: FED-I1, FED-I2, FED-I4 (oauth suite), the AUTH-S1 storage contract (auth suite), and the `verify:auth-source` principal check. No implementation file changed. FED-I1: the model's `SealedPayload` now has exactly the fields of the strict v4 `sealedWireSchema`, including `verifierEnc`, and `currentMessage` is `MAC_DOMAIN ‖ payload` (`pendingMac`); **proved**. FED-I2: `acceptsLegacy` is the v4 decoder applied to a plaintext-verifier payload, so the model now refuses every legacy cookie like the implementation (`legacy_never_accepted`, `legacy_static_signed_provider_refused` replaces the retired acceptance theorem), and the 32 legacy cases require exact agreement; **proved**. FED-I4: `decodeTrace` models `decodeSigned` (federated-pending.ts lines 234–260) step by step; `mac_first`, `invalid_tag_no_work`, `accepted_requires_valid_tag`, `accepted_requires_sealed_only`, `accepted_derives_once`, `derivations_at_most_one` and `no_slow_hash`; 160 Lean-generated `v4` cases build real cookies and compare acceptance with real keys and derivation counts through a counting `PendingCookieKeys` seam; **proved for the model**; that the TypeScript performs exactly these steps rests on review and the finite cases, and `no_slow_hash` holds of the model by construction (the code evidence is the codec scan test). Results: `npm run verify:oauth-formal` passed (22 obligations, axioms audited; 297 correspondence and security tests; both hosted-flow tests; source hashes match); `negative-controls.py` detected all five mutants and the gate refused a mutant override; `hosted-flow-negative-controls.py` detected all five controls (it needs `MISE_TRUSTED_CONFIG_PATHS` for its scratch checkout in this sandbox); `npm run verify:auth-formal` passed (29 obligations, 409 correspondence tests, AUTH-C1 snapshot, drift tests, after repairing the drift fixture's pre-#2915 AUTH-C1 inventory); `check-axioms.test.mjs` 14/14. `verify:auth-source` failed on main because #2899 added an awaited `hasPendingWithdrawalForPrincipal` operand; the translator now accepts exactly that call on `principalId`, the policy requires no pending withdrawal, and Lean checks 54 source-derived theorems (25/25 tests, including a new control that drops the operand). AUTH-C1 and GUEST-V1 remain **unproved** and conformance-only: no registry suite maps any `app-core` or Pages source, and their properties concern browser concurrency, cookie delivery, Web Locks, origin storage, OPFS and transaction boundaries that none of the Lean models represent; modelling them would need a new suite with its own implementation mapping and correspondence harness.
+
+2026-11-24 implementation refinement for AUTH-S1 storage, AUTH-S2, IDENTITY-TLS1 and sign-out. Requirements affected: AUTH-S1 (storage), AUTH-S2, IDENTITY-TLS1 and the client sign-out property; no implementation file changed. The auth suite's model now spans `AuthPolicy.lean`, `AuthTransport.lean` and `AuthSession.lean` (`check-axioms.sh` concatenates them; 53 required theorems, axioms audited). The storage model's `write` was corrected to the current `set` (it leaves the legacy row and purges expired rows), `migrate` adopts only live legacy rows like `rekeyKeys`, and `served_store_needs_no_fallback` now assumes only what startup checks (no live legacy row). New correspondence groups in `session-conformance.test.ts` (1,039 Lean-generated cases: 112 storage, 512 bound, 112 credential, 288 evidence, 15 listener) and in `auth-conformance.test.ts` (the 960 resolver cases now include both AUTH-S2 guards; 11 sign-out positions plus the runner shape) run against the real `DurableMap` on migrated PGlite, the real `authMiddleware` in Hono, the real `recordRequestEvidence`/`bindingPeerOf` with `openssl`-issued certificates, a real `createTransportListener`, and the parsed `session-exit.ts`. The `auth` registry suite, its requirements, pins and `coverage.json` map `bound-cookie.ts`, `bound-cookie-name.ts`, `durable-map.ts`, `durable-map-legacy.ts`, `durable-record.ts`, `security-map-rekey.ts`, `listener.ts`, `request-evidence.ts`, `service-admission.ts` and app-core `session-exit.ts`; `auth-formal-drift.mjs` now reads the covered list from the pinned registry mapping. Results: `npm run verify:auth-formal` passed (2,180 correspondence tests, report check, drift and its fixture test); `negative-controls.py` detected all 35 mutants. Status: AUTH-S2, IDENTITY-TLS1 and the sign-out property are **proved for the model, with exhaustive (or, for sign-out, source-structure) correspondence**, and the AUTH-S1 storage refinement likewise; the residual limits are listed with each requirement above. A proof of a model and finite conformance do not prove the whole implementation.
 
 2026-11-24 abstract contract models for AUTH-C1 and GUEST-V1 ([`spec/formal/guest`](../../spec/formal/guest/README.md), `npm run verify:guest-contract-formal`, 16 obligations, axioms audited; Lean 4.24.0). Status for each: **contract proved (abstract model), implementation unmapped**. No source is mapped to the model and no executable correspondence checks it, so it proves nothing about the TypeScript; AUTH-C1 and GUEST-V1 implementation evidence remains the Vitest regressions recorded above. AUTH-C1 admission (`assertNoKnownRemoteSession`, guest-auth.ts): `admitted_only_if_every_check_clear`, `session_seen_anywhere_refuses`, `unknown_status_refuses`. AUTH-C1 local-only guest (browser-pairing.ts): `local_only_guest_never_sends_grant`, `send_requires_last_boundary_clear`, `no_grant_reported_to_local_only_guest`. AUTH-C1 sign-out epoch (auth-generation.ts, identity-shared-signout.ts): `commit_requires_same_generation`, `signout_during_operation_refuses`, `unreadable_generation_refuses`. GUEST-V1: `fresh_guest_never_wipes_another`, `scratch_never_gets_header`, `promotion_header_last`, `interrupted_promotion_has_no_header`, `deletion_journals_before_unlink`, `frozen_guest_only_recovers`, `actor_requires_own_open_tomb`. Not modelled: browser and storage concurrency, Web Locks, cookie delivery, OPFS, per-step crash atomicity, and whether every caller uses these paths.
 
@@ -451,7 +498,7 @@ claim of exhaustive inventory or Lean coverage:
 | Federated sign-in. [Contract](../architecture/federated-signin.md). | [`federated-pending.ts`](../../packages/control-plane/src/interactions/federated-pending.ts) and [`interactions.ts`](../../packages/control-plane/src/routes/interactions.ts). | [FED-I1–I3](../../spec/formal/oauth/README.md) model signed pending-cookie binding, legacy provenance (now refused outright, a conservative refinement), and matching current trust. FED-I4, MAC verification before any parsing, unsealing or key derivation with no slow KDF on cookie input, is proved of the decoder step model and checked against `decodePending` on 160 Lean-generated cases, including derivation counts. 2026-11-24: FED-I4 is also **proved for the real `decodeSigned` statement order**: the source translator (`spec/auth-verification/source/federated-pending.mjs`) derives the function's guard/work/accept program from its own statements, one fact per guard, and Lean proves it equals the independent FED-I4 policy for all 256 fact combinations (`pending_decode_refines_policy`, `pending_decode_mac_first`, `pending_decode_bad_tag_no_work`, `pending_decode_accept_requires_tag`, `pending_decode_no_slow_hash`); `verify:oauth-formal` runs it, and dropping a guard, parsing before the MAC or adding scrypt is rejected by Lean. The translator's statement recognition and Boolean abstraction are trusted, and HMAC, AES-GCM, JSON and base64url remain assumptions. They do not prove PKCE, redirects, tokens, or protocol compliance. |
 | Interaction approval binding. [ADR 0084](../adr/0084-external-authorization-notifications.md). | [`interaction.ts`](../../packages/os-domain/src/machines/interaction.ts). | [APR-B1–B5](../../spec/formal/webauthn/README.md) model digest binding, expiry, lifecycle, and sequential consumption. WebAuthn cryptography and concurrent storage are outside the model. |
 | CLI app-integration assertion origin and presence. [CLI-WA1](#cli-wa1-cli-assertion-origin-and-presence). | [`webauthn_assertion.rs`](../../crates/cli-app-integration/src/webauthn_assertion.rs), called for registration and approval. | Unproved; separate from APR-B1–B5. |
-| Identity listener trust rotation. [Operator mTLS doc](../operators/mtls.md). | [`listener.ts`](../../packages/control-plane/src/transport/listener.ts), [`request-evidence.ts`](../../packages/control-plane/src/transport/request-evidence.ts). | [IDENTITY-TLS1](#identity-tls1-stale-transport-evidence-after-trust-rotation): **unproved**; Vitest regressions only. |
+| Identity listener trust rotation. [Operator mTLS doc](../operators/mtls.md). | [`listener.ts`](../../packages/control-plane/src/transport/listener.ts), [`request-evidence.ts`](../../packages/control-plane/src/transport/request-evidence.ts). | [IDENTITY-TLS1](#identity-tls1-stale-transport-evidence-after-trust-rotation): **proved for the model** (`AuthTransport.lean`), with exhaustive correspondence over the abstract evidence domain and reload sequences; certificate parsing, chain verification, the TLS stack and concurrency unproved. |
 | CLI app-integration credential registration and retries. [CLI-WA2](#cli-wa2-cli-credential-registration-and-retries). | [`register_webauthn`](../../crates/cli-app-integration/src/pairing/binding.rs). | Unproved; separate from APR-B1–B5. |
 | CLI app-integration restricted approvals. [CLI-WA3](#cli-wa3-restricted-cli-approvals). | [`ensure`](../../crates/cli-app-integration/src/lib.rs) and [`human_proof_verify`](../../crates/cli-app-integration/src/human_proof.rs). | Unproved; separate from APR-B1–B5. |
 | Interaction deadline admission. [ADR 0086](../adr/0086-wallet-native-interaction-layer.md). | [`interaction-clock.ts`](../../packages/control-plane/src/services/interaction-clock.ts) and the approval and consumption routes. | [CLOCK-1](../../spec/formal/interaction-clock/README.md) proves the sampled deadline predicate. 2026-11-24: the consume unit of work is **proved for the model and replayed against the real route**: `uowOutcome` (six application samples inside the transaction, rollback on refusal) with `uow_commit_requires_every_sample_live`, `uow_refusal_persists_nothing`, `uow_crossing_at_any_sample_refuses` and `uow_crossing_after_last_sample_commits`; all eight Lean crossings (before each sample, after the last, never) match `POST /v1/interactions/:ref/consume` on the controlled clock (status, stored status, committed fences, sample count), and three sample mutants are caught. Still not proved: database commit-time admission (`uow_crossing_after_last_sample_commits` states that a deadline passing after the last sample is committed), clock monotonicity, Postgres transaction atomicity (the replay uses the in-memory store, whose held lease survives a rollback unlike Postgres), and the approval and activation routes' storage. |
@@ -558,8 +605,64 @@ Implementation: trust generation in
 per-request expiry in
 [`request-evidence.ts`](../../packages/control-plane/src/transport/request-evidence.ts).
 
-Formal status: **unproved**. No Lean model or registry suite covers this
-transport boundary yet.
+Model (2026-11-24, `OpenSesame.AuthPolicy.Transport` in
+[`AuthTransport.lean`](../../spec/formal/auth/AuthTransport.lean)): an
+`Evidence` value is the input of `recordRequestEvidence` (listener policy,
+whether the trust generation is still the recorded one, a socket peer and an
+originating peer each absent, usable or expired, a forwarded-evidence error,
+and whether the binding set admits the acting identity). `peerView`,
+`originatingView`, `admit` (with `admitService`) and `bindingPeer` follow the
+source. Theorems: `stale_evidence_refused` (once the generation moves, no peer,
+no originating peer, `evidence_expired` and no binding peer),
+`admit_ok_requires` (admission needs current evidence, a usable acting peer, a
+usable socket peer when there is one, and an admitting binding),
+`ingress_never_acts_as_client` (on `trusted_ingress` the socket peer is never
+the binding peer and admission needs usable originating evidence),
+`forwarded_error_never_binds_peer`; and for the listener's generations
+(`restart`, the socket registry and the per-request `isCurrent` capture),
+`trust_change_stales` (any trust-changing reload stales everything recorded
+before it, permanently) and `credential_reload_keeps_current`.
+
+Correspondence (`session-conformance.test.ts`): 288 Lean-generated evidence
+cases run the real `recordRequestEvidence`, `admit` and `bindingPeerOf` over
+peers attested by the real `attestPeer` from certificates a disposable
+`openssl` PKI issues, comparing both getters, the admission code and which peer
+binds; 15 reload sequences (up to three reloads, each credential-only or
+trust-changing) drive a real `createTransportListener`: its
+`secureConnection` and `request` handlers run on a socket reported as verified,
+`restartTransport` reloads rewritten binding files, and the test compares both
+generations, staleness of the recorded evidence, `peerOf` and admission, and
+whether the socket was closed. Negative controls `evidence-current`,
+`evidence-ingress`, `binding-peer-ingress`, `listener-generation`,
+`listener-registry` and `listener-request-current` are detected. `listener.ts`,
+`request-evidence.ts` and `service-admission.ts` are mapped in the `auth`
+registry suite.
+
+Formal status: **proved for the model, with exhaustive correspondence over the
+abstract evidence domain and reload sequences of length at most three**. The
+correspondence triggers a trust change by a binding change; client-CA and
+originating-trust changes take the same `trustChanged` branch and stay covered
+by [`listener-rotation.test.ts`](../../packages/control-plane/src/transport/__tests__/listener-rotation.test.ts).
+Unproved: certificate parsing and chain verification, `resolveOriginating`
+(forwarded-header decoding and verification), the TLS handshake and session
+resumption settings, socket lifetimes and concurrent requests during a reload,
+and consumers other than `admit` and `bindingPeerOf`.
+
+Fixed defect (2026-11-24, found while modelling `bindingPeerOf`): the OAuth
+issuer's mTLS hook (`identityMtlsTransport` in
+[`oauth-transport.ts`](../../packages/control-plane/src/transport/oauth-transport.ts))
+read only the socket registry, so on a `trusted_ingress` listener
+`tls_client_auth` and certificate-bound tokens used the ingress leaf as the
+client certificate, whether or not the ingress forwarded verified originating
+evidence. A token issued through the ingress was bound to the ingress, so any
+client behind it could present it to the issuer's own protected endpoints. The
+hook now receives the request (`MtlsTransport.peerOf(socket, request)`,
+[`feature.ts`](../../packages/oauth-provider/src/mtls/feature.ts)) and, behind a
+trusted ingress, answers with `bindingPeerOf`: the originating client, or none.
+Regressions: `ingress-listener.test.ts` (the issuer sees each pooled request's
+originating client and nothing without forwarded evidence) and
+`mtls-feature.test.ts` (the hook passes the request); both fail before the fix.
+The hook itself is outside the Lean model.
 
 Evidence: Vitest regressions in
 [`listener-rotation.test.ts`](../../packages/control-plane/src/transport/__tests__/listener-rotation.test.ts)

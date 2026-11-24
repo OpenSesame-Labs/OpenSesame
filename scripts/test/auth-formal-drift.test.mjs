@@ -13,13 +13,13 @@ import { dirname, join } from "node:path";
 import { test } from "node:test";
 import * as authC1 from "./auth-formal-snapshot-fixture.mjs";
 
-const paths = [
-  "packages/control-plane/src/middleware/auth.ts",
-  "packages/control-plane/src/proofs/verified-principal.ts",
-  "packages/control-plane/src/proofs/project-role.ts",
-  "packages/control-plane/src/services/project-access.ts",
-  "packages/os-domain/src/types.ts",
-];
+const registryUrl = new URL(
+  "../../spec/formal/proof-registry.json",
+  import.meta.url,
+);
+const { implementation: paths } = JSON.parse(
+  readFileSync(registryUrl),
+).suites.find((suite) => suite.id === "auth");
 const attestationPath = "spec/formal/auth/reviewed-sources.json";
 const git = (cwd, ...args) =>
   execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
@@ -72,6 +72,7 @@ function buildReviewedStack(t) {
     writeFileSync(join(root, path), `original ${path}\n`);
   }
   authC1.seedAuthC1(root);
+  copyFixtureFile(root, "spec/formal/proof-registry.json", registryUrl);
   copyFixtureFile(
     root,
     "scripts/test/auth-formal-drift.mjs",
