@@ -122,6 +122,12 @@
       "reviewed_blob": "05e094eed1c18bb95be7ff8ecf12cf7d01eabfbe"
     },
     {
+      "path": "crates/spiffe-source/tests/durable_history_policy.rs",
+      "sha256": "9f724bd9939e63021ee423a411e5a720c7b9555135926b45956ff2983ce5ab67",
+      "base_blob": null,
+      "reviewed_blob": "7d0b5b529edf67c3328919fb306c469b34ac1f55"
+    },
+    {
       "path": "crates/spiffe-source/tests/outage_policy.rs",
       "sha256": "95b626c398463653288651398344207b56ddf59e054fbf4e1c44e7a37bff69cf",
       "base_blob": null,

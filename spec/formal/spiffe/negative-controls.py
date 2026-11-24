@@ -110,7 +110,10 @@ MUTATIONS = (
         "src/source_history_flow.rs",
         ".is_some_and(|active| !generation.bundles.contains_all(&active.bundles))",
         ".is_some_and(|_| false)",
-        (integration("trust_reduction_policy", "refused_activation_with_removed_anchor_withdraws", "rejected activation is reported after withdrawal"),),
+        # The refused-activation path also withdraws for a reduced view, so only
+        # a blocked history write shows whether withdrawal came before it.
+        (integration("durable_history_policy", "reduced_snapshot_withdraws_before_history_wait_and_stop_remains_prompt",
+                     "generations.checked_current(None).is_err()"),),
     ),
     Mutation(
         "status-allows-equal-deadline",
