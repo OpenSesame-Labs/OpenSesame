@@ -1,7 +1,7 @@
 {
   "version": 2,
   "reviewed_revision": "66d79b7cfa4d8304499541ff3794033ea72c5bc6",
-  "reviewed_source_state": "The covered domain sources and root Cargo inputs match reviewed_revision. The standalone authority harness inputs were reviewed at ac8236c9b2d1236fec5dc4593390724ff17e6f6d; the recorded projections are computed from those same root Cargo inputs. The compiler-isolation and projection helpers were reviewed separately; their hashes identify the reviewed helper bytes. 2026-11-23 (RUSTSEC-2026-0592): url 2.5.8 -> 2.5.9 and form_urlencoded 1.2.2 -> 1.2.3 in the root and harness Cargo.lock; the domain lock projection differs only by those two registry packages and the edges from opensesame-domain, sqlx-core and sqlx-sqlite to them (225 nodes before and after; no package added or removed, url's own dependency list unchanged). The harness lock changes only those two entries, with checksums identical to the root lock, so its direct dependencies still match production. No covered domain or time source, harness manifest or conformance input changed and the model needs no change; the Cargo.lock and lock_projection hashes are recomputed for those reviewed bytes, and reviewed_revision is left at the last reviewed main ancestor.",
+  "reviewed_source_state": "The covered domain sources and root Cargo inputs match reviewed_revision. The standalone authority harness inputs were reviewed at ac8236c9b2d1236fec5dc4593390724ff17e6f6d; the recorded projections are computed from those same root Cargo inputs. The compiler-isolation and projection helpers were reviewed separately; their hashes identify the reviewed helper bytes. 2026-11-23 (RUSTSEC-2026-0592): url 2.5.8 -> 2.5.9 and form_urlencoded 1.2.2 -> 1.2.3 in the root and harness Cargo.lock; the domain lock projection differs only by those two registry packages and the edges from opensesame-domain, sqlx-core and sqlx-sqlite to them (225 nodes before and after; no package added or removed, url's own dependency list unchanged). The harness lock changes only those two entries, with checksums identical to the root lock, so its direct dependencies still match production. No covered domain or time source, harness manifest or conformance input changed and the model needs no change; the Cargo.lock and lock_projection hashes are recomputed for those reviewed bytes, and reviewed_revision is left at the last reviewed main ancestor. 2026-11-24 (AUTH-D7, AUTH-D8): conformance.rs gains the Lean-generated constraint-dimension (attenuate and replace) and resource-selector cases; no covered domain or time source changed, so reviewed_revision is unchanged and only the conformance.rs hash is recomputed.",
   "sources": [
     {
       "path": "crates/domain/Cargo.toml",
@@ -313,7 +313,7 @@
     },
     {
       "path": "spec/formal/authority/conformance.rs",
-      "sha256": "5b4e0c4778699a3d1c2ae442d43d340131d70eaac137ad738e5ba3af33ec8876"
+      "sha256": "7a6c176581b2852addf01d08064883c69c279a7964d9bd8222b3c1217aef23fc"
     },
     {
       "path": "scripts/security/formal-cargo-isolation.py",

@@ -1,10 +1,15 @@
 use opensesame_domain::{
+    grant::resource_pattern_matches,
+    grant_attenuation::resources_attenuate,
     grant_lineage::{validate_delegator, validate_proof_key_transfer, validate_scope_containment},
     ActorId, ActorInstanceId, ClientId, ConnectionId, EnvironmentId, Grant, GrantConstraints,
     GrantId, OfflineUse, OrganizationId, PrincipalId, ProjectId,
 };
-use opensesame_time::{TimeZone, Utc};
-use std::{collections::HashSet, env, fs};
+use opensesame_time::{DateTime, TimeZone, Utc};
+use std::{
+    collections::{BTreeMap, HashSet},
+    env, fs,
+};
 
 fn fixture() -> (Grant, Grant) {
     let now = Utc
@@ -147,11 +152,67 @@ fn bind_scope_dimension(parent: &mut Grant, child: &mut Grant, dimension: &str, 
     }
 }
 
+fn at(offset: &str) -> DateTime<Utc> {
+    let seconds: i64 = offset.parse().expect("time vector");
+    Utc.timestamp_opt(1_000 + seconds, 0)
+        .single()
+        .expect("valid timestamp")
+}
+
+fn names(field: &str, prefix: &str) -> Vec<String> {
+    if field == "-" {
+        return Vec::new();
+    }
+    field.split(',').map(|n| format!("{prefix}-{n}")).collect()
+}
+
+fn optional<T>(field: &str, parse: impl Fn(&str) -> T) -> Option<T> {
+    (field != "none").then(|| parse(field))
+}
+
+/// Apply one Lean `Limits` record (11 columns, see `limitsText`) to a grant.
+fn apply_limits(grant: &mut Grant, fields: &[&str]) {
+    assert_eq!(fields.len(), 11, "invalid limits vector {fields:?}");
+    let limits = &mut grant.constraints;
+    limits.audiences = names(fields[0], "aud");
+    limits.not_before = optional(fields[1], at);
+    limits.expires_at = at(fields[2]);
+    // `fido` is a name `assurance_rank` does not know.
+    limits.required_assurance = optional(fields[3], str::to_string);
+    limits.authentication_max_age_seconds = optional(fields[4], |v| v.parse().expect("age"));
+    limits.allowed_networks = names(fields[5], "net");
+    limits.parameter_rules_digest = optional(fields[6], |v| format!("digest-{v}"));
+    limits.offline_use = match fields[7] {
+        "0" => OfflineUse::Forbidden,
+        "1" => OfflineUse::ReadOnly,
+        "2" => OfflineUse::PreAuthorized,
+        other => panic!("invalid offline vector {other}"),
+    };
+    limits.budgets = if fields[8] == "-" {
+        BTreeMap::new()
+    } else {
+        fields[8]
+            .split(',')
+            .map(|entry| {
+                let (key, value) = entry.split_once('=').expect("budget entry");
+                let key = match key {
+                    "0" => "calls",
+                    "1" => "bytes",
+                    other => panic!("invalid budget key {other}"),
+                };
+                (key.to_string(), value.parse().expect("budget value"))
+            })
+            .collect()
+    };
+    grant.delegation_depth = fields[9].parse().expect("depth");
+    limits.maximum_delegation_depth = fields[10].parse().expect("maximum depth");
+}
+
 fn main() {
     let path = env::args().nth(1).expect("Lean vector path required");
     let contents = fs::read_to_string(path).expect("read Lean vectors");
     let mut seen = HashSet::new();
-    let mut counts = [0; 6];
+    let mut counts = [0; 10];
     let mut scope_checks = 0;
     for line in contents.lines() {
         let columns: Vec<_> = line.split('\t').collect();
@@ -228,6 +289,37 @@ fn main() {
                 child.actions = actions(bit(cr), bit(cw));
                 Grant::validate_attenuation(&parent, &child).is_ok()
             }
+            ["attenuate", _dimension, rest @ ..] if rest.len() == 23 => {
+                counts[6] += 1;
+                apply_limits(&mut parent, &rest[..11]);
+                apply_limits(&mut child, &rest[11..22]);
+                Grant::validate_attenuation(&parent, &child).is_ok()
+            }
+            ["replace", _dimension, rest @ ..] if rest.len() == 34 => {
+                counts[7] += 1;
+                apply_limits(&mut parent, &rest[..11]);
+                apply_limits(&mut child, &rest[11..22]);
+                let mut replacement = child.clone();
+                replacement.id = GrantId::new();
+                apply_limits(&mut replacement, &rest[22..33]);
+                Grant::validate_replacement(&parent, &child, &replacement).is_ok()
+            }
+            ["selector", p, c, _] => {
+                counts[8] += 1;
+                let contained = resources_attenuate(&[c.to_string()], &[p.to_string()]);
+                parent.resources = vec![p.to_string()];
+                child.resources = vec![c.to_string()];
+                let attenuates = Grant::validate_attenuation(&parent, &child).is_ok();
+                assert_eq!(contained, attenuates, "vector: {line}");
+                contained
+            }
+            ["pattern", p, r, _] => {
+                counts[9] += 1;
+                parent.resources = vec![p.to_string()];
+                let permits = parent.permits_resource(r);
+                assert_eq!(permits, resource_pattern_matches(p, r), "vector: {line}");
+                permits
+            }
             _ => panic!("invalid vector: {line}"),
         };
         assert_eq!(
@@ -236,7 +328,11 @@ fn main() {
             "vector: {line}"
         );
     }
-    assert_eq!(counts, [4, 8, 4, 6, 12, 16], "incomplete matrix");
+    assert_eq!(
+        counts,
+        [4, 8, 4, 6, 12, 16, 1127, 1127, 361, 361],
+        "incomplete matrix"
+    );
     assert_eq!(scope_checks, 36, "incomplete scope binding matrix");
     println!("authority correspondence: {} cases passed", seen.len());
 }
