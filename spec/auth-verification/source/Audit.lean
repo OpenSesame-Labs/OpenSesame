@@ -7,14 +7,15 @@ example (safe present listed : Bool) (sameOrigin : Option Bool) :
       safe = true ∨ (present = true ∧ (listed = true ∨ sameOrigin = some true)) :=
   cookie_refines_policy safe present listed sameOrigin
 
-example (isNull isUndefined suspended closed : Bool) :
-    extractedPrincipal isNull isUndefined suspended closed = some true ↔
-      isNull = false ∧ isUndefined = false ∧ suspended = false ∧ closed = false :=
-  principal_refines_policy isNull isUndefined suspended closed
+example (isNull isUndefined suspended closed withdrawalPending : Bool) :
+    extractedPrincipal isNull isUndefined suspended closed withdrawalPending = some true ↔
+      isNull = false ∧ isUndefined = false ∧ suspended = false ∧ closed = false ∧
+        withdrawalPending = false :=
+  principal_refines_policy isNull isUndefined suspended closed withdrawalPending
 
-example (isNull isUndefined suspended closed : Bool) :
-    extractedPrincipal isNull isUndefined suspended closed ≠ none :=
-  principal_never_throws isNull isUndefined suspended closed
+example (isNull isUndefined suspended closed withdrawalPending : Bool) :
+    extractedPrincipal isNull isUndefined suspended closed withdrawalPending ≠ none :=
+  principal_never_throws isNull isUndefined suspended closed withdrawalPending
 
 example (spent owner expired mismatch errorFlag : Bool) (code : CodeKind) :
     (extractedOidc spent owner expired mismatch errorFlag code).2 = some true ↔

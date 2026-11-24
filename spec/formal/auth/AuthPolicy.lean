@@ -204,5 +204,196 @@ def main : IO Unit := do
 
 end OpenSesame.AuthPolicy
 
+namespace OpenSesame.AuthPolicy.Storage
+
+/-! AUTH-S1 storage contract: `DurableMap` (repos/durable-map.ts) with `secretKeys`.
+A row id is only an `oidcLookup` (keyed HMAC) of the key (`keyed`) or, before
+2026-11-23, of its SHA-256 digest (`legacyDigest`, durable-map-legacy.ts).
+`legacy = true`: reads also address the legacy id (before #2927);
+`false`: requests address only the keyed id (#2927). Sealing, capacity, the purge of expired
+rows, concurrency and the database are outside the model. -/
+
+inductive RowId where | keyed (key : String) | legacyDigest (key : String)
+  deriving DecidableEq
+
+structure Row (V : Type) where (value : V) (expiresAt : Option Int)
+
+def Row.live {V : Type} (now : Int) (r : Row V) : Bool :=
+  match r.expiresAt with | none => true | some t => decide (now < t)
+
+abbrev Store (V : Type) := RowId → Option (Row V)
+
+/-- The ids a key-addressed operation reads or deletes (`DurableMap.ids`). -/
+def addresses (legacy : Bool) (key : String) : List RowId :=
+  if legacy then [.keyed key, .legacyDigest key] else [.keyed key]
+
+def liveAt {V : Type} (s : Store V) (now : Int) (id : RowId) : Option (Row V) :=
+  match s id with | some r => if r.live now then some r else none | none => none
+
+/-- `get`: live rows under the key's addresses, the keyed id preferred. -/
+def lookup {V : Type} (legacy : Bool) (s : Store V) (now : Int) (key : String) : Option V :=
+  match liveAt s now (.keyed key) with
+  | some r => some r.value
+  | none => if legacy then (liveAt s now (.legacyDigest key)).map (·.value) else none
+
+def put {V : Type} (s : Store V) (id : RowId) (v : Option (Row V)) : Store V :=
+  fun j => if j = id then v else s j
+
+/-- `write`: delete the key's rows under every address, store the new row at the keyed id. -/
+def write {V : Type} (s : Store V) (key : String) (r : Row V) : Store V :=
+  put (put s (.legacyDigest key) none) (.keyed key) (some r)
+
+/-- `rekey` (`adoptLegacyRow`): copy the legacy row unless the keyed id holds any
+row (live or not), then delete the legacy row, in one transaction. -/
+def rekey {V : Type} (s : Store V) (key : String) : Store V :=
+  match s (.legacyDigest key) with
+  | none => s
+  | some r =>
+    put (match s (.keyed key) with
+      | some _ => s
+      | none => put s (.keyed key) (some r)) (.legacyDigest key) none
+
+/-- Startup re-keying of recoverable keys (`rekeyRecoverable`, `rekeyKeys`). -/
+def migrate {V : Type} (s : Store V) (keys : List String) : Store V :=
+  keys.foldl rekey s
+
+theorem lookup_reads_only_addresses {V : Type} (legacy : Bool) (s t : Store V)
+    (now : Int) (key : String) (h : ∀ id ∈ addresses legacy key, s id = t id) :
+    lookup legacy s now key = lookup legacy t now key := by
+  cases legacy <;> simp [addresses] at h <;> simp [lookup, liveAt, h]
+
+theorem legacy_free_addresses_keyed_only (key : String) :
+    ∀ id ∈ addresses false key, id = .keyed key := by
+  simp [addresses]
+
+theorem write_stores_only_keyed {V : Type} (s : Store V) (key : String) (r : Row V) :
+    (write s key r (.keyed key)).isSome ∧ write s key r (.legacyDigest key) = none ∧
+      ∀ id, id ∉ addresses true key → write s key r id = s id := by
+  refine ⟨by simp [write, put], by simp [write, put], ?_⟩
+  intro id hid
+  simp [addresses] at hid
+  simp [write, put, hid.1, hid.2]
+
+theorem write_then_lookup {V : Type} (legacy : Bool) (s : Store V) (key : String)
+    (r : Row V) (now : Int) (h : r.live now = true) :
+    lookup legacy (write s key r) now key = some r.value := by
+  simp [lookup, liveAt, write, put, h]
+
+theorem rekey_other_ids {V : Type} (s : Store V) (key : String) (id : RowId)
+    (h : id ∉ addresses true key) : rekey s key id = s id := by
+  simp [addresses] at h
+  cases hl : s (.legacyDigest key) <;> cases hk : s (.keyed key) <;>
+    simp [rekey, hl, hk, put, h.1, h.2]
+
+/-- A row the keyed id already holds stays readable at that id after `rekey`. -/
+theorem rekey_keeps_keyed {V : Type} (s : Store V) (key : String) (c : Row V)
+    (h : s (.keyed key) = some c) : rekey s key (.keyed key) = some c := by
+  cases hl : s (.legacyDigest key) <;> simp [rekey, hl, h, put]
+
+theorem rekey_preserves_lookup {V : Type} (s : Store V) (key : String) (now : Int)
+    (h : ∀ c, s (.keyed key) = some c → c.live now = true) :
+    lookup true (rekey s key) now key = lookup true s now key := by
+  cases hl : s (.legacyDigest key) with
+  | none => simp [rekey, hl]
+  | some r =>
+    cases hk : s (.keyed key) with
+    | none =>
+      simp [rekey, lookup, liveAt, put, hk, hl]
+      cases r.live now <;> rfl
+    | some c => simp [rekey, lookup, liveAt, put, hk, hl, h c hk]
+
+private def NoExpiryKeyed {V : Type} (s : Store V) (key : String) : Prop :=
+  ∃ c, s (.keyed key) = some c ∧ c.expiresAt = none
+
+private def NoExpiryPending {V : Type} (s : Store V) (key : String) : Prop :=
+  NoExpiryKeyed s key ∨
+    (s (.keyed key) = none ∧ ∃ r, s (.legacyDigest key) = some r ∧ r.expiresAt = none)
+
+private theorem rekey_keeps_noExpiryKeyed {V : Type} (s : Store V) (key k : String)
+    (h : NoExpiryKeyed s key) : NoExpiryKeyed (rekey s k) key := by
+  obtain ⟨c, hc, he⟩ := h
+  refine ⟨c, ?_, he⟩
+  by_cases hk : k = key
+  · subst hk; exact rekey_keeps_keyed s k c hc
+  · rw [rekey_other_ids s k (.keyed key) (by simp [addresses]; exact fun h => hk h.symm)]
+    exact hc
+
+private theorem rekey_settles {V : Type} (s : Store V) (key : String)
+    (h : NoExpiryPending s key) : NoExpiryKeyed (rekey s key) key := by
+  rcases h with h | ⟨hk, r, hl, he⟩
+  · exact rekey_keeps_noExpiryKeyed s key key h
+  · refine ⟨r, ?_, he⟩
+    simp [rekey, hl, hk, put]
+
+private theorem rekey_keeps_pending {V : Type} (s : Store V) (key k : String)
+    (hne : k ≠ key) (h : NoExpiryPending s key) : NoExpiryPending (rekey s k) key := by
+  have hkid : RowId.keyed key ∉ addresses true k := by
+    simp [addresses]; exact fun h => hne h.symm
+  have hlid : RowId.legacyDigest key ∉ addresses true k := by
+    simp [addresses]; exact fun h => hne h.symm
+  rcases h with h | ⟨hk, r, hl, he⟩
+  · exact Or.inl (rekey_keeps_noExpiryKeyed s key k h)
+  · exact Or.inr ⟨by rw [rekey_other_ids s k _ hkid]; exact hk, r,
+      by rw [rekey_other_ids s k _ hlid]; exact hl, he⟩
+
+private theorem migrate_keeps_noExpiryKeyed {V : Type} (keys : List String) (key : String) :
+    ∀ s : Store V, NoExpiryKeyed s key → NoExpiryKeyed (migrate s keys) key := by
+  induction keys with
+  | nil => intro s h; exact h
+  | cons k rest ih =>
+    intro s h
+    exact ih (rekey s k) (rekey_keeps_noExpiryKeyed s key k h)
+
+private theorem migrate_settles {V : Type} (keys : List String) (key : String)
+    (hmem : key ∈ keys) :
+    ∀ s : Store V, NoExpiryPending s key → NoExpiryKeyed (migrate s keys) key := by
+  induction keys with
+  | nil => cases hmem
+  | cons k rest ih =>
+    intro s h
+    by_cases hk : k = key
+    · subst hk
+      exact migrate_keeps_noExpiryKeyed rest k (rekey s k) (rekey_settles s k h)
+    · have hrest : key ∈ rest := by
+        rcases List.mem_cons.mp hmem with h' | h'
+        · exact absurd h'.symm hk
+        · exact h'
+      exact ih hrest (rekey s k) (rekey_keeps_pending s key k hk h)
+
+/-- A no-expiry legacy row whose key the migration recovers is findable by the
+keyed id alone afterwards, if that id was empty or also held a no-expiry row. -/
+theorem migration_keeps_no_expiry_rows {V : Type} (s : Store V) (keys : List String)
+    (key : String) (r : Row V) (hl : s (.legacyDigest key) = some r)
+    (he : r.expiresAt = none)
+    (hk : s (.keyed key) = none ∨ ∃ c, s (.keyed key) = some c ∧ c.expiresAt = none)
+    (hmem : key ∈ keys) (now : Int) :
+    (lookup false (migrate s keys) now key).isSome = true := by
+  have hp : NoExpiryPending s key := by
+    rcases hk with hk | hk
+    · exact Or.inr ⟨hk, r, hl, he⟩
+    · exact Or.inl hk
+  obtain ⟨c, hc, hce⟩ := migrate_settles keys key hmem s hp
+  simp [lookup, liveAt, hc, Row.live, hce]
+
+/-- Without the fallback, a key held only by its legacy id (a pre-upgrade bearer) is refused. -/
+theorem legacy_only_row_refused {V : Type} (s : Store V) (now : Int) (key : String)
+    (h : s (.keyed key) = none) : lookup false s now key = none := by
+  simp [lookup, liveAt, h]
+
+/-- Contract (2): startup serves only once no legacy row remains, and then
+removing the fallback changes no read. -/
+theorem served_store_needs_no_fallback {V : Type} (s : Store V) (now : Int) (key : String)
+    (h : ∀ k, s (.legacyDigest k) = none) : lookup false s now key = lookup true s now key := by
+  cases hk : liveAt s now (.keyed key) <;> simp_all [lookup, liveAt]
+
+/-- `rekey` keeps an expired keyed row and deletes a live legacy row. -/
+theorem rekey_drops_live_legacy_behind_expired_keyed :
+    ∃ (s : Store Nat) (key : String) (now : Int),
+      lookup true s now key = some 1 ∧ lookup true (rekey s key) now key = none := by
+  refine ⟨fun id => match id with
+    | .keyed _ => some ⟨0, some 0⟩
+    | .legacyDigest _ => some ⟨1, none⟩, "k", 0, ?_, ?_⟩ <;> decide
+
+end OpenSesame.AuthPolicy.Storage
 -- `lean --run` needs an unqualified entrypoint.
 def main : IO Unit := OpenSesame.AuthPolicy.main

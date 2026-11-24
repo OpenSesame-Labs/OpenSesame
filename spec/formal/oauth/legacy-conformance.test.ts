@@ -2,8 +2,10 @@ import { createHash, createHmac, scryptSync } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import {
+  type PendingCookieKeys,
   type PendingFederatedAuth,
   decodePending,
+  encodePending,
 } from "../../../packages/control-plane/src/interactions/federated-pending.js";
 import { trustMatchesPending } from "../../../packages/control-plane/src/interactions/federated-trust-binding.js";
 import type { TrustResolution } from "../../../packages/control-plane/src/interactions/trust.js";
@@ -18,6 +20,7 @@ const rows = readFileSync(path, "utf8")
   .map((line) => line.split("\t"));
 const vectors = rows.filter((row) => row[0] === "legacy");
 const provenance = rows.filter((row) => row[0] === "provenance");
+const v4 = rows.filter((row) => row[0] === "v4");
 
 it("covers every abstract legacy MAC and provenance case", () => {
   const expected = new Set<string>();
@@ -80,13 +83,10 @@ it.each(vectors)(
     const tag = createHmac("sha256", valid === "1" ? secret : "wrong-test-key")
       .update(message)
       .digest("base64url");
-    // v4 refuses every pre-v4 tag: verifying one would run scrypt on
-    // unauthenticated input. The implementation therefore refines the model
-    // conservatively. It never accepts a case the model refuses, and it also
-    // refuses the model's admitted legacy static-provider cases (FED-I2).
+    // FED-I2 (v4): the model refuses every legacy cookie, because its
+    // plaintext verifier fails the strict sealed wire shape whatever its tag.
     const accepted = decodePending(`${payload}.${tag}`, secret) !== undefined;
-    expect(accepted && expected !== "1").toBe(false);
-    expect(accepted).toBe(false);
+    expect(accepted).toBe(expected === "1");
   },
 );
 
@@ -147,3 +147,94 @@ it.each(provenance)(
     expect(trustMatchesPending(trust, pending)).toBe(expected === "1");
   },
 );
+
+/** Counts derivations; mirrors the real 255-byte leg-binding refusal. */
+function countingKeys(): PendingCookieKeys & { calls: number } {
+  const keys = {
+    calls: 0,
+    verifierSealKey(s: string, state: string, nonce: string): Buffer {
+      keys.calls += 1;
+      if (Buffer.byteLength(state) > 255 || Buffer.byteLength(nonce) > 255)
+        throw new Error("leg binding exceeds 255 bytes");
+      return createHash("sha256").update(`${s}\0${state}\0${nonce}`).digest();
+    },
+  };
+  return keys;
+}
+
+/** The v4 tag, restated from the reviewed codec so a changed MAC is caught. */
+function v4Tag(payload: string, key: string): string {
+  const derived = createHmac("sha256", key)
+    .update("OpenSesame:federated-pending:v4:key")
+    .digest();
+  return createHmac("sha256", derived)
+    .update("OpenSesame:federated-pending:v4\0")
+    .update(payload)
+    .digest("base64url");
+}
+
+/** Build the signed cookie for one abstract FED-I4 case (keys seal the verifier). */
+function v4Cookie(row: string[], keys?: PendingCookieKeys): string {
+  const [, oversize, canonicalEncoding, tag, wire, leg, seal] = row;
+  const pending: PendingFederatedAuth = {
+    issuer: `https://issuer.example/${oversize === "1" ? "a".repeat(5000) : ""}`,
+    state: leg === "1" ? "state-example" : "s".repeat(256),
+    nonce: "nonce-example",
+    verifier: "verifier-example",
+    kind: "oidc",
+  };
+  const { verifier, ...rest } = pending;
+  // An over-long leg cannot be sealed; its decode stops at the derivation.
+  let verifierEnc = Buffer.alloc(44, 7).toString("base64url");
+  if (seal === "1" && leg === "1") {
+    const sealedCookie = encodePending(pending, secret, keys);
+    const sealedPayload = sealedCookie.slice(0, sealedCookie.lastIndexOf("."));
+    verifierEnc = JSON.parse(
+      Buffer.from(sealedPayload, "base64url").toString("utf8"),
+    ).verifierEnc;
+  }
+  const sealed = { ...rest, verifierEnc };
+  const json =
+    wire === "sealed"
+      ? sealed
+      : wire === "plaintext"
+        ? { ...rest, verifier }
+        : wire === "mixed"
+          ? { ...sealed, verifier }
+          : wire === "unknown"
+            ? { ...sealed, futurePolicy: "unbound" }
+            : undefined;
+  let payload = Buffer.from(
+    json === undefined ? "{not json" : JSON.stringify(json),
+  ).toString("base64url");
+  if (canonicalEncoding === "0") payload = `${payload}=`;
+  return `${payload}.${v4Tag(payload, tag === "1" ? secret : "wrong-test-key")}`;
+}
+
+it("covers every abstract v4 decode case", () => {
+  expect(v4).toHaveLength(160);
+  expect(new Set(v4.map((row) => row.slice(1, 7).join("/"))).size).toBe(160);
+  expect(
+    v4.every(
+      (row) =>
+        row.length === 9 &&
+        ["0", "1"].includes(row[7]) &&
+        ["0", "1"].includes(row[8]),
+    ),
+  ).toBe(true);
+});
+
+it.each(v4)("v4 decode %s %s %s %s %s %s %s", (...row: string[]) => {
+  const [derivations, expected] = [row[7], row[8]];
+  // Real keys: acceptance matches the model (FED-I1, FED-I4).
+  expect(decodePending(v4Cookie(row), secret) !== undefined).toBe(
+    expected === "1",
+  );
+  // Counted keys: no derivation before the tag verifies, one after.
+  const cookie = v4Cookie(row, countingKeys());
+  const keys = countingKeys();
+  expect(decodePending(cookie, secret, keys) !== undefined).toBe(
+    expected === "1",
+  );
+  expect(keys.calls).toBe(Number(derivations));
+});

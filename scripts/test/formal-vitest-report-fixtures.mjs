@@ -141,10 +141,26 @@ function oauthFixture() {
     "provenance",
     1,
   );
+  const v4 = rows(
+    [
+      bits,
+      bits,
+      bits,
+      ["sealed", "plaintext", "mixed", "unknown", "malformed"],
+      bits,
+      bits,
+    ],
+    "v4",
+    2,
+  );
   const tests = [
     assertion("covers every abstract legacy MAC and provenance case"),
     assertion("covers every sampled source and pending provenance combination"),
+    assertion("covers every abstract v4 decode case"),
   ];
+  tests.push(
+    ...v4.map((row) => assertion(`v4 decode ${row.slice(0, 7).join(" ")}`)),
+  );
   tests.push(
     ...legacy.map((row) =>
       assertion(`legacy provenance ${row.slice(0, 6).join(" ")}`),
@@ -185,7 +201,7 @@ function oauthFixture() {
     "refuses a changed trust owner at the exchange's own lookup",
   ].map(securityCase);
   return finishFixture(
-    [...legacy, ...provenance],
+    [...legacy, ...provenance, ...v4],
     [fileResult(file.oauth, tests), fileResult(file.security, security)],
   );
 }
