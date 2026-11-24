@@ -32,7 +32,7 @@
     },
     {
       "path": "packages/control-plane/src/__tests__/interaction-settlement-clock.security.test.ts",
-      "sha256": "01e70f8041a78b26e99aaa248651ed8e52d8c34355955d04936404acb1881603"
+      "sha256": "20d104795178884814c1a899e1c03ebadb68c146f6c9bd133e55acab8ba033bb"
     },
     {
       "path": "packages/os-domain/src/machines/interaction.ts",
@@ -43,5 +43,5 @@
       "sha256": "b53d0cec6685c2460faf554aabbcbbc420732982f9e3ff13c63201b578f63854"
     }
   ],
-  "reviewed_source_state": "Application samples are checked between awaited settlement stages. Hashes bind the reviewed route, settlement service, and controlled-clock regression; database commit-time clocks and rollback beyond the transaction boundary are not modeled."
+  "reviewed_source_state": "Application samples are checked between awaited settlement stages. Hashes bind the reviewed route, settlement service, and controlled-clock regression; database commit-time clocks and rollback beyond the transaction boundary are not modeled. 2026-11-24 (CLOCK-1 unit of work): interaction-settlement-clock.security.test.ts gains the Lean-driven crossing replay; no implementation source changed."
 }

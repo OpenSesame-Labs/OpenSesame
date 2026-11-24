@@ -86,6 +86,49 @@ theorem settlement_requires_every_stage_live
       policy deadline effect := by
   simp [finalSettlement, live_refines_policy]
 
+/-!
+CLOCK-1 at the unit of work. `consumeAndSettle` (interaction-settlement.ts) runs
+inside `ctx.repos.transaction` (interaction-handoff.ts) and takes six application
+samples, each before the next staged write; a refused sample throws and the
+transaction rolls back. `crossing = some k` means the deadline passes just before
+sample `k` (`k = 6`: after the last sample, before the commit); `none` means never.
+The outcome is (HTTP status, interaction stored as consumed, committed fences).
+Rollback of staged writes is the transaction's contract, checked by the replay.
+-/
+def stageSamples : Nat := 6
+
+def samplesLive (crossing : Option Nat) : List Bool :=
+  (List.range stageSamples).map fun i =>
+    match crossing with
+    | some k => decide (i < k)
+    | none => true
+
+def uowOutcome (crossing : Option Nat) : Nat × Bool × Nat :=
+  if (samplesLive crossing).all id then (200, true, 1) else (410, false, 0)
+
+theorem uow_commit_requires_every_sample_live (crossing : Option Nat)
+    (h : (uowOutcome crossing).2.1 = true) : ∀ b ∈ samplesLive crossing, b = true := by
+  unfold uowOutcome at h
+  split at h
+  · rename_i all; exact fun b mem => by simpa using List.all_eq_true.1 all b mem
+  · cases h
+
+theorem uow_refusal_persists_nothing (crossing : Option Nat)
+    (h : (uowOutcome crossing).1 = 410) : (uowOutcome crossing).2 = (false, 0) := by
+  unfold uowOutcome at h ⊢
+  split <;> simp_all
+
+theorem uow_crossing_at_any_sample_refuses (k : Nat) (hk : k < stageSamples) :
+    uowOutcome (some k) = (410, false, 0) := by
+  unfold stageSamples at hk
+  have : k = 0 ∨ k = 1 ∨ k = 2 ∨ k = 3 ∨ k = 4 ∨ k = 5 := by omega
+  rcases this with h | h | h | h | h | h <;> subst h <;> rfl
+
+/-- The residual window, stated rather than hidden: a deadline that passes after
+the last application sample and before the database commit is not refused. -/
+theorem uow_crossing_after_last_sample_commits : uowOutcome (some stageSamples) = (200, true, 1) :=
+  rfl
+
 def instants : List Instant :=
   [⟨false, 0⟩, ⟨true, -8640000000000000⟩, ⟨true, -1⟩,
    ⟨true, 0⟩, ⟨true, 1⟩, ⟨true, 8640000000000000⟩]
@@ -98,6 +141,11 @@ def printVectors : IO Unit := do
     for activationDeadline in instants do
       for now in instants do
         IO.println s!"activation\t{interactionDeadline.valid}\t{interactionDeadline.millis}\t{activationDeadline.valid}\t{activationDeadline.millis}\t{now.valid}\t{now.millis}\t{finalActivation interactionDeadline activationDeadline now}"
+  let crossings : List (Option Nat) := (List.range (stageSamples + 1)).map some ++ [none]
+  for crossing in crossings do
+    let (status, consumed, commits) := uowOutcome crossing
+    let label := match crossing with | some k => toString k | none => "none"
+    IO.println s!"uow\t{label}\t{status}\t{if consumed then "consumed" else "approved"}\t{commits}"
 
 end OpenSesame.InteractionClock
 
