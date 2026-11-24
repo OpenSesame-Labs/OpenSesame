@@ -1,9 +1,9 @@
+import { HOST_CLI_SUITE } from "./formal-proof-host-cli.mjs";
 import { SOURCE_HISTORY_SUITE } from "./formal-proof-source-history.mjs";
 import {
   NATS_TRUST_ROTATION_SUITE,
   SOURCE_TRUST_SELECTION_SUITE,
 } from "./formal-proof-source-selection.mjs";
-import { HOST_CLI_SUITE } from "./formal-proof-host-cli.mjs";
 import { SPIFFE_PEER_DOMAIN_SUITE } from "./formal-proof-spiffe-peer-domain.mjs";
 
 const AXIOM_PROOFS = [
@@ -289,7 +289,12 @@ export const PINNED_FORMAL_SUITES = [
       "crates/transport-security/src/leaf.rs",
       "crates/transport-security/src/lib.rs",
       "crates/spiffe-source/Cargo.toml",
-      ...spiffeSource(["lib", "source", "source_history_flow", "source_handle"]),
+      ...spiffeSource([
+        "lib",
+        "source",
+        "source_history_flow",
+        "source_handle",
+      ]),
       ...spiffeSource(["sink", "sink/transport", "snapshot", "outage"]),
       ...spiffeSource(["status", "source_policy", "config", "bundles"]),
       "crates/storage/Cargo.toml",

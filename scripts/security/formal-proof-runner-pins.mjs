@@ -60,7 +60,7 @@ const sourceSelectionRunners = [
   ...cargoRunners,
   ...workspaceRunners,
 ];
-const formalFiles = (dir, names) => names.map((name) => `spec/formal/${dir}/${name}`);
+const specFiles = (dir, names) => names.map((n) => `spec/formal/${dir}/${n}`);
 const suiteMinimums = {
   auth: [
     "scripts/test/auth-formal.sh",
@@ -70,11 +70,11 @@ const suiteMinimums = {
     "spec/formal/auth/negative-controls.py",
   ],
   oauth: [
-    ...formalFiles("oauth", ["verify.sh", "check-drift.mjs"]),
-    ...formalFiles("oauth", ["check-hosted-flow-report.mjs"]),
+    ...specFiles("oauth", ["verify.sh", "check-drift.mjs"]),
+    ...specFiles("oauth", ["check-hosted-flow-report.mjs"]),
     "scripts/test/formal-vitest-report.mjs",
-    ...formalFiles("oauth", ["vitest.config.ts", "negative-controls.py"]),
-    ...formalFiles("oauth", ["hosted-flow-negative-controls.py"]),
+    ...specFiles("oauth", ["vitest.config.ts", "negative-controls.py"]),
+    ...specFiles("oauth", ["hosted-flow-negative-controls.py"]),
   ],
   webauthn: [
     "spec/formal/webauthn/verify.sh",
@@ -84,8 +84,8 @@ const suiteMinimums = {
     "spec/formal/webauthn/negative-controls.py",
   ],
   "interaction-clock": [
-    ...formalFiles("interaction-clock", ["verify.sh", "check-drift.mjs"]),
-    ...formalFiles("interaction-clock", ["check-report.mjs"]),
+    ...specFiles("interaction-clock", ["verify.sh", "check-drift.mjs"]),
+    ...specFiles("interaction-clock", ["check-report.mjs"]),
     "scripts/test/formal-vitest-report.mjs",
     "spec/formal/interaction-clock/vitest.config.ts",
     "spec/formal/interaction-clock/negative-controls.py",
