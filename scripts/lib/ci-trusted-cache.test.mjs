@@ -216,3 +216,69 @@ describe("trusted install caches", () => {
     }
   });
 });
+
+describe("CodeQL Gradle module cache", () => {
+  it("restores Gradle modules for CodeQL and saves them only from main monitoring", () => {
+    const codeql = read("codeql.yml");
+    const analyze = codeql.split("\n  analyze:\n")[1].split("\n  analyze-")[0];
+    const chunks = steps(analyze);
+    const at = (name) => chunks.findIndex((step) => step.includes(name));
+    const restore = chunks[at("name: Restore Gradle dependency cache")] ?? "";
+    const compile = chunks[at("name: Compile Android production")] ?? "";
+    const save = chunks[at("name: Save Gradle dependency cache")] ?? "";
+    const gradle = /gradle-(\d+\.\d+(?:\.\d+)?)-bin\.zip/.exec(codeql)?.[1];
+    assert.ok(gradle);
+    const prefix = `gradle-modules-v1-\${{ runner.os }}-gradle-${gradle}-`;
+    assert.ok(
+      at("Restore Gradle") < at("Compile Android production") &&
+        at("Compile Android production") < at("Save Gradle") &&
+        at("Save Gradle") < at("name: Analyze\n"),
+    );
+    assert.ok(restore.includes("id: gradle-cache"));
+    assert.ok(restore.includes("if: matrix.language == 'java-kotlin'\n"));
+    assert.ok(
+      restore.includes(
+        "actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+      ),
+    );
+    assert.ok(restore.includes("path: ~/.gradle/caches/modules-2\n"));
+    assert.ok(
+      restore.includes(
+        `key: ${prefix}\${{ hashFiles('apps/android/android/**/*.gradle.kts', 'apps/android/android/**/gradle.properties', 'apps/android/android/**/libs.versions.toml', 'apps/android/android/**/*.lockfile') }}\n`,
+      ),
+    );
+    assert.ok(
+      restore.trimEnd().endsWith(`restore-keys: |\n            ${prefix}`),
+    );
+    // Retry 429/5xx per repository request; never bypass the cache.
+    assert.ok(
+      compile.includes("-Dorg.gradle.internal.repository.max.tentatives=5"),
+    );
+    assert.ok(
+      compile.includes("-Dorg.gradle.internal.repository.initial.backoff=2000"),
+    );
+    assert.equal(compile.includes("--refresh-dependencies"), false);
+    assert.ok(
+      save.includes(
+        "if: ${{ matrix.language == 'java-kotlin' && !inputs.source_sha && github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.gradle-cache.outputs.cache-hit != 'true' }}\n",
+      ),
+    );
+    assert.ok(
+      save.includes(
+        "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+      ),
+    );
+    assert.ok(save.includes("path: ~/.gradle/caches/modules-2\n"));
+    assert.ok(
+      save.includes("key: ${{ steps.gradle-cache.outputs.cache-primary-key }}"),
+    );
+    assert.equal(codeql.split("actions/cache/save@").length, 2);
+    assert.doesNotMatch(codeql, /uses:\s+actions\/cache@/);
+    // The java row keeps the default ten-minute timeout.
+    const java = analyze
+      .split("- language: java-kotlin\n")[1]
+      .split("\n          #")[0];
+    assert.equal(java.includes("timeout:"), false);
+    assert.ok(analyze.includes("timeout-minutes: ${{ matrix.timeout || 10 }}"));
+  });
+});
