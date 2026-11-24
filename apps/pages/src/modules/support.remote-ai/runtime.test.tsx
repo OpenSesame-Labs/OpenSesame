@@ -30,7 +30,10 @@ import {
 } from "../runtime-test-kit.js";
 import { createTestContext } from "../test-context.js";
 import type * as Runtime from "./runtime.js";
-import { acceptedRemoteModels, capabilityRuntime } from "./runtime.js";
+
+// The runtime is loaded dynamically everywhere (runtime-test-kit.ts): a static
+// import would evaluate it before the import-side-effect test can observe it.
+const loadRuntime = (): Promise<typeof Runtime> => import("./runtime.js");
 
 describe("runtime", () => {
   let runtime: typeof Runtime;
@@ -149,9 +152,11 @@ describe("models", () => {
         releaseTransport();
       };
       const t = createTestContext();
-      const handle = await capabilityRuntime.activate(t.ctx);
+      const handle = await (await loadRuntime()).capabilityRuntime.activate(
+        t.ctx,
+      );
       expect(fetch).not.toHaveBeenCalled();
-      expect(acceptedRemoteModels()).toEqual([]);
+      expect((await loadRuntime()).acceptedRemoteModels()).toEqual([]);
       const module = await supportAgentLoaders.agUi();
       const agent = module.createAgUiAgent();
       expect(agent).not.toBeNull();
@@ -171,7 +176,9 @@ describe("models", () => {
     it("does not acquire a model transport when External connectors is unavailable", async () => {
       await saveModelFixture("openai");
       const t = createTestContext();
-      const handle = await capabilityRuntime.activate(t.ctx);
+      const handle = await (await loadRuntime()).capabilityRuntime.activate(
+        t.ctx,
+      );
       const module = await supportAgentLoaders.agUi();
       expect(module.createAgUiAgent()).toBeNull();
       await handle.dispose();
@@ -192,7 +199,9 @@ describe("models", () => {
         releaseTransport();
       };
       const t = createTestContext();
-      const handle = await capabilityRuntime.activate(t.ctx);
+      const handle = await (await loadRuntime()).capabilityRuntime.activate(
+        t.ctx,
+      );
       const pending = supportAgentLoaders.agUi();
       await handle.dispose();
       const module = await pending;
