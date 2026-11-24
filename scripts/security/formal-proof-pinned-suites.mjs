@@ -188,10 +188,14 @@ export const PINNED_FORMAL_SUITES = [
       broker/tests/adversarial_broker/outcome_indeterminate.rs connection-broker/src/egress_json.rs
       connector-host/src/builtin_connector.rs connector-host/src/invocation_binding.rs
       connector-host/src/invocation_dispatch.rs connector-host/src/binding_test_fixtures.rs
-      connector-host/src/invocation_binding_tests.rs connection-broker/src/tests/owner_egress_vectors.rs`),
+      connector-host/src/invocation_binding_tests.rs connection-broker/src/tests/owner_egress_vectors.rs
+      broker/src/frozen_recovery.rs gateway/src/routes/tasks_opening.rs gateway/src/middleware/auth.rs
+      gateway/src/routes/tasks_bootstrap_tests.rs gateway/src/routes/tasks_opening_tests.rs
+      gateway/src/routes/intents_budget.rs gateway/src/routes/intents_effect_fence_tests.rs
+      gateway/src/connector_egress.rs gateway/src/connector_egress_binding_tests.rs`),
     ...cargoRoot("gateway", "opensesame-gateway"),
     proofs: [
-      ...formal("invocation", "Invocation.lean InvocationEffects.lean"),
+      ...formal("invocation", "Invocation.lean InvocationEffects.lean InvocationGateway.lean"),
       ...formal("invocation", "required-theorems.lean verify.sh coverage.json"),
       ...AXIOM_PROOFS,
     ],

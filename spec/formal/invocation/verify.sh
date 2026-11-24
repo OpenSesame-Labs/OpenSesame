@@ -86,6 +86,8 @@ if [[ "${1:-}" == "--negative-controls" ]]; then
   o=crates/gateway/src/routes/tasks_opening.rs f=crates/gateway/src/routes/intents_budget.rs
   w=crates/gateway/src/connector_egress.rs
   # file@before@after@name@harness[@occurrence]; `\n` in before/after is a newline.
+  # Dropping `caller.owns` in tasks_opening.rs is an equivalent mutant: the
+  # broker's subject-bound frozen fingerprint refuses the same callers.
   controls=(
     "$b/idempotency.rs@existing.fingerprint.as_ref() == Some(fingerprint),@true,@fingerprint@retry"
     "$b/idempotency.rs@&& self.signer.verify_receipt(&receipt).is_ok()@@signature@retry"
@@ -126,7 +128,6 @@ if [[ "${1:-}" == "--negative-controls" ]]; then
     "$o@Ok(intent) if intent.intent_digest == request.intent_digest => intent,@Ok(intent) => intent,@o2-recover-digest@recovery"
     "$o@    if wire.get(\"intent\") != Some(&canonical) {@    if false {@o2-recover-canonical@recovery"
     "$o@ || !caller.in_organization(&intent.organization_id)@@o2-recover-organization@recovery"
-    "$o@!caller.owns(&intent.principal_id) || @@o2-recover-owner@recovery"
     "$f@let consistent = delegated == resolved.lineage.is_some()\n        &&@let consistent =@d1-admit-lineage@admission"
     "$f@        && delegated == child\n@@d1-admit-child@admission"
     "$f@        && (!delegated || resolved.broker_connection);@;@d1-admit-broker@admission"
