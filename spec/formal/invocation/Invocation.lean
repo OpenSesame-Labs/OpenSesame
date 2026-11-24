@@ -32,21 +32,28 @@ inductive Receipt where
   | none | valid | badSignature | otherIntent | otherBinding | notOpaque
   deriving DecidableEq, Repr
 
+/-- Why `invoke_inner` refuses, as its error names it. -/
+inductive Conflict where
+  | binding | noReceipt | unsafeReceipt | denied | noPrior
+  deriving DecidableEq, Repr
+
 inductive Outcome where
-  | executed | denied | prior | conflict
+  | executed | denied | prior
+  | conflict (reason : Conflict)
   deriving DecidableEq, Repr
 
 def decide (mode : Mode) (stored : Stored) (receipt : Receipt) (allows : Bool) : Outcome :=
   match stored with
   | .none =>
     match mode with
-    | .replay => .conflict
+    | .replay => .conflict .noPrior
     | .invoke => if allows then .executed else .denied
-  | .unbound | .otherBinding => .conflict
+  | .unbound | .otherBinding => .conflict .binding
   | .sameBinding =>
     match receipt with
-    | .valid => if allows then .prior else .conflict
-    | _ => .conflict
+    | .none => .conflict .noReceipt
+    | .valid => if allows then .prior else .conflict .denied
+    | _ => .conflict .unsafeReceipt
 
 theorem prior_requires_binding_receipt_and_policy (mode : Mode) (stored : Stored)
     (receipt : Receipt) (allows : Bool) (h : decide mode stored receipt allows = .prior) :
@@ -58,7 +65,8 @@ theorem reserved_key_never_executes (mode : Mode) (stored : Stored) (receipt : R
   cases mode <;> cases stored <;> cases receipt <;> cases allows <;> simp_all [decide]
 
 theorem replay_never_starts_an_invocation (stored : Stored) (receipt : Receipt) (allows : Bool) :
-    decide .replay stored receipt allows = .prior ∨ decide .replay stored receipt allows = .conflict := by
+    decide .replay stored receipt allows = .prior ∨
+      ∃ reason, decide .replay stored receipt allows = .conflict reason := by
   cases stored <;> cases receipt <;> cases allows <;> simp [decide]
 
 theorem current_denial_withholds_prior (mode : Mode) (stored : Stored) (receipt : Receipt) :
@@ -73,7 +81,10 @@ private def receiptName : Receipt → String
   | .none => "none" | .valid => "valid" | .badSignature => "bad-signature"
   | .otherIntent => "other-intent" | .otherBinding => "other-binding" | .notOpaque => "not-opaque"
 private def outcomeName : Outcome → String
-  | .executed => "executed" | .denied => "denied" | .prior => "prior" | .conflict => "conflict"
+  | .executed => "executed" | .denied => "denied" | .prior => "prior"
+  | .conflict .binding => "conflict:binding" | .conflict .noReceipt => "conflict:no-receipt"
+  | .conflict .unsafeReceipt => "conflict:unsafe-receipt" | .conflict .denied => "conflict:denied"
+  | .conflict .noPrior => "conflict:no-prior"
 
 def main : IO Unit := do
   for mode in [Mode.invoke, .replay] do
