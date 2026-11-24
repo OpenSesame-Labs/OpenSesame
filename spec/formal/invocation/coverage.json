@@ -12,7 +12,7 @@
     },
     {
       "path": "crates/broker/tests/adversarial_broker/invocation_binding.rs",
-      "sha256": "e16202c980768822c58ef0d9c570c3c94e8994e446d1fe6a681f53eaf09c9752"
+      "sha256": "3ef7dc8c8a574a721497ae2c2e000d65ad2f515e2e822b18b4d24d83bd99b6ca"
     }
   ]
 }

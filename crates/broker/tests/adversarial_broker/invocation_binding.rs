@@ -340,7 +340,8 @@ async fn lean_retry_vectors_match_the_broker() {
             Ok(receipt) if Some(receipt.id) == first => "prior",
             Ok(receipt) if receipt.outcome == ReceiptOutcome::Succeeded => "executed",
             Ok(receipt) if receipt.outcome == ReceiptOutcome::Denied => "denied",
-            Ok(receipt) => panic!("unexpected outcome {:?}: {line}", receipt.outcome),
+            // Any other receipt (indeterminate, failed) is a mismatch.
+            Ok(_) => "other",
         };
         assert_eq!(actual, expected, "vector: {line}");
         let after = broker
