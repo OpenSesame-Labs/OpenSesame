@@ -7,9 +7,9 @@ import {
 import {
   reserveGuestGithubItemId,
   saveGuestGithubApp,
+  stagePendingGuestGithubClaim,
   updateGuestGithubAppMetadata,
 } from "./github-app-guest.js";
-import { stagePendingGuestGithubClaim } from "./github-app-guest-pending.js";
 import {
   type LocalGithubApp,
   ensureGuestGithubAppLoaded,

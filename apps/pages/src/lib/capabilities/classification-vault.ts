@@ -1,5 +1,5 @@
 /**
- * `src/lib/vault/**` and `src/tutorial/**`.
+ * `src/lib/vault/**`, `src/tutorial/**` and the tutorial queue in `src/lib`.
  */
 
 import { core, each, optional, shared } from "./classification-rule.js";
@@ -183,6 +183,19 @@ export const VAULT_LIB_RULES = [
 ];
 
 export const TUTORIAL_RULES = [
+  // Guided help owns them; `main.tsx` → `tray-boot` and `bootstrap/core-keys`
+  // link them statically, so they are core whatever the catalog tier.
+  ...each(
+    "src/lib/",
+    ["tutorial-queue", "tutorial-pause-formal.replay.test"],
+    (p) =>
+      core(p, HELP, "queued walkthroughs and the session pause (ADR 0221)"),
+  ),
+  core(
+    "src/lib/tutorial-gate-options",
+    HELP,
+    "the tutorial offer gate, built for the tray at boot (ADR 0163)",
+  ),
   shared(
     `${T}support-context`,
     "nullable React context seam read by core sheets; imports the optional controller only as an erased type",
@@ -232,6 +245,8 @@ export const TUTORIAL_RULES = [
       "ui/",
       "__tests__/",
       "session",
+      "tutorial-exit",
+      "guide-snapshot-active",
       // The first-visit offer rides in the support capability (ADR 0221).
       "first-visit/",
       "first-vault-handoff",
