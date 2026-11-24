@@ -59,7 +59,7 @@ def require_guard_failure(root: Path, suite: str, mutation: str, env: dict[str, 
     if mutation == "empty report" and "JSON" not in output:
         raise RuntimeError(f"{suite}/{mutation}: report was not empty or malformed\n{output[-6000:]}")
     if mutation.startswith("duplicate "):
-        expected_count = "3075 passed" if suite == "webauthn" else "409 passed"
+        expected_count = "6147 passed" if suite == "webauthn" else "2180 passed"
         group = "approval" if suite == "webauthn" else mutation.removeprefix("duplicate ").removesuffix("s")
         if expected_count not in output.replace(",", "") or f"{suite} {group} tests" not in output:
             raise RuntimeError(f"{suite}/{mutation}: expected all tests to pass and duplicate-key rejection\n{output[-6000:]}")
@@ -73,7 +73,7 @@ def require_guard_failure(root: Path, suite: str, mutation: str, env: dict[str, 
 def observe_callback_limit(root: Path, group: str, env: dict[str, str]) -> None:
     result = invoke(root, SUITES["auth"]["runner"], env)
     output = result.stdout + result.stderr
-    if result.returncode != 0 or "409 passed" not in output or "formal-vitest-report: auth correspondence checks passed" not in output:
+    if result.returncode != 0 or "2180 passed" not in output or "formal-vitest-report: auth correspondence checks passed" not in output:
         raise RuntimeError(f"auth/{group} callback observation changed; review the documented boundary\n{output[-6000:]}")
     print(f"auth: {group} callback ignored tuples while all titles passed (documented limitation)", flush=True)
 
@@ -88,6 +88,7 @@ def main() -> None:
     env["FORCE_COLOR"] = "0"
     for name in ("OPENSESAME_OAUTH_MUTANT", "OPENSESAME_APPROVAL_MUTANT"):
         env.pop(name, None)
+
     try:
         with tempfile.TemporaryDirectory(prefix="formal-vitest-report-negative-") as directory:
             scratch = Path(directory)
@@ -95,10 +96,24 @@ def main() -> None:
             (scratch / "scripts/test").mkdir(parents=True)
             for suite in SUITES:
                 shutil.copytree(ROOT / f"spec/formal/{suite}", scratch / f"spec/formal/{suite}", ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-            for relative in ["spec/formal/check-axioms.sh", "spec/formal/required-theorem-command.lean", "scripts/test/auth-formal.sh", "scripts/test/auth-formal-drift.mjs", "scripts/test/formal-vitest-report.mjs"]:
+            for relative in ["spec/formal/check-axioms.sh", "spec/formal/required-theorem-command.lean", "spec/formal/proof-registry.json", "scripts/test/auth-formal.sh", "scripts/test/auth-formal-drift.mjs", "scripts/test/formal-vitest-report.mjs", "scripts/test/formal-vitest-report-matrices.mjs", "scripts/test/auth-formal-drift.test.mjs", "scripts/test/auth-formal-snapshot-fixture.mjs"]:
                 shutil.copy2(ROOT / relative, scratch / relative)
             (scratch / "scripts/lib").symlink_to(ROOT / "scripts/lib", target_is_directory=True)
             (scratch / "packages").symlink_to(ROOT / "packages", target_is_directory=True)
+            # The auth drift check reads reviewed revisions from git: give the
+            # scratch tree a repository that borrows ROOT's objects at ROOT's HEAD.
+            subprocess.run(["git", "init", "-q", str(scratch)], check=True)
+            common = subprocess.check_output(
+                ["git", "-C", str(ROOT), "rev-parse", "--path-format=absolute", "--git-common-dir"],
+                text=True).strip()
+            (scratch / ".git/objects/info/alternates").write_text(f"{common}/objects\n")
+            head = subprocess.check_output(["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True)
+            (scratch / ".git/HEAD").write_text(head)
+            # The auth drift check reads the register and AUTH-C1's snapshot sources.
+            for linked in ("docs", "apps"):
+                (scratch / linked).symlink_to(ROOT / linked, target_is_directory=True)
+            # The auth sign-out check parses session-exit.ts with these helpers.
+            (scratch / "spec/auth-verification").symlink_to(ROOT / "spec/auth-verification", target_is_directory=True)
             # The hosted test runs from the linked control-plane checkout. Run
             # its unchanged checker there as well so both resolve the same path.
             hosted_checker = scratch / "spec/formal/oauth/check-hosted-flow-report.mjs"
@@ -138,7 +153,7 @@ def main() -> None:
                     # generated title but deliberately make each callback use
                     # the first tuple, and record the resulting limitation.
                     callback_arguments = {
-                        "sessions": "_kind, prefix, mapped, present, expiryValue, unrevoked, principalValue, expected",
+                        "sessions": "_kind, prefix, mapped, present, expiryValue, unrevoked, principalValue, cleanup, withdrawal, expected",
                         "projects": "_kind, present, stateValue, expiryValue, roleValue, expectedRole, expectedMember, expectedAdmin, expectedOwner",
                     }
                     for group, arguments in callback_arguments.items():
@@ -168,11 +183,11 @@ def main() -> None:
                             path.write_text(original)
 
                 if suite in ("auth", "oauth"):
-                    model_name = "AuthPolicy.lean" if suite == "auth" else "PendingIntegrity.lean"
+                    model_name = "AuthSession.lean" if suite == "auth" else "PendingIntegrity.lean"
                     model = scratch / f"spec/formal/{suite}/{model_name}"
                     original_model = model.read_text()
-                    bit = 'private def bit (b : Bool) : String := if b then "1" else "0"' if suite == "auth" else 'private def bit (value : Bool) : String := if value then "1" else "0"'
-                    value = '{bit admitted}' if suite == "auth" else '{bit (acceptsProvenance provider byo org source)}'
+                    bit = 'def bit (b : Bool) : String := if b then "1" else "0"' if suite == "auth" else 'private def bit (value : Bool) : String := if value then "1" else "0"'
+                    value = '{bit (resolves ⟨p, m, pr, u, e, prin, cl, w⟩ 0)}' if suite == "auth" else '{bit (acceptsProvenance provider byo org source)}'
                     poisoned_value = value.replace('bit ', 'poison ', 1)
                     if original_model.count(bit) != 1 or original_model.count(value) != 1:
                         raise RuntimeError(f"{suite}/malformed output: mutation point is not unique")

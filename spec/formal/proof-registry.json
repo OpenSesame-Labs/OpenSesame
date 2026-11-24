@@ -8,10 +8,22 @@
         "packages/control-plane/src/proofs/verified-principal.ts",
         "packages/control-plane/src/proofs/project-role.ts",
         "packages/control-plane/src/services/project-access.ts",
-        "packages/os-domain/src/types.ts"
+        "packages/os-domain/src/types.ts",
+        "packages/control-plane/src/middleware/bound-cookie.ts",
+        "packages/control-plane/src/middleware/bound-cookie-name.ts",
+        "packages/control-plane/src/repos/durable-map.ts",
+        "packages/control-plane/src/repos/durable-map-legacy.ts",
+        "packages/control-plane/src/repos/durable-record.ts",
+        "packages/control-plane/src/repos/security-map-rekey.ts",
+        "packages/control-plane/src/transport/listener.ts",
+        "packages/control-plane/src/transport/request-evidence.ts",
+        "packages/control-plane/src/transport/service-admission.ts",
+        "packages/app-core/src/lib/session-exit.ts"
       ],
       "proofs": [
         "spec/formal/auth/AuthPolicy.lean",
+        "spec/formal/auth/AuthTransport.lean",
+        "spec/formal/auth/AuthSession.lean",
         "spec/formal/auth/required-theorems.lean",
         "spec/formal/required-theorem-command.lean",
         "spec/formal/check-axioms.sh",
@@ -1408,6 +1420,42 @@
         "spec/formal/check-axioms.test.mjs"
       ],
       "command": ["npm", "run", "verify:source-history-formal"]
+    },
+    {
+      "id": "guest",
+      "implementation": [
+        "packages/app-core/src/lib/guest-auth.ts",
+        "packages/app-core/src/lib/local-guest.ts",
+        "packages/app-core/src/lib/identity.ts",
+        "packages/app-core/src/lib/identity-cookie-inspection.ts",
+        "packages/app-core/src/lib/identity-probe.ts",
+        "packages/app-core/src/lib/browser-pairing.ts",
+        "packages/app-core/src/lib/guest-session-context.ts",
+        "packages/app-core/src/lib/identity-shared-signout.ts",
+        "packages/app-core/src/lib/auth-generation.ts",
+        "packages/app-core/src/lib/vfs-transient-guest.ts",
+        "packages/app-core/src/lib/vault/store-guest-material.ts",
+        "packages/app-core/src/lib/vault/store-header-publication.ts",
+        "packages/app-core/src/lib/vault/guest-vault-promotion.ts",
+        "packages/app-core/src/lib/vfs-guest-deletion.ts",
+        "packages/app-core/src/lib/connector-directory.ts",
+        "packages/app-core/src/lib/vercel-connect-session.ts",
+        "packages/app-core/src/lib/local-directory.ts",
+        "apps/browser-extension/runner/page-fns.ts"
+      ],
+      "proofs": [
+        "spec/formal/guest/GuestContract.lean",
+        "spec/formal/guest/CustodyContract.lean",
+        "spec/formal/guest/required-theorems.lean",
+        "spec/formal/guest/guest-conformance.test.ts",
+        "spec/formal/guest/custody-conformance.test.ts",
+        "spec/formal/guest/verify.sh",
+        "spec/formal/guest/README.md",
+        "spec/formal/required-theorem-command.lean",
+        "spec/formal/check-axioms.sh",
+        "spec/formal/check-axioms.test.mjs"
+      ],
+      "command": ["npm", "run", "verify:guest-formal"]
     },
     {
       "id": "host-cli",

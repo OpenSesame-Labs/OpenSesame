@@ -45,3 +45,72 @@ open OpenSesame.Authority
     ∀ (pRead pWrite cRead cWrite : Bool)
     (_h : actionsAllowed pRead pWrite cRead cWrite = true) (_w : cWrite = true),
     pWrite = true
+
+#require_theorem OpenSesame.Authority.window_cannot_widen :
+    ∀ {p c : Limits} (_h : constraintsNarrow p c = true) (now : Int)
+    (_a : active c now = true), active p now = true
+
+#require_theorem OpenSesame.Authority.assurance_cannot_weaken :
+    ∀ {p c : Limits} (_h : constraintsNarrow p c = true) (a : Assurance)
+    (_ha : p.assurance = some a),
+    ∃ b r s, c.assurance = some b ∧ a.rank = some r ∧ b.rank = some s ∧ r ≤ s
+
+#require_theorem OpenSesame.Authority.auth_age_cannot_widen :
+    ∀ {p c : Limits} (_h : constraintsNarrow p c = true) (m : Nat)
+    (_hm : p.authAge = some m), ∃ k, c.authAge = some k ∧ k ≤ m
+
+#require_theorem OpenSesame.Authority.networks_cannot_widen :
+    ∀ {p c : Limits} (_h : constraintsNarrow p c = true) (_ne : p.networks ≠ []),
+    c.networks ≠ [] ∧ ∀ n ∈ c.networks, n ∈ p.networks
+
+#require_theorem OpenSesame.Authority.parameter_rules_cannot_change :
+    ∀ {p c : Limits} (_h : constraintsNarrow p c = true) (d : Nat)
+    (_hd : p.digest = some d), c.digest = some d
+
+#require_theorem OpenSesame.Authority.offline_cannot_widen :
+    ∀ {p c : Limits} (_h : constraintsNarrow p c = true), c.offline ≤ p.offline
+
+#require_theorem OpenSesame.Authority.budget_meter_cannot_drop_or_rise :
+    ∀ {p c : Limits} (_h : constraintsNarrow p c = true) (k : Nat) (v : Int)
+    (_hv : budgetOf p.budgets k = some v),
+    ∃ w, budgetOf c.budgets k = some w ∧ 0 ≤ w ∧ w ≤ v
+
+#require_theorem OpenSesame.Authority.budget_key_cannot_appear :
+    ∀ {p c : Limits} (_h : constraintsNarrow p c = true) (k : Nat) (w : Int)
+    (_hw : budgetOf c.budgets k = some w),
+    (budgetOf p.budgets k).isSome = true ∧ 0 ≤ w
+
+#require_theorem OpenSesame.Authority.audiences_cannot_widen :
+    ∀ {p c : Limits} (_h : limitsNarrow p c = true) (_ne : p.audiences ≠ []),
+    c.audiences ≠ [] ∧ ∀ n ∈ c.audiences, n ∈ p.audiences
+
+#require_theorem OpenSesame.Authority.replacement_narrows_both :
+    ∀ {p cur r : Limits} (_h : replacementLimits p cur r = true),
+    limitsNarrow p r = true ∧ constraintsNarrow cur r = true ∧ r.maxDepth ≤ cur.maxDepth
+
+#require_theorem OpenSesame.Authority.chain_window_within_root :
+    ∀ {root leaf : Limits} {n : Nat} (_chain : LimitChain root leaf n) (now : Int)
+    (_a : active leaf now = true), active root now = true
+
+#require_theorem OpenSesame.Authority.chain_depth_bounded :
+    ∀ {root leaf : Limits} {n : Nat} (_chain : LimitChain root leaf n),
+    leaf.depth = root.depth + n ∧ leaf.maxDepth ≤ root.maxDepth ∧
+      (0 < n → leaf.depth ≤ root.maxDepth)
+
+#require_theorem OpenSesame.Authority.selector_containment_sound :
+    ∀ (p c r : Sel) (_h : selectorContains p c = true) (_m : patternMatches c r = true),
+    patternMatches p r = true
+
+#require_theorem OpenSesame.Authority.resources_cannot_widen :
+    ∀ (child parent : List Sel) (_h : resourcesAttenuate child parent = true) (r : Sel)
+    (_m : permits child r = true), permits parent r = true
+
+#require_theorem OpenSesame.Authority.replacement_keeps_current_audiences :
+    ∀ {p cur r : Limits} (_h : replacementLimits p cur r = true) (_ne : cur.audiences ≠ []),
+    r.audiences ≠ [] ∧ ∀ n ∈ r.audiences, n ∈ cur.audiences
+
+#require_theorem OpenSesame.Authority.replacement_keeps_current_scope :
+    ∀ (p r : Option Nat) (v : Nat) (_h : replacementScope p (some v) r = true), r = some v
+
+#require_theorem OpenSesame.Authority.replacement_keeps_current_key :
+    ∀ (p : Option Nat) (k : Nat), replacementKey p (some k) none = false

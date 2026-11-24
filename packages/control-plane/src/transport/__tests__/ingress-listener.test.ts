@@ -9,6 +9,7 @@ import {
   type TransportListener,
   createTransportListener,
 } from "../listener.js";
+import { identityMtlsTransport } from "../oauth-transport.js";
 import { bindingPeerOf, requestEvidenceOf } from "../request-evidence.js";
 import {
   type DisposablePki,
@@ -18,8 +19,12 @@ import {
 } from "./pki.js";
 import { pinnedAgent, tlsRequest } from "./tls-client.js";
 
+/** The OAuth issuer's mTLS view, as the listener under test configures it. */
+let issuer: ReturnType<typeof identityMtlsTransport>;
+
 function echo(req: IncomingMessage, res: ServerResponse): void {
   const evidence = requestEvidenceOf(req);
+  const issuerPem = issuer?.peerOf(req.socket, req)?.certificatePem();
   res.setHeader("content-type", "application/json");
   res.end(
     JSON.stringify({
@@ -27,6 +32,9 @@ function echo(req: IncomingMessage, res: ServerResponse): void {
       originating: evidence?.originating?.view() ?? null,
       originatingError: evidence?.originatingError ?? null,
       bindingThumb: bindingPeerOf(req)?.leafThumbprintB64u() ?? null,
+      issuerThumb: issuerPem
+        ? new X509Certificate(issuerPem).fingerprint256
+        : null,
     }),
   );
 }
@@ -34,6 +42,11 @@ function echo(req: IncomingMessage, res: ServerResponse): void {
 async function startListener(
   config: TransportListenerConfig,
 ): Promise<{ listener: TransportListener; port: number }> {
+  issuer = identityMtlsTransport({
+    listener: config,
+    mappingAuth: "mtls",
+    mappingAuthExplicit: true,
+  });
   const listener = createTransportListener({
     config,
     material: loadTransportMaterial(config),
@@ -143,9 +156,14 @@ describe("identity TLS listener: trusted_ingress", () => {
         expect(a.bindingThumb).toBe(user1.thumbB64u);
         expect(b.originating.leaf_thumbprint_sha256).toBe(user2.thumbHex);
         expect(b.bindingThumb).toBe(user2.thumbB64u);
+        // The OAuth issuer sees the originating client, never the ingress
+        // hop (AT-OAUTH-PROXY), so issued tokens bind to the client too.
+        expect(a.issuerThumb).toBe(user1.cert.fingerprint256);
+        expect(b.issuerThumb).toBe(user2.cert.fingerprint256);
         // No header on the third request: nothing is inherited from the socket.
         expect(c.originating).toBeNull();
         expect(c.bindingThumb).toBeNull();
+        expect(c.issuerThumb).toBeNull();
         expect(c.peer.leaf_thumbprint_sha256).toBe(ingress.thumbHex);
       } finally {
         agent.destroy();

@@ -67,7 +67,7 @@
     "verify:simplewebauthn-v14": "npm run verify:simplewebauthn-v14 -w @opensesame/auth-upstream",
     "verify:deps-2855-npm-batch": "npm ci && npm run audit:exposure && node --test scripts/security/patched-dependencies.test.mjs",
     "verify:interaction-clock-formal": "bash spec/formal/interaction-clock/verify.sh",
-    "verify:guest-contract-formal": "bash spec/formal/guest/verify.sh",
+    "verify:guest-formal": "bash spec/formal/guest/verify.sh",
     "verify:host-cli-formal": "bash spec/formal/host-cli/verify.sh",
     "test:redteam": "npm run redteam -w @opensesame/redteam",
     "test:visual": "npm run test:visual -w @opensesame/visual-contract",

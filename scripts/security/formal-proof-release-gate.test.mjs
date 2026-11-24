@@ -201,6 +201,7 @@ test("the independently pinned suite contracts survive coordinated JSON weakenin
       "spiffe-peer-domain",
       "nats-trust-rotation",
       "source-history",
+      "guest",
       "host-cli",
     ],
   );
@@ -217,6 +218,7 @@ test("the independently pinned suite contracts survive coordinated JSON weakenin
     "spiffe-peer-domain",
     "nats-trust-rotation",
     "source-history",
+    "guest",
     "host-cli",
   ]) {
     for (const kind of ["suite", "mapping", "proof", "command"]) {

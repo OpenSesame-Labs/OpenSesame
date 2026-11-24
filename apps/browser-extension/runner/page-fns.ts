@@ -183,7 +183,8 @@ export function pfSubmit(
  */
 export function pfLayout(expectedOrigin: string): string {
   const win = document.defaultView;
-  if (win && win.location.origin !== expectedOrigin)
+  // A document with no window has no origin to check, so it is refused too.
+  if (!win || win.location.origin !== expectedOrigin)
     throw new Error("off_origin");
   const root = document.documentElement;
   const boxes: string[] = [];
@@ -198,7 +199,7 @@ export function pfLayout(expectedOrigin: string): string {
   }
   return [
     `${root.scrollWidth}x${root.scrollHeight}`,
-    `${win?.innerWidth ?? 0}x${win?.innerHeight ?? 0}`,
+    `${win.innerWidth}x${win.innerHeight}`,
     String(controls.length),
     boxes.join(";"),
   ].join("|");

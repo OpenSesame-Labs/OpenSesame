@@ -9,6 +9,11 @@ import { resolveProvisionalSession } from "../../../packages/control-plane/src/m
 import { projectAccess } from "../../../packages/control-plane/src/proofs/project-role.js";
 import { verifiedPrincipal } from "../../../packages/control-plane/src/proofs/verified-principal.js";
 import { overlapCast } from "../../../packages/os-domain/src/json.js";
+import {
+  parseTypeScript,
+  sourceTokens,
+  ts,
+} from "../../auth-verification/source/ast.mjs";
 
 const assuranceCases = [
   "missing",
@@ -68,17 +73,37 @@ const vectors = readFileSync(path, "utf8")
 const principals = vectors.filter(([kind]) => kind === "principal");
 const sessions = vectors.filter(([kind]) => kind === "session");
 const projects = vectors.filter(([kind]) => kind === "project");
+const signouts = vectors.filter(([kind]) => kind === "signout");
+const EXIT = "../../../packages/app-core/src/lib/session-exit.ts";
 const now = new Date(0);
 
-/**
- * Guard knobs the resolver's Lean model does not cover: a session whose
- * revocation cleanup is pending and a principal with a pending withdrawal
- * (AUTH-S2 in the register).
- */
-type ResolveExtras = {
-  cleanupPending?: boolean;
-  pendingWithdrawal?: boolean;
-};
+// Sign-out: the step runner the Lean model assumes, read from the real source.
+const exit = parseTypeScript(
+  readFileSync(new URL(EXIT, import.meta.url), "utf8"),
+  "session-exit.ts",
+);
+const runner = exit.statements.find(
+  (node) =>
+    ts.isFunctionDeclaration(node) && node.name?.text === "signOutDefault",
+);
+const body =
+  runner && ts.isFunctionDeclaration(runner) ? runner.body?.statements : [];
+const tokensOf = (node: { getText(): string } | undefined) =>
+  sourceTokens(node?.getText() ?? "");
+/** `step(f)` or `step(() => f(...))`: the step's callee, as Lean labels it. */
+function stepLabel(node: ts.Node | undefined) {
+  if (!node || !ts.isExpressionStatement(node)) return "not a statement";
+  const call = node.expression;
+  if (!ts.isCallExpression(call) || call.expression.getText() !== "step")
+    return "no step";
+  const [run] = call.arguments;
+  if (call.arguments.length !== 1 || !run) return "arguments";
+  if (ts.isIdentifier(run)) return run.text;
+  const direct = ts.isArrowFunction(run) && !run.parameters.length && run.body;
+  return direct && ts.isCallExpression(direct)
+    ? direct.expression.getText()
+    : "body";
+}
 
 describe("Lean auth policy correspondence", () => {
   it("contains every declared abstract case exactly once", () => {
@@ -94,9 +119,11 @@ describe("Lean auth policy correspondence", () => {
       sessionExpiries,
       bits,
       sessionPrincipals,
+      bits,
+      bits,
     ]);
     expect(sessions).toHaveLength(expectedSessions.size);
-    expect(new Set(sessions.map((row) => row.slice(1, 7).join("/")))).toEqual(
+    expect(new Set(sessions.map((row) => row.slice(1, 9).join("/")))).toEqual(
       expectedSessions,
     );
     const expected = productKeys([bits, states, expiries, roles]);
@@ -104,13 +131,19 @@ describe("Lean auth policy correspondence", () => {
     expect(new Set(projects.map((row) => row.slice(1, 5).join("/")))).toEqual(
       expected,
     );
-    expect(vectors).toHaveLength(
-      principals.length + sessions.length + projects.length,
+    // The other groups are checked by session-conformance.test.ts.
+    const other = ["storage", "bound", "credential", "evidence", "listener"];
+    expect(signouts.map((row) => row[1])).toEqual(
+      Array.from({ length: 11 }, (_, index) => String(index)),
     );
+    other.push("signout");
+    expect(
+      vectors.filter(([kind]) => !other.includes(kind ?? "")),
+    ).toHaveLength(principals.length + sessions.length + projects.length);
   });
 
   it.each(sessions)(
-    "session %s %s %s %s %s %s %s",
+    "session %s %s %s %s %s %s %s %s %s",
     async (...[
       _kind,
       prefix,
@@ -119,6 +152,8 @@ describe("Lean auth policy correspondence", () => {
       expiryValue,
       unrevoked,
       principalValue,
+      cleanup,
+      withdrawal,
       expected,
     ]) => {
       const expiry = choice(sessionExpiries, expiryValue);
@@ -132,43 +167,36 @@ describe("Lean auth policy correspondence", () => {
           future: new Date(1),
         }[expiry],
         revokedAt: unrevoked === "1" ? undefined : new Date(-1),
+        // AUTH-S2: the resolver's own guards, in the Lean model since 2026-11-24.
+        revocationCleanupPending: cleanup === "1",
       };
       // This fixture supplies the stores, repository, and clock read by the resolver;
       // unrelated AppContext services are intentionally absent.
-      const resolve = (extra: ResolveExtras) =>
-        resolveProvisionalSession(
-          overlapCast({
-            stores: {
-              provisionalTokens: {
-                get: async () => (mapped === "1" ? "ps_formal" : undefined),
-              },
-              provisionalSessions: {
-                get: async () =>
-                  present === "1"
-                    ? {
-                        ...session,
-                        revocationCleanupPending: extra.cleanupPending,
-                      }
-                    : undefined,
-              },
-              organizationMemberships: {
-                hasPendingWithdrawalForPrincipal: async () =>
-                  extra.pendingWithdrawal === true,
-              },
+      const result = await resolveProvisionalSession(
+        overlapCast({
+          stores: {
+            provisionalTokens: {
+              get: async () => (mapped === "1" ? "ps_formal" : undefined),
             },
-            repos: {
-              principals: {
-                getById: async () =>
-                  principalState === "missing"
-                    ? undefined
-                    : { state: principalState },
-              },
+            provisionalSessions: {
+              get: async () => (present === "1" ? session : undefined),
             },
-            clock: () => now,
-          }),
-          prefix === "1" ? "pst_formal" : "ps_formal",
-        );
-      const result = await resolve({});
+            organizationMemberships: {
+              hasPendingWithdrawalForPrincipal: async () => withdrawal === "1",
+            },
+          },
+          repos: {
+            principals: {
+              getById: async () =>
+                principalState === "missing"
+                  ? undefined
+                  : { state: principalState },
+            },
+          },
+          clock: () => now,
+        }),
+        prefix === "1" ? "pst_formal" : "ps_formal",
+      );
       if (expected === "1") {
         expect(result).toEqual({
           principalId: "prn_formal",
@@ -177,12 +205,6 @@ describe("Lean auth policy correspondence", () => {
       } else {
         expect(result).toBeUndefined();
       }
-      // Guards outside the Lean model may only narrow it: a session whose
-      // revocation cleanup is pending, or whose principal has a pending
-      // organization withdrawal, never authenticates. These are executable
-      // checks, not Lean properties (AUTH-S2 in the register).
-      expect(await resolve({ cleanupPending: true })).toBeUndefined();
-      expect(await resolve({ pendingWithdrawal: true })).toBeUndefined();
     },
   );
 
@@ -280,4 +302,37 @@ describe("Lean auth policy correspondence", () => {
       if ("owner" in verdict) expect(verdict.owner.kind).toBe("ProjectOwner");
     },
   );
+
+  it("the signout runner catches every step", () => {
+    const opening = [
+      "let incomplete = false;",
+      "const step = (run: () => void) => { try { run(); } catch { incomplete = true; } };",
+    ];
+    const tail = [
+      "if (incomplete) { reportIncomplete(intent); return; }",
+      "dismissNotice(INCOMPLETE_ID);",
+      "void settleSignOut().catch(() => reportIncomplete(intent));",
+    ];
+    expect(body?.length).toBe(16);
+    expect(body?.slice(0, 2).map(tokensOf)).toEqual(opening.map(sourceTokens));
+    expect(body?.slice(13).map(tokensOf)).toEqual(tail.map(sourceTokens));
+    const lock = body?.[12];
+    const guard =
+      "vaultStore.isUnlocked() || vaultStore.getSnapshot().awaitingSecondStep";
+    expect(lock && ts.isIfStatement(lock) && !lock.elseStatement).toBe(true);
+    if (lock && ts.isIfStatement(lock))
+      expect(tokensOf(lock.expression)).toBe(sourceTokens(guard));
+  });
+
+  it.each(signouts)("signout %s %s", (_kind, index, label) => {
+    const lock = body?.[12];
+    const steps =
+      lock && ts.isIfStatement(lock) && ts.isBlock(lock.thenStatement);
+    const inLock = steps ? lock.thenStatement.statements : [];
+    const at = Number(index);
+    expect(at < 10 ? stepLabel(body?.[2 + at]) : stepLabel(inLock[0])).toBe(
+      label,
+    );
+    if (at === 10) expect(inLock.length).toBe(1);
+  });
 });
