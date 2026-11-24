@@ -250,7 +250,14 @@ function assertPrebuiltImageJob(image) {
 
 /** cargo-chef layering, the pinned Alpine runtime and the BuildKit target cache. */
 function assertCargoChefDockerfile(dockerfile) {
-  assert.match(dockerfile, /cargo-chef/);
+  // Every `cargo install` names an exact version (Scorecard Pinned-Dependencies).
+  assert.match(
+    dockerfile,
+    /cargo install cargo-chef --version \d+\.\d+\.\d+ --locked/,
+  );
+  for (const line of dockerfile.match(/cargo install[^\n]*/g) ?? []) {
+    assert.match(line, /--version \d+\.\d+\.\d+/);
+  }
   assert.match(dockerfile, /cargo chef prepare/);
   assert.match(dockerfile, /cargo chef cook/);
   assert.match(

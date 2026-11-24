@@ -32,10 +32,12 @@ COPY --from=manifests /src ./
 # Production runtime only: no dev toolchains or nested lockfiles in node_modules.
 # drizzle-kit is installed only as better-auth's optional peer; nothing here
 # runs it, and it ships an esbuild binary built with an old Go toolchain.
-# The cache mount shares npm's download cache between the two installs.
+# tsx is a production dependency of @opensesame/control-plane (the ENTRYPOINT
+# loads it), so it comes from package-lock.json with its integrity hash like
+# everything else. Adding a package by name here would bypass the lockfile.
+# The cache mount keeps npm's download cache warm across builds.
 RUN --mount=type=cache,target=/root/.npm \
   npm ci --omit=dev --ignore-scripts \
-  && npm install --no-save --ignore-scripts tsx@4.23.15 \
   && find node_modules -name '.package-lock.json' -delete \
   && rm -rf node_modules/@typescript node_modules/typescript node_modules/drizzle-kit
 # Sources arrive after the dependency layers: editing them cannot invalidate
@@ -50,6 +52,9 @@ COPY tests/visual-contract ./tests/visual-contract
 COPY tests/fuzz/jazzer ./tests/fuzz/jazzer
 COPY tools/mock-upstream-idp ./tools/mock-upstream-idp
 COPY tools/oxlint/anti-slop ./tools/oxlint/anti-slop
+# @opensesame/log-scrub imports its redaction table from spec/ at module load;
+# without it the server exits before it listens.
+COPY spec/log-scrub ./spec/log-scrub
 # Alpine runtime: no Debian dpkg/status for OSV container scans.
 FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5
 # The pinned base can predate Alpine security fixes; take them from the
@@ -67,6 +72,7 @@ COPY --from=runtime-deps --chown=10001:10001 /src/tests/visual-contract ./tests/
 COPY --from=runtime-deps --chown=10001:10001 /src/tests/fuzz/jazzer ./tests/fuzz/jazzer
 COPY --from=runtime-deps --chown=10001:10001 /src/tools/mock-upstream-idp ./tools/mock-upstream-idp
 COPY --from=runtime-deps --chown=10001:10001 /src/tools/oxlint/anti-slop ./tools/oxlint/anti-slop
+COPY --from=runtime-deps --chown=10001:10001 /src/spec/log-scrub ./spec/log-scrub
 COPY --from=runtime-deps --chown=10001:10001 /src/tsconfig.base.json ./tsconfig.base.json
 ARG VERSION=0.0.0-local
 LABEL org.opencontainers.image.source="https://github.com/OpenSesame-Labs/OpenSesame" \

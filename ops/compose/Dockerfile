@@ -13,7 +13,7 @@ FROM rust:1.100.0-bookworm@sha256:ade39a710ef85f3506cffcfec3e8a24ba090badef1dff2
 RUN apt-get update \
   && apt-get install -y --no-install-recommends libdbus-1-dev pkg-config musl-tools \
   && rm -rf /var/lib/apt/lists/* \
-  && cargo install cargo-chef --locked
+  && cargo install cargo-chef --version 0.1.78 --locked
 WORKDIR /src
 COPY rust-toolchain.toml rust-toolchain.toml
 # rust-toolchain.toml selects 1.99.0. Add the musl standard library on that toolchain.
