@@ -1,3 +1,4 @@
+import { HOST_CLI_SUITE } from "./formal-proof-host-cli.mjs";
 import { SOURCE_HISTORY_SUITE } from "./formal-proof-source-history.mjs";
 import {
   NATS_TRUST_ROTATION_SUITE,
@@ -22,7 +23,6 @@ const cp = (dir, names) =>
 const spiffeSource = (names) =>
   names.map((name) => `crates/spiffe-source/src/${name}.rs`);
 const guest = (names) => names.map((name) => `spec/formal/guest/${name}`);
-const rs = (dir, names) => names.map((name) => `crates/${dir}/${name}.rs`);
 const words = (list) => list.trim().split(/\s+/u);
 const crates = (list) => words(list).map((path) => `crates/${path}`);
 const formal = (suite, list) =>
@@ -121,8 +121,8 @@ export const PINNED_FORMAL_SUITES = [
   {
     id: "authority",
     implementation: [
-      ...rs("domain/src", ["grant", "grant_attenuation", "grant_budgets"]),
-      ...rs("domain/src", ["grant_lineage", "ids"]),
+      ...crates(`domain/src/grant.rs domain/src/grant_attenuation.rs domain/src/grant_budgets.rs
+        domain/src/grant_lineage.rs domain/src/ids.rs`),
       "crates/domain/Cargo.toml",
       "crates/time/Cargo.toml",
       "crates/time/README.md",
@@ -286,18 +286,14 @@ export const PINNED_FORMAL_SUITES = [
       "crates/transport-security/src/leaf.rs",
       "crates/transport-security/src/lib.rs",
       "crates/spiffe-source/Cargo.toml",
-      "crates/spiffe-source/src/lib.rs",
-      "crates/spiffe-source/src/source.rs",
-      "crates/spiffe-source/src/source_history_flow.rs",
-      "crates/spiffe-source/src/source_handle.rs",
-      "crates/spiffe-source/src/sink.rs",
-      "crates/spiffe-source/src/sink/transport.rs",
-      "crates/spiffe-source/src/snapshot.rs",
-      "crates/spiffe-source/src/outage.rs",
-      "crates/spiffe-source/src/status.rs",
-      "crates/spiffe-source/src/source_policy.rs",
-      "crates/spiffe-source/src/config.rs",
-      "crates/spiffe-source/src/bundles.rs",
+      ...spiffeSource([
+        "lib",
+        "source",
+        "source_history_flow",
+        "source_handle",
+      ]),
+      ...spiffeSource(["sink", "sink/transport", "snapshot", "outage"]),
+      ...spiffeSource(["status", "source_policy", "config", "bundles"]),
       "crates/storage/Cargo.toml",
       "crates/storage/src/lib.rs",
       "crates/storage/src/host_kv.rs",
@@ -530,4 +526,5 @@ export const PINNED_FORMAL_SUITES = [
     ],
     command: ["npm", "run", "verify:guest-formal"],
   },
+  HOST_CLI_SUITE,
 ];
