@@ -120,7 +120,7 @@ export function renderProof({
     "def extractedCookie (safe present listed : Bool) (sameOrigin : Option Bool) : Bool :=",
     `  ${decision}`,
     "",
-    "def extractedPrincipal (isNull isUndefined suspended closed : Bool) : Option Bool :=",
+    "def extractedPrincipal (isNull isUndefined suspended closed withdrawalPending : Bool) : Option Bool :=",
     `  ${principal}`,
     "",
     "def extractedOidcGuard (expired mismatch errorFlag : Bool) (code : CodeKind) : Option Bool :=",

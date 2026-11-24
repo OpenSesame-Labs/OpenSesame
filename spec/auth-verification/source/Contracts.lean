@@ -77,19 +77,20 @@ theorem cookie_refines_policy (safe present listed : Bool) (sameOrigin : Option 
   cases safe <;> cases present <;> cases listed <;> cases sameOrigin <;>
     simp [extractedCookie, cookiePolicy]
 
-def principalPolicy (isNull isUndefined suspended closed : Bool) : Prop :=
-  isNull = false ∧ isUndefined = false ∧ suspended = false ∧ closed = false
+def principalPolicy (isNull isUndefined suspended closed withdrawalPending : Bool) : Prop :=
+  isNull = false ∧ isUndefined = false ∧ suspended = false ∧ closed = false ∧
+    withdrawalPending = false
 
-theorem principal_refines_policy (isNull isUndefined suspended closed : Bool) :
-    extractedPrincipal isNull isUndefined suspended closed = some true ↔
-      principalPolicy isNull isUndefined suspended closed := by
+theorem principal_refines_policy (isNull isUndefined suspended closed withdrawalPending : Bool) :
+    extractedPrincipal isNull isUndefined suspended closed withdrawalPending = some true ↔
+      principalPolicy isNull isUndefined suspended closed withdrawalPending := by
   cases isNull <;> cases isUndefined <;> cases suspended <;> cases closed <;>
-    simp [extractedPrincipal, principalPolicy, jsAnd]
+    cases withdrawalPending <;> simp [extractedPrincipal, principalPolicy, jsAnd]
 
-theorem principal_never_throws (isNull isUndefined suspended closed : Bool) :
-    extractedPrincipal isNull isUndefined suspended closed ≠ none := by
+theorem principal_never_throws (isNull isUndefined suspended closed withdrawalPending : Bool) :
+    extractedPrincipal isNull isUndefined suspended closed withdrawalPending ≠ none := by
   cases isNull <;> cases isUndefined <;> cases suspended <;> cases closed <;>
-    simp [extractedPrincipal, jsAnd]
+    cases withdrawalPending <;> simp [extractedPrincipal, jsAnd]
 
 def oidcPolicy (spent owner expired mismatch errorFlag : Bool) (code : CodeKind) : Prop :=
   spent = false ∧ owner = true ∧ expired = false ∧ mismatch = false ∧
