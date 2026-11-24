@@ -233,10 +233,32 @@
       "implementation": [
         "crates/broker/src/idempotency.rs",
         "crates/broker/src/lib.rs",
-        "crates/broker/tests/adversarial_broker/invocation_binding.rs"
+        "crates/broker/tests/adversarial_broker/invocation_binding.rs",
+        "crates/broker/src/frozen.rs",
+        "crates/broker/src/independent_executor.rs",
+        "crates/broker/src/frozen_outcome_tests.rs",
+        "crates/broker/tests/adversarial_broker/outcome_indeterminate.rs",
+        "crates/domain/src/receipt.rs",
+        "crates/audit/src/lib.rs",
+        "crates/connector-host/src/builtin_connector.rs",
+        "crates/connector-host/src/invocation_binding.rs",
+        "crates/connector-host/src/invocation_dispatch.rs",
+        "crates/connector-host/src/invocation_binding_tests.rs",
+        "crates/connector-host/src/binding_test_fixtures.rs",
+        "crates/connection-broker/src/egress_json.rs",
+        "crates/connection-broker/src/tests/owner_egress_vectors.rs",
+        "crates/gateway/Cargo.toml"
       ],
+      "lockProjection": { "path": "Cargo.lock", "root": "opensesame-gateway" },
+      "manifestProjection": {
+        "path": "Cargo.toml",
+        "package": "crates/gateway/Cargo.toml",
+        "lock": "Cargo.lock",
+        "root": "opensesame-gateway"
+      },
       "proofs": [
         "spec/formal/invocation/Invocation.lean",
+        "spec/formal/invocation/InvocationEffects.lean",
         "spec/formal/invocation/required-theorems.lean",
         "spec/formal/invocation/verify.sh",
         "spec/formal/invocation/coverage.json",

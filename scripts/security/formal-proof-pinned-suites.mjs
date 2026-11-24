@@ -22,6 +22,21 @@ const cp = (dir, names) =>
 const spiffeSource = (names) =>
   names.map((name) => `crates/spiffe-source/src/${name}.rs`);
 const guest = (names) => names.map((name) => `spec/formal/guest/${name}`);
+const rs = (dir, names) => names.map((name) => `crates/${dir}/${name}.rs`);
+const words = (list) => list.trim().split(/\s+/u);
+const crates = (list) => words(list).map((path) => `crates/${path}`);
+const formal = (suite, list) =>
+  words(list).map((name) => `spec/formal/${suite}/${name}`);
+// One reviewed Cargo root names both the lock and the manifest projection.
+const cargoRoot = (crate, root) => ({
+  lockProjection: { path: "Cargo.lock", root },
+  manifestProjection: {
+    path: "Cargo.toml",
+    package: `crates/${crate}/Cargo.toml`,
+    lock: "Cargo.lock",
+    root,
+  },
+});
 
 // Independently reviewed minimum. Extend with each new formal suite or mapping.
 export const PINNED_FORMAL_SUITES = [
@@ -106,11 +121,8 @@ export const PINNED_FORMAL_SUITES = [
   {
     id: "authority",
     implementation: [
-      "crates/domain/src/grant.rs",
-      "crates/domain/src/grant_attenuation.rs",
-      "crates/domain/src/grant_budgets.rs",
-      "crates/domain/src/grant_lineage.rs",
-      "crates/domain/src/ids.rs",
+      ...rs("domain/src", ["grant", "grant_attenuation", "grant_budgets"]),
+      ...rs("domain/src", ["grant_lineage", "ids"]),
       "crates/domain/Cargo.toml",
       "crates/time/Cargo.toml",
       "crates/time/README.md",
@@ -140,23 +152,14 @@ export const PINNED_FORMAL_SUITES = [
       "crates/time/build.rs",
       "patches/vendor/sqlx-sqlite-0.9.0/build.rs",
     ],
-    lockProjection: { path: "Cargo.lock", root: "opensesame-domain" },
-    manifestProjection: {
-      path: "Cargo.toml",
-      package: "crates/domain/Cargo.toml",
-      lock: "Cargo.lock",
-      root: "opensesame-domain",
-    },
+    ...cargoRoot("domain", "opensesame-domain"),
     proofs: [
-      "spec/formal/authority/Authority.lean",
-      "spec/formal/authority/required-theorems.lean",
-      "spec/formal/authority/conformance.rs",
-      "spec/formal/authority/Cargo.toml",
-      "spec/formal/authority/Cargo.lock",
-      "spec/formal/authority/check.sh",
-      "spec/formal/authority/check-drift.py",
-      "spec/formal/authority/coverage.json",
-      "spec/formal/authority/negative-control.py",
+      ...formal("authority", "Authority.lean required-theorems.lean"),
+      ...formal("authority", "conformance.rs Cargo.toml Cargo.lock check.sh"),
+      ...formal(
+        "authority",
+        "check-drift.py coverage.json negative-control.py",
+      ),
       ...AXIOM_PROOFS,
     ],
     command: ["npm", "run", "verify:authority-formal"],
@@ -169,29 +172,27 @@ export const PINNED_FORMAL_SUITES = [
       "crates/proof/src/jwk.rs",
     ],
     proofs: [
-      "spec/formal/dpop/ReplayPolicy.lean",
-      "spec/formal/dpop/required-theorems.lean",
-      "spec/formal/dpop/replay_conformance.rs",
-      "spec/formal/dpop/verify.sh",
-      "spec/formal/dpop/check_drift.py",
-      "spec/formal/dpop/coverage.json",
-      "spec/formal/dpop/mutate.py",
+      ...formal("dpop", "ReplayPolicy.lean required-theorems.lean verify.sh"),
+      ...formal("dpop", "replay_conformance.rs check_drift.py coverage.json"),
+      ...formal("dpop", "mutate.py"),
       ...AXIOM_PROOFS,
     ],
     command: ["npm", "run", "verify:dpop-formal"],
   },
   {
     id: "invocation",
-    implementation: [
-      "crates/broker/src/idempotency.rs",
-      "crates/broker/src/lib.rs",
-      "crates/broker/tests/adversarial_broker/invocation_binding.rs",
-    ],
+    implementation: crates(`
+      broker/src/idempotency.rs broker/src/lib.rs broker/src/frozen.rs audit/src/lib.rs
+      broker/src/independent_executor.rs broker/src/frozen_outcome_tests.rs domain/src/receipt.rs
+      broker/tests/adversarial_broker/invocation_binding.rs gateway/Cargo.toml
+      broker/tests/adversarial_broker/outcome_indeterminate.rs connection-broker/src/egress_json.rs
+      connector-host/src/builtin_connector.rs connector-host/src/invocation_binding.rs
+      connector-host/src/invocation_dispatch.rs connector-host/src/binding_test_fixtures.rs
+      connector-host/src/invocation_binding_tests.rs connection-broker/src/tests/owner_egress_vectors.rs`),
+    ...cargoRoot("gateway", "opensesame-gateway"),
     proofs: [
-      "spec/formal/invocation/Invocation.lean",
-      "spec/formal/invocation/required-theorems.lean",
-      "spec/formal/invocation/verify.sh",
-      "spec/formal/invocation/coverage.json",
+      ...formal("invocation", "Invocation.lean InvocationEffects.lean"),
+      ...formal("invocation", "required-theorems.lean verify.sh coverage.json"),
       ...AXIOM_PROOFS,
     ],
     command: ["npm", "run", "verify:invocation-formal"],
