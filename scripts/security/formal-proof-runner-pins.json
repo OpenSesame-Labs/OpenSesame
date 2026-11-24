@@ -32,6 +32,7 @@
       "scripts/test/auth-formal.sh",
       "scripts/test/auth-formal-drift.mjs",
       "scripts/test/formal-vitest-report.mjs",
+      "scripts/test/formal-vitest-report-matrices.mjs",
       "spec/formal/auth/vitest.config.ts",
       "spec/formal/auth/negative-controls.py",
       "spec/formal/auth/required-theorems.lean"
@@ -48,6 +49,7 @@
       "spec/formal/oauth/check-drift.mjs",
       "spec/formal/oauth/check-hosted-flow-report.mjs",
       "scripts/test/formal-vitest-report.mjs",
+      "scripts/test/formal-vitest-report-matrices.mjs",
       "spec/formal/oauth/vitest.config.ts",
       "spec/formal/oauth/negative-controls.py",
       "spec/formal/oauth/hosted-flow-negative-controls.py",
@@ -64,6 +66,7 @@
       "spec/formal/webauthn/verify.sh",
       "spec/formal/webauthn/check-drift.mjs",
       "scripts/test/formal-vitest-report.mjs",
+      "scripts/test/formal-vitest-report-matrices.mjs",
       "spec/formal/webauthn/vitest.config.ts",
       "spec/formal/webauthn/negative-controls.py",
       "spec/formal/webauthn/required-theorems.lean"
@@ -250,6 +253,7 @@
       "spec/formal/interaction-clock/check-drift.mjs",
       "spec/formal/interaction-clock/check-report.mjs",
       "scripts/test/formal-vitest-report.mjs",
+      "scripts/test/formal-vitest-report-matrices.mjs",
       "spec/formal/interaction-clock/vitest.config.ts",
       "spec/formal/interaction-clock/negative-controls.py",
       "spec/formal/interaction-clock/required-theorems.lean"

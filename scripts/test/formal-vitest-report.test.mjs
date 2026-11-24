@@ -65,7 +65,7 @@ for (const suite of ["auth", "oauth", "webauthn"]) {
       suite === "auth"
         ? { principal: [2], session: [7], project: [5, 6, 7, 8] }
         : suite === "oauth"
-          ? { legacy: [6], provenance: [5] }
+          ? { legacy: [6], provenance: [5], v4: [7, 8] }
           : { approval: [7] };
     for (const [group, indexes] of Object.entries(positions)) {
       for (const index of indexes) {
@@ -158,8 +158,12 @@ test("webauthn: repeated comparisons cannot substitute for distinct cases", () =
   );
 });
 
-test("oauth: both generated comparison groups are required", () => {
-  for (const prefix of ["legacy provenance ", "current provenance "]) {
+test("oauth: every generated comparison group is required", () => {
+  for (const prefix of [
+    "legacy provenance ",
+    "current provenance ",
+    "v4 decode ",
+  ]) {
     const { report, vectors } = fixture("oauth");
     const target = report.testResults[0].assertionResults.find((item) =>
       item.title.startsWith(prefix),
