@@ -57,3 +57,60 @@ export const HOST_CLI_SUITE = {
   ],
   command: ["npm", "run", "verify:host-cli-formal"],
 };
+
+// Independently reviewed INV-I1, INV-O1, INV-O2, INV-D1 and INV-D2 contract,
+// rooted at the gateway, which composes every mapped crate.
+const crate = (dir, names) =>
+  names.split(" ").map((name) => `crates/${dir}/${name}.rs`);
+const invocationProof =
+  "Invocation InvocationEffects InvocationGateway required-theorems";
+export const INVOCATION_SUITE = {
+  id: "invocation",
+  implementation: [
+    ...crate(
+      "broker/src",
+      "idempotency lib frozen independent_executor frozen_outcome_tests",
+    ),
+    "crates/audit/src/lib.rs",
+    "crates/domain/src/receipt.rs",
+    "crates/broker/tests/adversarial_broker/invocation_binding.rs",
+    "crates/gateway/Cargo.toml",
+    "crates/broker/tests/adversarial_broker/outcome_indeterminate.rs",
+    "crates/connection-broker/src/egress_json.rs",
+    ...crate(
+      "connector-host/src",
+      "builtin_connector invocation_binding invocation_dispatch",
+    ),
+    ...crate(
+      "connector-host/src",
+      "binding_test_fixtures invocation_binding_tests",
+    ),
+    "crates/connection-broker/src/tests/owner_egress_vectors.rs",
+    "crates/broker/src/frozen_recovery.rs",
+    "crates/gateway/src/middleware/auth.rs",
+    ...crate(
+      "gateway/src/routes",
+      "tasks_opening tasks_bootstrap_tests tasks_opening_tests",
+    ),
+    ...crate("gateway/src/routes", "intents_budget intents_effect_fence_tests"),
+    ...crate("gateway/src", "connector_egress connector_egress_binding_tests"),
+  ],
+  lockProjection: { path: "Cargo.lock", root: "opensesame-gateway" },
+  manifestProjection: {
+    path: "Cargo.toml",
+    package: "crates/gateway/Cargo.toml",
+    lock: "Cargo.lock",
+    root: "opensesame-gateway",
+  },
+  proofs: [
+    ...invocationProof
+      .split(" ")
+      .map((name) => `spec/formal/invocation/${name}.lean`),
+    "spec/formal/invocation/verify.sh",
+    "spec/formal/invocation/coverage.json",
+    "spec/formal/required-theorem-command.lean",
+    "spec/formal/check-axioms.sh",
+    "spec/formal/check-axioms.test.mjs",
+  ],
+  command: ["npm", "run", "verify:invocation-formal"],
+};
