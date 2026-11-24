@@ -159,3 +159,89 @@ async fn bootstrap_child_grant_cannot_bypass_the_delegation_gate() {
         .unwrap();
     assert_eq!(count, 0);
 }
+
+const STORED_MODES: [(&str, &str); 7] = [
+    ("StoredMode.relay", "relay"),
+    ("StoredMode.broker", "broker"),
+    ("StoredMode.upper", "Relay"),
+    ("StoredMode.shout", "BROKER"),
+    ("StoredMode.padded", " relay"),
+    ("StoredMode.empty", ""),
+    ("StoredMode.unknown", "unknown"),
+];
+
+fn mode_vectors() -> Vec<Vec<String>> {
+    let path = std::env::var("OPENSESAME_HOST_CLI_VECTORS").expect("run the host-cli verifier");
+    let text = std::fs::read_to_string(path).expect("read formal vectors");
+    text.lines()
+        .map(|line| line.split('\t').map(str::to_owned).collect::<Vec<_>>())
+        .filter(|fields| fields[0] == "mode")
+        .map(|fields| fields[1..].to_vec())
+        .collect()
+}
+
+async fn invoke_outcome(state: &crate::app_state::AppState, connection: &str) -> String {
+    let org = state.bootstrap.lock().unwrap().as_ref().unwrap().org;
+    let headers =
+        crate::app_state::test_session_headers(state, GUEST, org, OrganizationRole::Member);
+    let body = Json(invoke_body(connection, "repository.read"));
+    let response = create(State(state.clone()), headers, body).await;
+    let status = response.status().as_u16();
+    let bytes = axum::body::to_bytes(response.into_body(), 4096)
+        .await
+        .unwrap();
+    let body: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    let invocations: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM invocations")
+        .fetch_one(state.db.pool())
+        .await
+        .unwrap();
+    match (status, body["error"].as_str(), invocations) {
+        (501, Some("relay_execution_unavailable"), 0) => "Invoke.relayUnavailable".into(),
+        (503, Some("delegated_execution_unavailable"), 0) => "Invoke.delegatedUnavailable".into(),
+        (404, _, 0) => "Invoke.notFound".into(),
+        _ => format!("other:{status}:{body}:{invocations}"),
+    }
+}
+
+#[tokio::test]
+#[ignore = "requires Lean vectors; run spec/formal/host-cli/verify.sh"]
+async fn lean_mode_vectors_match_delegated_invocation() {
+    let cases = mode_vectors();
+    for f in &cases {
+        let raw = STORED_MODES
+            .iter()
+            .find(|(m, _)| *m == f[0])
+            .expect("mode")
+            .1;
+        let state = crate::app_state::test_demo_state().await;
+        let org = state.bootstrap.lock().unwrap().as_ref().unwrap().org;
+        let connection = delegable_github_row(&state, org).await;
+        let delegation = relay_delegation(&state, org, &connection).await;
+        sqlx::query("UPDATE connection_delegations SET execution_mode = ? WHERE id = ?")
+            .bind(raw)
+            .bind(&delegation)
+            .execute(state.connection_broker.pool())
+            .await
+            .unwrap();
+        let resolved = state
+            .connection_broker
+            .find_live_delegation_by_id(GUEST, &delegation)
+            .await
+            .unwrap()
+            .map(|live| live.execution_mode);
+        let resolved = match resolved {
+            None => "none",
+            Some(ExecutionMode::Relay) => "some (Mode.relay)",
+            Some(ExecutionMode::Broker) => "some (Mode.broker)",
+        };
+        let actual = format!("{resolved}\t{}", invoke_outcome(&state, &connection).await);
+        let expected = format!("{}\t{}", f[1], f[3]);
+        assert_eq!(
+            actual,
+            expected,
+            "decision mismatch for mode {}",
+            f.join(" ")
+        );
+    }
+    assert_eq!(cases.len(), 7, "incomplete mode vectors");
+}
