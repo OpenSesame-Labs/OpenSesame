@@ -241,6 +241,34 @@ fn conflict_reason(message: &str) -> &'static str {
     .unwrap_or("conflict:other")
 }
 
+/// Invoke once, then store the receipt as the vector's `kind` describes it.
+async fn store_prior_receipt(broker: &Broker, request: InvokeInput, kind: &str) -> ReceiptId {
+    let receipt = broker.invoke(request).await.unwrap();
+    let mut stored = receipt.clone();
+    match kind {
+        "valid" => return receipt.id,
+        "bad-signature" => stored.operation = "forged".into(),
+        "other-intent" => stored.intent_digest = format!("sha256:{}", "1".repeat(64)),
+        "other-binding" => stored.idempotency_binding = Some("other".into()),
+        // Schema 6 cannot be signed with a result; a legacy receipt can.
+        "not-opaque" => {
+            stored.receipt_schema_version = 5;
+            stored.safe_result_summary = Some(json!({"n": 1}));
+        }
+        _ => panic!("invalid receipt vector: {kind}"),
+    }
+    if kind != "bad-signature" {
+        stored = broker.signer.sign_receipt(stored).unwrap();
+    }
+    sqlx::query("DELETE FROM receipts WHERE id = ?")
+        .bind(receipt.id.to_string())
+        .execute(broker.db.pool())
+        .await
+        .unwrap();
+    broker.db.insert_receipt(&stored).await.unwrap();
+    receipt.id
+}
+
 /// INV-I1: every Lean case from `spec/formal/invocation` against the real broker.
 #[tokio::test]
 #[ignore = "run by verify:invocation-formal with OPENSESAME_INVOCATION_VECTORS"]
@@ -290,34 +318,7 @@ async fn lean_retry_vectors_match_the_broker() {
                     .unwrap();
             }
             ("same-binding", _) => {
-                let receipt = broker.invoke(request()).await.unwrap();
-                first = Some(receipt.id);
-                let mut stored_receipt = receipt.clone();
-                match kind {
-                    "valid" => {}
-                    "bad-signature" => stored_receipt.operation = "forged".into(),
-                    "other-intent" => {
-                        stored_receipt.intent_digest = format!("sha256:{}", "1".repeat(64))
-                    }
-                    "other-binding" => stored_receipt.idempotency_binding = Some("other".into()),
-                    "not-opaque" => {
-                        // Schema 6 cannot be signed with a result; a legacy one can.
-                        stored_receipt.receipt_schema_version = 5;
-                        stored_receipt.safe_result_summary = Some(json!({"n": 1}));
-                    }
-                    _ => panic!("invalid receipt vector: {line}"),
-                }
-                if kind != "valid" {
-                    if kind != "bad-signature" {
-                        stored_receipt = broker.signer.sign_receipt(stored_receipt).unwrap();
-                    }
-                    sqlx::query("DELETE FROM receipts WHERE id = ?")
-                        .bind(receipt.id.to_string())
-                        .execute(broker.db.pool())
-                        .await
-                        .unwrap();
-                    broker.db.insert_receipt(&stored_receipt).await.unwrap();
-                }
+                first = Some(store_prior_receipt(&broker, request(), kind).await);
             }
             _ => panic!("invalid stored vector: {line}"),
         }
