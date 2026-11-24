@@ -337,7 +337,3 @@ def main : IO Unit := do
       IO.println s!"d2\t{api}\t{name}\t{egressName (egress e)}"
 
 end OpenSesame.InvocationEffects
-
-def main : IO Unit := do
-  OpenSesame.Invocation.main
-  OpenSesame.InvocationEffects.main

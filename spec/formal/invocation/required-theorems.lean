@@ -66,3 +66,47 @@ open OpenSesame.InvocationEffects
     e.providerMatches ∧ e.ownerMatches ∧ e.grantOrganization ∧ e.grantConnection = .same ∧
       e.rootGrant ∧ e.shallowGrant ∧ e.grantActive ∧ e.stored ∧ e.row = .active ∧
       e.urlAllowed
+
+open OpenSesame.InvocationGateway
+
+#require_theorem OpenSesame.InvocationGateway.o2_recovery_opens_only_for_owner_saved_intent_and_intact_authority :
+    ∀ (c : Caller) (r : Request) (a : Authority) (_h : recover c r a = .opening),
+    (c = .owner ∨ c = .operator) ∧ r = .exact ∧ a = .intact
+
+#require_theorem OpenSesame.InvocationGateway.o2_recovery_unauthenticated_is_refused :
+    ∀ (r : Request) (a : Authority), recover .anonymous r a = .unauthorized
+
+#require_theorem OpenSesame.InvocationGateway.o2_recovery_refusals_are_indistinguishable :
+    ∀ (c : Caller) (r : Request) (a : Authority) (_h : c ≠ .anonymous),
+    recover c r a = .opening ∨ recover c r a = .notFound
+
+#require_theorem OpenSesame.InvocationGateway.o2_recovery_foreign_caller_never_opens :
+    ∀ (r : Request) (a : Authority),
+    recover .otherPrincipal r a ≠ .opening ∧ recover .otherOrganization r a ≠ .opening
+
+#require_theorem OpenSesame.InvocationGateway.d1_admission_requires_a_consistent_delegation_shape :
+    ∀ (f : Admission) (_h : effectAllowed f = true),
+    f.spend = f.lineage ∧ f.spend = (f.parent || f.depth) ∧
+      (f.spend = true → f.brokerConnection = true)
+
+#require_theorem OpenSesame.InvocationGateway.d1_delegated_effect_only_replay_or_local_inert_mock :
+    ∀ (f : Admission) (_h : effectAllowed f = true) (_delegated : f.spend = true),
+    f.replay = true ∨ (f.independent = false ∧ f.inertMock = true)
+
+#require_theorem OpenSesame.InvocationGateway.d1_owner_effect_is_admitted :
+    ∀ (b i r m : Bool), effectAllowed ⟨false, false, false, false, b, i, r, m⟩ = true
+
+#require_theorem OpenSesame.InvocationGateway.d1_independent_executor_never_runs_a_delegated_effect :
+    ∀ (allows : Bool), independentInvoke .child allows ≠ .executed
+
+#require_theorem OpenSesame.InvocationGateway.d1_independent_effect_requires_root_and_allow :
+    ∀ (g : GrantShape) (allows : Bool) (_h : independentInvoke g allows = .executed),
+    g = .root ∧ allows = true
+
+#require_theorem OpenSesame.InvocationGateway.d2_registration_accepts_only_the_owner_root_binding :
+    ∀ (r : Registration) (_h : acceptsBinding r = true),
+    r.connection ∧ r.delegated = false ∧ r.policyMatches ∧ r.providerMatches ∧
+      r.grantConnection = .same ∧ r.grantActive
+
+#require_theorem OpenSesame.InvocationGateway.d2_registration_refuses_a_delegated_binding :
+    ∀ (r : Registration) (_h : r.delegated = true), acceptsBinding r = false
