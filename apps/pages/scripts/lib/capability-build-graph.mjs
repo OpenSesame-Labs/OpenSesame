@@ -24,6 +24,14 @@ import { workerChunkFor } from "./worker-emission.mjs";
 // Rollup OutputAsset.source is an I/O boundary, not an unchecked coercion.
 const rollupAssetSource = z.union([z.string(), z.instanceof(Uint8Array)]);
 const htmlUtf8 = new TextDecoder("utf-8", { fatal: true });
+
+/** Emit the same document for GitHub Pages' deep-link 404 fallback. */
+export function spaFallback(bundle) {
+  const page = bundle["index.html"];
+  if (page?.type !== "asset") throw new Error("Missing index.html");
+  return { type: "asset", fileName: "404.html", source: page.source };
+}
+
 function assetBytes(source) {
   return Buffer.from(rollupAssetSource.parse(source));
 }

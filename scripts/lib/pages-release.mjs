@@ -10,6 +10,12 @@ function assertRevision(revision) {
 
 export function stampRelease(directory, revision) {
   assertRevision(revision);
+  if (
+    !readFileSync(join(directory, "index.html")).equals(
+      readFileSync(join(directory, "404.html")),
+    )
+  )
+    throw new Error("Pages deep-link fallback differs from index.html");
   const manifest = {
     format: "opensesame-pages-release",
     version: 1,
@@ -24,13 +30,16 @@ export function stampRelease(directory, revision) {
   );
 }
 
-async function download(url, maxBytes) {
+async function download(url, maxBytes, allowNotFound = false) {
   const response = await fetch(url, {
     redirect: "error",
     cache: "no-store",
     signal: AbortSignal.timeout(5000),
   });
-  if (!response.ok || !response.body)
+  if (
+    (!response.ok && !(allowNotFound && response.status === 404)) ||
+    !response.body
+  )
     throw new Error(`Release probe HTTP ${response.status}`);
   const chunks = [];
   let size = 0;
@@ -78,4 +87,11 @@ export async function verifyRelease(address, revision) {
     if (digest(await download(urlFor(file), 2 * 1024 * 1024)) !== expected)
       throw new Error(`Published ${file} does not match the release digest`);
   }
+  const fallback = await download(
+    urlFor("__opensesame_release_probe__"),
+    2 * 1024 * 1024,
+    true,
+  );
+  if (digest(fallback) !== manifest.sha256["index.html"])
+    throw new Error("Published deep-link fallback does not match index.html");
 }

@@ -10,11 +10,11 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, test } from "vitest";
 import { verifyDist } from "../verify-capability-graph.mjs";
-import { buildGraph } from "./capability-build-graph.mjs";
+import { buildGraph, spaFallback } from "./capability-build-graph.mjs";
 import { canonicalJson } from "./capability-graph.mjs";
 
 const base = "/OpenSesame/";
-const documents = ["404.html", "about.html", "contact.html", "privacy.html"];
+const documents = ["about.html", "contact.html", "privacy.html"];
 const roots = [];
 afterEach(() => {
   for (const root of roots.splice(0))
@@ -96,12 +96,12 @@ function fixture({ declared = documents } = {}) {
       .report;
   return { appRoot, dist, state, bundle, emit, verify };
 }
-test("the actual hardened disk gate reproduces all four copied HTML omissions without declarations", async () => {
+test("the actual hardened disk gate detects copied HTML omissions without declarations", async () => {
   const f = fixture({ declared: [] });
   f.emit();
   const report = await f.verify();
   assert.equal(report.ok, false);
-  assert.equal(report.mismatches.length, 4);
+  assert.equal(report.mismatches.length, documents.length);
   assert.ok(
     report.mismatches.every((entry) => entry.code === "UNACCOUNTED_HTML"),
   );
@@ -111,6 +111,21 @@ test("the actual hardened disk gate reproduces all four copied HTML omissions wi
         entry.message.startsWith(`${file} on disk`),
       ),
     );
+});
+test("the generated 404 fallback uses the built app document and is recorded in the graph", async () => {
+  const f = fixture();
+  const fallback = spaFallback(f.bundle);
+  f.bundle[fallback.fileName] = fallback;
+  write(f.dist, fallback.fileName, fallback.source);
+  const graph = f.emit();
+  assert.deepEqual(
+    graph.entries.find((entry) => entry.html === "404.html"),
+    {
+      ...graph.entries.find((entry) => entry.html === "index.html"),
+      html: "404.html",
+    },
+  );
+  assert.equal((await f.verify()).ok, true);
 });
 test("precisely owned copied public documents become parsed core entries and pass the actual hardened disk gate", async () => {
   const f = fixture();

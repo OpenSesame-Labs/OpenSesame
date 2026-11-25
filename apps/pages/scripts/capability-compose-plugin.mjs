@@ -11,8 +11,7 @@
  * `virtual:opensesame-distribution` (the DistributionContract); drops HTML
  * entries and public files owned by an excluded capability in hardened mode;
  * partitions every optional module into a `cap-<capability>` chunk; emits
- * `dist/capability-graph.json` and `dist/capability-distribution.json`; and
- * fails the build on forbidden reachability (BUILD-01/02/06, EVID-01/02).
+ * graph and distribution records; and fails on forbidden reachability.
  *
  * `capabilityCompose()` returns two plugins: a normal-order one (config,
  * virtual modules, public-file pruning before vite-plugin-pwa globs the
@@ -28,7 +27,7 @@ import {
 } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { encodeGraph } from "../src/sw/graph-records.ts";
-import { buildGraph } from "./lib/capability-build-graph.mjs";
+import { buildGraph, spaFallback } from "./lib/capability-build-graph.mjs";
 import { composeState } from "./lib/capability-compose-state.mjs";
 import { publicPathTarget } from "./lib/capability-distribution.mjs";
 import { recordElidedDynamicImports } from "./lib/capability-elided-imports.mjs";
@@ -350,6 +349,7 @@ function graphPlugin(ctx) {
     generateBundle(_outputOptions, bundle) {
       const { state } = ctx;
       if (!state) return;
+      this.emitFile(spaFallback(bundle));
       ctx.graph = buildGraph(this, bundle, state, ctx.resolved.base);
       try {
         gateOrReport(state, ctx.graph, ctx.logger(), "generateBundle");
