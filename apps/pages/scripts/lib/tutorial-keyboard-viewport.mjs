@@ -100,18 +100,8 @@ async function checkZoomedKeyboard(page, check, field, target, keyboardHeight) {
         box.height >= v.height - input.height - 15
       );
     }, target);
-    if (target === "item.editor.name") {
-      const wholeWord = await page.evaluate(() => {
-        const node = document.querySelector(".coach__message")?.firstChild;
-        const start = node?.textContent?.indexOf("account") ?? -1;
-        if (!node || start < 0) return false;
-        const range = document.createRange();
-        range.setStart(node, start);
-        range.setEnd(node, start + "account".length);
-        return range.getClientRects().length === 1;
-      });
-      check(wholeWord, "first vault: zoomed instruction keeps words intact");
-    }
+    if (target === "item.editor.name")
+      await checkZoomedNameInstruction(page, check);
     await captureZoomedInstruction(
       page,
       session,
@@ -133,41 +123,11 @@ async function checkZoomedKeyboard(page, check, field, target, keyboardHeight) {
       });
     }
     check(result.clear, `first vault: zoomed keyboard leaves ${target} clear`);
-    check(
-      result.inside,
-      `first vault: zoomed keyboard card fits the visible viewport`,
-    );
-    check(
-      result.readable,
-      "first vault: zoomed keyboard instruction can be read",
-    );
-    check(
-      result.controls,
-      "first vault: zoomed keyboard controls fit and remain touch-sized",
-    );
-    if (target === "item.editor.name") {
-      const point = await field.evaluate((node) => {
-        const box = node.getBoundingClientRect();
-        const v = visualViewport;
-        return {
-          x:
-            (Math.max(box.left, v.offsetLeft) +
-              Math.min(box.right, v.offsetLeft + v.width)) /
-              2 -
-            v.offsetLeft,
-          y:
-            (Math.max(box.top, v.offsetTop) +
-              Math.min(box.bottom, v.offsetTop + v.height)) /
-              2 -
-            v.offsetTop,
-        };
-      });
-      await page.touchscreen.tap(point.x, point.y);
-      check(
-        await field.evaluate((node) => document.activeElement === node),
-        "first vault: the zoomed account name field is touch-reachable",
-      );
-    }
+    check(result.inside, "first vault: zoomed card fits the viewport");
+    check(result.readable, "first vault: zoomed instructions are readable");
+    check(result.controls, "first vault: zoomed controls remain touch-sized");
+    if (target === "item.editor.name")
+      await checkZoomedNameField(page, field, check);
     if (target === "unlock.seal-pin-entry") {
       await page.touchscreen.tap(result.point.x, result.point.y);
       await page
@@ -203,6 +163,43 @@ async function checkZoomedKeyboard(page, check, field, target, keyboardHeight) {
       .click();
     await page.locator(`.coach[data-coach-target="${target}"]`).waitFor();
   }
+}
+
+async function checkZoomedNameInstruction(page, check) {
+  const wholeWord = await page.evaluate(() => {
+    const node = document.querySelector(".coach__message")?.firstChild;
+    const start = node?.textContent?.indexOf("account") ?? -1;
+    if (!node || start < 0) return false;
+    const range = document.createRange();
+    range.setStart(node, start);
+    range.setEnd(node, start + "account".length);
+    return range.getClientRects().length === 1;
+  });
+  check(wholeWord, "first vault: zoomed instruction keeps words intact");
+}
+
+async function checkZoomedNameField(page, field, check) {
+  const point = await field.evaluate((node) => {
+    const box = node.getBoundingClientRect();
+    const v = visualViewport;
+    return {
+      x:
+        (Math.max(box.left, v.offsetLeft) +
+          Math.min(box.right, v.offsetLeft + v.width)) /
+          2 -
+        v.offsetLeft,
+      y:
+        (Math.max(box.top, v.offsetTop) +
+          Math.min(box.bottom, v.offsetTop + v.height)) /
+          2 -
+        v.offsetTop,
+    };
+  });
+  await page.touchscreen.tap(point.x, point.y);
+  check(
+    await field.evaluate((node) => document.activeElement === node),
+    "first vault: the zoomed account name field is touch-reachable",
+  );
 }
 
 /** Runs in the browser once the resized viewport and coach have settled. */

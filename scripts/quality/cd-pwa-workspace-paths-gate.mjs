@@ -30,78 +30,35 @@ export function productionClosure(components) {
     .filter((component) => component !== undefined);
 }
 
-/** @param {string} yaml */
-export function workflowPathFilters(yaml) {
-  const lines = yaml.split("\n");
-  const paths = [];
-  let inOn = false;
-  let onIndent = 0;
-  let inPush = false;
-  let pushIndent = 0;
-  let inPaths = false;
-  let pathsIndent = 0;
-  for (const line of lines) {
-    if (!inOn) {
-      const on = /^(\s*)on:\s*$/.exec(line);
-      if (on) {
-        inOn = true;
-        onIndent = on[1].length;
-      }
-      continue;
-    }
-    if (!inPush) {
-      const push = /^(\s*)push:\s*$/.exec(line);
-      if (push && push[1].length > onIndent) {
-        inPush = true;
-        pushIndent = push[1].length;
-        inPaths = false;
-        continue;
-      }
-      if (line.trim() && !/^\s*#/.test(line)) {
-        const indent = /^(\s*)\S/.exec(line)?.[1]?.length ?? 0;
-        if (indent <= onIndent) inOn = false;
-      }
-      continue;
-    }
-    if (line.trim() && !/^\s*#/.test(line)) {
-      const indent = /^(\s*)\S/.exec(line)?.[1]?.length ?? 0;
-      if (indent === pushIndent && !/^\s+push:\s*$/.test(line)) {
-        inPush = false;
-        inPaths = false;
-        continue;
-      }
-      if (indent <= onIndent) {
-        inOn = false;
-        inPush = false;
-        inPaths = false;
-        continue;
-      }
-    }
-    if (!inPaths) {
-      const header = /^(\s*)paths:\s*$/.exec(line);
-      if (header && header[1].length > pushIndent) {
-        inPaths = true;
-        pathsIndent = header[1].length;
-      } else if (line.trim() && !/^\s*#/.test(line)) {
-        const indent = /^(\s*)\S/.exec(line)?.[1]?.length ?? 0;
-        if (indent <= pushIndent) {
-          inPush = false;
-          inPaths = false;
-        }
-      }
-      continue;
-    }
-    const match = /^(\s*)-\s*"(.+)"\s*$/.exec(line);
-    if (match && match[1].length > pathsIndent) {
-      paths.push(match[2]);
-      continue;
-    }
-    if (line.trim() && !/^\s*#/.test(line)) {
-      const indent = /^(\s*)\S/.exec(line)?.[1]?.length ?? 0;
-      if (indent <= pathsIndent) inPaths = false;
+/** The indented body of a mapping key, excluding sibling keys. */
+function section(lines, name, parentIndent) {
+  const header = new RegExp(`^(\\s*)${name}:\\s*$`);
+  let start = -1;
+  let indent = parentIndent;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i];
+    if (!line.trim() || /^\s*#/.test(line)) continue;
+    const current = /^(\s*)\S/.exec(line)?.[1].length ?? 0;
+    if (start >= 0 && current <= indent)
+      return { lines: lines.slice(start, i), indent };
+    const match = header.exec(line);
+    if (start < 0 && match && current > parentIndent) {
+      start = i + 1;
+      indent = current;
     }
   }
-  return paths;
+  return { lines: start < 0 ? [] : lines.slice(start), indent };
+}
+
+/** @param {string} yaml */
+export function workflowPathFilters(yaml) {
+  const on = section(yaml.split("\n"), "on", -1);
+  const push = section(on.lines, "push", on.indent);
+  const paths = section(push.lines, "paths", push.indent);
+  return paths.lines.flatMap((line) => {
+    const match = /^(\s*)-\s*"(.+)"\s*$/.exec(line);
+    return match && match[1].length > paths.indent ? [match[2]] : [];
+  });
 }
 
 /** @param {string} dir */

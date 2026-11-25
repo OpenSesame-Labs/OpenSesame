@@ -34,6 +34,35 @@ test("workflowPathFilters reads only push.paths", () => {
   assert.deepEqual(workflowPathFilters(yaml), ["apps/pages/**"]);
 });
 
+test("workflowPathFilters stops at sibling mappings and retains filter order", () => {
+  const yaml = [
+    "on:",
+    "  pull_request:",
+    "    paths:",
+    '      - "before/**"',
+    "  push:",
+    "    branches: [main]",
+    "    paths:",
+    '      - "packages/**"',
+    "      # A later exclusion changes the result.",
+    '      - "!packages/private/**"',
+    "    paths-ignore:",
+    '      - "not-a-push-path/**"',
+    "  workflow_dispatch:",
+    "jobs:",
+    "  paths:",
+    '    - "after/**"',
+  ].join("\n");
+  assert.deepEqual(workflowPathFilters(yaml), [
+    "packages/**",
+    "!packages/private/**",
+  ]);
+  assert.deepEqual(
+    workflowPathFilters("on:\n  pull_request:\n    paths: []"),
+    [],
+  );
+});
+
 test("pathCovers accepts exact and parent globs only", () => {
   assert.equal(pathCovers(["packages/foo/**"], "packages/foo/**"), true);
   assert.equal(pathCovers(["packages/**"], "packages/foo/**"), true);

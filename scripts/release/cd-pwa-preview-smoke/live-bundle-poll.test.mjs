@@ -12,6 +12,7 @@ import {
 import {
   listStagedShellAssetPaths,
   pollLiveShellAssets,
+  readBoundedBody,
 } from "./live-bundle-poll.mjs";
 import { cdnPollBudget } from "./retry-budget.mjs";
 
@@ -310,4 +311,66 @@ test("pollLiveShellAssets rejects an oversized live body by its path", async () 
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+test("readBoundedBody stops at shared CDN deadline before per-chunk cap", async () => {
+  const stream = new ReadableStream({ pull() {} });
+  await assert.rejects(
+    () =>
+      readBoundedBody(
+        new Response(stream),
+        "assets/main.js",
+        100,
+        () => 99,
+        5000,
+      ),
+    /body read timed out/,
+  );
+});
+
+test("readBoundedBody rejects expired nonzero CDN deadline when enforced", async () => {
+  await assert.rejects(
+    () =>
+      readBoundedBody(
+        new Response("ok"),
+        "assets/main.js",
+        100,
+        () => 101,
+        5000,
+        true,
+      ),
+    /CDN poll deadline expired/,
+  );
+});
+
+test("readBoundedBody caps arrayBuffer reads at the CDN body deadline", async () => {
+  const response = {
+    body: null,
+    headers: new Headers(),
+    arrayBuffer: () =>
+      new Promise((resolve) => {
+        setTimeout(() => resolve(new TextEncoder().encode("x").buffer), 50);
+      }),
+  };
+  await assert.rejects(
+    () =>
+      readBoundedBody(response, "assets/main.js", 100, () => 95, 5000, true),
+    /body read timed out/,
+  );
+});
+
+test("readBoundedBody keeps the per-chunk cap when the deadline is not enforced", async () => {
+  const stream = new ReadableStream({ pull() {} });
+  await assert.rejects(
+    () =>
+      readBoundedBody(
+        new Response(stream),
+        "assets/main.js",
+        100,
+        () => 101,
+        20,
+        false,
+      ),
+    /body read timed out/,
+  );
 });

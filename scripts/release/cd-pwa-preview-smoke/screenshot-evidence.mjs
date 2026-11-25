@@ -258,6 +258,20 @@ async function writePrePageFailureEvidence(
   await writeFailureFiles(outRoot, consoleEntries, [], error, phase);
 }
 
+async function launchWithEvidence(launch, outRoot, consoleEntries) {
+  try {
+    return (await launch()).browser;
+  } catch (launchError) {
+    try {
+      await writePrePageFailureEvidence(outRoot, launchError, consoleEntries);
+      if (launchError instanceof Error) launchError.phaseWritten = true;
+    } catch (evidenceError) {
+      reportEvidenceError(evidenceError);
+    }
+    throw launchError;
+  }
+}
+
 export async function captureLiveSmokeEvidence(env, deps = {}) {
   const { pagesBase, sha, outRoot, repoRoot } = readCaptureInputs(env);
   const findChromium = deps.findChromium ?? (await loadFindChromium(repoRoot));
@@ -279,19 +293,8 @@ export async function captureLiveSmokeEvidence(env, deps = {}) {
       launchHeadlessPlaywright({
         args: ["--no-sandbox", "--disable-dev-shm-usage"],
       }));
-  let browser;
+  const browser = await launchWithEvidence(launch, outRoot, consoleEntries);
   let page;
-  try {
-    ({ browser } = await launch());
-  } catch (launchError) {
-    try {
-      await writePrePageFailureEvidence(outRoot, launchError, consoleEntries);
-      if (launchError instanceof Error) launchError.phaseWritten = true;
-    } catch (evidenceError) {
-      reportEvidenceError(evidenceError);
-    }
-    throw launchError;
-  }
   // A browser that launched can still fail to produce a context or a page;
   // those phases are distinct from a true launch failure.
   let phase = "context";

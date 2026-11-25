@@ -7,18 +7,10 @@
  * question first. This screen is reached on purpose — `Deployment setup`
  * from the sign-in screen's foot.
  *
- * With no step and no join, the first screen is a configuration choice
- * (ADR 0154): Default, Minimal, Full or Custom. Custom opens this ceremony.
- * Its first tab is always `capabilities` — what this installation runs,
- * as a draft reviewed and applied (CONSENT-03). Every further tab is a
- * `setup-panel` contribution registered by a capability the person has
- * applied: nothing is hardcoded here any more, so a deselected capability
- * has no tab. Every tab writes its record as it is answered — `settings.v1`,
- * or the connector directory's own — every tab is skippable, and "Skip all"
- * takes the whole tour off the table. Skipping is recorded so "looked and
- * passed" stays distinct from "never looked"; it is never consent. The foot
- * is icon keys for previous / skip / next, and the shared `.go` Finish.
- *
+ * The configuration choice offers Default, Minimal, Full and Custom (ADR 0154).
+ * Custom opens the capabilities tab, followed by panels contributed by enabled
+ * capabilities. Each tab saves its own record and can be skipped; skipping is
+ * recorded separately from consent.
  * Designed in `docs/design/canvases/first-run-setup/`.
  */
 

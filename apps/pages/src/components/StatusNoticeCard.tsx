@@ -103,28 +103,27 @@ function WordedActs({
   const runWorded = (opens: boolean | undefined, run: () => void) => {
     const fromKeyboard =
       actionsRef.current?.contains(document.activeElement) ?? false;
-    // An opening choice moves focus onto the page. A tray choice lands on
-    // Close. Arming hand-back on either path pulls focus back onto this
-    // card once its act disappears.
-    if (fromKeyboard && !opens && !wordedTray) handBack = notice.id;
-    let trayClose: HTMLButtonElement | null = null;
-    if (!opens && wordedTray && fromKeyboard) {
-      const dialog = actionsRef.current?.closest('[role="dialog"]');
-      trayClose =
-        dialog?.querySelector<HTMLButtonElement>(
-          'button[aria-label="Close"]',
-        ) ?? null;
+    if (opens) {
+      onOpen();
+      run();
+      return;
     }
-    if (opens) onOpen();
-    run();
-    if (opens) return;
     if (wordedTray) {
+      const dialog = fromKeyboard
+        ? actionsRef.current?.closest('[role="dialog"]')
+        : null;
+      const trayClose = dialog?.querySelector<HTMLButtonElement>(
+        'button[aria-label="Close"]',
+      );
+      run();
       if (trayClose) queueMicrotask(() => landFocus(trayClose));
       return;
     }
     // A keyboard press armed hand-back: the card this act leaves behind takes
     // focus back, so focus must not move onto the page. Only a pointer press
     // has no card to return to and moves on like an opening act.
+    if (fromKeyboard) handBack = notice.id;
+    run();
     if (!fromKeyboard) onOpen();
   };
   return (
@@ -144,6 +143,57 @@ function WordedActs({
         {alt.label}
       </button>
     </>
+  );
+}
+
+function NoticeAct({
+  notice,
+  onOpen,
+  actionsRef,
+  wordedTray,
+  inFlow,
+}: {
+  notice: Notice;
+  onOpen: () => void;
+  actionsRef: RefObject<HTMLDivElement | null>;
+  wordedTray: boolean;
+  inFlow: boolean;
+}) {
+  const act = notice.act;
+  if (wordedPair(notice)) {
+    return (
+      <WordedActs
+        notice={notice}
+        onOpen={onOpen}
+        actionsRef={actionsRef}
+        wordedTray={wordedTray}
+      />
+    );
+  }
+  if (!act) return null;
+  const pressAct = () =>
+    runStoredAct(
+      act,
+      notice.id,
+      actionsRef.current?.contains(document.activeElement) ?? false,
+      onOpen,
+    );
+  if (act.worded === true) {
+    return (
+      <button
+        type="button"
+        className="btn btn--primary btn--sm choice"
+        onClick={pressAct}
+      >
+        {act.label}
+      </button>
+    );
+  }
+  return (
+    <IconKey label={act.label} small onClick={pressAct}>
+      <ActIcon icon={act.icon} />
+      {inFlow ? <span className="notice-action-label">{act.label}</span> : null}
+    </IconKey>
   );
 }
 
@@ -191,16 +241,6 @@ export function StatusNoticeCard({
   const dismissTitle = dismissContext ?? notice.title;
   const navigate = useNavigate();
   const actions = useRef<HTMLDivElement>(null);
-  const act = notice.act;
-  const pressAct = () => {
-    if (!act) return;
-    runStoredAct(
-      act,
-      notice.id,
-      actions.current?.contains(document.activeElement) ?? false,
-      onOpen,
-    );
-  };
   // Once the act's key is gone, and only if nothing else took focus
   // meanwhile, focus lands on the first key the card still has.
   useEffect(() => {
@@ -237,29 +277,13 @@ export function StatusNoticeCard({
             ) : null}
           </IconKey>
         ) : null}
-        {wordedPair(notice) ? (
-          <WordedActs
-            notice={notice}
-            onOpen={onOpen}
-            actionsRef={actions}
-            wordedTray={wordedTray}
-          />
-        ) : act?.worded === true ? (
-          <button
-            type="button"
-            className="btn btn--primary btn--sm choice"
-            onClick={pressAct}
-          >
-            {act.label}
-          </button>
-        ) : act ? (
-          <IconKey label={act.label} small onClick={pressAct}>
-            <ActIcon icon={act.icon} />
-            {inFlow ? (
-              <span className="notice-action-label">{act.label}</span>
-            ) : null}
-          </IconKey>
-        ) : null}
+        <NoticeAct
+          notice={notice}
+          onOpen={onOpen}
+          actionsRef={actions}
+          wordedTray={wordedTray}
+          inFlow={inFlow}
+        />
         <NoticeRetry notice={notice} inFlow={inFlow} />
         {notice.ceremony ? (
           // Repair opens as a ceremony sheet in place — never a route change.
