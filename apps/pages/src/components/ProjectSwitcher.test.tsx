@@ -37,6 +37,7 @@ const proj = vi.hoisted(() => ({
 }));
 
 import { projectSeams } from "@opensesame/app-core/lib/projects.js";
+
 Object.assign(projectSeams, {
   projectsState: () => proj.state,
   subscribeProjects: () => () => {},
@@ -45,13 +46,16 @@ Object.assign(projectSeams, {
 });
 
 import { vaultStore } from "@opensesame/app-core/lib/vault/store.js";
+
 vi.spyOn(vaultStore, "isUnlocked").mockImplementation(() => proj.unlocked);
 
 import { guestAuthSeams } from "@opensesame/app-core/lib/guest-auth.js";
+
 Object.assign(guestAuthSeams, { continueAsGuest: proj.continueAsGuest });
 
 import { ProjectSwitcher, projectSwitcherSeams } from "./ProjectSwitcher.js";
 import { expectInTray } from "./tray.test-support.js";
+
 Object.assign(projectSwitcherSeams, {
   afterProjectChange: proj.afterProjectChange,
 });
@@ -101,6 +105,7 @@ describe("ProjectSwitcher — the @tomb prompt", () => {
     (source) => {
       const outerEscape = vi.fn();
       render(
+        // biome-ignore lint/a11y/noStaticElementInteractions: observes bubbling to an ancestor, not an interactive control
         <div onKeyDown={outerEscape}>
           <MemoryRouter>
             <ProjectSwitcher />
@@ -134,15 +139,24 @@ describe("ProjectSwitcher — the @tomb prompt", () => {
     expect(screen.getByText("switching locks this one")).toBeTruthy();
   });
 
-  it("lists every vault on the device with guest as a peer", () => {
+  it("lists device vaults without an extra guest option", () => {
     renderSwitcher();
     openMenu();
     expect(vaultRow("personal")).toBeTruthy();
     expect(vaultRow("Work")).toBeTruthy();
-    expect(vaultRow("guest")).toBeTruthy();
-    expect(
-      screen.getByText("no key · this tab only · nothing here is touched"),
-    ).toBeTruthy();
+    expect(screen.queryByText("guest")).toBeNull();
+  });
+
+  it("shows one row when personal is the only vault", () => {
+    const work = proj.state.projects.pop();
+    try {
+      renderSwitcher();
+      openMenu();
+      expect(vaultRow("personal")).toBeTruthy();
+      expect(document.querySelectorAll(".vault-row")).toHaveLength(1);
+    } finally {
+      if (work) proj.state.projects.push(work);
+    }
   });
 
   it("switching vaults delegates to the store without reloading", async () => {
@@ -161,16 +175,6 @@ describe("ProjectSwitcher — the @tomb prompt", () => {
     // Nothing on this device shares a key, so the swap locks.
     expect(proj.afterProjectChange).toHaveBeenCalledWith(false);
     expect(reload).not.toHaveBeenCalled();
-  });
-
-  it("the guest row locks and continues as guest (AGENTS.md §5)", async () => {
-    const prepare = vi.spyOn(vaultStore, "prepareGuestUnlock");
-    renderSwitcher();
-    openMenu();
-    fireEvent.click(vaultRow("guest"));
-    await waitFor(() => expect(prepare).toHaveBeenCalledTimes(1));
-    expect(proj.setActiveProject).not.toHaveBeenCalled();
-    prepare.mockRestore();
   });
 
   it("surfaces swap failures instead of reloading", async () => {

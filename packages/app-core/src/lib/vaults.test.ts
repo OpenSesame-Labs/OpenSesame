@@ -2,7 +2,7 @@ import { createVault } from "@opensesame/vault-core";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { setGuestsAllowed } from "./guest-access.js";
 import { guestAuthSeams } from "./guest-auth.js";
-import { kvDelete, kvSet } from "./kv.js";
+import { kvDelete, kvDeleteDurable, kvSet } from "./kv.js";
 import {
   clearGuestSessionPerson,
   mintGuestSessionPerson,
@@ -15,14 +15,22 @@ import {
 import { GUEST_TOMB, vaultStore } from "./vault/store.js";
 import {
   describeSealedAt,
+  deviceHasSeveralVaults,
   enterActiveProjectScope,
   listDeviceVaults,
   openVaultLabel,
   removeVault,
+  subscribeDeviceVaults,
   switchVault,
   vaultLabel,
 } from "./vaults.js";
-import { HEADER_PATH, PERSONAL_TOMB, tombFileKey } from "./vfs.js";
+import {
+  HEADER_PATH,
+  PERSONAL_TOMB,
+  registerTomb,
+  tombFileKey,
+  unregisterTomb,
+} from "./vfs.js";
 
 const PASSWORD = "correct horse battery staple";
 
@@ -55,15 +63,15 @@ const state: ProjectsState = {
 const originalProjectSeams = { ...projectSeams };
 const originalGuestSeams = { ...guestAuthSeams };
 
-beforeEach(() => {
+beforeEach(async () => {
   Object.assign(projectSeams, {
     projectsState: () => state,
     subscribeProjects: () => () => {},
     activeProject: () => state.projects[0],
   });
   kvDelete(tombFileKey(PERSONAL_TOMB, HEADER_PATH));
-  kvDelete(tombFileKey(GUEST_TOMB, HEADER_PATH));
   kvDelete(tombFileKey("prj_named", HEADER_PATH));
+  await kvDeleteDurable(tombFileKey(GUEST_TOMB, HEADER_PATH));
   clearGuestSessionPerson();
   vaultStore.loadActiveProjectScope();
 });
@@ -107,7 +115,7 @@ describe("describeSealedAt", () => {
 });
 
 describe("listDeviceVaults", () => {
-  it("lists every project, its sealed state, and the guest road last", async () => {
+  it("lists only device vaults, not an unused guest session", async () => {
     const { header } = await createVault(PASSWORD);
     kvSet(tombFileKey("prj_named", HEADER_PATH), JSON.stringify(header));
 
@@ -116,9 +124,8 @@ describe("listDeviceVaults", () => {
       PERSONAL_PROJECT_ID,
       "prj_1234abcd-0000-0000-0000-00000000f4a2",
       "prj_named",
-      GUEST_TOMB,
     ]);
-    const [personal, unnamed, work, guest] = vaults;
+    const [personal, unnamed, work] = vaults;
     expect(personal?.state).toBe("empty");
     expect(unnamed?.named).toBe(false);
     expect(unnamed?.label).toBe("project · f4a2");
@@ -126,9 +133,17 @@ describe("listDeviceVaults", () => {
     expect(work?.sealedAt).toBe(header.createdAt);
     expect(work?.sharedKey).toBe(false);
     expect(work?.address).toBeNull();
-    expect(guest?.kind).toBe("guest");
-    expect(guest?.state).toBe("empty");
-    expect(guest?.address).toBeNull();
+  });
+
+  it("shows just the personal vault after it is sealed", async () => {
+    Object.assign(projectSeams, {
+      projectsState: () => ({ ...state, projects: [state.projects[0]] }),
+    });
+    const { header } = await createVault(PASSWORD);
+    kvSet(tombFileKey(PERSONAL_TOMB, HEADER_PATH), JSON.stringify(header));
+    expect(listDeviceVaults().map((vault) => vault.id)).toEqual([
+      PERSONAL_PROJECT_ID,
+    ]);
   });
 
   it("shows owner/slug from the tomb header and keeps a sealed name", async () => {
@@ -190,35 +205,67 @@ describe("listDeviceVaults", () => {
     expect(work?.label).toBe("Work");
   });
 
-  it("never lists the guest tomb twice when guest files exist on disk", async () => {
+  it("removes an ephemeral guest row when the session ends", async () => {
     await vaultStore.createGuest();
+    const id = vaultStore.activeTomb();
     vaultStore.lock();
     const vaults = listDeviceVaults();
-    const guests = vaults.filter((vault) => vault.id === GUEST_TOMB);
-    expect(guests).toHaveLength(1);
-    expect(guests[0]?.kind).toBe("guest");
+    const guests = vaults.filter((vault) => vault.id === id);
+    expect(guests).toHaveLength(0);
   });
 
-  it("offers no guest row while the operator has guests switched off", async () => {
-    await setGuestsAllowed(false);
+  it("keeps a sealed guest vault available after switching away", async () => {
+    Object.assign(projectSeams, {
+      projectsState: () => ({ ...state, projects: [state.projects[0]] }),
+    });
+    const { header } = await createVault(PASSWORD);
+    kvSet(tombFileKey(GUEST_TOMB, HEADER_PATH), JSON.stringify(header));
+    await registerTomb(GUEST_TOMB);
     try {
-      expect(listDeviceVaults().some((vault) => vault.id === GUEST_TOMB)).toBe(
-        false,
-      );
+      const guest = listDeviceVaults().find((vault) => vault.id === GUEST_TOMB);
+      expect(guest).toMatchObject({
+        state: "locked",
+        sealedAt: header.createdAt,
+        sharedKey: false,
+      });
+      expect(deviceHasSeveralVaults()).toBe(true);
+      await setGuestsAllowed(false);
+      try {
+        expect(
+          listDeviceVaults().some((vault) => vault.id === GUEST_TOMB),
+        ).toBe(false);
+        expect(deviceHasSeveralVaults()).toBe(false);
+      } finally {
+        await setGuestsAllowed(true);
+      }
     } finally {
+      await unregisterTomb(GUEST_TOMB);
+    }
+  });
+
+  it("notifies vault lists when guest access changes", async () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeDeviceVaults(listener);
+    try {
+      await setGuestsAllowed(false);
+      expect(listener).toHaveBeenCalledOnce();
+    } finally {
+      unsubscribe();
       await setGuestsAllowed(true);
     }
-    expect(listDeviceVaults().at(-1)?.id).toBe(GUEST_TOMB);
   });
 
   it("marks the guest row open while a guest session runs — never the tomb it borrows", async () => {
     await vaultStore.createGuest();
+    const id = vaultStore.activeTomb();
     const vaults = listDeviceVaults();
     const guest = vaults.at(-1);
-    expect(guest?.id).toBe(GUEST_TOMB);
+    expect(guest?.id).toBe(id);
     expect(guest?.state).toBe("open");
-    // Guests always unlock GUEST_TOMB — personal stays closed beside them.
-    expect(vaults[0]?.state).not.toBe("open");
+    // An unsealed personal placeholder is not a second vault.
+    expect(vaults.some((vault) => vault.id === PERSONAL_PROJECT_ID)).toBe(
+      false,
+    );
   });
 });
 
@@ -231,8 +278,7 @@ describe("a duress decoy in the list", () => {
     const vaults = listDeviceVaults();
     expect(vaults[0]?.id).toBe(PERSONAL_PROJECT_ID);
     expect(vaults[0]?.state).toBe("open");
-    expect(vaults.at(-1)?.id).toBe(GUEST_TOMB);
-    expect(vaults.at(-1)?.state).not.toBe("open");
+    expect(vaults.some((vault) => vault.id === GUEST_TOMB)).toBe(false);
     expect(openVaultLabel()).toBe("personal");
     vaultStore.lock();
   });
@@ -246,6 +292,29 @@ describe("a duress decoy in the list", () => {
 });
 
 describe("switchVault", () => {
+  it("returns to an existing guest vault using its enrolled PIN", async () => {
+    await vaultStore.createGuest();
+    const id = vaultStore.activeTomb();
+    await vaultStore.enrollPin("24681357");
+    expect(listDeviceVaults().filter((vault) => vault.id === id)).toMatchObject(
+      [{ state: "open" }],
+    );
+    vaultStore.lock();
+    vaultStore.loadActiveProjectScope();
+
+    expect(listDeviceVaults().filter((vault) => vault.id === id)).toMatchObject(
+      [{ state: "locked" }],
+    );
+    await expect(switchVault(id)).resolves.toBe("locked");
+    expect(vaultStore.getSnapshot().header?.unlocks?.pin).toBeDefined();
+    await vaultStore.unlockWithPin("24681357");
+    expect(vaultStore.getSnapshot()).toMatchObject({
+      tomb: id,
+      status: "unlocked",
+    });
+    expect(openVaultLabel()).toMatch(/^guest(?:-[1-9]\d*)?$/);
+  });
+
   it("the guest road locks the open vault and lands on guest Unlock", async () => {
     await vaultStore.createWithPin("24681357");
     expect(vaultStore.isUnlocked()).toBe(true);

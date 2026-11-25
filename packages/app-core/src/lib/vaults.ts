@@ -25,7 +25,7 @@ import {
 } from "@opensesame/os-domain";
 import type { VaultHeader } from "@opensesame/vault-core";
 import { deadmanBootKeys } from "./deadman/keys.js";
-import { guestsAllowed } from "./guest-access.js";
+import { guestsAllowed, subscribeGuestAccess } from "./guest-access.js";
 import { isGuestVaultId, newGuestVaultId } from "./guest-vault-id.js";
 import { kvHydrate } from "./kv.js";
 import { readLastVaultId, writeLastVaultId } from "./last-vault.js";
@@ -153,36 +153,35 @@ function describeVault(project: PagesProject): DeviceVault {
 }
 
 /**
- * Every vault on this device, the personal one first, then the projects in
- * the order they were made, then the guest row while guests are allowed. A
- * guest session that is open right now reports as open on the guest row and
- * nowhere else.
+ * Device vaults and the current guest session, without an unused guest road.
+ * Guest access remains available on the unlock screen.
  */
 function listDeviceVaultsDefault(): DeviceVault[] {
   const snapshot = vaultStore.getSnapshot();
-  const guestOpen =
-    snapshot.status === "unlocked" && snapshot.guest && !snapshot.decoy;
-  // With guests switched off there is no guest row to open (ADR 0135 §4),
-  // unless a guest session is the one open right now.
-  const protectedRows = guestsAllowed() ? protectedGuests() : [];
-  const road = {
-    ...guestVault(guestOpen ? "open" : "empty"),
-    label: guestOpen ? guestVaultLabel() : "guest",
-  };
+  const guestCurrent = isGuestVaultId(snapshot.tomb) && !snapshot.decoy;
+  const protectedRows = protectedGuests().filter(
+    (row) => guestsAllowed() || (guestCurrent && row.id === snapshot.tomb),
+  );
   const guestRow =
-    guestOpen || guestsAllowed()
+    guestCurrent && !protectedRows.some((row) => row.id === snapshot.tomb)
       ? [
           {
-            ...road,
-            id: protectedRows.some((row) => row.id === GUEST_TOMB)
-              ? NEW_GUEST_ROAD
-              : GUEST_TOMB,
+            ...guestVault(snapshot.status === "unlocked" ? "open" : "empty"),
+            id: snapshot.tomb ?? GUEST_TOMB,
           },
         ]
       : [];
   return [
     ...listProjects()
-      .filter((project) => !isGuestVaultId(project.id))
+      .filter(
+        (project) =>
+          !isGuestVaultId(project.id) &&
+          !(
+            guestCurrent &&
+            project.id === PERSONAL_PROJECT_ID &&
+            !readTombHeader(project.id)
+          ),
+      )
       .map(describeVault),
     ...protectedRows,
     ...guestRow,
@@ -191,7 +190,7 @@ function listDeviceVaultsDefault(): DeviceVault[] {
 
 /** Whether the switcher has anything to offer beyond the one vault. */
 function deviceHasSeveralVaultsDefault(): boolean {
-  return listProjects().length > 1 || protectedGuests().length > 0;
+  return listDeviceVaultsDefault().length > 1;
 }
 
 /**
@@ -206,9 +205,11 @@ export function subscribeDeviceVaults(listener: () => void): () => void {
   };
   const unsubscribeProjects = subscribeProjects(bump);
   const unsubscribeStore = vaultStore.subscribe(bump);
+  const unsubscribeGuestAccess = subscribeGuestAccess(bump);
   return () => {
     unsubscribeProjects();
     unsubscribeStore();
+    unsubscribeGuestAccess();
   };
 }
 

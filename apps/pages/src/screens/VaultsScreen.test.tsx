@@ -1,3 +1,9 @@
+import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
+import {
+  PERSONAL_PROJECT_ID,
+  projectSeams,
+} from "@opensesame/app-core/lib/projects.js";
+import { vaultsSeams } from "@opensesame/app-core/lib/vaults.js";
 import {
   cleanup,
   fireEvent,
@@ -8,13 +14,6 @@ import {
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { identityHookSeams } from "../bindings/identity.js";
-
-import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
-import {
-  PERSONAL_PROJECT_ID,
-  projectSeams,
-} from "@opensesame/app-core/lib/projects.js";
-import { vaultsSeams } from "@opensesame/app-core/lib/vaults.js";
 
 const state = {
   v: 1 as const,
@@ -41,6 +40,7 @@ const switchVault = vi.fn();
 const sealNewVault = vi.fn();
 
 import { identitySeams } from "@opensesame/app-core/lib/identity.js";
+
 Object.assign(identitySeams, {
   identityBase: () => "",
 });
@@ -49,6 +49,7 @@ Object.assign(identityHookSeams, {
 });
 
 import { federationSeams } from "@opensesame/app-core/lib/federation.js";
+
 Object.assign(federationSeams, {
   beginSignIn: () => Promise.resolve(),
   defaultUpstream: () => ({
@@ -60,8 +61,8 @@ Object.assign(federationSeams, {
   loadSession: () => null,
 });
 
-import { VaultsScreen } from "./VaultsScreen.js";
 import { joinRoadDependencies } from "./join/JoinRoad.js";
+import { VaultsScreen } from "./VaultsScreen.js";
 
 beforeEach(() => {
   Object.assign(projectSeams, {
@@ -87,14 +88,14 @@ function renderScreen(onPicked = vi.fn()) {
 }
 
 describe("VaultsScreen — the front door", () => {
-  it("lists every vault honestly, the guest road as a peer", () => {
+  it("lists every vault honestly without an unused guest entry", () => {
     renderScreen();
     expect(screen.getByRole("heading", { name: "Vaults" })).toBeTruthy();
     expect(screen.getByRole("button", { name: /personal/ })).toBeTruthy();
     // A sealed name is a secret: the id's tail stands in, and the row says so.
     expect(screen.getByText("project · 4f2a")).toBeTruthy();
     expect(screen.queryByText("prj_0000-4f2a")).toBeNull();
-    expect(screen.getByRole("button", { name: /guest/ })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /guest/ })).toBeNull();
     expect(
       screen.getByRole("button", { name: /Seal a new vault/ }),
     ).toBeTruthy();
@@ -106,13 +107,6 @@ describe("VaultsScreen — the front door", () => {
     await waitFor(() =>
       expect(switchVault).toHaveBeenCalledWith("prj_0000-4f2a"),
     );
-    await waitFor(() => expect(onPicked).toHaveBeenCalledTimes(1));
-  });
-
-  it("the guest row is never withheld and opens as guest (AGENTS.md §5)", async () => {
-    const onPicked = renderScreen();
-    fireEvent.click(screen.getByRole("button", { name: /guest/ }));
-    await waitFor(() => expect(switchVault).toHaveBeenCalledWith("guest"));
     await waitFor(() => expect(onPicked).toHaveBeenCalledTimes(1));
   });
 

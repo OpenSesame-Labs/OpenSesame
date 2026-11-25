@@ -4,8 +4,8 @@
  * Before anything is unlocked there is a choice to make, and the old screen
  * made it silently — the Unlock form opened on whichever tomb the boot pointer
  * named, and the others were reachable only after unlocking that one. This
- * screen puts the choice first: every vault on the device, the guest road as
- * a peer beside them, and a way to seal a new one. Picking a vault lands on
+ * screen puts the choice first: every vault on the device and a way to seal
+ * a new one. Picking a vault lands on
  * its own Unlock form; All vaults in the account menu leads back.
  *
  * Names stay honest: a project's name is sealed inside it, so its row says
@@ -24,6 +24,7 @@ import {
   switchVault,
 } from "@opensesame/app-core/lib/vaults.js";
 import { useEffect, useRef, useState } from "react";
+import { useDeviceVaults } from "../bindings/vaults.js";
 import { FailureNotice } from "../components/FailureNotice.js";
 import { IconMark, IconPlus } from "../components/Icons.js";
 import { VaultList } from "../components/VaultList.js";
@@ -35,7 +36,6 @@ import { LockFoot } from "./unlock/LockFoot.js";
 import { ResetLeftNotice } from "./unlock/ResetLeftNotice.js";
 import { SignInPanel } from "./unlock/SignInPanel.js";
 
-import { useDeviceVaults } from "../bindings/vaults.js";
 type Props = {
   providers: FederatedProviderSummary[];
   /** A vault was picked and the store has moved to it: show its unlock form. */
