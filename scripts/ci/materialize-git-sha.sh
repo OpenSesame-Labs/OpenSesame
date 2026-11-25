@@ -11,7 +11,7 @@ git -C "$target_dir" init -q
 git -C "$target_dir" remote add origin "https://github.com/${GITHUB_REPOSITORY}.git"
 auth_header="$(printf 'x-access-token:%s' "$GITHUB_TOKEN" | base64 | tr -d '\n')"
 GIT_CONFIG_COUNT=1 \
-  GIT_CONFIG_KEY_0=http.extraheader \
+  GIT_CONFIG_KEY_0=http.https://github.com/.extraheader \
   GIT_CONFIG_VALUE_0="AUTHORIZATION: basic ${auth_header}" \
   git -C "$target_dir" fetch --no-tags --depth 1 origin "$TARGET_SHA"
 unset auth_header

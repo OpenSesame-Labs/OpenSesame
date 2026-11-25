@@ -110,7 +110,7 @@ if (call.argv.includes("--get-regexp")) process.exit(1);
     ]);
     assert.deepEqual(fetch.config, {
       count: "1",
-      key: "http.extraheader",
+      key: "http.https://github.com/.extraheader",
       value: `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString("base64")}`,
     });
     assert.equal(JSON.stringify(calls).includes(token), false);
