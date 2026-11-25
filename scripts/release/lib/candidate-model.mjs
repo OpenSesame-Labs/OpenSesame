@@ -107,7 +107,7 @@ function validateProducer(manifest, expected) {
       String(manifest.producer?.run_attempt) === expected.run_attempt,
     "Manifest producer invocation mismatch",
   );
-  const trusted = POLICY.producers.map(
+  const trusted = Object.keys(POLICY.producers).map(
     (path) => `${POLICY.repository}/${path}@refs/heads/main`,
   );
   demand(

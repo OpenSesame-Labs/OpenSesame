@@ -79,6 +79,43 @@ type ReadyCommand = Exclude<
   NativeWorkerRequest,
   { type: "initialize" } | { type: "dispose" }
 >;
+type WorkerOperation = () => Promise<BoundaryValue>;
+
+function createOperationRunner(
+  port: BitwardenNativeWorkerPort,
+  currentState: () => WorkerState,
+  check: () => void,
+  close: () => void,
+) {
+  let active = 0;
+  let queue = Promise.resolve();
+  return {
+    active: () => active,
+    run(id: number, operation: WorkerOperation): void {
+      active++;
+      queue = queue
+        .then(async () => {
+          try {
+            const result = await operation();
+            check();
+            port.send(success(id, result));
+          } catch (error) {
+            if (currentState().phase !== "ended")
+              port.send(
+                failure(id, error instanceof Error ? error : undefined),
+              );
+            const state = currentState();
+            // A failed initialization, or a session the provider ended, is final.
+            if (state.phase !== "ready" || state.session.signal?.aborted)
+              close();
+          } finally {
+            active--;
+          }
+        })
+        .catch(close);
+    },
+  };
+}
 async function invoke(
   backend: SecretBackend,
   session: SecretBackendSession,
@@ -137,8 +174,6 @@ export function createBitwardenNativeWorkerRuntime(
     owner.signal,
   );
   let state: WorkerState = { phase: "awaiting-initialize" };
-  let active = 0;
-  let queue = Promise.resolve();
   let lastId = 0;
   const phase = (): WorkerState["phase"] => state.phase;
   const check = () => {
@@ -204,39 +239,19 @@ export function createBitwardenNativeWorkerRuntime(
         return phase() === "ready" ? () => command(request) : undefined;
     }
   };
-  const run = (id: number, operation: () => Promise<BoundaryValue>) => {
-    active++;
-    queue = queue
-      .then(async () => {
-        try {
-          const result = await operation();
-          check();
-          port.send(success(id, result));
-        } catch (error) {
-          if (phase() !== "ended")
-            port.send(failure(id, error instanceof Error ? error : undefined));
-          const current = state;
-          // A failed initialization, or a session the provider ended, is final.
-          if (current.phase !== "ready" || current.session.signal?.aborted)
-            close();
-        } finally {
-          active--;
-        }
-      })
-      .catch(close);
-  };
+  const runner = createOperationRunner(port, () => state, check, close);
   return {
     dispose,
     receive(value: BoundaryValue): void {
       if (phase() === "ended") return;
       const parsed = NativeWorkerRequest.safeParse(value);
-      if (!parsed.success || parsed.data.id <= lastId || active >= 4) {
+      if (!parsed.success || parsed.data.id <= lastId || runner.active() >= 4) {
         close();
         return;
       }
       lastId = parsed.data.id;
       const operation = admit(parsed.data);
-      if (operation) run(parsed.data.id, operation);
+      if (operation) runner.run(parsed.data.id, operation);
       else close();
     },
   };

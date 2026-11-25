@@ -4,7 +4,7 @@ import {
   type ReferenceIdp,
   startReferenceIdp,
 } from "@opensesame/mock-upstream-idp/testkit";
-import { type JsonObject, isString, overlapCast } from "@opensesame/os-domain";
+import { overlapCast } from "@opensesame/os-domain";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createControlPlane } from "../create-app.js";
 import {
@@ -19,53 +19,22 @@ import { putGroupRoleMappingAsOwner } from "./org-owner-fixture.js";
 import {
   DEFAULT_IDP_SUBJECT,
   PAGES_ORIGIN,
+  auth,
+  joinTenant,
+  json,
   mintOrgIdToken,
+  mintScimToken,
+  provisionUser,
+  provisional,
+  scimHeaders,
   seedTenantWithIssuer,
   testConfig,
+  usersPath,
+  verified,
 } from "./scim-test-helpers.js";
 
-/**
- * SCIM 2.0 provisioning, end to end (C15, D11).
- *
- * The counterparty for the sign-in half is the reference IdP: the subject a
- * directory provisions has to be the subject an assertion actually carries, and
- * the only way to prove those are the same string is to mint the assertion from
- * a real IdP over a real socket. Nothing here stubs a protocol.
- */
-
+// Protocol tests use a real reference IdP rather than a stubbed assertion.
 type App = ReturnType<typeof createControlPlane>["app"];
-
-function auth(token: string) {
-  return { authorization: `Bearer ${token}` };
-}
-
-function json(token: string) {
-  return { ...auth(token), "content-type": "application/json" };
-}
-
-async function provisional(app: App) {
-  const res = await app.request("/v1/principals/provisional", {
-    method: "POST",
-  });
-  expect(res.status).toBe(201);
-  return overlapCast(await res.json());
-}
-
-async function verified(app: App, subject: string) {
-  const created = await provisional(app);
-  const linked = await app.request("/v1/principals/link-identities", {
-    method: "POST",
-    headers: json(created.accessToken),
-    body: JSON.stringify({
-      kind: "oidc",
-      issuer: "https://mock.example",
-      subject,
-      assurance: "verified",
-    }),
-  });
-  expect(linked.status).toBe(201);
-  return created;
-}
 
 let idp: ReferenceIdp;
 
@@ -84,53 +53,6 @@ const seedTenant = (
   issuer: string | null = idp.issuer,
 ) => seedTenantWithIssuer(app, ctx, slug, issuer);
 
-async function mintScimToken(app: App, orgId: string, ownerToken: string) {
-  const res = await app.request(`/v1/organizations/${orgId}/scim/tokens`, {
-    method: "POST",
-    headers: json(ownerToken),
-  });
-  expect(res.status).toBe(201);
-  const body = overlapCast(await res.json());
-  if (!isString(body.token)) throw new Error("no provisioning token minted");
-  return { token: body.token, id: String(body.id) };
-}
-
-function scimHeaders(token: string) {
-  return {
-    authorization: `Bearer ${token}`,
-    "content-type": "application/json",
-  };
-}
-
-function usersPath(orgId: string, suffix = ""): string {
-  return `/v1/organizations/${orgId}/scim/v2/Users${suffix}`;
-}
-
-async function provisionUser(
-  app: App,
-  orgId: string,
-  token: string,
-  body: JsonObject,
-) {
-  const res = await app.request(usersPath(orgId), {
-    method: "POST",
-    headers: scimHeaders(token),
-    body: JSON.stringify({
-      schemas: ["urn:ietf:params:scim:schemas:core:2.0:User"],
-      ...body,
-    }),
-  });
-  return { status: res.status, body: overlapCast(await res.json()), res };
-}
-
-function joinTenant(app: App, slug: string, bearer: string, idToken: string) {
-  return app.request(`/v1/organizations/tenants/${slug}/join`, {
-    method: "POST",
-    headers: json(bearer),
-    body: JSON.stringify({ method: "sso", idToken }),
-  });
-}
-
 describe("SCIM provisioning lifecycle", () => {
   it("admits a provisioned subject and refuses it once deactivated", async () => {
     const { app, ctx } = createControlPlane({ config: testConfig(idp.issuer) });
@@ -138,8 +60,7 @@ describe("SCIM provisioning lifecycle", () => {
     const { token } = await mintScimToken(app, org.id, owner.accessToken);
     const { idToken, subject } = await mintOrgIdToken(idp, PAGES_ORIGIN);
 
-    // The directory pushes the joiner. No principal exists for them yet — and
-    // none is created here.
+    // The directory pushes the joiner without creating a principal.
     const created = await provisionUser(app, org.id, token, {
       userName: "ada@acme.example",
       externalId: subject,
@@ -147,8 +68,7 @@ describe("SCIM provisioning lifecycle", () => {
     });
     expect(created.status).toBe(201);
     expect(created.body.active).toBe(true);
-    // No principal, and no identity, exists for that subject yet: provisioning
-    // records permission to join, it does not create anybody (D11).
+    // Provisioning records permission to join; it creates no identity (D11).
     expect(
       await ctx.repos.externalIdentities.findByTuple({
         kind: "oidc",
@@ -179,7 +99,7 @@ describe("SCIM provisioning lifecycle", () => {
     expect(deactivated.status).toBe(200);
     expect(overlapCast(await deactivated.json()).active).toBe(false);
 
-    // Membership gone, and the session it authorised with it.
+    // Deactivation revokes both membership and the session it authorized.
     expect(
       await ctx.stores.organizationMemberships.find(org.id, guest.principalId),
     ).toBeUndefined();
@@ -209,8 +129,6 @@ describe("SCIM provisioning lifecycle", () => {
     );
     expect(deactivated.status).toBe(204);
 
-    // The assertion verifies and the subject binds to the caller — and the
-    // tenant still refuses, because its directory says this person is gone.
     const guest = await provisional(app);
     const refused = await joinTenant(
       app,
@@ -243,13 +161,12 @@ describe("SCIM provisioning lifecycle", () => {
     );
     expect(removed.status).toBe(204);
 
-    // The row survives: it is the record that this subject must NOT be
-    // admitted. Deleting it would silently re-open JIT-join.
     const stored = await ctx.stores.scim.users.getById(
       org.id,
       String(created.body.id),
     );
     expect(stored?.active).toBe(false);
+    // The retained denial row prevents DELETE from reopening JIT admission.
     expect(
       await provisionedRoleForSubject(ctx, org.id, "grace@acme.example"),
     ).toBeUndefined();
@@ -264,12 +181,10 @@ describe("SCIM provisioning-token custody", () => {
 
     expect(token.startsWith(SCIM_TOKEN_PREFIX)).toBe(true);
 
-    // The store answers to the digest, and only the digest.
     const digest = createHash("sha256").update(token).digest("hex");
     expect(await ctx.stores.scim.tokens.verify(org.id, digest)).toBe(true);
     expect(await ctx.stores.scim.tokens.verify(org.id, token)).toBe(false);
 
-    // Nothing that lists tokens ever shows one again.
     const listed = await app.request(
       `/v1/organizations/${org.id}/scim/tokens`,
       {
@@ -284,7 +199,7 @@ describe("SCIM provisioning-token custody", () => {
       JSON.stringify(await ctx.stores.scim.tokens.list(org.id)),
     ).not.toContain(token);
 
-    // Neither does the audit trail — not the token, not a prefix of it.
+    // Audit records neither the plaintext token nor a usable token prefix.
     await provisionUser(app, org.id, token, {
       userName: "ada@custody.example",
     });

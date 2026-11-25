@@ -161,15 +161,9 @@ export function createInteractionRoutes(): Hono<
 > {
   const routes = new Hono<{ Variables: Variables } & NodeEnv>();
   const csrf = createInteractionCsrf();
-
   routes.use("*", claimPageSecurityHeaders());
 
-  /*
-   * C9 sub-routers, mounted after the security headers so the hosted-page
-   * posture covers them too. Each owns one route on this prefix and
-   * re-implements the small `loadDetails` helper locally, so the files stay
-   * disjoint.
-   */
+  // Mount after the hosted-page security headers so they cover every router.
   routes.route("/", createByoInteractionRoutes(csrf));
   routes.route("/", createEmailInteractionRoutes(csrf));
   routes.route("/", createLdapInteractionRoutes(csrf));
@@ -206,7 +200,6 @@ export function createInteractionRoutes(): Hono<
     const submitted = isString(fields._csrf) ? fields._csrf : undefined;
     return csrf.verify(uid, submitted);
   }
-
   routes.get("/:uid", async (c) => {
     const ctx = c.get("ctx");
     const provider = providerInteractions(ctx.oauth.provider);
@@ -216,20 +209,13 @@ export function createInteractionRoutes(): Hono<
     }
     const { details } = loaded;
     const csrfToken = csrf.issue(details.uid);
-
     if (details.prompt.name === "login") {
       // A form lookup or saved connection selects the tenant's hosted methods.
       const orgSlug = c.req.query("org") ?? organizationHintForDetails(details);
       const fedErrorCode = c.req.query("fed_error");
-
-      // Opt-in auto-continue: the relying party already named the provider,
-      // so the hinted leg starts without a second click. The per-interaction
-      // cookie is the loop guard T14 demands: it is set before the redirect,
-      // so a refusal that comes back (as ?fed_error) — or any second visit —
-      // renders the full page instead of bouncing again. No CSRF token is
-      // involved because no form authority is being spent: this is the
-      // server acting on its own GET, and /federated/start's trust fence
-      // still decides what may be federated to.
+      // This server-owned GET spends no form authority, so it needs no CSRF
+      // token; the start leg still enforces the provider trust fence. The
+      // per-interaction cookie limits auto-continue to one hop and stops loops.
       if (
         ctx.config.interactionAutoContinue &&
         fedErrorCode === undefined &&
@@ -499,10 +485,7 @@ export function createInteractionRoutes(): Hono<
     // re-run the code, whatever the outcome below.
     deleteCookie(c, pendingCookieName(uid), { path: interactionPath(uid) });
 
-    // A refusal upstream is a normal outcome — return to the login page so the
-    // user can pick another provider or start a plain session. The CODE (never
-    // the upstream's free text) rides along so the page can say what happened
-    // instead of silently looking like a broken button.
+    // Carry only a bounded refusal code back to the provider-choice page.
     const upstreamError = c.req.query("error");
     if (upstreamError) {
       const code = /^[a-z0-9_]{1,40}$/.test(upstreamError)
@@ -566,9 +549,7 @@ export function createInteractionRoutes(): Hono<
       }
       accountId = existing.principalId;
     } else {
-      // Brand-new user: mint the same provisional principal the "Start a
-      // session" action would, then promote it in place by attaching the
-      // verified identity. The principal id never changes (ADR 0033).
+      // Promote the same provisional principal used by "Start a session".
       const fingerprint = createHash("sha256")
         .update(c.env?.incoming?.socket?.remoteAddress ?? "")
         .update("|")
@@ -623,18 +604,13 @@ export function createInteractionRoutes(): Hono<
       if (!attached.ok) {
         return c.text(attached.message, 409);
       }
-      // The verified-email policy (D15) may have attached this identity to a
-      // principal that already existed, in which case the principal minted a
-      // moment ago is not the account signing in. Follow the identity row,
-      // never the mint — the alternative is signing somebody in as a guest
-      // that carries none of their history.
+      // D15 may attach to an existing principal. Follow the verified identity
+      // row, never the provisional mint, or this would sign in a throwaway guest
+      // instead of the returning principal whose history the identity owns.
       accountId = attached.identity.principalId;
       if (!(await settleVerifiedOwner(ctx, accountId)))
         return c.text("This account is not able to sign in.", 403);
-      // The same first-authenticated-session guarantee POST
-      // /v1/principals/link-identities gives: a principal that just became
-      // verified gets its personal project. Both federated surfaces have to
-      // agree here, or where you signed in decides whether you have one.
+      // Match the personal-project guarantee of the identity-linking endpoint.
       await ensurePersonalOnAuthenticatedSession(ctx, accountId, correlationId);
       if (accountId === minted.principalId) {
         // The minted session belongs to the minted principal and to nothing
@@ -652,8 +628,7 @@ export function createInteractionRoutes(): Hono<
       }
     }
 
-    // A bring-your-own upstream that just signed somebody in is in use, and
-    // the admin surface lists records by last use (D14).
+    // Keep bring-your-own records ordered by last use (D14).
     if (pending.byoId) {
       await ctx.repos.byoUpstreams.touchLastUsed(pending.byoId, ctx.clock());
     }

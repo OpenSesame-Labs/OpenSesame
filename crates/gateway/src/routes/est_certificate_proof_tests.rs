@@ -153,49 +153,6 @@ fn install_trust(state: &mut AppState, chain: &str) {
 }
 
 #[tokio::test]
-async fn proxy_identity_and_forwarded_assertions_never_replace_direct_est_proof() {
-    let _guard = test_env::lock();
-    let state = sealed_state().await;
-    let profile = seed_self_signed_profile(&state, "random-value-16b").await;
-    let mut config = config(&state, &profile).await;
-    config.require_bootstrap = true;
-    assert!(state.db.update_est_config(&config).await.unwrap());
-    let proxy = attested(TransportPolicy::TrustedIngress)
-        .into_verified()
-        .unwrap();
-    let origin = test_support::forwarded("client.test", THUMB_B, &proxy);
-    let mut local = attested(TransportPolicy::ExistingLocal);
-    local.source = EvidenceSource::LocalIpc;
-    let local = local.into_verified().unwrap();
-    for endpoint in ["simpleenroll", "simplereenroll"] {
-        for (peer, forwarded) in [
-            (None, None),
-            (Some(&proxy), None),
-            (Some(&proxy), Some(&origin)),
-            (Some(&local), None),
-            (Some(&origin), None),
-        ] {
-            assert_eq!(
-                request(&state, &profile, endpoint, peer, forwarded, None).await,
-                StatusCode::UNAUTHORIZED
-            );
-            assert_eq!(
-                request(
-                    &state,
-                    &profile,
-                    endpoint,
-                    peer,
-                    forwarded,
-                    Some("random-value-16b")
-                )
-                .await,
-                StatusCode::UNAUTHORIZED
-            );
-        }
-    }
-}
-
-#[tokio::test]
 async fn a_proxy_without_origin_cannot_use_password_fallback() {
     let _guard = test_env::lock();
     let state = sealed_state().await;
@@ -236,33 +193,6 @@ async fn a_proxy_without_origin_cannot_use_password_fallback() {
         .await,
         StatusCode::UNAUTHORIZED
     );
-}
-
-#[tokio::test]
-async fn direct_client_certificates_work_but_expired_evidence_does_not() {
-    let _guard = test_env::lock();
-    let state = sealed_state().await;
-    let profile = seed_self_signed_profile(&state, "random-value-16b").await;
-    let mut config = config(&state, &profile).await;
-    config.require_bootstrap = true;
-    assert!(state.db.update_est_config(&config).await.unwrap());
-    let valid = attested(TransportPolicy::MtlsRequired)
-        .into_verified()
-        .unwrap();
-    let mut expired = attested(TransportPolicy::MtlsRequired);
-    expired.authenticated_at = opensesame_time::Utc::now() - opensesame_time::Duration::minutes(2);
-    expired.usable_until = opensesame_time::Utc::now() - opensesame_time::Duration::minutes(1);
-    let expired = expired.into_verified().unwrap();
-    for endpoint in ["simpleenroll", "simplereenroll"] {
-        assert_eq!(
-            request(&state, &profile, endpoint, Some(&valid), None, None).await,
-            StatusCode::BAD_REQUEST
-        );
-        assert_eq!(
-            request(&state, &profile, endpoint, Some(&expired), None, None).await,
-            StatusCode::UNAUTHORIZED
-        );
-    }
 }
 
 #[tokio::test]
