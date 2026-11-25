@@ -143,7 +143,8 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           bash scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"
-          echo "OPENSESAME_NODE=$(readlink -f "$(command -v node)")" >> "$GITHUB_ENV"
+          node_bin="$(node -p 'process.execPath')"
+          echo "OPENSESAME_NODE=$node_bin" >> "$GITHUB_ENV"
       - run: npm ci --ignore-scripts
       - name: Install pinned tools
         env:
@@ -238,7 +239,8 @@ jobs:
           set -euo pipefail
           test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
           bash scripts/ci/prepare-dbus.sh "$RUNNER_TEMP/opensesame-dbus"
-          echo "OPENSESAME_NODE=$(readlink -f "$(command -v node)")" >> "$GITHUB_ENV"
+          node_bin="$(node -p 'process.execPath')"
+          echo "OPENSESAME_NODE=$node_bin" >> "$GITHUB_ENV"
       - run: npm ci --ignore-scripts
       - name: Install pinned nightly for undefined-behavior and fuzz checks
         if: matrix.check == 'miri' || matrix.check == 'fuzz-rust'

@@ -21,7 +21,9 @@ python3 "$tools/archive-safe.py" tar "$archive" "$work/unpacked"
 kit="$work/unpacked/$name"
 if [ -f "$checkout_parser" ]; then mv "$checkout_parser" "$work/checkout-parser.mjs"; fi
 export OPENSESAME_NODE
-OPENSESAME_NODE=$(readlink -f "$(command -v node)")
+# A version manager may expose node as a symlink to its own executable.
+# Ask Node for the executable actually running instead of resolving that shim.
+OPENSESAME_NODE=$(node -p 'process.execPath')
 unset OPENSESAME_ENV_PARSE
 [ "$("$kit/opensesame" --version)" = "opensesame $version" ]
 "$kit/opensesame" dev --schema tests/fixtures/demo.env.schema check > "$work/check.json"
