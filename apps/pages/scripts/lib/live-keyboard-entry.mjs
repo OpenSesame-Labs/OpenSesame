@@ -77,18 +77,12 @@ export async function reopenKeyboardSession(page, tabTo, focusIn) {
   await focusIn(page, ".live-join", "after tabbing into the shared session");
 }
 
-/** UI and real ICE state, without protocol message bodies or credentials. */
+/** Real ICE state, without UI text, protocol bodies or credentials. */
 export async function showKeyboardPeers(owner, joiner) {
   for (const [who, page] of [
     ["owner", owner],
     ["joiner", joiner],
   ]) {
-    const shown = await page
-      .locator('[role="dialog"][aria-label="Share personal"], .live-join')
-      .first()
-      .innerText({ timeout: 2000 })
-      .catch(() => "(no live panel)");
-    console.error(`${who} showed: ${shown.replace(/\s+/g, " ").slice(0, 400)}`);
     console.error(
       `${who} peer states: ${JSON.stringify(await peerStates(page))}`,
     );
