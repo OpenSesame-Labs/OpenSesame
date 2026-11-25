@@ -6,6 +6,7 @@ import { basename, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "@playwright/test";
 import { serveLoopbackDist } from "./lib/static-origin-harness.mjs";
+import { verifyControlledStartup } from "./lib/verify-startup-controlled.mjs";
 
 const dist =
   process.env.PAGES_VERIFY_DIST ??
@@ -49,14 +50,74 @@ try {
   await screenshot(darkPage, "startup-dark-no-javascript");
   await dark.close();
 
+  // The entry can fail when a single eager dependency is temporarily missing.
+  // Exercise an actual failed module request, then a real retry/navigation.
+  const transient = await browser.newContext({ serviceWorkers: "block" });
+  const transientPage = await transient.newPage();
+  let entryRequests = 0;
+  let failNextEntry = true;
+  await transientPage.route("**/assets/main-*.js", (route) => {
+    entryRequests += 1;
+    if (failNextEntry) {
+      failNextEntry = false;
+      return route.fulfill({ status: 503 });
+    }
+    return route.continue();
+  });
+  await transientPage.goto(server.href, { waitUntil: "commit" });
+  await transientPage
+    .getByRole("button", { name: "Set up your own", exact: true })
+    .waitFor({ timeout: 30_000 });
+  assert.equal(entryRequests, 2, "one failed entry gets one automatic retry");
+  assert.equal(
+    await transientPage.evaluate(() =>
+      sessionStorage.getItem("os-entry-load-retry"),
+    ),
+    null,
+    "a successful start makes a later failure eligible for a retry",
+  );
+  failNextEntry = true;
+  await transientPage.reload({ waitUntil: "commit" });
+  await transientPage
+    .getByRole("button", { name: "Set up your own", exact: true })
+    .waitFor({ timeout: 30_000 });
+  assert.equal(entryRequests, 4, "a later visit can recover independently");
+  await transient.close();
+
   const failedEntry = await browser.newContext({ serviceWorkers: "block" });
   const failedPage = await failedEntry.newPage();
-  await failedPage.route("**/assets/main-*.js", (route) => route.abort());
-  await failedPage.goto(server.href, { waitUntil: "domcontentloaded" });
+  let failedRequests = 0;
+  await failedPage.route("**/assets/main-*.js", (route) => {
+    failedRequests += 1;
+    return route.abort();
+  });
+  await failedPage.goto(server.href, { waitUntil: "commit" });
   const failure = failedPage.getByRole("alert");
   await failure.waitFor({ state: "visible", timeout: 15_000 });
   assert.match(await failure.innerText(), /could not start/);
+  await failedPage.waitForTimeout(1_000);
+  assert.equal(failedRequests, 2, "a persistent failure must stop retrying");
   await failedEntry.close();
+
+  const noStorage = await browser.newContext({ serviceWorkers: "block" });
+  await noStorage.addInitScript(() => {
+    Object.defineProperty(window, "sessionStorage", {
+      get() {
+        throw new DOMException("Storage unavailable", "SecurityError");
+      },
+    });
+  });
+  const noStoragePage = await noStorage.newPage();
+  let noStorageRequests = 0;
+  await noStoragePage.route("**/assets/main-*.js", (route) => {
+    noStorageRequests += 1;
+    return route.abort();
+  });
+  await noStoragePage.goto(server.href, { waitUntil: "commit" });
+  await noStoragePage.getByRole("alert").waitFor({ timeout: 15_000 });
+  await noStoragePage.waitForTimeout(1_000);
+  assert.equal(noStorageRequests, 1, "without storage, do not reload forever");
+  await noStorage.close();
 
   // A dependency of the entry can fail before the entry module evaluates too.
   // Abort a real static import from the built module rather than simulating a
@@ -76,12 +137,30 @@ try {
   if (eagerImport) {
     const dependencyPath = new URL(eagerImport, new URL(entryPath, server.href))
       .pathname;
+    const transientDependency = await browser.newContext({
+      serviceWorkers: "block",
+    });
+    const transientDependencyPage = await transientDependency.newPage();
+    let dependencyRequests = 0;
+    await transientDependencyPage.route(`**${dependencyPath}`, (route) => {
+      dependencyRequests += 1;
+      return dependencyRequests === 1
+        ? route.fulfill({ status: 503 })
+        : route.continue();
+    });
+    await transientDependencyPage.goto(server.href, { waitUntil: "commit" });
+    await transientDependencyPage
+      .getByRole("button", { name: "Set up your own", exact: true })
+      .waitFor({ timeout: 30_000 });
+    assert.equal(dependencyRequests, 2, "a temporary eager failure recovers");
+    await transientDependency.close();
+    await verifyControlledStartup(browser, server.href, dependencyPath);
     const failedDependency = await browser.newContext({
       serviceWorkers: "block",
     });
     const dependencyPage = await failedDependency.newPage();
     await dependencyPage.route(`**${dependencyPath}`, (route) => route.abort());
-    await dependencyPage.goto(server.href, { waitUntil: "domcontentloaded" });
+    await dependencyPage.goto(server.href, { waitUntil: "commit" });
     const dependencyFailure = dependencyPage.getByRole("alert");
     await dependencyFailure.waitFor({ state: "visible", timeout: 15_000 });
     assert.match(await dependencyFailure.innerText(), /could not start/);
