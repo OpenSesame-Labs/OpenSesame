@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isString } from "../../lib/json-boundary.mjs";
@@ -108,7 +109,7 @@ export function stageKey(stage, suite) {
 
 export function context(
   env = process.env,
-  { requireToken = true, events, workflows } = {},
+  { requireToken = true, events, workflows, workflowRunParents } = {},
 ) {
   demand(
     env.GITHUB_ACTIONS === "true",
@@ -138,6 +139,27 @@ export function context(
     ).includes(workflow),
     "Untrusted controller",
   );
+  if (env.GITHUB_EVENT_NAME === "workflow_run") {
+    const expectedParent = workflowRunParents?.[workflow];
+    demand(expectedParent, "Untrusted workflow_run continuation");
+    let event;
+    try {
+      event = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, "utf8"));
+    } catch {
+      demand(false, "Invalid workflow_run event payload");
+    }
+    const run = event?.workflow_run;
+    demand(
+      event?.action === "completed" &&
+        run?.conclusion === "success" &&
+        run?.repository?.full_name === POLICY.repository &&
+        run?.head_repository?.full_name === POLICY.repository &&
+        run?.head_branch === POLICY.branch &&
+        ["schedule", "workflow_dispatch"].includes(run?.event) &&
+        run?.path === expectedParent,
+      "Untrusted workflow_run parent",
+    );
+  }
   if (requireToken)
     demand(env.GH_TOKEN || env.GITHUB_TOKEN, "GitHub token is required");
   return {

@@ -147,6 +147,61 @@ test("controller context rejects non-main, fork, PR and untrusted workflow", () 
   }
 });
 
+test("workflow_run context binds the continuation to its trusted parent", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "candidate-event-test-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const eventPath = join(directory, "event.json");
+  const workflow = ".github/workflows/dev-nightly-qualify.yml";
+  const parent = ".github/workflows/dev-nightly.yml";
+  const options = {
+    events: ["workflow_run"],
+    workflows: [workflow],
+    workflowRunParents: { [workflow]: parent },
+  };
+  const valid = {
+    GITHUB_ACTIONS: "true",
+    GITHUB_REPOSITORY: POLICY.repository,
+    GITHUB_REF: "refs/heads/main",
+    GITHUB_EVENT_NAME: "workflow_run",
+    GITHUB_EVENT_PATH: eventPath,
+    GITHUB_WORKFLOW_REF: `${POLICY.repository}/${workflow}@refs/heads/main`,
+    GITHUB_WORKFLOW_SHA: control,
+    GITHUB_RUN_ID: "100",
+    GITHUB_RUN_ATTEMPT: "1",
+    GH_TOKEN: "test-token",
+  };
+  const event = {
+    action: "completed",
+    workflow_run: {
+      conclusion: "success",
+      repository: { full_name: POLICY.repository },
+      head_repository: { full_name: POLICY.repository },
+      head_branch: POLICY.branch,
+      event: "schedule",
+      path: parent,
+    },
+  };
+  await writeFile(eventPath, JSON.stringify(event));
+  assert.equal(context(valid, options).workflow, workflow);
+
+  for (const workflowRun of [
+    { ...event.workflow_run, head_repository: { full_name: "other/fork" } },
+    { ...event.workflow_run, head_branch: "feature" },
+    { ...event.workflow_run, event: "push" },
+    { ...event.workflow_run, path: ".github/workflows/ci.yml" },
+    { ...event.workflow_run, conclusion: "failure" },
+  ]) {
+    await writeFile(
+      eventPath,
+      JSON.stringify({ ...event, workflow_run: workflowRun }),
+    );
+    assert.throws(
+      () => context(valid, options),
+      /Untrusted workflow_run parent/,
+    );
+  }
+});
+
 test("successful API evidence cannot be substituted with a skipped, duplicate or absent gate", () => {
   const gate = {
     id: 1,

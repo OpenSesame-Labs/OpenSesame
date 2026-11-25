@@ -133,12 +133,28 @@ test("resume-dev-selection reads --selection-file when the path exists", async (
   t.after(() => rm(directory, { recursive: true, force: true }));
   const selection = join(directory, "selection.json");
   const output = join(directory, "outputs");
+  const event = join(directory, "event.json");
   await writeFile(selection, "{}\n");
+  await writeFile(
+    event,
+    JSON.stringify({
+      action: "completed",
+      workflow_run: {
+        conclusion: "success",
+        repository: { full_name: POLICY.repository },
+        head_repository: { full_name: POLICY.repository },
+        head_branch: "main",
+        event: "workflow_dispatch",
+        path: ".github/workflows/dev-nightly.yml",
+      },
+    }),
+  );
   const env = {
     GITHUB_ACTIONS: "true",
     GITHUB_REPOSITORY: POLICY.repository,
     GITHUB_REF: "refs/heads/main",
     GITHUB_EVENT_NAME: "workflow_run",
+    GITHUB_EVENT_PATH: event,
     GITHUB_WORKFLOW_REF: `${POLICY.repository}/.github/workflows/dev-nightly-qualify.yml@refs/heads/main`,
     GITHUB_WORKFLOW_SHA: "a".repeat(40),
     GITHUB_RUN_ID: "123",

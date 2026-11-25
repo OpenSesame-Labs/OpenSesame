@@ -66,15 +66,26 @@ export async function main(argv = process.argv.slice(2), env = process.env) {
   }
   const continuation =
     command === "resume-dev-selection" || command === "resume-weekly-selection";
+  const continuationCommand =
+    continuation ||
+    ["verify", "receipt", "receipt-envelope", "verify-promotion"].includes(
+      command,
+    );
   const contextOptions = {
     requireToken: command !== "receipt-envelope",
   };
-  if (continuation) {
+  if (continuationCommand && env.GITHUB_EVENT_NAME === "workflow_run") {
     contextOptions.events = ["workflow_run"];
     contextOptions.workflows = [
       ".github/workflows/dev-nightly-qualify.yml",
       ".github/workflows/release-weekly-qualify.yml",
     ];
+    contextOptions.workflowRunParents = {
+      ".github/workflows/dev-nightly-qualify.yml":
+        ".github/workflows/dev-nightly.yml",
+      ".github/workflows/release-weekly-qualify.yml":
+        ".github/workflows/release-weekly.yml",
+    };
   }
   const ctx = context(env, contextOptions);
   const service = new Candidates(ctx);
