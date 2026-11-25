@@ -19,6 +19,7 @@ const workflowFile = resolve(
   here,
   "../../.github/workflows/pr-rust-security-evidence.yml",
 );
+const materializeScript = resolve(here, "materialize-git-sha.sh");
 
 async function workflow() {
   return parse(await readFile(workflowFile, "utf8"));
@@ -58,6 +59,73 @@ async function run(item, suite = "receipt-owner-mapping") {
     },
   });
 }
+
+test("materializes the exact SHA with fetch-scoped GitHub Basic auth", async () => {
+  const root = await mkdtemp(join(tmpdir(), "materialize-sha-test-"));
+  const bin = join(root, "bin");
+  const callsFile = join(root, "git-calls.jsonl");
+  const sha = "1234567890abcdef1234567890abcdef12345678";
+  const token = "test-token:with-special$value";
+  await mkdir(bin);
+  await writeFile(
+    join(bin, "git"),
+    `#!/usr/bin/env node
+const fs = require("node:fs");
+const call = { argv: process.argv.slice(2), config: {
+  count: process.env.GIT_CONFIG_COUNT,
+  key: process.env.GIT_CONFIG_KEY_0,
+  value: process.env.GIT_CONFIG_VALUE_0,
+} };
+fs.appendFileSync(process.env.GIT_CALL_LOG, JSON.stringify(call) + "\\n");
+if (call.argv.includes("rev-parse")) process.stdout.write(process.env.TARGET_SHA + "\\n");
+if (call.argv.includes("--get-regexp")) process.exit(1);
+`,
+  );
+  await chmod(join(bin, "git"), 0o700);
+  try {
+    const result = spawnSync("bash", [materializeScript, join(root, "head")], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        GIT_CALL_LOG: callsFile,
+        GITHUB_REPOSITORY: "OpenSesame-Labs/OpenSesame",
+        GITHUB_TOKEN: token,
+        TARGET_SHA: sha,
+      },
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const calls = (await readFile(callsFile, "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    const fetch = calls.find((call) => call.argv.includes("fetch"));
+    assert.ok(fetch);
+    assert.deepEqual(fetch.argv.slice(-5), [
+      "--no-tags",
+      "--depth",
+      "1",
+      "origin",
+      sha,
+    ]);
+    assert.deepEqual(fetch.config, {
+      count: "1",
+      key: "http.extraheader",
+      value: `AUTHORIZATION: basic ${Buffer.from(`x-access-token:${token}`).toString("base64")}`,
+    });
+    assert.equal(JSON.stringify(calls).includes(token), false);
+    const remote = calls.find((call) => call.argv.includes("remote"));
+    assert.ok(
+      remote.argv.includes("https://github.com/OpenSesame-Labs/OpenSesame.git"),
+    );
+    assert.equal(
+      calls.filter((call) => call !== fetch).some((call) => call.config.count),
+      false,
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test("runs only the reviewed matrix and requires discovered tests", async () => {
   const item = await fixture();
