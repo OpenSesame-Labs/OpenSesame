@@ -52,7 +52,7 @@ import {
 } from "./unlock/labels.js";
 import { MethodIcon } from "./unlock/MethodIcon.js";
 import { NoPrimaryNote } from "./unlock/NoPrimaryNote.js";
-import { SealActions, UnlockSteps } from "./unlock/Notes.js";
+import { PinConfirmation, SealActions, UnlockSteps } from "./unlock/Notes.js";
 import { PasskeyChoice } from "./unlock/PasskeyChoice.js";
 import { ProtectorField } from "./unlock/ProtectorField.js";
 import { SecondStepFields } from "./unlock/SecondStepFields.js";
@@ -407,6 +407,7 @@ function UnlockForm({
     firstRun && activeMethod === "pin" ? pinPolicyProblems(pin) : [];
   const pinProblem =
     activeMethod === "pin" && pin.length > 0 ? (pinProblems[0] ?? null) : null;
+  const pinMismatch = confirm.length > 0 && pin !== confirm;
   // A new vault is sealed with a passkey or a PIN, never a password (ADR 0180).
   const createBlocked =
     !accepted ||
@@ -681,6 +682,11 @@ function UnlockForm({
                     : undefined
                 }
                 aria-invalid={pinProblem ? true : undefined}
+                data-guide-pin-ready={
+                  firstRun && activeMethod === "pin"
+                    ? pinProblems.length === 0
+                    : undefined
+                }
                 disabled={busy || lockedFor > 0}
                 onChange={(e) => setPin(e.target.value)}
               />
@@ -737,19 +743,15 @@ function UnlockForm({
           )}
 
           {firstRun && activeMethod === "pin" ? (
-            <div className="field">
-              <label htmlFor="confirm">Confirm PIN</label>
-              <input
-                id="confirm"
-                ref={sealPinConfirmRef}
-                type={reveal ? "text" : "password"}
-                inputMode="numeric"
-                autoComplete="new-password"
-                value={confirm}
-                disabled={busy}
-                onChange={(e) => setConfirm(e.target.value)}
-              />
-            </div>
+            <PinConfirmation
+              value={confirm}
+              onChange={setConfirm}
+              inputRef={sealPinConfirmRef}
+              reveal={reveal}
+              disabled={busy}
+              mismatch={pinMismatch}
+              ready={pinProblems.length === 0 && pin === confirm}
+            />
           ) : null}
 
           <SealActions

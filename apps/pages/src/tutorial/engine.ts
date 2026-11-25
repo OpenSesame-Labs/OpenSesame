@@ -179,6 +179,7 @@ function buildRuntime(mods: Modules, host: SupportHost) {
     renderer,
     targets: {
       isMounted: targets.isMountedGuideTarget,
+      isVisible: targets.isVisibleGuideTarget,
       isKnown: targets.isKnownGuideTarget,
       observe: targets.observeGuideTarget,
     },

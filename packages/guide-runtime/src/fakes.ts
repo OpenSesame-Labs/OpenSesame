@@ -122,6 +122,7 @@ export function createFakeTargets(
   return {
     isKnown: (target: GuideTargetId) => knownTargets.has(target),
     isMounted: (target: GuideTargetId) => mountedTargets.has(target),
+    isVisible: (target: GuideTargetId) => mountedTargets.has(target),
     observe: (
       target: GuideTargetId,
       event: GuideWaitEvent,

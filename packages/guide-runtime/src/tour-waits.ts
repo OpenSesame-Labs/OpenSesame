@@ -49,7 +49,7 @@ export function alreadyHolds(
   if (wait.subject === "state") {
     return ports.state.read(wait.predicate) === wait.expected;
   }
-  if (wait.event === "appear") return ports.targets.isMounted(wait.target);
+  if (wait.event === "appear") return ports.targets.isVisible(wait.target);
   if (wait.event === "disappear") return !ports.targets.isMounted(wait.target);
   return false;
 }
@@ -75,10 +75,24 @@ export function watchStep(
   wait: WaitInstruction | null,
   missing: GuideTargetId | null,
   holds: boolean,
+  nextTarget: GuideTargetId | null,
 ): ((signal: AbortSignal) => Promise<void>) | null {
   if (missing !== null)
-    return (signal) => ports.targets.observe(missing, "appear", signal);
+    return (signal) =>
+      ports.targets.observe(missing, "appear", signal, {
+        allowOffscreen: true,
+      });
   if (wait === null) return null;
+  if (
+    !holds &&
+    wait.subject === "target" &&
+    wait.event === "appear" &&
+    wait.target === nextTarget
+  )
+    return (signal) =>
+      ports.targets.observe(wait.target, wait.event, signal, {
+        allowOffscreen: true,
+      });
   return holds
     ? observeWhenLost(ports, wait)
     : (signal) => observeWait(ports, wait, signal);

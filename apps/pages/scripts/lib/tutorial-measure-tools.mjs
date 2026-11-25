@@ -219,7 +219,7 @@ export function measureZoomedKeyboard(id) {
 }
 
 /** Measure the visible controls on the zoomed completion card. */
-export function measureZoomedCompletion() {
+export function measureZoomedCompletion(minSize = 44) {
   const v = visualViewport;
   const card = document.querySelector(".coach__card");
   const bounds = card.getBoundingClientRect();
@@ -229,15 +229,16 @@ export function measureZoomedCompletion() {
   ];
   const allFit =
     controls.length === 3 &&
-    controls.every((control) => {
+    controls.every((control, index) => {
       const box = control.getBoundingClientRect();
+      const minimum = index === 0 && minSize === 32 ? 24 : minSize;
       const hit = document.elementFromPoint(
         box.left + box.width / 2,
         box.top + box.height / 2,
       );
       return (
-        box.width >= 44 &&
-        box.height >= 44 &&
+        box.width >= minimum &&
+        box.height >= minimum &&
         box.left >= bounds.left &&
         box.right <= bounds.right &&
         box.top >= bounds.top &&

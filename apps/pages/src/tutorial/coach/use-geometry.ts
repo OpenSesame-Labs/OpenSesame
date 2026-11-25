@@ -264,6 +264,21 @@ export function usePhoneLayout(): boolean {
   return phone;
 }
 
+/** Defer resize-driven layout changes until after observer delivery. */
+export function observeResize(node: Element, measure: () => void): () => void {
+  if (!("ResizeObserver" in globalThis)) return () => {};
+  let frame = 0;
+  const observer = new ResizeObserver(() => {
+    cancelAnimationFrame(frame);
+    frame = requestAnimationFrame(measure);
+  });
+  observer.observe(node);
+  return () => {
+    observer.disconnect();
+    cancelAnimationFrame(frame);
+  };
+}
+
 /** The measured size of an element, kept current as its content changes. */
 export function useMeasured(
   ref: React.RefObject<HTMLElement | null>,
@@ -285,17 +300,7 @@ export function useMeasured(
       );
     };
     measure();
-    if (!("ResizeObserver" in globalThis)) return;
-    let frame = 0;
-    const observer = new ResizeObserver(() => {
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(measure);
-    });
-    observer.observe(node);
-    return () => {
-      observer.disconnect();
-      cancelAnimationFrame(frame);
-    };
+    return observeResize(node, measure);
   }, [ref, watch]);
   return size;
 }

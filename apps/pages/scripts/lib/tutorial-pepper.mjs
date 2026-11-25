@@ -94,7 +94,7 @@ export async function revisitPepper(page, step, check, first, label) {
   await step("editor.generate-password", first + 4);
 }
 
-async function capturePepperRecovery(page, name) {
+async function captureTutorialState(page, name) {
   if (process.env.TUTORIALS_SHOTS !== "1" || !process.env.TUTORIALS_OUT) return;
   const width = page.viewportSize().width;
   await page.screenshot({
@@ -120,7 +120,7 @@ export async function recoverEmptyGeneration(
         .isVisible()),
     `${label}: an empty pepper slice explains how to recover`,
   );
-  await capturePepperRecovery(page, "pepper-generation-recovery");
+  await captureTutorialState(page, "pepper-generation-recovery");
   const position = page.getByRole("textbox", {
     name: "Pepper goes",
     exact: true,
@@ -143,14 +143,14 @@ export async function recoverEmptyPepper(page, step, check, first, label) {
       (await page.getByText(/No generated characters to copy/).isVisible()),
     `${label}: an empty slice offers editing instead of an empty copy`,
   );
-  await capturePepperRecovery(page, "pepper-detail-recovery");
+  await captureTutorialState(page, "pepper-detail-recovery");
   await page.getByRole("link", { name: "Edit", exact: true }).click();
   const editor = await step("editor.pepper-options", first + 5);
   check(
     editor.text.includes("Set the pepper position to end"),
     `${label}: the editor explains how to restore a copyable password`,
   );
-  await capturePepperRecovery(page, "pepper-editor-recovery");
+  await captureTutorialState(page, "pepper-editor-recovery");
   const position = page.getByRole("textbox", {
     name: "Pepper goes",
     exact: true,
@@ -194,7 +194,7 @@ export async function saveAndCopyPassword(
         .count()) === 1,
       `${label}: copying the rest first does not finish the guide`,
     );
-    await capturePepperRecovery(page, "pepper-copy-first");
+    await captureTutorialState(page, "pepper-copy-first");
   }
   await page.locator('[data-guide-targets~="item.copy-generated"]').click();
   let firstPart = "";
@@ -206,7 +206,7 @@ export async function saveAndCopyPassword(
       )
       .waitFor({ state: "visible", timeout: 15000 });
     await step("item.copy-generated", first + 6);
-    await capturePepperRecovery(page, "pepper-copy-rest");
+    await captureTutorialState(page, "pepper-copy-rest");
     check(
       (await page
         .locator('.coach[data-coach-target="item.copy-generated"]')
@@ -237,13 +237,11 @@ export async function saveAndCopyPassword(
       .grantPermissions(["clipboard-read", "clipboard-write"], { origin });
     await rest.click();
   }
-  // The walk orients on the saved item's list before it closes: the copy
-  // step's activate moves to the list step, which advances on Next.
-  await step("vault.list", first + 7);
-  await page.locator(".coach__btn--go").click();
+  // A successful copy takes the walkthrough directly to completion.
   await page
     .getByText("Copied. Paste it into the password field.")
     .waitFor({ timeout: 15000 });
+  await captureTutorialState(page, "password-copied");
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   const pepper = "example-pepper";
   check(

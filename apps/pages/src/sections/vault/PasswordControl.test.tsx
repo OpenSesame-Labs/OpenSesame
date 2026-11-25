@@ -1,6 +1,9 @@
 /** @vitest-environment jsdom */
 
-import { observeGuideTarget } from "@opensesame/app-core/tutorial/registry/targets.js";
+import {
+  observeGuideTarget,
+  resolveGuideTargetElement,
+} from "@opensesame/app-core/tutorial/registry/targets.js";
 import type { PasswordMethod } from "@opensesame/vault-core";
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -47,6 +50,39 @@ function renderControl() {
 }
 
 describe("PasswordControl generate key", () => {
+  it("marks the visible options button only while its panel is open", async () => {
+    const control = (open: boolean) => (
+      <PasswordControl
+        method={method()}
+        onEdit={() => {}}
+        options={{ open, controls: "m1-options", onToggle: () => {} }}
+      />
+    );
+    const view = render(control(false));
+    const button = screen.getByRole("button", { name: "Password options" });
+    vi.spyOn(button, "getBoundingClientRect").mockReturnValue(
+      new DOMRect(10, 10, 44, 44),
+    );
+    expect(
+      resolveGuideTargetElement("editor.password-options-open"),
+    ).toBeNull();
+    const controller = new AbortController();
+    const waiting = observeGuideTarget(
+      "editor.password-options-open",
+      "appear",
+      controller.signal,
+    );
+    view.rerender(control(true));
+    await waiting;
+    expect(resolveGuideTargetElement("editor.password-options-open")).toBe(
+      button,
+    );
+    view.rerender(control(false));
+    expect(
+      resolveGuideTargetElement("editor.password-options-open"),
+    ).toBeNull();
+  });
+
   it("generates a new local draft without queuing a provider reset", async () => {
     const onEdit = renderControl();
     await userEvent.click(

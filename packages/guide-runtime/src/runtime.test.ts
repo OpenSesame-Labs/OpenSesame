@@ -1,6 +1,4 @@
 import { getEventListeners } from "node:events";
-
-import { GUIDE_LANG_VERSION, GUIDE_LIMITS } from "@opensesame/guide-lang";
 import type {
   GuideGoalId,
   GuideInstruction,
@@ -9,21 +7,21 @@ import type {
   GuideRouteId,
   GuideTargetId,
 } from "@opensesame/guide-lang";
+import { GUIDE_LANG_VERSION, GUIDE_LIMITS } from "@opensesame/guide-lang";
 import { describe, expect, it } from "vitest";
-
-import { createTestClock } from "./clock.js";
 import type { TestGuideClock } from "./clock.js";
-import {
-  createFakeRoutes,
-  createFakeState,
-  createFakeTargets,
-  createRecordingRenderer,
-} from "./fakes.js";
+import { createTestClock } from "./clock.js";
 import type {
   FakeGuideRoutes,
   FakeGuideState,
   FakeGuideTargets,
   RecordingGuideRenderer,
+} from "./fakes.js";
+import {
+  createFakeRoutes,
+  createFakeState,
+  createFakeTargets,
+  createRecordingRenderer,
 } from "./fakes.js";
 import type {
   GuideOutcome,
@@ -100,6 +98,7 @@ function createLatchedTargets(): LatchedTargets {
   return {
     isKnown: () => true,
     isMounted: () => true,
+    isVisible: () => true,
     observe: () =>
       new Promise<void>((resolve) => {
         releases.push(resolve);
@@ -918,6 +917,7 @@ describe("createGuideRuntime", () => {
     const targets: GuideTargetResolver = {
       isKnown: () => true,
       isMounted: () => true,
+      isVisible: () => true,
       observe: () => Promise.reject(new Error("adapter detached")),
     };
     const runtime = createGuideRuntime({

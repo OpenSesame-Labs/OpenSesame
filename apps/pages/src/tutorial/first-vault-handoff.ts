@@ -17,7 +17,9 @@ const gateStepsByController = new WeakMap<SupportController, number>();
 const listeners = new Set<() => void>();
 
 export function firstVaultSignInPending(route: string): boolean {
-  return route === "/unlock/signin" && pendingSignIn;
+  return (
+    pendingSignIn && (route === "/setup/choose" || route === "/unlock/signin")
+  );
 }
 
 function firstVaultTarget(controller: SupportController): string | null {

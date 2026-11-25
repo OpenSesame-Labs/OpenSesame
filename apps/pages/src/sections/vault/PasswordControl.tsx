@@ -12,7 +12,10 @@ import {
   IconSettings,
 } from "../../components/Icons.js";
 import { StatusMark } from "../../components/StatusMark.js";
-import { useGuideTarget } from "../../tutorial/registry/react.jsx";
+import {
+  useGuideTarget,
+  useGuideTargetPair,
+} from "../../tutorial/registry/react.jsx";
 import {
   hasNoGeneratedPassword,
   holdValue,
@@ -67,8 +70,9 @@ export function PasswordControl({
     "editor.generate-password",
     { activation: "manual" },
   );
-  const optionsRef = useGuideTarget<HTMLButtonElement>(
+  const optionsRef = useGuideTargetPair<HTMLButtonElement>(
     "editor.password-options",
+    options.open ? "editor.password-options-open" : undefined,
   );
   const { generator } = method;
   const generationFailed =

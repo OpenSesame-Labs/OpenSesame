@@ -19,7 +19,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 beforeAll(() => registerGuidePredicates());
 
 describe("the guided first item", () => {
-  it("cannot finish its Save step until the vault holds the item, then copies and stands over the list", () => {
+  it("waits for a saved item and completes immediately after copying", () => {
     const compiled = compileGuide(
       FIRST_ITEM_GOAL.guide,
       {
@@ -69,13 +69,12 @@ describe("the guided first item", () => {
       ),
     ).toBe(true);
     expect(copyBeat?.ordinal).toBeGreaterThan(saveBeat?.ordinal ?? -1);
-    const listBeat = plan.beats.find((beat) => beat.target === "vault.list");
-    expect(listBeat).toBeDefined();
-    expect(listBeat?.ordinal).toBeGreaterThan(copyBeat?.ordinal ?? -1);
-    expect(listBeat?.route).toBe("/vault/list");
-    const close = plan.beats[plan.beats.length - 1];
+    const copyIndex = plan.beats.findIndex(
+      (beat) => beat.target === "item.copy-generated",
+    );
+    const close = plan.beats[copyIndex + 1];
     expect(close?.kind).toBe("close");
-    expect(close?.ordinal).toBeGreaterThan(listBeat?.ordinal ?? -1);
+    expect(close?.ordinal).toBeGreaterThan(copyBeat?.ordinal ?? -1);
   });
 
   it("opens the phone list pane before pointing at New item", () => {

@@ -39,7 +39,6 @@ import {
   Head,
   Meter,
   Ring,
-  canReturn,
   coachMessage,
   counterOf,
   firstVaultTourProgress,
@@ -47,11 +46,14 @@ import {
 } from "./CoachParts.js";
 import type { placeCoach } from "./placement.js";
 import {
+  canReturn,
   cardKeys,
   useCoachFocus,
   useEscapeToExit,
+  useFirstVaultPinStep,
 } from "./use-coach-behavior.js";
 import { useCoachLayout } from "./use-coach-layout.js";
+import { observeResize } from "./use-geometry.js";
 
 /** The notch's offset along the card edge, as the custom property coach.css reads. */
 function notchStyle(px: number): CSSProperties & { "--coach-notch": string } {
@@ -115,10 +117,7 @@ function Narration({
     const measure = (): void =>
       setScrollable(node.scrollHeight > node.clientHeight + 1);
     measure();
-    if (!("ResizeObserver" in globalThis)) return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(node);
-    return () => observer.disconnect();
+    return observeResize(node, measure);
   }, [message, counter, compactMissing]);
   return (
     <p
@@ -221,7 +220,6 @@ function CoachCard({
         height: shortScroll ? maxHeight : undefined,
         minHeight: awaitingAction ? Math.min(maxHeight ?? 52, 52) : undefined,
       }}
-      // biome-ignore lint/a11y/useSemanticElements: a native <dialog open> would inert the page, and a tour must leave it live.
       role="dialog"
       aria-modal="false"
       aria-labelledby={titleId}
@@ -285,33 +283,32 @@ function compactRowFor(
 
 function Coach({
   guide,
-  tour,
+  tour: rawTour,
   support,
 }: {
   guide: GuideRuntimeSnapshot;
   tour: GuideTourView;
   support: SupportController;
 }): ReactElement {
+  const tour = useFirstVaultPinStep(rawTour, guide.goal === "gate.front-door");
   const cardRef = useRef<HTMLElement>(null);
   const primaryRef = useRef<HTMLButtonElement>(null);
   const firstVault = guide.goal === "gate.front-door";
-  const requiredAction =
-    firstVault ||
-    ["vault.item.first", "vault.item.find", "vault.item.accounts"].includes(
-      guide.goal ?? "",
-    );
+  const requiredAction = [
+    "gate.front-door",
+    "vault.item.first",
+    "vault.item.find",
+    "vault.item.accounts",
+  ].includes(guide.goal ?? "");
   const ready = guide.status === "waiting";
   const canBack = canReturn(guide, tour);
-  const layout = useCoachLayout(
-    guide.runId,
-    tour,
-    cardRef,
-    firstVault || guide.goal === "vault.item.first",
-  );
+  const firstPassword = firstVault || guide.goal === "vault.item.first";
+  const layout = useCoachLayout(guide.runId, tour, cardRef, firstPassword);
   const { stepKey, viewport, hole, placement, gliding, missing } = layout;
   const { narrow, short, constrained } = layout;
+  // PIN readiness adds an action guard without hiding its navigation controls.
   const awaitingAction =
-    constrained && requiredAction && tour.action && !missing && !canBack;
+    constrained && requiredAction && rawTour.action && !missing && !canBack;
   const shortScroll =
     short &&
     (canBack ||

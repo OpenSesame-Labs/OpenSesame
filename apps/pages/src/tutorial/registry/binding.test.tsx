@@ -1,13 +1,25 @@
 import {
   duplicateGuideTargetMounts,
+  isKnownGuideTarget,
   isMountedGuideTarget,
+  isVisibleGuideTarget,
+  mountGuideTarget,
   observeGuideTarget,
   resolveGuideTargetElement,
 } from "@opensesame/app-core/tutorial/registry/targets.js";
+import { GUIDE_LANG_VERSION } from "@opensesame/guide-lang";
+import {
+  TOUR_APPEAR_GRACE_MS,
+  createFakeRoutes,
+  createFakeState,
+  createGuideRuntime,
+  createTestClock,
+} from "@opensesame/guide-runtime";
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { createScrollRenderer } from "../coach/scroll-renderer.js";
 import { useGuideTarget } from "./react.jsx";
 
 /**
@@ -172,3 +184,192 @@ describe("waiting for a target to appear", () => {
     hiddenHolder.remove();
   });
 });
+
+function createBoundRuntime(clock: ReturnType<typeof createTestClock>) {
+  return createGuideRuntime({
+    targets: {
+      isKnown: isKnownGuideTarget,
+      isMounted: isMountedGuideTarget,
+      isVisible: isVisibleGuideTarget,
+      observe: observeGuideTarget,
+    },
+    routes: createFakeRoutes(["/vault"], "/vault"),
+    state: createFakeState([]),
+    renderer: createScrollRenderer({
+      resolveElement: resolveGuideTargetElement,
+    }),
+    clock,
+  });
+}
+
+it.each([false, true])(
+  "reveals a late offscreen focus target (after grace: %s)",
+  async (afterGrace) => {
+    const clock = createTestClock();
+    const runtime = createBoundRuntime(clock);
+    void runtime.start(
+      {
+        version: GUIDE_LANG_VERSION,
+        goal: "vault.item.create",
+        instructions: [
+          {
+            kind: "focus",
+            target: "vault.import",
+            message: "Import items.",
+            side: null,
+          },
+          { kind: "end" },
+        ],
+      },
+      { mode: "tour" },
+    );
+    await clock.advance(0);
+    if (afterGrace) {
+      await clock.advance(TOUR_APPEAR_GRACE_MS);
+      expect(runtime.snapshot().tour?.degraded).toBe(true);
+    }
+    const hidden = document.createElement("button");
+    hidden.style.display = "none";
+    hidden.getBoundingClientRect = () => new DOMRect(10, 10, 44, 44);
+    hidden.scrollIntoView = vi.fn();
+    document.body.append(hidden);
+    const detachHidden = mountGuideTarget("vault.import", hidden);
+    await clock.advance(0);
+    expect(hidden.scrollIntoView).not.toHaveBeenCalled();
+    const element = document.createElement("button");
+    let top = 2_000;
+    element.getBoundingClientRect = () => new DOMRect(10, top, 44, 44);
+    element.scrollIntoView = vi.fn(() => {
+      top = 10;
+    });
+    document.body.append(element);
+    const detach = mountGuideTarget("vault.import", element);
+    await clock.advance(0);
+
+    // One reveal, then the focus renderer's normal centering.
+    expect(element.scrollIntoView).toHaveBeenCalledTimes(2);
+    expect(runtime.snapshot().tour).toMatchObject({
+      target: "vault.import",
+      degraded: false,
+    });
+    runtime.cancel("navigation");
+    detach();
+    detachHidden();
+    element.remove();
+    hidden.remove();
+  },
+);
+
+it.each([
+  [true, false],
+  [false, false],
+  [true, true],
+])(
+  "reveals the next target: %s, with a clipped candidate already mounted: %s",
+  async (sameTarget, initiallyClipped) => {
+    const clock = createTestClock();
+    const runtime = createBoundRuntime(clock);
+    const opener = document.createElement("button");
+    opener.getBoundingClientRect = () => new DOMRect(10, 10, 44, 44);
+    opener.scrollIntoView = vi.fn();
+    document.body.append(opener);
+    const detachOpener = mountGuideTarget("vault.create", opener);
+    const appeared = document.createElement("button");
+    let top = 2_000;
+    appeared.getBoundingClientRect = () => new DOMRect(10, top, 44, 44);
+    appeared.scrollIntoView = vi.fn(() => {
+      top = 10;
+    });
+    document.body.append(appeared);
+    let detachAppeared = () => {};
+    let detachEmpty = () => {};
+    let detachClipped = () => {};
+    const empty = document.createElement("button");
+    empty.getBoundingClientRect = () => new DOMRect(0, 0, 0, 0);
+    empty.scrollIntoView = vi.fn();
+    document.body.append(empty);
+    const clip = document.createElement("div");
+    clip.style.overflow = "hidden";
+    clip.getBoundingClientRect = () => new DOMRect(0, 0, 100, 50);
+    Object.defineProperties(clip, {
+      clientWidth: { value: 100 },
+      clientHeight: { value: 50 },
+    });
+    const clipped = document.createElement("button");
+    clipped.getBoundingClientRect = () => new DOMRect(10, 100, 44, 44);
+    clipped.scrollIntoView = vi.fn();
+    clip.append(clipped);
+    document.body.append(clip);
+    try {
+      if (initiallyClipped) {
+        detachEmpty = mountGuideTarget("vault.import", empty);
+        detachClipped = mountGuideTarget("vault.import", clipped);
+      }
+      void runtime.start(
+        {
+          version: GUIDE_LANG_VERSION,
+          goal: "vault.item.create",
+          instructions: [
+            {
+              kind: "focus",
+              target: "vault.create",
+              message: "Open.",
+              side: null,
+            },
+            {
+              kind: "wait",
+              subject: "target",
+              target: "vault.import",
+              event: "appear",
+              timeoutMs: 30_000,
+            },
+            {
+              kind: "focus",
+              target: sameTarget ? "vault.import" : "vault.export",
+              message: "Continue.",
+              side: null,
+            },
+            { kind: "end" },
+          ],
+        },
+        { mode: "tour" },
+      );
+      await clock.advance(0);
+      expect(runtime.snapshot().tour).toMatchObject({
+        target: "vault.create",
+        action: true,
+      });
+      if (!initiallyClipped) {
+        detachEmpty = mountGuideTarget("vault.import", empty);
+        detachClipped = mountGuideTarget("vault.import", clipped);
+      }
+      await clock.advance(0);
+      expect(empty.scrollIntoView).not.toHaveBeenCalled();
+      expect(runtime.snapshot().tour?.target).toBe("vault.create");
+      detachAppeared = mountGuideTarget("vault.import", appeared);
+      await clock.advance(0);
+      if (sameTarget) {
+        expect(appeared.scrollIntoView).toHaveBeenCalled();
+        expect(runtime.snapshot().tour?.target).toBe("vault.import");
+        expect(clipped.scrollIntoView).toHaveBeenCalledOnce();
+      } else {
+        expect(appeared.scrollIntoView).not.toHaveBeenCalled();
+        expect(runtime.snapshot().tour?.target).toBe("vault.create");
+        top = 10;
+        await new Promise((resolve) => setTimeout(resolve, 120));
+        await clock.advance(0);
+        expect(runtime.snapshot().tour?.target).toBe("vault.export");
+      }
+    } finally {
+      runtime.cancel("navigation");
+      detachAppeared();
+      detachClipped();
+      detachEmpty();
+      detachOpener();
+      appeared.remove();
+      empty.remove();
+      clip.remove();
+      opener.remove();
+    }
+  },
+);

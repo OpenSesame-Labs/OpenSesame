@@ -93,12 +93,95 @@ export async function captureZoomedInstruction(
     await page.screenshot({
       path: `${process.env.TUTORIALS_OUT}/${width}-${target}-${keyboardHeight}-zoomed-instruction.png`,
     });
+  if (target === "unlock.seal-pin-confirm" && keyboardHeight === 190) {
+    const cueStable = await page.evaluate(async () => {
+      const text = document.querySelector(".coach__text");
+      if (!text) return false;
+      let previous = text.classList.contains("is-scrollable");
+      let changes = 0;
+      for (let i = 0; i < 10; i += 1) {
+        await new Promise(requestAnimationFrame);
+        const current = text.classList.contains("is-scrollable");
+        if (current !== previous) changes += 1;
+        previous = current;
+      }
+      return changes < 2;
+    });
+    check(cueStable, "first vault: the scroll cue remains stable");
+  }
   if (!overflowCase) return;
   await checkInstructionTouchScroll(page, session, check);
   if (shots)
     await page.screenshot({
       path: `${process.env.TUTORIALS_OUT}/${width}-${target}-zoomed-instruction-scrolled.png`,
     });
+}
+
+/** The gate's tutorial prompt must leave the PIN acknowledgment reachable. */
+export async function checkGatePausePrompt(page, check, width, out, phone) {
+  const prompt = page.getByText("Pause tutorials for this session?", {
+    exact: true,
+  });
+  await prompt.waitFor({ state: "visible" });
+  check(
+    await prompt.evaluate((node) => Boolean(node.closest(".notice-corner"))),
+    "gate: the tutorial pause choice is in the page flow",
+  );
+  if (process.env.TUTORIALS_SHOTS === "1") {
+    await prompt.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: `${out}/${width}-gate-pause-flow.png` });
+  }
+  const checkbox = page.getByRole("checkbox", {
+    name: "I understand this vault cannot be recovered.",
+  });
+  const session = await page.context().newCDPSession(page);
+  try {
+    for (const scale of phone ? [1, 2] : [1]) {
+      await session.send("Emulation.setPageScaleFactor", {
+        pageScaleFactor: scale,
+      });
+      await checkbox.evaluate((node) =>
+        node.scrollIntoView({ block: "center", inline: "nearest" }),
+      );
+      const point = await checkbox.evaluate((node) => {
+        const box = node.getBoundingClientRect();
+        const v = visualViewport;
+        const x = box.left + box.width / 2;
+        const y = box.top + box.height / 2;
+        const hit = document.elementFromPoint(x, y);
+        return {
+          x: x - v.offsetLeft,
+          y: y - v.offsetTop,
+          clear:
+            x >= v.offsetLeft &&
+            x < v.offsetLeft + v.width &&
+            y >= v.offsetTop &&
+            y < v.offsetTop + v.height &&
+            (hit === node || node.labels?.[0]?.contains(hit)),
+        };
+      });
+      if (process.env.TUTORIALS_SHOTS === "1")
+        await page.screenshot({
+          path: `${out}/${width}-gate-pause-${scale}x.png`,
+        });
+      check(point.clear, `gate: the PIN acknowledgment is clear at ${scale}x`);
+      if (!point.clear) continue;
+      const before = await checkbox.isChecked();
+      const press = () =>
+        phone
+          ? page.touchscreen.tap(point.x, point.y)
+          : page.mouse.click(point.x, point.y);
+      await press();
+      check(
+        (await checkbox.isChecked()) !== before,
+        `gate: the PIN acknowledgment works at ${scale}x`,
+      );
+      await press();
+    }
+  } finally {
+    await session.send("Emulation.setPageScaleFactor", { pageScaleFactor: 1 });
+    await session.detach();
+  }
 }
 
 async function observeResizeErrors(page, context, harness) {

@@ -18,7 +18,7 @@ const ROAD_TO_SEAL = [
   'wait target "unlock.methods" event=appear timeout=60000',
 ] as const;
 
-const SEAL_DECISION = `focus "unlock.seal-actions" "${FIRST_VAULT_SEAL_INSTRUCTION}" side=bottom`;
+const SEAL_DECISION = `focus "unlock.seal-actions" "${FIRST_VAULT_SEAL_INSTRUCTION}" side=right`;
 
 /**
  * The road from the seal decision on. A passkey seals in one ceremony, so its
@@ -101,8 +101,7 @@ export const FIRST_VAULT_GATE_WALK_STEPS = 8;
  * Cancel or Escape closes the editor without a write. Only a save that
  * actually seals makes the predicate true. The copy control exists only on
  * the saved item, so its `appear` wait follows the save as the way into the
- * copy step, and the walk finishes standing over the list the saved item
- * appears in — the person can see where their password went.
+ * copy step. A successful copy completes the walkthrough.
  */
 const PASSWORD_STEPS = [
   'navigate "/vault/list"',
@@ -111,8 +110,8 @@ const PASSWORD_STEPS = [
   'wait target "vault.create" event=activate timeout=60000',
   'focus "item.editor.name" "Name the account. Select Next." side=bottom',
   'focus "editor.password-options" "Open Password options." side=top',
-  'wait target "editor.pepper" event=appear timeout=60000',
-  'focus "editor.pepper-options" "Turn off Include pepper to copy the whole password. Keeping it on adds protection with your own secret; add it when using the password. Select Next." side=top',
+  'wait target "editor.password-options-open" event=appear timeout=60000',
+  'focus "editor.pepper-options" "To copy the whole password, turn off Include pepper. Select Next." side=top',
   'focus "editor.generate-password" "Select Generate another password." side=top',
   'wait target "editor.generate-password" event=activate timeout=60000',
   'focus "item.editor.save" "Select Save item to save this account and password." side=top',
@@ -120,10 +119,6 @@ const PASSWORD_STEPS = [
   'wait target "item.copy-generated" event=appear timeout=60000',
   'focus "item.copy-generated" "Copy the highlighted part. If pepper is on, add it at its chosen position. For two parts, paste the first before copying the rest." side=bottom',
   'wait target "item.copy-generated" event=activate timeout=60000',
-  'navigate "/vault/list"',
-  'wait route "/vault/list" timeout=15000',
-  'wait target "vault.list" event=appear timeout=15000',
-  'focus "vault.list" "Saved items stand in this list — yours is here now. Open it any time to copy its password without showing it." side=right',
   'success "Copied. Paste it into the password field."',
   "end",
 ] as const;

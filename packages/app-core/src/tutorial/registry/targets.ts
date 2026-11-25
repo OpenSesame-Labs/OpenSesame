@@ -19,7 +19,11 @@ import type {
 import { mergedGuideTargets } from "./catalog.js";
 import { inDevelopment } from "./dev.js";
 import { type GuideRouteId, scopeApplies } from "./routes.js";
-import { isPointable, visibleTargetRect } from "./visible-target.js";
+import {
+  hasVisibleTarget,
+  pointableTarget,
+  revealVisibleTarget,
+} from "./visible-target.js";
 
 export type GuideTargetDescriptor = {
   readonly id: GuideTargetId;
@@ -241,44 +245,17 @@ export function isMountedGuideTarget(id: GuideTargetId): boolean {
   return resolveGuideTargetElement(id) !== null;
 }
 
-/**
- * The single place a `GuideTargetId` becomes an element. Nothing else in the
- * app may resolve a target, and no caller may pass a string that did not come
- * from `catalog.ts`.
- */
+export function isVisibleGuideTarget(id: GuideTargetId): boolean {
+  return hasVisibleTarget(
+    (mounted.get(id) ?? []).map(({ element }) => element),
+  );
+}
+
+/** Resolve a declared target to its best pointable element. */
 export function resolveGuideTargetElement(
   id: GuideTargetId,
 ): HTMLElement | null {
-  const candidates = mounted.get(id) ?? [];
-  // A candidate with a visible box wins outright. A pointable candidate whose
-  // box is clipped away (scrolled out of a scrollport, an entrance animation
-  // still drawing) survives only as the scrollable fallback: callers resolve
-  // here in order to *act* — `focus` scrolls the returned element into view
-  // before the step is shown — so the fallback hands the runtime something it
-  // can bring on screen. Satisfaction is a different question; an `appear`
-  // wait must not settle on this fallback, see `observeGuideTarget`.
-  let scrollable: HTMLElement | null = null;
-  for (const candidate of candidates) {
-    if (!isPointable(candidate.element)) continue;
-    if (visibleTargetRect(candidate.element)) return candidate.element;
-    scrollable ??= candidate.element;
-  }
-  return scrollable;
-}
-
-/**
- * Whether any candidate is pointable and has a visible box right now — the
- * question an `appear` wait actually asks. `isMountedGuideTarget` answers a
- * looser one through the resolver's scrollable fallback above: "can the
- * runtime bring this on screen". Settling `appear` on that would point the
- * next instruction at a control a person cannot see yet.
- */
-function hasVisibleGuideTargetBox(id: GuideTargetId): boolean {
-  for (const candidate of mounted.get(id) ?? []) {
-    if (!isPointable(candidate.element)) continue;
-    if (visibleTargetRect(candidate.element) !== null) return true;
-  }
-  return false;
+  return pointableTarget((mounted.get(id) ?? []).map(({ element }) => element));
 }
 
 export function guideTargetDescriptor(
@@ -343,22 +320,23 @@ export function observeGuideTarget(
   id: GuideTargetId,
   event: GuideWaitEvent,
   signal: AbortSignal,
+  options?: { readonly allowOffscreen?: boolean },
 ): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     if (signal.aborted) {
       reject(new DOMException("aborted", "AbortError"));
       return;
     }
-    // Pointability, not registration — the same question `focus` asks. The
-    // rail and the phone tab bar both register their copy of a destination,
-    // so a wait satisfied by mere registration would resolve on the hidden
-    // one and hand the next instruction a control nobody can see. `appear`
-    // is stricter still: the resolver's scrollable fallback can return a
-    // pointable element whose box is clipped, so satisfaction waits for a
-    // candidate with a visible box.
+    // A focus step can attempt one reveal per offscreen candidate, but all
+    // appearance waits require a visible box and ignore hidden duplicates.
+    const attempted = new WeakSet<HTMLElement>();
+    const elements = () =>
+      (mounted.get(id) ?? []).map(({ element }) => element);
     const satisfied = () =>
       event === "appear"
-        ? hasVisibleGuideTargetBox(id)
+        ? options?.allowOffscreen
+          ? revealVisibleTarget(elements(), attempted)
+          : hasVisibleTarget(elements())
         : event === "disappear"
           ? !isMountedGuideTarget(id)
           : false;
@@ -390,7 +368,7 @@ export function observeGuideTarget(
       };
     } else {
       const check = () => {
-        if (satisfied()) finish();
+        if (!signal.aborted && satisfied()) finish();
       };
       mountListeners.add(check);
       // A mounted control can become visible after its ref is bound, for

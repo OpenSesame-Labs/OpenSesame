@@ -3,6 +3,7 @@ import {
   listNotices,
   subscribeNotices,
 } from "@opensesame/app-core/lib/notices.js";
+import { TUTORIAL_PAUSE_NOTICE } from "@opensesame/app-core/lib/tutorial-queue.js";
 import {
   Fragment,
   useEffect,
@@ -25,10 +26,14 @@ function visibleNotices(
   const claim = [...notices]
     .reverse()
     .find((notice) => notice.id.startsWith("identity.claim."));
+  const tutorialPause = notices.find(
+    (notice) => notice.id === TUTORIAL_PAUSE_NOTICE,
+  );
   const selected = new Set([
     held && notices.includes(held) ? held : null,
     error,
     claim,
+    tutorialPause,
   ]);
   // Keep tab order stable when focus moves between cards: the held card's
   // position must not jump ahead of other visible arrivals.

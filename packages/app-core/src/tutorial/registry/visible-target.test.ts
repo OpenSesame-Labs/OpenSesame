@@ -1,6 +1,10 @@
 /** @vitest-environment jsdom */
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isPointable, visibleTargetRect } from "./visible-target.js";
+import {
+  isPointable,
+  revealVisibleTarget,
+  visibleTargetRect,
+} from "./visible-target.js";
 
 afterEach(() => {
   document.body.replaceChildren();
@@ -72,5 +76,40 @@ describe("a tutorial target's visibility", () => {
       new DOMRect(20, 510, 44, 44),
     );
     expect(visibleTargetRect(button)).toBeNull();
+  });
+
+  it("does not repeatedly scroll a clipped target and notices manual reveal", () => {
+    const clip = document.createElement("div");
+    clip.style.overflow = "hidden";
+    clip.getBoundingClientRect = () => new DOMRect(0, 0, 100, 50);
+    Object.defineProperties(clip, {
+      clientWidth: { value: 100 },
+      clientHeight: { value: 50 },
+    });
+    const button = document.createElement("button");
+    let top = 100;
+    button.getBoundingClientRect = () => new DOMRect(10, top, 44, 44);
+    button.scrollIntoView = vi.fn();
+    clip.append(button);
+    document.body.append(clip);
+    const attempted = new WeakSet<HTMLElement>();
+    expect(revealVisibleTarget([button], attempted)).toBe(false);
+    expect(revealVisibleTarget([button], attempted)).toBe(false);
+    expect(button.scrollIntoView).toHaveBeenCalledOnce();
+    top = 2;
+    expect(revealVisibleTarget([button], attempted)).toBe(true);
+    expect(button.scrollIntoView).toHaveBeenCalledOnce();
+  });
+
+  it("does not count a target that becomes hidden during reveal", () => {
+    const button = document.createElement("button");
+    let top = 2_000;
+    button.getBoundingClientRect = () => new DOMRect(10, top, 44, 44);
+    button.scrollIntoView = () => {
+      top = 10;
+      button.style.display = "none";
+    };
+    document.body.append(button);
+    expect(revealVisibleTarget([button], new WeakSet())).toBe(false);
   });
 });

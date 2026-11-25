@@ -1,15 +1,51 @@
 /** @vitest-environment jsdom */
 
 import * as targets from "@opensesame/app-core/tutorial/registry/targets.js";
-import { cleanup, render } from "@testing-library/react";
+import type { GuideTourView } from "@opensesame/guide-runtime";
+import { cleanup, render, renderHook, waitFor } from "@testing-library/react";
 import { type ReactElement, useRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useCoachFocus } from "./use-coach-behavior.js";
+import { useCoachFocus, useFirstVaultPinStep } from "./use-coach-behavior.js";
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
+
+it.each(["unlock.seal-pin-entry", "unlock.seal-pin-confirm"] as const)(
+  "blocks only the first-vault %s step until its field is ready",
+  async (target) => {
+    const input = document.createElement("input");
+    input.setAttribute("data-guide-pin-ready", "false");
+    document.body.append(input);
+    const detach = targets.mountGuideTarget(target, input);
+    const tour: GuideTourView = {
+      kind: "point",
+      target,
+      step: 1,
+      count: 2,
+      message: "Enter a PIN.",
+      side: null,
+      action: false,
+      degraded: false,
+      canBack: true,
+    };
+    const { result, rerender, unmount } = renderHook(
+      ({ firstVault }) => useFirstVaultPinStep(tour, firstVault),
+      { initialProps: { firstVault: true } },
+    );
+    expect(result.current.action).toBe(true);
+    input.setAttribute("data-guide-pin-ready", "true");
+    await waitFor(() => expect(result.current.action).toBe(false));
+    input.setAttribute("data-guide-pin-ready", "false");
+    await waitFor(() => expect(result.current.action).toBe(true));
+    rerender({ firstVault: false });
+    expect(result.current.action).toBe(false);
+    unmount();
+    detach();
+    input.remove();
+  },
+);
 
 function Card({ actionOnly = false }: { actionOnly?: boolean }): ReactElement {
   const card = useRef<HTMLElement>(null);
@@ -122,13 +158,27 @@ describe("returning focus when the tutorial closes", () => {
     launcher.remove();
   });
 
-  it("returns to the original control when it is still usable", () => {
+  it("returns to Support when the original control is hidden", () => {
     const launcher = outside("button");
     const trigger = outside("button");
     vi.spyOn(targets, "resolveGuideTargetElement").mockReturnValue(launcher);
     const { unmount } = render(<Card />);
+    trigger.style.opacity = "0";
+    unmount();
+    expect(document.activeElement).toBe(launcher);
+    trigger.remove();
+    launcher.remove();
+  });
+
+  it("returns to the original control when it is still usable", () => {
+    const launcher = outside("button");
+    const trigger = outside("button");
+    const focus = vi.spyOn(trigger, "focus");
+    vi.spyOn(targets, "resolveGuideTargetElement").mockReturnValue(launcher);
+    const { unmount } = render(<Card />);
     unmount();
     expect(document.activeElement).toBe(trigger);
+    expect(focus).toHaveBeenCalledWith();
     trigger.remove();
     launcher.remove();
   });

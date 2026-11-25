@@ -228,7 +228,10 @@ async function lightTarget(
     const raced = await raceWith(
       host,
       run,
-      (signal) => ports.targets.observe(target, "appear", signal),
+      (signal) =>
+        ports.targets.observe(target, "appear", signal, {
+          allowOffscreen: true,
+        }),
       TOUR_APPEAR_GRACE_MS,
     );
     const interrupted = interruption(raced, host.isLive(run));
@@ -307,7 +310,8 @@ async function holdBeat(
       beat.present < 0 ? beat.start : beat.present,
     );
     const target = missing ? beat.target : null;
-    const observe = watchStep(ports, until, target, holds);
+    const nextTarget = plan.beats[beat.ordinal + 1]?.target ?? null;
+    const observe = watchStep(ports, until, target, holds, nextTarget);
     const raced = await raceWith(host, run, observe, null);
     if (target === null) {
       if (mustRecheck(ports, until, holds, raced)) continue;

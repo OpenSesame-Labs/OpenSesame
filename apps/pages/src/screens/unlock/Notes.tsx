@@ -38,6 +38,49 @@ export function LockoutNote({
   );
 }
 
+/** Confirmation for a new device PIN. */
+export function PinConfirmation({
+  value,
+  onChange,
+  inputRef,
+  reveal,
+  disabled,
+  mismatch,
+  ready,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  inputRef: Ref<HTMLInputElement>;
+  reveal: boolean;
+  disabled: boolean;
+  mismatch: boolean;
+  ready: boolean;
+}) {
+  return (
+    <div className="field">
+      <label htmlFor="confirm">Confirm PIN</label>
+      <input
+        id="confirm"
+        ref={inputRef}
+        type={reveal ? "text" : "password"}
+        inputMode="numeric"
+        autoComplete="new-password"
+        value={value}
+        aria-invalid={mismatch ? true : undefined}
+        aria-describedby={mismatch ? "confirm-pin-hint" : undefined}
+        data-guide-pin-ready={ready}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+      />
+      {mismatch ? (
+        <p id="confirm-pin-hint" className="hint" aria-live="polite">
+          PINs do not match.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 /** The key form's acknowledgement or reminder, followed by its storage notice. */
 export function FormNotes({
   firstRun,

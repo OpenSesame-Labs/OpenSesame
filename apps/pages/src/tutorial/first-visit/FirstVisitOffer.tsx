@@ -233,11 +233,8 @@ function useFirstVisitPlacement({
       };
       if (mode === "auto") {
         if (asked.current !== null) return;
-        const pending: Asked = {
-          route,
-          goal: goal.id,
-          screens: tourScreens(route, goal.guide),
-        };
+        const screens = tourScreens(route, goal.guide);
+        const pending: Asked = { route, goal: goal.id, screens };
         asked.current = pending;
         void support.startGuide(goal.guide, "authored").finally(() => {
           // Ended, or never began: nothing is owed to it any more.

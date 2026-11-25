@@ -30,18 +30,15 @@ describe("account editor: pepper (ADR 0174)", () => {
     open("/vault/new/account");
     const password = block("Password");
     const options = password.getByRole("button", { name: "Password options" });
-    expect(resolveGuideTargetElement("editor.pepper")).toBeNull();
+    expect(resolveGuideTargetElement("editor.pepper-options")).toBeNull();
     await showOptions(password);
-    expect(resolveGuideTargetElement("editor.pepper")).toBe(
-      password.getByText("Include pepper").closest("label"),
-    );
     const target = resolveGuideTargetElement("editor.pepper-options");
     expect(target?.contains(password.getByLabelText("Include pepper"))).toBe(
       true,
     );
     expect(target?.contains(password.getByLabelText("Pepper goes"))).toBe(true);
     await userEvent.click(options);
-    expect(resolveGuideTargetElement("editor.pepper")).toBeNull();
+    expect(resolveGuideTargetElement("editor.pepper-options")).toBeNull();
   });
 
   it("has Include pepper on at the end by default, never asks for one, and draws where it goes only while it is on", async () => {

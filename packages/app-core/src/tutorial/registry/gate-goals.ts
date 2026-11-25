@@ -112,7 +112,7 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
         'say "A passkey uses your device authenticator, such as a fingerprint, face, security key or screen lock."',
         'focus "unlock.passkey" "Select the Passkey tab." side=bottom',
         creating
-          ? `focus "unlock.seal-actions" "${FIRST_VAULT_SEAL_INSTRUCTION}" side=bottom`
+          ? `focus "unlock.seal-actions" "${FIRST_VAULT_SEAL_INSTRUCTION}" side=right`
           : 'focus "unlock.submit" "Select Unlock with passkey, then approve the prompt." side=top',
         ...(creating ? firstVaultSealRoadSteps() : []),
         'success "If you enrolled a second step, enter its code when asked."',

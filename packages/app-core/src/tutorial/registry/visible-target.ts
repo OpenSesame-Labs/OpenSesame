@@ -82,3 +82,44 @@ export function visibleTargetRect(
     height: bottom - top,
   };
 }
+
+/** Whether one of the pointable targets has a visible box. */
+export function hasVisibleTarget(elements: readonly HTMLElement[]): boolean {
+  return elements.some(
+    (element) => isPointable(element) && visibleTargetRect(element) !== null,
+  );
+}
+
+/** Prefer a visible target, falling back to one that can be scrolled to. */
+export function pointableTarget(
+  elements: readonly HTMLElement[],
+): HTMLElement | null {
+  let fallback: HTMLElement | null = null;
+  for (const element of elements) {
+    if (!isPointable(element)) continue;
+    if (visibleTargetRect(element)) return element;
+    fallback ??= element;
+  }
+  return fallback;
+}
+
+/** A target waiting to be focused may need one scroll to become visible. */
+export function revealVisibleTarget(
+  elements: readonly HTMLElement[],
+  attempted: WeakSet<HTMLElement>,
+): boolean {
+  if (hasVisibleTarget(elements)) return true;
+  for (const element of elements) {
+    if (!isPointable(element) || attempted.has(element)) continue;
+    const box = element.getBoundingClientRect();
+    if (box.width <= 0 || box.height <= 0 || !element.scrollIntoView) continue;
+    attempted.add(element);
+    element.scrollIntoView({
+      block: "center",
+      inline: "nearest",
+      behavior: "auto",
+    });
+    if (isPointable(element) && visibleTargetRect(element)) return true;
+  }
+  return false;
+}

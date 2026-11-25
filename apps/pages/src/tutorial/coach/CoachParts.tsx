@@ -5,14 +5,7 @@
  */
 
 import { FIRST_VAULT_PIN_STEPS } from "@opensesame/app-core/tutorial/registry/first-vault-guide.js";
-import {
-  isKnownGuidePredicate,
-  readGuidePredicate,
-} from "@opensesame/app-core/tutorial/registry/state.js";
-import type {
-  GuideRuntimeSnapshot,
-  GuideTourView,
-} from "@opensesame/guide-runtime";
+import type { GuideTourView } from "@opensesame/guide-runtime";
 import type { CSSProperties, ReactElement } from "react";
 import { IconKey } from "../../components/IconKey.js";
 import {
@@ -61,7 +54,7 @@ type TourProgress = { offset: number; count: number };
  * `@opensesame/app-core/tutorial/registry/first-vault-guide.ts`: the door
  * walks two setup steps plus a two-step road to the seal decision, the PIN
  * road then walks `FIRST_VAULT_PIN_STEPS`' seal fields where the passkey road
- * seals in one ceremony, and the shell continuation is the nine-step password
+ * seals in one ceremony, and the shell continuation is the eight-step password
  * walk. CoachHud.test.tsx re-derives these from the authored guides, so an
  * edit that changes a walk's length fails the meter test instead of drifting
  * the counter silently.
@@ -70,7 +63,7 @@ const FIRST_VAULT_PASSKEY_GATE_STEPS = 4;
 const FIRST_VAULT_PIN_SEAL_STEPS = FIRST_VAULT_PIN_STEPS.length;
 const FIRST_VAULT_PIN_GATE_STEPS =
   FIRST_VAULT_PASSKEY_GATE_STEPS + FIRST_VAULT_PIN_SEAL_STEPS;
-const FIRST_VAULT_SHELL_STEPS = 9;
+export const FIRST_VAULT_SHELL_STEPS = 8;
 
 /** Join the adaptive gate phase to its first-vault shell continuation. */
 export function firstVaultTourProgress(
@@ -86,8 +79,7 @@ export function firstVaultTourProgress(
     "unlock.seal-ack",
     "unlock.seal",
   ].includes(target ?? "");
-  // The shell continuation is the nine-step password walk — save waits for
-  // the saved item, the copy step, and the list the item lands in.
+  // The shell continuation waits for the saved item and a successful copy.
   if (count === FIRST_VAULT_SHELL_STEPS && !gateTarget)
     return { offset: gateSteps, count: gateSteps + count };
   // The gate phase and the sign-in continuation show the whole projected
@@ -296,7 +288,7 @@ export function Foot({
             onClick={() => support.replayGuide()}
           >
             <IconRefresh size={15} />
-            <span>{firstVault ? "Replay password steps" : "Replay"}</span>
+            <span>{firstVault ? "Replay steps" : "Replay"}</span>
           </button>
         ) : (
           <button
@@ -367,47 +359,4 @@ export function viewportDockStyle(
     ...horizontal,
     bottom: `calc(${edge} + env(safe-area-inset-bottom, 0px) + ${viewport.bottomOffset}px)`,
   };
-}
-
-/** Keep Back from returning to controls removed by an earlier action. */
-export function canReturn(
-  guide: GuideRuntimeSnapshot,
-  tour: GuideTourView,
-): boolean {
-  if (!tour.canBack) return false;
-  if (
-    ["vault.item.find", "vault.item.accounts"].includes(guide.goal ?? "") &&
-    [
-      "vault.filter.favorites",
-      "vault.filter.logins",
-      "shell.command-bar",
-    ].includes(tour.target ?? "") &&
-    isKnownGuidePredicate("shell.narrow") &&
-    readGuidePredicate("shell.narrow")
-  )
-    return false;
-  if (guide.goal === "gate.front-door") {
-    if (
-      ["unlock.seal-pin-confirm", "unlock.seal-ack", "unlock.seal"].includes(
-        tour.target ?? "",
-      )
-    )
-      return true;
-    return (
-      tour.count === 9 &&
-      [
-        "editor.password-options",
-        "editor.pepper-options",
-        "editor.generate-password",
-        "item.editor.save",
-        "vault.list",
-      ].includes(tour.target ?? "")
-    );
-  }
-  if (guide.goal === "vault.item.first") {
-    return !["item.editor.name", "item.copy-generated"].includes(
-      tour.target ?? "",
-    );
-  }
-  return true;
 }

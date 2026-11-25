@@ -18,6 +18,7 @@
  */
 
 import { PIN } from "./pages-journey.mjs";
+import { checkGatePausePrompt } from "./tutorial-page.mjs";
 import { listTutorials, readStep, startTutorial } from "./tutorial-walk.mjs";
 import { hasUsableFocus } from "./tutorial-walker.mjs";
 
@@ -38,7 +39,7 @@ export async function checkLateSealScroll(page, step, check) {
   });
   check(reset, "first vault: the seal step has a scroll container to test");
   if (!reset) return;
-  const info = await step("unlock.seal", 8, 17);
+  const info = await step("unlock.seal", 8, 16);
   if (!info?.visibleControl) return;
   const box = await page
     .getByRole("button", { name: "Seal with PIN" })
@@ -297,7 +298,7 @@ async function setupGate(env, page, walkHere) {
 }
 
 /** Sign-in, then the seal without an account: each method, then a vault made. */
-async function sealGate(page, walkHere) {
+async function sealGate(page, walkHere, env) {
   await page
     .getByRole("heading", { level: 1, name: "Sign in" })
     .waitFor({ timeout: 15000 });
@@ -310,6 +311,7 @@ async function sealGate(page, walkHere) {
   }
   await page.getByRole("tab", { name: "PIN", exact: true }).click();
   await walkHere("seal PIN", ["gate.unlock"]);
+  await checkGatePausePrompt(page, env.check, env.width, env.out, env.phone);
   await page.getByLabel("Device PIN", { exact: true }).fill(PIN);
   await page.getByLabel("Confirm PIN", { exact: true }).fill(PIN);
   await page
@@ -330,7 +332,7 @@ export async function gatePass(env) {
   try {
     await doorGate(env, page, walkHere);
     await setupGate(env, page, walkHere);
-    await sealGate(page, walkHere);
+    await sealGate(page, walkHere, env);
     // Unlock: the vault just sealed, on a fresh load, which locks it.
     await page.goto(`${origin}${base}vault`, { waitUntil: "domcontentloaded" });
     await page.getByLabel("PIN", { exact: true }).waitFor({ timeout: 20000 });

@@ -5,6 +5,7 @@ import {
   setGuidanceMode,
 } from "@opensesame/app-core/lib/guidance.js";
 import { subscribeToasts } from "@opensesame/app-core/lib/notice-toast.js";
+import type { GuideRuntimeSnapshot } from "@opensesame/guide-runtime";
 import {
   act,
   cleanup,
@@ -13,6 +14,10 @@ import {
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import {
+  preserveFirstVaultGate,
+  resetFirstVaultHandoff,
+} from "../first-vault-handoff.js";
 import { enterGate } from "../gate-presence.js";
 import { GateHost } from "../gate-seat.js";
 import { SupportContext } from "../support-context.js";
@@ -42,6 +47,29 @@ function mount(route: string, gateScreen = false) {
   return { ...controller, view };
 }
 
+function firstVaultStep(target: string): GuideRuntimeSnapshot {
+  return {
+    status: "waiting",
+    goal: "gate.front-door",
+    index: 0,
+    total: 1,
+    runId: 1,
+    message: null,
+    error: null,
+    tour: {
+      step: target === "unlock.setup" ? 1 : 2,
+      count: 8,
+      kind: "point",
+      message: "Continue setup.",
+      target,
+      side: null,
+      action: true,
+      degraded: false,
+      canBack: false,
+    },
+  };
+}
+
 beforeEach(() => {
   vi.useFakeTimers();
   stored = null;
@@ -59,12 +87,23 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  resetFirstVaultHandoff();
   for (const item of document.querySelectorAll("[data-first-visit-offer]")) {
     item.remove();
   }
   Object.assign(guidanceSeams, originalGuidance);
   Object.assign(firstVisitSeams, originalSeams);
   vi.useRealTimers();
+});
+
+it("waits for the first-vault continuation while setup finishes", () => {
+  setGuidanceMode("auto");
+  const old = stubSupportController("/setup/choose", {
+    guide: firstVaultStep("setup.default"),
+  });
+  preserveFirstVaultGate(old.support);
+  const replacement = mount("/setup/choose", true);
+  expect(replacement.started).toHaveLength(0);
 });
 
 it("uses the shell seat, keeps focus, and returns it after a declined offer", () => {

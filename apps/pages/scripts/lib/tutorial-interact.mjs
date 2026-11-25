@@ -331,6 +331,14 @@ export async function checkShortKeyboardCard(page, session, check) {
 /** Finish the tour by touch at 2× zoom in a short phone viewport. */
 export async function closeWithZoomCheck(page, check) {
   const original = page.viewportSize();
+  const controls = await page.evaluate(
+    measureZoomedCompletion,
+    original.width < 600 ? 44 : 32,
+  );
+  check(
+    controls.allFit,
+    "first vault: completion controls fit and are reachable",
+  );
   if (process.env.TUTORIALS_KEYBOARD_VIEWPORT !== "1" || original.width > 390) {
     await page.getByRole("button", { name: "Done", exact: true }).click();
     return;

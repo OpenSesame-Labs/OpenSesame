@@ -144,16 +144,16 @@ describe("first-visit tours", () => {
       .mockReturnValue(true);
     const read = vi.spyOn(state, "readGuidePredicate");
     try {
-      // The passkey road: the door's four steps plus the nine-step walk.
+      // The passkey road: the door's four steps plus the eight-step walk.
       read.mockReturnValue(true);
       const passkey = firstVisitTour("/unlock/door", new Set());
       expect(passkey?.goal.id).toBe("gate.front-door");
-      expect(passkey?.steps).toBe(13);
+      expect(passkey?.steps).toBe(12);
       // The PIN road: the seal walks its four fields as steps too.
       read.mockReturnValue(false);
       const pin = firstVisitTour("/unlock/door", new Set());
       expect(pin?.goal.id).toBe("gate.front-door");
-      expect(pin?.steps).toBe(17);
+      expect(pin?.steps).toBe(16);
     } finally {
       known.mockRestore();
       read.mockRestore();

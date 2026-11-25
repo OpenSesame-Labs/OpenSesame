@@ -101,6 +101,45 @@ describe("UnlockScreen — guidance is drawn in the page, not trayed", () => {
     expect(statusNotices()).toEqual([]);
   });
 
+  it("reports only whether each PIN step is ready", () => {
+    setupHolder.current = ANSWERED;
+    v.state = {
+      status: "empty",
+      header: null,
+      lockedOutUntil: null,
+      failedAttempts: 0,
+      durable: true,
+      awaitingSecondStep: false,
+    };
+    v.methods = ["password"];
+    v.host = { ok: true };
+    render(<UnlockScreen />);
+    goLocalOnly();
+    chooseSealMethod("PIN");
+    const pin = screen.getByLabelText("Device PIN");
+    const confirm = screen.getByLabelText("Confirm PIN");
+    const ready = (input: HTMLElement) =>
+      input.getAttribute("data-guide-pin-ready");
+    expect(ready(pin)).toBe("false");
+    expect(ready(confirm)).toBe("false");
+    fireEvent.change(pin, { target: { value: "12345678" } });
+    expect(ready(pin)).toBe("false");
+    fireEvent.change(pin, { target: { value: "48291037" } });
+    expect(ready(pin)).toBe("true");
+    expect(ready(confirm)).toBe("false");
+    fireEvent.change(confirm, { target: { value: "48291038" } });
+    expect(ready(confirm)).toBe("false");
+    expect(confirm.getAttribute("aria-invalid")).toBe("true");
+    const hint = screen.getByText("PINs do not match.");
+    expect(confirm.getAttribute("aria-describedby")).toBe(hint.id);
+    fireEvent.change(confirm, { target: { value: "48291037" } });
+    expect(ready(confirm)).toBe("true");
+    expect(confirm.hasAttribute("aria-invalid")).toBe(false);
+    expect(screen.queryByText("PINs do not match.")).toBeNull();
+    fireEvent.change(pin, { target: { value: "48291038" } });
+    expect(ready(confirm)).toBe("false");
+  });
+
   it("says so in the page when a vault has an authenticator code but no key", () => {
     setupHolder.current = ANSWERED;
     v.state = {
