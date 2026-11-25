@@ -3,7 +3,7 @@
 //   npm run build -w @opensesame/pages   (VITE_BASE=/OpenSesame/)
 //   node apps/pages/scripts/verify-static-origin.mjs
 // Every request to the production origin is served from `dist/` (unknown
-// paths fall back to index.html with a 404 status, exactly as GitHub Pages
+// paths fall back to 404.html with a 404 status, exactly as GitHub Pages
 // does); every other origin is refused — except a mocked shoo.dev for the
 // Google return leg. The run fails on any page error, any console error
 // other than the SPA-fallback 404, any request to a loopback address, any
@@ -31,11 +31,11 @@ import { checkEditorPaths } from "./lib/editor-path-contract.mjs";
 import { checkEditorRoutes } from "./lib/editor-routes-contract.mjs";
 import { checkEditorTabOrder } from "./lib/editor-tab-order-contract.mjs";
 import { walkFirstRunImport } from "./lib/first-run-import-contract.mjs";
+import { doorGuest, passTheDoor } from "./lib/front-door.mjs";
 import {
   checkFrontDoor,
   walkSetupCeremony,
 } from "./lib/front-door-contract.mjs";
-import { doorGuest, passTheDoor } from "./lib/front-door.mjs";
 import { tabToAccessControl } from "./lib/local-access-journey.mjs";
 import { openIdentityView } from "./lib/local-directory-navigation.mjs";
 import { openSection, sealLocalOnly } from "./lib/pages-journey.mjs";
@@ -306,6 +306,7 @@ const browser = await launch();
   const deepLink = `${ORIGIN}${BASE}vault/health`;
   const { page, context } = await newPage(browser, {
     expectedFallbackUrl: deepLink,
+    expectedFallbackCount: 2,
   });
   setStep("D-deeplink");
   const response = await page.goto(deepLink, { waitUntil: "networkidle" });
@@ -323,6 +324,13 @@ const browser = await launch();
   check(
     (await doorGuest(page).count()) === 1,
     "deep link retains guest access",
+  );
+  const reloaded = await page.reload({ waitUntil: "networkidle" });
+  check(reloaded?.status() === 404, "deep link reload uses the 404 fallback");
+  await doorGuest(page).waitFor();
+  check(
+    (await doorGuest(page).count()) === 1,
+    "deep link reload opens the app",
   );
   await page.waitForTimeout(800);
   const missing = log.filter(

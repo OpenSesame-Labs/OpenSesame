@@ -85,6 +85,10 @@ function releaseFixture() {
     join(directory, "index.html"),
     "<!doctype html><title>Pages</title>",
   );
+  writeFileSync(
+    join(directory, "404.html"),
+    readFileSync(join(directory, "index.html")),
+  );
   writeFileSync(join(directory, "os-runtime-config.json"), "{}\n");
   stampRelease(directory, revision);
   return directory;
@@ -95,8 +99,13 @@ function serve(directory) {
     expect(url.origin).toBe("https://pages.example");
     expect(url.pathname).toMatch(/^\/OpenSesame\//);
     expect(url.searchParams.get("release")).toBe(revision);
+    const name = url.pathname.split("/").at(-1);
+    const fallback = name === "__opensesame_release_probe__";
     return new Response(
-      readFileSync(join(directory, url.pathname.split("/").at(-1))),
+      readFileSync(join(directory, fallback ? "404.html" : name)),
+      {
+        status: fallback ? 404 : 200,
+      },
     );
   });
   vi.stubGlobal("fetch", mock);
@@ -111,12 +120,23 @@ describe("Pages publication proof", () => {
     expect(readFileSync(join(directory, "release.json"), "utf8")).toBe(before);
     const mock = serve(directory);
     await verifyRelease("https://pages.example/OpenSesame", revision);
-    expect(mock).toHaveBeenCalledTimes(3);
+    expect(mock).toHaveBeenCalledTimes(4);
     for (const [, options] of mock.mock.calls) {
       expect(options.redirect).toBe("error");
       expect(options.cache).toBe("no-store");
       expect(options.signal).toBeInstanceOf(AbortSignal);
     }
+  });
+  it("rejects a bad deep-link fallback before and after publication", async () => {
+    const directory = releaseFixture();
+    serve(directory);
+    writeFileSync(join(directory, "404.html"), "<title>Page not found</title>");
+    expect(() => stampRelease(directory, revision)).toThrow(
+      "deep-link fallback",
+    );
+    await expect(
+      verifyRelease("https://pages.example/OpenSesame/", revision),
+    ).rejects.toThrow("deep-link fallback");
   });
   it("refuses stale release markers and missing digests", async () => {
     const directory = releaseFixture();

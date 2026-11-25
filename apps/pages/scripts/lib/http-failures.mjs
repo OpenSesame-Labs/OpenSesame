@@ -1,7 +1,12 @@
-/** Admit one browser-generated console error for the exact tested SPA document. */
-export function observeHttpFailures(page, record, expectedFallbackUrl) {
-  let fallbackObserved = false;
-  let fallbackConsoleObserved = false;
+/** Admit only the expected navigations and console errors for an SPA fallback. */
+export function observeHttpFailures(
+  page,
+  record,
+  expectedFallbackUrl,
+  limit = 1,
+) {
+  let fallbackObserved = 0;
+  let fallbackConsoleObserved = 0;
   page.on("response", (response) => {
     if (response.status() < 400) return;
     const request = response.request();
@@ -11,9 +16,9 @@ export function observeHttpFailures(page, record, expectedFallbackUrl) {
       request.isNavigationRequest() &&
       request.resourceType() === "document" &&
       request.frame() === page.mainFrame() &&
-      !fallbackObserved
+      fallbackObserved < limit
     ) {
-      fallbackObserved = true;
+      fallbackObserved += 1;
       record("EXPECTED-FALLBACK", response.url());
       return;
     }
@@ -22,13 +27,12 @@ export function observeHttpFailures(page, record, expectedFallbackUrl) {
   page.on("console", (message) => {
     if (message.type() !== "error") return;
     if (
-      fallbackObserved &&
-      !fallbackConsoleObserved &&
+      fallbackConsoleObserved < fallbackObserved &&
       message.location().url === expectedFallbackUrl &&
       message.text() ===
         "Failed to load resource: the server responded with a status of 404 (Not Found)"
     ) {
-      fallbackConsoleObserved = true;
+      fallbackConsoleObserved += 1;
       record("EXPECTED-FALLBACK-CONSOLE", expectedFallbackUrl);
       return;
     }

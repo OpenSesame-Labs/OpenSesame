@@ -6,7 +6,11 @@ import { observeHttpFailures } from "./http-failures.mjs";
 const expected = "https://pages.example/app/vault/health";
 const browser404 =
   "Failed to load resource: the server responded with a status of 404 (Not Found)";
-function fixture({ expectedFallbackUrl } = { expectedFallbackUrl: expected }) {
+function fixture(
+  { expectedFallbackUrl, expectedFallbackCount } = {
+    expectedFallbackUrl: expected,
+  },
+) {
   const page = new EventEmitter();
   const frame = {};
   page.mainFrame = () => frame;
@@ -15,6 +19,7 @@ function fixture({ expectedFallbackUrl } = { expectedFallbackUrl: expected }) {
     page,
     (kind, detail) => log.push({ kind, detail }),
     expectedFallbackUrl,
+    expectedFallbackCount,
   );
   return {
     log,
@@ -50,6 +55,28 @@ test("admits only the observed exact top-level fallback and one corresponding co
       "EXPECTED-FALLBACK",
       "EXPECTED-FALLBACK-CONSOLE",
       "console-error",
+      "HTTP-ERROR",
+    ],
+  );
+});
+
+test("admits a bounded reload of the same fallback document", () => {
+  const f = fixture({
+    expectedFallbackUrl: expected,
+    expectedFallbackCount: 2,
+  });
+  f.response();
+  f.console();
+  f.response();
+  f.console();
+  f.response();
+  assert.deepEqual(
+    f.log.map((entry) => entry.kind),
+    [
+      "EXPECTED-FALLBACK",
+      "EXPECTED-FALLBACK-CONSOLE",
+      "EXPECTED-FALLBACK",
+      "EXPECTED-FALLBACK-CONSOLE",
       "HTTP-ERROR",
     ],
   );

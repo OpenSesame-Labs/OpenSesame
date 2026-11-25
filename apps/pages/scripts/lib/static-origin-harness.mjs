@@ -90,7 +90,7 @@ const PAGES_CORS = { "access-control-allow-origin": "*" };
 
 /**
  * The deployment itself, served exactly as GitHub Pages serves it: a real file
- * where one exists, and index.html with a 404 status where the path is a route
+ * where one exists, and 404.html with a 404 status where the path is a route
  * rather than an asset. A missing asset is recorded, because a 404 for
  * something the page actually asked for is a fault.
  */
@@ -119,7 +119,7 @@ function serveFromDist(route, url, { dist, base, record }) {
   return route.fulfill({
     status: rel ? 404 : 200,
     headers: { "content-type": "text/html", ...PAGES_CORS },
-    body: fs.readFileSync(path.join(dist, "index.html")),
+    body: fs.readFileSync(path.join(dist, rel ? "404.html" : "index.html")),
   });
 }
 
@@ -236,6 +236,7 @@ async function newPage(
     base,
     record,
     expectedFallbackUrl,
+    expectedFallbackCount,
     device,
     remote = {},
     passthrough = [],
@@ -307,7 +308,7 @@ async function newPage(
     return route.abort("connectionrefused");
   });
   const page = await context.newPage();
-  observeHttpFailures(page, record, expectedFallbackUrl);
+  observeHttpFailures(page, record, expectedFallbackUrl, expectedFallbackCount);
   page.on("pageerror", (error) =>
     record(
       "PAGE-ERROR",
