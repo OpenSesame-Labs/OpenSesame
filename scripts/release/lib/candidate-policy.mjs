@@ -20,10 +20,11 @@ export const POLICY = Object.freeze({
   selection_attempt_limit: 100,
   page_limit: 20,
   ci_path: ".github/workflows/ci.yml",
-  producers: [
-    ".github/workflows/dev-nightly.yml",
-    ".github/workflows/candidate-build.yml",
-  ],
+  producers: {
+    ".github/workflows/dev-nightly.yml": ["schedule", "workflow_dispatch"],
+    ".github/workflows/dev-nightly-qualify.yml": ["workflow_run"],
+    ".github/workflows/candidate-build.yml": ["schedule", "workflow_dispatch"],
+  },
   stages: {
     dev: { workflow: ".github/workflows/dev-nightly.yml", gate: "Dev gate" },
     prerelease: {
@@ -107,6 +108,30 @@ export function stageKey(stage, suite) {
   return stage;
 }
 
+function workflowRunEvent(env) {
+  try {
+    return JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, "utf8"));
+  } catch {
+    throw new Error("Invalid workflow_run event payload");
+  }
+}
+
+function validateWorkflowRun(env, workflow, workflowRunParents) {
+  const expectedParent = workflowRunParents?.[workflow];
+  demand(expectedParent, "Untrusted workflow_run continuation");
+  const event = workflowRunEvent(env);
+  const run = event?.workflow_run;
+  const trusted = (condition) =>
+    demand(condition, "Untrusted workflow_run parent");
+  trusted(event?.action === "completed");
+  trusted(run?.conclusion === "success");
+  trusted(run?.repository?.full_name === POLICY.repository);
+  trusted(run?.head_repository?.full_name === POLICY.repository);
+  trusted(run?.head_branch === POLICY.branch);
+  trusted(["schedule", "workflow_dispatch"].includes(run?.event));
+  trusted(run?.path === expectedParent);
+}
+
 export function context(
   env = process.env,
   { requireToken = true, events, workflows, workflowRunParents } = {},
@@ -135,31 +160,15 @@ export function context(
   const workflow = workflowRef.slice(prefix.length, -"@refs/heads/main".length);
   demand(
     (
-      workflows ?? [...POLICY.producers, ".github/workflows/release-weekly.yml"]
+      workflows ?? [
+        ...Object.keys(POLICY.producers),
+        ".github/workflows/release-weekly.yml",
+      ]
     ).includes(workflow),
     "Untrusted controller",
   );
-  if (env.GITHUB_EVENT_NAME === "workflow_run") {
-    const expectedParent = workflowRunParents?.[workflow];
-    demand(expectedParent, "Untrusted workflow_run continuation");
-    let event;
-    try {
-      event = JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, "utf8"));
-    } catch {
-      demand(false, "Invalid workflow_run event payload");
-    }
-    const run = event?.workflow_run;
-    demand(
-      event?.action === "completed" &&
-        run?.conclusion === "success" &&
-        run?.repository?.full_name === POLICY.repository &&
-        run?.head_repository?.full_name === POLICY.repository &&
-        run?.head_branch === POLICY.branch &&
-        ["schedule", "workflow_dispatch"].includes(run?.event) &&
-        run?.path === expectedParent,
-      "Untrusted workflow_run parent",
-    );
-  }
+  if (env.GITHUB_EVENT_NAME === "workflow_run")
+    validateWorkflowRun(env, workflow, workflowRunParents);
   if (requireToken)
     demand(env.GH_TOKEN || env.GITHUB_TOKEN, "GitHub token is required");
   return {

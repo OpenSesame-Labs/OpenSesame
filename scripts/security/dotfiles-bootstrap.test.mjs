@@ -343,22 +343,16 @@ function assertDevcontainerBootstrapOrder() {
     dockerfile,
     /mcr\.microsoft\.com\/devcontainers\/base:alpine@sha256:[a-f0-9]{64}/,
   );
+  const personalSetup =
+    /dotfiles-bootstrap|install-agent-skills|skills:install/u;
   for (const key of ["updateContentCommand", "postCreateCommand"]) {
     const text = devcontainer[key];
     const locked = text.indexOf("mise install --locked");
     const deps = text.indexOf("mise run deps");
     assert.ok(locked >= 0 && locked < deps, key);
-    assert.doesNotMatch(
-      text,
-      /dotfiles-bootstrap|install-agent-skills|skills:install/u,
-      key,
-    );
+    assert.doesNotMatch(text, personalSetup, key);
     assert.equal(text.includes("corepack"), false, key);
-    assert.equal(
-      text.includes("npm ci") || text.includes("mise run deps"),
-      true,
-      key,
-    );
+    assert.ok(text.includes("npm ci") || text.includes("mise run deps"), key);
   }
   // Skill verification and refresh are explicit; nothing runs at each start.
   assert.equal(devcontainer.postStartCommand, undefined);

@@ -101,13 +101,24 @@ function manifestParts(value: JsonValue): JsonValue[] | undefined {
   return value.parts.length <= MAX_FILE_PARTS ? value.parts : undefined;
 }
 
+function validPartLayout(
+  size: number | undefined,
+  partLength: number,
+  partBytes: number,
+): size is number {
+  return (
+    size !== undefined &&
+    size <= MAX_FILE_BYTES &&
+    (size === 0) === (partLength === 0) &&
+    !(size > 0 && partLength > size) &&
+    partLength >= Math.ceil(size / partBytes)
+  );
+}
+
 function manifestHeader(
   parsed: { [key: string]: JsonValue | undefined },
   partLength: number,
 ): Omit<FileManifest, "parts"> | undefined {
-  const name = readString(parsed.name);
-  const mediaType = readString(parsed.mediaType);
-  const key = readString(parsed.key);
   const size = wholeSize(parsed.size);
   const declared = wholeSize(parsed.partBytes);
   if (
@@ -116,21 +127,19 @@ function manifestHeader(
   )
     return undefined;
   const partBytes = declared ?? LEGACY_PART_BYTES;
+  if (!validPartLayout(size, partLength, partBytes)) return undefined;
+  const name = readString(parsed.name);
+  const mediaType = readString(parsed.mediaType);
+  const key = readString(parsed.key);
   if (
     name === undefined ||
     mediaType === undefined ||
     key === undefined ||
-    size === undefined ||
-    size > MAX_FILE_BYTES ||
     name.length > 255 ||
     mediaType.length > 255 ||
-    !/^[A-Za-z0-9+/]{43}=$/u.test(key) ||
-    (size === 0) !== (partLength === 0) ||
-    (size > 0 && partLength > size) ||
-    partLength < Math.ceil(size / partBytes)
-  ) {
+    !/^[A-Za-z0-9+/]{43}=$/u.test(key)
+  )
     return undefined;
-  }
   return {
     v: 1,
     name,

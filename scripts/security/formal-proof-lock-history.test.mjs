@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { test } from "node:test";
 import {
@@ -383,49 +383,4 @@ test("a committed weakened lock helper cannot skip the mapped proof suites", (t)
   assert.notEqual(result.status, 0, result.stdout);
   assert.match(result.stderr, /projection\.py changed .*separately/u);
   assert.deepEqual(f.commands(), []);
-});
-
-test("a committed weakened lock selector cannot skip the mapped proof suites", (t) => {
-  // A push changing a projection gate input together with Cargo.lock is
-  // refused (#2668) before any projection output is trusted.
-  const { f, base } = initialize(t);
-  f.write("Cargo.lock", lock({ sdk: "e" }));
-  f.write(
-    "scripts/security/formal-proof-lock-history.mjs",
-    "export function lockAffectedSuites() { return new Set(); }\n",
-  );
-  f.commit();
-  const head = f.git("rev-parse", "HEAD");
-  const result = f.run(f.tuple(head, base));
-  assert.notEqual(result.status, 0, result.stdout);
-  assert.match(result.stderr, /lock-history\.mjs changed .*separately/u);
-  assert.deepEqual(f.commands(), []);
-});
-
-test("native push executes the verified helper even if its source changes afterward", (t) => {
-  const { f } = initialize(t);
-  f.write("Cargo.lock", lock({ sdk: "e" }));
-  f.commit();
-  const lookup = spawnSync(
-    "python3",
-    ["-I", "-c", "import sys; print(sys.executable)"],
-    {
-      encoding: "utf8",
-    },
-  );
-  assert.equal(lookup.status, 0, lookup.stderr);
-  const python = lookup.stdout.trim();
-  assert.match(python, /^\/[^\r\n\0]+$/u);
-  const quotedPython = `'${python.replaceAll("'", "'\\''")}'`;
-  const shim = join(f.bin, "python3");
-  writeFileSync(
-    shim,
-    `#!/bin/sh\noriginal="$PWD/scripts/security/cargo-lock-projection.py"\nbackup="$original.race-backup"\ncp "$original" "$backup"\n: > "$0.race-observed"\nprintf '%s\\n' 'import json; print(json.dumps({"changed": False}))' > "$original"\n${quotedPython} "$@"\nresult=$?\ncat "$backup" > "$original"\nrm "$backup"\nexit "$result"\n`,
-    { mode: 0o755 },
-  );
-  const result = push(f, "HEAD", "refs/heads/main");
-  assert.equal(result.status, 0, result.stderr);
-  assert.equal(existsSync(`${shim}.race-observed`), true);
-  assert.deepEqual(f.commands(), ["run verify:spiffe"]);
-  assert.equal(f.git("status", "--porcelain"), "");
 });

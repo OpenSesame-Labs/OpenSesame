@@ -1,8 +1,9 @@
 //! Exercise EST's proof decision through real rustls client authentication.
-use super::{config, router, sealed_state, seed_self_signed_profile};
+use super::{attested, config, request, router, sealed_state, seed_self_signed_profile};
 use crate::app_state::{test_env, AppState};
 use crate::transport::test_support;
 use crate::transport_lifecycle::test_support as tls;
+use axum::http::StatusCode;
 use base64::Engine as _;
 use opensesame_domain::transport::{
     BindingPurpose, BindingScope, PeerIdentitySelector, TransportPolicy, TrustProfileKind,
@@ -15,6 +16,76 @@ use opensesame_transport_security::{
 use rustls_pki_types::pem::PemObject;
 use std::sync::{Arc, RwLock};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+#[tokio::test]
+async fn proxy_identity_and_forwarded_assertions_never_replace_direct_est_proof() {
+    let _guard = test_env::lock();
+    let state = sealed_state().await;
+    let profile = seed_self_signed_profile(&state, "random-value-16b").await;
+    let mut config = config(&state, &profile).await;
+    config.require_bootstrap = true;
+    assert!(state.db.update_est_config(&config).await.unwrap());
+    let proxy = attested(TransportPolicy::TrustedIngress)
+        .into_verified()
+        .unwrap();
+    let origin = test_support::forwarded("client.test", test_support::THUMB_B, &proxy);
+    let mut local = attested(TransportPolicy::ExistingLocal);
+    local.source = opensesame_domain::transport::EvidenceSource::LocalIpc;
+    let local = local.into_verified().unwrap();
+    for endpoint in ["simpleenroll", "simplereenroll"] {
+        for (peer, forwarded) in [
+            (None, None),
+            (Some(&proxy), None),
+            (Some(&proxy), Some(&origin)),
+            (Some(&local), None),
+            (Some(&origin), None),
+        ] {
+            assert_eq!(
+                request(&state, &profile, endpoint, peer, forwarded, None).await,
+                StatusCode::UNAUTHORIZED
+            );
+            assert_eq!(
+                request(
+                    &state,
+                    &profile,
+                    endpoint,
+                    peer,
+                    forwarded,
+                    Some("random-value-16b"),
+                )
+                .await,
+                StatusCode::UNAUTHORIZED
+            );
+        }
+    }
+}
+
+#[tokio::test]
+async fn direct_client_certificates_work_but_expired_evidence_does_not() {
+    let _guard = test_env::lock();
+    let state = sealed_state().await;
+    let profile = seed_self_signed_profile(&state, "random-value-16b").await;
+    let mut config = config(&state, &profile).await;
+    config.require_bootstrap = true;
+    assert!(state.db.update_est_config(&config).await.unwrap());
+    let valid = attested(TransportPolicy::MtlsRequired)
+        .into_verified()
+        .unwrap();
+    let mut expired = attested(TransportPolicy::MtlsRequired);
+    expired.authenticated_at = opensesame_time::Utc::now() - opensesame_time::Duration::minutes(2);
+    expired.usable_until = opensesame_time::Utc::now() - opensesame_time::Duration::minutes(1);
+    let expired = expired.into_verified().unwrap();
+    for endpoint in ["simpleenroll", "simplereenroll"] {
+        assert_eq!(
+            request(&state, &profile, endpoint, Some(&valid), None, None).await,
+            StatusCode::BAD_REQUEST
+        );
+        assert_eq!(
+            request(&state, &profile, endpoint, Some(&expired), None, None).await,
+            StatusCode::UNAUTHORIZED
+        );
+    }
+}
 
 async fn serve(
     mut state: AppState,

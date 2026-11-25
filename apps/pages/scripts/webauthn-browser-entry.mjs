@@ -2,7 +2,12 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
-import { dependencyRoot } from "./lib/dependency-root.mjs";
+import {
+  dependencyRoot,
+  extractModuleSpecifiers,
+} from "./lib/dependency-root.mjs";
+
+export { extractModuleSpecifiers } from "./lib/dependency-root.mjs";
 
 const pagesPackage = fileURLToPath(new URL("../package.json", import.meta.url));
 const seamPath = fileURLToPath(
@@ -13,11 +18,7 @@ const seamPath = fileURLToPath(
 ).replaceAll("\\", "/");
 const virtualId = "\0opensesame-simplewebauthn-browser";
 
-/**
- * Verification leaves the browser build may consume. Pins cover every file in
- * their static relative-import closure; `esm/index.js` stays pinned only as
- * the barrel the build must not retain.
- */
+// Pins cover the leaves' import closure; the barrel pin proves its exclusion.
 const verificationLeaves = Object.freeze([
   "esm/authentication/verifyAuthenticationResponse.js",
   "esm/registration/verifyRegistrationResponse.js",
@@ -182,123 +183,11 @@ const pins = Object.freeze({
     "a47e0c61334a4e0c7c1baa7335fdbf2238a6ebd40b911fbb6e51ff529721134c",
 });
 
-/** Pinned package-relative paths, for tests that re-walk the import graph. */
 export const webAuthnPinnedPaths = Object.freeze(Object.keys(pins));
 
 const digest = (value) => createHash("sha256").update(value).digest("hex");
 
-const identifierStart = /[A-Za-z_$]/;
-const identifierChar = /[A-Za-z0-9_$]/;
-
-function skipString(source, index) {
-  const quote = source[index];
-  index += 1;
-  while (index < source.length) {
-    if (source[index] === "\\") index += 1;
-    else if (source[index] === quote) return index + 1;
-    index += 1;
-  }
-  return index;
-}
-
-function skipComment(source, index) {
-  if (source[index + 1] === "/") {
-    while (index < source.length && source[index] !== "\n") index += 1;
-    return index;
-  }
-  index += 2;
-  while (
-    index < source.length &&
-    !(source[index] === "*" && source[index + 1] === "/")
-  ) {
-    index += 1;
-  }
-  return index + 2;
-}
-
-/**
- * Static module specifiers of the real `import ... from`, `export ... from`,
- * and side-effect `import` statements in `source`. The scanner is
- * comment- and string-aware, so import-looking text inside comments or
- * string literals can never widen the closure. Static-only by contract:
- * dynamic `import()` and template-literal specifiers are ignored (both are
- * verified absent from the pinned @simplewebauthn/server closure).
- */
-export function extractModuleSpecifiers(source) {
-  const specifiers = [];
-  let index = 0;
-  while (index < source.length) {
-    const char = source[index];
-    if (
-      char === "/" &&
-      (source[index + 1] === "/" || source[index + 1] === "*")
-    ) {
-      index = skipComment(source, index);
-      continue;
-    }
-    if (char === '"' || char === "'" || char === "`") {
-      index = skipString(source, index);
-      continue;
-    }
-    if (!identifierStart.test(char)) {
-      index += 1;
-      continue;
-    }
-    let end = index + 1;
-    while (end < source.length && identifierChar.test(source[end])) end += 1;
-    const word = source.slice(index, end);
-    index = end;
-    if (word !== "import" && word !== "export") continue;
-    index = consumeStatementSpecifiers(source, index, word, specifiers);
-  }
-  return specifiers;
-}
-
-function consumeStatementSpecifiers(source, index, keyword, specifiers) {
-  let previousWord = keyword;
-  while (index < source.length) {
-    const char = source[index];
-    if (char === ";") break;
-    if (
-      char === "/" &&
-      (source[index + 1] === "/" || source[index + 1] === "*")
-    ) {
-      index = skipComment(source, index);
-      continue;
-    }
-    if (char === '"' || char === "'") {
-      const start = index;
-      index = skipString(source, index);
-      if (previousWord === "import" || previousWord === "from") {
-        specifiers.push(source.slice(start + 1, index - 1));
-      }
-      previousWord = "";
-      continue;
-    }
-    if (char === "`") {
-      index = skipString(source, index);
-      previousWord = "";
-      continue;
-    }
-    if (identifierStart.test(char)) {
-      let end = index + 1;
-      while (end < source.length && identifierChar.test(source[end])) end += 1;
-      previousWord = source.slice(index, end);
-      index = end;
-      continue;
-    }
-    if (char === "(" && previousWord === "import") break;
-    index += 1;
-  }
-  return index;
-}
-
-/**
- * Static relative-import closure of the two verification leaves, walked by
- * the comment/string-aware scanner above. The generation (`generateRegistrationOptions`)
- * and metadata/service files are reachable through real code imports of
- * `verifyRegistrationResponse`, so their pins are required, not stale.
- */
+// The registration leaf reaches every pinned generation/metadata dependency.
 export function readWebAuthnImportClosure(packageRoot) {
   const closure = new Set();
   const pending = [...verificationLeaves];
