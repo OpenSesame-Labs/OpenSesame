@@ -6,24 +6,25 @@ import { recordAccessAuditEvent } from "./local-access-audit.js";
 import { ensureDefaultAccess } from "./local-access-bootstrap.js";
 import { readLocalApplications } from "./local-applications.js";
 import { readLocalDevices, thisDeviceId } from "./local-devices.js";
+import { readLocalDirectory } from "./local-directory.js";
 import {
   PAGES_APPLICATION_ID,
   SUPPORT_AGENT_ID,
 } from "./local-directory-bootstrap.js";
-import { readLocalDirectory } from "./local-directory.js";
 import { mintGuestSessionPerson } from "./local-guest.js";
-import {
-  approvePendingShare,
-  submitLocalShare,
-} from "./local-share-grants-approvals.js";
 import {
   type LocalShare,
   createLocalShare,
   listLocalShares,
   revokeLocalShare,
 } from "./local-share-grants.js";
+import {
+  approvePendingShare,
+  submitLocalShare,
+} from "./local-share-grants-approvals.js";
 import { flushSharingReceipts } from "./sharing-receipts.js";
 import { wipeTombOnDestroy } from "./vault/tomb-migration.js";
+import { guestVault, vaultsSeams } from "./vaults.js";
 import {
   GUEST_TOMB,
   lockAllTombs,
@@ -172,6 +173,23 @@ describe("ensureDefaultAccess", () => {
           share.resourceId === "guest",
       ),
     ).toBe(true);
+  });
+
+  it("grants a guest access to its own tomb when another guest is listed", async () => {
+    const guest = mintGuestSessionPerson();
+    const guestTomb = `guest_${crypto.randomUUID()}`;
+    vi.spyOn(vaultsSeams, "listDeviceVaults").mockReturnValue([guestVault()]);
+    unlockTomb(guestTomb, (await mintVaultKey()).vaultKey);
+    await ensureDefaultAccess(guestTomb);
+    const shares = await listLocalShares(guestTomb);
+    expect(
+      shares
+        .filter(
+          (share) =>
+            share.principalId === guest.id && share.resourceKind === "vault",
+        )
+        .map((share) => share.resourceId),
+    ).toEqual([guestTomb, guestTomb]);
   });
 
   it("keeps a standing connector grant revoked on Access, for that principal only", async () => {

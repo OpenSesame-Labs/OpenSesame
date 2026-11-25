@@ -6,6 +6,7 @@ import {
 } from "@opensesame/app-core/lib/guest-auth.js";
 import { guestVaultLabel } from "@opensesame/app-core/lib/local-guest.js";
 import { settingsSeams } from "@opensesame/app-core/lib/settings.js";
+import { guestVault, vaultsSeams } from "@opensesame/app-core/lib/vaults.js";
 import {
   cleanup,
   fireEvent,
@@ -120,6 +121,7 @@ describe("UnlockScreen — guest unlock", () => {
     v.state.tomb = "guest";
     v.state.header = null;
     v.methods = [];
+    vi.spyOn(vaultsSeams, "listDeviceVaults").mockReturnValue([guestVault()]);
     const settings = settingsSeams.loadSettings();
     vi.spyOn(settingsSeams, "loadSettings").mockReturnValue({
       ...settings,

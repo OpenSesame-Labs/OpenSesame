@@ -11,6 +11,8 @@
 import { catalogProvider } from "./connector-catalog.js";
 import { isGuestSessionTomb } from "./duress/store/decoy-scratch.js";
 import { getBundledProviders } from "./embedded-catalog.js";
+import { guestsAllowed } from "./guest-access.js";
+import { isGuestVaultId } from "./guest-vault-id.js";
 import { listAccessAuditEvents } from "./local-access-audit.js";
 import { ensureThisDevice } from "./local-devices.js";
 import { type LocalDirectory, readLocalDirectory } from "./local-directory.js";
@@ -22,7 +24,7 @@ import { guestSessionPersonLocked, isGuestPersonEntry } from "./local-guest.js";
 import { ensureLocalShare } from "./local-share-grants-approvals.js";
 import { loadSettings } from "./settings.js";
 import { standingConnectionRevoked } from "./standing-connection-grants.js";
-import { listDeviceVaults } from "./vaults.js";
+import { guestVault as guestVaultEntry, listDeviceVaults } from "./vaults.js";
 
 function providerLabel(providerId: string): string {
   return (
@@ -60,7 +62,13 @@ async function ensureDefaultShares(tomb: string): Promise<void> {
 
   const vaults = listDeviceVaults();
   const ownedVaults = vaults.filter((vault) => vault.kind !== "guest");
-  const guestVault = vaults.find((vault) => vault.kind === "guest");
+  const guestVault = isGuestVaultId(tomb)
+    ? (vaults.find((vault) => vault.id === tomb) ?? {
+        ...guestVaultEntry(),
+        id: tomb,
+      })
+    : (vaults.find((vault) => vault.kind === "guest") ??
+      (guestsAllowed() ? guestVaultEntry() : undefined));
 
   // Owner standing shares — only when the session owner is not the guest.
   // The built-in agent is not granted here. An agent grant is a person's

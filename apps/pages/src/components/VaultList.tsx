@@ -34,7 +34,7 @@ type Props = {
 
 /** The second line: what a person needs to know before pressing the row. */
 export function describeVaultRow(vault: DeviceVault): string {
-  if (vault.kind === "guest") {
+  if (vault.kind === "guest" && !vault.sealedAt) {
     return "no key · this tab only · nothing here is touched";
   }
   const parts: string[] = [];
@@ -54,7 +54,7 @@ function StateChip({ vault }: { vault: DeviceVault }) {
   }
   // A vault never sealed is not locked: its line says "not sealed yet",
   // and the idle glyph is a lock — which read as "locked" beside it.
-  if (vault.kind === "guest" || vault.state === "empty") return null;
+  if (vault.state === "empty") return null;
   return <StatusMark tone="idle" label="Locked" />;
 }
 
