@@ -114,9 +114,9 @@ const PASSWORD_STEPS = [
   'focus "item.editor.save" "Select Save item to save this account and password." side=top',
   'wait state "vault.has-items" is=true timeout=60000',
   'wait target "item.copy-generated" event=appear timeout=60000',
-  'focus "item.copy-generated" "Copy the highlighted part. If pepper is on, add your secret at its chosen position. For two parts, paste the first before copying the rest." side=bottom',
+  'focus "item.copy-generated" "Copy the password. If pepper is on, add your secret at its position. Paste each part before copying the next." side=bottom',
   'wait target "item.copy-generated" event=activate timeout=60000',
-  'success "Copied. Paste it and, if pepper is on, add your secret at its position."',
+  'success "Copied. Add your secret if pepper is on."',
   "end",
 ] as const;
 

@@ -79,8 +79,8 @@ describe("UnlockScreen — guidance is drawn in the page, not trayed", () => {
     goLocalOnly();
     chooseSealMethod("PIN");
     const pin = screen.getByLabelText("Device PIN");
-    expect(pin.getAttribute("title")).toContain(
-      `${MIN_PIN_LENGTH}–${MAX_PIN_LENGTH} characters`,
+    expect(pin.getAttribute("title")).toBe(
+      `${MIN_PIN_LENGTH}–${MAX_PIN_LENGTH} characters, no spaces. Do not use the same character throughout or a sequence of digits.`,
     );
     expect(pin.hasAttribute("aria-describedby")).toBe(false);
     fireEvent.change(pin, {

@@ -72,7 +72,7 @@ function displayedTour(
   goal: GuideRuntimeSnapshot["goal"],
   requiredAction: boolean,
   ready: boolean,
-  recovery: "edit" | "options" | "pepper" | "",
+  recovery: "edit" | "options" | "pepper" | "save" | "",
   gateSteps: number,
 ): GuideTourView {
   const pinRoad =

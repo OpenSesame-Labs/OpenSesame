@@ -1,7 +1,6 @@
 import { closeWithZoomCheck } from "./tutorial-interact.mjs";
 
-const COPIED_MESSAGE =
-  "Copied. Paste it and, if pepper is on, add your secret at its position.";
+const COPIED_MESSAGE = "Copied. Add your secret if pepper is on.";
 
 function keepPepper() {
   return (
@@ -84,6 +83,10 @@ export async function revisitPepper(page, step, check, first, label) {
   const next = page.locator(".coach__btn--go");
   const pepper = page.getByLabel("Include pepper");
   const enabled = keepPepper();
+  const position = page.getByRole("textbox", {
+    name: "Pepper goes",
+    exact: true,
+  });
   await back.click();
   await step("editor.pepper-options", first + 3);
   check(
@@ -94,6 +97,7 @@ export async function revisitPepper(page, step, check, first, label) {
     (await next.getAttribute("aria-disabled")) !== "true",
     `${label}: either pepper choice allows Next`,
   );
+  const previousPosition = enabled ? await position.inputValue() : "";
   await pepper.click();
   await step("editor.pepper-options", first + 3);
   check(
@@ -105,6 +109,7 @@ export async function revisitPepper(page, step, check, first, label) {
     (await pepper.isChecked()) === enabled,
     `${label}: pepper choice can be restored`,
   );
+  if (enabled) await position.fill(previousPosition);
   await next.click();
   await step("editor.generate-password", first + 4);
 }
@@ -152,7 +157,10 @@ export async function recoverEmptyPepper(page, step, check, first, label) {
     .getByRole("textbox", { name: "Pepper goes", exact: true })
     .fill("0:");
   await page.getByRole("button", { name: "Save item" }).click();
-  const detail = await step("item.edit", first + 5);
+  await page
+    .locator('.coach[data-coach-step="8"][data-coach-target="item.edit"]')
+    .waitFor({ timeout: 30000 });
+  const detail = await step("item.edit", first + 6);
   check(
     detail.text.includes("Select Edit") &&
       (await page.getByText(/No generated characters to copy/).isVisible()),
@@ -160,7 +168,7 @@ export async function recoverEmptyPepper(page, step, check, first, label) {
   );
   await captureTutorialState(page, "pepper-detail-recovery");
   await page.getByRole("link", { name: "Edit", exact: true }).click();
-  const editor = await step("editor.pepper-options", first + 5);
+  const editor = await step("editor.pepper-options", first + 6);
   check(
     editor.text.includes("Set the pepper position to end"),
     `${label}: the editor explains how to restore a copyable password`,
@@ -172,6 +180,11 @@ export async function recoverEmptyPepper(page, step, check, first, label) {
   });
   await position.click();
   await position.fill("end");
+  const save = await step("item.editor.save", first + 6);
+  check(
+    save.text.includes("Select Save item"),
+    `${label}: the corrected password is ready to save`,
+  );
 }
 
 export async function saveAndCopyPassword(

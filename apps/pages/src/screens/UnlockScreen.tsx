@@ -676,7 +676,7 @@ function UnlockForm({
                 value={pin}
                 title={
                   firstRun
-                    ? `${MIN_PIN_LENGTH}–${MAX_PIN_LENGTH} characters, no repeated character, no sequential digits`
+                    ? `${MIN_PIN_LENGTH}–${MAX_PIN_LENGTH} characters, no spaces. Do not use the same character throughout or a sequence of digits.`
                     : undefined
                 }
                 aria-invalid={pinProblem ? true : undefined}

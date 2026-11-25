@@ -61,20 +61,20 @@ function needsReveal(
   return horizontal || vertical;
 }
 
-/** Leave room for navigation when zoom and the keyboard leave a short screen. */
+/** Leave room for navigation, including when focus moves to the coach. */
 function needsRoom(element: HTMLElement): boolean {
   const view = element.ownerDocument.defaultView?.visualViewport;
   if (
     !view ||
     !isTightViewport(view) ||
-    element.ownerDocument.activeElement !== element ||
     !element.matches("input, textarea, [contenteditable=true]")
   )
     return false;
   const box = element.getBoundingClientRect();
   const above = box.top - view.offsetTop;
   const below = view.offsetTop + view.height - box.bottom;
-  return Math.max(above, below) < 70;
+  const room = Math.min(70, Math.max(0, view.height - box.height));
+  return Math.max(above, below) + 1 < room;
 }
 
 function revealTarget(
@@ -126,9 +126,17 @@ export function useLiveRect(
     let absent = false;
     let nextReveal = 0;
     let manuallyScrolled = false;
+    let viewportRetryAvailable = true;
     const viewport = window.visualViewport;
     const refit = (): void => {
       if (manuallyScrolled) return;
+      nextReveal = 0;
+      viewportRetryAvailable = true;
+    };
+    // A zoomed viewport can pan after scrollIntoView; allow one prompt retry.
+    const refitPan = (): void => {
+      if (manuallyScrolled || !viewportRetryAvailable) return;
+      viewportRetryAvailable = false;
       nextReveal = 0;
     };
     const stopReveal = (): void => {
@@ -139,6 +147,7 @@ export function useLiveRect(
     );
     window.addEventListener("resize", refit);
     viewport?.addEventListener("resize", refit);
+    viewport?.addEventListener("scroll", refitPan);
     const tick = (): void => {
       const { resolve: current, key: currentKey } = latest.current;
       const element = current();
@@ -185,6 +194,7 @@ export function useLiveRect(
       cancelAnimationFrame(frame);
       window.removeEventListener("resize", refit);
       viewport?.removeEventListener("resize", refit);
+      viewport?.removeEventListener("scroll", refitPan);
       stopObservingScroll();
     };
   }, []);

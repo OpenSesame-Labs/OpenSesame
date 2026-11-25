@@ -1,7 +1,10 @@
 /** @vitest-environment jsdom */
 
-import { act, renderHook } from "@testing-library/react";
+import { mountGuideTarget } from "@opensesame/app-core/tutorial/registry/targets.js";
+import type { GuideTourView } from "@opensesame/guide-runtime";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { useCoachLayout } from "./use-coach-layout.js";
 import {
   observeResize,
   readSafeInsets,
@@ -12,6 +15,65 @@ import {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+it("guides recovery from an empty copied password through edit and save", async () => {
+  const edit = document.createElement("a");
+  const save = document.createElement("button");
+  const pepper = document.createElement("div");
+  const copy = document.createElement("button");
+  document.body.append(edit, save, pepper, copy);
+  edit.setAttribute("data-guide-pepper-recovery", "edit");
+  save.setAttribute("data-guide-pepper-recovery", "save");
+  const unbindEdit = mountGuideTarget("item.edit", edit);
+  const tour = {
+    kind: "point",
+    target: "item.copy-generated",
+    side: "bottom",
+    message: "Copy the password.",
+    step: 8,
+    count: 8,
+    action: true,
+    degraded: true,
+    canBack: false,
+  } satisfies GuideTourView;
+  const { result, rerender, unmount } = renderHook(
+    ({ enabled }) => useCoachLayout(1, tour, { current: null }, enabled),
+    { initialProps: { enabled: true } },
+  );
+  expect(result.current.target).toBe("item.edit");
+  rerender({ enabled: false });
+  expect(result.current.target).toBe("item.copy-generated");
+  rerender({ enabled: true });
+  let unbindSave = () => {};
+  let unbindPepper = () => {};
+  act(() => {
+    unbindEdit();
+    save.style.display = "none";
+    unbindSave = mountGuideTarget("item.editor.save", save);
+    unbindPepper = mountGuideTarget("editor.pepper-options", pepper);
+  });
+  act(() => {
+    save.style.display = "";
+    save.setAttribute("data-guide-pepper-recovery", "save");
+  });
+  await waitFor(() =>
+    expect(result.current.target).toBe("editor.pepper-options"),
+  );
+  act(() => save.removeAttribute("data-guide-pepper-recovery"));
+  await waitFor(() => expect(result.current.target).toBe("item.editor.save"));
+  let unbindCopy = () => {};
+  act(() => {
+    unbindSave();
+    unbindPepper();
+    unbindCopy = mountGuideTarget("item.copy-generated", copy);
+  });
+  await waitFor(() =>
+    expect(result.current.target).toBe("item.copy-generated"),
+  );
+  unmount();
+  unbindCopy();
+  for (const node of [edit, save, pepper, copy]) node.remove();
 });
 
 it("defers and coalesces resize measurements and cancels them on cleanup", () => {
@@ -58,8 +120,9 @@ describe("readSafeInsets", () => {
       paddingTop: "47px",
       paddingBottom: "34px",
     } as CSSStyleDeclaration);
+    const children = [...document.body.children];
     expect(readSafeInsets()).toEqual({ top: 47, bottom: 34 });
-    expect(document.body.children).toHaveLength(0);
+    expect([...document.body.children]).toEqual(children);
   });
 
   it("is zero where env() resolves to nothing", () => {
@@ -227,4 +290,81 @@ it("refits on keyboard reopen after scrolling the coach, but respects page scrol
   unmount();
   input.remove();
   coach.remove();
+});
+
+it("leaves room for a PIN field after focus moves into the coach", () => {
+  vi.stubGlobal("requestAnimationFrame", () => 1);
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+  const viewport = Object.assign(new EventTarget(), {
+    width: 160,
+    height: 120,
+    offsetLeft: 0,
+    offsetTop: 60,
+  });
+  vi.stubGlobal("visualViewport", viewport);
+  const input = document.createElement("input");
+  input.getBoundingClientRect = () => new DOMRect(10, 98, 100, 44);
+  input.scrollIntoView = vi.fn();
+  document.body.append(input);
+  const { unmount } = renderHook(() => useLiveRect(() => input, "pin"));
+  expect(document.activeElement).not.toBe(input);
+  expect(input.scrollIntoView).toHaveBeenCalledOnce();
+  unmount();
+  input.remove();
+});
+
+it("does not repeatedly seek impossible clearance in a very short viewport", () => {
+  vi.stubGlobal("requestAnimationFrame", () => 1);
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+  const viewport = Object.assign(new EventTarget(), {
+    width: 160,
+    height: 95,
+    offsetLeft: 0,
+    offsetTop: 0,
+  });
+  vi.stubGlobal("visualViewport", viewport);
+  const input = document.createElement("input");
+  input.getBoundingClientRect = () => new DOMRect(10, 0, 100, 44);
+  input.scrollIntoView = vi.fn();
+  document.body.append(input);
+  const { unmount } = renderHook(() => useLiveRect(() => input, "pin"));
+  expect(input.scrollIntoView).not.toHaveBeenCalled();
+  unmount();
+  input.remove();
+});
+
+it("retries once immediately after a viewport pan, then keeps the retry bounded", () => {
+  let nextFrame: FrameRequestCallback = () => {};
+  let now = 0;
+  vi.spyOn(performance, "now").mockImplementation(() => now);
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    nextFrame = callback;
+    return 1;
+  });
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+  const viewport = Object.assign(new EventTarget(), {
+    width: 160,
+    height: 120,
+    offsetLeft: 0,
+    offsetTop: 0,
+  });
+  vi.stubGlobal("visualViewport", viewport);
+  const input = document.createElement("input");
+  input.getBoundingClientRect = () => new DOMRect(10, 98, 100, 44);
+  input.scrollIntoView = vi.fn();
+  document.body.append(input);
+  input.focus();
+  const { unmount } = renderHook(() => useLiveRect(() => input, "pin"));
+  expect(input.scrollIntoView).toHaveBeenCalledOnce();
+  viewport.offsetTop = 60;
+  act(() => viewport.dispatchEvent(new Event("scroll")));
+  now = 16;
+  act(() => nextFrame(now));
+  expect(input.scrollIntoView).toHaveBeenCalledTimes(2);
+  act(() => viewport.dispatchEvent(new Event("scroll")));
+  now = 32;
+  act(() => nextFrame(now));
+  expect(input.scrollIntoView).toHaveBeenCalledTimes(2);
+  unmount();
+  input.remove();
 });

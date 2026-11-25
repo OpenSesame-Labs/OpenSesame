@@ -34,7 +34,7 @@ export function coachMessage(
   tour: GuideTourView,
   requiredAction: boolean,
   ready: boolean,
-  recovery: "edit" | "options" | "pepper" | "",
+  recovery: "edit" | "options" | "pepper" | "save" | "",
 ): string | null {
   if (recovery === "edit")
     return "There is no generated password to copy. Select Edit.";
@@ -42,6 +42,7 @@ export function coachMessage(
     return "Open Password options to change the pepper position.";
   if (recovery === "pepper")
     return "Set the pepper position to end or turn off Include pepper.";
+  if (recovery === "save") return "Select Save item to save the password.";
   if (requiredAction && ready && !tour.action) {
     if (tour.target === "editor.password-options")
       return "Password options are open. Select Next.";
