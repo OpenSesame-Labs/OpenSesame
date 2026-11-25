@@ -1,9 +1,13 @@
+import { setGuestsAllowed } from "@opensesame/app-core/lib/guest-access.js";
 import { clearNotices, listNotices } from "@opensesame/app-core/lib/notices.js";
 import {
   PERSONAL_PROJECT_ID,
   projectSeams,
 } from "@opensesame/app-core/lib/projects.js";
-import { vaultsSeams } from "@opensesame/app-core/lib/vaults.js";
+import {
+  NEW_GUEST_ROAD,
+  vaultsSeams,
+} from "@opensesame/app-core/lib/vaults.js";
 import {
   cleanup,
   fireEvent,
@@ -95,10 +99,35 @@ describe("VaultsScreen — the front door", () => {
     // A sealed name is a secret: the id's tail stands in, and the row says so.
     expect(screen.getByText("project · 4f2a")).toBeTruthy();
     expect(screen.queryByText("prj_0000-4f2a")).toBeNull();
-    expect(screen.queryByRole("button", { name: /guest/ })).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Continue as guest" }),
+    ).toBeTruthy();
+    expect(document.querySelectorAll(".vault-row")).toHaveLength(2);
     expect(
       screen.getByRole("button", { name: /Seal a new vault/ }),
     ).toBeTruthy();
+  });
+
+  it("offers guest access separately from the vault list", async () => {
+    const onPicked = renderScreen();
+    fireEvent.click(screen.getByRole("button", { name: "Continue as guest" }));
+    await waitFor(() =>
+      expect(switchVault).toHaveBeenCalledWith(NEW_GUEST_ROAD),
+    );
+    await waitFor(() => expect(onPicked).toHaveBeenCalledTimes(1));
+  });
+
+  it("hides guest access when guests are disabled", async () => {
+    await setGuestsAllowed(false);
+    try {
+      renderScreen();
+      expect(
+        screen.queryByRole("button", { name: "Continue as guest" }),
+      ).toBeNull();
+    } finally {
+      cleanup();
+      await setGuestsAllowed(true);
+    }
   });
 
   it("picking a vault switches and hands over to its unlock form", async () => {

@@ -20,10 +20,12 @@ import {
 } from "@opensesame/app-core/lib/session-exit.js";
 import {
   type DeviceVault,
+  NEW_GUEST_ROAD,
   sealNewVault,
   switchVault,
 } from "@opensesame/app-core/lib/vaults.js";
 import { useEffect, useRef, useState } from "react";
+import { useGuestsAllowed } from "../bindings/guest-access.js";
 import { useDeviceVaults } from "../bindings/vaults.js";
 import { FailureNotice } from "../components/FailureNotice.js";
 import { IconMark, IconPlus } from "../components/Icons.js";
@@ -47,6 +49,7 @@ export function VaultsScreen({ providers, onPicked }: Props) {
   // Re-derived when the projects view or the store emits, so a vault sealed
   // a moment ago appears without a reload.
   const vaults = useDeviceVaults();
+  const guestsAllowed = useGuestsAllowed();
   const [tab, setTab] = useState<"device" | "signin">("device");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,6 +162,17 @@ export function VaultsScreen({ providers, onPicked }: Props) {
             <GuideTarget id="vaults.list">
               <VaultList vaults={vaults} disabled={busy} onPick={pick} />
             </GuideTarget>
+
+            {guestsAllowed ? (
+              <button
+                type="button"
+                className="unlock__switch"
+                disabled={busy}
+                onClick={() => run(() => switchVault(NEW_GUEST_ROAD))}
+              >
+                Continue as guest
+              </button>
+            ) : null}
 
             {naming ? (
               <form
