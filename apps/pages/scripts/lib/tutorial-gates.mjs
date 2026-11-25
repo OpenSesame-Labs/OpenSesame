@@ -17,6 +17,10 @@
  * people to.
  */
 
+import {
+  verifyStandalonePasskeySuccess,
+  walkStandalonePinFallback,
+} from "./auth-flow-passkey.mjs";
 import { PIN } from "./pages-journey.mjs";
 import { checkGatePausePrompt } from "./tutorial-page.mjs";
 import { listTutorials, readStep, startTutorial } from "./tutorial-walk.mjs";
@@ -217,7 +221,14 @@ function walkerFor(env, page) {
       // This tutorial changes screens and creates a vault; its own browser
       // walk exercises the actual actions on a fresh page.
       if (row.id === "gate.front-door") continue;
-      if (wants(row.id)) await walkGate(page, row, { phone, width });
+      if (!wants(row.id)) continue;
+      if (label === "seal passkey" && row.id === "gate.unlock.passkey") {
+        check(
+          row.steps === 3,
+          "passkey guide: the library shows the passkey path length",
+        );
+        await walkStandalonePinFallback(page, env);
+      } else await walkGate(page, row, { phone, width });
     }
   };
 }
@@ -337,6 +348,8 @@ export async function gatePass(env) {
     await page.goto(`${origin}${base}vault`, { waitUntil: "domcontentloaded" });
     await page.getByLabel("PIN", { exact: true }).waitFor({ timeout: 20000 });
     await walkHere("unlock", ["gate.unlock", "gate.unlock.account"]);
+    if (env.helpers.wants("gate.unlock.passkey"))
+      await verifyStandalonePasskeySuccess(env);
   } catch (error) {
     if (env.out)
       await page

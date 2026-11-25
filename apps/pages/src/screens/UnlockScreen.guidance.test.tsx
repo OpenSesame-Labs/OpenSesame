@@ -1,5 +1,9 @@
 /** @vitest-environment jsdom */
 import { listNotices } from "@opensesame/app-core/lib/notices.js";
+import {
+  MAX_PIN_LENGTH,
+  MIN_PIN_LENGTH,
+} from "@opensesame/app-core/lib/vault/unlock-methods.js";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { inTray } from "../components/tray.test-support.js";
@@ -74,11 +78,17 @@ describe("UnlockScreen — guidance is drawn in the page, not trayed", () => {
     render(<UnlockScreen />);
     goLocalOnly();
     chooseSealMethod("PIN");
-    fireEvent.change(screen.getByLabelText("Device PIN"), {
+    const pin = screen.getByLabelText("Device PIN");
+    expect(pin.getAttribute("title")).toContain(
+      `${MIN_PIN_LENGTH}–${MAX_PIN_LENGTH} characters`,
+    );
+    expect(pin.hasAttribute("aria-describedby")).toBe(false);
+    fireEvent.change(pin, {
       target: { value: "12345678" },
     });
     const hint = screen.getByText(/sequential run of digits/);
     expect(hint.className).toBe("hint");
+    expect(pin.getAttribute("aria-describedby")).toBe(hint.id);
     expect(inTray("sequential run of digits")).toBe(false);
     expect(statusNotices()).toEqual([]);
     expect(
@@ -95,6 +105,9 @@ describe("UnlockScreen — guidance is drawn in the page, not trayed", () => {
     });
     expect(submitButton().disabled).toBe(true);
     expect(v.store.createWithPin).not.toHaveBeenCalled();
+    fireEvent.change(pin, { target: { value: "48291037" } });
+    expect(pin.hasAttribute("aria-describedby")).toBe(false);
+    expect(screen.queryByText(/sequential run of digits/)).toBeNull();
     // Leaving the field takes the guidance with it; nothing is left behind.
     chooseSealMethod("Passkey");
     expect(screen.queryByText(/sequential run of digits/)).toBeNull();

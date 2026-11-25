@@ -4,7 +4,11 @@
  * no state of its own.
  */
 
-import { FIRST_VAULT_PIN_STEPS } from "@opensesame/app-core/tutorial/registry/first-vault-guide.js";
+import {
+  FIRST_VAULT_PIN_STEPS,
+  FIRST_VAULT_SIGN_IN_STEPS,
+  firstVaultInitialGateSteps,
+} from "@opensesame/app-core/tutorial/registry/first-vault-guide.js";
 import type { GuideTourView } from "@opensesame/guide-runtime";
 import type { CSSProperties, ReactElement } from "react";
 import { IconKey } from "../../components/IconKey.js";
@@ -70,6 +74,7 @@ export function firstVaultTourProgress(
   target: string | null,
   count: number,
   gateSteps: number,
+  pinRoad = false,
 ): TourProgress {
   const gateTarget =
     target?.startsWith("unlock.") || target === "setup.default";
@@ -85,13 +90,30 @@ export function firstVaultTourProgress(
   // The gate phase and the sign-in continuation show the whole projected
   // walk: the passkey road's total until the PIN fields open, the PIN road's
   // from then on. The sign-in continuation resumes after the door's two
-  // setup steps: six steps on the PIN road, two where the passkey seals in
-  // one ceremony.
-  const signIn = count === 6 || count === 2;
-  const roadSteps = pinTarget
-    ? FIRST_VAULT_PIN_GATE_STEPS
-    : FIRST_VAULT_PASSKEY_GATE_STEPS;
+  // setup steps, with optional PIN fields after the passkey decision.
+  const signIn = count === FIRST_VAULT_SIGN_IN_STEPS;
+  const roadSteps =
+    pinTarget || pinRoad
+      ? FIRST_VAULT_PIN_GATE_STEPS
+      : FIRST_VAULT_PASSKEY_GATE_STEPS;
   return { offset: signIn ? 2 : 0, count: roadSteps + FIRST_VAULT_SHELL_STEPS };
+}
+
+export function sealTourProgress(
+  tour: GuideTourView,
+  goal: string | null,
+  gateSteps: number,
+  pinRoad: boolean,
+): TourProgress {
+  if (goal === "gate.front-door")
+    return firstVaultTourProgress(tour.target, tour.count, gateSteps, pinRoad);
+  return {
+    offset: 0,
+    count:
+      goal === "gate.unlock.passkey" && !pinRoad
+        ? firstVaultInitialGateSteps(tour.count, true)
+        : tour.count,
+  };
 }
 
 export function padded(box: Box): Box {

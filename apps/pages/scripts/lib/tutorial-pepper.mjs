@@ -1,5 +1,17 @@
 import { closeWithZoomCheck } from "./tutorial-interact.mjs";
 
+const COPIED_MESSAGE =
+  "Copied. Paste it and, if pepper is on, add your secret at its position.";
+
+function keepPepper() {
+  return (
+    process.env.TUTORIALS_PEPPER_OFF !== "1" &&
+    (process.env.TUTORIALS_PEPPER_ON === "1" ||
+      Boolean(process.env.TUTORIALS_PEPPER_POSITION) ||
+      process.env.TUTORIALS_PEPPER_AFTER_GENERATE === "1")
+  );
+}
+
 export async function preparePepperStep(page, step, check, first, label) {
   await step("editor.pepper-options", first + 3);
   if (process.env.TUTORIALS_PEPPER_BACK !== "1") return;
@@ -47,10 +59,13 @@ export async function choosePepper(page, check, label, phone) {
       `${label}: the entire pepper label is a 44px touch target`,
     );
   }
-  if (process.env.TUTORIALS_PEPPER_OFF === "1") {
+  if (!keepPepper()) {
     if (phone) await pepperLabel.tap();
     else await pepperLabel.click();
-    check(!(await pepper.isChecked()), `${label}: pepper can be turned off`);
+    check(
+      !(await pepper.isChecked()),
+      `${label}: pepper is off for the walkthrough`,
+    );
   }
   if (process.env.TUTORIALS_PEPPER_POSITION) {
     await page
@@ -68,7 +83,7 @@ export async function revisitPepper(page, step, check, first, label) {
   const back = page.getByRole("button", { name: "Back", exact: true });
   const next = page.locator(".coach__btn--go");
   const pepper = page.getByLabel("Include pepper");
-  const enabled = process.env.TUTORIALS_PEPPER_OFF !== "1";
+  const enabled = keepPepper();
   await back.click();
   await step("editor.pepper-options", first + 3);
   check(
@@ -238,9 +253,7 @@ export async function saveAndCopyPassword(
     await rest.click();
   }
   // A successful copy takes the walkthrough directly to completion.
-  await page
-    .getByText("Copied. Paste it into the password field.")
-    .waitFor({ timeout: 15000 });
+  await page.getByText(COPIED_MESSAGE).waitFor({ timeout: 15000 });
   await captureTutorialState(page, "password-copied");
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   const pepper = "example-pepper";

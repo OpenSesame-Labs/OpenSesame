@@ -177,3 +177,54 @@ it("scrolls a returning target into view once without following later scrolling"
   unmount();
   button.remove();
 });
+
+it("refits on keyboard reopen after scrolling the coach, but respects page scrolling", () => {
+  let nextFrame: FrameRequestCallback = () => {};
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    nextFrame = callback;
+    return 1;
+  });
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+  const viewport = Object.assign(new EventTarget(), {
+    width: 320,
+    height: 568,
+    offsetLeft: 0,
+    offsetTop: 0,
+  });
+  vi.stubGlobal("visualViewport", viewport);
+  let top = 300;
+  const input = document.createElement("input");
+  input.getBoundingClientRect = () => new DOMRect(10, top, 100, 44);
+  const scroll = vi.fn(() => {
+    top = 40;
+  });
+  input.scrollIntoView = scroll;
+  const coach = document.createElement("div");
+  coach.className = "coach";
+  document.body.append(input, coach);
+  const { unmount } = renderHook(() => useLiveRect(() => input, "pin"));
+  const frame = () => act(() => nextFrame(0));
+  const swipe = (node: Element) => {
+    const event = new Event("touchmove", { bubbles: true });
+    Object.defineProperty(event, "touches", { value: [{}] });
+    act(() => node.dispatchEvent(event));
+  };
+  swipe(coach);
+  viewport.height = 200;
+  act(() => viewport.dispatchEvent(new Event("resize")));
+  frame();
+  expect(scroll).toHaveBeenCalledOnce();
+
+  viewport.height = 568;
+  top = 300;
+  act(() => viewport.dispatchEvent(new Event("resize")));
+  frame();
+  swipe(document.body);
+  viewport.height = 200;
+  act(() => viewport.dispatchEvent(new Event("resize")));
+  frame();
+  expect(scroll).toHaveBeenCalledOnce();
+  unmount();
+  input.remove();
+  coach.remove();
+});

@@ -34,7 +34,11 @@ import {
   tutorialCard,
   walkthrough,
 } from "../__tests__/a11y/harness.js";
-import { coachMessage, firstVaultTourProgress } from "./CoachParts.js";
+import {
+  coachMessage,
+  firstVaultTourProgress,
+  sealTourProgress,
+} from "./CoachParts.js";
 
 afterEach(disposeSupport);
 
@@ -127,6 +131,10 @@ describe("the tutorial card", () => {
       offset: 0,
       count: 16,
     });
+    expect(firstVaultTourProgress("unlock.seal-actions", 8, 8, true)).toEqual({
+      offset: 0,
+      count: 16,
+    });
     expect(firstVaultTourProgress(null, 8, 4)).toEqual({
       offset: 4,
       count: 12,
@@ -135,6 +143,21 @@ describe("the tutorial card", () => {
       offset: 8,
       count: 16,
     });
+  });
+
+  it("counts the optional PIN steps in the standalone passkey guide", () => {
+    // SAFETY: the progress helper reads only the target and count.
+    const tour = { target: "unlock.seal-actions", count: 7 } as GuideTourView;
+    expect(sealTourProgress(tour, "gate.unlock.passkey", 0, false).count).toBe(
+      3,
+    );
+    expect(sealTourProgress(tour, "gate.unlock.passkey", 0, true).count).toBe(
+      7,
+    );
+    expect(
+      sealTourProgress({ ...tour, count: 3 }, "gate.unlock.passkey", 0, false)
+        .count,
+    ).toBe(3);
   });
 
   it("pins the meter's gate and shell lengths to the authored walks", () => {

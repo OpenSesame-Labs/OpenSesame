@@ -86,7 +86,8 @@ async function firstVaultPass({
     .getByRole("button", { name: "Set up your own" })
     .waitFor({ timeout: 30000 });
   const label = `${protection} first vault`;
-  const step = tutorialStepChecker(page, check, phone, 12, label, readStep, {
+  const total = protection === "pin-only" ? 16 : 12;
+  const step = tutorialStepChecker(page, check, phone, total, label, readStep, {
     out,
     width,
     keepShots,
@@ -158,13 +159,10 @@ async function enterVault(
 }
 
 async function makePassword(page, step, check, phone, label, protection) {
-  // The passkey road's seal — sealed straight through or fallen back to PIN —
-  // holds the seal step until the vault unlocks, so the shell continuation
-  // begins right after the gate's four walked steps. Only the PIN-only road
-  // walks the four seal fields as tour steps.
-  const pinOnly = protection === "pin-only";
-  const first = pinOnly ? 9 : 5;
-  const total = pinOnly ? 16 : 12;
+  // Both PIN paths walk the four seal fields; passkey unlock hands off sooner.
+  const pinRoad = protection !== "passkey";
+  const first = pinRoad ? 9 : 5;
+  const total = pinRoad ? 16 : 12;
   const expected = `Step ${first} of ${total}`;
   try {
     await page.waitForFunction(

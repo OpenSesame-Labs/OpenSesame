@@ -276,7 +276,7 @@ const generatedModules = Object.freeze([
   {
     kind: "embedded-array",
     path: `${root}/packages/app-core/src/tutorial/registry/areas.ts`,
-    hash: "ad75f1195094955937317637b7059e36f1dca6445570a8de5efbd1992a72a63b",
+    hash: "6fe1f78f5b6f15a046748f9213a94c0bd0066d50932192997339a70b80614062",
     exportName: "TUTORIAL_AREAS",
     assetName: "generated-data/tutorial-areas.json",
     declaration: "export const TUTORIAL_AREAS: readonly TutorialArea[] =",

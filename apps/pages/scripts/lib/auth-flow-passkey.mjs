@@ -7,14 +7,16 @@ import {
 } from "./auth-flow-harness.mjs";
 import { sealPinFirstVault } from "./auth-flow-pin-journey.mjs";
 import { passTheDoor } from "./front-door.mjs";
-import { PIN } from "./pages-journey.mjs";
+import { waitOpen } from "./pages-journey.mjs";
 import { expect } from "./patient-expect.mjs";
 import { AUTHENTICATOR } from "./quorum-browser-rig.mjs";
 import {
   checkControlReachable,
   checkTutorialNextBlocked,
+  tutorialStepChecker,
   waitForSecurityKey,
 } from "./tutorial-measure.mjs";
+import { readStep, startTutorial } from "./tutorial-walk.mjs";
 
 export async function addTutorialAuthenticator(context, page, prf) {
   const cdp = await context.newCDPSession(page);
@@ -96,22 +98,7 @@ export async function sealFirstVault(
           .querySelector('[role="tab"][aria-selected="true"]')
           ?.textContent?.trim() === "PIN",
     );
-    check(
-      (await page
-        .getByText(
-          "This device's passkey cannot seal a vault. Security key is selected.",
-          { exact: true },
-        )
-        .count()) === 0,
-      "first vault: PIN selection clears the stale passkey notice",
-    );
-    // The passkey road's fallback is named by the held seal step, which waits
-    // for the unlock itself; the PIN fields are walked as tour steps only on
-    // the PIN-only road below, so fill and seal the way a person would here.
-    await page.getByLabel("Device PIN", { exact: true }).fill(PIN);
-    await page.getByLabel("Confirm PIN", { exact: true }).fill(PIN);
-    await page.getByRole("button", { name: "Seal with PIN" }).click();
-    return;
+    // The selected PIN path continues through the same guided fields below.
   }
   await sealPinFirstVault(page, {
     step,
@@ -123,6 +110,84 @@ export async function sealFirstVault(
     width,
     keepShots,
   });
+}
+
+async function startStandalonePasskey(page, env) {
+  const { check, phone, out, width } = env;
+  await startTutorial(page, "gate.unlock.passkey");
+  const step = tutorialStepChecker(
+    page,
+    check,
+    phone,
+    3,
+    "passkey guide",
+    readStep,
+    {
+      out,
+      width,
+      keepShots: process.env.TUTORIALS_SHOTS === "1",
+    },
+  );
+  await step("", 1);
+  await page.locator(".coach__btn--go").click();
+  await step("unlock.passkey", 2);
+  await page.locator(".coach__btn--go").click();
+  await step("unlock.seal-actions", 3);
+  await checkTutorialNextBlocked(page, check, page.locator(".coach__btn--go"));
+  return step;
+}
+
+/** The standalone guide follows PIN fields without claiming it sealed the vault. */
+export async function walkStandalonePinFallback(page, env) {
+  const step = await startStandalonePasskey(page, env);
+  await addTutorialAuthenticator(page.context(), page, false);
+  await page.getByLabel("I understand this vault cannot be recovered.").check();
+  await page.getByRole("button", { name: "Seal with passkey" }).click();
+  await waitForSecurityKey(page, {
+    out: env.out,
+    width: env.width,
+    label: "passkey guide",
+    keepShots: process.env.TUTORIALS_SHOTS === "1",
+  });
+  await page.getByRole("tab", { name: "PIN", exact: true }).click();
+  await sealPinFirstVault(page, {
+    ...env,
+    step,
+    protection: "standalone",
+    label: "passkey guide PIN fallback",
+    keepShots: process.env.TUTORIALS_SHOTS === "1",
+    pinStart: 4,
+    total: 7,
+    finish: false,
+  });
+  env.check(
+    await page.getByRole("heading", { name: "Seal this device" }).isVisible(),
+    "passkey guide: exiting before sealing leaves the vault unopened",
+  );
+}
+
+/** A passkey can complete the standalone guide without drawing PIN controls. */
+export async function verifyStandalonePasskeySuccess(env) {
+  const { page, context } = await env.newPage(env.width);
+  try {
+    await page.goto(`${env.origin}${env.base}`, { waitUntil: "networkidle" });
+    await passTheDoor(page);
+    await page.getByRole("button", { name: "Use without an account" }).click();
+    await addTutorialAuthenticator(context, page, true);
+    await startStandalonePasskey(page, env);
+    await page
+      .getByLabel("I understand this vault cannot be recovered.")
+      .check();
+    await page.getByRole("button", { name: "Seal with passkey" }).click();
+    await waitOpen(page);
+    await page.locator(".coach").waitFor({ state: "detached", timeout: 15000 });
+    env.check(
+      true,
+      "passkey guide: successful sealing opens the vault and closes the guide",
+    );
+  } finally {
+    await context.close();
+  }
 }
 
 async function reachSealScreen(page, ORIGIN, BASE) {

@@ -46,9 +46,12 @@ export function canReturn(
     return false;
   if (guide.goal === "gate.front-door") {
     if (
-      ["unlock.seal-pin-confirm", "unlock.seal-ack", "unlock.seal"].includes(
-        tour.target ?? "",
-      )
+      [
+        "unlock.seal-pin-entry",
+        "unlock.seal-pin-confirm",
+        "unlock.seal-ack",
+        "unlock.seal",
+      ].includes(tour.target ?? "")
     )
       return true;
     return (
@@ -67,6 +70,20 @@ export function canReturn(
     );
   }
   return true;
+}
+
+/** The validation hint associated with a first-vault PIN field, if any. */
+export function firstVaultPinFeedback(target: GuideTourView["target"]): string {
+  if (
+    target !== "unlock.seal-pin-entry" &&
+    target !== "unlock.seal-pin-confirm"
+  )
+    return "";
+  const node = resolveGuideTargetElement(target);
+  const id = node?.getAttribute("aria-describedby");
+  return id
+    ? (node?.ownerDocument.getElementById(id)?.textContent?.trim() ?? "")
+    : "";
 }
 
 /** A PIN step advances only when the unlock form says the field is ready. */
@@ -88,9 +105,12 @@ export function useFirstVaultPinStep(
         observer.disconnect();
         const node = resolveGuideTargetElement(target);
         if (node)
-          observer.observe(node, {
+          observer.observe(node.parentElement ?? node, {
             attributes: true,
-            attributeFilter: ["data-guide-pin-ready"],
+            attributeFilter: ["data-guide-pin-ready", "aria-describedby"],
+            childList: true,
+            characterData: true,
+            subtree: true,
           });
         listener();
       };
@@ -103,16 +123,24 @@ export function useFirstVaultPinStep(
     },
     [target],
   );
-  const snapshot = useCallback(
-    () =>
-      target !== null &&
+  const snapshot = useCallback(() => {
+    if (
+      target === null ||
       resolveGuideTargetElement(target)?.getAttribute(
         "data-guide-pin-ready",
-      ) !== "true",
-    [target],
-  );
+      ) === "true"
+    )
+      return false;
+    return firstVaultPinFeedback(target) || true;
+  }, [target]);
   const blocked = useSyncExternalStore(subscribe, snapshot, () => false);
-  return blocked ? { ...tour, action: true } : tour;
+  return blocked
+    ? {
+        ...tour,
+        action: true,
+        message: typeof blocked === "string" ? blocked : tour.message,
+      }
+    : tour;
 }
 
 /** A text field's Escape is the field's own way out; anything else is ours. */
@@ -293,20 +321,27 @@ export function observeScrollIntent(
   stop: () => void,
   target: () => HTMLElement | null,
 ): () => void {
+  const insideCoach = (node: EventTarget | null): boolean =>
+    node instanceof Element && node.closest(".coach") !== null;
   const onWheel = (event: WheelEvent): void => {
-    if (!event.ctrlKey) stop();
+    if (!event.ctrlKey && !insideCoach(event.target)) stop();
   };
   const onTouchMove = (event: TouchEvent): void => {
-    if (event.touches.length < 2) stop();
+    if (event.touches.length < 2 && !insideCoach(event.target)) stop();
   };
   const onPointerMove = (event: PointerEvent): void => {
-    if (event.pointerType !== "touch" && event.buttons !== 0) stop();
+    if (
+      event.pointerType !== "touch" &&
+      event.buttons !== 0 &&
+      !insideCoach(event.target)
+    )
+      stop();
   };
   const onPointerDown = (event: PointerEvent): void => {
     const element = event.target;
     if (
       element instanceof Element &&
-      !element.closest(".coach") &&
+      !insideCoach(element) &&
       !target()?.contains(element)
     )
       stop();

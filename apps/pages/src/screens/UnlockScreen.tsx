@@ -16,6 +16,7 @@ import { loadSetup } from "@opensesame/app-core/lib/setup.js";
 import type { UnlockTabId } from "@opensesame/app-core/lib/vault/protection/unlock-protector-methods.js";
 import type { SentCode } from "@opensesame/app-core/lib/vault/remote-code.js";
 import {
+  MAX_PIN_LENGTH,
   MIN_PIN_LENGTH,
   type SecondStepId,
   checkWebauthnHost,
@@ -191,8 +192,7 @@ function UnlockForm({
   const store = useVaultStore();
   // The road on screen: a scratch guest or decoy reads as the guest road.
   const activeTomb = presentedTomb(tomb ?? PERSONAL_PROJECT_ID);
-  // A guest may enroll a key for its tomb (ADR 0091).
-  // Every guest vault, the legacy one or an isolated `guest_<uuid>`.
+  // A guest vault, legacy or isolated, may enroll a key (ADR 0091).
   const guestUnlock = isGuestVaultId(activeTomb) && status !== "unlocked";
   const firstRun = status === "empty" && !guestUnlock;
   const vaultCrumb =
@@ -231,9 +231,7 @@ function UnlockForm({
   // loud rather than drawn as three tabs that all fail. A guest tomb with no
   // key is not that case — it has the guest road, and `guestKeyless` is it.
   const noPrimary = !firstRun && !guestUnlock && methods.length === 0;
-  // The second step, announced before the first is taken.
-  // Exactly the second steps this vault enrolled — authenticator, email,
-  // text — offered at step 2 in the same tab vocabulary step 1 uses for keys.
+  // Enrolled second steps use the same tab vocabulary as keys.
   const secondSteps = firstRun ? [] : listSecondSteps(header);
   const hasTotpStep = !firstRun && !noPrimary && secondSteps.length > 0;
   const [method, setMethod] = useState<UnlockTabId | null>(null);
@@ -678,10 +676,11 @@ function UnlockForm({
                 value={pin}
                 title={
                   firstRun
-                    ? `${MIN_PIN_LENGTH}–12 characters, no repeated character, no sequential digits`
+                    ? `${MIN_PIN_LENGTH}–${MAX_PIN_LENGTH} characters, no repeated character, no sequential digits`
                     : undefined
                 }
                 aria-invalid={pinProblem ? true : undefined}
+                aria-describedby={pinProblem ? "unlock-pin-hint" : undefined}
                 data-guide-pin-ready={
                   firstRun && activeMethod === "pin"
                     ? pinProblems.length === 0
@@ -691,7 +690,7 @@ function UnlockForm({
                 onChange={(e) => setPin(e.target.value)}
               />
               {pinProblem ? (
-                <p className="hint" aria-live="polite">
+                <p id="unlock-pin-hint" className="hint" aria-live="polite">
                   {pinProblem}
                 </p>
               ) : null}

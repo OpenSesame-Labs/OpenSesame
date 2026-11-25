@@ -20,34 +20,33 @@ const ROAD_TO_SEAL = [
 
 const SEAL_DECISION = `focus "unlock.seal-actions" "${FIRST_VAULT_SEAL_INSTRUCTION}" side=right`;
 
-/**
- * The road from the seal decision on. A passkey seals in one ceremony, so its
- * step holds until the vault is unlocked — waiting there for the PIN fields
- * would stall the walk on the road the instruction leads with (ADR 0180).
- * The PIN road walks its four fields, so it waits for the PIN entry the
- * person is about to open. The road is read where the guide is composed,
- * the way the gate goals read `vault.key-enrolled`: a guide is a fixed
- * program, so the fork is chosen before the first step is drawn, never
- * mid-walk. The passkey gate's creating walk reuses this road verbatim, so
- * a passkey browser is never asked to wait for the PIN entry there either.
- */
-export function firstVaultSealRoadSteps(): readonly string[] {
-  const passkey =
+export const FIRST_VAULT_SEAL_ROAD = [
+  'wait target "unlock.seal-pin-entry" event=appear timeout=60000',
+  ...FIRST_VAULT_PIN_STEPS,
+  'wait state "vault.unlocked" is=true timeout=60000',
+] as const;
+
+export function firstVaultPasskeyAvailable(): boolean {
+  return (
     isKnownGuidePredicate("vault.seal-passkey") &&
-    readGuidePredicate("vault.seal-passkey");
-  return passkey
-    ? ['wait state "vault.unlocked" is=true timeout=60000']
-    : [
-        'wait target "unlock.seal-pin-entry" event=appear timeout=60000',
-        ...FIRST_VAULT_PIN_STEPS,
-        'wait state "vault.unlocked" is=true timeout=60000',
-      ];
+    readGuidePredicate("vault.seal-passkey")
+  );
+}
+
+/** The PIN steps are only counted initially when passkeys are unavailable. */
+export function firstVaultInitialGateSteps(
+  steps: number,
+  passkey = firstVaultPasskeyAvailable(),
+): number {
+  return passkey && steps > FIRST_VAULT_PIN_STEPS.length
+    ? steps - FIRST_VAULT_PIN_STEPS.length
+    : steps;
 }
 
 /**
  * The door's first-vault walk: the same road as the sign-in continuation,
- * reached from the front door's own two steps. The seal fork is chosen where
- * the guide is composed, so a passkey road never waits for PIN fields.
+ * reached from the front door's own two steps. Selecting PIN opens its steps;
+ * a successful passkey unlock hands off directly to the password walk.
  */
 export function firstVaultGateGuide(): string {
   return [
@@ -59,7 +58,7 @@ export function firstVaultGateGuide(): string {
     'wait target "setup.default" event=activate timeout=60000',
     ...ROAD_TO_SEAL,
     SEAL_DECISION,
-    ...firstVaultSealRoadSteps(),
+    ...FIRST_VAULT_SEAL_ROAD,
     "end",
   ].join("\n");
 }
@@ -74,7 +73,7 @@ export function firstVaultSignInGuide(): string {
     'goal "gate.front-door"',
     ...ROAD_TO_SEAL,
     SEAL_DECISION,
-    ...firstVaultSealRoadSteps(),
+    ...FIRST_VAULT_SEAL_ROAD,
     "end",
   ].join("\n");
 }
@@ -82,13 +81,11 @@ export function firstVaultSignInGuide(): string {
 /**
  * Counted steps of the authored first-vault walks (every presenting beat but
  * the closing one, per `planGuideSteps`). The pages shell's gate handoff
- * keys off these: the sign-in continuation measures six steps on the PIN
- * road and two on the passkey road, and both resume after the door's own
- * two steps. Re-author a walk and these move with it.
+ * keys off these: the sign-in continuation includes four optional PIN steps
+ * after the door's own two steps. Re-author a walk and these move with it.
  */
 export const FIRST_VAULT_DOOR_STEPS = 2;
-export const FIRST_VAULT_SIGN_IN_PIN_STEPS = 6;
-export const FIRST_VAULT_SIGN_IN_PASSKEY_STEPS = 2;
+export const FIRST_VAULT_SIGN_IN_STEPS = 6;
 /** The door's whole walk on the PIN road: the resume fallback when no tour is live to measure. */
 export const FIRST_VAULT_GATE_WALK_STEPS = 8;
 
@@ -111,15 +108,15 @@ const PASSWORD_STEPS = [
   'focus "item.editor.name" "Name the account. Select Next." side=bottom',
   'focus "editor.password-options" "Open Password options." side=top',
   'wait target "editor.password-options-open" event=appear timeout=60000',
-  'focus "editor.pepper-options" "To copy the whole password, turn off Include pepper. Select Next." side=top',
+  'focus "editor.pepper-options" "Pepper is your own secret, added when using the password. Turn it off for this walkthrough. Select Next." side=top',
   'focus "editor.generate-password" "Select Generate another password." side=top',
   'wait target "editor.generate-password" event=activate timeout=60000',
   'focus "item.editor.save" "Select Save item to save this account and password." side=top',
   'wait state "vault.has-items" is=true timeout=60000',
   'wait target "item.copy-generated" event=appear timeout=60000',
-  'focus "item.copy-generated" "Copy the highlighted part. If pepper is on, add it at its chosen position. For two parts, paste the first before copying the rest." side=bottom',
+  'focus "item.copy-generated" "Copy the highlighted part. If pepper is on, add your secret at its chosen position. For two parts, paste the first before copying the rest." side=bottom',
   'wait target "item.copy-generated" event=activate timeout=60000',
-  'success "Copied. Paste it into the password field."',
+  'success "Copied. Paste it and, if pepper is on, add your secret at its position."',
   "end",
 ] as const;
 

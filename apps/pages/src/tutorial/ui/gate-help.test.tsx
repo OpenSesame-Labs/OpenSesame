@@ -241,13 +241,13 @@ describe("the first-vault sealing handoff", () => {
     ).toBe(4);
   });
 
-  it("joins the passkey road's two-step sign-in continuation after the door", () => {
-    const sealed = guide("waiting", "unlock.seal-actions");
+  it("includes the fallback PIN steps after the door", () => {
+    const sealed = guide("waiting", "unlock.seal");
     expect(
       firstVaultDisplayedGateStep({
         ...sealed,
-        tour: sealed?.tour ? { ...sealed.tour, step: 2, count: 2 } : null,
+        tour: sealed?.tour ? { ...sealed.tour, step: 6, count: 6 } : null,
       }),
-    ).toBe(4);
+    ).toBe(8);
   });
 });

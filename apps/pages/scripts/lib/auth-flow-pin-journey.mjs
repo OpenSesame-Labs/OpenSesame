@@ -95,24 +95,37 @@ export async function pinMfaJourney({
   await context.close();
 }
 
-/** Walk the PIN-only first-vault seal after the method decision. */
+/** Walk the first-vault PIN seal after the method decision. */
 export async function sealPinFirstVault(
   page,
-  { step, check, phone, protection, label, out, width, keepShots },
+  {
+    step,
+    check,
+    phone,
+    protection,
+    label,
+    out,
+    width,
+    keepShots,
+    pinStart = 5,
+    total = 16,
+    finish = true,
+  },
 ) {
   const recovery = page.getByLabel(
     "I understand this vault cannot be recovered.",
   );
   const next = page.locator(".coach__btn--go");
-  check(
-    (await page.getByRole("tab", { name: "Passkey" }).count()) === 0,
-    "PIN-only first vault: unavailable Passkey is not offered",
-  );
+  if (protection === "pin-only")
+    check(
+      (await page.getByRole("tab", { name: "Passkey" }).count()) === 0,
+      "PIN-only first vault: unavailable Passkey is not offered",
+    );
   check(
     (await page
       .getByRole("tab", { name: "PIN", exact: true })
       .getAttribute("aria-selected")) === "true",
-    "PIN-only first vault: PIN is selected",
+    `${protection} first vault: PIN is selected`,
   );
   await recovery.check();
   await page.waitForFunction(
@@ -134,6 +147,7 @@ export async function sealPinFirstVault(
     "first vault: PIN selection clears the stale passkey notice",
   );
   if (
+    protection === "pin-only" &&
     (await page
       .locator('.coach[data-coach-target="unlock.seal-actions"]')
       .count()) === 1
@@ -165,25 +179,44 @@ export async function sealPinFirstVault(
     out,
     width,
     keepShots,
+    pinStart,
+    total,
+    finish,
   });
 }
 
 async function walkPinFields(
   page,
-  { step, check, phone, protection, label, out, width, keepShots },
+  {
+    step,
+    check,
+    phone,
+    protection,
+    label,
+    out,
+    width,
+    keepShots,
+    pinStart,
+    total,
+    finish,
+  },
 ) {
   const recovery = page.getByLabel(
     "I understand this vault cannot be recovered.",
   );
   const next = page.locator(".coach__btn--go");
   await waitForPinTutorial(page, { out, width, label, keepShots });
-  await step("unlock.seal-pin-entry", 5, 16);
+  await step("unlock.seal-pin-entry", pinStart, total);
   if (process.env.TUTORIALS_PIN_BACK === "1") {
     await checkTutorialNextBlocked(page, check, next, "unlock.seal-pin-entry");
     check(
       await page.getByRole("button", { name: "Seal with PIN" }).isDisabled(),
       "first vault: incomplete PIN details cannot seal the vault",
     );
+    await page.getByRole("button", { name: "Back", exact: true }).click();
+    await step("unlock.seal-actions", pinStart - 1, total);
+    await next.click();
+    await step("unlock.seal-pin-entry", pinStart, total);
   }
   await page.getByLabel("Device PIN", { exact: true }).fill(FIRST_VAULT_PIN);
   if (phone && process.env.TUTORIALS_KEYBOARD_VIEWPORT === "1") {
@@ -194,7 +227,7 @@ async function walkPinFields(
     });
   }
   await page.locator(".coach__btn--go").click();
-  await step("unlock.seal-pin-confirm", 6, 16);
+  await step("unlock.seal-pin-confirm", pinStart + 1, total);
   if (process.env.TUTORIALS_PIN_BACK === "1") {
     await checkTutorialNextBlocked(
       page,
@@ -203,9 +236,9 @@ async function walkPinFields(
       "unlock.seal-pin-confirm",
     );
     await page.getByRole("button", { name: "Back", exact: true }).click();
-    await step("unlock.seal-pin-entry", 5, 16);
+    await step("unlock.seal-pin-entry", pinStart, total);
     await next.click();
-    await step("unlock.seal-pin-confirm", 6, 16);
+    await step("unlock.seal-pin-confirm", pinStart + 1, total);
   }
   await page.getByLabel("Confirm PIN", { exact: true }).fill(FIRST_VAULT_PIN);
   if (phone && process.env.TUTORIALS_KEYBOARD_VIEWPORT === "1") {
@@ -216,14 +249,14 @@ async function walkPinFields(
     });
   }
   await page.locator(".coach__btn--go").click();
-  await step("unlock.seal-ack", 7, 16);
+  await step("unlock.seal-ack", pinStart + 2, total);
   check(
     await recovery.isChecked(),
     "first vault: recovery acknowledgment remains selected",
   );
   await page.locator(".coach__btn--go").click();
-  await step("unlock.seal", 8, 16);
-  if (phone && page.viewportSize().width <= 320)
+  await step("unlock.seal", pinStart + 3, total);
+  if (phone && total === 16 && page.viewportSize().width <= 320)
     await checkLateSealScroll(page, step, check);
   // The seal step is an action step, so its Next is aria-disabled — a person
   // can still press it, and the card ignores the press. Playwright refuses to
@@ -243,5 +276,9 @@ async function walkPinFields(
     await page.screenshot({
       path: `${out}/${width}-first-vault-${protection}.png`,
     });
-  await page.getByRole("button", { name: "Seal with PIN" }).click();
+  if (finish) await page.getByRole("button", { name: "Seal with PIN" }).click();
+  else {
+    await page.keyboard.press("Escape");
+    await page.locator(".coach").waitFor({ state: "detached" });
+  }
 }

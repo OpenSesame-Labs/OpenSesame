@@ -5,7 +5,12 @@ import type { GuideTourView } from "@opensesame/guide-runtime";
 import { cleanup, render, renderHook, waitFor } from "@testing-library/react";
 import { type ReactElement, useRef } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { useCoachFocus, useFirstVaultPinStep } from "./use-coach-behavior.js";
+import { Narration } from "./CoachHud.js";
+import {
+  observeScrollIntent,
+  useCoachFocus,
+  useFirstVaultPinStep,
+} from "./use-coach-behavior.js";
 
 afterEach(() => {
   cleanup();
@@ -44,6 +49,99 @@ it.each(["unlock.seal-pin-entry", "unlock.seal-pin-confirm"] as const)(
     unmount();
     detach();
     input.remove();
+  },
+);
+
+it.each(["unlock.seal-pin-entry", "unlock.seal-pin-confirm"] as const)(
+  "shows the live validation hint for %s without announcing it twice",
+  async (target) => {
+    const field = document.createElement("div");
+    const input = document.createElement("input");
+    const hint = document.createElement("p");
+    input.setAttribute("data-guide-pin-ready", "false");
+    input.setAttribute("aria-describedby", "pin-test-hint");
+    hint.id = "pin-test-hint";
+    hint.setAttribute("aria-live", "polite");
+    hint.textContent = "PIN must be longer.";
+    field.append(input, hint);
+    document.body.append(field);
+    const detach = targets.mountGuideTarget(target, input);
+    const tour: GuideTourView = {
+      kind: "point",
+      target,
+      step: 1,
+      count: 2,
+      message: "Enter a PIN.",
+      side: null,
+      action: false,
+      degraded: false,
+      canBack: true,
+    };
+    function PinNarration(): ReactElement {
+      const guided = useFirstVaultPinStep(tour, true);
+      return (
+        <Narration
+          id="coach-test"
+          tour={guided}
+          counter=""
+          compactMissing={false}
+        />
+      );
+    }
+    const { container, unmount } = render(<PinNarration />);
+    const text = () => container.querySelector(".coach__text");
+    expect(text()?.textContent).toContain("PIN must be longer.");
+    expect(text()?.getAttribute("aria-live")).toBe("off");
+    expect(hint.getAttribute("aria-live")).toBe("polite");
+
+    hint.textContent = "PIN cannot be a repeated character.";
+    await waitFor(() =>
+      expect(text()?.textContent).toContain(hint.textContent),
+    );
+    input.removeAttribute("aria-describedby");
+    hint.remove();
+    await waitFor(() => expect(text()?.textContent).toContain("Enter a PIN."));
+    expect(text()?.getAttribute("aria-live")).toBe("polite");
+    unmount();
+    detach();
+    field.remove();
+  },
+);
+
+it.each(["touch", "wheel", "drag"])(
+  "distinguishes %s scrolling inside the coach from scrolling the page",
+  (kind) => {
+    const coach = document.createElement("div");
+    coach.className = "coach";
+    const text = document.createElement("p");
+    coach.append(text);
+    document.body.append(coach);
+    const stop = vi.fn();
+    const detach = observeScrollIntent(stop, () => null);
+    const move = (node: Element) => {
+      if (kind === "wheel") {
+        node.dispatchEvent(new WheelEvent("wheel", { bubbles: true }));
+      } else {
+        const event = new Event(
+          kind === "touch" ? "touchmove" : "pointermove",
+          {
+            bubbles: true,
+          },
+        );
+        Object.defineProperties(event, {
+          touches: { value: [{}] },
+          pointerType: { value: "mouse" },
+          buttons: { value: 1 },
+        });
+        node.dispatchEvent(event);
+      }
+    };
+    move(text);
+    expect(stop).not.toHaveBeenCalled();
+    move(document.body);
+    expect(stop).toHaveBeenCalledOnce();
+    detach();
+    coach.remove();
   },
 );
 
