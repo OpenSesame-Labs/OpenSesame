@@ -8,6 +8,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -114,6 +115,69 @@ describe.skipIf(!gnuTar)(
       expect(test.status).toBe(2);
       expect(test.stderr).toContain("it is not the upstream-override build");
       put(TEST_BUILD, "OPENSESAME_SURROGATE_TEST_UPSTREAM\n");
+    });
+
+    it.skipIf(
+      process.platform !== "linux" || !["x64", "arm64"].includes(process.arch),
+    )("smokes a kit when node is a version-manager shim", () => {
+      const area = join(work, "smoke");
+      const targetArch = process.arch === "arm64" ? "aarch64" : "x86_64";
+      const name = `opensesame-kit_v0.1.0_${targetArch}-unknown-linux-gnu`;
+      const kit = join(area, name);
+      const shim = join(area, "shim");
+      mkdirSync(kit, { recursive: true });
+      mkdirSync(shim);
+      writeFileSync(
+        join(shim, "mise"),
+        [
+          "#!/bin/sh",
+          'if [ "${0##*/}" != node ]; then echo "shim invoked as mise" >&2; exit 1; fi',
+          'exec "$REAL_NODE" "$@"',
+          "",
+        ].join("\n"),
+        { mode: 0o755 },
+      );
+      symlinkSync("mise", join(shim, "node"));
+      writeFileSync(
+        join(kit, "opensesame"),
+        [
+          "#!/bin/sh",
+          '[ "$1" = --version ] && { echo "opensesame 0.1.0"; exit; }',
+          'bridge="$(dirname "$0")/opensesame-env-parse.mjs"',
+          'case "$(stat -c %a "$bridge")" in',
+          "  644) ;;",
+          '  666) echo "writable by others" >&2; exit 1 ;;',
+          '  *) echo "unexpected bridge mode" >&2; exit 1 ;;',
+          "esac",
+          'exec "$OPENSESAME_NODE" "$bridge"',
+          "",
+        ].join("\n"),
+        { mode: 0o755 },
+      );
+      writeFileSync(
+        join(kit, "opensesame-env-parse.mjs"),
+        'console.log(JSON.stringify({ items: [{ key: "WORKOS_API_KEY" }] }));\n',
+      );
+      const archive = join(area, `${name}.tar.gz`);
+      execFileSync("tar", ["-czf", archive, "-C", area, name]);
+      const smoke = spawnSync(
+        "bash",
+        [join(repoRootFromHere(), "scripts/release/smoke-kit.sh"), archive],
+        {
+          cwd: area,
+          env: {
+            ...process.env,
+            PATH: `${shim}:${process.env.PATH}`,
+            REAL_NODE: process.execPath,
+          },
+          encoding: "utf8",
+        },
+      );
+      expect({ status: smoke.status, stderr: smoke.stderr }).toEqual({
+        status: 0,
+        stderr: "",
+      });
+      expect(smoke.stdout).toContain("writable by others");
     });
   },
 );

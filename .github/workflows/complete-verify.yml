@@ -107,8 +107,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          node_bin="$(command -v node)" || { echo "::error::no node on PATH"; exit 1; }
-          echo "OPENSESAME_NODE=$(readlink -f "$node_bin")" >> "$GITHUB_ENV"
+          node_bin="$(node -p 'process.execPath')" || { echo "::error::no node on PATH"; exit 1; }
+          echo "OPENSESAME_NODE=$node_bin" >> "$GITHUB_ENV"
       - name: Execute the complete repository gate
         shell: bash
         run: |
