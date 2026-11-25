@@ -53,9 +53,10 @@ export class Candidates {
       candidate.run_id === this.ctx.runId &&
       candidate.run_attempt === this.ctx.runAttempt;
     const run = await this.api.attempt(candidate.run_id, candidate.run_attempt);
+    const producerPath = run.path?.split("@")[0];
     assertRun(run, this.ctx, {
-      paths: POLICY.producers,
-      events: ["schedule", "workflow_dispatch"],
+      paths: Object.keys(POLICY.producers),
+      events: POLICY.producers[producerPath] ?? [],
       completed: !sameRun,
       attempt: candidate.run_attempt,
     });
