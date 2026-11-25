@@ -130,16 +130,12 @@ export function useFirstVaultPinStep(
         "data-guide-pin-ready",
       ) === "true"
     )
-      return false;
-    return firstVaultPinFeedback(target) || true;
+      return null;
+    return firstVaultPinFeedback(target);
   }, [target]);
-  const blocked = useSyncExternalStore(subscribe, snapshot, () => false);
-  return blocked
-    ? {
-        ...tour,
-        action: true,
-        message: typeof blocked === "string" ? blocked : tour.message,
-      }
+  const blocked = useSyncExternalStore(subscribe, snapshot, () => null);
+  return blocked !== null
+    ? { ...tour, action: true, message: blocked || tour.message }
     : tour;
 }
 

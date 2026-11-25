@@ -146,8 +146,10 @@ describe("the tutorial card", () => {
   });
 
   it("counts the optional PIN steps in the standalone passkey guide", () => {
-    // SAFETY: the progress helper reads only the target and count.
-    const tour = { target: "unlock.seal-actions", count: 7 } as GuideTourView;
+    const tour: Pick<GuideTourView, "target" | "count"> = {
+      target: "unlock.seal-actions",
+      count: 7,
+    };
     expect(sealTourProgress(tour, "gate.unlock.passkey", 0, false).count).toBe(
       3,
     );

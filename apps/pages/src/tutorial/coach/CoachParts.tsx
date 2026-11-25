@@ -100,7 +100,7 @@ export function firstVaultTourProgress(
 }
 
 export function sealTourProgress(
-  tour: GuideTourView,
+  tour: Pick<GuideTourView, "target" | "count">,
   goal: string | null,
   gateSteps: number,
   pinRoad: boolean,
