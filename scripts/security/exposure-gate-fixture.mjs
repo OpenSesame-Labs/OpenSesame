@@ -140,6 +140,7 @@ export function installFormalGate(f) {
     "scripts/security/cargo-workspace-projection.py",
     "scripts/security/cargo-workspace-multipackage.py",
     "scripts/security/formal-proof-lock-history.mjs",
+    "scripts/security/formal-proof-host-cli.mjs",
     "scripts/security/formal-proof-manifest-set.mjs",
     "scripts/security/formal-proof-pinned-suites.mjs",
     "scripts/security/formal-proof-source-selection.mjs",

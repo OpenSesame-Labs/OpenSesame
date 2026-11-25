@@ -4,8 +4,8 @@
  * Before anything is unlocked there is a choice to make, and the old screen
  * made it silently — the Unlock form opened on whichever tomb the boot pointer
  * named, and the others were reachable only after unlocking that one. This
- * screen puts the choice first: every vault on the device, the guest road as
- * a peer beside them, and a way to seal a new one. Picking a vault lands on
+ * screen puts the choice first: every vault on the device and a way to seal
+ * a new one. Picking a vault lands on
  * its own Unlock form; All vaults in the account menu leads back.
  *
  * Names stay honest: a project's name is sealed inside it, so its row says
@@ -20,10 +20,13 @@ import {
 } from "@opensesame/app-core/lib/session-exit.js";
 import {
   type DeviceVault,
+  NEW_GUEST_ROAD,
   sealNewVault,
   switchVault,
 } from "@opensesame/app-core/lib/vaults.js";
 import { useEffect, useRef, useState } from "react";
+import { useGuestsAllowed } from "../bindings/guest-access.js";
+import { useDeviceVaults } from "../bindings/vaults.js";
 import { FailureNotice } from "../components/FailureNotice.js";
 import { IconMark, IconPlus } from "../components/Icons.js";
 import { VaultList } from "../components/VaultList.js";
@@ -35,7 +38,6 @@ import { LockFoot } from "./unlock/LockFoot.js";
 import { ResetLeftNotice } from "./unlock/ResetLeftNotice.js";
 import { SignInPanel } from "./unlock/SignInPanel.js";
 
-import { useDeviceVaults } from "../bindings/vaults.js";
 type Props = {
   providers: FederatedProviderSummary[];
   /** A vault was picked and the store has moved to it: show its unlock form. */
@@ -47,6 +49,7 @@ export function VaultsScreen({ providers, onPicked }: Props) {
   // Re-derived when the projects view or the store emits, so a vault sealed
   // a moment ago appears without a reload.
   const vaults = useDeviceVaults();
+  const guestsAllowed = useGuestsAllowed();
   const [tab, setTab] = useState<"device" | "signin">("device");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,6 +162,17 @@ export function VaultsScreen({ providers, onPicked }: Props) {
             <GuideTarget id="vaults.list">
               <VaultList vaults={vaults} disabled={busy} onPick={pick} />
             </GuideTarget>
+
+            {guestsAllowed ? (
+              <button
+                type="button"
+                className="unlock__switch"
+                disabled={busy}
+                onClick={() => run(() => switchVault(NEW_GUEST_ROAD))}
+              >
+                Continue as guest
+              </button>
+            ) : null}
 
             {naming ? (
               <form
