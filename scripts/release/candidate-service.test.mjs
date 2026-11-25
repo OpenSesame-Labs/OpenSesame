@@ -8,7 +8,7 @@ import { inventory } from "./lib/candidate-model.mjs";
 import { POLICY, hash } from "./lib/candidate-policy.mjs";
 import { Candidates } from "./lib/candidate-service.mjs";
 
-function fixtureManifest(source, control) {
+function fixtureManifest(source, control, producerPath) {
   return {
     format: "opensesame-candidate",
     schema_version: 1,
@@ -18,7 +18,7 @@ function fixtureManifest(source, control) {
     producer: {
       run_id: "100",
       run_attempt: "1",
-      workflow_ref: `${POLICY.repository}/.github/workflows/dev-nightly.yml@refs/heads/main`,
+      workflow_ref: `${POLICY.repository}/${producerPath}@refs/heads/main`,
       workflow_sha: control,
       recipe_path: ".github/workflows/candidate-build.yml",
     },
@@ -67,7 +67,10 @@ function fixtureApi(ctx, run, source) {
   };
 }
 
-function fixture() {
+function fixture(
+  producerPath = ".github/workflows/dev-nightly.yml",
+  producerEvent = "schedule",
+) {
   const source = "a".repeat(40);
   const control = "b".repeat(40);
   const ctx = {
@@ -79,7 +82,7 @@ function fixture() {
     workflowSha: control,
     now: Date.parse("2026-10-26T12:00:00Z"),
   };
-  const manifest = fixtureManifest(source, control);
+  const manifest = fixtureManifest(source, control, producerPath);
   const bytes = `${JSON.stringify(manifest)}\n`;
   const candidate = {
     source_sha: source,
@@ -95,8 +98,8 @@ function fixture() {
     head_repository: { full_name: ctx.repository },
     head_branch: "main",
     run_attempt: 1,
-    path: ".github/workflows/dev-nightly.yml",
-    event: "schedule",
+    path: producerPath,
+    event: producerEvent,
     head_sha: control,
     status: "completed",
     conclusion: "success",
@@ -154,6 +157,27 @@ test("same-run completed build gate is accepted before controller completion", a
   data.run.conclusion = null;
   await data.service.verify(data.candidate, await temporary(t));
   assert.equal(data.attestations(), 1);
+});
+
+test("a workflow_run continuation can produce only through the trusted dev qualifier", async (t) => {
+  const data = fixture(
+    ".github/workflows/dev-nightly-qualify.yml",
+    "workflow_run",
+  );
+  await data.service.verify(data.candidate, await temporary(t));
+  assert.equal(data.attestations(), 1);
+
+  for (const [path, event] of [
+    [".github/workflows/dev-nightly-qualify.yml", "workflow_dispatch"],
+    [".github/workflows/dev-nightly.yml", "workflow_run"],
+  ]) {
+    const rejected = fixture(path, event);
+    await assert.rejects(
+      rejected.service.verify(rejected.candidate, await temporary(t)),
+      /Workflow event is not trusted/,
+    );
+    assert.equal(rejected.attestations(), 0);
+  }
 });
 
 test("cross-run incomplete or failed controller cannot authorize reuse", async (t) => {

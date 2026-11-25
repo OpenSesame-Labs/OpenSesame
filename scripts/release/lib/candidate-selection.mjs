@@ -34,7 +34,7 @@ async function recentProducerRuns(service) {
     service.ctx.now - (POLICY.retention_days + 1) * 86400000,
   ).toISOString();
   const runs = [];
-  for (const path of POLICY.producers) {
+  for (const path of Object.keys(POLICY.producers)) {
     const file = path.split("/").at(-1);
     runs.push(
       ...(await service.api.pages(
@@ -73,15 +73,12 @@ async function reusableProducer(service, listed) {
     String(listed.id),
     String(listed.run_attempt),
   );
-  if (
-    !POLICY.producers.includes(run.path?.split("@")[0]) ||
-    !["schedule", "workflow_dispatch"].includes(run.event)
-  )
+  if (!POLICY.producers[run.path?.split("@")[0]]?.includes(run.event))
     return false;
   if (run.status !== "completed" || run.conclusion !== "success") return false;
   assertRun(run, service.ctx, {
-    paths: POLICY.producers,
-    events: ["schedule", "workflow_dispatch"],
+    paths: Object.keys(POLICY.producers),
+    events: POLICY.producers[run.path.split("@")[0]],
     attempt: listed.run_attempt,
   });
   return service.api.compatiblePolicy(run.head_sha);
