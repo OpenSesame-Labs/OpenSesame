@@ -11,7 +11,10 @@ import {
 import {
   cdnPollBudget,
   cdnRetryBudget,
+  fetchAbortTimeoutMs,
+  hurlMaxTimeArg,
   registryRetryBudget,
+  sharedCdnDeadlineEndMs,
 } from "./retry-budget.mjs";
 
 const sha = "c".repeat(40);
@@ -114,5 +117,125 @@ test("cdn retry budget caps retries inside the hurl wall clock", () => {
   assert.ok(
     attempts * budget.maxTimeMs + budget.retries * budget.intervalMs <=
       deadlineMs,
+  );
+});
+
+test("fetchAbortTimeoutMs caps stalled headers at the shared CDN remainder", () => {
+  assert.equal(
+    fetchAbortTimeoutMs(15_000, 100, () => 95),
+    5,
+  );
+  assert.equal(
+    fetchAbortTimeoutMs(15_000, 100, () => 50),
+    50,
+  );
+  assert.equal(
+    fetchAbortTimeoutMs(15_000, 50, () => 60),
+    1,
+  );
+  assert.equal(
+    fetchAbortTimeoutMs(15_000, 50, () => 60, false),
+    15_000,
+  );
+  assert.equal(
+    fetchAbortTimeoutMs(15_000, 200, () => 50, false),
+    15_000,
+  );
+});
+
+test("cdnRetryBudget keeps the default window off a one-second max-time", () => {
+  const budget = cdnRetryBudget({});
+  assert.deepEqual(budget, {
+    retries: 6,
+    intervalMs: 2_000,
+    maxTimeMs: 15_000,
+  });
+  assert.ok(
+    budget.maxTimeMs > 1_000,
+    "per-attempt time must not collapse to 1s",
+  );
+});
+
+test("cdnRetryBudget handles zero and sub-second deadlines without a 1s default", () => {
+  assert.deepEqual(cdnRetryBudget({ PWA_SMOKE_CDN_DEADLINE_MS: "0" }), {
+    retries: 0,
+    intervalMs: 2_000,
+    maxTimeMs: 15_000,
+  });
+  assert.deepEqual(cdnRetryBudget({ PWA_SMOKE_CDN_DEADLINE_MS: "1" }), {
+    retries: 0,
+    intervalMs: 2_000,
+    maxTimeMs: 1,
+  });
+  assert.deepEqual(cdnRetryBudget({ PWA_SMOKE_CDN_DEADLINE_MS: "250" }), {
+    retries: 0,
+    intervalMs: 2_000,
+    maxTimeMs: 250,
+  });
+  assert.deepEqual(
+    cdnRetryBudget({
+      PWA_SMOKE_CDN_DEADLINE_MS: "999",
+      PWA_SMOKE_CDN_POLL_MS: "100",
+    }),
+    { retries: 0, intervalMs: 100, maxTimeMs: 999 },
+  );
+});
+
+test("cdnRetryBudget fits one wall-clock window across edge deadlines", () => {
+  const edges = [
+    1, 250, 999, 1_000, 2_000, 15_000, 17_000, 20_000, 51_000, 120_000,
+    1_800_000, 170_000_000,
+  ];
+  for (const deadlineMs of edges) {
+    const { retries, intervalMs, maxTimeMs } = cdnRetryBudget({
+      PWA_SMOKE_CDN_DEADLINE_MS: String(deadlineMs),
+    });
+    const worstCaseMs = (retries + 1) * maxTimeMs + retries * intervalMs;
+    assert.ok(
+      worstCaseMs <= deadlineMs,
+      `deadline ${deadlineMs}ms: ${worstCaseMs}ms worst case must fit`,
+    );
+    assert.ok(maxTimeMs <= 15_000);
+  }
+  // 30 minutes fits exactly: 106 attempts × 15s + 105 waits × 2s.
+  assert.deepEqual(cdnRetryBudget({ PWA_SMOKE_CDN_DEADLINE_MS: "1800000" }), {
+    retries: 105,
+    intervalMs: 2_000,
+    maxTimeMs: 15_000,
+  });
+});
+
+test("hurlMaxTimeArg emits a duration suffix so sub-second budgets parse", () => {
+  assert.equal(hurlMaxTimeArg(15_000), "15000ms");
+  assert.equal(hurlMaxTimeArg(250), "250ms");
+  assert.equal(hurlMaxTimeArg(1), "1ms");
+});
+
+test("shared CDN deadline end is one window from PWA_SMOKE_CDN_STARTED_MS", () => {
+  assert.equal(
+    sharedCdnDeadlineEndMs({
+      PWA_SMOKE_CDN_STARTED_MS: "1000",
+      PWA_SMOKE_CDN_DEADLINE_MS: "120000",
+    }),
+    121_000,
+  );
+});
+
+test("shared CDN deadline end rejects a window past MAX_SAFE_INTEGER", () => {
+  assert.throws(
+    () =>
+      sharedCdnDeadlineEndMs({
+        PWA_SMOKE_CDN_STARTED_MS: "9007199254740991",
+        PWA_SMOKE_CDN_DEADLINE_MS: "120000",
+      }),
+    /MAX_SAFE_INTEGER/,
+  );
+  // The sum, not each input, decides: exactly MAX_SAFE_INTEGER still fits.
+  assert.equal(
+    sharedCdnDeadlineEndMs({
+      PWA_SMOKE_CDN_STARTED_MS: "0",
+      PWA_SMOKE_CDN_DEADLINE_MS: "9007199254740991",
+    }),
+    9_007_199_254_740_991,
   );
 });

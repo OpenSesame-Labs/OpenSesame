@@ -58,8 +58,14 @@
       // FILE budget still applies -- a 5,000-line test file is real debt --
       // and so do complexity, nesting and parameter counts.
       "files": [
+        "**/*.test.js",
+        "**/*.test.mjs",
+        "**/*.test.cjs",
         "**/*.test.ts",
         "**/*.test.tsx",
+        "**/*.spec.js",
+        "**/*.spec.mjs",
+        "**/*.spec.cjs",
         "**/*.spec.ts",
         "**/*.spec.tsx",
         "**/__tests__/**",

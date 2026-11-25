@@ -184,7 +184,7 @@ async function assertLiveAsset(
   }
 }
 
-async function assertLiveShellAssets(
+async function assertLiveShellAssets({
   assets,
   pagesBase,
   fetcher,
@@ -194,7 +194,7 @@ async function assertLiveShellAssets(
   matched,
   perChunkReadMs,
   enforcePerAssetDeadline,
-) {
+}) {
   for (const asset of assets) {
     if (matched.has(asset.relative)) continue;
     if (enforcePerAssetDeadline && now() > bodyDeadlineAt) {
@@ -249,17 +249,17 @@ export async function pollLiveShellAssets(env, deps = {}) {
     pollMs,
     sleep,
     () =>
-      assertLiveShellAssets(
+      assertLiveShellAssets({
         assets,
         pagesBase,
         fetcher,
-        fetchTimeoutMs,
-        deadlineEndMs,
+        timeoutMs: fetchTimeoutMs,
+        bodyDeadlineAt: deadlineEndMs,
         now,
         matched,
         perChunkReadMs,
-        deadlineMs > 0,
-      ),
+        enforcePerAssetDeadline: deadlineMs > 0,
+      }),
     now,
   );
   const elapsedMs = now() - started;
