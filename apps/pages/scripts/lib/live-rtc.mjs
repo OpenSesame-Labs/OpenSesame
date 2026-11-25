@@ -132,7 +132,10 @@ export async function peerStates(page) {
         signaling: read(() => pc.signalingState),
         remote: String(read(() => pc.remoteDescription?.sdp ?? ""))
           .split("\r\n")
-          .filter((line) => line.startsWith("a=candidate:")),
+          .filter((line) => line.startsWith("a=candidate:"))
+          // Keep the routing tuple used by the netns checks, not ICE ufrag or
+          // any other candidate extension that browsers append after `typ`.
+          .map((line) => line.split(" ").slice(0, 8).join(" ")),
       })),
       marks: [...document.querySelectorAll("[role=img][aria-label]")].map(
         (node) => node.getAttribute("aria-label"),

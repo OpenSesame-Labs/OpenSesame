@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, test, vi } from "vitest";
-import { WATCH_RTC } from "./live-rtc.mjs";
+import { showKeyboardPeers } from "./live-keyboard-entry.mjs";
+import { WATCH_RTC, peerStates } from "./live-rtc.mjs";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -45,4 +46,47 @@ test("candidate diagnostics retain only routing metadata after a browser closes 
     JSON.stringify(window.__rtcCandidates),
     /never-log-this|omitted|ufrag|ice-pwd/,
   );
+});
+
+test("peer-state diagnostics omit SDP credentials from remote candidates", async () => {
+  const candidate =
+    "a=candidate:fixture 1 udp 123 192.0.2.20 43210 typ host generation 0 ufrag never-log-this";
+  vi.stubGlobal("window", {
+    __rtcPeers: [
+      {
+        connectionState: "checking",
+        iceConnectionState: "checking",
+        iceGatheringState: "complete",
+        signalingState: "stable",
+        remoteDescription: {
+          sdp: `v=0\r\na=ice-pwd:also-never-log-this\r\n${candidate}\r\n`,
+        },
+      },
+    ],
+  });
+  vi.stubGlobal("document", { querySelectorAll: () => [] });
+  const states = await peerStates({ evaluate: async (read) => read() });
+  assert.deepEqual(states.peers[0].remote, [
+    "a=candidate:fixture 1 udp 123 192.0.2.20 43210 typ host",
+  ]);
+  assert.doesNotMatch(JSON.stringify(states), /never-log-this|ufrag|ice-pwd/);
+});
+
+test("keyboard failure diagnostics never inspect or print live panel text", async () => {
+  const lines = [];
+  const original = console.error;
+  console.error = (line) => lines.push(line);
+  const page = {
+    locator: () => {
+      throw new Error("live panel text must not be inspected");
+    },
+    evaluate: async () => ({ peers: [], states: [] }),
+  };
+  try {
+    await showKeyboardPeers(page, page);
+  } finally {
+    console.error = original;
+  }
+  assert.equal(lines.length, 2);
+  assert.ok(lines.every((line) => line.includes("peer states")));
 });
