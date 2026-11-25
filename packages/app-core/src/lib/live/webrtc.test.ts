@@ -95,6 +95,47 @@ const CATALOG: ChannelMessage = {
 };
 
 describe("the WebRTC transport", () => {
+  it("reports an already completed ICE diagnostic to a new listener", async () => {
+    const channel = new Channel();
+    const transport = webRtcTransport(() => fakePeer(channel), DIRECT_ROUTING);
+    const link = await transport.dial();
+    const details: string[] = [];
+    const stop = link.onIce?.((view) => details.push(view.detail));
+    await Promise.resolve();
+    expect(details).toEqual([
+      "No network path found. Check browser settings or configure a TURN relay.",
+    ]);
+    stop?.();
+    channel.readyState = "open";
+    channel.dispatchEvent(new Event("open"));
+    await link.channel;
+  });
+
+  it("does not replay a stale ICE snapshot after a newer event", async () => {
+    const channel = new Channel();
+    const peer = Object.assign(new EventTarget(), {
+      connectionState: "new",
+      iceGatheringState: "complete",
+      localDescription: { sdp: "v=0\r\n" },
+      remoteDescription: null,
+      createDataChannel: () => channel,
+      createOffer: async () => ({ type: "offer", sdp: "v=0\r\n" }),
+      setLocalDescription: async () => undefined,
+    });
+    const rtc: RTCPeerConnection = overlapCast(peer);
+    const transport = webRtcTransport(() => rtc, DIRECT_ROUTING);
+    const link = await transport.dial();
+    const details: string[] = [];
+    link.onIce?.((view) => details.push(view.detail));
+    peer.localDescription = { sdp: candidateAt("192.0.2.1", "host") };
+    peer.dispatchEvent(new Event("signalingstatechange"));
+    await Promise.resolve();
+    expect(details).toEqual(["Waiting for the browsers to meet"]);
+    channel.readyState = "open";
+    channel.dispatchEvent(new Event("open"));
+    await link.channel;
+  });
+
   it("keeps a frame that arrives before its open event, for the reader", async () => {
     const channel = new Channel();
     const transport = webRtcTransport(() => fakePeer(channel), DIRECT_ROUTING);

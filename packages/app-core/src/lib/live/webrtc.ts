@@ -233,6 +233,7 @@ class RtcLink implements DialLink {
   readonly #routing: PeerRouting;
   readonly #failed: (() => void)[] = [];
   readonly #ice = new Set<(view: IceDiagnosticView) => void>();
+  #lastIce: IceDiagnosticView | null = null;
   #stopIce: (() => void) | null = null;
   #abandon: (error: Error) => void = () => undefined;
   #closed = false;
@@ -252,6 +253,7 @@ class RtcLink implements DialLink {
     // A link nobody waited on may close quietly; one waited on still hears.
     this.channel.catch(() => undefined);
     this.#stopIce = watchRtcIce(pc, (view) => {
+      this.#lastIce = view;
       for (const listener of this.#ice) listener(view);
     });
     pc.addEventListener("connectionstatechange", () => {
@@ -266,6 +268,15 @@ class RtcLink implements DialLink {
 
   onIce(listener: (view: IceDiagnosticView) => void): () => void {
     this.#ice.add(listener);
+    const initial = this.#lastIce;
+    queueMicrotask(() => {
+      if (
+        this.#ice.has(listener) &&
+        initial !== null &&
+        this.#lastIce === initial
+      )
+        listener(initial);
+    });
     return () => {
       this.#ice.delete(listener);
     };
@@ -290,6 +301,7 @@ class RtcLink implements DialLink {
     this.#closed = true;
     this.#failed.length = 0;
     this.#ice.clear();
+    this.#lastIce = null;
     this.#stopIce?.();
     this.#stopIce = null;
     // A channel still opening never will: whoever waits on it hears so.

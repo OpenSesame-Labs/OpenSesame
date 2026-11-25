@@ -85,15 +85,65 @@ function phaseFromPc(pc: RTCPeerConnection): IcePhase {
 function detailForPhase(
   phase: IcePhase,
   gathering: RTCIceGatheringState | "unknown",
-  kinds: IceCandidateKinds,
+  noLocalCandidates: boolean,
 ): string {
+  if (phase === "closed") return "Connection closed";
   if (phase === "gathering" || gathering === "gathering")
     return "Gathering network paths";
+  if (phase === "connected" || phase === "completed") return "Connected";
+  if (gathering === "complete" && noLocalCandidates)
+    return "No network path found. Check browser settings or configure a TURN relay.";
   if (phase === "checking") return "Checking a route to the other browser";
-  if (phase === "connected" || phase === "completed")
-    return "Connected over a direct path";
   if (phase === "failed") return "ICE failed";
   return "Waiting for the browsers to meet";
+}
+
+type DescriptionSnapshot = Readonly<{
+  readable: boolean;
+  sdp?: string;
+}>;
+
+function descriptionSnapshot(
+  pc: RTCPeerConnection,
+  side: "localDescription" | "remoteDescription",
+): DescriptionSnapshot {
+  try {
+    const sdp = pc[side]?.sdp;
+    return { readable: true, ...(typeof sdp === "string" ? { sdp } : {}) };
+  } catch {
+    // Firefox can refuse description reads once a peer has closed. Diagnostics
+    // must remain observational and never turn that browser behavior into a
+    // connection failure.
+    return { readable: false };
+  }
+}
+
+function hasNoLocalCandidates(local: DescriptionSnapshot): boolean {
+  return (
+    local.readable &&
+    typeof local.sdp === "string" &&
+    local.sdp.length > 0 &&
+    !/^a=candidate:/m.test(local.sdp)
+  );
+}
+
+function viewFromCandidateKinds(
+  pc: RTCPeerConnection,
+  gathered: IceCandidateKinds,
+  noLocalCandidates: boolean,
+): IceDiagnosticView {
+  const gathering = pc.iceGatheringState ?? "unknown";
+  const phase =
+    gathering === "gathering" && pc.connectionState === "new"
+      ? "gathering"
+      : phaseFromPc(pc);
+  return {
+    phase,
+    gathering,
+    connection: pc.connectionState ?? "unknown",
+    candidates: gathered,
+    detail: detailForPhase(phase, gathering, noLocalCandidates),
+  };
 }
 
 /** Build a view from a peer connection and any SDP seen so far. */
@@ -105,18 +155,8 @@ export function iceViewFromPeer(
     (acc, sdp) => mergeCandidateKinds(acc, candidateKindsFromSdp(sdp)),
     { ...EMPTY_KINDS },
   );
-  const gathering = pc.iceGatheringState ?? "unknown";
-  const phase =
-    gathering === "gathering" && pc.connectionState === "new"
-      ? "gathering"
-      : phaseFromPc(pc);
-  return {
-    phase,
-    gathering,
-    connection: pc.connectionState ?? "unknown",
-    candidates: gathered,
-    detail: detailForPhase(phase, gathering, gathered),
-  };
+  const local = descriptionSnapshot(pc, "localDescription");
+  return viewFromCandidateKinds(pc, gathered, hasNoLocalCandidates(local));
 }
 
 export type IceFailureReason = Readonly<{
@@ -191,28 +231,31 @@ export function watchRtcIce(
   pc: RTCPeerConnection,
   listener: IceListener,
 ): () => void {
-  const sdps: string[] = [];
+  let localKinds = { ...EMPTY_KINDS };
+  let remoteKinds = { ...EMPTY_KINDS };
   const push = () => {
-    listener(iceViewFromPeer(pc, sdps));
-  };
-  const noteSdp = () => {
-    const local = pc.localDescription?.sdp;
-    const remote = pc.remoteDescription?.sdp;
-    if (local) sdps.push(local);
-    if (remote) sdps.push(remote);
-    push();
+    const local = descriptionSnapshot(pc, "localDescription");
+    const remote = descriptionSnapshot(pc, "remoteDescription");
+    if (local.readable) localKinds = candidateKindsFromSdp(local.sdp ?? "");
+    if (remote.readable) remoteKinds = candidateKindsFromSdp(remote.sdp ?? "");
+    listener(
+      viewFromCandidateKinds(
+        pc,
+        mergeCandidateKinds(localKinds, remoteKinds),
+        hasNoLocalCandidates(local),
+      ),
+    );
   };
   pc.addEventListener("icegatheringstatechange", push);
   pc.addEventListener("iceconnectionstatechange", push);
   pc.addEventListener("connectionstatechange", push);
-  pc.addEventListener("signalingstatechange", noteSdp);
-  noteSdp();
+  pc.addEventListener("signalingstatechange", push);
   push();
   return () => {
     pc.removeEventListener("icegatheringstatechange", push);
     pc.removeEventListener("iceconnectionstatechange", push);
     pc.removeEventListener("connectionstatechange", push);
-    pc.removeEventListener("signalingstatechange", noteSdp);
+    pc.removeEventListener("signalingstatechange", push);
   };
 }
 
