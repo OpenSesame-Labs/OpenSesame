@@ -208,6 +208,12 @@ jobs:
       - name: Install Pages workspace dependencies
         if: steps.ci_full_profile_dist.outcome != 'success'
         run: node scripts/ci/cd-pwa-pages-workspace-install.mjs
+      - name: Cache the pinned native PWA distribution
+        if: steps.ci_full_profile_dist.outcome != 'success'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/pwa-tailscale-native-http/distributions
+          key: pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}
       - name: Compile full install profile dist
         if: steps.ci_full_profile_dist.outcome != 'success'
         run: node scripts/ci/pwa-full-profile-dist-build.mjs
@@ -364,6 +370,11 @@ jobs:
           echo "npm_dist_tag=$npm_dist_tag" >> "$GITHUB_OUTPUT"
       - name: Install the frozen dependency graph
         run: npm ci --ignore-scripts
+      - name: Cache the pinned native PWA distribution
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/pwa-tailscale-native-http/distributions
+          key: pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}
       - name: Production Pages build
         env:
           PAGES_CANONICAL_ORIGIN: ${{ env.PAGES_CANONICAL_ORIGIN }}
