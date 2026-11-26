@@ -1329,6 +1329,7 @@ jobs:
           TUTORIALS_HEIGHT: '480'
           TUTORIALS_ONLY: gate.front-door
           TUTORIALS_PIN_BACK: '1'
+          TUTORIALS_KEYBOARD_VIEWPORT: '1'
         run: npm run verify:tutorials -w @opensesame/pages
 
   live-join-e2e:
