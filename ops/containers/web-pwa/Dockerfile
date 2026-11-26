@@ -12,13 +12,27 @@
 #     --build-arg PREBUILT_IMAGE=<published web-pwa image> \
 #     -f ops/containers/web-pwa/Dockerfile -t web-pwa:local .
 ARG PREBUILT_IMAGE=scratch
+FROM --platform=$BUILDPLATFORM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS manifests
+WORKDIR /src
+COPY . .
+RUN find apps packages examples tests tools -type f ! -name package.json -delete \
+  && find apps packages examples tests tools -type d -empty -delete \
+  && find . -mindepth 1 -maxdepth 1 \
+    ! -name package.json ! -name package-lock.json ! -name .npmrc ! -name patches \
+    ! -name apps ! -name packages ! -name examples ! -name tests ! -name tools \
+    -exec rm -rf -- {} +
+
 FROM --platform=$BUILDPLATFORM node:26-bookworm-slim@sha256:5df79989ed685e09f0a98019db4cebfb22fb9df1a53c0161664a011f7ff6b0f1 AS build
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates curl git python3 make g++ zlib1g-dev \
   && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
-COPY . .
+COPY --from=manifests /src ./
 RUN npm ci --ignore-scripts
+# Copy the complete context and create workspace bin links in the same layer.
+RUN --mount=type=bind,target=/run/context \
+  cp -a --no-preserve=ownership /run/context/. /src/ \
+  && npm rebuild --workspaces --ignore-scripts --offline
 ARG VERSION=0.0.0-local
 ENV VERSION=${VERSION} \
   NODE_OPTIONS=--max-old-space-size=4096
