@@ -208,9 +208,10 @@ jobs:
       - name: Install Pages workspace dependencies
         if: steps.ci_full_profile_dist.outcome != 'success'
         run: node scripts/ci/cd-pwa-pages-workspace-install.mjs
-      - name: Cache the pinned native PWA distribution
+      - name: Restore the pinned native PWA distribution
+        id: native_profile_cache
         if: steps.ci_full_profile_dist.outcome != 'success'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .cache/pwa-tailscale-native-http/distributions
           key: pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}
@@ -222,6 +223,13 @@ jobs:
           name: pwa-full-profile-dist-${{ github.run_id }}
           path: apps/pages/dist-profiles/pwa-proof/full
           if-no-files-found: error
+      # Only a successful main build may seed the shared native cache.
+      - name: Save the pinned native PWA distribution
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.ci_full_profile_dist.outcome != 'success' && steps.native_profile_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/pwa-tailscale-native-http/distributions
+          key: pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}
 
   proof:
     name: Build install profile (full)
@@ -370,8 +378,9 @@ jobs:
           echo "npm_dist_tag=$npm_dist_tag" >> "$GITHUB_OUTPUT"
       - name: Install the frozen dependency graph
         run: npm ci --ignore-scripts
-      - name: Cache the pinned native PWA distribution
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - name: Restore the pinned native PWA distribution
+        id: native_production_cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: .cache/pwa-tailscale-native-http/distributions
           key: pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}
@@ -416,6 +425,12 @@ jobs:
           name: cd-pwa-meta-${{ github.run_id }}
           path: artifacts/cd-pwa-meta
           if-no-files-found: error
+      - name: Save the pinned native PWA distribution
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && steps.native_production_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .cache/pwa-tailscale-native-http/distributions
+          key: pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}
 
   npm_preview:
     name: Preview npm package proof

@@ -88,7 +88,11 @@ function stepPositions(steps) {
     if (uses.startsWith("actions/checkout@") && checkoutAt < 0) {
       checkoutAt = index;
     }
-    if (uses.startsWith("actions/cache/restore@")) restoreAt = index;
+    if (
+      uses.startsWith("actions/cache/restore@") &&
+      step.with?.path === "~/.local/share/mise"
+    )
+      restoreAt = index;
     if (run === nodeBootstrap || run === hurlBootstrap) bootAt = index;
     if (needsToolchain(step)) toolAt.push(index);
   });
@@ -185,7 +189,7 @@ function assertJobBootstrapsLockedMise({ doc, name, id, job }) {
 }
 
 describe("locked mise bootstrap: PWA CD", () => {
-  it("covers PWA CD jobs and does not save the cache", () => {
+  it("covers PWA CD jobs and saves only verified native caches from main", () => {
     const ci = read(".github/workflows/ci.yml");
     assert.ok(ci.includes(`key: ${primaryKey}`));
     assert.ok(ci.includes(seedKey));
@@ -206,7 +210,6 @@ describe("locked mise bootstrap: PWA CD", () => {
     for (const name of required) {
       const text = read(join(".github/workflows", name));
       assert.doesNotMatch(text, /jdx\/mise-action/u, name);
-      assert.doesNotMatch(text, /actions\/cache\/save@/u, name);
       assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
       assert.doesNotMatch(text, /^[ \t]+cache:[ \t]+true[ \t]*$/mu, name);
       const doc = parse(text);
@@ -217,10 +220,75 @@ describe("locked mise bootstrap: PWA CD", () => {
         assertJobBootstrapsLockedMise({ doc, name, id, job: jobs[id] });
       }
       if (name === "cd-pwa.yml") {
+        const cacheSaves = Object.entries(jobs).flatMap(([id, job]) =>
+          (job.steps ?? [])
+            .filter((step) =>
+              String(step.uses ?? "").startsWith("actions/cache/save@"),
+            )
+            .map((step) => ({ id, name: step.name })),
+        );
+        assert.deepEqual(cacheSaves, [
+          {
+            id: "build_full_profile",
+            name: "Save the pinned native PWA distribution",
+          },
+          { id: "build", name: "Save the pinned native PWA distribution" },
+        ]);
+        const nativePath = ".cache/pwa-tailscale-native-http/distributions";
+        const nativeKey =
+          "pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}";
+        assert.ok(ci.includes(`path: ${nativePath}\n`));
+        assert.ok(ci.includes(`key: ${nativeKey}`));
+        for (const [id, stepId, gate] of [
+          [
+            "build_full_profile",
+            "native_profile_cache",
+            " && steps.ci_full_profile_dist.outcome != 'success'",
+          ],
+          ["build", "native_production_cache", ""],
+        ]) {
+          const steps = jobs[id].steps;
+          const restoreAt = steps.findIndex((step) => step.id === stepId);
+          const verifyAt = steps.findIndex((step) =>
+            String(step.run ?? "").includes(
+              id === "build"
+                ? "ci-pages-build.mjs"
+                : "pwa-full-profile-dist-build.mjs",
+            ),
+          );
+          const saveAt = steps.findIndex(
+            (step) => step.name === "Save the pinned native PWA distribution",
+          );
+          assert.ok(
+            restoreAt >= 0 && restoreAt < verifyAt && verifyAt < saveAt,
+            id,
+          );
+          const restore = steps[restoreAt];
+          const save = steps[saveAt];
+          assert.equal(restore.if, steps[verifyAt].if);
+          assert.equal(restore.uses, `actions/cache/restore@${cachePin}`);
+          assert.equal(save.uses, `actions/cache/save@${cachePin}`);
+          for (const step of [restore, save]) {
+            assert.equal(step.with.path, nativePath);
+            assert.equal(step.with.key, nativeKey);
+            assert.equal(step.with["restore-keys"], undefined);
+          }
+          assert.equal(
+            save.if,
+            `github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')${gate} && steps.${stepId}.outputs.cache-hit != 'true'`,
+          );
+          assert.equal(save["continue-on-error"], undefined);
+          assert.ok(
+            saveAt >
+              steps.findLastIndex((step) =>
+                String(step.uses ?? "").startsWith("actions/upload-artifact@"),
+              ),
+          );
+        }
         assert.equal(jobs.promotion_failed?.permissions?.actions, "read");
         assert.equal(jobs.promotion_failed?.permissions?.contents, "write");
         assert.equal(jobs.deploy?.permissions?.actions, undefined);
-      }
+      } else assert.doesNotMatch(text, /actions\/cache\/save@/u, name);
     }
   });
 });
