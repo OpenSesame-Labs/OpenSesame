@@ -39,8 +39,8 @@ export function observeWait(
  * Whether the wait is already true. A step that points at something the
  * person is already standing on must not skip itself — it holds for Next like
  * any other, and only a wait that is still to happen is theirs to satisfy.
- * On Back, a mounted next target counts even when it is offscreen. An
- * activation is an edge, so it is never already true.
+ * On Back, a mounted target counts even when it is offscreen. An activation
+ * is an edge, so it is never already true.
  */
 export function alreadyHolds(
   ports: GuideRuntimePorts,

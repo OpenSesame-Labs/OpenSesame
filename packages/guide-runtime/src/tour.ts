@@ -303,13 +303,12 @@ async function holdBeat(
   const { ports } = host;
   const until = beat.until;
   const nextTarget = plan.beats[beat.ordinal + 1]?.target ?? null;
-  // Back revisits an action that may already have revealed the next control.
-  // Keep this step open even when that control has scrolled out of view.
+  // Back revisits an action that may already have revealed a control. Keep
+  // this step open even when that control has scrolled out of view.
   const mountedCounts =
     arrived === "back" &&
     until?.subject === "target" &&
-    until.event === "appear" &&
-    until.target === nextTarget;
+    until.event === "appear";
   let missing = degraded;
   for (;;) {
     const holds = until !== null && alreadyHolds(ports, until, mountedCounts);

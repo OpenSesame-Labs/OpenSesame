@@ -114,6 +114,48 @@ describe("tour mode edges", () => {
     expect(h.runtime.snapshot().tour?.step).toBe(2);
   });
 
+  it("holds a completed appearance wait on Back when its target is offscreen", async () => {
+    const offscreen: GuideTargetId[] = [];
+    const h = harness(["vault.create"], offscreen);
+    void h.runtime.start(
+      program([
+        {
+          kind: "focus",
+          target: "vault.create",
+          message: "Open the options.",
+          side: null,
+        },
+        {
+          kind: "wait",
+          subject: "target",
+          target: "vault.export",
+          event: "appear",
+          timeoutMs: 30000,
+        },
+        {
+          kind: "focus",
+          target: "vault.create",
+          message: "Review the options.",
+          side: null,
+        },
+        { kind: "success", message: "Done." },
+        { kind: "end" },
+      ]),
+      { mode: "tour" },
+    );
+    await h.settle();
+    h.targets.appear("vault.export");
+    await h.settle();
+    expect(h.runtime.snapshot().tour?.step).toBe(2);
+    offscreen.push("vault.export");
+    h.runtime.back();
+    await h.settle();
+    expect(h.runtime.snapshot().tour).toMatchObject({ step: 1, action: false });
+    h.runtime.next();
+    await h.settle();
+    expect(h.runtime.snapshot().tour?.step).toBe(2);
+  });
+
   it("rechecks a satisfied action if it becomes unsatisfied while the step is open", async () => {
     const h = harness(["vault.create"]);
     void h.runtime.start(
