@@ -1,13 +1,63 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { performance } from "node:perf_hooks";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { envFor, stageManyShellAssets } from "./live-bundle-poll.harness.mjs";
+import { pollLiveShellAssets } from "./live-bundle-poll.mjs";
 import { serializeHurlVariables } from "./prepare-vars.mjs";
+
+test("shell batch respects its deadline with corrupt and stalled HTTP bodies", {
+  skip: process.env.PWA_SHELL_HTTP_CONTROL !== "1",
+  timeout: 15_000,
+}, async () => {
+  const { root, dist } = stageManyShellAssets(8);
+  let requests = 0;
+  const server = createServer((request, response) => {
+    requests++;
+    if (request.url.endsWith("/0.js"))
+      return response.writeHead(200).end("bad");
+    response.writeHead(200, { "content-type": "application/javascript" });
+    response.write("stalled");
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const port = server.address().port;
+  const fetch = (url, options) =>
+    globalThis.fetch(
+      `http://127.0.0.1:${port}${new URL(url).pathname}`,
+      options,
+    );
+  const start = performance.now();
+  try {
+    await assert.rejects(
+      pollLiveShellAssets(
+        envFor(dist, {
+          PWA_SMOKE_CDN_DEADLINE_MS: "1500",
+          PWA_SMOKE_CDN_POLL_MS: "25",
+        }),
+        { fetch },
+      ),
+      /live shell asset mismatch/,
+    );
+    assert.equal(requests, 8);
+    assert.ok(performance.now() - start < 10_000);
+  } finally {
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+    rmSync(root, { recursive: true, force: true });
+  }
+});
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const sha = "d".repeat(40);

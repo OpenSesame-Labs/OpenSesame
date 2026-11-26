@@ -8,12 +8,51 @@ import {
   manualClock,
   pagesBase,
   stageDist,
+  stageManyShellAssets,
 } from "./live-bundle-poll.harness.mjs";
 import {
   listStagedShellAssetPaths,
   pollLiveShellAssets,
 } from "./live-bundle-poll.mjs";
 import { cdnPollBudget } from "./retry-budget.mjs";
+
+for (const stale of [false, true]) {
+  test(`shell assets use bounded concurrency and ${stale ? "reject stale bytes" : "all match"}`, async () => {
+    const { root, dist } = stageManyShellAssets(12);
+    let active = 0;
+    let maximum = 0;
+    const calls = [];
+    const fetch = async (url) => {
+      const rel = new URL(url).pathname.slice("/OpenSesame/".length);
+      calls.push(rel);
+      maximum = Math.max(maximum, ++active);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+      active--;
+      return new Response(
+        stale && rel === "assets/2.js"
+          ? "stale"
+          : readFileSync(join(dist, rel)),
+      );
+    };
+    try {
+      const run = () =>
+        pollLiveShellAssets(envFor(dist, { PWA_SMOKE_CDN_DEADLINE_MS: "0" }), {
+          fetch,
+        });
+      if (stale) {
+        await assert.rejects(run, /assets\/2\.js/);
+        assert.equal(calls.length, 8);
+      } else {
+        assert.equal((await run()).length, 12);
+        assert.equal(new Set(calls).size, 12);
+      }
+      assert.equal(maximum, 8);
+      assert.equal(active, 0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+}
 
 test("cdn poll budget is the deadline form of the hurl retry window", () => {
   assert.deepEqual(cdnPollBudget({}), { deadlineMs: 120_000, pollMs: 2_000 });
@@ -163,11 +202,19 @@ test("pollLiveShellAssets names the first mismatched path when the deadline expi
         ),
       /live shell asset mismatch: assets\/app\.css \(CDN poll deadline expired\)/,
     );
-    assert.deepEqual(calls, [
-      `${pagesBase}assets/app.css`,
-      `${pagesBase}assets/app.css`,
-      `${pagesBase}assets/app.css`,
-    ]);
+    // All assets in the batch are checked on every attempt even if the first
+    // one fails. The reported error must still name the first staged asset.
+    for (const ref of [
+      "assets/app.css",
+      "assets/preload.js",
+      "assets/main.js",
+      "boot.js",
+    ]) {
+      assert.equal(
+        calls.filter((call) => call === `${pagesBase}${ref}`).length,
+        3,
+      );
+    }
     assert.equal(clock.now(), 20);
   } finally {
     rmSync(root, { recursive: true, force: true });
