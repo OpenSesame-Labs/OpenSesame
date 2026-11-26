@@ -5,7 +5,19 @@ import {
   dismissNotice,
   setStatusNotice,
 } from "@opensesame/app-core/lib/notices.js";
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { setSessionTutorialsPaused } from "@opensesame/app-core/lib/tutorial-queue.js";
+import {
+  ONLY_THIS_TUTORIAL,
+  PAUSE_ALL_FOR_SESSION,
+  postTutorialPausePrompt,
+} from "@opensesame/app-core/lib/tutorial-queue-present.js";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useEffect } from "react";
 import { MemoryRouter } from "react-router";
@@ -29,6 +41,27 @@ afterEach(() => {
 });
 
 describe("a shellless screen's notice region", () => {
+  it("places the tutorial pause choice in flow without covering the form", () => {
+    setSessionTutorialsPaused(false);
+    const { container } = render(
+      <MemoryRouter>
+        <Notices shellless>
+          <main>
+            <GateNoticeSeat />
+            <button type="button">Seal with PIN</button>
+          </main>
+        </Notices>
+      </MemoryRouter>,
+    );
+    act(() => postTutorialPausePrompt());
+    const choice = screen.getByRole("button", { name: PAUSE_ALL_FOR_SESSION });
+    expect(choice.closest(".gate-notice-seat .notice-corner")).toBeTruthy();
+    expect(screen.getByText("Pause tutorials for this session?")).toBeTruthy();
+    expect(container.querySelector(".toasts .toast")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: ONLY_THIS_TUTORIAL }));
+    expect(screen.queryByText("Pause tutorials for this session?")).toBeNull();
+  });
+
   it("keeps the flow fallback before a screen that has no notice seat", async () => {
     const { container } = render(
       <MemoryRouter>

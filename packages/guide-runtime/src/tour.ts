@@ -228,7 +228,10 @@ async function lightTarget(
     const raced = await raceWith(
       host,
       run,
-      (signal) => ports.targets.observe(target, "appear", signal),
+      (signal) =>
+        ports.targets.observe(target, "appear", signal, {
+          allowOffscreen: true,
+        }),
       TOUR_APPEAR_GRACE_MS,
     );
     const interrupted = interruption(raced, host.isLive(run));
@@ -277,6 +280,7 @@ function mustRecheck(
   wait: WaitInstruction | null,
   held: boolean,
   raced: Raced,
+  mountedCounts: boolean,
 ): boolean {
   if (!held) return false;
   if (raced.kind === "observed") return true;
@@ -284,7 +288,7 @@ function mustRecheck(
     raced.kind === "command" &&
     raced.command === "next" &&
     wait !== null &&
-    !alreadyHolds(ports, wait)
+    !alreadyHolds(ports, wait, mountedCounts)
   );
 }
 
@@ -293,13 +297,21 @@ async function holdBeat(
   ctx: TourContext,
   beat: GuideBeat,
   degraded: boolean,
+  arrived: "forward" | "back",
 ): Promise<Raced> {
   const { host, run, plan } = ctx;
   const { ports } = host;
   const until = beat.until;
+  const nextTarget = plan.beats[beat.ordinal + 1]?.target ?? null;
+  // Back revisits an action that may already have revealed a control. Keep
+  // this step open even when that control has scrolled out of view.
+  const mountedCounts =
+    arrived === "back" &&
+    until?.subject === "target" &&
+    until.event === "appear";
   let missing = degraded;
   for (;;) {
-    const holds = until !== null && alreadyHolds(ports, until);
+    const holds = until !== null && alreadyHolds(ports, until, mountedCounts);
     host.publish(
       run,
       "waiting",
@@ -307,10 +319,10 @@ async function holdBeat(
       beat.present < 0 ? beat.start : beat.present,
     );
     const target = missing ? beat.target : null;
-    const observe = watchStep(ports, until, target, holds);
+    const observe = watchStep(ports, until, target, holds, nextTarget);
     const raced = await raceWith(host, run, observe, null);
     if (target === null) {
-      if (mustRecheck(ports, until, holds, raced)) continue;
+      if (mustRecheck(ports, until, holds, raced, mountedCounts)) continue;
       return raced;
     }
     if (raced.kind !== "observed") return raced;
@@ -352,7 +364,7 @@ export async function runTour(
     if (entry.kind === "move") {
       command = entry.command;
     } else {
-      const raced = await holdBeat(ctx, beat, entry.degraded);
+      const raced = await holdBeat(ctx, beat, entry.degraded, arrived);
       if (!host.isLive(run) || raced.kind === "aborted") return;
       if (raced.kind === "command") command = raced.command;
       if (

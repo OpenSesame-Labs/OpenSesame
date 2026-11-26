@@ -38,14 +38,21 @@ const POINTING: readonly GuideInstruction[] = [
   { kind: "end" },
 ];
 
-function harness(mounted: readonly GuideTargetId[] = TARGETS) {
+function harness(
+  mounted: readonly GuideTargetId[] = TARGETS,
+  offscreen: readonly GuideTargetId[] = [],
+) {
   const clock = createTestClock();
   const routes = createFakeRoutes(ROUTES, "/vault");
   const targets = createFakeTargets(TARGETS, mounted);
   const renderer = createRecordingRenderer();
   const runtime = createGuideRuntime({
     renderer,
-    targets,
+    targets: {
+      ...targets,
+      isVisible: (target) =>
+        !offscreen.includes(target) && targets.isVisible(target),
+    },
     routes,
     state: createFakeState([["vault.unlocked", true]]),
     clock,
@@ -57,6 +64,98 @@ function harness(mounted: readonly GuideTargetId[] = TARGETS) {
 }
 
 describe("tour mode edges", () => {
+  it("keeps Back on the prior step when the next target is mounted offscreen", async () => {
+    const h = harness(["vault.create"], ["vault.export"]);
+    void h.runtime.start(
+      program([
+        {
+          kind: "focus",
+          target: "vault.create",
+          message: "Open the next control.",
+          side: null,
+        },
+        {
+          kind: "wait",
+          subject: "target",
+          target: "vault.export",
+          event: "appear",
+          timeoutMs: 30000,
+        },
+        {
+          kind: "focus",
+          target: "vault.export",
+          message: "Use the next control.",
+          side: null,
+        },
+        { kind: "success", message: "Done." },
+        { kind: "end" },
+      ]),
+      { mode: "tour" },
+    );
+    await h.settle();
+    h.targets.appear("vault.export");
+    await h.settle();
+    expect(h.runtime.snapshot().tour?.step).toBe(2);
+
+    h.runtime.back();
+    await h.settle();
+    expect(h.runtime.snapshot().tour).toMatchObject({ step: 1, action: false });
+    h.runtime.next();
+    await h.settle();
+    expect(h.runtime.snapshot().tour?.step).toBe(2);
+
+    h.runtime.back();
+    await h.settle();
+    h.targets.disappear("vault.export");
+    await h.settle();
+    expect(h.runtime.snapshot().tour).toMatchObject({ step: 1, action: true });
+    h.targets.appear("vault.export");
+    await h.settle();
+    expect(h.runtime.snapshot().tour?.step).toBe(2);
+  });
+
+  it("holds a completed appearance wait on Back when its target is offscreen", async () => {
+    const offscreen: GuideTargetId[] = [];
+    const h = harness(["vault.create"], offscreen);
+    void h.runtime.start(
+      program([
+        {
+          kind: "focus",
+          target: "vault.create",
+          message: "Open the options.",
+          side: null,
+        },
+        {
+          kind: "wait",
+          subject: "target",
+          target: "vault.export",
+          event: "appear",
+          timeoutMs: 30000,
+        },
+        {
+          kind: "focus",
+          target: "vault.create",
+          message: "Review the options.",
+          side: null,
+        },
+        { kind: "success", message: "Done." },
+        { kind: "end" },
+      ]),
+      { mode: "tour" },
+    );
+    await h.settle();
+    h.targets.appear("vault.export");
+    await h.settle();
+    expect(h.runtime.snapshot().tour?.step).toBe(2);
+    offscreen.push("vault.export");
+    h.runtime.back();
+    await h.settle();
+    expect(h.runtime.snapshot().tour).toMatchObject({ step: 1, action: false });
+    h.runtime.next();
+    await h.settle();
+    expect(h.runtime.snapshot().tour?.step).toBe(2);
+  });
+
   it("rechecks a satisfied action if it becomes unsatisfied while the step is open", async () => {
     const h = harness(["vault.create"]);
     void h.runtime.start(

@@ -21,11 +21,10 @@ export function PepperCheck({
   const [text, setText] = useState(method.pepperAt ?? "");
   const [invalid, setInvalid] = useState(false);
   const guideRef = useGuideTarget<HTMLDivElement>("editor.pepper-options");
-  const checkboxRef = useGuideTarget<HTMLLabelElement>("editor.pepper");
   return (
     <div ref={guideRef} className="editor__pepper-options">
       <div className="field">
-        <label ref={checkboxRef} className="check editor__pepper-check">
+        <label className="check editor__pepper-check">
           <input
             type="checkbox"
             checked={method.pepper}

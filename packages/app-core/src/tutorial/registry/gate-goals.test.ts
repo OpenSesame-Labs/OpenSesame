@@ -153,7 +153,7 @@ describe("the gate tutorials", () => {
     }
   });
 
-  it("forks the new-vault seal road like the first-vault walks", () => {
+  it("offers the PIN continuation when passkey sealing is available", () => {
     const known = vi
       .spyOn(state, "isKnownGuidePredicate")
       .mockReturnValue(true);
@@ -161,15 +161,14 @@ describe("the gate tutorials", () => {
     try {
       const goal = GATE_GOALS.find((item) => item.id === "gate.unlock.passkey");
       expect(goal).toBeDefined();
-      // Creating, and this browser seals with a passkey: the seal step holds
-      // on the unlocked state, never on the PIN entry a passkey road does
-      // not draw.
+      // A successful passkey unlock leaves the gate; selecting PIN continues
+      // through its fields in the same walkthrough.
       read.mockImplementation((id) => id === "vault.seal-passkey");
       expect(goal?.guide).toContain('focus "unlock.seal-actions"');
       expect(goal?.guide).toContain('wait state "vault.unlocked" is=true');
-      expect(goal?.guide).not.toContain('wait target "unlock.seal-pin-entry"');
-      expect(goal?.guide).not.toContain('focus "unlock.seal-pin-entry"');
-      expect(goal?.guide).not.toContain('focus "unlock.seal-pin-confirm"');
+      expect(goal?.guide).toContain('wait target "unlock.seal-pin-entry"');
+      expect(goal?.guide).toContain('focus "unlock.seal-pin-entry"');
+      expect(goal?.guide).toContain('focus "unlock.seal-pin-confirm"');
       // The PIN fallback road still walks the four fields to the unlocked
       // state.
       read.mockReturnValue(false);

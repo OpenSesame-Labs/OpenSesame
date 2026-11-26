@@ -1,21 +1,12 @@
 /**
- * Tutorial mode: the page dims, one control stays lit, and a card walks you
- * through it a step at a time.
- *
- * The runtime publishes every step as data — its text, the control it points
- * at, which side the author preferred, whether doing the thing also advances —
- * and this component only draws it. Everything a model or an author wrote
- * reaches the page as a React text node; nothing here parses markup, and a
- * control is found only through the target registry's own resolver (ADR 0088).
- *
- * It is not a modal. The page stays interactive through the aperture so a
- * step can say "your move" and mean it, the dim blocks nothing but stray
- * clicks, and Tab still leaves the card for the page. What it owns is the
- * keys that belong to a tour: Escape leaves it, and the arrow keys step it
- * while the caret is in the card.
+ * Render each guided step over the interactive page. Instructions remain
+ * text and controls come from the target registry (ADR 0088). Escape exits;
+ * arrow keys navigate while focus is in the card.
  */
 
+import { firstVaultPasskeyAvailable } from "@opensesame/app-core/tutorial/registry/first-vault-guide.js";
 import { guideGoal } from "@opensesame/app-core/tutorial/registry/goals.js";
+import { isMountedGuideTarget } from "@opensesame/app-core/tutorial/registry/targets.js";
 import type {
   GuideRuntimeSnapshot,
   GuideTourView,
@@ -39,19 +30,22 @@ import {
   Head,
   Meter,
   Ring,
-  canReturn,
   coachMessage,
   counterOf,
-  firstVaultTourProgress,
+  sealTourProgress,
   viewportDockStyle,
 } from "./CoachParts.js";
 import type { placeCoach } from "./placement.js";
 import {
+  canReturn,
   cardKeys,
+  firstVaultPinFeedback,
   useCoachFocus,
   useEscapeToExit,
+  useFirstVaultPinStep,
 } from "./use-coach-behavior.js";
 import { useCoachLayout } from "./use-coach-layout.js";
+import { observeResize } from "./use-geometry.js";
 
 /** The notch's offset along the card edge, as the custom property coach.css reads. */
 function notchStyle(px: number): CSSProperties & { "--coach-notch": string } {
@@ -75,15 +69,16 @@ function titleOf(guide: GuideRuntimeSnapshot): string {
 
 function displayedTour(
   tour: GuideTourView,
-  firstVault: boolean,
+  goal: GuideRuntimeSnapshot["goal"],
   requiredAction: boolean,
   ready: boolean,
-  recovery: "edit" | "options" | "pepper" | "",
+  recovery: "edit" | "options" | "pepper" | "save" | "",
   gateSteps: number,
 ): GuideTourView {
-  const progress = firstVault
-    ? firstVaultTourProgress(tour.target, tour.count, gateSteps)
-    : { offset: 0, count: tour.count };
+  const pinRoad =
+    !firstVaultPasskeyAvailable() ||
+    isMountedGuideTarget("unlock.seal-pin-entry");
+  const progress = sealTourProgress(tour, goal, gateSteps, pinRoad);
   return {
     ...tour,
     message: coachMessage(tour, requiredAction, ready, recovery),
@@ -93,7 +88,7 @@ function displayedTour(
 }
 
 /** The sentence, announced with its position for a listener who never sees the meter. */
-function Narration({
+export function Narration({
   id,
   tour,
   counter,
@@ -115,17 +110,18 @@ function Narration({
     const measure = (): void =>
       setScrollable(node.scrollHeight > node.clientHeight + 1);
     measure();
-    if (!("ResizeObserver" in globalThis)) return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(node);
-    return () => observer.disconnect();
+    return observeResize(node, measure);
   }, [message, counter, compactMissing]);
   return (
     <p
       ref={prose}
       className={`coach__text${scrollable ? " is-scrollable" : ""}`}
       id={id}
-      aria-live="polite"
+      aria-live={
+        message && firstVaultPinFeedback(tour.target) === message
+          ? "off"
+          : "polite"
+      }
     >
       <span className="coach__scroll-cue" aria-hidden="true" />
       {counter && !closing ? (
@@ -221,7 +217,6 @@ function CoachCard({
         height: shortScroll ? maxHeight : undefined,
         minHeight: awaitingAction ? Math.min(maxHeight ?? 52, 52) : undefined,
       }}
-      // biome-ignore lint/a11y/useSemanticElements: a native <dialog open> would inert the page, and a tour must leave it live.
       role="dialog"
       aria-modal="false"
       aria-labelledby={titleId}
@@ -285,33 +280,36 @@ function compactRowFor(
 
 function Coach({
   guide,
-  tour,
+  tour: rawTour,
   support,
 }: {
   guide: GuideRuntimeSnapshot;
   tour: GuideTourView;
   support: SupportController;
 }): ReactElement {
+  const firstVault = guide.goal === "gate.front-door";
+  const pinTour = ["gate.front-door", "gate.unlock.passkey"].some(
+    (goal) => goal === guide.goal,
+  );
+  const tour = useFirstVaultPinStep(rawTour, pinTour);
   const cardRef = useRef<HTMLElement>(null);
   const primaryRef = useRef<HTMLButtonElement>(null);
-  const firstVault = guide.goal === "gate.front-door";
-  const requiredAction =
-    firstVault ||
-    ["vault.item.first", "vault.item.find", "vault.item.accounts"].includes(
-      guide.goal ?? "",
-    );
+  const requiredAction = [
+    "gate.front-door",
+    "gate.unlock.passkey",
+    "vault.item.first",
+    "vault.item.find",
+    "vault.item.accounts",
+  ].includes(guide.goal ?? "");
   const ready = guide.status === "waiting";
   const canBack = canReturn(guide, tour);
-  const layout = useCoachLayout(
-    guide.runId,
-    tour,
-    cardRef,
-    firstVault || guide.goal === "vault.item.first",
-  );
+  const firstPassword = firstVault || guide.goal === "vault.item.first";
+  const layout = useCoachLayout(guide.runId, tour, cardRef, firstPassword);
   const { stepKey, viewport, hole, placement, gliding, missing } = layout;
   const { narrow, short, constrained } = layout;
+  // PIN readiness adds an action guard without hiding its navigation controls.
   const awaitingAction =
-    constrained && requiredAction && tour.action && !missing && !canBack;
+    constrained && requiredAction && rawTour.action && !missing && !canBack;
   const shortScroll =
     short &&
     (canBack ||
@@ -341,7 +339,7 @@ function Coach({
     canBack,
     displayTour: displayedTour(
       tour,
-      firstVault,
+      guide.goal,
       requiredAction,
       ready,
       layout.recovery,

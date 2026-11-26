@@ -11,7 +11,10 @@
  */
 
 import type { GuideGoalId } from "@opensesame/guide-lang";
-import { FIRST_VAULT_SHELL_GUIDE } from "./first-vault-guide.js";
+import {
+  FIRST_VAULT_SHELL_GUIDE,
+  firstVaultInitialGateSteps,
+} from "./first-vault-guide.js";
 import { type GuideGoalDescriptor, mergedGuideGoals } from "./goals.js";
 import {
   GUIDE_OVERLAY_ROUTES,
@@ -255,12 +258,13 @@ export function tutorialStepCount(guide: string): number {
 
 /** The first-vault walkthrough continues after its initial setup guide. */
 export function tutorialSteps(goal: GuideGoalDescriptor): number {
-  return (
-    tutorialStepCount(goal.guide) +
-    (goal.id === "gate.front-door"
-      ? tutorialStepCount(FIRST_VAULT_SHELL_GUIDE)
-      : 0)
-  );
+  const steps = tutorialStepCount(goal.guide);
+  if (goal.id === "gate.unlock.passkey")
+    return firstVaultInitialGateSteps(steps);
+  return goal.id === "gate.front-door"
+    ? firstVaultInitialGateSteps(steps) +
+        tutorialStepCount(FIRST_VAULT_SHELL_GUIDE)
+    : steps;
 }
 
 export type Tutorial = {

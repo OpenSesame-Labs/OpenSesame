@@ -17,7 +17,12 @@
  * people to.
  */
 
+import {
+  verifyStandalonePasskeySuccess,
+  walkStandalonePinFallback,
+} from "./auth-flow-passkey.mjs";
 import { PIN } from "./pages-journey.mjs";
+import { checkGatePausePrompt } from "./tutorial-page.mjs";
 import { listTutorials, readStep, startTutorial } from "./tutorial-walk.mjs";
 import { hasUsableFocus } from "./tutorial-walker.mjs";
 
@@ -38,7 +43,7 @@ export async function checkLateSealScroll(page, step, check) {
   });
   check(reset, "first vault: the seal step has a scroll container to test");
   if (!reset) return;
-  const info = await step("unlock.seal", 8, 17);
+  const info = await step("unlock.seal", 8, 16);
   if (!info?.visibleControl) return;
   const box = await page
     .getByRole("button", { name: "Seal with PIN" })
@@ -216,7 +221,14 @@ function walkerFor(env, page) {
       // This tutorial changes screens and creates a vault; its own browser
       // walk exercises the actual actions on a fresh page.
       if (row.id === "gate.front-door") continue;
-      if (wants(row.id)) await walkGate(page, row, { phone, width });
+      if (!wants(row.id)) continue;
+      if (label === "seal passkey" && row.id === "gate.unlock.passkey") {
+        check(
+          row.steps === 3,
+          "passkey guide: the library shows the passkey path length",
+        );
+        await walkStandalonePinFallback(page, env);
+      } else await walkGate(page, row, { phone, width });
     }
   };
 }
@@ -297,7 +309,7 @@ async function setupGate(env, page, walkHere) {
 }
 
 /** Sign-in, then the seal without an account: each method, then a vault made. */
-async function sealGate(page, walkHere) {
+async function sealGate(page, walkHere, env) {
   await page
     .getByRole("heading", { level: 1, name: "Sign in" })
     .waitFor({ timeout: 15000 });
@@ -310,6 +322,7 @@ async function sealGate(page, walkHere) {
   }
   await page.getByRole("tab", { name: "PIN", exact: true }).click();
   await walkHere("seal PIN", ["gate.unlock"]);
+  await checkGatePausePrompt(page, env.check, env.width, env.out, env.phone);
   await page.getByLabel("Device PIN", { exact: true }).fill(PIN);
   await page.getByLabel("Confirm PIN", { exact: true }).fill(PIN);
   await page
@@ -330,11 +343,13 @@ export async function gatePass(env) {
   try {
     await doorGate(env, page, walkHere);
     await setupGate(env, page, walkHere);
-    await sealGate(page, walkHere);
+    await sealGate(page, walkHere, env);
     // Unlock: the vault just sealed, on a fresh load, which locks it.
     await page.goto(`${origin}${base}vault`, { waitUntil: "domcontentloaded" });
     await page.getByLabel("PIN", { exact: true }).waitFor({ timeout: 20000 });
     await walkHere("unlock", ["gate.unlock", "gate.unlock.account"]);
+    if (env.helpers.wants("gate.unlock.passkey"))
+      await verifyStandalonePasskeySuccess(env);
   } catch (error) {
     if (env.out)
       await page

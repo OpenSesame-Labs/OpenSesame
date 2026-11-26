@@ -34,7 +34,11 @@ import {
   tutorialCard,
   walkthrough,
 } from "../__tests__/a11y/harness.js";
-import { coachMessage, firstVaultTourProgress } from "./CoachParts.js";
+import {
+  coachMessage,
+  firstVaultTourProgress,
+  sealTourProgress,
+} from "./CoachParts.js";
 
 afterEach(disposeSupport);
 
@@ -115,37 +119,58 @@ describe("the tutorial card", () => {
   }
 
   it("keeps passkey and PIN first-vault progress contiguous", () => {
-    expect(firstVaultTourProgress("unlock.methods", 9, 8)).toEqual({
+    expect(firstVaultTourProgress("unlock.methods", 8, 8)).toEqual({
       offset: 0,
-      count: 13,
+      count: 12,
     });
-    expect(firstVaultTourProgress("unlock.seal-actions", 9, 8)).toEqual({
+    expect(firstVaultTourProgress("unlock.seal-actions", 8, 8)).toEqual({
       offset: 0,
-      count: 13,
+      count: 12,
     });
-    expect(firstVaultTourProgress("unlock.seal-pin-entry", 9, 8)).toEqual({
+    expect(firstVaultTourProgress("unlock.seal-pin-entry", 8, 8)).toEqual({
       offset: 0,
-      count: 17,
+      count: 16,
     });
-    expect(firstVaultTourProgress(null, 9, 4)).toEqual({
+    expect(firstVaultTourProgress("unlock.seal-actions", 8, 8, true)).toEqual({
+      offset: 0,
+      count: 16,
+    });
+    expect(firstVaultTourProgress(null, 8, 4)).toEqual({
       offset: 4,
-      count: 13,
+      count: 12,
     });
-    expect(firstVaultTourProgress(null, 9, 8)).toEqual({
+    expect(firstVaultTourProgress(null, 8, 8)).toEqual({
       offset: 8,
-      count: 17,
+      count: 16,
     });
+  });
+
+  it("counts the optional PIN steps in the standalone passkey guide", () => {
+    const tour: Pick<GuideTourView, "target" | "count"> = {
+      target: "unlock.seal-actions",
+      count: 7,
+    };
+    expect(sealTourProgress(tour, "gate.unlock.passkey", 0, false).count).toBe(
+      3,
+    );
+    expect(sealTourProgress(tour, "gate.unlock.passkey", 0, true).count).toBe(
+      7,
+    );
+    expect(
+      sealTourProgress({ ...tour, count: 3 }, "gate.unlock.passkey", 0, false)
+        .count,
+    ).toBe(3);
   });
 
   it("pins the meter's gate and shell lengths to the authored walks", () => {
     // No WebAuthn host in this environment, so the door's own walk is the
     // PIN road: two setup steps, the road to the seal decision, then the
     // four PIN seal fields. The passkey road is the same walk without them,
-    // and the shell continuation is the nine-step password walk.
+    // and the shell continuation is the eight-step password walk.
     expect(plannedSteps(firstVaultGateGuide())).toBe(8);
     expect(plannedSteps(firstVaultSignInGuide())).toBe(6);
     expect(FIRST_VAULT_PIN_STEPS.length).toBe(4);
-    expect(plannedSteps(FIRST_VAULT_SHELL_GUIDE)).toBe(9);
+    expect(plannedSteps(FIRST_VAULT_SHELL_GUIDE)).toBe(8);
   });
 
   it("has Next on every step and Done on the closing card", async () => {

@@ -55,60 +55,35 @@ it("leads with a passkey and names PIN only as the PRF fallback", () => {
   expect(FIRST_VAULT_SHELL_GUIDE).toContain('focus "item.copy-generated"');
 });
 
-it("walks the seal road each browser can take, on both guides", () => {
-  registerGuidePredicates();
-  const revoke = registerTutorialRealm();
-  const known = vi.spyOn(state, "isKnownGuidePredicate").mockReturnValue(true);
-  const read = vi.spyOn(state, "readGuidePredicate");
-  try {
-    const vocabulary = liveVocabulary();
-
-    // The passkey road: the seal step holds until the vault is unlocked and
-    // never waits for a PIN entry that road does not draw.
-    read.mockReturnValue(true);
-    for (const [name, guide] of [
-      ["gate", firstVaultGateGuide()],
-      ["sign-in", firstVaultSignInGuide()],
-    ] as const) {
-      expect(guide, name).toContain("Seal with passkey");
-      expect(guide, name).toContain(
-        "If it fails or is unavailable, select PIN.",
-      );
-      expect(guide, name).toContain('focus "unlock.seal-actions"');
-      expect(guide, name).toContain('wait state "vault.unlocked" is=true');
-      expect(guide, name).not.toContain('wait target "unlock.seal-pin-entry"');
-      expect(guide, name).not.toContain('focus "unlock.seal-pin-entry"');
-      expect(guide, name).not.toContain('focus "unlock.seal-pin-confirm"');
-      expect(
-        compileGuide(guide, vocabulary, AUTHORED_GUIDE_LIMITS),
-        name,
-      ).toMatchObject({ ok: true });
+it.each([true, false])(
+  "offers the PIN steps after the seal decision when passkeys are available: %s",
+  (passkey) => {
+    registerGuidePredicates();
+    const revoke = registerTutorialRealm();
+    const known = vi
+      .spyOn(state, "isKnownGuidePredicate")
+      .mockReturnValue(true);
+    const read = vi.spyOn(state, "readGuidePredicate").mockReturnValue(passkey);
+    try {
+      const vocabulary = liveVocabulary();
+      for (const guide of [firstVaultGateGuide(), firstVaultSignInGuide()]) {
+        expect(guide).toContain('focus "unlock.seal-actions"');
+        expect(guide).toContain(
+          'wait target "unlock.seal-pin-entry" event=appear',
+        );
+        expect(guide).toContain('focus "unlock.seal-pin-entry"');
+        expect(guide).toContain('focus "unlock.seal-pin-confirm"');
+        expect(guide).toContain('focus "unlock.seal-ack"');
+        expect(guide).toContain('focus "unlock.seal"');
+        expect(guide).toContain('wait state "vault.unlocked" is=true');
+        expect(
+          compileGuide(guide, vocabulary, AUTHORED_GUIDE_LIMITS),
+        ).toMatchObject({ ok: true });
+      }
+    } finally {
+      known.mockRestore();
+      read.mockRestore();
+      revoke();
     }
-
-    // The PIN fallback road: the PIN entry is the step's move, then the four
-    // fields walk before the vault is unlocked.
-    read.mockReturnValue(false);
-    for (const [name, guide] of [
-      ["gate", firstVaultGateGuide()],
-      ["sign-in", firstVaultSignInGuide()],
-    ] as const) {
-      expect(guide, name).toContain('focus "unlock.seal-actions"');
-      expect(guide, name).toContain(
-        'wait target "unlock.seal-pin-entry" event=appear',
-      );
-      expect(guide, name).toContain('focus "unlock.seal-pin-entry"');
-      expect(guide, name).toContain('focus "unlock.seal-pin-confirm"');
-      expect(guide, name).toContain('focus "unlock.seal-ack"');
-      expect(guide, name).toContain('focus "unlock.seal"');
-      expect(guide, name).toContain('wait state "vault.unlocked" is=true');
-      expect(
-        compileGuide(guide, vocabulary, AUTHORED_GUIDE_LIMITS),
-        name,
-      ).toMatchObject({ ok: true });
-    }
-  } finally {
-    known.mockRestore();
-    read.mockRestore();
-    revoke();
-  }
-});
+  },
+);

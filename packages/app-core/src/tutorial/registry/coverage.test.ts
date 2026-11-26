@@ -28,6 +28,15 @@ beforeAll(() => {
 });
 afterAll(() => revoke());
 
+function collectTargets(guide: string, pointed: Set<string>): void {
+  for (const match of guide.matchAll(/(?:focus|wait target) "([^"]+)"/g)) {
+    if (match[1]) pointed.add(match[1]);
+  }
+  if (guide.includes('focus "unlock.methods" "Select PIN, then select Next.')) {
+    pointed.add("unlock.seal-pin");
+  }
+}
+
 function pointedAt(): ReadonlySet<string> {
   const pointed = new Set<string>();
   const originalMethods = unlockMethodsSeams.listAvailableUnlockMethods;
@@ -38,19 +47,7 @@ function pointedAt(): ReadonlySet<string> {
       for (const narrow of [false, true]) {
         provideGuideDeviceForm(() => ({ narrow, keys: true }));
         for (const goal of mergedGuideGoals()) {
-          const guide = goal.guide;
-          for (const match of guide.matchAll(
-            /(?:focus|wait target) "([^"]+)"/g,
-          )) {
-            if (match[1]) pointed.add(match[1]);
-          }
-          if (
-            guide.includes(
-              'focus "unlock.methods" "Select PIN, then select Next.',
-            )
-          ) {
-            pointed.add("unlock.seal-pin");
-          }
+          collectTargets(goal.guide, pointed);
         }
       }
     }
@@ -58,11 +55,10 @@ function pointedAt(): ReadonlySet<string> {
     unlockMethodsSeams.listAvailableUnlockMethods = originalMethods;
     provideGuideDeviceForm(() => ({ narrow: false, keys: true }));
   }
-  for (const match of `${FIRST_VAULT_SHELL_GUIDE}\n${FIRST_VAULT_PACK_GUIDE}`.matchAll(
-    /(?:focus|wait target) "([^"]+)"/g,
-  )) {
-    if (match[1]) pointed.add(match[1]);
-  }
+  collectTargets(
+    `${FIRST_VAULT_SHELL_GUIDE}\n${FIRST_VAULT_PACK_GUIDE}`,
+    pointed,
+  );
   return pointed;
 }
 

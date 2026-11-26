@@ -78,3 +78,54 @@ export function createAuthFlowHarness({ DIST, ORIGIN, BASE, OUT, record }) {
 
   return { newPage, snap, text };
 }
+
+export async function addVirtualAuthenticator(context, page, protocol) {
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  const options = (value) => ({
+    options: {
+      protocol: value,
+      transport: "internal",
+      hasResidentKey: true,
+      hasUserVerification: true,
+      isUserVerified: true,
+      automaticPresenceSimulation: true,
+    },
+  });
+  try {
+    const { authenticatorId } = await cdp.send(
+      "WebAuthn.addVirtualAuthenticator",
+      options(protocol),
+    );
+    return { authenticatorId, protocol };
+  } catch {
+    // An older Chromium knows ctap2 only; the PRF absence is the same there.
+    const { authenticatorId } = await cdp.send(
+      "WebAuthn.addVirtualAuthenticator",
+      options("ctap2"),
+    );
+    return { authenticatorId, protocol: "ctap2" };
+  }
+}
+
+export async function stubPrfResults(page) {
+  await page.addInitScript(() => {
+    window.__prfPending = null;
+    const readResults = PublicKeyCredential.prototype.getClientExtensionResults;
+    PublicKeyCredential.prototype.getClientExtensionResults = function () {
+      const base = readResults.call(this);
+      if (!window.__prfPending) return base;
+      return { ...base, prf: { results: { first: window.__prfPending } } };
+    };
+    for (const verb of ["create", "get"]) {
+      const call = navigator.credentials[verb].bind(navigator.credentials);
+      navigator.credentials[verb] = async (options) => {
+        const salt = options?.publicKey?.extensions?.prf?.eval?.first;
+        if (salt) {
+          window.__prfPending = await crypto.subtle.digest("SHA-256", salt);
+        }
+        return call(options);
+      };
+    }
+  });
+}

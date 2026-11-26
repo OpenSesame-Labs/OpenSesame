@@ -37,6 +37,13 @@ function recoverySnapshot(): "edit" | "options" | "pepper" | "" {
     : "";
 }
 
+function copyRecoverySnapshot() {
+  return (
+    recoverySnapshot() ||
+    (resolveGuideTargetElement("item.editor.save") ? ("save" as const) : "")
+  );
+}
+
 function generationRecoverySnapshot(): "options" | "pepper" | "" {
   const generate = resolveGuideTargetElement("editor.generate-password");
   if (generate?.getAttribute("data-guide-pepper-recovery") !== "generate")
@@ -48,24 +55,13 @@ function generationRecoverySnapshot(): "options" | "pepper" | "" {
 
 function subscribeRecovery(listener: () => void): () => void {
   const observer = new MutationObserver(listener);
-  const refresh = () => {
-    observer.disconnect();
-    for (const id of [
-      "item.editor.save",
-      "item.edit",
-      "editor.generate-password",
-    ] as const) {
-      const node = resolveGuideTargetElement(id);
-      if (node)
-        observer.observe(node, {
-          attributes: true,
-          attributeFilter: ["data-guide-pepper-recovery"],
-        });
-    }
-    listener();
-  };
-  const unsubscribe = subscribeToGuideTargets(refresh);
-  refresh();
+  // A target can mount while hidden and become pointable without a new ref.
+  observer.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ["data-guide-pepper-recovery"],
+    subtree: true,
+  });
+  const unsubscribe = subscribeToGuideTargets(listener);
   return () => {
     unsubscribe();
     observer.disconnect();
@@ -78,19 +74,23 @@ const RECOVERY_TARGETS = {
   edit: "item.edit",
   options: "editor.password-options",
   pepper: "editor.pepper-options",
+  save: "item.editor.save",
 } as const;
 
 function useRecoveryTarget(tour: GuideTourView, firstPassword: boolean) {
   const saving = firstPassword && tour.target === "item.editor.save";
+  const copying = firstPassword && tour.target === "item.copy-generated";
   const generating =
     firstPassword && tour.target === "editor.generate-password";
   const recovery = useSyncExternalStore(
-    saving || generating ? subscribeRecovery : noSubscription,
+    saving || copying || generating ? subscribeRecovery : noSubscription,
     saving
       ? recoverySnapshot
-      : generating
-        ? generationRecoverySnapshot
-        : noRecovery,
+      : copying
+        ? copyRecoverySnapshot
+        : generating
+          ? generationRecoverySnapshot
+          : noRecovery,
     noRecovery,
   );
   return {

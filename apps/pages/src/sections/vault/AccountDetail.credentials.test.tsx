@@ -257,7 +257,7 @@ describe("account credentials", () => {
       folders: [],
     };
     renderAt("itm_slot");
-    expect(screen.getByText(/No generated characters to copy/)).toBeTruthy();
+    expect(screen.getByText("No characters to copy.")).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: /Copy .*password/ }),
     ).toBeNull();

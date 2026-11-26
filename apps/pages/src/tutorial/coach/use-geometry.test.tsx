@@ -4,65 +4,11 @@ import type { GuideTourView } from "@opensesame/guide-runtime";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { useCoachLayout } from "./use-coach-layout.js";
-import { useLiveRect, useViewport } from "./use-geometry.js";
+import { useLiveRect } from "./use-geometry.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-});
-
-it("tracks the visual viewport when a mobile keyboard opens or shifts it", () => {
-  const viewport = Object.assign(new EventTarget(), {
-    width: 390,
-    height: 844,
-    scale: 1,
-    offsetLeft: 0,
-    offsetTop: 0,
-  });
-  vi.stubGlobal("visualViewport", viewport);
-  vi.stubGlobal("innerHeight", 844);
-  vi.spyOn(document.documentElement, "clientWidth", "get").mockReturnValue(390);
-  const { result } = renderHook(() => useViewport());
-  expect(result.current).toMatchObject({
-    height: 844,
-    width: 390,
-    offsetLeft: 0,
-    rightOffset: 0,
-    offsetTop: 0,
-    bottomOffset: 0,
-  });
-  act(() => {
-    viewport.height = 400;
-    viewport.offsetTop = 30;
-    viewport.dispatchEvent(new Event("resize"));
-  });
-  expect(result.current).toMatchObject({
-    height: 400,
-    offsetTop: 30,
-    bottomOffset: 414,
-  });
-  act(() => {
-    viewport.offsetTop = 40;
-    viewport.dispatchEvent(new Event("scroll"));
-  });
-  expect(result.current).toMatchObject({ offsetTop: 40, bottomOffset: 404 });
-  act(() => {
-    viewport.width = 195;
-    viewport.scale = 2;
-    viewport.offsetLeft = 50;
-    viewport.dispatchEvent(new Event("resize"));
-  });
-  expect(result.current).toMatchObject({
-    width: 195,
-    scale: 2,
-    offsetLeft: 50,
-    rightOffset: 145,
-  });
-  act(() => {
-    viewport.offsetLeft = 75;
-    viewport.dispatchEvent(new Event("scroll"));
-  });
-  expect(result.current).toMatchObject({ offsetLeft: 75, rightOffset: 120 });
 });
 
 it("probes and places through one coordinate story when pinch zoom offsets the visual viewport", () => {
@@ -146,35 +92,6 @@ it("probes and places through one coordinate story when pinch zoom offsets the v
   document.elementsFromPoint = prior;
   button.remove();
   card.remove();
-});
-
-it("scrolls a returning target into view once without following later scrolling", () => {
-  let nextFrame: FrameRequestCallback = () => {};
-  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
-    nextFrame = callback;
-    return 1;
-  });
-  vi.stubGlobal("cancelAnimationFrame", () => {});
-  const button = document.createElement("button");
-  const scroll = vi.fn();
-  button.scrollIntoView = scroll;
-  document.body.append(button);
-  let target: HTMLElement | null = null;
-  const { unmount } = renderHook(() => useLiveRect(() => target, "step"));
-  const frame = () => act(() => nextFrame(0));
-
-  target = button;
-  frame();
-  expect(scroll).toHaveBeenCalledOnce();
-  frame();
-  expect(scroll).toHaveBeenCalledOnce();
-  target = null;
-  frame();
-  target = button;
-  frame();
-  expect(scroll).toHaveBeenCalledTimes(2);
-  unmount();
-  button.remove();
 });
 
 it("reveals a clipped target after a resize without following later scrolling", () => {

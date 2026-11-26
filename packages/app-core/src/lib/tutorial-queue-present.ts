@@ -38,8 +38,8 @@ import {
 } from "./tutorial-queue.js";
 
 export const RESUME_WALKTHROUGH = "Resume walkthrough";
-export const PAUSE_ALL_FOR_SESSION = "Pause all for this session";
-export const ONLY_THIS_TUTORIAL = "Only this one";
+export const PAUSE_ALL_FOR_SESSION = "Pause tutorials";
+export const ONLY_THIS_TUTORIAL = "Keep tutorials on";
 
 type QueuedTutorialNoticeOptions = Readonly<{ toast?: boolean }>;
 
@@ -164,7 +164,7 @@ export function postTutorialPausePrompt(): void {
     id: TUTORIAL_PAUSE_NOTICE,
     tone: "warn",
     title: "Tutorials",
-    body: "Pause the others for this session?",
+    body: "Pause tutorials for this session?",
     sticky: true,
     choice: { label: PAUSE_ALL_FOR_SESSION, run: pauseAll },
     alt: { label: ONLY_THIS_TUTORIAL, run: onlyThis },
@@ -173,7 +173,7 @@ export function postTutorialPausePrompt(): void {
     id: TUTORIAL_PAUSE_NOTICE,
     tone: "warn",
     title: "Tutorials",
-    body: "Pause the others for this session?",
+    body: "Pause tutorials for this session?",
     act: { label: PAUSE_ALL_FOR_SESSION, worded: true, run: pauseAll },
     alt: { label: ONLY_THIS_TUTORIAL, worded: true, run: onlyThis },
   });

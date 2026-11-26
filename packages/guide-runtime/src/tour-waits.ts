@@ -39,17 +39,23 @@ export function observeWait(
  * Whether the wait is already true. A step that points at something the
  * person is already standing on must not skip itself — it holds for Next like
  * any other, and only a wait that is still to happen is theirs to satisfy.
- * An activation is an edge, so it is never already true.
+ * On Back, a mounted target counts even when it is offscreen. An activation
+ * is an edge, so it is never already true.
  */
 export function alreadyHolds(
   ports: GuideRuntimePorts,
   wait: WaitInstruction,
+  mountedCounts = false,
 ): boolean {
   if (wait.subject === "route") return ports.routes.current() === wait.route;
   if (wait.subject === "state") {
     return ports.state.read(wait.predicate) === wait.expected;
   }
-  if (wait.event === "appear") return ports.targets.isMounted(wait.target);
+  if (wait.event === "appear") {
+    return mountedCounts
+      ? ports.targets.isMounted(wait.target)
+      : ports.targets.isVisible(wait.target);
+  }
   if (wait.event === "disappear") return !ports.targets.isMounted(wait.target);
   return false;
 }
@@ -75,10 +81,24 @@ export function watchStep(
   wait: WaitInstruction | null,
   missing: GuideTargetId | null,
   holds: boolean,
+  nextTarget: GuideTargetId | null,
 ): ((signal: AbortSignal) => Promise<void>) | null {
   if (missing !== null)
-    return (signal) => ports.targets.observe(missing, "appear", signal);
+    return (signal) =>
+      ports.targets.observe(missing, "appear", signal, {
+        allowOffscreen: true,
+      });
   if (wait === null) return null;
+  if (
+    !holds &&
+    wait.subject === "target" &&
+    wait.event === "appear" &&
+    wait.target === nextTarget
+  )
+    return (signal) =>
+      ports.targets.observe(wait.target, wait.event, signal, {
+        allowOffscreen: true,
+      });
   return holds
     ? observeWhenLost(ports, wait)
     : (signal) => observeWait(ports, wait, signal);

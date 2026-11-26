@@ -35,6 +35,22 @@ export function useGuideTarget<E extends HTMLElement = HTMLElement>(
   return useOptionalGuideTarget<E>(id, options);
 }
 
+/** Bind two semantic targets to one control when the second is present. */
+export function useGuideTargetPair<E extends HTMLElement = HTMLElement>(
+  id: GuideTargetId,
+  second: GuideTargetId | undefined,
+): (element: E | null) => void {
+  const firstRef = useGuideTarget<E>(id);
+  const secondRef = useOptionalGuideTarget<E>(second);
+  return useCallback(
+    (element: E | null) => {
+      firstRef(element);
+      secondRef(element);
+    },
+    [firstRef, secondRef],
+  );
+}
+
 /**
  * The same ref for a row that is a target only sometimes — a rail row that is
  * one of the filters a tutorial names, its neighbours not. With no id it binds

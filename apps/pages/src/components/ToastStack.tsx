@@ -28,6 +28,7 @@ import {
   subscribeNoticeArrivals,
   subscribeNotices,
 } from "@opensesame/app-core/lib/notices.js";
+import { TUTORIAL_PAUSE_NOTICE } from "@opensesame/app-core/lib/tutorial-queue.js";
 import { useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router";
@@ -127,7 +128,14 @@ function useToastSubscriptions(
 ) {
   // An echo waits only while its tray notice is still present.
   const echoes = useRef(new Set<string>());
-  useEffect(() => subscribeToasts(add), [add]);
+  useEffect(
+    () =>
+      subscribeToasts((toast) => {
+        if (!inFlowGateNotices || toast.id !== TUTORIAL_PAUSE_NOTICE)
+          add(toast);
+      }),
+    [add, inFlowGateNotices],
+  );
   useEffect(() => subscribeToastHides(dismiss), [dismiss]);
   useEffect(
     () =>
@@ -141,7 +149,8 @@ function useToastSubscriptions(
           if (
             inFlowGateNotices &&
             ((notice.kind === "status" && notice.tone === "err") ||
-              notice.id.startsWith("identity.claim."))
+              notice.id.startsWith("identity.claim.") ||
+              notice.id === TUTORIAL_PAUSE_NOTICE)
           )
             return;
           echoes.current.add(notice.id);

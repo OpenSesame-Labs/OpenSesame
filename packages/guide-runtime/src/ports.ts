@@ -49,17 +49,21 @@ export interface GuideRenderer {
 export interface GuideTargetResolver {
   /** Whether the registry currently has a mounted element for this target. */
   isMounted(target: GuideTargetId): boolean;
+  /** Whether a pointable candidate has a visible, unclipped box. */
+  isVisible(target: GuideTargetId): boolean;
   /** Whether the target is declared at all. Unknown targets fail closed. */
   isKnown(target: GuideTargetId): boolean;
   /**
    * Settles when the target reaches `event`. Rejects with an `AbortError`
    * when `signal` aborts. Never resolves on its own timer — the runtime owns
-   * every deadline.
+   * every deadline. A focus step may reveal an offscreen target before
+   * observing it; hidden or fully clipped targets do not satisfy the wait.
    */
   observe(
     target: GuideTargetId,
     event: GuideWaitEvent,
     signal: AbortSignal,
+    options?: { readonly allowOffscreen?: boolean },
   ): Promise<void>;
 }
 

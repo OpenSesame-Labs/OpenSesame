@@ -6,7 +6,10 @@ import {
 } from "./auth-flow-passkey.mjs";
 import { checkZoomViewport } from "./tutorial-interact.mjs";
 import { checkKeyboardViewport } from "./tutorial-keyboard-viewport.mjs";
-import { tutorialStepChecker } from "./tutorial-measure.mjs";
+import {
+  checkControlReachable,
+  tutorialStepChecker,
+} from "./tutorial-measure.mjs";
 import {
   choosePepper,
   preparePepperStep,
@@ -35,6 +38,12 @@ export async function runFirstVaultPass({
         ...options,
       });
     } catch (error) {
+      if (options.keepShots)
+        await page
+          .screenshot({
+            path: `${options.out}/${width}-${protection}-failure.png`,
+          })
+          .catch(() => {});
       options.check(
         false,
         `${protection} first vault: walking threw — ${String(error.message).split("\n").slice(0, 4).join(" ")}`,
@@ -77,7 +86,8 @@ async function firstVaultPass({
     .getByRole("button", { name: "Set up your own" })
     .waitFor({ timeout: 30000 });
   const label = `${protection} first vault`;
-  const step = tutorialStepChecker(page, check, phone, 13, label, readStep, {
+  const total = protection === "pin-only" ? 16 : 12;
+  const step = tutorialStepChecker(page, check, phone, total, label, readStep, {
     out,
     width,
     keepShots,
@@ -125,6 +135,14 @@ async function enterVault(
   await step("unlock.local-only", 3);
   await page.getByRole("button", { name: "Use without an account" }).click();
   await step("unlock.seal-actions", 4);
+  if (!phone && protection !== "pin-only") {
+    await checkControlReachable(
+      page,
+      check,
+      page.getByRole("tab", { name: "PIN", exact: true }),
+      `${protection} PIN fallback tab`,
+    );
+  }
   // Register after the phone zoom check detaches its separate CDP session.
   if (protection !== "pin-only")
     await addTutorialAuthenticator(context, page, protection === "passkey");
@@ -141,13 +159,10 @@ async function enterVault(
 }
 
 async function makePassword(page, step, check, phone, label, protection) {
-  // The passkey road's seal — sealed straight through or fallen back to PIN —
-  // holds the seal step until the vault unlocks, so the shell continuation
-  // begins right after the gate's four walked steps. Only the PIN-only road
-  // walks the four seal fields as tour steps.
-  const pinOnly = protection === "pin-only";
-  const first = pinOnly ? 9 : 5;
-  const total = pinOnly ? 17 : 13;
+  // Both PIN paths walk the four seal fields; passkey unlock hands off sooner.
+  const pinRoad = protection !== "passkey";
+  const first = pinRoad ? 9 : 5;
+  const total = pinRoad ? 16 : 12;
   const expected = `Step ${first} of ${total}`;
   try {
     await page.waitForFunction(
@@ -331,7 +346,7 @@ export async function firstItemPass({
     page,
     check,
     phone,
-    9,
+    8,
     "first item",
     readStep,
     { out, width, keepShots },

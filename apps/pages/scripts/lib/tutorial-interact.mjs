@@ -331,6 +331,22 @@ export async function checkShortKeyboardCard(page, session, check) {
 /** Finish the tour by touch at 2× zoom in a short phone viewport. */
 export async function closeWithZoomCheck(page, check) {
   const original = page.viewportSize();
+  const controls = await page.evaluate(measureZoomedCompletion);
+  check(
+    controls.allFit,
+    "first vault: completion controls fit and are reachable",
+  );
+  const card = page.locator(".coach__card");
+  const replayLabel = (
+    await card.locator(".coach__keys button").first().innerText()
+  ).trim();
+  check(
+    ["Replay", "Replay steps"].includes(replayLabel) &&
+      (await card
+        .getByRole("button", { name: replayLabel, exact: true })
+        .isVisible()),
+    "tutorial: replay is accessible by its visible label",
+  );
   if (process.env.TUTORIALS_KEYBOARD_VIEWPORT !== "1" || original.width > 390) {
     await page.getByRole("button", { name: "Done", exact: true }).click();
     return;

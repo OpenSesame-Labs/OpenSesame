@@ -1,17 +1,143 @@
-import { resolveGuideTargetElement } from "@opensesame/app-core/tutorial/registry/targets.js";
+import {
+  isKnownGuidePredicate,
+  readGuidePredicate,
+} from "@opensesame/app-core/tutorial/registry/state.js";
+import {
+  resolveGuideTargetElement,
+  subscribeToGuideTargets,
+} from "@opensesame/app-core/tutorial/registry/targets.js";
+import { isPointable } from "@opensesame/app-core/tutorial/registry/visible-target.js";
+import type {
+  GuideRuntimeSnapshot,
+  GuideTourView,
+} from "@opensesame/guide-runtime";
 import {
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
+  useCallback,
   useEffect,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react";
 import { contextMenuOpen, statusBubbleOpen } from "../../lib/keymap-targets.js";
 import type { SupportController } from "../session.js";
-import { COACH_EXIT_SELECTOR } from "./CoachParts.js";
+import { COACH_EXIT_SELECTOR, FIRST_VAULT_SHELL_STEPS } from "./CoachParts.js";
 
 /** How long a step change glides, matching `--coach-glide` in the stylesheet. */
 const GLIDE_MS = 300;
+
+/** Keep Back from returning to controls removed by an earlier action. */
+export function canReturn(
+  guide: GuideRuntimeSnapshot,
+  tour: GuideTourView,
+): boolean {
+  if (!tour.canBack) return false;
+  if (
+    ["vault.item.find", "vault.item.accounts"].includes(guide.goal ?? "") &&
+    [
+      "vault.filter.favorites",
+      "vault.filter.logins",
+      "shell.command-bar",
+    ].includes(tour.target ?? "") &&
+    isKnownGuidePredicate("shell.narrow") &&
+    readGuidePredicate("shell.narrow")
+  )
+    return false;
+  if (guide.goal === "gate.front-door") {
+    if (
+      [
+        "unlock.seal-pin-entry",
+        "unlock.seal-pin-confirm",
+        "unlock.seal-ack",
+        "unlock.seal",
+      ].includes(tour.target ?? "")
+    )
+      return true;
+    return (
+      tour.count === FIRST_VAULT_SHELL_STEPS &&
+      [
+        "editor.password-options",
+        "editor.pepper-options",
+        "editor.generate-password",
+        "item.editor.save",
+      ].includes(tour.target ?? "")
+    );
+  }
+  if (guide.goal === "vault.item.first") {
+    return !["item.editor.name", "item.copy-generated"].includes(
+      tour.target ?? "",
+    );
+  }
+  return true;
+}
+
+/** The validation hint associated with a first-vault PIN field, if any. */
+export function firstVaultPinFeedback(target: GuideTourView["target"]): string {
+  if (
+    target !== "unlock.seal-pin-entry" &&
+    target !== "unlock.seal-pin-confirm"
+  )
+    return "";
+  const node = resolveGuideTargetElement(target);
+  const id = node?.getAttribute("aria-describedby");
+  return id
+    ? (node?.ownerDocument.getElementById(id)?.textContent?.trim() ?? "")
+    : "";
+}
+
+/** A PIN step advances only when the unlock form says the field is ready. */
+export function useFirstVaultPinStep(
+  tour: GuideTourView,
+  firstVault: boolean,
+): GuideTourView {
+  const target =
+    firstVault &&
+    (tour.target === "unlock.seal-pin-entry" ||
+      tour.target === "unlock.seal-pin-confirm")
+      ? tour.target
+      : null;
+  const subscribe = useCallback(
+    (listener: () => void) => {
+      if (target === null) return () => {};
+      const observer = new MutationObserver(listener);
+      const refresh = () => {
+        observer.disconnect();
+        const node = resolveGuideTargetElement(target);
+        if (node)
+          observer.observe(node.parentElement ?? node, {
+            attributes: true,
+            attributeFilter: ["data-guide-pin-ready", "aria-describedby"],
+            childList: true,
+            characterData: true,
+            subtree: true,
+          });
+        listener();
+      };
+      const unsubscribe = subscribeToGuideTargets(refresh);
+      refresh();
+      return () => {
+        unsubscribe();
+        observer.disconnect();
+      };
+    },
+    [target],
+  );
+  const snapshot = useCallback(() => {
+    if (
+      target === null ||
+      resolveGuideTargetElement(target)?.getAttribute(
+        "data-guide-pin-ready",
+      ) === "true"
+    )
+      return null;
+    return firstVaultPinFeedback(target);
+  }, [target]);
+  const blocked = useSyncExternalStore(subscribe, snapshot, () => null);
+  return blocked !== null
+    ? { ...tour, action: true, message: blocked || tour.message }
+    : tour;
+}
 
 /** A text field's Escape is the field's own way out; anything else is ours. */
 function editable(target: EventTarget | null): boolean {
@@ -90,18 +216,17 @@ export function useCoachFocus(
       // ran. The body is also connected, but focusing it does not give the
       // keyboard a useful starting point. A still-mounted control can become
       // hidden or disabled as well, so check that it actually took focus.
+      // Allow the browser to scroll it into view after the tour moved the page.
       if (
         before instanceof HTMLElement &&
         before !== document.body &&
         before !== document.documentElement &&
-        before.isConnected
+        isPointable(before)
       ) {
-        before.focus({ preventScroll: true });
+        before.focus();
         if (document.activeElement === before) return;
       }
-      resolveGuideTargetElement("shell.support")?.focus({
-        preventScroll: true,
-      });
+      resolveGuideTargetElement("shell.support")?.focus();
     };
   }, []);
   const arrived = useRef(false);
@@ -192,20 +317,27 @@ export function observeScrollIntent(
   stop: () => void,
   target: () => HTMLElement | null,
 ): () => void {
+  const insideCoach = (node: EventTarget | null): boolean =>
+    node instanceof Element && node.closest(".coach") !== null;
   const onWheel = (event: WheelEvent): void => {
-    if (!event.ctrlKey) stop();
+    if (!event.ctrlKey && !insideCoach(event.target)) stop();
   };
   const onTouchMove = (event: TouchEvent): void => {
-    if (event.touches.length < 2) stop();
+    if (event.touches.length < 2 && !insideCoach(event.target)) stop();
   };
   const onPointerMove = (event: PointerEvent): void => {
-    if (event.pointerType !== "touch" && event.buttons !== 0) stop();
+    if (
+      event.pointerType !== "touch" &&
+      event.buttons !== 0 &&
+      !insideCoach(event.target)
+    )
+      stop();
   };
   const onPointerDown = (event: PointerEvent): void => {
     const element = event.target;
     if (
       element instanceof Element &&
-      !element.closest(".coach") &&
+      !insideCoach(element) &&
       !target()?.contains(element)
     )
       stop();

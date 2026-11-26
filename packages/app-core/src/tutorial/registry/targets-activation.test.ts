@@ -5,6 +5,7 @@ import {
   mountGuideTarget,
   observeGuideTarget,
   reportGuideActivation,
+  subscribeToGuideTargets,
 } from "./targets.js";
 
 function attached(): HTMLAnchorElement {
@@ -56,6 +57,27 @@ it("waits until an already mounted control becomes visible", async () => {
   element.style.display = "block";
   await vi.advanceTimersByTimeAsync(100);
   expect(settled).toHaveBeenCalledOnce();
+  detach();
+});
+
+it("does not scroll after the reveal wait has been aborted", async () => {
+  const controller = new AbortController();
+  const stop = subscribeToGuideTargets(() => controller.abort());
+  const waiting = observeGuideTarget(
+    "vault.import",
+    "appear",
+    controller.signal,
+    {
+      allowOffscreen: true,
+    },
+  );
+  const element = attached();
+  element.getBoundingClientRect = () => new DOMRect(10, 2_000, 44, 44);
+  element.scrollIntoView = vi.fn();
+  const detach = mountGuideTarget("vault.import", element);
+  await expect(waiting).rejects.toMatchObject({ name: "AbortError" });
+  expect(element.scrollIntoView).not.toHaveBeenCalled();
+  stop();
   detach();
 });
 

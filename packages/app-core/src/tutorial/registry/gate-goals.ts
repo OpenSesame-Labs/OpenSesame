@@ -1,8 +1,8 @@
 import {
   FIRST_VAULT_PIN_STEPS,
   FIRST_VAULT_SEAL_INSTRUCTION,
+  FIRST_VAULT_SEAL_ROAD,
   firstVaultGateGuide,
-  firstVaultSealRoadSteps,
 } from "./first-vault-guide.js";
 import type { GuideGoalDescriptor } from "./goal-types.js";
 import { isKnownGuidePredicate, readGuidePredicate } from "./state.js";
@@ -23,8 +23,7 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
     id: "gate.front-door",
     title: "New password",
     routes: ["/unlock/door"],
-    // Composed when the tour starts, so the seal road is read live: a
-    // passkey browser never waits for the PIN fields (ADR 0180).
+    // The PIN steps are available if passkey sealing is not possible.
     get guide() {
       return firstVaultGateGuide();
     },
@@ -100,8 +99,7 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
     id: "gate.unlock.passkey",
     title: "Open this device's vault with a passkey",
     routes: ["/unlock/passkey"],
-    // Composed when the tour starts, so the seal road is read live: a
-    // passkey browser never waits for the PIN fields (ADR 0180).
+    // A passkey unlock ends the gate; choosing PIN continues to its fields.
     get guide() {
       const creating =
         isKnownGuidePredicate("vault.key-enrolled") &&
@@ -112,9 +110,9 @@ export const GATE_GOALS: readonly GuideGoalDescriptor[] = [
         'say "A passkey uses your device authenticator, such as a fingerprint, face, security key or screen lock."',
         'focus "unlock.passkey" "Select the Passkey tab." side=bottom',
         creating
-          ? `focus "unlock.seal-actions" "${FIRST_VAULT_SEAL_INSTRUCTION}" side=bottom`
+          ? `focus "unlock.seal-actions" "${FIRST_VAULT_SEAL_INSTRUCTION}" side=right`
           : 'focus "unlock.submit" "Select Unlock with passkey, then approve the prompt." side=top',
-        ...(creating ? firstVaultSealRoadSteps() : []),
+        ...(creating ? FIRST_VAULT_SEAL_ROAD : []),
         'success "If you enrolled a second step, enter its code when asked."',
         "end",
       ].join("\n");

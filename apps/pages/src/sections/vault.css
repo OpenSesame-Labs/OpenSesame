@@ -437,6 +437,7 @@
 /* —— Detail pane ——————————————————————————————————————————— */
 
 .vault__detail {
+  container-type: inline-size;
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
@@ -876,6 +877,18 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.85rem;
+}
+
+/* A desktop detail pane can be as narrow as a phone beside the rail and list. */
+@container (max-width: 31rem) {
+  .editor .field,
+  .editor__row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .editor .field > *:not(label):not(.label) {
+    grid-column: 1;
+  }
 }
 
 .editor__inline {

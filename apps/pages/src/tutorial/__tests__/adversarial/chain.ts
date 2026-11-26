@@ -213,6 +213,7 @@ export function createSupportChain(route = "/vault"): SupportChain {
     targets: {
       isKnown: isKnownGuideTarget,
       isMounted: isMountedGuideTarget,
+      isVisible: isMountedGuideTarget,
       observe: observeGuideTarget,
     },
     routes,

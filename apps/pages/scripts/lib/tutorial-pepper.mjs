@@ -1,5 +1,16 @@
 import { closeWithZoomCheck } from "./tutorial-interact.mjs";
 
+const COPIED_MESSAGE = "Copied. Add your secret if pepper is on.";
+
+function keepPepper() {
+  return (
+    process.env.TUTORIALS_PEPPER_OFF !== "1" &&
+    (process.env.TUTORIALS_PEPPER_ON === "1" ||
+      Boolean(process.env.TUTORIALS_PEPPER_POSITION) ||
+      process.env.TUTORIALS_PEPPER_AFTER_GENERATE === "1")
+  );
+}
+
 export async function preparePepperStep(page, step, check, first, label) {
   await step("editor.pepper-options", first + 3);
   if (process.env.TUTORIALS_PEPPER_BACK !== "1") return;
@@ -47,10 +58,13 @@ export async function choosePepper(page, check, label, phone) {
       `${label}: the entire pepper label is a 44px touch target`,
     );
   }
-  if (process.env.TUTORIALS_PEPPER_OFF === "1") {
+  if (!keepPepper()) {
     if (phone) await pepperLabel.tap();
     else await pepperLabel.click();
-    check(!(await pepper.isChecked()), `${label}: pepper can be turned off`);
+    check(
+      !(await pepper.isChecked()),
+      `${label}: pepper is off for the walkthrough`,
+    );
   }
   if (process.env.TUTORIALS_PEPPER_POSITION) {
     await page
@@ -68,7 +82,11 @@ export async function revisitPepper(page, step, check, first, label) {
   const back = page.getByRole("button", { name: "Back", exact: true });
   const next = page.locator(".coach__btn--go");
   const pepper = page.getByLabel("Include pepper");
-  const enabled = process.env.TUTORIALS_PEPPER_OFF !== "1";
+  const enabled = keepPepper();
+  const position = page.getByRole("textbox", {
+    name: "Pepper goes",
+    exact: true,
+  });
   await back.click();
   await step("editor.pepper-options", first + 3);
   check(
@@ -79,6 +97,7 @@ export async function revisitPepper(page, step, check, first, label) {
     (await next.getAttribute("aria-disabled")) !== "true",
     `${label}: either pepper choice allows Next`,
   );
+  const previousPosition = enabled ? await position.inputValue() : "";
   await pepper.click();
   await step("editor.pepper-options", first + 3);
   check(
@@ -90,11 +109,12 @@ export async function revisitPepper(page, step, check, first, label) {
     (await pepper.isChecked()) === enabled,
     `${label}: pepper choice can be restored`,
   );
+  if (enabled) await position.fill(previousPosition);
   await next.click();
   await step("editor.generate-password", first + 4);
 }
 
-async function capturePepperRecovery(page, name) {
+async function captureTutorialState(page, name) {
   if (process.env.TUTORIALS_SHOTS !== "1" || !process.env.TUTORIALS_OUT) return;
   const width = page.viewportSize().width;
   await page.screenshot({
@@ -120,7 +140,7 @@ export async function recoverEmptyGeneration(
         .isVisible()),
     `${label}: an empty pepper slice explains how to recover`,
   );
-  await capturePepperRecovery(page, "pepper-generation-recovery");
+  await captureTutorialState(page, "pepper-generation-recovery");
   const position = page.getByRole("textbox", {
     name: "Pepper goes",
     exact: true,
@@ -137,26 +157,36 @@ export async function recoverEmptyPepper(page, step, check, first, label) {
     .getByRole("textbox", { name: "Pepper goes", exact: true })
     .fill("0:");
   await page.getByRole("button", { name: "Save item" }).click();
-  const detail = await step("item.edit", first + 5);
+  await page
+    .locator('.coach[data-coach-step="8"][data-coach-target="item.edit"]')
+    .waitFor({ timeout: 30000 });
+  const detail = await step("item.edit", first + 6);
   check(
     detail.text.includes("Select Edit") &&
-      (await page.getByText(/No generated characters to copy/).isVisible()),
+      (await page
+        .getByText("No characters to copy.", { exact: true })
+        .isVisible()),
     `${label}: an empty slice offers editing instead of an empty copy`,
   );
-  await capturePepperRecovery(page, "pepper-detail-recovery");
+  await captureTutorialState(page, "pepper-detail-recovery");
   await page.getByRole("link", { name: "Edit", exact: true }).click();
-  const editor = await step("editor.pepper-options", first + 5);
+  const editor = await step("editor.pepper-options", first + 6);
   check(
     editor.text.includes("Set the pepper position to end"),
     `${label}: the editor explains how to restore a copyable password`,
   );
-  await capturePepperRecovery(page, "pepper-editor-recovery");
+  await captureTutorialState(page, "pepper-editor-recovery");
   const position = page.getByRole("textbox", {
     name: "Pepper goes",
     exact: true,
   });
   await position.click();
   await position.fill("end");
+  const save = await step("item.editor.save", first + 6);
+  check(
+    save.text.includes("Select Save item"),
+    `${label}: the corrected password is ready to save`,
+  );
 }
 
 export async function saveAndCopyPassword(
@@ -194,7 +224,7 @@ export async function saveAndCopyPassword(
         .count()) === 1,
       `${label}: copying the rest first does not finish the guide`,
     );
-    await capturePepperRecovery(page, "pepper-copy-first");
+    await captureTutorialState(page, "pepper-copy-first");
   }
   await page.locator('[data-guide-targets~="item.copy-generated"]').click();
   let firstPart = "";
@@ -206,7 +236,7 @@ export async function saveAndCopyPassword(
       )
       .waitFor({ state: "visible", timeout: 15000 });
     await step("item.copy-generated", first + 6);
-    await capturePepperRecovery(page, "pepper-copy-rest");
+    await captureTutorialState(page, "pepper-copy-rest");
     check(
       (await page
         .locator('.coach[data-coach-target="item.copy-generated"]')
@@ -237,13 +267,9 @@ export async function saveAndCopyPassword(
       .grantPermissions(["clipboard-read", "clipboard-write"], { origin });
     await rest.click();
   }
-  // The walk orients on the saved item's list before it closes: the copy
-  // step's activate moves to the list step, which advances on Next.
-  await step("vault.list", first + 7);
-  await page.locator(".coach__btn--go").click();
-  await page
-    .getByText("Copied. Paste it into the password field.")
-    .waitFor({ timeout: 15000 });
+  // A successful copy takes the walkthrough directly to completion.
+  await page.getByText(COPIED_MESSAGE).waitFor({ timeout: 15000 });
+  await captureTutorialState(page, "password-copied");
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   const pepper = "example-pepper";
   check(

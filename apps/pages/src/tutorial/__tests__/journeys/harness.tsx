@@ -213,6 +213,7 @@ function buildEngine(
     targets: {
       isKnown: isKnownGuideTarget,
       isMounted: isMountedGuideTarget,
+      isVisible: isMountedGuideTarget,
       observe: observeGuideTarget,
     },
     routes: {
