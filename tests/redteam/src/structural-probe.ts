@@ -1,4 +1,5 @@
 import { type JsonObject, overlapCast } from "@opensesame/os-domain";
+import { expect } from "vitest";
 import McpHostStructuralProvider, { type RedteamVars } from "./mcp-provider.js";
 
 type ToolResponse = {
@@ -36,4 +37,22 @@ export async function probe(vars: RedteamVars): Promise<Probe> {
 
 export function dump(data: Probe): string {
   return JSON.stringify(data);
+}
+
+export function assertTraversal(data: Probe): void {
+  expect(data.calls[1]?.response.isError).toBe(true);
+  expect(data.calls[1]?.response.content).toEqual([
+    { type: "text", text: "task_invoke_failed: refused" },
+  ]);
+  expect(JSON.stringify(data.calls[1]?.response)).not.toContain(
+    "capability_not_in_ceiling",
+  );
+  const requests = data.upstreamRequests ?? [];
+  const intents = requests.filter((req) => req.url === "/api/v1/tasks/intents");
+  expect(intents).toHaveLength(1);
+  const body = overlapCast(JSON.parse(intents[0]?.body ?? "{}"));
+  expect(body.resource).toBe("../other-org/secret");
+  expect(
+    requests.filter((req) => req.url === "/api/v1/tasks/invoke"),
+  ).toHaveLength(0);
 }
