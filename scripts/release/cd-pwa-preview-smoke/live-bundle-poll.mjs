@@ -21,6 +21,12 @@ import {
 import { expandDynamicShellImports } from "./shell-dynamic-imports.mjs";
 import { shellAssetRefs } from "./shell-html-refs.mjs";
 
+// A single connection taking about a second longer than its batch peers can
+// indicate that a small server accept queue is dropping burst connections.
+// Compare header timings rather than absolute latency, so uniformly slow but
+// healthy origins retain the higher concurrency.
+const SLOW_CONNECTION_SPREAD_MS = 500;
+
 export {
   cssUrlRefsFromStylesheet,
   dynamicImportRefsFromJs,
@@ -191,17 +197,27 @@ async function assertLiveShellAssets(
   timeoutMs,
   bodyDeadlineAt,
   now,
-  matched,
+  state,
   perChunkReadMs,
   enforcePerAssetDeadline,
 ) {
   // Bound concurrent bodies as each may be up to MAX_SHELL_ASSET_BYTES.
   // Wait for the whole batch before a retry, so no previous request can
   // update `matched` after the next attempt has begun.
-  const pending = assets.filter((asset) => !matched.has(asset.relative));
-  for (let start = 0; start < pending.length; start += 8) {
+  const pending = assets.filter((asset) => !state.matched.has(asset.relative));
+  for (let start = 0; start < pending.length; ) {
+    const batchSize = state.concurrency;
+    const headerTimes = [];
+    const timedFetch = async (url, options) => {
+      const requestStarted = now();
+      try {
+        return await fetcher(url, options);
+      } finally {
+        headerTimes.push(Math.max(0, now() - requestStarted));
+      }
+    };
     const results = await Promise.allSettled(
-      pending.slice(start, start + 8).map(async (asset) => {
+      pending.slice(start, start + batchSize).map(async (asset) => {
         if (enforcePerAssetDeadline && now() > bodyDeadlineAt) {
           throw shellAssetMismatch(asset.relative, "CDN poll deadline expired");
         }
@@ -211,7 +227,7 @@ async function assertLiveShellAssets(
         await assertLiveAsset(
           asset,
           pagesBase,
-          fetcher,
+          timedFetch,
           fetchAbortTimeoutMs(
             timeoutMs,
             bodyDeadlineAt,
@@ -222,9 +238,19 @@ async function assertLiveShellAssets(
           now,
           perChunkReadMs,
         );
-        matched.add(asset.relative);
+        state.matched.add(asset.relative);
       }),
     );
+    if (batchSize > 4 && headerTimes.length > 1) {
+      const fastest = Math.min(...headerTimes);
+      const slowest = Math.max(...headerTimes);
+      if (
+        slowest - fastest >= SLOW_CONNECTION_SPREAD_MS &&
+        slowest >= 2 * fastest
+      )
+        state.concurrency = 4;
+    }
+    start += batchSize;
     const failure = results.find((result) => result.status === "rejected");
     if (failure) throw failure.reason;
   }
@@ -251,7 +277,7 @@ export async function pollLiveShellAssets(env, deps = {}) {
       ? sharedCdnDeadlineEndMs(env)
       : cdnDeadlineEndMs(pollStartedAt, deadlineMs));
   const remainingMs = Math.max(0, deadlineEndMs - now());
-  const matched = new Set();
+  const state = { matched: new Set(), concurrency: 8 };
   const started = now();
   await pollUntilDeadline(
     remainingMs,
@@ -265,7 +291,7 @@ export async function pollLiveShellAssets(env, deps = {}) {
         fetchTimeoutMs,
         deadlineEndMs,
         now,
-        matched,
+        state,
         perChunkReadMs,
         deadlineMs > 0,
       ),

@@ -64,6 +64,124 @@ const sha = "d".repeat(40);
 const version = "0.0.0-alpha.9";
 const hurlBin = process.env.HURL_BIN ?? "hurl";
 
+for (const failure of ["stale", "network"])
+  test(`a delayed ${failure} batch drains before retrying at reduced concurrency`, async () => {
+    const { root, dist } = stageManyShellAssets(12);
+    let clock = 0;
+    let calls = 0;
+    let active = 0;
+    let retryMaximum = 0;
+    let firstBodies = 0;
+    const waiting = [];
+    const fetch = async (url) => {
+      const index = ++calls;
+      const rel = new URL(url).pathname.slice("/OpenSesame/".length);
+      if (index > 8) assert.equal(firstBodies, failure === "network" ? 7 : 8);
+      active++;
+      if (index > 8) retryMaximum = Math.max(retryMaximum, active);
+      if (index <= 8) {
+        await new Promise((resolve) => {
+          waiting.push(resolve);
+          if (waiting.length === 8) {
+            queueMicrotask(() => {
+              clock = 20;
+              for (const release of waiting.slice(0, 7)) release();
+              setImmediate(() => {
+                clock = 1_020;
+                waiting[7]();
+              });
+            });
+          }
+        });
+      } else {
+        await new Promise((resolve) => setImmediate(resolve));
+      }
+      active--;
+      if (failure === "network" && index === 8)
+        throw new Error("connection timeout");
+      const bytes =
+        failure === "stale" && index <= 8 && rel === "assets/2.js"
+          ? Buffer.from("stale")
+          : readFileSync(join(dist, rel));
+      return {
+        ok: true,
+        headers: new Headers(),
+        body: null,
+        arrayBuffer: async () => {
+          await new Promise((resolve) => setImmediate(resolve));
+          if (index <= 8) firstBodies++;
+          return bytes.buffer.slice(
+            bytes.byteOffset,
+            bytes.byteOffset + bytes.byteLength,
+          );
+        },
+      };
+    };
+    try {
+      const result = await pollLiveShellAssets(
+        envFor(dist, {
+          PWA_SMOKE_CDN_DEADLINE_MS: "10000",
+          PWA_SMOKE_CDN_POLL_MS: "1",
+        }),
+        {
+          fetch,
+          now: () => clock,
+          sleep: async (ms) => {
+            clock += ms;
+          },
+        },
+      );
+      assert.equal(result.length, 12);
+      assert.equal(calls, 13);
+      assert.equal(retryMaximum, 4);
+      assert.equal(active, 0);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+test("uniformly slow healthy headers keep eight requests concurrent", async () => {
+  const { root, dist } = stageManyShellAssets(16);
+  let clock = 0;
+  let calls = 0;
+  let active = 0;
+  let laterMaximum = 0;
+  const waiting = [];
+  const fetch = async (url) => {
+    const index = ++calls;
+    const rel = new URL(url).pathname.slice("/OpenSesame/".length);
+    active++;
+    if (index > 8) laterMaximum = Math.max(laterMaximum, active);
+    if (index <= 8) {
+      await new Promise((resolve) => {
+        waiting.push(resolve);
+        if (waiting.length === 8)
+          queueMicrotask(() => {
+            clock = 1_000;
+            for (const release of waiting) release();
+          });
+      });
+    } else await new Promise((resolve) => setImmediate(resolve));
+    active--;
+    return new Response(readFileSync(join(dist, rel)));
+  };
+  try {
+    const result = await pollLiveShellAssets(
+      envFor(dist, {
+        PWA_SMOKE_CDN_DEADLINE_MS: "10000",
+        PWA_SMOKE_CDN_POLL_MS: "1",
+      }),
+      { fetch, now: () => clock },
+    );
+    assert.equal(result.length, 16);
+    assert.equal(calls, 16);
+    assert.equal(laterMaximum, 8);
+    assert.equal(active, 0);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 function hurlOutput(ran) {
   return `${ran.stderr ?? ""}\n${ran.stdout ?? ""}`;
 }
