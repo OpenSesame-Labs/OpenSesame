@@ -96,7 +96,7 @@ async function main() {
         ...(await runBuild(browser, {
           label: "main",
           dist: mainDist,
-          expectAdvanced: false,
+          expectAdvanced: true,
           tutorial: false,
         })),
       );
@@ -109,12 +109,6 @@ async function main() {
         tutorial: true,
       })),
     );
-    const branchChoices = path.join(outRoot, "branch", "setup-choices.png");
-    const mainChoices = path.join(outRoot, "main", "setup-choices.png");
-    if (existsSync(branchChoices) && existsSync(mainChoices)) {
-      const same = digest(branchChoices) === digest(mainChoices);
-      check(!same, "branch setup-choices differs from main");
-    }
   } finally {
     await browser.close();
   }

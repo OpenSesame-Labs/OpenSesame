@@ -7,6 +7,7 @@
  */
 
 import { measureZoomedCompletion } from "./tutorial-measure-tools.mjs";
+import { isPhone } from "./tutorial-page.mjs";
 import {
   advancedFrom,
   readStep,
@@ -333,7 +334,7 @@ export async function closeWithZoomCheck(page, check) {
   const original = page.viewportSize();
   const controls = await page.evaluate(
     measureZoomedCompletion,
-    original.width < 600 ? 44 : 32,
+    isPhone(original.width) ? 44 : 32,
   );
   check(
     controls.allFit,

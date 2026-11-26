@@ -241,7 +241,7 @@ async function capturePauseOptOut(page, href, profileId, check, dir) {
   await exitVaultLockTutorial(page, href, profileId, check, dir);
   const dialog = await openNotes(page);
   await dialog
-    .getByRole("button", { name: "Pause all for this session" })
+    .getByRole("button", { name: "Pause tutorials", exact: true })
     .first()
     .waitFor({ timeout: 8_000 });
   await dialog
@@ -259,24 +259,24 @@ async function capturePauseOptOut(page, href, profileId, check, dir) {
 async function capturePauseOnlyOne(page, href, profileId, check, dir) {
   await exitVaultLockTutorial(page, href, profileId, check, dir);
   const dialog = await openNotes(page);
-  await dialog.getByRole("button", { name: "Only this one" }).click();
+  await dialog.getByRole("button", { name: "Keep tutorials on" }).click();
   await page.waitForTimeout(500);
   check(
     (await countResumeKeys(dialog)) === 1,
-    "Only this one leaves one queued tour",
+    "Keeping tutorials on leaves one queued tour",
   );
   check(
     (await dialog
-      .getByRole("button", { name: "Pause all for this session" })
+      .getByRole("button", { name: "Pause tutorials", exact: true })
       .count()) === 0,
-    "Only this one clears tray pause prompt",
+    "Keeping tutorials on clears the pause prompt",
   );
   const pauseOthers = dialog.locator(".notice-card", {
-    hasText: "Pause the others",
+    hasText: "Pause tutorials for this session?",
   });
   check(
     (await pauseOthers.count()) === 0,
-    "Only this one removes pause-others card",
+    "Keeping tutorials on removes the pause card",
   );
   await assertNoticeActionsNoOverlap(dialog, check);
   await shotPage(page, path.join(dir, "tutorial-pause-only-one.png"));
@@ -286,7 +286,7 @@ async function capturePauseDismissX(page, href, profileId, check, dir) {
   await exitVaultLockTutorial(page, href, profileId, check, dir);
   let dialog = await openNotes(page);
   const pauseCard = dialog.locator(".notice-card", {
-    hasText: "Pause the others",
+    hasText: "Pause tutorials for this session?",
   });
   await pauseCard.getByRole("button", { name: "Dismiss" }).click();
   await page.waitForTimeout(400);
@@ -315,7 +315,7 @@ async function capturePauseAllReload(page, href, profileId, check, dir) {
   await exitVaultLockTutorial(page, href, profileId, check, dir);
   let dialog = await openNotes(page);
   await dialog
-    .getByRole("button", { name: "Pause all for this session" })
+    .getByRole("button", { name: "Pause tutorials", exact: true })
     .click();
   await page.waitForTimeout(1200);
   const pauseAllCount = await countResumeKeys(dialog);
@@ -359,7 +359,7 @@ async function capturePauseAllReload(page, href, profileId, check, dir) {
   await assertNoticeActionsNoOverlap(dialog, check);
   await shotPage(page, path.join(dir, "tutorial-queue-after-reload.png"));
   const pauseLeft = await dialog
-    .getByRole("button", { name: "Pause all for this session" })
+    .getByRole("button", { name: "Pause tutorials", exact: true })
     .count();
   check(pauseLeft === 0, "pause prompt is gone after reload");
   const lockCard = dialog.locator(".notice-card", {
