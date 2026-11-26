@@ -336,11 +336,16 @@ export async function closeWithZoomCheck(page, check) {
     controls.allFit,
     "first vault: completion controls fit and are reachable",
   );
+  const card = page.locator(".coach__card");
+  const replayLabel = (
+    await card.locator(".coach__keys button").first().innerText()
+  ).trim();
   check(
-    await page
-      .getByRole("button", { name: "Replay steps", exact: true })
-      .isVisible(),
-    "first vault: Replay steps is accessible by its visible label",
+    ["Replay", "Replay steps"].includes(replayLabel) &&
+      (await card
+        .getByRole("button", { name: replayLabel, exact: true })
+        .isVisible()),
+    "tutorial: replay is accessible by its visible label",
   );
   if (process.env.TUTORIALS_KEYBOARD_VIEWPORT !== "1" || original.width > 390) {
     await page.getByRole("button", { name: "Done", exact: true }).click();

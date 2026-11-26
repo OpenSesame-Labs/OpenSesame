@@ -163,7 +163,9 @@ export async function recoverEmptyPepper(page, step, check, first, label) {
   const detail = await step("item.edit", first + 6);
   check(
     detail.text.includes("Select Edit") &&
-      (await page.getByText(/No generated characters to copy/).isVisible()),
+      (await page
+        .getByText("No characters to copy.", { exact: true })
+        .isVisible()),
     `${label}: an empty slice offers editing instead of an empty copy`,
   );
   await captureTutorialState(page, "pepper-detail-recovery");

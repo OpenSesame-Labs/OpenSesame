@@ -240,9 +240,7 @@ export function AccountPasswordRow({
       }
     >
       {empty ? (
-        <span className="hint">
-          No generated characters to copy. Select Edit to change this password.
-        </span>
+        <span className="hint">No characters to copy.</span>
       ) : (
         <ConcealedValue
           value={revealed ? shown : ""}

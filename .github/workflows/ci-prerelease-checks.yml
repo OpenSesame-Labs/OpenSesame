@@ -1311,6 +1311,14 @@ jobs:
           TUTORIALS_WIDTHS: ${{ matrix.width }}
           TUTORIALS_SHARD: ${{ matrix.shard }}
         run: npm run verify:tutorials -w @opensesame/pages
+      - name: First-vault journey at the desktop breakpoint
+        if: matrix.width == 1280 && matrix.shard == '1/3'
+        env:
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+          VITE_BASE: /OpenSesame/
+          TUTORIALS_WIDTHS: '901'
+          TUTORIALS_ONLY: gate.front-door
+        run: npm run verify:tutorials -w @opensesame/pages
 
   live-join-e2e:
     # Live sessions browser to browser (ADR 0150), the walk a person takes to
