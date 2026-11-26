@@ -99,6 +99,12 @@ jobs:
         run: npm ci --ignore-scripts
       - name: Workflow inventory gate
         run: npx vitest run scripts/lib/ci-container-build-pr.test.mjs scripts/lib/ci-sparse-checkout.test.mjs
+      - name: Verify exact-SHA materialization with the hosted token
+        if: github.event_name == 'pull_request' && github.event.pull_request.number == 2955
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_SHA: 8aff251851e20edc3bf5c6505cdb5c4deeae2c0c
+        run: bash scripts/ci/materialize-git-sha.sh "$RUNNER_TEMP/materialize-sha"
 
   changes:
     name: Affected build graph
