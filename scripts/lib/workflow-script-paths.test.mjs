@@ -38,24 +38,46 @@ test("preview_smoke at 0faec2e6 would fail the sparse guard", () => {
     join(root, ".github/workflows/cd-pwa.yml"),
     "utf8",
   );
-  const broken = content.replace("            scripts/ci\n", "");
-  const previewScripts = analyzeWorkflow(broken, {
+  const start = content.indexOf("\n  preview_smoke:\n");
+  const end = content.indexOf("\n  production:\n", start);
+  assert.ok(start > 0 && end > start);
+  const smoke = content.slice(start, end);
+  const checkoutAt = smoke.indexOf("          sparse-checkout: |\n");
+  assert.ok(checkoutAt >= 0);
+  const listStart = checkoutAt + "          sparse-checkout: |\n".length;
+  const listEnd = smoke.slice(listStart).search(/\n(?! {10,}\S)/);
+  assert.ok(listEnd > 0);
+  const sparseLine = "            scripts/ci\n";
+  const lineAt = smoke
+    .slice(listStart, listStart + listEnd)
+    .indexOf(sparseLine);
+  assert.ok(lineAt >= 0);
+  // preview_dependency_integrity lists the same path earlier in the file.
+  // Drop scripts/ci from this job's sparse-checkout only.
+  const removeAt = start + listStart + lineAt;
+  const broken =
+    content.slice(0, removeAt) + content.slice(removeAt + sparseLine.length);
+  const analyzed = analyzeWorkflow(broken, {
     workflowPath: ".github/workflows/cd-pwa.yml",
-  })
-    .filter((entry) => entry.jobId === "preview_smoke")
-    .map((entry) => entry.script);
+  });
+  const preview = analyzed.filter((entry) => entry.jobId === "preview_smoke");
   assert.ok(
-    previewScripts.includes("scripts/ci/ensure-chrome-headless-shell.mjs"),
+    preview
+      .map((entry) => entry.script)
+      .includes("scripts/ci/ensure-chrome-headless-shell.mjs"),
   );
   assert.equal(
     pathCoveredBySparseCheckout(
       "scripts/ci/ensure-chrome-headless-shell.mjs",
-      analyzeWorkflow(broken, {
-        workflowPath: ".github/workflows/cd-pwa.yml",
-      }).find((entry) => entry.jobId === "preview_smoke")?.sparse ?? [],
+      preview.find((entry) =>
+        entry.script.endsWith("ensure-chrome-headless-shell.mjs"),
+      )?.sparse ?? [],
     ),
     false,
   );
+  const integrityStart = content.indexOf("\n  preview_dependency_integrity:\n");
+  assert.ok(integrityStart > 0 && integrityStart < start);
+  assert.equal(broken.slice(integrityStart, start).includes(sparseLine), true);
 });
 
 test("every CD sparse-checkout workflow includes its node scripts", () => {
