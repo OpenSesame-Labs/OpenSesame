@@ -68,8 +68,8 @@ export const CONSTRAINED_CARD_HEIGHT = 200;
 export const NARROW_VIEWPORT_WIDTH = 230;
 /** On a narrow viewport, one this short is zoomed rather than small. */
 export const SHORT_VIEWPORT_HEIGHT = 110;
-/** A narrow viewport this tall leaves no room beside a control at all. */
-export const TIGHT_VIEWPORT_HEIGHT = 220;
+/** A narrow viewport below this height may need the full gap beside a control. */
+export const TIGHT_VIEWPORT_HEIGHT = 260;
 
 /**
  * The tight-viewport contract, in one place: below these width and height

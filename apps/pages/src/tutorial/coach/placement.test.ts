@@ -208,6 +208,23 @@ describe("placeCoach", () => {
     expect(clearOfDock(target, viewport, card, "bottom")).toEqual(target);
   });
 
+  it("leaves room for the exit control on a short zoomed phone", () => {
+    const viewport = { width: 160, height: 240 };
+    const target = { left: 0, top: 70, width: 160, height: 100 };
+    const limit = phoneCardHeightLimit(viewport, target, { top: 0, bottom: 0 });
+    expect(limit).toBeGreaterThanOrEqual(52);
+    expect(
+      placeCoach(
+        input({
+          viewport,
+          target,
+          card: { width: 144, height: limit },
+          phone: true,
+        }),
+      ),
+    ).toEqual({ kind: "dock", edge: "bottom" });
+  });
+
   it("limits a long card to the space clear of a phone control", () => {
     const viewport = { width: 320, height: 568 };
     const target = { left: 20, top: 230, width: 44, height: 44 };

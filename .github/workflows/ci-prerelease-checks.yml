@@ -1318,6 +1318,17 @@ jobs:
           VITE_BASE: /OpenSesame/
           TUTORIALS_WIDTHS: '901'
           TUTORIALS_ONLY: gate.front-door
+          TUTORIALS_PIN_BACK: '1'
+        run: npm run verify:tutorials -w @opensesame/pages
+      - name: First-vault journey on a short phone screen
+        if: matrix.width == 390 && matrix.shard == '1/3'
+        env:
+          PLAYWRIGHT_CHROMIUM: /usr/bin/google-chrome
+          VITE_BASE: /OpenSesame/
+          TUTORIALS_WIDTHS: '320'
+          TUTORIALS_HEIGHT: '480'
+          TUTORIALS_ONLY: gate.front-door
+          TUTORIALS_PIN_BACK: '1'
         run: npm run verify:tutorials -w @opensesame/pages
 
   live-join-e2e:
