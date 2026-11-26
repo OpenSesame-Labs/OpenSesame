@@ -7,7 +7,6 @@
  */
 
 import { measureZoomedCompletion } from "./tutorial-measure-tools.mjs";
-import { isPhone } from "./tutorial-page.mjs";
 import {
   advancedFrom,
   readStep,
@@ -332,13 +331,16 @@ export async function checkShortKeyboardCard(page, session, check) {
 /** Finish the tour by touch at 2× zoom in a short phone viewport. */
 export async function closeWithZoomCheck(page, check) {
   const original = page.viewportSize();
-  const controls = await page.evaluate(
-    measureZoomedCompletion,
-    isPhone(original.width) ? 44 : 32,
-  );
+  const controls = await page.evaluate(measureZoomedCompletion);
   check(
     controls.allFit,
     "first vault: completion controls fit and are reachable",
+  );
+  check(
+    await page
+      .getByRole("button", { name: "Replay steps", exact: true })
+      .isVisible(),
+    "first vault: Replay steps is accessible by its visible label",
   );
   if (process.env.TUTORIALS_KEYBOARD_VIEWPORT !== "1" || original.width > 390) {
     await page.getByRole("button", { name: "Done", exact: true }).click();

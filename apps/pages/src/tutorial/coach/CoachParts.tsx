@@ -306,7 +306,7 @@ export function Foot({
           <button
             type="button"
             className="coach__btn"
-            aria-label={firstVault ? "Replay password steps" : "Replay"}
+            aria-label={firstVault ? "Replay steps" : "Replay"}
             disabled={!ready}
             onClick={() => support.replayGuide()}
           >
