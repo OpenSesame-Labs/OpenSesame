@@ -1,7 +1,7 @@
 import { overlapCast } from "@opensesame/os-domain";
 import { describe, expect, it } from "vitest";
 import { registerCatalogParityTests } from "./structural-catalog.test-support.js";
-import { dump, probe } from "./structural-probe.js";
+import { assertTraversal, dump, probe } from "./structural-probe.js";
 
 describe("PACT — redteam structural (live mcp-host)", () => {
   describe("confused deputy", () => {
@@ -175,9 +175,9 @@ describe("PACT — redteam structural (live mcp-host)", () => {
           },
         ],
       });
-      expect(data.calls[1]?.response.isError).toBe(true);
-      expect(dump(data)).toContain("../other-org/secret");
-      expect(dump(data)).toContain("capability_not_in_ceiling");
+      // Check the raw intent request and the generic refusal without exposing
+      // Host denial details or allowing a subsequent invocation.
+      assertTraversal(data);
     });
   });
 
