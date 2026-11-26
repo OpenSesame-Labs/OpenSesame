@@ -195,29 +195,38 @@ async function assertLiveShellAssets(
   perChunkReadMs,
   enforcePerAssetDeadline,
 ) {
-  for (const asset of assets) {
-    if (matched.has(asset.relative)) continue;
-    if (enforcePerAssetDeadline && now() > bodyDeadlineAt) {
-      throw shellAssetMismatch(asset.relative, "CDN poll deadline expired");
-    }
-    const bodyDeadline = enforcePerAssetDeadline
-      ? bodyDeadlineAt
-      : Number.POSITIVE_INFINITY;
-    await assertLiveAsset(
-      asset,
-      pagesBase,
-      fetcher,
-      fetchAbortTimeoutMs(
-        timeoutMs,
-        bodyDeadlineAt,
-        now,
-        enforcePerAssetDeadline,
-      ),
-      bodyDeadline,
-      now,
-      perChunkReadMs,
+  // Bound concurrent bodies as each may be up to MAX_SHELL_ASSET_BYTES.
+  // Wait for the whole batch before a retry, so no previous request can
+  // update `matched` after the next attempt has begun.
+  const pending = assets.filter((asset) => !matched.has(asset.relative));
+  for (let start = 0; start < pending.length; start += 8) {
+    const results = await Promise.allSettled(
+      pending.slice(start, start + 8).map(async (asset) => {
+        if (enforcePerAssetDeadline && now() > bodyDeadlineAt) {
+          throw shellAssetMismatch(asset.relative, "CDN poll deadline expired");
+        }
+        const bodyDeadline = enforcePerAssetDeadline
+          ? bodyDeadlineAt
+          : Number.POSITIVE_INFINITY;
+        await assertLiveAsset(
+          asset,
+          pagesBase,
+          fetcher,
+          fetchAbortTimeoutMs(
+            timeoutMs,
+            bodyDeadlineAt,
+            now,
+            enforcePerAssetDeadline,
+          ),
+          bodyDeadline,
+          now,
+          perChunkReadMs,
+        );
+        matched.add(asset.relative);
+      }),
     );
-    matched.add(asset.relative);
+    const failure = results.find((result) => result.status === "rejected");
+    if (failure) throw failure.reason;
   }
 }
 

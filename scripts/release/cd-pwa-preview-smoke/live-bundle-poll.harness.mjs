@@ -41,6 +41,20 @@ export function stageDist() {
   return { root, dist };
 }
 
+export function stageManyShellAssets(count) {
+  const fixture = stageDist();
+  let html = "<!doctype html><head>";
+  for (let i = 0; i < count; i++) {
+    writeFileSync(
+      join(fixture.dist, `assets/${i}.js`),
+      `export const n=${i};\n`,
+    );
+    html += `<link rel="modulepreload" href="/OpenSesame/assets/${i}.js">`;
+  }
+  writeFileSync(join(fixture.dist, "index.html"), `${html}</head>`);
+  return fixture;
+}
+
 export function envFor(dist, extra = {}) {
   return {
     PAGES_URL: pagesBase,
