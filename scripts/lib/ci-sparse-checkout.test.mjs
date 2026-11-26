@@ -178,4 +178,19 @@ describe("sparse shallow checkout (proof workflows)", () => {
       .split("\n  rust-build:\n")[0];
     expect(typescriptBuild).not.toContain(TRUNK_INVENTORY_COMMAND);
   });
+
+  it("includes workspace manifests and vendor tarballs in preview integrity", () => {
+    const workflow = readFileSync(
+      join(root, ".github/workflows/cd-pwa.yml"),
+      "utf8",
+    );
+    const job = workflow
+      .split("\n  preview_dependency_integrity:\n")[1]
+      .split("\n  preview_smoke:\n")[0];
+    const checkouts = checkoutBlocks(job);
+    expect(checkouts).toHaveLength(1);
+    const paths = sparsePaths(checkouts[0].block);
+    expect(paths).toContain("package.json");
+    expect(paths).toContain("/patches/vendor");
+  });
 });

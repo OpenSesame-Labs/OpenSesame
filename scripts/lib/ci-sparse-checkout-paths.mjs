@@ -158,6 +158,7 @@ export const PROOF_CHECKOUT_PLAN = Object.freeze({
     Object.freeze({ paths: SPARSE_WORKSPACE_BUILD }),
     Object.freeze({ paths: SPARSE_CD_NPM_PROOF }),
     Object.freeze({ paths: SPARSE_CD_PWA_SMOKE }),
+    Object.freeze({ paths: SPARSE_CD_PWA_SMOKE }),
     Object.freeze({ paths: SPARSE_CD_NPM_PROOF }),
     Object.freeze({ paths: SPARSE_CD_RELEASE_SCRIPT }),
   ]),
