@@ -2027,24 +2027,24 @@
       "c5c44179"
     ],
     "crates/gateway/src/routes/est_certificate_proof_tests.rs": [
-      "95eaaaee",
-      "8a1e6f6d",
-      "9847cde8",
-      "d6edcf42",
-      "3b019080",
-      "bd420af3",
-      "5fcae24b",
-      "4ff8a5d5"
+      "2d9b8212",
+      "4da9f9cc",
+      "fc446877",
+      "7d12416d",
+      "d01c0e3f",
+      "6095d542",
+      "9f82bbcf",
+      "9ac65ccd"
     ],
     "crates/gateway/src/routes/est_certificate_tls_tests.rs": [
-      "419654a2",
-      "523cdf22",
-      "f4fbfd64",
-      "59a4ba27",
-      "4baf8fa2",
-      "b1e9399e",
-      "d1157d8c",
-      "717c457a"
+      "d201bab8",
+      "073931ff",
+      "8c7ff74f",
+      "1dfea91c",
+      "9f90d1a0",
+      "33539718",
+      "38d46d02",
+      "774d26cd"
     ],
     "crates/gateway/src/routes/est_certificate_freshness_tests.rs": [
       "ec77c61b",
