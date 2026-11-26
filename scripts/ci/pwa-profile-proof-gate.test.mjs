@@ -240,7 +240,7 @@ test("cd-pwa proves the full install profile only", () => {
   assert.match(smoke ?? "", /timeout-minutes: 30/);
   assert.match(
     text,
-    /needs: \[main_ci, proof, build, deploy, npm_preview, preview_smoke\]/,
+    /needs: \[main_ci, proof, build, deploy, npm_preview, preview_dependency_integrity, preview_smoke\]/,
   );
   assert.match(text, /ci-pages-build\.mjs/);
   assert.doesNotMatch(text, /npm run build -w @opensesame\/pages/);

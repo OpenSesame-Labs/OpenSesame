@@ -501,6 +501,44 @@ jobs:
       - id: deployment
         uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
 
+  preview_dependency_integrity:
+    name: Validate preview frozen dependency graph
+    if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          filter: blob:none
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            scripts/release
+            scripts/lib
+            scripts/ci
+            apps/pages/scripts/duress
+            package.json
+            /package-lock.json
+            /mise.toml
+            /mise.lock
+            /patches/vendor
+      - name: Restore mise tool cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.local/share/mise
+          key: mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}
+          restore-keys: |
+            mise-v2-${{ runner.os }}-seed-main-node-
+            mise-v1-linux-
+      - name: Install pinned mise and Node 24
+        run: bash scripts/lib/install-mise-locked.sh node@24
+      - name: Install the frozen dependency graph
+        run: npm ci --ignore-scripts
+
   preview_smoke:
     name: Preview deploy smoke
     needs: [main_ci, build, deploy, npm_preview]
@@ -537,8 +575,8 @@ jobs:
             mise-v1-linux-
       - name: Install pinned mise, Node 24, and Hurl
         run: bash scripts/lib/install-mise-locked.sh node@24 hurl@8.1.0
-      - name: Install the frozen dependency graph
-        run: npm ci --ignore-scripts
+      - name: Install the locked browser automation dependency
+        run: node scripts/ci/cd-pwa-pages-workspace-install.mjs --preview-smoke
       - name: Resolve headless Chromium for preview smoke evidence
         env:
           CD_PWA_SMOKE_REQUIRE_HEADLESS_SHELL: "1"
@@ -581,8 +619,8 @@ jobs:
 
   production:
     name: Verify live Pages promotion
-    needs: [main_ci, proof, build, deploy, npm_preview, preview_smoke]
-    if: github.event_name != 'workflow_dispatch' || inputs.dry_run != true
+    needs: [main_ci, proof, build, deploy, npm_preview, preview_dependency_integrity, preview_smoke]
+    if: success() && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     environment:
@@ -641,7 +679,7 @@ jobs:
 
   promotion_failed:
     name: Promotion failure notice
-    needs: [main_ci, build_full_profile, proof, build, deploy, npm_preview, preview_smoke, production]
+    needs: [main_ci, build_full_profile, proof, build, deploy, npm_preview, preview_dependency_integrity, preview_smoke, production]
     if: failure() && !cancelled()
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -686,6 +724,7 @@ jobs:
           GATE_BUILD: ${{ needs.build.result }}
           GATE_DEPLOY: ${{ needs.deploy.result }}
           GATE_NPM_PREVIEW: ${{ needs.npm_preview.result }}
+          GATE_PREVIEW_DEPENDENCY_INTEGRITY: ${{ needs.preview_dependency_integrity.result }}
           GATE_PREVIEW_SMOKE: ${{ needs.preview_smoke.result }}
           GATE_PRODUCTION: ${{ needs.production.result }}
         run: node scripts/release/cd-promotion-notify.mjs

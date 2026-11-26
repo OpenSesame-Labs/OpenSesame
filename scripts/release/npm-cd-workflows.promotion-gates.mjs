@@ -73,8 +73,34 @@ export function assertPwaJobGraph(pwa) {
     "build",
     "deploy",
     "npm_preview",
+    "preview_dependency_integrity",
     "preview_smoke",
   ]);
+  assert.equal(
+    jobs.production.if,
+    "success() && (github.event_name != 'workflow_dispatch' || inputs.dry_run != true)",
+  );
+  const integrity = jobs.preview_dependency_integrity;
+  const smoke = jobs.preview_smoke;
+  assert.equal(integrity.if, smoke.if);
+  const checkout = (job) =>
+    job.steps.find((step) =>
+      String(step.uses ?? "").startsWith("actions/checkout@"),
+    );
+  assert.deepEqual(checkout(integrity), checkout(smoke));
+  assert.ok(
+    integrity.steps.some((step) => step.run === "npm ci --ignore-scripts"),
+  );
+  assert.ok(
+    jobs.promotion_failed.needs.includes("preview_dependency_integrity"),
+  );
+  const notify = jobs.promotion_failed.steps.find((step) =>
+    String(step.run ?? "").includes("cd-promotion-notify.mjs"),
+  );
+  assert.equal(
+    notify.env.GATE_PREVIEW_DEPENDENCY_INTEGRITY,
+    "${{ needs.preview_dependency_integrity.result }}",
+  );
   assert.equal(jobs.deploy.environment.name, "github-pages");
   assert.equal(jobs.deploy.permissions.pages, "write");
   assert.equal(jobs.deploy.permissions["id-token"], "write");

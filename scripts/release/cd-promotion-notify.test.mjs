@@ -64,6 +64,22 @@ test("build_full_profile failure maps to the job label even when build succeeded
   assert.match(annotationCommand(message), /Build full install profile dist/);
 });
 
+test("preview dependency integrity failure is reported even when smoke succeeds", () => {
+  const gates = gatesFromEnv({
+    GATE_MAIN_CI: "success",
+    GATE_PREVIEW_DEPENDENCY_INTEGRITY: "failure",
+    GATE_PREVIEW_SMOKE: "success",
+    GATE_PRODUCTION: "skipped",
+  });
+  assert.deepEqual(failedGateNames(gates), ["preview_dependency_integrity"]);
+  const message = promotionMessage(gates, env({ GITHUB_WORKFLOW: "CD PWA" }));
+  assert.match(
+    message,
+    /Failed gate: Validate preview frozen dependency graph/,
+  );
+  assert.match(message, /Skipped after the failure: production/);
+});
+
 test("notify writes an annotation and comments on the commit", async () => {
   const lines = [];
   let posted = null;

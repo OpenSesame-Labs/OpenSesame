@@ -22,6 +22,7 @@ export const GATE_FIELDS = Object.freeze([
   ["GATE_BUILD", "build"],
   ["GATE_DEPLOY", "deploy"],
   ["GATE_NPM_PREVIEW", "npm_preview"],
+  ["GATE_PREVIEW_DEPENDENCY_INTEGRITY", "preview_dependency_integrity"],
   ["GATE_PREVIEW_SMOKE", "preview_smoke"],
   ["GATE_PRODUCTION", "production"],
 ]);
@@ -36,6 +37,7 @@ export const GATE_JOB_LABELS = Object.freeze({
   build: "Build Pages and stage npm",
   deploy: "Deploy GitHub Pages",
   npm_preview: "Preview npm package proof",
+  preview_dependency_integrity: "Validate preview frozen dependency graph",
   preview_smoke: "Preview deploy smoke",
   production: "Pages verification or npm publication boundary",
 });
