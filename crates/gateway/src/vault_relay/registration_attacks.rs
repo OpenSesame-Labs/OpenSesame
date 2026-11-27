@@ -137,7 +137,7 @@ async fn alg_none_registration_is_refused() {
 async fn hs256_with_the_rsa_modulus_and_a_foreign_rs256_key_are_refused() {
     let fixture = fixture();
     let body = claims(fixture.now, "ada", "acme", "owner");
-    let hmac = EncodingKey::from_secret(&fixture.modulus);
+    let hmac = EncodingKey::from_secret(&fixture.modulus).expect("RSA modulus is not empty");
     let confused = token(&hmac, &body, KID, Algorithm::HS256);
     let other =
         opensesame_pki_core::keys::generate(opensesame_pki_core::KeyAlgorithm::Rsa2048).unwrap();

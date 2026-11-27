@@ -67,8 +67,8 @@ impl TokenKeys {
             generated.as_ref()
         });
         Self {
-            encoding: EncodingKey::from_secret(secret),
-            decoding: DecodingKey::from_secret(secret),
+            encoding: EncodingKey::from_secret(secret).expect("token HMAC secret is not empty"),
+            decoding: DecodingKey::from_secret(secret).expect("token HMAC secret is not empty"),
             issuer: issuer.to_owned(),
             access_ttl_seconds,
         }
