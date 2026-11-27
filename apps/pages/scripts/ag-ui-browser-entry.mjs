@@ -24,11 +24,11 @@ const runtimeSourceIds = Object.freeze([sourceIds.http, sourceIds.sse]);
 
 const pins = Object.freeze({
   "package.json":
-    "554d07ee71a7b1875e51f7fdc20ca21c5d1a7e1074320a8eea149f2469cd47ee",
+    "d6b39b9c956e10cd1f45bda6b7c65c6d53e58954eed98f453a32f60787ef7ea0",
   "dist/index.mjs":
-    "4d21a9ac72d854741b52a9ee36fc21e04dbdc26c1861f052459450b9ad38ea19",
+    "01832e314e5ec2bd6e422de3993cbb906e2edeecd80c4d14fb679572a25ba060",
   "dist/index.mjs.map":
-    "5625a0cc97b11a38a2531e0c0681b53189b873c57333c3fc2dcdc91005d3457c",
+    "1a1d490958e0a65750aaa24b2aa5bc9fd07497206b14274424ae778031406214",
 });
 
 const digest = (value) => createHash("sha256").update(value).digest("hex");
@@ -49,7 +49,7 @@ export function readAgUiBrowserInputs() {
     }),
   );
   const manifest = JSON.parse(sources["package.json"].source);
-  if (manifest.name !== "@ag-ui/client" || manifest.version !== "1.0.4")
+  if (manifest.name !== "@ag-ui/client" || manifest.version !== "1.0.5")
     throw new Error("AG-UI browser entry package pin mismatch");
   const map = JSON.parse(sources["dist/index.mjs.map"].source);
   const source = (name) => {

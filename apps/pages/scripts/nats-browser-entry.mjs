@@ -12,13 +12,13 @@ const coreVirtual = "\0opensesame-nats-core-browser";
 
 const pins = Object.freeze({
   "package.json":
-    "2866920339fec2de454ec4947c8c158ae1912acc30806f6e5cdfeb1cf211a760",
+    "ad51ec0867784130f73b78cef790dce03a57e94544105c09c9f33e45f7aff3cd",
   "lib/mod.js":
-    "b282989f39d7ea29dbf210211a54741bd30abc892ac63ec03c12c48b48f5bb91",
+    "e1114b482fe99f83df560b68281fe0262a1045a26d36e29676906e535e5b922e",
   "lib/internal_mod.js":
-    "605765262ba9f114f915691a6927773a3a08ff38990f0f2443db5a4ddf7bd14e",
+    "b64b328e0c41dc80261b6a9ffb54b2f1a6f1cadff1e119c8011e0328e045fbcf",
   "lib/ws_transport.js":
-    "2750ce2cd66ecc63512716f7ed6cfdf12830223b4074569cf2c2df3bc301a904",
+    "7d3928824f91a9881c628f6113a5ab030d848766502250e47a7cf02b304d1c6e",
 });
 
 const digest = (value) => createHash("sha256").update(value).digest("hex");
@@ -39,7 +39,7 @@ export function readNatsBrowserInputs() {
     }),
   );
   const manifest = JSON.parse(sources["package.json"].source);
-  if (manifest.name !== "@nats-io/nats-core" || manifest.version !== "3.4.0")
+  if (manifest.name !== "@nats-io/nats-core" || manifest.version !== "3.5.0")
     throw new Error("NATS browser entry package pin mismatch");
   return Object.freeze({ packageRoot, sources });
 }

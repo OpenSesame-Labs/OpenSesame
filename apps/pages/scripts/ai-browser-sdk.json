@@ -1,19 +1,19 @@
 {
   "sdk": {
     "name": "ai",
-    "version": "7.0.173",
-    "sha256": "202bdd2a2c5e515494da6268b42e5aecca97d28c78049b81da988c81338cbadb"
+    "version": "7.0.177",
+    "sha256": "c489baab16428cb1cbd0adbdb3f3daf537e338af49caf2a0964ea5296d216ff7"
   },
   "gateway": {
     "name": "@ai-sdk/gateway",
-    "version": "4.0.146",
-    "sha256": "ea01e02a4503864e9c971fe8b792d108af9c2e687b7f12509574557816d50275"
+    "version": "4.0.150",
+    "sha256": "da30c1153339a2896095a4f482d14a71b0fa9473ee4f09e2f8735ec1564e5387"
   },
   "facade": "packages/app-core/src/lib/command-bar/interpret-generate-object.ts",
   "caller": "packages/app-core/src/lib/command-bar/interpret.ts",
   "sources": {
-    "sdkSource": "ea932fb1083407b1a3e81722ed4b45cde6017d6d308bc8f08b17d59eb4c8954c",
-    "gatewaySource": "085623dd57de26e52b7851896311f377073f2c47946678378f690a8132adbab2",
+    "sdkSource": "1820917752726102130df9fb8d5e520a565612d7f4b7c8be684df0c9bd12b5cb",
+    "gatewaySource": "090876fc79a1a3854a3340b1d1baf4e122fe23e945209d62f3486314b816a484",
     "facadeSource": "de06516dad69aea60d261d3a763bd9b231b52cdb3e9c9afd8eb56da2c418f3f4",
     "callerSource": "09ab63db71f532639a1990d9829ffee47339e055d2c61da4db224002114b9194"
   },
