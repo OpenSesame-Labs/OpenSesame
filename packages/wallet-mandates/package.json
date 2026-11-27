@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@opensesame/os-domain": "*",
-    "jose": "6.2.17"
+    "jose": "6.2.18"
   },
   "devDependencies": {
     "@types/node": "26.6.6",

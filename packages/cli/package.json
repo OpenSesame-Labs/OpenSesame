@@ -31,7 +31,7 @@
     "test:native-installed": "node scripts/build.mjs && node scripts/test-native-installed.mjs"
   },
   "dependencies": {
-    "@nats-io/nats-core": "3.4.0",
+    "@nats-io/nats-core": "3.5.0",
     "@opensesame/api-client": "*",
     "@opensesame/app-core": "*",
     "@opensesame/agent-client": "*",

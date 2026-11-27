@@ -19,7 +19,7 @@
     "@opensesame/wallet-policy": "*",
     "@x402/core": "2.31.0",
     "@x402/evm": "2.31.0",
-    "viem": "2.57.19"
+    "viem": "2.58.2"
   },
   "devDependencies": {
     "@types/node": "26.6.6",
