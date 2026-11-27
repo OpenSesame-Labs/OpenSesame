@@ -140,7 +140,7 @@ jobs:
         path: src
     - name: Restore trusted helpers beside the candidate tree
       run: mv "$RUNNER_TEMP/ci-control" "$GITHUB_WORKSPACE/.ci-control"
-    - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+    - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
       with:
         cache: false
         install_args: node
@@ -203,7 +203,7 @@ jobs:
         path: src
     - name: Restore trusted helpers beside the candidate tree
       run: mv "$RUNNER_TEMP/ci-control" "$GITHUB_WORKSPACE/.ci-control"
-    - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+    - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
       with:
         cache: false
         install_args: node
@@ -254,7 +254,7 @@ jobs:
           scripts/lib
           /scripts/release/pages-release.mjs
           /scripts/lib/pages-release.mjs
-    - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+    - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
       with:
         cache: false
         install_args: node@24
@@ -316,12 +316,12 @@ jobs:
         persist-credentials: false
         allow-unsafe-pr-checkout: false
         path: src
-    - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+    - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
       with:
         cache: false
         install_args: node
         working_directory: src
-    - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+    - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
       with:
         cache: false
         install_args: rust
@@ -404,7 +404,7 @@ jobs:
           scripts/lib
           /scripts/release/pages-release.mjs
           /scripts/lib/pages-release.mjs
-    - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+    - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
       with:
         cache: false
         install_args: node@24
