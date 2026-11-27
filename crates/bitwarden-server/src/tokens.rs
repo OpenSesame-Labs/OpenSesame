@@ -59,6 +59,12 @@ impl TokenKeys {
     /// Keys from `secret`, or from 32 fresh random bytes when none is given —
     /// in which case every access token dies with the process and clients
     /// quietly refresh.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `secret` is `Some` and empty. jsonwebtoken 12 rejects an
+    /// empty HMAC key, and a missing secret is the only path that substitutes
+    /// a process-local key.
     #[must_use]
     pub fn new(secret: Option<&[u8]>, issuer: &str, access_ttl_seconds: i64) -> Self {
         let mut generated = Zeroizing::new([0u8; 32]);
@@ -67,8 +73,8 @@ impl TokenKeys {
             generated.as_ref()
         });
         Self {
-            encoding: EncodingKey::from_secret(secret),
-            decoding: DecodingKey::from_secret(secret),
+            encoding: EncodingKey::from_secret(secret).expect("HMAC token secret is non-empty"),
+            decoding: DecodingKey::from_secret(secret).expect("HMAC token secret is non-empty"),
             issuer: issuer.to_owned(),
             access_ttl_seconds,
         }
