@@ -13,7 +13,7 @@
 #   on the copied content, not on the chain that produced it: a feature-branch
 #   workflow_dispatch whose lockfile matches main reuses main's warm layers and
 #   skips `npm ci` instead of rebuilding and re-exporting node_modules layers.
-FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS manifests
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS manifests
 WORKDIR /src
 COPY . .
 # Keep the root manifests, the patch inputs, and every workspace package.json
@@ -26,7 +26,7 @@ RUN find apps packages examples tests tools -type f ! -name package.json -delete
     ! -name apps ! -name packages ! -name examples ! -name tests ! -name tools \
     -exec rm -rf -- {} +
 
-FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5 AS runtime-deps
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS runtime-deps
 WORKDIR /src
 COPY --from=manifests /src ./
 # Production runtime only: no dev toolchains or nested lockfiles in node_modules.
@@ -56,7 +56,7 @@ COPY tools/oxlint/anti-slop ./tools/oxlint/anti-slop
 # without it the server exits before it listens.
 COPY spec/log-scrub ./spec/log-scrub
 # Alpine runtime: no Debian dpkg/status for OSV container scans.
-FROM node:24-alpine@sha256:116b800c3754b440ee0aa3ed2f20f5bf3d99a554bfd9adeea09ea8017f6e85f5
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5
 # The pinned base can predate Alpine security fixes; take them from the
 # release's own repository (docs/security/alert-triage.md, source images).
 RUN apk upgrade --no-cache \
