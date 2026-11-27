@@ -95,7 +95,7 @@ jobs:
             /biome.json
             /tsconfig.base.json
             /patches/vendor
-      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         if: matrix.language == 'go'
         with:
           cache: false
@@ -104,13 +104,13 @@ jobs:
       - name: Isolate Go analysis cache
         if: matrix.language == 'go'
         run: echo "GOCACHE=$RUNNER_TEMP/codeql-live-go-cache" >> "$GITHUB_ENV"
-      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         if: matrix.language == 'rust'
         with:
           cache: false
           cache_save: false
           install_args: rust
-      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         if: matrix.language == 'java-kotlin'
         with:
           cache: false
@@ -307,7 +307,7 @@ jobs:
             /biome.json
             /tsconfig.base.json
             /patches/vendor
-      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
           cache: false
           cache_save: false

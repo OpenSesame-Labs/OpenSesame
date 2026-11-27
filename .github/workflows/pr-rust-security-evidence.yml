@@ -74,7 +74,7 @@ jobs:
       - name: Park trusted helpers outside the workspace root
         run: mv .ci-tools "$RUNNER_TEMP/ci-tools"
       - name: Install the explicit pinned Rust toolchain
-        uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+        uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
           working_directory: ${{ runner.temp }}
           install_args: rust@1.99.0
