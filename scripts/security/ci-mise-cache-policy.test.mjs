@@ -107,6 +107,88 @@ const gradleCachePath = "path: ~/.gradle/caches/modules-2\n";
 const gradleSaveGuard =
   "!inputs.source_sha && github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')";
 
+const nativeDistributionPath =
+  "path: .cache/pwa-tailscale-native-http/distributions\n";
+const nativeDistributionKey =
+  "key: pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}";
+const ghcrNativeSaveIf =
+  "if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.native_cache.outputs.cache-hit != 'true'\n";
+
+function workflowSteps(text) {
+  return text.split(/(?=\n {6}- )/u);
+}
+
+function nativeDistributionSteps(steps) {
+  return steps.filter(
+    (step) =>
+      step.includes("actions/cache") && step.includes(nativeDistributionPath),
+  );
+}
+
+function assertGhcrNativeDistribution(native) {
+  assert.equal(native.length, 2, "cd-ghcr-publish.yml");
+  const [restore, save] = native;
+  assert.ok(
+    restore.includes(`uses: actions/cache/restore@${cachePin} # v6.1.0\n`),
+    "cd-ghcr-publish.yml",
+  );
+  assert.ok(restore.includes("id: native_cache\n"), "cd-ghcr-publish.yml");
+  assert.ok(
+    restore.includes("name: Restore the pinned native PWA distribution\n"),
+  );
+  assert.ok(restore.includes(nativeDistributionKey), "cd-ghcr-publish.yml");
+  assert.equal(restore.includes("restore-keys:"), false, "cd-ghcr-publish.yml");
+  assert.ok(save.includes(ghcrNativeSaveIf), "cd-ghcr-publish.yml");
+  assert.ok(
+    save.includes(`uses: actions/cache/save@${cachePin} # v6.1.0\n`),
+    "cd-ghcr-publish.yml",
+  );
+  assert.ok(
+    save.includes("name: Save the pinned native PWA distribution\n"),
+    "cd-ghcr-publish.yml",
+  );
+  assert.ok(save.includes(nativeDistributionKey), "cd-ghcr-publish.yml");
+  assert.equal(save.includes("restore-keys:"), false, "cd-ghcr-publish.yml");
+  assert.equal(
+    save.includes("continue-on-error"),
+    false,
+    "cd-ghcr-publish.yml",
+  );
+}
+
+function assertPwaNativeDistribution(native) {
+  assert.equal(native.length, 2, "cd-pwa.yml");
+  assert.ok(
+    native[0].includes("if: steps.ci_full_profile_dist.outcome != 'success'\n"),
+    "cd-pwa.yml",
+  );
+  assert.equal(native[1].includes("\n        if:"), false, "cd-pwa.yml");
+  for (const step of native) {
+    assert.ok(
+      step.includes(`uses: actions/cache@${cachePin} # v6.1.0\n`),
+      "cd-pwa.yml",
+    );
+    assert.ok(
+      step.includes("name: Cache the pinned native PWA distribution\n"),
+      "cd-pwa.yml",
+    );
+    assert.ok(step.includes(nativeDistributionKey), "cd-pwa.yml");
+    assert.equal(step.includes("restore-keys:"), false, "cd-pwa.yml");
+    assert.equal(step.includes("actions/cache/save@"), false, "cd-pwa.yml");
+    assert.equal(step.includes("actions/cache/restore@"), false, "cd-pwa.yml");
+  }
+}
+
+/** Drop the reviewed native distribution cache before the mise read-only check. */
+function withoutReviewedNativeDistribution(name, text) {
+  if (name !== "cd-ghcr-publish.yml" && name !== "cd-pwa.yml") return text;
+  const steps = workflowSteps(text);
+  const native = nativeDistributionSteps(steps);
+  if (name === "cd-ghcr-publish.yml") assertGhcrNativeDistribution(native);
+  else assertPwaNativeDistribution(native);
+  return steps.filter((step) => !native.includes(step)).join("");
+}
+
 function withoutReviewedGradleCache(name, text) {
   if (name !== "codeql.yml") return text;
   const steps = text.split(/(?=\n {6}- )/u);
@@ -130,9 +212,12 @@ test("privileged workflows do not save Actions caches", () => {
   assert.ok(ci.includes(rustMiseRestoreKey));
   assert.ok(disabled.includes("codeql.yml"));
   for (const name of disabled) {
-    const text = withoutReviewedGradleCache(
+    const text = withoutReviewedNativeDistribution(
       name,
-      readFileSync(join(workflowDir, name), "utf8"),
+      withoutReviewedGradleCache(
+        name,
+        readFileSync(join(workflowDir, name), "utf8"),
+      ),
     );
     assert.equal(text.includes("actions/cache/save@"), false, name);
     assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);

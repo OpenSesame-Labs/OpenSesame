@@ -309,9 +309,37 @@ test("GHCR CD installs tools with the locked mise bootstrap, not mise-action", (
   assert.doesNotMatch(text, /install_args:/u);
   assert.match(text, /bash scripts\/lib\/install-mise-locked\.sh node\n/u);
   assert.match(text, /bash scripts\/lib\/install-mise-locked\.sh rust\n/u);
-  assert.doesNotMatch(text, /actions\/cache\/save@/u);
   assert.doesNotMatch(text, /uses:\s+actions\/cache@/u);
+  assertGhcrSavesOnlyNativeDistribution(parse(text));
 });
+
+function assertGhcrSavesOnlyNativeDistribution(doc) {
+  const saves = [];
+  for (const job of Object.values(doc.jobs ?? {})) {
+    for (const step of job.steps ?? []) {
+      if (String(step.uses ?? "").startsWith("actions/cache/save@")) {
+        saves.push(step);
+      }
+    }
+  }
+  assert.equal(saves.length, 1);
+  assert.equal(
+    saves[0].uses,
+    "actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9",
+  );
+  assert.equal(
+    saves[0].with?.path,
+    ".cache/pwa-tailscale-native-http/distributions",
+  );
+  assert.equal(
+    saves[0].with?.key,
+    "pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}",
+  );
+  assert.equal(
+    saves[0].if,
+    "github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.native_cache.outputs.cache-hit != 'true'",
+  );
+}
 
 test("workflows() includes every workflow yml in sorted order", () => {
   const listed = workflows().map((workflow) => workflow.name);
