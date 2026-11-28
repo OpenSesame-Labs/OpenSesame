@@ -20,6 +20,11 @@ const nodeBootstrap = "bash scripts/lib/install-mise-locked.sh node";
 const rustBootstrap = "bash scripts/lib/install-mise-locked.sh rust";
 const cachePin = "55cc8345863c7cc4c66a329aec7e433d2d1c52a9";
 const legacyKey = "mise-v1-linux-";
+const nativeDistributionPath = ".cache/pwa-tailscale-native-http/distributions";
+const nativeDistributionKey =
+  "pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}";
+const nativeDistributionSaveIf =
+  "github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.native_cache.outputs.cache-hit != 'true'";
 
 function read(rel) {
   return readFileSync(join(root, rel), "utf8");
@@ -73,6 +78,103 @@ function assertRestore(step, tool, id) {
   assert.equal(uses.includes("actions/cache/save@"), false, id);
 }
 
+function usesOf(step) {
+  return readString(step?.uses) ?? "";
+}
+
+function isMiseRestore(step, uses) {
+  return (
+    uses.startsWith("actions/cache/restore@") &&
+    step.with?.path === "~/.local/share/mise"
+  );
+}
+
+/**
+ * Installer workflows may not write an Actions cache, except the reviewed
+ * native distribution: GHCR restores and saves it, and PWA CD uses the
+ * combined cache action for the same path and key. install-mise-locked.pwa.test.mjs
+ * checks the PWA steps. This file checks the GHCR steps.
+ */
+function assertInstallerCacheWrites(name, text) {
+  if (name === "cd-ghcr-publish.yml") {
+    assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
+    const saves = text.match(/actions\/cache\/save@[0-9a-f]{40}/gu) ?? [];
+    assert.deepEqual(saves, [`actions/cache/save@${cachePin}`], name);
+    assert.ok(text.includes(nativeDistributionSaveIf), name);
+    assert.ok(text.includes(`path: ${nativeDistributionPath}`), name);
+    assert.ok(text.includes(`key: ${nativeDistributionKey}`), name);
+    return;
+  }
+  if (name === "cd-pwa.yml") {
+    assert.doesNotMatch(text, /actions\/cache\/save@/u, name);
+    const uses = text.match(/uses:\s+actions\/cache@[0-9a-f]{40}/gu) ?? [];
+    assert.deepEqual(
+      uses,
+      [`uses: actions/cache@${cachePin}`, `uses: actions/cache@${cachePin}`],
+      name,
+    );
+    assert.equal(text.split(nativeDistributionPath).length - 1, 2, name);
+    assert.ok(text.includes(`key: ${nativeDistributionKey}`), name);
+    return;
+  }
+  assert.doesNotMatch(text, /actions\/cache\/save@/u, name);
+  assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
+}
+
+/** GHCR may save only the pinned native distribution, and only after it is built. */
+function assertGhcrNativeDistributionCache(jobs) {
+  const steps = Array.isArray(jobs["web-pwa-tailscale-wasm"]?.steps)
+    ? jobs["web-pwa-tailscale-wasm"].steps
+    : [];
+  const restores = [];
+  const saves = [];
+  for (const [id, job] of Object.entries(jobs)) {
+    for (const step of job.steps ?? []) {
+      if (step.with?.path !== nativeDistributionPath) continue;
+      const uses = usesOf(step);
+      if (uses.startsWith("actions/cache/restore@"))
+        restores.push({ id, step });
+      if (uses.startsWith("actions/cache/save@")) saves.push({ id, step });
+    }
+  }
+  assert.deepEqual(
+    restores.map(({ id }) => id),
+    ["web-pwa-tailscale-wasm"],
+  );
+  assert.deepEqual(
+    saves.map(({ id, step }) => ({ id, name: step.name })),
+    [
+      {
+        id: "web-pwa-tailscale-wasm",
+        name: "Save the pinned native PWA distribution",
+      },
+    ],
+  );
+  const restore = restores[0].step;
+  const save = saves[0].step;
+  assert.equal(restore.uses, `actions/cache/restore@${cachePin}`);
+  assert.equal(restore.id, "native_cache");
+  assert.equal(restore.name, "Restore the pinned native PWA distribution");
+  assert.equal(restore.if, undefined);
+  assert.equal(save.uses, `actions/cache/save@${cachePin}`);
+  assert.equal(save.if, nativeDistributionSaveIf);
+  assert.equal(save["continue-on-error"], undefined);
+  for (const step of [restore, save]) {
+    assert.equal(step.with.key, nativeDistributionKey);
+    assert.equal(step.with["restore-keys"], undefined);
+  }
+  const restoreAt = steps.indexOf(restore);
+  const prepareAt = steps.findIndex((step) =>
+    runOf(step).includes("loadTailscaleAssets"),
+  );
+  const uploadAt = steps.findIndex((step) =>
+    usesOf(step).startsWith("actions/upload-artifact@"),
+  );
+  const saveAt = steps.indexOf(save);
+  assert.ok(restoreAt >= 0 && restoreAt < prepareAt, "restore before prepare");
+  assert.ok(prepareAt < uploadAt && uploadAt < saveAt, "save after upload");
+}
+
 // Every workflow that runs the installer, mapped to the test file that checks
 // its jobs in detail. A workflow that adopts the installer without an entry
 // here fails, so it cannot go uncovered.
@@ -105,7 +207,7 @@ function stepPositions(steps) {
     if (uses.startsWith("actions/checkout@") && checkoutAt < 0) {
       checkoutAt = index;
     }
-    if (uses.startsWith("actions/cache/restore@")) restoreAt = index;
+    if (isMiseRestore(step, uses)) restoreAt = index;
     if (run === nodeBootstrap || run === rustBootstrap) bootAt = index;
     if (nodeAt < 0 && run !== nodeBootstrap && needsNode(step)) {
       nodeAt = index;
@@ -178,9 +280,8 @@ describe("locked mise bootstrap", () => {
       assert.ok(coveredBy.has(name), `${name} has no coverage test`);
       const text = read(join(".github/workflows", name));
       assert.doesNotMatch(text, /jdx\/mise-action/u, name);
-      assert.doesNotMatch(text, /actions\/cache\/save@/u, name);
-      assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
       assert.doesNotMatch(text, /^[ \t]+cache:[ \t]+true[ \t]*$/mu, name);
+      assertInstallerCacheWrites(name, text);
     }
     for (const [name, file] of coveredBy) {
       assert.ok(present.includes(name), `${name} no longer runs the installer`);
@@ -191,7 +292,7 @@ describe("locked mise bootstrap", () => {
     }
   });
 
-  it("covers GHCR CD toolchain jobs and does not save the cache", () => {
+  it("covers GHCR CD toolchain jobs and saves only the pinned native distribution", () => {
     const ci = read(".github/workflows/ci.yml");
     assert.ok(ci.includes(`key: ${primaryKey("node")}`));
     assert.ok(ci.includes(`key: ${primaryKey("rust")}`));
@@ -206,7 +307,6 @@ describe("locked mise bootstrap", () => {
     for (const name of required) {
       const text = read(join(".github/workflows", name));
       assert.doesNotMatch(text, /jdx\/mise-action/u, name);
-      assert.doesNotMatch(text, /actions\/cache\/save@/u, name);
       assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
       assert.doesNotMatch(text, /^[ \t]+cache:[ \t]+true[ \t]*$/mu, name);
       const doc = parse(text);
@@ -216,6 +316,7 @@ describe("locked mise bootstrap", () => {
       for (const id of ids) {
         assertJobBootstrapsLockedMise({ doc, name, id, job: jobs[id] });
       }
+      assertGhcrNativeDistributionCache(jobs);
     }
   });
 });

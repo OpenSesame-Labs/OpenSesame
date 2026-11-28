@@ -74,6 +74,46 @@ function assertImageMatrix() {
   assert.doesNotMatch(images, /ops\/compose\/Dockerfile/);
   assert.match(workflow, /web-pwa-tailscale-wasm:/);
   assert.match(workflow, /loadTailscaleAssets/);
+  const native = workflow.slice(
+    workflow.indexOf("  web-pwa-tailscale-wasm:"),
+    workflow.indexOf("  opensesame-amd64-rust:"),
+  );
+  const cachePath = "path: .cache/pwa-tailscale-native-http/distributions";
+  const cacheKey =
+    "key: pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}";
+  assert.ok(ci.includes(cachePath) && ci.includes(cacheKey));
+  assert.ok(native.includes(cachePath) && native.includes(cacheKey));
+  const cacheAt = native.indexOf(
+    "name: Restore the pinned native PWA distribution",
+  );
+  const verifyAt = native.indexOf(
+    "name: Prepare pinned Tailscale native distributions",
+  );
+  assert.ok(cacheAt >= 0 && cacheAt < verifyAt);
+  const restore = native.slice(cacheAt, verifyAt);
+  assert.ok(restore.includes(cachePath) && restore.includes(cacheKey));
+  assert.doesNotMatch(restore, /restore-keys:/);
+  assert.match(
+    restore,
+    /uses: actions\/cache\/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9/,
+  );
+  const saveAt = native.indexOf(
+    "name: Save the pinned native PWA distribution",
+  );
+  const uploadAt = native.indexOf("uses: actions/upload-artifact@");
+  assert.ok(verifyAt < uploadAt && uploadAt < saveAt);
+  const save = native.slice(saveAt);
+  assert.ok(
+    save.includes(
+      "if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && steps.native_cache.outputs.cache-hit != 'true'",
+    ),
+  );
+  assert.ok(save.includes(cachePath) && save.includes(cacheKey));
+  assert.doesNotMatch(save, /always\(\)|failure\(\)|continue-on-error/);
+  assert.match(
+    save,
+    /uses: actions\/cache\/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9/,
+  );
   assert.match(workflow, /target: runtime-from-prebuilt\n/);
   assert.doesNotMatch(workflow, /web-pwa-amd64-runtime/);
   for (const id of [

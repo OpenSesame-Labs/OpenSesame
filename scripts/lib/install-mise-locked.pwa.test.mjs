@@ -24,6 +24,9 @@ const primaryKey =
   "mise-v2-${{ runner.os }}-node-lock-${{ hashFiles('mise.toml', 'mise.lock') }}";
 const seedKey = "mise-v2-${{ runner.os }}-seed-main-node-";
 const legacyKey = "mise-v1-linux-";
+const nativeDistributionPath = ".cache/pwa-tailscale-native-http/distributions";
+const nativeDistributionKey =
+  "pwa-native-distribution-${{ hashFiles('tools/pwa-tailscale-native-http/source.json', 'apps/pages/src/lib/capabilities/tailscale-artifacts.json') }}";
 const compileIf = "steps.ci_full_profile_dist.outcome != 'success'";
 const runnerNode = "node scripts/release/cd-resolve-main-ci-run.mjs";
 
@@ -163,6 +166,48 @@ function assertBootstrapCondition({
   }
 }
 
+/** cd-pwa.yml may write only the pinned native distribution, through actions/cache. */
+function assertPwaNativeDistributionCache(jobs) {
+  const found = [];
+  for (const [id, job] of Object.entries(jobs)) {
+    for (const step of job.steps ?? []) {
+      if (usesOf(step).startsWith("actions/cache@")) found.push({ id, step });
+    }
+  }
+  assert.deepEqual(
+    found.map(({ id, step }) => [id, step.name, step.if ?? ""]),
+    [
+      [
+        "build_full_profile",
+        "Cache the pinned native PWA distribution",
+        compileIf,
+      ],
+      ["build", "Cache the pinned native PWA distribution", ""],
+    ],
+  );
+  for (const { id, step } of found) {
+    assert.equal(step.uses, `actions/cache@${cachePin}`, id);
+    assert.equal(step.with?.path, nativeDistributionPath, id);
+    assert.equal(step.with?.key, nativeDistributionKey, id);
+    assert.equal(step.with?.["restore-keys"], undefined, id);
+    assert.equal(step["continue-on-error"], undefined, id);
+    const steps = jobs[id].steps;
+    const cacheAt = steps.indexOf(step);
+    const useAt = steps.findIndex((candidate) =>
+      runOf(candidate).includes(
+        id === "build"
+          ? "ci-pages-build.mjs"
+          : "pwa-full-profile-dist-build.mjs",
+      ),
+    );
+    assert.ok(cacheAt >= 0 && cacheAt < useAt, id);
+  }
+}
+
+function usesOf(step) {
+  return readString(step?.uses) ?? "";
+}
+
 /** One job: no tools means no bootstrap; otherwise checkout, restore, bootstrap, tools. */
 function assertJobBootstrapsLockedMise({ doc, name, id, job }) {
   const steps = Array.isArray(job?.steps) ? job.steps : [];
@@ -185,7 +230,7 @@ function assertJobBootstrapsLockedMise({ doc, name, id, job }) {
 }
 
 describe("locked mise bootstrap: PWA CD", () => {
-  it("covers PWA CD jobs and does not save the cache", () => {
+  it("covers PWA CD jobs and limits cache writes to the native distribution", () => {
     const ci = read(".github/workflows/ci.yml");
     assert.ok(ci.includes(`key: ${primaryKey}`));
     assert.ok(ci.includes(seedKey));
@@ -207,8 +252,10 @@ describe("locked mise bootstrap: PWA CD", () => {
       const text = read(join(".github/workflows", name));
       assert.doesNotMatch(text, /jdx\/mise-action/u, name);
       assert.doesNotMatch(text, /actions\/cache\/save@/u, name);
-      assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
       assert.doesNotMatch(text, /^[ \t]+cache:[ \t]+true[ \t]*$/mu, name);
+      if (name !== "cd-pwa.yml") {
+        assert.doesNotMatch(text, /uses:\s+actions\/cache@/u, name);
+      }
       const doc = parse(text);
       const jobs = doc.jobs ?? {};
       const ids = Object.keys(jobs);
@@ -217,6 +264,7 @@ describe("locked mise bootstrap: PWA CD", () => {
         assertJobBootstrapsLockedMise({ doc, name, id, job: jobs[id] });
       }
       if (name === "cd-pwa.yml") {
+        assertPwaNativeDistributionCache(jobs);
         assert.equal(jobs.promotion_failed?.permissions?.actions, "read");
         assert.equal(jobs.promotion_failed?.permissions?.contents, "write");
         assert.equal(jobs.deploy?.permissions?.actions, undefined);

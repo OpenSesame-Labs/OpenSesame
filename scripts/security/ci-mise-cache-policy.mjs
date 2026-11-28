@@ -12,6 +12,10 @@
  * cache (GHCR: node and rust keys; PWA, npm CLI and the stranded dispatcher: the
  * node key) and must not save it.
  *
+ * cd-ghcr-publish.yml may also restore and save the pinned native PWA
+ * distribution from a successful main run. cd-pwa.yml may cache that same
+ * distribution. Neither write is the mise tool cache.
+ *
  * The PR visual and Rust evidence workflows check out an untrusted pull-request
  * head before mise-action, so those installs keep the Actions cache off.
  */
